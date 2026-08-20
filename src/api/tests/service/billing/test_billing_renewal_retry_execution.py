@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-
 from datetime import timedelta
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
-    BILLING_ORDER_STATUS_FAILED,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -21,13 +19,10 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.util.datetime import now_utc
-
-
 from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_event,
     create_renewal_subscription,
 )
-
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 

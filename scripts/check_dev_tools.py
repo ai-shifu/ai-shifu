@@ -81,6 +81,7 @@ def _hooks_dir() -> Path | None:
             cwd=ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
         if configured.returncode == 0 and configured.stdout.strip():
             # git config values may use ~ / ~user; Path() does not expand it.
@@ -101,7 +102,7 @@ def _hooks_dir() -> Path | None:
 
 
 def _lefthook_hook_installed() -> bool:
-    """True when ``lefthook install`` has wired the pre-commit hook in."""
+    """Report whether ``lefthook install`` has wired the pre-commit hook in."""
     hooks_dir = _hooks_dir()
     if hooks_dir is None:
         return False
@@ -130,8 +131,10 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
         Check("ruff", shutil.which("ruff") is not None, PIP_INSTALL),
         Check("cz (commitizen)", shutil.which("cz") is not None, PIP_INSTALL),
     ]
-    for script in PRE_COMMIT_HOOKS_SCRIPTS:
-        core.append(Check(script, shutil.which(script) is not None, PIP_INSTALL))
+    core.extend(
+        Check(script, shutil.which(script) is not None, PIP_INSTALL)
+        for script in PRE_COMMIT_HOOKS_SCRIPTS
+    )
 
     frontend: list[Check] = [
         Check("node", shutil.which("node") is not None, NODE_INSTALL, required=False),
@@ -154,7 +157,7 @@ def _report(title: str, checks: list[Check]) -> None:
 
 
 def _fix_lines(missing: list[Check]) -> list[str]:
-    """Unique fix commands, preserving first-seen order."""
+    """Collect unique fix commands, preserving first-seen order."""
     seen: list[str] = []
     for check in missing:
         if check.fix not in seen:

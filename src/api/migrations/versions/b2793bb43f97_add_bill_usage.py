@@ -1,4 +1,4 @@
-"""add bill usage table
+"""add bill usage table.
 
 Revision ID: b2793bb43f97
 Revises: 9f3a0c3aebe0
@@ -6,8 +6,8 @@ Create Date: 2026-02-05 00:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.

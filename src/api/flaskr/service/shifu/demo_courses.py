@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from flask import Flask
-from typing import Any, Set
+from typing import Any
 
+from flask import Flask
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
-BUILTIN_DEMO_TITLES: Set[str] = {
+BUILTIN_DEMO_TITLES: set[str] = {
     "AI 师傅教学引导",
     "AI-Shifu Creation Guide",
 }
 
 
-def load_builtin_demo_titles() -> Set[str]:
+def load_builtin_demo_titles() -> set[str]:
     return set(BUILTIN_DEMO_TITLES)
 
 
-def load_demo_shifu_bids() -> Set[str]:
-    demo_bids: Set[str] = set()
+def load_demo_shifu_bids() -> set[str]:
+    demo_bids: set[str] = set()
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
         try:
             bid = str(get_dynamic_config(key, "") or "").strip()

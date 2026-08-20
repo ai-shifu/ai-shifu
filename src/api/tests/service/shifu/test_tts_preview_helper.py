@@ -5,8 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
@@ -244,7 +243,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
                 "owner_user_bid": owner_user_bid,
             }
         )
-        raise AppException("voice unavailable", ERROR_CODE["server.common.paramsError"])
+        raise AppError("voice unavailable", ERROR_CODE["server.common.paramsError"])
 
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.assert_preview_cloned_voice_available",
@@ -252,19 +251,21 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
         raising=False,
     )
 
-    with app.test_request_context("/api/shifu/tts/preview", method="POST"):
-        with pytest.raises(AppException) as exc_info:
-            build_tts_preview_response(
-                {
-                    "provider": "minimax",
-                    "model": "speech-2.8-turbo",
-                    "voice_id": "AiShifu_missing_voice",
-                    "speed": 1.0,
-                    "text": "hello",
-                },
-                request_user_id="creator-debug-tts-1",
-                request_user_is_creator=True,
-            )
+    with (
+        app.test_request_context("/api/shifu/tts/preview", method="POST"),
+        pytest.raises(AppError) as exc_info,
+    ):
+        build_tts_preview_response(
+            {
+                "provider": "minimax",
+                "model": "speech-2.8-turbo",
+                "voice_id": "AiShifu_missing_voice",
+                "speed": 1.0,
+                "text": "hello",
+            },
+            request_user_id="creator-debug-tts-1",
+            request_user_is_creator=True,
+        )
 
     # The guard runs before any streaming/synthesis and blocks the request.
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
@@ -341,7 +342,8 @@ def _stub_preview_pipeline(monkeypatch):
 
 def test_preview_stream_close_invalidates_session(monkeypatch) -> None:
     """A client walking away mid-preview may interrupt the usage-metering DB
-    write; the GeneratorExit handler must discard the session connection."""
+    write; the GeneratorExit handler must discard the session connection.
+    """
     app = Flask(__name__)
     _stub_preview_pipeline(monkeypatch)
 

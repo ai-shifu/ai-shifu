@@ -1,5 +1,4 @@
-"""
-Shifu outline funcs
+"""Shifu outline funcs.
 
 This module contains functions for managing shifu outline.
 
@@ -7,50 +6,50 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from .dtos import (
-    ReorderOutlineItemDto,
-    SimpleOutlineDto,
-    OutlineDto,
-    ShifuOutlineTreeNode,
-)
-from .consts import (
-    UNIT_TYPE_VALUES_REVERSE,
-    UNIT_TYPE_VALUES,
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_TRIAL,
-    UNIT_TYPE_GUEST,
-)
-from .models import DraftOutlineItem
-from .outline_write_lock import lock_shifu_for_outline_write
-from ...dao import db
-from ...util import generate_id
-from ..common.models import raise_error, raise_param_error
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
-from .shifu_history_manager import (
-    save_new_outline_history,
-    save_outline_tree_history,
-    HistoryItem,
-    save_outline_history,
-    delete_outline_history,
-)
-from .shifu_mdflow_funcs import cleanup_outline_history_versions
+
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 from sqlalchemy.orm import load_only
 
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from ...dao import db
+from ...util import generate_id
+from ..common.models import raise_error, raise_param_error
+from .consts import (
+    UNIT_TYPE_GUEST,
+    UNIT_TYPE_TRIAL,
+    UNIT_TYPE_VALUE_TRIAL,
+    UNIT_TYPE_VALUES,
+    UNIT_TYPE_VALUES_REVERSE,
+)
+from .dtos import (
+    OutlineDto,
+    ReorderOutlineItemDto,
+    ShifuOutlineTreeNode,
+    SimpleOutlineDto,
+)
+from .models import DraftOutlineItem
+from .outline_write_lock import lock_shifu_for_outline_write
+from .shifu_history_manager import (
+    HistoryItem,
+    delete_outline_history,
+    save_new_outline_history,
+    save_outline_history,
+    save_outline_tree_history,
+)
+from .shifu_mdflow_funcs import cleanup_outline_history_versions
 
 
 def convert_outline_to_reorder_outline_item_dto(
     json_array: list[dict],
 ) -> ReorderOutlineItemDto:
-    """
-    convert outline to reorder outline item dto
+    """Convert outline to reorder outline item dto
     Args:
         json_array: The json array to convert
     Returns:
-        The reorder outline item dto
+        The reorder outline item dto.
     """
     if not isinstance(json_array, list):
         raise_param_error("outlines")
@@ -73,13 +72,12 @@ def convert_outline_to_reorder_outline_item_dto(
 def load_existing_outline_items(
     shifu_bid: str, *, include_content: bool = True
 ) -> list[DraftOutlineItem]:
-    """
-    Get existing outline items
+    """Get existing outline items
     internal function
     Args:
         shifu_bid: Shifu bid
     Returns:
-        list[DraftOutlineItem]: Outline items
+        list[DraftOutlineItem]: Outline items.
     """
     sub_query = (
         db.session.query(db.func.max(DraftOutlineItem.id))
@@ -162,13 +160,12 @@ def build_outline_tree_from_items(
 def build_outline_tree(
     app, shifu_bid: str, *, include_content: bool = True
 ) -> list[ShifuOutlineTreeNode]:
-    """
-    Build outline tree
+    """Build outline tree
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
     Returns:
-        list[ShifuOutlineTreeNode]: Outline tree
+        list[ShifuOutlineTreeNode]: Outline tree.
     """
     outline_items = load_existing_outline_items(
         shifu_bid, include_content=include_content
@@ -179,8 +176,7 @@ def build_outline_tree(
 def assert_outline_items_publishable(
     app, shifu_bid: str, outline_items: list[DraftOutlineItem]
 ) -> None:
-    """
-    Validate that the outline structure can be published without silent data
+    """Validate that the outline structure can be published without silent data
     loss. Orphaned nodes are tolerated (build_outline_tree self-heals them by
     lifting them to the root level), but two live items sharing the same
     `position` cannot be reconciled: build_outline_tree keys nodes by position,
@@ -191,9 +187,11 @@ def assert_outline_items_publishable(
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
+        outline_items: Draft outline items that would be published
 
     Raises:
-        AppException: server.shifu.outlineStructureBroken when positions collide
+        AppError: server.shifu.outlineStructureBroken when positions collide
+
     """
     positions: dict[str, list[str]] = {}
     for item in outline_items:
@@ -208,8 +206,7 @@ def assert_outline_items_publishable(
 
 
 def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
-    """
-    Validate that the outline structure can be published without silent data
+    """Validate that the outline structure can be published without silent data
     loss.
     """
     existing_items = load_existing_outline_items(shifu_bid, include_content=False)
@@ -219,12 +216,11 @@ def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
 def get_outline_tree_dto(
     outline_tree: list[ShifuOutlineTreeNode],
 ) -> list[SimpleOutlineDto]:
-    """
-    Get outline tree dto
+    """Get outline tree dto
     Args:
         outline_tree: Outline tree
     Returns:
-        list[SimpleOutlineDto]: Outline tree dto
+        list[SimpleOutlineDto]: Outline tree dto.
     """
     result = []
     for node in outline_tree:
@@ -252,8 +248,7 @@ def get_outline_tree_dto(
 
 
 def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto]:
-    """
-    Get outline tree
+    """Get outline tree
     build outline tree from outline items
     usage:
     1. get outline tree
@@ -264,12 +259,11 @@ def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto
         user_id: User ID
         shifu_bid: Shifu bid
     Returns:
-        list[SimpleOutlineDto]: Outline tree
+        list[SimpleOutlineDto]: Outline tree.
     """
     app.logger.info(f"get outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}")
     with app.app_context():
         outline_tree = build_outline_tree(app, shifu_bid, include_content=False)
-        # return result
         return get_outline_tree_dto(outline_tree)
 
 
@@ -414,11 +408,10 @@ def create_outline(
     parent_id: str,
     outline_name: str,
     outline_type: str = UNIT_TYPE_GUEST,
-    system_prompt: str = None,
+    system_prompt: str | None = None,
     is_hidden: bool = False,
 ):
-    """
-    Create outline
+    """Create outline
     Args:
         app: Flask application instance
         user_id: User ID
@@ -429,7 +422,7 @@ def create_outline(
         system_prompt: System prompt
         is_hidden: Is hidden
     Returns:
-        SimpleOutlineDto: Outline dto
+        SimpleOutlineDto: Outline dto.
     """
     with app.app_context():
         now_time = now_utc()
@@ -473,7 +466,6 @@ def create_default_outlines_for_new_shifu(
     concurrent outline writes yet, so we can build the initial structure inside
     the caller's existing transaction without opening a nested outline flow.
     """
-
     normalized_chapter_name = __normalize_outline_name(chapter_name)
     normalized_lesson_name = __normalize_outline_name(lesson_name)
     chapter_bid = generate_id(app)
@@ -571,6 +563,9 @@ def create_outlines_batch(
     on position allocation and can leave a shifu unpublishable.
 
     Args:
+        app: Flask application instance
+        shifu_id: Shifu bid the outlines belong to
+        user_id: User bid performing the batch create
         outlines: nested nodes, each a dict with keys ``name`` (required),
             ``type``, ``system_prompt``, ``is_hidden``, and ``children`` (a list
             of the same shape).
@@ -578,6 +573,7 @@ def create_outlines_batch(
 
     Returns:
         list[SimpleOutlineDto]: created nodes, children populated recursively.
+
     """
     if not isinstance(outlines, list) or not outlines:
         raise_param_error("outlines")
@@ -644,10 +640,9 @@ def create_outlines_batch(
 def reorder_outline_tree(
     app, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
 ):
-    """
-    Reorder outline tree
+    """Reorder outline tree
     usage:
-    1. reorder outline tree
+    1. reorder outline tree.
 
     Args:
         app: Flask application instance
@@ -656,6 +651,7 @@ def reorder_outline_tree(
         outlines: Outline items
     Returns:
         bool: True if reordered, False otherwise
+
     """
     with app.app_context():
         app.logger.info(
@@ -737,15 +733,14 @@ def reorder_outline_tree(
 
 
 def get_unit_by_id(app, user_id: str, unit_id: str):
-    """
-    Get unit by id
+    """Get unit by id
     Args:
         app: Flask application instance
         user_id: User ID
         unit_id: Unit ID
     Returns:
         OutlineDto: Outline dto
-        None: If unit not found
+        None: If unit not found.
     """
     with app.app_context():
         unit: DraftOutlineItem = (
@@ -760,7 +755,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         if not unit:
             raise_error("server.shifu.unitNotFound")
         unit_type: str = UNIT_TYPE_VALUES_REVERSE.get(unit.type, UNIT_TYPE_TRIAL)
-        is_hidden: bool = True if unit.hidden == 1 else False
+        is_hidden: bool = unit.hidden == 1
 
         return OutlineDto(
             bid=unit.outline_item_bid,
@@ -780,14 +775,13 @@ def modify_unit(
     app,
     user_id: str,
     unit_id: str,
-    unit_name: str = None,
-    unit_description: str = None,
-    unit_system_prompt: str = None,
+    unit_name: str | None = None,
+    unit_description: str | None = None,
+    unit_system_prompt: str | None = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
 ):
-    """
-    Modify unit
+    """Modify unit
     Args:
         app: Flask application instance
         user_id: User ID
@@ -798,7 +792,7 @@ def modify_unit(
         unit_is_hidden: Unit is hidden
         unit_type: Unit type
     Returns:
-        OutlineDto: Outline dto
+        OutlineDto: Outline dto.
     """
     with app.app_context():
         app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
@@ -870,8 +864,7 @@ def modify_unit(
 
 
 def delete_unit(app, user_id: str, unit_id: str):
-    """
-    Delete unit
+    """Delete unit.
 
     Args:
         app: Flask application instance
@@ -880,6 +873,7 @@ def delete_unit(app, user_id: str, unit_id: str):
 
     Returns:
         bool: True if deleted, False otherwise
+
     """
     with app.app_context():
         now_time = now_utc()

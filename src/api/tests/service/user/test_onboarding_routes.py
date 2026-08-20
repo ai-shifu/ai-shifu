@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from flaskr.util.datetime import now_utc
 import uuid
-
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta, timezone
 
 from flaskr.dao import db
-from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
+from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.utils import generate_token
+from flaskr.util.datetime import now_utc
+from sqlalchemy.exc import IntegrityError
 
 
 def _create_user(
@@ -299,7 +298,7 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
 
     class _MockDateTime(datetime):
         @classmethod
-        def utcnow(cls):
+        def utcnow(cls) -> datetime:
             return cls(2026, 6, 23, 10, 0, 0)
 
     monkeypatch.setattr("flaskr.service.user.onboarding.datetime", _MockDateTime)

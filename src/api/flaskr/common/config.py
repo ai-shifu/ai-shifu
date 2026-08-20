@@ -1,17 +1,17 @@
-import os
-import re
 import json
 import logging
+import os
+import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional, Callable, Dict, List, Type
-from flask import Flask
+from typing import Any
+
 from flask import Config as FlaskConfig
+from flask import Flask
 
 
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
-
-    pass
 
 
 @dataclass
@@ -22,12 +22,12 @@ class EnvVar:
     required: bool = False  # Whether variable must be explicitly set in environment
     default: Any = None  # Default value if not set (only if required=False)
     example: Any = None  # Optional value to emit in generated example files
-    type: Type = str  # Using Type annotation to avoid conflict
+    type: type = str  # Using Type annotation to avoid conflict
     description: str = ""
-    validator: Optional[Callable[[Any], bool]] = None
+    validator: Callable[[Any], bool] | None = None
     secret: bool = False
     group: str = "general"
-    depends_on: List[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Validate EnvVar configuration after initialization."""
@@ -57,20 +57,20 @@ class EnvVar:
             if isinstance(value, str):
                 return value.lower() in ("true", "1", "yes", "on")
             return bool(value)
-        elif self.type is int:
+        if self.type is int:
             try:
                 return int(value)
-            except ValueError:
+            except ValueError as exc:
                 raise EnvironmentConfigError(
                     f"Invalid integer value for {self.name}: {value}"
-                )
+                ) from exc
         elif self.type is float:
             try:
                 return float(value)
-            except ValueError:
+            except ValueError as exc:
                 raise EnvironmentConfigError(
                     f"Invalid float value for {self.name}: {value}"
-                )
+                ) from exc
         elif self.type is list:
             if isinstance(value, str):
                 return [item.strip() for item in value.split(",") if item.strip()]
@@ -104,9 +104,8 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
-def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
+def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
-
     if value in (None, ""):
         return {}
     if isinstance(value, dict):
@@ -117,9 +116,10 @@ def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
         except (TypeError, ValueError) as exc:
             raise ValueError("must be a JSON object") from exc
     if not isinstance(candidate, dict):
-        raise ValueError("must be a JSON object")
+        # ValueError is part of this parser's contract: callers only catch it.
+        raise ValueError("must be a JSON object")  # noqa: TRY004
 
-    parsed: Dict[str, int] = {}
+    parsed: dict[str, int] = {}
     for model, max_output_tokens in candidate.items():
         if not isinstance(model, str) or not model.strip():
             raise ValueError("model ids must be non-empty strings")
@@ -145,7 +145,7 @@ def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
 
 
 # Environment variable registry
-ENV_VARS: Dict[str, EnvVar] = {
+ENV_VARS: dict[str, EnvVar] = {
     # Application Configuration
     "LOGGING_PATH": EnvVar(
         name="LOGGING_PATH",
@@ -1754,7 +1754,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
-REDIS_KEY_SUFFIXES: Dict[str, str] = {
+REDIS_KEY_SUFFIXES: dict[str, str] = {
     "REDIS_KEY_PREFIX_USER": "user:",
     "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
     "REDIS_KEY_PREFIX_PHONE": "phone:",
@@ -1772,9 +1772,9 @@ REDIS_KEY_SUFFIXES: Dict[str, str] = {
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: Dict[str, EnvVar]):
+    def __init__(self, env_vars: dict[str, EnvVar]):
         self.env_vars = env_vars
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._validated = False
 
     def validate_environment(self, allow_conversion_errors: bool = False) -> None:
@@ -1817,7 +1817,7 @@ class EnhancedConfig:
                 missing_required.append(f"- {var_name}: {env_var.description}")
                 continue
             # Get value (from environment or default)
-            value = raw_value if raw_value else env_var.default
+            value = raw_value or env_var.default
             # Validate value if present
             if value is not None and value != "":
                 try:
@@ -1829,7 +1829,7 @@ class EnhancedConfig:
                 except Exception as e:
                     # For optional fields, log and continue; required fields remain fatal
                     if env_var.required or not allow_conversion_errors:
-                        validation_errors.append(f"- {var_name}: {str(e)}")
+                        validation_errors.append(f"- {var_name}: {e!s}")
                     else:
                         logging.getLogger(__name__).warning(
                             "Non-fatal config conversion issue for %s: %s",
@@ -1870,7 +1870,7 @@ class EnhancedConfig:
                     logger.warning(
                         f"Failed to convert environment variable '{key}' with value '{value}' "
                         f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {str(e)}"
+                        f"Error: {e!s}"
                     )
                     value = env_var.default
             # Apply interpolation
@@ -1911,7 +1911,7 @@ class EnhancedConfig:
         except (TypeError, ValueError):
             return 0.0
 
-    def get_list(self, key: str) -> List[str]:
+    def get_list(self, key: str) -> list[str]:
         """Get list configuration value (comma-separated)."""
         value = self.get(key)
         if value is None:
@@ -1940,10 +1940,7 @@ class EnhancedConfig:
             if env_var.group not in groups:
                 groups[env_var.group] = []
             value = self.get(var_name)
-            if env_var.secret and value:
-                display_value = "[REDACTED]"
-            else:
-                display_value = str(value)
+            display_value = "[REDACTED]" if env_var.secret and value else str(value)
             groups[env_var.group].append(f"  {var_name}: {display_value}")
         for group, items in sorted(groups.items()):
             print(f"\n[{group.upper()}]")
@@ -1963,6 +1960,7 @@ class EnhancedConfig:
 
         Returns:
             Formatted .env.example content as string
+
         """
 
         # Format values for .env output, handling lists as comma-separated strings
@@ -1992,7 +1990,7 @@ class EnhancedConfig:
         groups = {}
 
         # Filter and group variables
-        for var_name, env_var in self.env_vars.items():
+        for env_var in self.env_vars.values():
             # Apply filter
             if filter_type == "required" and not env_var.required:
                 continue
@@ -2002,16 +2000,16 @@ class EnhancedConfig:
             groups[env_var.group].append(env_var)
 
         # Generate output for each group
-        for group, vars in sorted(groups.items()):
+        for group, group_vars in sorted(groups.items()):
             # Skip empty groups
-            if not vars:
+            if not group_vars:
                 continue
 
             lines.append(f"\n#{'=' * 60}")
             lines.append(f"# {group.replace('_', ' ').title()}")
             lines.append(f"#{'=' * 60}\n")
 
-            for env_var in sorted(vars, key=lambda x: x.name):
+            for env_var in sorted(group_vars, key=lambda x: x.name):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
                 )
@@ -2086,7 +2084,7 @@ __ENHANCED_CONFIG__ = EnhancedConfig(ENV_VARS)
 class Config(FlaskConfig):
     """Flask configuration wrapper with enhanced environment variable support."""
 
-    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict = {}):
+    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict | None = None):
         global __INSTANCE__
         self.parent = parent
         self.app = app
@@ -2099,8 +2097,8 @@ class Config(FlaskConfig):
         try:
             self.enhanced.validate_environment(allow_conversion_errors=True)
             app.logger.info("Environment configuration validated successfully")
-        except EnvironmentConfigError as e:
-            app.logger.error(f"Environment configuration error: {e}")
+        except EnvironmentConfigError:
+            app.logger.exception("Environment configuration error")
             raise
         self._populate_redis_prefixes()
 
@@ -2149,6 +2147,7 @@ class Config(FlaskConfig):
 
         Returns:
             The configuration value, or default if not found
+
         """
         # Try enhanced config first
         try:
@@ -2200,7 +2199,7 @@ class Config(FlaskConfig):
         """Get float configuration value."""
         return self.enhanced.get_float(key)
 
-    def get_list(self, key: str) -> List[str]:
+    def get_list(self, key: str) -> list[str]:
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 
@@ -2233,6 +2232,7 @@ def get_config(key: str, default: Any = None) -> Any:
 
     Returns:
         Configuration value or default
+
     """
     if __INSTANCE__ is None:
         # Before initialization, try to get from environment directly
@@ -2253,7 +2253,7 @@ def has_explicit_env_override(key: str) -> bool:
     return key in os.environ
 
 
-def get_explicit_env_override(key: str) -> Optional[str]:
+def get_explicit_env_override(key: str) -> str | None:
     """Return the raw environment value for a config key, or None when unset.
 
     Unlike ``get_config``, this never substitutes the registry default and

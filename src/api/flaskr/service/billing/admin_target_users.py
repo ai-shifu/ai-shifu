@@ -4,12 +4,12 @@ from importlib import import_module
 from typing import Any
 
 from flask import Flask
-
-from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.common.phone_numbers import (
-    is_valid_sms_mobile,
-    normalize_phone_identifier,
+from flaskr.service.common.contact_identifiers import (
+    resolve_contact_lookup_providers,
+    resolve_contact_type,
+    validate_contact_identifier,
 )
+from flaskr.service.common.models import raise_error, raise_param_error
 
 
 def resolve_admin_entitlement_grant_target(
@@ -22,24 +22,24 @@ def resolve_admin_entitlement_grant_target(
     if normalized_creator_bid:
         return normalized_creator_bid, False, False
 
-    normalized_creator_mobile = _normalize_creator_mobile(creator_mobile)
+    contact_type, normalized_creator_contact = _resolve_creator_contact(creator_mobile)
     repository = _user_repository()
     user_consts = _user_consts()
     user_utils = _user_utils()
 
     existing_aggregate = repository.load_user_aggregate_by_identifier(
-        normalized_creator_mobile,
-        providers=["phone"],
+        normalized_creator_contact,
+        providers=resolve_contact_lookup_providers(contact_type),
     )
     created_new_user = False
     should_grant_demo_permissions = False
     if existing_aggregate is None:
         target_aggregate, created_new_user = repository.ensure_user_for_identifier(
             app,
-            provider="phone",
-            identifier=normalized_creator_mobile,
+            provider=contact_type,
+            identifier=normalized_creator_contact,
             defaults={
-                "identify": normalized_creator_mobile,
+                "identify": normalized_creator_contact,
                 "nickname": "",
                 "state": user_consts.USER_STATE_REGISTERED,
             },
@@ -60,10 +60,10 @@ def resolve_admin_entitlement_grant_target(
     repository.upsert_credential(
         app,
         user_bid=target_user_bid,
-        provider_name="phone",
-        subject_id=normalized_creator_mobile,
-        subject_format="phone",
-        identifier=normalized_creator_mobile,
+        provider_name=contact_type,
+        subject_id=normalized_creator_contact,
+        subject_format=contact_type,
+        identifier=normalized_creator_contact,
         metadata={},
         verified=True,
     )
@@ -90,10 +90,10 @@ def resolve_existing_admin_billing_target_user_bid(
     if normalized_creator_bid:
         return normalized_creator_bid
 
-    normalized_creator_mobile = _normalize_creator_mobile(creator_mobile)
+    contact_type, normalized_creator_contact = _resolve_creator_contact(creator_mobile)
     existing_aggregate = _user_repository().load_user_aggregate_by_identifier(
-        normalized_creator_mobile,
-        providers=["phone"],
+        normalized_creator_contact,
+        providers=resolve_contact_lookup_providers(contact_type),
     )
     if existing_aggregate is None or not str(existing_aggregate.user_bid or "").strip():
         raise_error("server.user.userNotFound")
@@ -116,13 +116,20 @@ def run_admin_creator_granted_post_auth(
     )
 
 
-def _normalize_creator_mobile(creator_mobile: str) -> str:
-    normalized_creator_mobile = normalize_phone_identifier(creator_mobile)
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    if not is_valid_sms_mobile(normalized_creator_mobile):
-        raise_param_error("mobile")
-    return normalized_creator_mobile
+def _resolve_creator_contact(creator_contact: str) -> tuple[str, str]:
+    """Resolve the creator identifier a billing admin request targets.
+
+    The wire field stays ``creator_mobile`` for compatibility, but its meaning
+    follows the deployment: a phone number where SMS login is enabled, an email
+    address on the overseas site where accounts are Google/email based.
+    """
+    contact_type = resolve_contact_type(creator_contact)
+    normalized_creator_contact = validate_contact_identifier(
+        creator_contact,
+        contact_type,
+        empty_error="creator_mobile",
+    )
+    return contact_type, normalized_creator_contact
 
 
 def _user_repository() -> Any:

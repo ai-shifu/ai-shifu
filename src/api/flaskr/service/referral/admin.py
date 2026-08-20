@@ -6,15 +6,15 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import or_
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc, to_utc_iso
+from sqlalchemy import or_
 
+from .campaign_admin import _load_campaign_or_404
 from .consts import (
     REFERRAL_ABNORMAL_STATUS_CONFIRMED_ABNORMAL,
     REFERRAL_ABNORMAL_STATUS_NORMAL,
@@ -36,7 +36,6 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
-from .campaign_admin import _load_campaign_or_404
 from .reward_queue import build_referral_reward_queue
 
 ABNORMAL_STATUS_BY_LABEL = {

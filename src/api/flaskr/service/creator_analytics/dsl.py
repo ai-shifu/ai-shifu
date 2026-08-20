@@ -7,25 +7,25 @@ then consumed by :mod:`flaskr.service.creator_analytics.sql_builder`.
 
 Validation is intentionally strict — every shape, table, column, operator,
 aggregate, and limit is checked against an explicit allowlist before any SQL
-is composed. Errors are raised as :class:`AppException` with stable error
+is composed. Errors are raised as :class:`AppError` with stable error
 names registered in ``src/api/error_codes.json``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, List, Mapping, Optional, Sequence, Tuple
+from typing import Any
 
-from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.i18n import _
+from flaskr.service.common.models import ERROR_CODE, AppError
 
 from .whitelist import (
     ALLOWED_AGGREGATE_FUNCTIONS,
     ALLOWED_OPERATORS,
-    TableSpec,
     WHITELIST,
+    TableSpec,
 )
-
 
 # Error names — registered in src/api/error_codes.json by Step 7.
 ERR_INVALID_DSL = "server.creatorAnalytics.invalidDsl"
@@ -37,14 +37,13 @@ ERR_INVALID_LIMIT = "server.creatorAnalytics.invalidLimit"
 
 
 def _translation_keys_used() -> None:
-    """Static registry consumed by the translation-usage checker.
+    """Return the static registry consumed by the translation-usage checker.
 
     Never invoked at runtime — translation keys are referenced through the
     ERR_* constants above. Listing them as literal `_()` calls inside an
     unused function lets the static checker confirm they are wired without
     forcing every error site to inline the string.
     """
-
     _("server.creatorAnalytics.invalidDsl")
     _("server.creatorAnalytics.invalidTable")
     _("server.creatorAnalytics.invalidColumn")
@@ -89,18 +88,17 @@ _SHIFU_META_TABLES = frozenset({"shifu_published_shifus", "shifu_draft_shifus"})
 _LIKE_MIN_NON_WILDCARD_CHARS = 2
 
 
-def _raise(error_name: str, detail: Optional[str] = None) -> None:
-    """Raise an :class:`AppException` with a stable error name.
+def _raise(error_name: str, detail: str | None = None) -> None:
+    """Raise an :class:`AppError` with a stable error name.
 
     ``detail`` is appended in parentheses so the client gets actionable
     feedback (e.g. which column failed validation) without leaking internals.
     """
-
     message = _(error_name)
     if detail:
         message = f"{message} ({detail})"
     code = ERROR_CODE.get(error_name, ERROR_CODE.get("server.common.unknownError"))
-    raise AppException(message, code)
+    raise AppError(message, code)
 
 
 @dataclass(frozen=True)
@@ -113,7 +111,7 @@ class Filter:
 @dataclass(frozen=True)
 class Aggregate:
     fn: str
-    field: Optional[str]
+    field: str | None
     alias: str
     distinct: bool = False
 
@@ -129,15 +127,15 @@ class QueryDSL:
     shifu_bid: str
     table: str
     spec: TableSpec
-    select: Tuple[str, ...]
-    filters: Tuple[Filter, ...]
-    group_by: Tuple[str, ...]
-    aggregates: Tuple[Aggregate, ...]
-    order_by: Tuple[OrderBy, ...]
+    select: tuple[str, ...]
+    filters: tuple[Filter, ...]
+    group_by: tuple[str, ...]
+    aggregates: tuple[Aggregate, ...]
+    order_by: tuple[OrderBy, ...]
     limit: int
     offset: int
 
-    output_columns: Tuple[str, ...] = field(default_factory=tuple)
+    output_columns: tuple[str, ...] = field(default_factory=tuple)
     # Caller's authenticated user_id, threaded from funcs.run_dsl. Consumed
     # by sql_builder when the target TableSpec declares a
     # `creator_scoped_column` (currently the shifu metadata tables).
@@ -162,7 +160,6 @@ def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
     for legacy call sites that never hit a creator-scoped table (the SQL
     builder still validates this combination).
     """
-
     if not isinstance(payload, Mapping):
         _raise(ERR_INVALID_DSL, "payload must be a JSON object")
 
@@ -231,7 +228,7 @@ def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
 # ---------------------------------------------------------------------------
 
 
-def _parse_select(raw: Any, spec: TableSpec) -> List[str]:
+def _parse_select(raw: Any, spec: TableSpec) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -249,7 +246,7 @@ def _parse_select(raw: Any, spec: TableSpec) -> List[str]:
     return list(raw)
 
 
-def _parse_group_by(raw: Any, spec: TableSpec) -> List[str]:
+def _parse_group_by(raw: Any, spec: TableSpec) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -265,12 +262,12 @@ def _parse_group_by(raw: Any, spec: TableSpec) -> List[str]:
     return list(raw)
 
 
-def _parse_aggregates(raw: Any, spec: TableSpec) -> List[Aggregate]:
+def _parse_aggregates(raw: Any, spec: TableSpec) -> list[Aggregate]:
     if raw is None:
         return []
     if not isinstance(raw, list):
         _raise(ERR_INVALID_DSL, "'aggregate' must be a list of aggregate objects")
-    aggregates: List[Aggregate] = []
+    aggregates: list[Aggregate] = []
     seen_aliases: set[str] = set()
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
@@ -283,7 +280,7 @@ def _parse_aggregates(raw: Any, spec: TableSpec) -> List[Aggregate]:
 
         field_name = item.get("field")
         if fn == "count" and field_name is None:
-            target_field: Optional[str] = None
+            target_field: str | None = None
         else:
             if not isinstance(field_name, str):
                 _raise(
@@ -331,12 +328,12 @@ def _parse_aggregates(raw: Any, spec: TableSpec) -> List[Aggregate]:
     return aggregates
 
 
-def _parse_filters(raw: Any, spec: TableSpec) -> List[Filter]:
+def _parse_filters(raw: Any, spec: TableSpec) -> list[Filter]:
     if raw is None:
         return []
     if not isinstance(raw, list):
         _raise(ERR_INVALID_DSL, "'where' must be a list of filter objects")
-    filters: List[Filter] = []
+    filters: list[Filter] = []
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
             _raise(ERR_INVALID_DSL, f"where[{index}] must be an object")
@@ -363,13 +360,13 @@ def _parse_order_by(
     select: Sequence[str],
     aggregates: Sequence[Aggregate],
     group_by: Sequence[str],
-) -> List[OrderBy]:
+) -> list[OrderBy]:
     if raw is None:
         return []
     if not isinstance(raw, list):
         _raise(ERR_INVALID_DSL, "'order_by' must be a list")
     allowed_targets = set(select) | set(group_by) | {agg.alias for agg in aggregates}
-    out: List[OrderBy] = []
+    out: list[OrderBy] = []
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
             _raise(ERR_INVALID_DSL, f"order_by[{index}] must be an object")
@@ -386,7 +383,7 @@ def _parse_order_by(
     return out
 
 
-def _parse_paging(raw_limit: Any, raw_offset: Any, limit_max: int) -> Tuple[int, int]:
+def _parse_paging(raw_limit: Any, raw_offset: Any, limit_max: int) -> tuple[int, int]:
     limit = raw_limit if raw_limit is not None else min(100, limit_max)
     if not isinstance(limit, int) or isinstance(limit, bool):
         _raise(ERR_INVALID_LIMIT, "'limit' must be an integer")
@@ -461,7 +458,6 @@ def _enforce_select_group_by_compatibility(
     aggregates: Sequence[Aggregate],
 ) -> None:
     """If aggregates are present, every plain ``select`` column must appear in ``group_by``."""
-
     if not aggregates:
         return
     group_set = set(group_by)
@@ -495,7 +491,6 @@ def _enforce_user_bid_aggregation_only(
         mandatory (see :func:`_enforce_user_users_requires_user_bid_filter`)
         and limit is capped to 50, so the row-detail concern doesn't apply.
     """
-
     if "user_bid" not in select:
         return
     if "user_bid" in group_by:
@@ -524,7 +519,6 @@ def _enforce_generated_content_type_filter(
     pairs (321/322). This is enforced at the DSL layer so the SQL builder
     cannot accidentally widen the scope.
     """
-
     if "generated_content" not in select:
         return
 
@@ -574,7 +568,6 @@ def _enforce_user_users_requires_user_bid_filter(
     - ``user_identify`` filter with op ``=`` only (exact phone/email reverse
       lookup — ``in`` is blocked to prevent batch enumeration attacks).
     """
-
     if table_key != "user_users":
         return
 
@@ -629,7 +622,6 @@ def _enforce_shifu_meta_table_constraints(
     at least :data:`_LIKE_MIN_NON_WILDCARD_CHARS` literal characters so a
     caller cannot enumerate with ``like "__%"`` / ``like "a%b"`` / etc.
     """
-
     if table_key not in _SHIFU_META_TABLES:
         return
     if aggregates:
@@ -658,7 +650,7 @@ def _enforce_shifu_meta_table_constraints(
                     "'title' 'like' only supports an optional trailing '%' "
                     "wildcard (no '_' / no internal '%')",
                 )
-            non_wildcard = value[:-1] if value.endswith("%") else value
+            non_wildcard = value.removesuffix("%")
             if len(non_wildcard) < _LIKE_MIN_NON_WILDCARD_CHARS:
                 _raise(
                     ERR_INVALID_DSL,
@@ -668,7 +660,7 @@ def _enforce_shifu_meta_table_constraints(
                 )
 
 
-def _default_alias(fn: str, field_name: Optional[str]) -> str:
+def _default_alias(fn: str, field_name: str | None) -> str:
     base = field_name or "rows"
     return f"{fn}_{base}"
 

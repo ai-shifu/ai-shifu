@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from flask import Flask
-
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from flaskr.i18n import _
+from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.shifu.permissions import get_user_shifu_permissions
 
 from .dsl import parse_dsl
 from .engine import get_analytics_engine, run_query
 from .pii import mask_user_identify, redact_pii
 from .sql_builder import build_statement
 
-
 ERR_NO_PERMISSION = "server.creatorAnalytics.noPermission"
 
 
-def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
+def run_dsl(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
     """Execute a DSL query on behalf of ``user_id``.
 
     Steps:
@@ -30,7 +28,6 @@ def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
         4. Compile to SQL with the configured analytics engine's dialect and
            execute it through the read-only engine.
     """
-
     limit_max = int(app.config.get("ANALYTICS_QUERY_LIMIT_MAX") or 1000)
     query_timeout = int(app.config.get("ANALYTICS_QUERY_TIMEOUT_SECONDS") or 15)
 
@@ -96,7 +93,6 @@ def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
 
 def _user_bid_candidates(filters) -> list[str]:
     """Flatten the user_bid candidates out of the DSL filters for audit."""
-
     out: list[str] = []
     for f in filters:
         if f.field != "user_bid":
@@ -108,7 +104,7 @@ def _user_bid_candidates(filters) -> list[str]:
     return out
 
 
-def _redact_user_users_rows(result: Dict[str, Any]) -> None:
+def _redact_user_users_rows(result: dict[str, Any]) -> None:
     """Sanitise ``user_users`` result rows in-place.
 
     - ``nickname``: full PII redaction via :func:`redact_pii` (phone/email
@@ -117,7 +113,6 @@ def _redact_user_users_rows(result: Dict[str, Any]) -> None:
       (middle characters replaced with ``*****``, preserving enough for
       the creator to cross-reference their own student list).
     """
-
     columns = result.get("columns") or []
     rows = result.get("rows") or []
     if not rows:
@@ -143,7 +138,7 @@ def _redact_user_users_rows(result: Dict[str, Any]) -> None:
 def _raise(error_name: str) -> None:
     message = _(error_name)
     code = ERROR_CODE.get(error_name, ERROR_CODE.get("server.common.unknownError"))
-    raise AppException(message, code)
+    raise AppError(message, code)
 
 
-__all__ = ["run_dsl", "ERR_NO_PERMISSION"]
+__all__ = ["ERR_NO_PERMISSION", "run_dsl"]

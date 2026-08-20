@@ -26,15 +26,59 @@ export const buildCourseLearningUrl = (
   return `/c/${encodeURIComponent(courseId)}`;
 };
 
+const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
+
+const getDefaultOrigin = () =>
+  typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+
+const buildCourseUrl = (
+  courseUrl: string,
+  {
+    mode,
+    origin = getDefaultOrigin(),
+  }: {
+    mode?: LearningMode;
+    origin?: string;
+  } = {},
+) => {
+  const normalizedUrl = courseUrl.trim();
+  if (!normalizedUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(normalizedUrl, origin);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return '';
+    }
+
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+
+    if (mode) {
+      url.searchParams.set('mode', mode);
+      return url.toString();
+    }
+
+    if (ABSOLUTE_URL_PATTERN.test(normalizedUrl)) {
+      return url.toString();
+    }
+
+    return url.pathname;
+  } catch {
+    return '';
+  }
+};
+
+export const buildParameterlessCourseUrl = (
+  courseUrl: string,
+  origin?: string,
+) => buildCourseUrl(courseUrl, { origin });
+
 export const buildLearningModeUrl = (
   courseUrl: string,
   mode: LearningMode,
-  origin = typeof window !== 'undefined'
-    ? window.location.origin
-    : 'http://localhost',
-) => {
-  const url = new URL(courseUrl, origin);
-  url.searchParams.set('mode', mode);
-  url.searchParams.delete('listen');
-  return url.toString();
-};
+  origin?: string,
+) => buildCourseUrl(courseUrl, { mode, origin });

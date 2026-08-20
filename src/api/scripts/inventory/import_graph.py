@@ -23,41 +23,41 @@ import ast
 import os
 import sys
 from collections import defaultdict
+from pathlib import Path
 
-ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-)
+ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 
 # ---- collect all project modules -----------------------------------------
 mods = {}  # module name -> relative file path
 
 
 def add_tree(base_pkg, base_dir):
-    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, base_dir)):
+    for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         rel = os.path.relpath(dirpath, ROOT)
-        parts = rel.split(os.sep)
+        parts = Path(rel).parts
         for fn in filenames:
             if not fn.endswith(".py"):
                 continue
             if fn == "__init__.py":
                 name = ".".join(parts)
             else:
-                name = ".".join(parts + [fn[:-3]])
-            mods[name] = os.path.join(rel, fn)
+                name = ".".join([*parts, fn[:-3]])
+            mods[name] = str(Path(rel) / fn)
 
 
 add_tree("flaskr", "flaskr")
 add_tree("scripts", "scripts")
 for top in ("app.py", "celery_app.py"):
-    if os.path.exists(os.path.join(ROOT, top)):
+    if (Path(ROOT) / top).exists():
         mods[top[:-3]] = top
 
 # ---- parse imports ---------------------------------------------------------
 edges = defaultdict(set)
 for name, rel in mods.items():
     try:
-        tree = ast.parse(open(os.path.join(ROOT, rel), encoding="utf-8").read())
+        with (Path(ROOT) / rel).open(encoding="utf-8") as source_file:
+            tree = ast.parse(source_file.read())
     except SyntaxError as e:
         print(f"SYNTAX ERROR {rel}: {e}", file=sys.stderr)
         continue
@@ -108,20 +108,18 @@ for src, targets in edges.items():
 # ---- roots -----------------------------------------------------------------
 roots = set()
 for name, rel in mods.items():
-    if name in ("app", "celery_app"):
-        roots.add(name)
-    elif rel.startswith("scripts" + os.sep):
-        roots.add(name)
-    elif rel.startswith("flaskr/command"):
-        roots.add(name)
-    elif name == "flaskr.route":
+    if (
+        name in ("app", "celery_app")
+        or rel.startswith(("scripts" + os.sep, "flaskr/command"))
+        or name == "flaskr.route"
+    ):
         roots.add(name)
 
 # plugin scan: emulate load_plugins_from_dir over flaskr/service
-svc_dir = os.path.join(ROOT, "flaskr", "service")
-for top in sorted(os.listdir(svc_dir)):
-    top_path = os.path.join(svc_dir, top)
-    if not os.path.isdir(top_path):
+svc_dir = str(Path(ROOT) / "flaskr" / "service")
+for top in sorted(path.name for path in Path(svc_dir).iterdir()):
+    top_path = str(Path(svc_dir) / top)
+    if not Path(top_path).is_dir():
         continue
     for dirpath, dirnames, filenames in os.walk(top_path):
         dirnames[:] = [
@@ -131,7 +129,7 @@ for top in sorted(os.listdir(svc_dir)):
         ]
         for fn in filenames:
             if fn.endswith(".py") and fn != "__init__.py" and not fn.startswith("."):
-                rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+                rel = os.path.relpath(str(Path(dirpath) / fn), ROOT)
                 name = rel[:-3].replace(os.sep, ".")
                 if name in mods:
                     roots.add(name)

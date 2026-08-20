@@ -1,7 +1,7 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.common.models import ERROR_CODE
 
 
@@ -46,9 +46,9 @@ def _seed_shifu_with_outline(
             avatar_res_bid="res",
             keywords="test",
             llm="gpt",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid=owner_bid,
             updated_user_bid=owner_bid,
         )

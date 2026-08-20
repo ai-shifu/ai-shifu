@@ -1,8 +1,7 @@
 import uuid
 
-import pytest
-
 import flaskr.common.config as common_config
+import pytest
 from flaskr.dao import db
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
@@ -13,7 +12,11 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
+)
+from flaskr.service.user.models import (
     UserInfo as UserEntity,
+)
+from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
 from flaskr.service.learn.listen_element_types import _default_is_speakable

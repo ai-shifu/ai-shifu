@@ -23,7 +23,8 @@ Event names, payload shapes, and sequencing are FROZEN per
 ``flaskr/service/learn/AGENTS.md``; the golden suite is the contract gate.
 """
 
-from typing import TYPE_CHECKING, Generator, Union
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.i18n import _
@@ -75,18 +76,18 @@ class RunEventEmitter:
     ) -> Generator[str, None, None]:
         ctx = self._context
         shifu_bids = [o.outline_bid for o in outline_updates]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
             ctx._outline_model.query.filter(
                 ctx._outline_model.outline_item_bid.in_(shifu_bids),
                 ctx._outline_model.deleted == 0,
             ).all()
         )
-        outline_item_info_map: dict[
-            str, Union[DraftOutlineItem, PublishedOutlineItem]
-        ] = {o.outline_item_bid: o for o in outline_item_info_db}
+        outline_item_info_map: dict[str, DraftOutlineItem | PublishedOutlineItem] = {
+            o.outline_item_bid: o for o in outline_item_info_db
+        }
         recorder = ctx._recorder
         for update in outline_updates:
-            outline_item_info = outline_item_info_map.get(update.outline_bid, None)
+            outline_item_info = outline_item_info_map.get(update.outline_bid)
             if not outline_item_info:
                 continue
             if outline_item_info.hidden:
@@ -111,9 +112,9 @@ class RunEventEmitter:
                     )
                     continue
                 ctx._current_attend = ctx._get_current_attend(update.outline_bid)
-                if (
-                    ctx._current_attend.status == LEARN_STATUS_NOT_STARTED
-                    or ctx._current_attend.status == LEARN_STATUS_LOCKED
+                if ctx._current_attend.status in (
+                    LEARN_STATUS_NOT_STARTED,
+                    LEARN_STATUS_LOCKED,
                 ):
                     recorder.update_progress_pointer(
                         ctx._current_attend,
@@ -169,8 +170,7 @@ class RunEventEmitter:
         self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
+        """Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
         completes so the frontend can advance automatically.
         """
         ctx = self._context
@@ -221,9 +221,7 @@ class RunEventEmitter:
         self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Persist and emit the lesson-end feedback interaction before next chapter.
-        """
+        """Persist and emit the lesson-end feedback interaction before next chapter."""
         ctx = self._context
         if not progress_record or not ctx._outline_item_info:
             return

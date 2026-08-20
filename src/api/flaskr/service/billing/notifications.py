@@ -8,7 +8,6 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
@@ -16,8 +15,8 @@ from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
-from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.timezone import format_with_app_timezone
 
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -35,6 +34,8 @@ from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
+)
+from .queries import (
     load_subscription_by_bid as _load_subscription_by_bid,
 )
 
@@ -172,7 +173,6 @@ def stage_subscription_purchase_sms_for_paid_order(
     previous_status: int | None,
 ) -> bool:
     """Mark one newly paid subscription order as pending SMS delivery."""
-
     if not _supports_subscription_purchase_sms(order):
         return False
     if int(order.status or 0) != BILLING_ORDER_STATUS_PAID:
@@ -211,7 +211,6 @@ def stage_billing_paid_feishu_for_paid_order(
     previous_status: int | None,
 ) -> bool:
     """Mark one newly paid billing order as pending Feishu delivery."""
-
     if not _supports_billing_paid_feishu(order):
         return False
     if int(previous_status or 0) == BILLING_ORDER_STATUS_PAID:
@@ -236,7 +235,6 @@ def enqueue_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Enqueue the subscription purchase SMS worker after commit."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result(
@@ -268,10 +266,9 @@ def enqueue_subscription_purchase_sms(
         )
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s",
             TASK_NAME,
             normalized_bill_order_bid,
-            exc,
         )
         return _build_result(
             "enqueue_failed",
@@ -287,7 +284,6 @@ def requeue_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Re-enqueue one pending or provider-failed subscription purchase SMS."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result("invalid_bill_order_bid", enqueued=False)
@@ -435,7 +431,6 @@ def enqueue_billing_paid_feishu(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Enqueue the billing paid Feishu worker after commit."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_feishu_result(
@@ -467,10 +462,9 @@ def enqueue_billing_paid_feishu(
         )
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s",
             BILLING_PAID_FEISHU_TASK_NAME,
             normalized_bill_order_bid,
-            exc,
         )
         return _build_feishu_result(
             "enqueue_failed",
@@ -493,9 +487,9 @@ def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
 
 def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
     try:
-        major_amount = Decimal(str(amount or 0)) / Decimal("100")
+        major_amount = Decimal(str(amount or 0)) / Decimal(100)
     except (InvalidOperation, TypeError, ValueError):
-        major_amount = Decimal("0")
+        major_amount = Decimal(0)
     return f"{_normalize_bid(currency) or 'CNY'} {major_amount:.2f}"
 
 
@@ -503,7 +497,7 @@ def _format_credit_amount(amount: Any) -> str:
     try:
         credit_amount = Decimal(str(amount or 0))
     except (InvalidOperation, TypeError, ValueError):
-        credit_amount = Decimal("0")
+        credit_amount = Decimal(0)
     if credit_amount == credit_amount.to_integral_value():
         return str(int(credit_amount))
     return format(credit_amount.normalize(), "f").rstrip("0").rstrip(".")
@@ -551,7 +545,7 @@ def _append_subscription_user_count_line(msgs: list[str]) -> None:
         .distinct()
         .count()
     )
-    msgs.append("订阅用户数：{}".format(subscription_user_count))
+    msgs.append(f"订阅用户数：{subscription_user_count}")
 
 
 def _build_billing_paid_feishu_message(
@@ -575,22 +569,22 @@ def _build_billing_paid_feishu_message(
     msgs = [
         "手机号：{}".format(getattr(aggregate, "mobile", "")),
         "昵称：{}".format(getattr(aggregate, "name", "")),
-        "{}：{}".format(product_label, product_name),
-        "实付金额：{}".format(amount_text),
-        "订单来源：{}".format(_resolve_feishu_channel_label(order)),
-        "渠道：{}".format(_resolve_user_conversion_source(order.creator_bid)),
-        "{}-{}-{}".format(order_type_label, product_name, amount_text),
+        f"{product_label}：{product_name}",
+        f"实付金额：{amount_text}",
+        f"订单来源：{_resolve_feishu_channel_label(order)}",
+        f"渠道：{_resolve_user_conversion_source(order.creator_bid)}",
+        f"{order_type_label}-{product_name}-{amount_text}",
     ]
     if product is not None:
-        msgs.append("积分数量：{}".format(_format_credit_amount(product.credit_amount)))
+        msgs.append(f"积分数量：{_format_credit_amount(product.credit_amount)}")
     paid_at_text = format_with_app_timezone(
         app,
         order.paid_at,
         "%Y-%m-%d %H:%M:%S",
     )
     if paid_at_text:
-        msgs.append("支付时间：{}".format(paid_at_text))
-    msgs.append("订单号：{}".format(order.bill_order_bid))
+        msgs.append(f"支付时间：{paid_at_text}")
+    msgs.append(f"订单号：{order.bill_order_bid}")
     _append_subscription_user_count_line(msgs)
     return title, msgs
 
@@ -649,7 +643,6 @@ def deliver_billing_paid_feishu(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Send one billing paid Feishu notification if the order is pending."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_feishu_result("invalid_bill_order_bid")
@@ -741,9 +734,8 @@ def deliver_billing_paid_feishu(
     except Exception as exc:
         provider_error_message = str(exc)
         app.logger.exception(
-            "Billing paid Feishu provider failed for bill_order_bid=%s: %s",
+            "Billing paid Feishu provider failed for bill_order_bid=%s",
             normalized_bill_order_bid,
-            exc,
         )
 
     with app.app_context():
@@ -798,7 +790,6 @@ def deliver_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, Any]:
     """Send one subscription purchase SMS if the billing order is pending."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result("invalid_bill_order_bid")
@@ -887,9 +878,8 @@ def deliver_subscription_purchase_sms(
     except Exception as exc:  # pragma: no cover - guarded by send_sms_ali
         provider_error_message = str(exc)
         app.logger.exception(
-            "Subscription purchase SMS provider failed for bill_order_bid=%s: %s",
+            "Subscription purchase SMS provider failed for bill_order_bid=%s",
             normalized_bill_order_bid,
-            exc,
         )
 
     with app.app_context():

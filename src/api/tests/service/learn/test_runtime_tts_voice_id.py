@@ -2,12 +2,11 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
     TTS_MINIMAX_CLONE_STATUS_FAILED,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
 
 

@@ -6,7 +6,6 @@ from flask import has_request_context, request
 
 from flaskr.service.config import get_config
 
-
 GOOGLE_OAUTH_CALLBACK_PATH = "/login/google-callback"
 STRIPE_LEARNER_RESULT_PATH = "/payment/stripe/result"
 STRIPE_BILLING_RESULT_PATH = "/payment/stripe/billing-result"

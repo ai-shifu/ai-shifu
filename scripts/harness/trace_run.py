@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import re
 import subprocess
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "runs"
@@ -82,11 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def default_run_id() -> str:
-    return "run-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return "run-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def safe_relative(path: Path) -> str:

@@ -16,8 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_NOT_STARTED
@@ -97,7 +96,8 @@ def _rows_by_bid() -> dict[str, list[LearnProgressRecord]]:
 
 def test_placeholders_carry_each_ancestors_own_bid(attend_app):
     """One call creates exactly one row per outline node on the parent path,
-    each stamped with that node's own bid — not N copies of the leaf's bid."""
+    each stamped with that node's own bid — not N copies of the leaf's bid.
+    """
     _seed_leaf_outline_row()
     ctx = _make_context(attend_app)
 
@@ -117,7 +117,8 @@ def test_placeholders_carry_each_ancestors_own_bid(attend_app):
 
 def test_existing_ancestor_record_is_reused_not_duplicated(attend_app):
     """An ancestor that already has a non-reset record keeps it; only the
-    missing nodes get placeholders."""
+    missing nodes get placeholders.
+    """
     _seed_leaf_outline_row()
     existing = LearnProgressRecord(
         progress_record_bid="progress-existing-0000000000001",
@@ -164,7 +165,8 @@ def test_direct_ancestor_call_stamps_own_bids(attend_app):
     """The hot-path call shape: ``render_outline_updates`` calls
     ``_get_current_attend`` with ANCESTOR bids directly on chapter/unit
     transitions. Each created row must carry its own node's bid, and the
-    returned record must be the requested node's — not the leaf's."""
+    returned record must be the requested node's — not the leaf's.
+    """
     _seed_leaf_outline_row()
     dao.db.session.add(
         PublishedOutlineItem(

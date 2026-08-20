@@ -5,7 +5,13 @@ import { ChevronDown, ImagePlus } from 'lucide-react';
 import { useSWRConfig } from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { useEnvStore } from '@/c-store';
 import { toast } from '@/hooks/useToast';
+import {
+  isValidContactIdentifier,
+  normalizeContactIdentifier,
+} from '@/lib/contact-identifier';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import type {
   AdminBillingCustomizationDraft,
   AdminBillingEntitlementGrantPayload,
@@ -283,7 +289,16 @@ export function AdminBillingEntitlementDialog({
   const isCreateFlow = !initialItem;
   const [resolvedItem, setResolvedItem] =
     React.useState<AdminBillingEntitlementItem | null>(initialItem || null);
-  const [creatorMobile, setCreatorMobile] = React.useState('');
+  const [creatorContact, setCreatorContact] = React.useState('');
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
+  // The owner of a course is addressed by phone in China and by email on
+  // the overseas site; LOGIN_METHODS_ENABLED is what tells the two apart.
+  const contactMode = React.useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const isEmailContact = contactMode === 'email';
   const [values, setValues] =
     React.useState<Record<EntitlementField, boolean>>(EMPTY_VALUES);
   const [collapsedFields, setCollapsedFields] = React.useState<
@@ -327,7 +342,7 @@ export function AdminBillingEntitlementDialog({
   React.useEffect(() => {
     if (!open) return;
     setResolvedItem(initialItem || null);
-    setCreatorMobile(resolveAdminBillingCreatorPrimary(initialItem || {}));
+    setCreatorContact(resolveAdminBillingCreatorPrimary(initialItem || {}));
     setValues(
       initialItem
         ? {
@@ -372,17 +387,21 @@ export function AdminBillingEntitlementDialog({
       return;
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
-    const normalizedCreatorMobile = creatorMobile.trim();
-    const canPersistByMobile =
-      !creatorBid && /^\d{11}$/.test(normalizedCreatorMobile);
-    if (!creatorBid && !canPersistByMobile) {
+    const normalizedCreatorContact = normalizeContactIdentifier(
+      contactMode,
+      creatorContact,
+    );
+    const canPersistByContact =
+      !creatorBid &&
+      isValidContactIdentifier(contactMode, normalizedCreatorContact);
+    if (!creatorBid && !canPersistByContact) {
       return;
     }
 
     const timer = window.setTimeout(() => {
       void api.saveAdminBillingCustomizationDraft({
         creator_bid: creatorBid || undefined,
-        creator_mobile: normalizedCreatorMobile || undefined,
+        creator_mobile: normalizedCreatorContact || undefined,
         branding_enabled: values.branding_enabled,
         custom_domain_enabled: values.custom_domain_enabled,
         custom_wechat_enabled: values.custom_wechat_enabled,
@@ -405,7 +424,8 @@ export function AdminBillingEntitlementDialog({
     return () => window.clearTimeout(timer);
   }, [
     configStatus,
-    creatorMobile,
+    contactMode,
+    creatorContact,
     draftDomain,
     draftDomainStatus,
     draftFavicon,
@@ -429,11 +449,14 @@ export function AdminBillingEntitlementDialog({
       return;
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
-    const normalizedCreatorMobile = creatorMobile.trim();
+    const normalizedCreatorContact = normalizeContactIdentifier(
+      contactMode,
+      creatorContact,
+    );
     const targetKey = creatorBid
       ? `creator:${creatorBid}`
-      : /^\d{11}$/.test(normalizedCreatorMobile)
-        ? `mobile:${normalizedCreatorMobile}`
+      : isValidContactIdentifier(contactMode, normalizedCreatorContact)
+        ? `contact:${normalizedCreatorContact}`
         : '';
     if (!targetKey || lastDraftTargetRef.current === targetKey) {
       return;
@@ -448,7 +471,7 @@ export function AdminBillingEntitlementDialog({
         const draft = (await api.getAdminBillingCustomizationDraft(
           creatorBid
             ? { creator_bid: creatorBid }
-            : { creator_mobile: normalizedCreatorMobile },
+            : { creator_mobile: normalizedCreatorContact },
           { skipErrorToast: true },
         )) as AdminBillingCustomizationDraft;
         if (
@@ -566,7 +589,13 @@ export function AdminBillingEntitlementDialog({
         }, 0);
       }
     })();
-  }, [creatorMobile, open, resolvedItem?.creator_bid, submitting]);
+  }, [
+    contactMode,
+    creatorContact,
+    open,
+    resolvedItem?.creator_bid,
+    submitting,
+  ]);
 
   const handleDraftLogoSelection = React.useCallback(
     async (target: 'wide' | 'square' | 'favicon', file: File | null) => {
@@ -600,11 +629,33 @@ export function AdminBillingEntitlementDialog({
   );
 
   const handleSubmit = async () => {
-    const normalizedCreatorMobile = creatorMobile.trim();
-    if (!resolvedItem && !normalizedCreatorMobile) {
+    const normalizedCreatorContact = normalizeContactIdentifier(
+      contactMode,
+      creatorContact,
+    );
+    if (!resolvedItem && !normalizedCreatorContact) {
       toast({
         title: t(
-          'module.billing.admin.entitlements.grant.errors.creatorMobileRequired',
+          isEmailContact
+            ? 'module.billing.admin.entitlements.grant.errors.creatorEmailRequired'
+            : 'module.billing.admin.entitlements.grant.errors.creatorMobileRequired',
+        ),
+        variant: 'destructive',
+      });
+      return;
+    }
+    // The dialog never submits a native form, so type='email' does not gate
+    // this. Reject a malformed value here instead of relaying a generic
+    // backend param error.
+    if (
+      !resolvedItem &&
+      !isValidContactIdentifier(contactMode, normalizedCreatorContact)
+    ) {
+      toast({
+        title: t(
+          isEmailContact
+            ? 'module.billing.admin.entitlements.grant.errors.creatorEmailInvalid'
+            : 'module.billing.admin.entitlements.grant.errors.creatorMobileInvalid',
         ),
         variant: 'destructive',
       });
@@ -618,7 +669,7 @@ export function AdminBillingEntitlementDialog({
       const payload: AdminBillingEntitlementGrantPayload = {
         ...(resolvedItem?.creator_bid
           ? { creator_bid: resolvedItem.creator_bid }
-          : { creator_mobile: normalizedCreatorMobile }),
+          : { creator_mobile: normalizedCreatorContact }),
         ...effectiveValues,
       };
       const response = await api.grantAdminBillingEntitlement(payload);
@@ -747,8 +798,12 @@ export function AdminBillingEntitlementDialog({
       if (nextCreatorBid) {
         setResolvedItem(current => ({
           creator_bid: nextCreatorBid,
-          creator_mobile:
-            normalizedCreatorMobile || current?.creator_mobile || '',
+          creator_mobile: isEmailContact
+            ? current?.creator_mobile || ''
+            : normalizedCreatorContact || current?.creator_mobile || '',
+          creator_email: isEmailContact
+            ? normalizedCreatorContact || current?.creator_email || ''
+            : current?.creator_email || '',
           creator_nickname: current?.creator_nickname || '',
           creator_identify: current?.creator_identify || '',
           source_kind: current?.source_kind || 'default',
@@ -778,14 +833,14 @@ export function AdminBillingEntitlementDialog({
       await api.deleteAdminBillingCustomizationDraft(
         nextCreatorBid
           ? { creator_bid: nextCreatorBid }
-          : { creator_mobile: normalizedCreatorMobile },
+          : { creator_mobile: normalizedCreatorContact },
       );
       await mutate(isAdminBillingEntitlementsCacheKey);
       await mutate(isAdminBillingCustomizationCacheKey);
       if (!resolvedItem && nextCreatorBid) {
         toast({
           title: t('module.billing.admin.entitlements.grant.createdContinue', {
-            creator: normalizedCreatorMobile,
+            creator: normalizedCreatorContact,
           }),
         });
         return;
@@ -795,7 +850,7 @@ export function AdminBillingEntitlementDialog({
       toast({
         title: t('module.billing.admin.entitlements.grant.success', {
           creator:
-            normalizedCreatorMobile ||
+            normalizedCreatorContact ||
             resolveAdminBillingCreatorPrimary(resolvedItem || {}),
         }),
       });
@@ -940,22 +995,36 @@ export function AdminBillingEntitlementDialog({
             <div className='grid gap-2'>
               <div className='grid gap-2'>
                 <label
-                  htmlFor='admin-billing-entitlement-creator-mobile'
+                  htmlFor='admin-billing-entitlement-creator-contact'
                   className='text-sm font-medium text-slate-900'
                 >
                   {t(
-                    'module.billing.admin.entitlements.grant.fields.creatorMobile',
+                    isEmailContact
+                      ? 'module.billing.admin.entitlements.grant.fields.creatorEmail'
+                      : 'module.billing.admin.entitlements.grant.fields.creatorMobile',
                   )}
                 </label>
                 <Input
-                  id='admin-billing-entitlement-creator-mobile'
-                  value={creatorMobile}
+                  id='admin-billing-entitlement-creator-contact'
+                  value={creatorContact}
+                  type={isEmailContact ? 'email' : 'tel'}
                   disabled={Boolean(resolvedItem) || submitting}
                   placeholder={t(
-                    'module.billing.admin.entitlements.grant.creatorMobilePlaceholder',
+                    isEmailContact
+                      ? 'module.billing.admin.entitlements.grant.creatorEmailPlaceholder'
+                      : 'module.billing.admin.entitlements.grant.creatorMobilePlaceholder',
                   )}
-                  onChange={event => setCreatorMobile(event.target.value)}
+                  onChange={event => setCreatorContact(event.target.value)}
                 />
+                {resolvedItem ? null : (
+                  <p className='text-xs text-slate-500'>
+                    {t(
+                      isEmailContact
+                        ? 'module.billing.admin.entitlements.grant.emailHint'
+                        : 'module.billing.admin.entitlements.grant.mobileHint',
+                    )}
+                  </p>
+                )}
               </div>
             </div>
 

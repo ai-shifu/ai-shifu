@@ -217,16 +217,20 @@ def _run_guardrail(
     check_text_func = globals().get("check_text_with_llm_response")
     llm_settings_cls = globals().get("LLMSettings")
     if check_text_func is None or llm_settings_cls is None:
+        # Lowercase aliases keep the lazily imported names consistent with the
+        # module-level lookups above.
         from flaskr.service.learn.check_text import (
             check_text_with_llm_response as check_text_func,
         )
-        from flaskr.service.learn.llmsetting import LLMSettings as llm_settings_cls
+        from flaskr.service.learn.llmsetting import (  # noqa: N813
+            LLMSettings as llm_settings_cls,
+        )
 
     res = check_text_func(
         app,
         user_info=user_info,
         log_script=ask_block,
-        input=input_text,
+        user_input=input_text,
         span=span,
         outline_item_bid=outline_item_info.bid,
         shifu_bid=outline_item_info.shifu_bid,
@@ -284,7 +288,7 @@ def handle_input_ask(
     context,
     user_info: UserAggregate,
     attend_id: str,
-    input: str,
+    user_input: str,
     outline_item_info: ShifuOutlineItemDto,
     trace_args: dict,
     trace: LangfuseTraceHandle,
@@ -293,11 +297,9 @@ def handle_input_ask(
     anchor_element_bid: str = "",
     parent_observation: Any | None = None,
 ) -> Generator[str, None, None]:
+    """Handle user Q&A input
+    Responsible for processing user questions in the shifu and returning AI tutor responses.
     """
-    Main function to handle user Q&A input
-    Responsible for processing user questions in the shifu and returning AI tutor responses
-    """
-
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(
         app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
@@ -324,11 +326,11 @@ def handle_input_ask(
 
     llm_messages = []  # Conversation messages for built-in LLM ask.
     provider_messages = []  # Conversation messages for external ask providers.
-    raw_input = input
+    raw_input = user_input
     normalized_trace_input = normalize_langfuse_input_value(raw_input)
     if normalized_trace_input and not trace_args.get("input"):
         trace_args["input"] = normalized_trace_input
-    input = raw_input.replace("{", "{{").replace(
+    escaped_input = raw_input.replace("{", "{{").replace(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
     use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
@@ -353,7 +355,7 @@ def handle_input_ask(
         )
     )
     llm_system_prompt = follow_up_info.ask_prompt.replace(
-        "{shifu_system_message}", base_system_prompt if base_system_prompt else ""
+        "{shifu_system_message}", base_system_prompt or ""
     )
     # Append language instruction if use_learner_language is enabled
     if use_learner_language:
@@ -394,7 +396,7 @@ def handle_input_ask(
             .limit(ask_max_history_len)
             .all()
         )
-        history_scripts = history_scripts[::-1]
+        history_scripts.reverse()
         for script in history_scripts:
             if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
                 history_message = {
@@ -430,7 +432,7 @@ def handle_input_ask(
         "User question:\n"
     )
     # Append language instruction to user input if use_learner_language is enabled
-    user_content = format_constraint + input
+    user_content = format_constraint + escaped_input
     if use_learner_language:
         output_language = get_markdownflow_output_language()
         user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
@@ -450,7 +452,12 @@ def handle_input_ask(
 
     # Create ask block
     ask_block = _create_ask_block(
-        app, outline_item_info, attend_id, user_info.user_id, input, last_position
+        app,
+        outline_item_info,
+        attend_id,
+        user_info.user_id,
+        escaped_input,
+        last_position,
     )
 
     # Create answer block early (empty placeholder) so all teacher-side
@@ -465,7 +472,7 @@ def handle_input_ask(
         outline_bid=outline_item_info.bid,
         generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.ASK,
-        content=input,
+        content=escaped_input,
         anchor_element_bid=anchor_element_bid,
     )
 
@@ -473,7 +480,7 @@ def handle_input_ask(
     span_parent = parent_observation or trace
     span = span_parent.span(
         name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
-        input=input,
+        input=escaped_input,
     )
 
     # Run guardrail check
@@ -481,7 +488,7 @@ def handle_input_ask(
         app,
         user_info,
         ask_block,
-        input,
+        escaped_input,
         span,
         outline_item_info,
         last_position,
@@ -512,7 +519,7 @@ def handle_input_ask(
             outline_bid=outline_item_info.bid,
             generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
-            content=input,
+            content=escaped_input,
         )
         answer_block.generated_content = guardrail_text
         _finalize_ask_trace(
@@ -558,13 +565,15 @@ def handle_input_ask(
         or ask_provider_error_cls is None
         or ask_provider_timeout_error_cls is None
     ):
-        from flaskr.service.learn.ask_provider_adapters import (
+        # Lowercase aliases keep the lazily imported names consistent with the
+        # module-level lookups above.
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
             AskProviderError as ask_provider_error_cls,
         )
-        from flaskr.service.learn.ask_provider_adapters import (
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
             AskProviderRuntime as ask_provider_runtime_cls,
         )
-        from flaskr.service.learn.ask_provider_adapters import (
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
             AskProviderTimeoutError as ask_provider_timeout_error_cls,
         )
         from flaskr.service.learn.ask_provider_adapters import (

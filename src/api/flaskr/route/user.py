@@ -1,31 +1,18 @@
-from flask import Flask, request, make_response, current_app
+import contextlib
 from functools import wraps
 
-from flaskr.service.common.models import raise_param_error, raise_error
-from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
-from flaskr.service.user.password_utils import (
-    hash_password,
-    verify_password,
-    validate_password_strength,
-)
-from flaskr.service.user.models import AuthCredential
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.util.uuid import generate_id
+from flask import Flask, current_app, make_response, request
+
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.service.user.repository import (
-    find_credential,
-    get_password_hash,
-    set_password_hash,
-    load_user_aggregate_by_identifier,
-    list_credentials,
-    build_user_info_from_aggregate,
-    load_user_aggregate,
-)
+from flaskr.dao import db
+from flaskr.i18n import _translations, set_language
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
-from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.learner_profile import (
     clear_learner_profile,
     get_learner_profile,
@@ -39,7 +26,41 @@ from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
     get_profile_onboarding_status,
 )
-from ..service.user.common import validate_user, update_user_info
+from flaskr.service.user.captcha import (
+    create_captcha_challenge,
+    verify_captcha_code,
+)
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.password_utils import (
+    hash_password,
+    validate_password_strength,
+    verify_password,
+)
+from flaskr.service.user.repository import (
+    build_user_info_from_aggregate,
+    find_credential,
+    get_password_hash,
+    list_credentials,
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    set_password_hash,
+)
+from flaskr.service.user.verification_codes import consume_verification_code
+from flaskr.util.uuid import generate_id
+
+from ..service.common.dtos import OAuthStartDTO, UserToken
+from ..service.feedback.funs import submit_feedback
+from ..service.referral.service import extract_referral_post_auth_fields
+from ..service.user.auth import get_provider
+from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from ..service.user.common import update_user_info, validate_user
+from ..service.user.onboarding import (
+    ONBOARDING_VERSION,
+    build_onboarding_status,
+    complete_onboarding_scene,
+)
+from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
 from ..service.user.user import (
     generate_temp_user,
     update_user_open_id,
@@ -50,25 +71,7 @@ from ..service.user.utils import (
     send_email_code,
     send_sms_code,
 )
-from flaskr.service.user.captcha import (
-    create_captcha_challenge,
-    verify_captcha_code,
-)
-from flaskr.service.user.verification_codes import consume_verification_code
-from ..service.feedback.funs import submit_feedback
-from ..service.user.auth import get_provider
-from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
-from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
-from ..service.user.onboarding import (
-    ONBOARDING_VERSION,
-    build_onboarding_status,
-    complete_onboarding_scene,
-)
-from ..service.referral.service import extract_referral_post_auth_fields
-from ..service.common.dtos import OAuthStartDTO, UserToken
-from .common import make_common_response, bypass_token_validation, by_pass_login_func
-from flaskr.dao import db
-from flaskr.i18n import _translations, set_language
+from .common import by_pass_login_func, bypass_token_validation, make_common_response
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
@@ -199,7 +202,6 @@ def optional_token_validation(f):
 
 def _best_effort_password_login_user(app: Flask):
     """Resolve the explicitly authenticated guest without blocking login."""
-
     token = request.headers.get("Token", None)
     if not token:
         return None
@@ -242,8 +244,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/info", methods=["GET"])
     def info():
-        """
-        get user information
+        """Get user information.
         ---
         tags:
             - user
@@ -267,8 +268,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/ensure_admin_creator", methods=["POST"])
     def ensure_admin_creator():
-        """
-        Ensure admin creator permissions for the current user.
+        """Ensure admin creator permissions for the current user.
         ---
         tags:
             - user
@@ -325,8 +325,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
     def update_info():
-        """
-        update user information
+        """Update user information.
         ---
         tags:
             - user
@@ -379,8 +378,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
     def profile_onboarding_status_api():
-        """
-        Get platform-level profile onboarding state for current user.
+        """Get platform-level profile onboarding state for current user.
         ---
         tags:
             - user
@@ -394,8 +392,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
     def complete_profile_onboarding_api():
-        """
-        Complete or skip platform-level profile onboarding.
+        """Complete or skip platform-level profile onboarding.
         ---
         tags:
             - user
@@ -477,8 +474,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @with_shifu_context()
     def require_tmp():
-        """
-        Temp login user
+        """Temp login user.
         ---
         tags:
             - user
@@ -537,14 +533,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not tmp_id:
             raise_param_error("temp_id")
         user_token = generate_temp_user(app, tmp_id, source, wx_code, language)
-        resp = make_response(make_common_response(user_token))
-        return resp
+        return make_response(make_common_response(user_token))
 
     @app.route(path_prefix + "/captcha", methods=["GET"])
     @bypass_token_validation
     def captcha_api():
-        """
-        Create image captcha
+        """Create image captcha.
         ---
         tags:
            - user
@@ -555,8 +549,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/captcha/verify", methods=["POST"])
     @bypass_token_validation
     def captcha_verify_api():
-        """
-        Verify image captcha and return one-time ticket
+        """Verify image captcha and return one-time ticket.
         ---
         tags:
            - user
@@ -576,8 +569,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @optional_token_validation
     def send_sms_code_api():
-        """
-        Send SMS Captcha
+        """Send SMS Captcha.
         ---
         tags:
            - user
@@ -641,8 +633,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @optional_token_validation
     def console_send_sms_code_api():
-        """
-        Send SMS verification code for console clients without image captcha
+        """Send SMS verification code for console clients without image captcha.
         ---
         tags:
            - user
@@ -665,8 +656,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @optional_token_validation
     def send_email_code_api():
-        """
-        Send email verification code
+        """Send email verification code.
         ---
         tags:
            - user
@@ -678,10 +668,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         # Best-effort language override for the email subject.
         if language:
-            try:
+            with contextlib.suppress(Exception):
                 set_language(language)
-            except Exception:
-                pass
 
         if "X-Forwarded-For" in request.headers:
             client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
@@ -744,15 +732,13 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     **referral_fields,
                 ),
             )
-            resp = make_response(make_common_response(auth_result.token))
-            return resp
+            return make_response(make_common_response(auth_result.token))
 
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
     def login_sms_api():
-        """
-        Login through SMS verification code for web clients
+        """Login through SMS verification code for web clients.
         ---
         tags:
            - user
@@ -761,8 +747,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():
-        """
-        get user profile
+        """Get user profile.
         ---
         tags:
             - user
@@ -799,8 +784,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
     def update_profile():
-        """
-        update user profile
+        """Update user profile.
         ---
         tags:
             - user
@@ -861,8 +845,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
     def upload_avatar():
-        """
-        Upload avatar
+        """Upload avatar.
         ---
         tags:
             - user
@@ -899,8 +882,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     @with_shifu_context()
     def update_wechat_openid():
-        """
-        Update Wechat OpenID
+        """Update Wechat OpenID.
         ---
         summary: update wechat openid
         tags:
@@ -944,8 +926,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @optional_token_validation
     def sumbit_feedback_api():
-        """
-        submit feedback
+        """Submit feedback.
         ---
         tags:
             - user
@@ -1054,8 +1035,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
     def login_password():
-        """
-        Login with password
+        """Login with password.
         ---
         tags:
             - user
@@ -1064,17 +1044,15 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         password = request.get_json().get("password", None)
         language = request.get_json().get("language", None)
         if language:
-            try:
+            with contextlib.suppress(Exception):
                 set_language(language)
-            except Exception:
-                pass
         if not identifier:
             raise_param_error("identifier")
         if not password:
             raise_param_error("password")
         provider = get_provider("password")
         vr = VerificationRequest(identifier=identifier, code=password)
-        # TODO: Add rate-limiting and failed login attempt tracking
+        # TODO(geyunfei): Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
         current_user = _best_effort_password_login_user(app)
@@ -1113,13 +1091,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/set_password", methods=["POST"])
     def set_password():
-        """
-        Set password for logged-in user (first time only)
+        """Set password for logged-in user (first time only).
         ---
         tags:
             - user
         """
-
         identifier = request.get_json().get("identifier", None)
         code = request.get_json().get("code", None)
         new_password = request.get_json().get("new_password", None)
@@ -1197,8 +1173,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/change_password", methods=["POST"])
     def change_password():
-        """
-        Change password for logged-in user (requires old password)
+        """Change password for logged-in user (requires old password).
         ---
         tags:
             - user
@@ -1232,13 +1207,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/reset_password", methods=["POST"])
     @bypass_token_validation
     def reset_password():
-        """
-        Reset password via verification code
+        """Reset password via verification code.
         ---
         tags:
             - user
         """
-
         identifier = request.get_json().get("identifier", None)
         code = request.get_json().get("code", None)
         new_password = request.get_json().get("new_password", None)

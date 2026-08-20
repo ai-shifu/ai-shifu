@@ -8,6 +8,12 @@ on:
       - "scripts/**"
       - "src/api/**"
       - "src/cook-web/**"
+      - "!src/api/tests/**"
+      - "!src/cook-web/**/__tests__/**"
+      - "!src/cook-web/**/*.test.*"
+      - "src/cook-web/e2e/**"
+      - "!**/*.md"
+      - "!**/*.mdx"
   push:
     branches:
       - main
@@ -17,10 +23,20 @@ on:
       - "scripts/**"
       - "src/api/**"
       - "src/cook-web/**"
+      - "!src/api/tests/**"
+      - "!src/cook-web/**/__tests__/**"
+      - "!src/cook-web/**/*.test.*"
+      - "src/cook-web/e2e/**"
+      - "!**/*.md"
+      - "!**/*.mdx"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   runtime-harness:
@@ -41,6 +57,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -72,9 +91,22 @@ jobs:
           CELERY_RESULT_BACKEND=redis://ai-shifu-redis:6379/1
           EOF
 
+      - name: Build runtime images with cache
+        uses: docker/bake-action@v7
+        with:
+          source: docker
+          files: docker-compose.dev.yml
+          targets: ai-shifu-api-dev,ai-shifu-cook-web-dev
+          load: true
+          set: |
+            ai-shifu-api-dev.cache-from=type=gha,scope=runtime-api
+            ai-shifu-api-dev.cache-to=type=gha,scope=runtime-api,mode=min
+            ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web
+            ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min
+
       - name: Start dev stack
         working-directory: docker
-        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d --build
+        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d
 
       - name: Wait for API and observability health
         run: |
@@ -92,6 +124,18 @@ jobs:
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml ps
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
           exit 1
+
+      - name: Resolve Playwright version
+        id: playwright-version
+        working-directory: src/cook-web
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
       - name: Install frontend dependencies
         working-directory: src/cook-web

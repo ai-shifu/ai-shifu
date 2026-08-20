@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Sequence
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from typing import Any
 
 from flask import current_app
-
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import serialize_with_app_timezone
 
 
-def coerce_operator_datetime(value: Any) -> Optional[datetime]:
+def coerce_operator_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value.astimezone(UTC).replace(tzinfo=None)
         return value
     if isinstance(value, str):
         normalized = value.strip()
@@ -31,7 +32,7 @@ def coerce_operator_datetime(value: Any) -> Optional[datetime]:
             )
             return None
         if parsed.tzinfo is not None:
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
     current_app.logger.warning(
         "Unexpected operator datetime value type '%s'",
@@ -52,7 +53,7 @@ def format_operator_datetime(value: Any) -> str:
     return str(serialized_value or "").replace("+00:00", "Z")
 
 
-def load_operator_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
+def load_operator_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
     if not user_bids:
         return {}
 
@@ -71,8 +72,8 @@ def load_operator_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         user_bid = credential.user_bid or ""
         if not user_bid:
@@ -93,7 +94,7 @@ def load_operator_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]
         .order_by(UserEntity.id.asc())
         .all()
     )
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")

@@ -2,25 +2,24 @@ from __future__ import annotations
 
 import json
 import sys
-from types import SimpleNamespace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
     BILLING_METRIC_TTS_REQUEST_COUNT,
-    CREDIT_ROUNDING_MODE_CEIL,
-    CREDIT_USAGE_RATE_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_SOURCE_TYPE_USAGE,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditLedgerEntry, CreditUsageRate
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -34,8 +33,6 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
-from flaskr.service.order.models import Order
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -43,11 +40,18 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
 )
 from flaskr.service.promo.models import CouponUsage, PromoRedemption
+from flaskr.service.shifu.admin import (
+    _coerce_operator_datetime,
+    get_operator_course_chapter_detail,
+    get_operator_course_detail,
+)
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -65,15 +69,12 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.shifu.admin import (
-    _coerce_operator_datetime,
-    get_operator_course_chapter_detail,
-    get_operator_course_detail,
-)
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 
@@ -348,7 +349,7 @@ def _seed_credit_usage(
             source_bid=usage_bid,
             idempotency_key=f"usage:{usage_bid}:consume",
             amount=-consumed_credits,
-            balance_after=Decimal("100"),
+            balance_after=Decimal(100),
             expires_at=None,
             consumable_from=created_at,
             metadata_json={},
@@ -646,7 +647,7 @@ def _seed_course(
             avatar_res_bid="",
             keywords="",
             llm=llm,
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt=llm_system_prompt,
             price=Decimal("199.00"),
             tts_enabled=tts_enabled,
@@ -667,7 +668,7 @@ def _seed_course(
             avatar_res_bid="",
             keywords="",
             llm=llm,
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt=llm_system_prompt,
             price=Decimal("99.00"),
             tts_enabled=tts_enabled,
@@ -766,7 +767,7 @@ def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app):
             2026, 5, 22, 2, 0, 0
         )
         assert _coerce_operator_datetime(
-            datetime(2026, 5, 22, 10, 0, 0, tzinfo=timezone.utc)
+            datetime(2026, 5, 22, 10, 0, 0, tzinfo=UTC)
         ) == datetime(2026, 5, 22, 10, 0, 0)
 
 
@@ -1492,7 +1493,7 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
                 avatar_res_bid="",
                 keywords="",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="course system prompt",
                 price=Decimal("199.00"),
                 deleted=0,
@@ -1558,7 +1559,7 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
                 avatar_res_bid="",
                 keywords="",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="course system prompt",
                 price=Decimal("199.00"),
                 deleted=0,
@@ -1767,7 +1768,7 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
 
 
 def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(app):
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         get_operator_course_detail(app, shifu_bid="   ")
 
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
@@ -1776,7 +1777,7 @@ def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(ap
 def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
     app,
 ):
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         get_operator_course_chapter_detail(
             app,
             shifu_bid="   ",
@@ -2133,7 +2134,7 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("12"),
+            consumed_credits=Decimal(12),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2146,7 +2147,7 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("8"),
+            consumed_credits=Decimal(8),
             created_at=datetime(2026, 4, 4, 11, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2244,7 +2245,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2257,7 +2258,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-mini",
-            consumed_credits=Decimal("2"),
+            consumed_credits=Decimal(2),
             created_at=datetime(2026, 4, 3, 8, 0, 0),
             extra={},
         )
@@ -2271,7 +2272,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-mini",
-            consumed_credits=Decimal("3"),
+            consumed_credits=Decimal(3),
             created_at=datetime(2026, 4, 5, 11, 0, 0),
             extra={"generation_name": "lesson_ask/user_follow_ask/Lesson 2"},
         )
@@ -2285,7 +2286,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_TTS,
             provider="volcengine",
             model="cancan-2.0",
-            consumed_credits=Decimal("12"),
+            consumed_credits=Decimal(12),
             created_at=datetime(2026, 4, 6, 12, 0, 0),
         )
         _seed_credit_usage(
@@ -2297,7 +2298,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-nano",
-            consumed_credits=Decimal("1"),
+            consumed_credits=Decimal(1),
             created_at=datetime(2026, 4, 7, 12, 0, 0),
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
             extra={"generation_name": "lesson_preview/run_llm/Lesson 1"},
@@ -2545,7 +2546,7 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
             ("usage-tts-1", BILL_USAGE_TYPE_TTS, "volcengine", "seed-tts-2.0", "2"),
             ("usage-legacy-1", BILL_USAGE_TYPE_LLM, "legacy", "old-model-260101", "1"),
         ]
-        for index, (usage_bid, usage_type, provider, model, credits) in enumerate(
+        for index, (usage_bid, usage_type, provider, model, credit_amount) in enumerate(
             usage_specs
         ):
             _seed_credit_usage(
@@ -2557,7 +2558,7 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
                 usage_type=usage_type,
                 provider=provider,
                 model=model,
-                consumed_credits=Decimal(credits),
+                consumed_credits=Decimal(credit_amount),
                 created_at=datetime(2026, 4, 4, 10, index, 0),
                 extra={"generation_name": f"lesson_runtime/run_llm/{index}"},
             )
@@ -2665,7 +2666,7 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="",
             model="",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2813,7 +2814,7 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2899,7 +2900,7 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
                 usage_type=BILL_USAGE_TYPE_LLM,
                 provider="openai",
                 model="gpt-4.1",
-                consumed_credits=Decimal("1"),
+                consumed_credits=Decimal(1),
                 created_at=datetime(2026, 4, 4, 10, index, 0),
                 extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
             )
@@ -2911,7 +2912,7 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
             usage_type=BILL_USAGE_TYPE_TTS,
             provider="volcengine",
             model="cancan-2.0",
-            consumed_credits=Decimal("2"),
+            consumed_credits=Decimal(2),
             created_at=datetime(2026, 4, 4, 11, 0, 0),
         )
         db.session.commit()
@@ -2979,7 +2980,7 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("2"),
+            consumed_credits=Decimal(2),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2992,7 +2993,7 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-mini",
-            consumed_credits=Decimal("3"),
+            consumed_credits=Decimal(3),
             created_at=datetime(2026, 4, 4, 11, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -3066,7 +3067,7 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -3080,8 +3081,8 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
                 source_type=CREDIT_SOURCE_TYPE_USAGE,
                 source_bid="usage-split-1",
                 idempotency_key="usage:usage-split-1:consume:extra",
-                amount=Decimal("-3"),
-                balance_after=Decimal("97"),
+                amount=Decimal(-3),
+                balance_after=Decimal(97),
                 expires_at=None,
                 consumable_from=datetime(2026, 4, 4, 10, 0, 0),
                 metadata_json={},

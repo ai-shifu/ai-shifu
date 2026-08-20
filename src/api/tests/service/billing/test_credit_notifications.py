@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from decimal import Decimal
 import os
 import secrets
 import sys
 import time as time_module
+from datetime import datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
@@ -58,7 +57,7 @@ from flaskr.service.billing.tasks import (
     CreditNotificationRetryableError,
     send_credit_notification_task,
 )
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.config.models import Config
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
@@ -212,9 +211,9 @@ def _seed_wallet(
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal(available_credits),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
         )
     )
 
@@ -238,9 +237,9 @@ def _seed_bucket(
             priority=10,
             original_credits=Decimal(available_credits),
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 5, 1, 0, 0, 0),
             effective_to=effective_to,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -521,7 +520,7 @@ def test_credit_notification_policy_rejects_invalid_windows(
 ) -> None:
     app = credit_notifications_app
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         save_credit_notification_policy(
             app,
             {
@@ -925,7 +924,7 @@ def test_credit_notification_policy_revalidates_cached_template_with_provider(
         ),
     )
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         save_credit_notification_policy(
             app,
             {
@@ -957,7 +956,7 @@ def test_credit_notification_policy_rejects_unknown_template_variables(
         placeholders=["credits", "bad_variable"],
     )
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         save_credit_notification_policy(
             app,
             {
@@ -1048,7 +1047,7 @@ def test_credit_notification_policy_rejects_invalid_low_balance_thresholds(
 ) -> None:
     app = credit_notifications_app
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         save_credit_notification_policy(
             app,
             {
@@ -2433,5 +2432,5 @@ def test_softlimit_disables_debug_when_policy_threshold_is_reached(
 
     assert state["state"] == "softlimit"
     assert state["debug_allowed"] is False
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         assert_creator_debug_allowed(app, "creator-1")

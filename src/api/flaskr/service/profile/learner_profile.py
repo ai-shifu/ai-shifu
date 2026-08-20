@@ -50,7 +50,6 @@ _T = TypeVar("_T")
 
 def check_text_content(app: Flask, user_id: str, learner_profile: str) -> bool:
     """Moderate a learner profile and record the result."""
-
     check_id = generate_id(app)
     result = check_text(app, check_id, learner_profile, user_id)
     add_risk_control_result(
@@ -241,7 +240,6 @@ def merge_learner_profile_for_sign_in(
     target_user_id: str,
 ) -> bool:
     """Copy canonical profile state and report whether legacy nickname may migrate."""
-
     normalized_source_id = str(source_user_id or "").strip()
     normalized_target_id = str(target_user_id or "").strip()
     if (

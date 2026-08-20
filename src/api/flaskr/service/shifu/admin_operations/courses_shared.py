@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import datetime, timezone
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict, Iterable, Optional, Sequence, Set
+from typing import Any
+
 from flask import current_app
-from sqlalchemy import case, or_
 from flaskr.dao import db
 from flaskr.service.common.models import (
     raise_error,
@@ -34,10 +35,12 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
 )
-
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import case, or_
 
 COURSE_STATUS_PUBLISHED = "published"
 
@@ -172,12 +175,11 @@ OPERATOR_USER_PRELOADED_AUTH_CREDENTIAL_PROVIDERS = (
 # Single source of truth lives in admin_shared; re-exported here so the
 # courses_* operator modules keep their existing import surface.
 from flaskr.service.shifu.admin_shared import (  # noqa: E402, F401
+    COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE,
     COURSE_RATING_LIST_MAX_PAGE_SIZE,
-    COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     _normalize_identifier,
 )
-
 
 COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
 
@@ -310,24 +312,21 @@ def _get_legacy_admin_symbol(name: str, fallback: Any) -> Any:
     return getattr(admin_module, name, fallback)
 
 
-def _format_decimal(value: Optional[Decimal]) -> str:
+def _format_decimal(value: Decimal | None) -> str:
     if value is None:
         return "0"
-    if isinstance(value, str):
-        normalized = value
-    else:
-        normalized = "{0:.2f}".format(value)
+    normalized = value if isinstance(value, str) else f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
+def _coerce_operator_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value.astimezone(UTC).replace(tzinfo=None)
         return value
     if isinstance(value, str):
         normalized = value.strip()
@@ -344,7 +343,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
             )
             return None
         if parsed.tzinfo is not None:
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
     current_app.logger.warning(
         "Unexpected operator datetime value type '%s'",
@@ -353,13 +352,13 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _format_average_score(value: Optional[Decimal]) -> str:
+def _format_average_score(value: Decimal | None) -> str:
     if value is None:
         return ""
-    return "{0:.1f}".format(value)
+    return f"{value:.1f}"
 
 
-def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
+def _normalize_metadata_json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
@@ -367,7 +366,7 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
 
 def _load_course_user_contact_map(
     user_bids: Sequence[str],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -385,7 +384,7 @@ def _load_course_user_contact_map(
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    contact_map: Dict[str, Dict[str, str]] = {
+    contact_map: dict[str, dict[str, str]] = {
         user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
     }
     for credential in credential_rows:
@@ -428,7 +427,7 @@ def _load_course_user_contact_map(
     return contact_map
 
 
-def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
+def _load_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
     if not user_bids:
         return {}
 
@@ -441,8 +440,8 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         user_bid = credential.user_bid or ""
         if not user_bid:
@@ -463,7 +462,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(UserEntity.id.asc())
         .all()
     )
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")
@@ -516,7 +515,7 @@ def _build_course_order_amount_expr():
     )
 
 
-def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_creator_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -553,7 +552,7 @@ def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
 
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -592,8 +591,8 @@ def _merge_courses(
     published: Iterable[PublishedShifu],
 ):
     course_map = {}
-    published_bids: Set[str] = set()
-    selected_sources: Dict[str, str] = {}
+    published_bids: set[str] = set()
+    selected_sources: dict[str, str] = {}
     for course in drafts:
         visible = _is_operator_visible_course(course)
         if visible:
@@ -623,7 +622,7 @@ def _merge_courses(
 
 def _load_latest_course_versions(
     shifu_bid: str,
-) -> tuple[Optional[DraftShifu], Optional[PublishedShifu]]:
+) -> tuple[DraftShifu | None, PublishedShifu | None]:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,
@@ -712,8 +711,8 @@ def _load_operator_course_outline_items(
 def _resolve_visible_leaf_outline_bids(
     outline_items: Sequence[DraftOutlineItem | PublishedOutlineItem],
 ) -> list[str]:
-    visible_item_bids: Set[str] = set()
-    visible_parent_bids: Set[str] = set()
+    visible_item_bids: set[str] = set()
+    visible_parent_bids: set[str] = set()
     for item in outline_items:
         outline_item_bid = str(getattr(item, "outline_item_bid", "") or "").strip()
         parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
@@ -727,13 +726,13 @@ def _resolve_visible_leaf_outline_bids(
 
 def _build_course_outline_context_map(
     outline_items: Sequence[DraftOutlineItem | PublishedOutlineItem],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     outline_item_map = {
         str(getattr(item, "outline_item_bid", "") or "").strip(): item
         for item in outline_items
         if str(getattr(item, "outline_item_bid", "") or "").strip()
     }
-    context_map: Dict[str, Dict[str, str]] = {}
+    context_map: dict[str, dict[str, str]] = {}
 
     for outline_item_bid, item in outline_item_map.items():
         lesson_title = str(getattr(item, "title", "") or "").strip()

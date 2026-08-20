@@ -80,6 +80,8 @@ GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").Gener
 
 
 class _DummyColumn:
+    __hash__ = None
+
     def __eq__(self, _other):
         return True
 
@@ -324,7 +326,7 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -398,7 +400,7 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -468,7 +470,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -534,7 +536,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -620,7 +622,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -710,7 +712,7 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -763,7 +765,7 @@ def test_answer_content_uses_answer_block_bid(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="question",
+            user_input="question",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -790,7 +792,7 @@ def test_ask_event_emitted(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="my question",
+            user_input="my question",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -818,7 +820,7 @@ def test_ask_event_uses_ask_block_bid(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="my question",
+            user_input="my question",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -855,7 +857,7 @@ def test_guardrail_uses_answer_block_bid(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="bad input",
+            user_input="bad input",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -902,7 +904,7 @@ def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -949,7 +951,7 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(app, monkeypat
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="blocked",
+            user_input="blocked",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1",
                 bid="o1",

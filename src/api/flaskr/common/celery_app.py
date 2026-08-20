@@ -54,7 +54,6 @@ def dispose_inherited_db_pools(flask_app: Flask) -> None:
 
 def create_celery_app(flask_app: Flask | None = None) -> Celery:
     """Build a Celery app bound to the Flask app context."""
-
     resolved_flask_app = flask_app or _load_flask_app()
 
     @worker_process_init.connect(weak=False)
@@ -87,7 +86,6 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
 
 def get_celery_app(flask_app: Flask | None = None) -> Celery:
     """Return a cached Celery app or create one on demand."""
-
     global __CELERY_APP__
     if __CELERY_APP__ is None or flask_app is not None:
         __CELERY_APP__ = create_celery_app(flask_app=flask_app)

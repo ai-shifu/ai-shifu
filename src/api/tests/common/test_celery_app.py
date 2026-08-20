@@ -3,9 +3,8 @@ from __future__ import annotations
 import sys
 import types
 
-from flask import Flask, current_app
-
 import flaskr.common.celery_app as celery_app_module
+from flask import Flask, current_app
 
 
 def _assert_cron_schedule(
@@ -17,11 +16,11 @@ def _assert_cron_schedule(
     month_of_year: str = "*",
     day_of_week: str = "*",
 ) -> None:
-    assert getattr(schedule, "_orig_minute") == minute
-    assert getattr(schedule, "_orig_hour") == hour
-    assert getattr(schedule, "_orig_day_of_month") == day_of_month
-    assert getattr(schedule, "_orig_month_of_year") == month_of_year
-    assert getattr(schedule, "_orig_day_of_week") == day_of_week
+    assert schedule._orig_minute == minute
+    assert schedule._orig_hour == hour
+    assert schedule._orig_day_of_month == day_of_month
+    assert schedule._orig_month_of_year == month_of_year
+    assert schedule._orig_day_of_week == day_of_week
 
 
 def test_create_celery_app_reuses_flask_config() -> None:
@@ -46,7 +45,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert celery_app.conf["result_backend"] == "redis://backend.example:6379/4"
     assert celery_app.conf["task_always_eager"] is True
     assert celery_app.conf["timezone"] == "Asia/Shanghai"
-    assert getattr(celery_app, "flask_app") is flask_app
+    assert celery_app.flask_app is flask_app
     assert "billing.settle_usage" in celery_app.tasks
     assert "billing.replay_usage_settlement" in celery_app.tasks
     assert "billing.expire_wallet_buckets" in celery_app.tasks
@@ -330,7 +329,7 @@ def test_get_celery_app_loads_flask_app_from_app_factory(
 
     celery_app = celery_app_module.get_celery_app()
 
-    assert getattr(celery_app, "flask_app") is fake_flask_app
+    assert celery_app.flask_app is fake_flask_app
 
 
 def test_create_celery_app_uses_default_billing_beat_crons() -> None:

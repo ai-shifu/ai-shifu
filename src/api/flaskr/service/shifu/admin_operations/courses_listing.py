@@ -5,50 +5,36 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
-from flaskr.util.datetime import now_utc
-from flaskr.service.common.pagination import MAX_PAGE_SIZE
-from typing import Any, Dict, Iterable, Optional, Sequence, Set
 from flask import Flask, current_app
-from sqlalchemy import and_, case, literal, not_, or_
-from sqlalchemy.orm import defer
 from flaskr.dao import db
 from flaskr.service.billing.models import (
     BillingOrder,
 )
+from flaskr.service.common.models import (
+    raise_param_error,
+)
+from flaskr.service.common.pagination import MAX_PAGE_SIZE
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
-from flaskr.service.common.models import (
-    raise_param_error,
-)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu.admin_course_summary_mapper import (
+    build_admin_operation_course_summary,
+)
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseListDTO,
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.admin_course_summary_mapper import (
-    build_admin_operation_course_summary,
-)
-from flaskr.service.shifu.course_activity import load_course_activity_map
-from flaskr.service.shifu.demo_courses import (
-    load_builtin_demo_titles,
-    load_demo_shifu_bids,
-)
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    DraftShifu,
-    PublishedOutlineItem,
-    PublishedShifu,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_QUICK_FILTER_CREATED_LAST_7D,
     COURSE_QUICK_FILTER_DRAFT,
@@ -61,6 +47,20 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_user_map,
     _merge_courses,
 )
+from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.shifu.demo_courses import (
+    load_builtin_demo_titles,
+    load_demo_shifu_bids,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.util.datetime import now_utc
+from sqlalchemy import and_, case, literal, not_, or_
+from sqlalchemy.orm import defer
 
 
 @dataclass
@@ -73,9 +73,9 @@ class OperatorCourseListSeed:
     tts_model: str
     created_user_bid: str
     updated_user_bid: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    has_course_prompt: Optional[bool] = None
+    created_at: datetime | None
+    updated_at: datetime | None
+    has_course_prompt: bool | None = None
 
 
 @dataclass
@@ -88,13 +88,13 @@ class OperatorCourseListCandidate:
     tts_model: str
     created_user_bid: str
     updated_user_bid: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: datetime | None
+    updated_at: datetime | None
     selected_source: str
     course_status: str
-    activity_updated_at: Optional[datetime] = None
+    activity_updated_at: datetime | None = None
     activity_updated_user_bid: str = ""
-    has_course_prompt: Optional[bool] = None
+    has_course_prompt: bool | None = None
 
 
 def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
@@ -164,10 +164,10 @@ def _build_latest_operator_course_rows_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Optional[Set[str]] = None,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
 ):
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
@@ -259,10 +259,10 @@ def _build_latest_operator_course_rows_subquery(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Optional[Set[str]] = None,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
     alias_name: str,
 ):
     base_query = _build_latest_operator_course_rows_query(
@@ -285,10 +285,10 @@ def _build_operator_course_candidate_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Optional[Set[str]] = None,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
     include_activity: bool = False,
 ):
     draft_rows_subquery = _build_latest_operator_course_rows_subquery(
@@ -607,12 +607,12 @@ def _build_latest_shifus_query(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Optional[Set[str]] = None,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
     lightweight: bool = False,
 ):
     is_mapped_model = hasattr(model, "__mapper__")
@@ -705,9 +705,9 @@ def _apply_latest_nonempty_model_fields(model, rows) -> None:
         if not fallback:
             continue
         if not str(getattr(row, "llm", "") or "").strip():
-            setattr(row, "llm", fallback["llm"])
+            row.llm = fallback["llm"]
         if not str(getattr(row, "tts_model", "") or "").strip():
-            setattr(row, "tts_model", fallback["tts_model"])
+            row.tts_model = fallback["tts_model"]
 
 
 def _load_latest_shifus(
@@ -716,12 +716,12 @@ def _load_latest_shifus(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Optional[Set[str]] = None,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
     attach_prompt_flags: bool = False,
     lightweight: bool = False,
 ):
@@ -771,12 +771,12 @@ def _load_latest_shifu_seeds(
     shifu_bid: str,
     course_name: str,
     course_query: str = "",
-    matching_course_bids: Optional[Set[str]] = None,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
 ) -> list[OperatorCourseListSeed]:
     ordered_query = _build_latest_shifus_query(
         model,
@@ -837,18 +837,16 @@ def _attach_course_prompt_flags(model, rows) -> None:
         for row_id, has_course_prompt in has_course_prompt_rows
     }
     for row in rows:
-        setattr(
-            row,
-            "has_course_prompt",
-            bool(has_course_prompt_map.get(getattr(row, "id", None), False)),
+        row.has_course_prompt = bool(
+            has_course_prompt_map.get(getattr(row, "id", None), False)
         )
 
 
 def _build_course_summary(
     course,
-    user_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: Optional[Dict[str, Any]] = None,
+    activity: dict[str, Any] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     return build_admin_operation_course_summary(
         course,
@@ -858,7 +856,7 @@ def _build_course_summary(
     )
 
 
-def _resolve_course_status(shifu_bid: str, published_bids: Set[str]) -> str:
+def _resolve_course_status(shifu_bid: str, published_bids: set[str]) -> str:
     if shifu_bid in published_bids:
         return COURSE_STATUS_PUBLISHED
     return COURSE_STATUS_UNPUBLISHED
@@ -879,8 +877,8 @@ def _apply_operator_course_list_filters(
     *,
     course_status: str,
     quick_filter: str,
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
     apply_updated_filters: bool,
 ):
     if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
@@ -937,7 +935,7 @@ def _apply_operator_course_list_filters(
 
 
 def _resolve_created_last_7d_window(
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> tuple[datetime, datetime]:
     current = now or now_utc()
     start = (current - timedelta(days=6)).replace(
@@ -950,15 +948,15 @@ def _resolve_created_last_7d_window(
 def _load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     return load_course_activity_map(drafts, published)
 
 
 def _load_recent_learning_active_course_bids(
     *,
     since: datetime,
-    shifu_bids: Optional[Sequence[str]] = None,
-) -> Set[str]:
+    shifu_bids: Sequence[str] | None = None,
+) -> set[str]:
     query = db.session.query(LearnProgressRecord.shifu_bid).filter(
         LearnProgressRecord.deleted == 0,
         LearnProgressRecord.status != LEARN_STATUS_RESET,
@@ -982,8 +980,8 @@ def _load_recent_learning_active_course_bids(
 def _load_recent_paid_order_course_bids(
     *,
     since: datetime,
-    shifu_bids: Optional[Sequence[str]] = None,
-) -> Set[str]:
+    shifu_bids: Sequence[str] | None = None,
+) -> set[str]:
     query = db.session.query(Order.shifu_bid).filter(
         Order.deleted == 0,
         Order.status == ORDER_STATUS_SUCCESS,
@@ -1020,12 +1018,12 @@ def _build_latest_billing_order_subquery(*, creator_bid: str):
     )
 
 
-def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
+def _find_operator_course_bids_by_name(course_name: str) -> set[str]:
     normalized_course_name = str(course_name or "").strip().lower()
     if not normalized_course_name:
         return set()
 
-    def _load_matching_bids(model) -> Set[str]:
+    def _load_matching_bids(model) -> set[str]:
         latest_subquery = (
             db.session.query(db.func.max(model.id).label("max_id"))
             .filter(model.deleted == 0)
@@ -1044,7 +1042,7 @@ def _find_operator_course_bids_by_name(course_name: str) -> Set[str]:
             if str(shifu_bid or "").strip()
         }
 
-    matching_bids: Set[str] = set()
+    matching_bids: set[str] = set()
     matching_bids.update(_load_matching_bids(DraftShifu))
     matching_bids.update(_load_matching_bids(PublishedShifu))
     return matching_bids
@@ -1054,7 +1052,7 @@ def _build_operator_course_query_filter(
     shifu_bid_column: Any,
     course_query: str,
     *,
-    matching_course_bids: Optional[Set[str]] = None,
+    matching_course_bids: set[str] | None = None,
 ) -> Any | None:
     normalized_course_query = str(course_query or "").strip()
     if not normalized_course_query:
@@ -1253,7 +1251,7 @@ def _list_operator_courses_legacy(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseListDTO:
     safe_page_index = max(int(page_index or 1), 1)
     safe_page_size = min(max(int(page_size or 20), 1), MAX_PAGE_SIZE)
@@ -1304,10 +1302,10 @@ def _list_operator_courses_legacy(
     )
     activity_map = _load_course_activity_map(draft_rows, published_rows)
 
-    def resolve_activity(course) -> Dict[str, Any]:
+    def resolve_activity(course) -> dict[str, Any]:
         return activity_map.get(str(course.shifu_bid or "").strip(), {})
 
-    def resolve_updated_at(course) -> Optional[datetime]:
+    def resolve_updated_at(course) -> datetime | None:
         activity = resolve_activity(course)
         return activity.get("updated_at") or course.updated_at
 
@@ -1433,7 +1431,7 @@ def list_operator_courses(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseListDTO:
     with app.app_context():
         if not _can_use_operator_course_sql_optimization(app):
@@ -1542,7 +1540,7 @@ def list_operator_courses(
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
 
-        def resolve_activity(course) -> Dict[str, Any]:
+        def resolve_activity(course) -> dict[str, Any]:
             return {
                 "updated_at": course.activity_updated_at or course.updated_at,
                 "updated_user_bid": course.activity_updated_user_bid

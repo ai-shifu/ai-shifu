@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from flaskr.util.datetime import now_utc, to_utc_iso
 
@@ -8,7 +8,7 @@ def test_now_utc_returns_naive_utc() -> None:
     # Naive (tz-unaware) so it stays comparable with existing naive timestamps.
     assert value.tzinfo is None
     # Value tracks real UTC, independent of the process TZ.
-    reference = datetime.now(timezone.utc).replace(tzinfo=None)
+    reference = datetime.now(UTC).replace(tzinfo=None)
     assert abs((reference - value).total_seconds()) < 5
 
 
@@ -24,7 +24,7 @@ def test_model_timestamp_default_writes_utc(app) -> None:
 
         created = row.created
         assert created.tzinfo is None
-        reference = datetime.now(timezone.utc).replace(tzinfo=None)
+        reference = datetime.now(UTC).replace(tzinfo=None)
         assert abs((reference - created).total_seconds()) < 60
 
 

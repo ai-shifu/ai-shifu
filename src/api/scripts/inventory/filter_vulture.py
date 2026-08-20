@@ -5,13 +5,13 @@
 - __json__ methods
 - celery @shared_task functions
 - anything under migrations/
-Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>
+Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>.
 """
 
 import re
 import sys
-import os
 from collections import Counter
+from pathlib import Path
 
 RAW, ROOT = sys.argv[1], sys.argv[2]
 
@@ -25,7 +25,7 @@ file_cache = {}
 def get_lines(path):
     if path not in file_cache:
         try:
-            with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+            with (Path(ROOT) / path).open(encoding="utf-8") as f:
                 file_cache[path] = f.readlines()
         except OSError:
             file_cache[path] = []
@@ -55,9 +55,9 @@ def decorators_above(path, lineno):
 
 
 kept, excluded = [], []
-with open(RAW, encoding="utf-8") as f:
-    for raw_line in f:
-        raw_line = raw_line.rstrip("\n")
+with Path(RAW).open(encoding="utf-8") as f:
+    for line in f:
+        raw_line = line.rstrip("\n")
         m = LINE_RE.match(raw_line)
         if not m:
             continue

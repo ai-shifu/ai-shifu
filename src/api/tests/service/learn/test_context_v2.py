@@ -66,21 +66,9 @@ def _install_openai_responses_stub() -> None:
 
     response_function_tool_call = type("ResponseFunctionToolCall", (), {})
     response_text_config = type("ResponseTextConfigParam", (), {})
-    setattr(
-        response_function_mod,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
-    setattr(
-        response_text_mod,
-        "ResponseTextConfigParam",
-        response_text_config,
-    )
-    setattr(
-        responses_pkg,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
+    response_function_mod.ResponseFunctionToolCall = response_function_tool_call
+    response_text_mod.ResponseTextConfigParam = response_text_config
+    responses_pkg.ResponseFunctionToolCall = response_function_tool_call
 
     sys.modules["openai.types.responses"] = responses_pkg
     sys.modules["openai.types.responses.response"] = response_mod
@@ -95,7 +83,7 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 # Ensure minimal SQLAlchemy bindings exist so model classes can be defined.
-import flaskr.dao as dao
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-context-v2")
@@ -110,22 +98,25 @@ if dao.db is None:
 if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
+import itertools
+
+import pytest
 from flaskr.service.learn import context_v2 as context_v2_module
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
+)
+from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
-    PaidException,
-    _find_outline_path_or_raise,
-    _resolve_runtime_language_context,
-    _resolve_runtime_output_language,
+    PaidError,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
+    _find_outline_path_or_raise,
     _PreviewContextStore,
+    _resolve_runtime_language_context,
+    _resolve_runtime_output_language,
 )
-from markdown_flow import MarkdownFlow, USER_ANSWER_CONTEXT_KEY
-from markdown_flow.llm import LLMResult
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
@@ -141,20 +132,22 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_NOT_STARTED,
 )
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util import generate_id
+from markdown_flow import USER_ANSWER_CONTEXT_KEY, MarkdownFlow
+from markdown_flow.llm import LLMResult
 
 
 def _make_context() -> RunScriptContextV2:
@@ -209,7 +202,7 @@ class OutlinePathGuardTests(unittest.TestCase):
         with patch.object(context_v2_module.db.session, "query", return_value=query):
             result = ctx._get_next_outline_item()
 
-        self.assertEqual(result, [])
+        assert result == []
 
     def test_find_outline_path_returns_path_when_outline_exists(self):
         root = HistoryItem(
@@ -223,17 +216,19 @@ class OutlinePathGuardTests(unittest.TestCase):
 
         path = _find_outline_path_or_raise(root, "outline-bid")
 
-        self.assertEqual([item.bid for item in path], ["shifu-bid", "outline-bid"])
+        assert [item.bid for item in path] == ["shifu-bid", "outline-bid"]
 
     def test_find_outline_path_raises_app_error_when_outline_missing(self):
         root = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
 
-        with patch(
-            "flaskr.service.learn.context_v2.raise_error",
-            side_effect=RuntimeError("lesson missing"),
-        ) as raise_error_mock:
-            with self.assertRaises(RuntimeError):
-                _find_outline_path_or_raise(root, "missing-outline")
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.raise_error",
+                side_effect=RuntimeError("lesson missing"),
+            ) as raise_error_mock,
+            pytest.raises(RuntimeError),
+        ):
+            _find_outline_path_or_raise(root, "missing-outline")
 
         raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
 
@@ -252,7 +247,7 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
 
         result = ctx._collect_async_generator(sample)
 
-        self.assertEqual(result, ["one", "two"])
+        assert result == ["one", "two"]
 
     def test_inside_running_loop(self):
         ctx = _make_context()
@@ -262,7 +257,7 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
 
         async def runner():
             result = ctx._collect_async_generator(sample)
-            self.assertEqual(result, ["alpha"])
+            assert result == ["alpha"]
 
         asyncio.run(runner())
 
@@ -278,10 +273,7 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
         async def sample():
             return "result"
 
-        self.assertEqual(
-            ctx._run_async_in_safe_context(lambda: sample()),
-            "result",
-        )
+        assert ctx._run_async_in_safe_context(sample) == "result"
 
     def test_inside_running_loop(self):
         ctx = _make_context()
@@ -290,17 +282,14 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
             return "loop"
 
         async def runner():
-            self.assertEqual(
-                ctx._run_async_in_safe_context(lambda: sample()),
-                "loop",
-            )
+            assert ctx._run_async_in_safe_context(sample) == "loop"
 
         asyncio.run(runner())
 
 
 class NextChapterInteractionTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("next-chapter-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -335,27 +324,27 @@ class NextChapterInteractionTests(unittest.TestCase):
             events = list(
                 self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)
             )
-            self.assertEqual(len(events), 1)
+            assert len(events) == 1
             next_event = events[0]
-            self.assertEqual(next_event.type, GeneratedType.INTERACTION)
-            self.assertIn(CONTEXT_INTERACTION_NEXT, next_event.content)
+            assert next_event.type == GeneratedType.INTERACTION
+            assert CONTEXT_INTERACTION_NEXT in next_event.content
 
             stored_blocks = LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.progress_record_bid
                 == self.ctx._current_attend.progress_record_bid
             ).all()
-            self.assertEqual(len(stored_blocks), 1)
+            assert len(stored_blocks) == 1
 
-            self.assertEqual(
-                list(self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)),
-                [],
+            assert (
+                list(self.ctx._emit_next_chapter_interaction(self.ctx._current_attend))
+                == []
             )
-            self.assertEqual(
+            assert (
                 LearnGeneratedBlock.query.filter(
                     LearnGeneratedBlock.progress_record_bid
                     == self.ctx._current_attend.progress_record_bid
-                ).count(),
-                1,
+                ).count()
+                == 1
             )
 
 
@@ -365,23 +354,17 @@ class AccessGateFeedbackHelperTests(unittest.TestCase):
         ctx._is_paid = False
         ctx._user_info = types.SimpleNamespace(mobile="")
 
-        self.assertTrue(
-            ctx._is_access_gate_blocking_interaction(
-                {"buttons": [{"value": "_sys_pay"}]}
-            )
+        assert ctx._is_access_gate_blocking_interaction(
+            {"buttons": [{"value": "_sys_pay"}]}
         )
-        self.assertTrue(
-            ctx._is_access_gate_blocking_interaction(
-                {"buttons": [{"value": "_sys_login"}]}
-            )
+        assert ctx._is_access_gate_blocking_interaction(
+            {"buttons": [{"value": "_sys_login"}]}
         )
 
         ctx._is_paid = True
         ctx._user_info = types.SimpleNamespace(mobile="13800000000")
-        self.assertFalse(
-            ctx._is_access_gate_blocking_interaction(
-                {"buttons": [{"value": "_sys_pay"}, {"value": "_sys_login"}]}
-            )
+        assert not ctx._is_access_gate_blocking_interaction(
+            {"buttons": [{"value": "_sys_pay"}, {"value": "_sys_login"}]}
         )
 
 
@@ -409,8 +392,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["next", "feedback"])
-        self.assertEqual(events, ["next-event", "feedback-event"])
+        assert calls == ["next", "feedback"]
+        assert events == ["next-event", "feedback-event"]
 
     def test_skips_next_when_no_next_outline(self):
         ctx = _make_context()
@@ -435,8 +418,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["feedback"])
-        self.assertEqual(events, ["feedback-event"])
+        assert calls == ["feedback"]
+        assert events == ["feedback-event"]
 
     def test_emits_only_next_when_not_completed(self):
         ctx = _make_context()
@@ -461,8 +444,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["next"])
-        self.assertEqual(events, ["next-event"])
+        assert calls == ["next"]
+        assert events == ["next-event"]
 
 
 class RuntimeOutlineBlockCountTests(unittest.TestCase):
@@ -472,6 +455,8 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         ctx._preview_mode = False
 
         class _Column:
+            __hash__ = None
+
             def in_(self, _values):
                 return self
 
@@ -529,12 +514,9 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 _FakeMarkdownFlow,
             ),
         ):
-            self.assertEqual(ctx._get_next_outline_item(), [])
+            assert ctx._get_next_outline_item() == []
 
-        self.assertEqual(
-            get_outline_item_mock.call_args.kwargs.get("outline_item_id"),
-            1,
-        )
+        assert get_outline_item_mock.call_args.kwargs.get("outline_item_id") == 1
 
     def test_get_run_script_info_uses_outline_row_id_from_struct(self):
         ctx = _make_context()
@@ -579,16 +561,13 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         ):
             run_info = ctx._get_run_script_info(attend)
 
-        self.assertIsNotNone(run_info)
-        self.assertEqual(
-            get_outline_item_mock.call_args.kwargs.get("outline_item_id"),
-            42,
-        )
+        assert run_info is not None
+        assert get_outline_item_mock.call_args.kwargs.get("outline_item_id") == 42
 
 
 class ExceptionGateFeedbackTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-feedback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -644,13 +623,13 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
             )
             dao.db.session.commit()
             events = list(self.ctx._emit_feedback_after_exception_gate())
-            self.assertEqual(len(events), 1)
-            self.assertEqual(events[0].type, GeneratedType.INTERACTION)
+            assert len(events) == 1
+            assert events[0].type == GeneratedType.INTERACTION
 
     def test_skips_when_no_completed_progress(self):
         with self.app.app_context():
             events = list(self.ctx._emit_feedback_after_exception_gate())
-            self.assertEqual(events, [])
+            assert events == []
 
     def test_skips_completed_progress_without_generated_blocks(self):
         with self.app.app_context():
@@ -665,12 +644,12 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
             )
             dao.db.session.commit()
             events = list(self.ctx._emit_feedback_after_exception_gate())
-            self.assertEqual(events, [])
+            assert events == []
 
 
 class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-interaction-persistence")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -710,11 +689,11 @@ class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
             progress = LearnProgressRecord.query.one()
             block = LearnGeneratedBlock.query.one()
 
-        self.assertEqual(len(events), 1)
-        self.assertEqual(progress.status, LEARN_STATUS_NOT_STARTED)
-        self.assertEqual(block.progress_record_bid, progress.progress_record_bid)
-        self.assertEqual(block.outline_item_bid, "outline-locked")
-        self.assertEqual(block.block_content_conf, "?[server.order.checkout//_sys_pay]")
+        assert len(events) == 1
+        assert progress.status == LEARN_STATUS_NOT_STARTED
+        assert block.progress_record_bid == progress.progress_record_bid
+        assert block.outline_item_bid == "outline-locked"
+        assert block.block_content_conf == "?[server.order.checkout//_sys_pay]"
 
 
 class StreamTtsGateTests(unittest.TestCase):
@@ -724,18 +703,18 @@ class StreamTtsGateTests(unittest.TestCase):
         ctx._input_type = "normal"
         ctx._preview_mode = False
         ctx._listen = True
-        self.assertTrue(ctx._should_stream_tts())
+        assert ctx._should_stream_tts()
 
         ctx._listen = False
-        self.assertFalse(ctx._should_stream_tts())
+        assert not ctx._should_stream_tts()
 
         ctx._preview_mode = True
         ctx._listen = True
-        self.assertFalse(ctx._should_stream_tts())
+        assert not ctx._should_stream_tts()
 
         ctx._preview_mode = False
         ctx._input_type = "ask"
-        self.assertFalse(ctx._should_stream_tts())
+        assert not ctx._should_stream_tts()
 
     def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
         app = Flask("stream-tts-idle-drain")
@@ -811,7 +790,7 @@ class StreamTtsGateTests(unittest.TestCase):
 
             stop_event.set()
             stream.release_second.set()
-            with self.assertRaises(GeneratorExit):
+            with pytest.raises(GeneratorExit):
                 next(iterator)
 
         assert stream.close_calls == 1
@@ -820,7 +799,7 @@ class StreamTtsGateTests(unittest.TestCase):
 
 class ReloadFromElementBidTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("reload-from-element-bid")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -947,12 +926,12 @@ class ReloadFromElementBidTests(unittest.TestCase):
                 LearnGeneratedElement.element_bid == "later-element-1"
             ).first()
 
-            self.assertEqual(progress.block_position, 2)
-            self.assertEqual(progress.status, LEARN_STATUS_IN_PROGRESS)
-            self.assertEqual(interaction_block.status, 1)
-            self.assertEqual(later_block.status, 0)
-            self.assertIsNotNone(later_element)
-            self.assertEqual(later_element.status, 0)
+            assert progress.block_position == 2
+            assert progress.status == LEARN_STATUS_IN_PROGRESS
+            assert interaction_block.status == 1
+            assert later_block.status == 0
+            assert later_element is not None
+            assert later_element.status == 0
 
     def test_reload_preserves_ask_and_answer_blocks(self):
         with self.app.app_context():
@@ -1061,10 +1040,10 @@ class ReloadFromElementBidTests(unittest.TestCase):
             dao.db.session.refresh(answer_block)
             dao.db.session.refresh(later_block)
 
-            self.assertEqual(target_block.status, 0)
-            self.assertEqual(later_block.status, 0)
-            self.assertEqual(ask_block.status, 1)
-            self.assertEqual(answer_block.status, 1)
+            assert target_block.status == 0
+            assert later_block.status == 0
+            assert ask_block.status == 1
+            assert answer_block.status == 1
 
 
 class StreamTtsTeardownTests(unittest.TestCase):
@@ -1100,10 +1079,10 @@ class StreamTtsTeardownTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(events, ["content-flush", "audio-complete"])
-        self.assertEqual(flush_calls, ["flush"])
-        self.assertEqual(processor.finalize_calls, [False])
-        self.assertEqual(ctx._element_index_cursor, 5)
+        assert events == ["content-flush", "audio-complete"]
+        assert flush_calls == ["flush"]
+        assert processor.finalize_calls == [False]
+        assert ctx._element_index_cursor == 5
 
     def test_teardown_skips_emit_on_generator_exit(self):
         app = Flask("stream-tts-teardown-generator-exit")
@@ -1138,10 +1117,10 @@ class StreamTtsTeardownTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(events, [])
-        self.assertEqual(flush_calls, [])
-        self.assertEqual(processor.finalize_calls, 0)
-        self.assertEqual(ctx._element_index_cursor, 1)
+        assert events == []
+        assert flush_calls == []
+        assert processor.finalize_calls == 0
+        assert ctx._element_index_cursor == 1
 
 
 class MdflowContextCompatibilityTests(unittest.TestCase):
@@ -1157,7 +1136,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
             context = MdflowContextV2(document="doc", visual_mode=False)
 
-        self.assertIsInstance(context._mdflow, FakeMarkdownFlow)
+        assert isinstance(context._mdflow, FakeMarkdownFlow)
 
     def test_init_calls_visual_mode_when_api_exists(self):
         class FakeMarkdownFlow:
@@ -1173,7 +1152,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
             context = MdflowContextV2(document="doc", visual_mode=False)
 
-        self.assertFalse(context._mdflow.visual_mode)
+        assert not context._mdflow.visual_mode
 
     def test_init_uses_explicit_output_language_when_enabled(self):
         class FakeMarkdownFlow:
@@ -1197,7 +1176,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 output_language="zh-CN",
             )
 
-        self.assertEqual(context._mdflow.output_language, "简体中文")
+        assert context._mdflow.output_language == "简体中文"
 
     def test_filter_context_removes_stale_english_output_instruction(self):
         context = [
@@ -1214,7 +1193,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
             "zh-CN",
         )
 
-        self.assertEqual(filtered, context[1:])
+        assert filtered == context[1:]
 
 
 class RuntimeOutputLanguageTests(unittest.TestCase):
@@ -1227,7 +1206,7 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
                 {"sys_user_language": "en-US", "language": "en-US"}
             )
 
-        self.assertEqual(output_language, "zh-CN")
+        assert output_language == "zh-CN"
 
     def test_runtime_language_overlays_stale_production_prompt_variables(self):
         stored_profile = {
@@ -1245,12 +1224,12 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
                 use_learner_language=True,
             )
 
-        self.assertEqual(output_language, "fr-FR")
-        self.assertEqual(runtime_profile["sys_user_language"], "fr-FR")
-        self.assertEqual(runtime_profile["language"], "fr-FR")
-        self.assertEqual(runtime_profile["sys_user_nickname"], "Learner")
-        self.assertEqual(stored_profile["sys_user_language"], "zh-CN")
-        self.assertEqual(stored_profile["language"], "zh-CN")
+        assert output_language == "fr-FR"
+        assert runtime_profile["sys_user_language"] == "fr-FR"
+        assert runtime_profile["language"] == "fr-FR"
+        assert runtime_profile["sys_user_nickname"] == "Learner"
+        assert stored_profile["sys_user_language"] == "zh-CN"
+        assert stored_profile["language"] == "zh-CN"
 
     def test_runtime_language_keeps_profile_variables_when_feature_is_disabled(self):
         stored_profile = {
@@ -1267,9 +1246,9 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
                 use_learner_language=False,
             )
 
-        self.assertEqual(output_language, "fr-FR")
-        self.assertEqual(runtime_profile, stored_profile)
-        self.assertIsNot(runtime_profile, stored_profile)
+        assert output_language == "fr-FR"
+        assert runtime_profile == stored_profile
+        assert runtime_profile is not stored_profile
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
@@ -1305,8 +1284,8 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
                 shifu,
             )
 
-        self.assertEqual(model, "ark/deepseek-v3-2")
-        self.assertEqual(temperature, 0.3)
+        assert model == "ark/deepseek-v3-2"
+        assert temperature == 0.3
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
@@ -1331,9 +1310,9 @@ class PreviewResolveVariablesTests(unittest.TestCase):
                 shifu_bid="shifu-1",
             )
 
-        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
-        self.assertEqual(variables.get("language"), "zh-CN")
-        self.assertEqual(variables.get("sys_user_nickname"), "017")
+        assert variables.get("sys_user_language") == "zh-CN"
+        assert variables.get("language") == "zh-CN"
+        assert variables.get("sys_user_nickname") == "017"
         mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
 
     def test_empty_sys_user_language_uses_request_language(self):
@@ -1360,8 +1339,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
                 shifu_bid="shifu-1",
             )
 
-        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
-        self.assertEqual(variables.get("language"), "zh-CN")
+        assert variables.get("sys_user_language") == "zh-CN"
+        assert variables.get("language") == "zh-CN"
 
     def test_request_language_overrides_stale_profile_language(self):
         app = Flask("preview-variables-request-language")
@@ -1381,8 +1360,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
                 shifu_bid="shifu-1",
             )
 
-        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
-        self.assertEqual(variables.get("language"), "zh-CN")
+        assert variables.get("sys_user_language") == "zh-CN"
+        assert variables.get("language") == "zh-CN"
 
     def test_keeps_existing_sys_user_language(self):
         app = Flask("preview-variables-existing")
@@ -1402,8 +1381,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
                 shifu_bid="shifu-1",
             )
 
-        self.assertEqual(variables.get("sys_user_language"), "fr-FR")
-        self.assertEqual(variables.get("language"), "fr-FR")
+        assert variables.get("sys_user_language") == "fr-FR"
+        assert variables.get("language") == "fr-FR"
         mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
 
 
@@ -1415,23 +1394,20 @@ class CoursePromptCompositionTests(unittest.TestCase):
         course_prompt: str,
         learner_profile: str,
     ) -> None:
-        self.assertIsNotNone(prompt)
+        assert prompt is not None
         assert prompt is not None
         composition_index = prompt.index("<composition_contract>")
         course_index = prompt.index("<course_prompt>")
         learner_profile_opening_tag = '<learner_profile format="json-string">'
         profile_index = prompt.index(learner_profile_opening_tag)
-        self.assertLess(composition_index, course_index)
-        self.assertLess(course_index, profile_index)
-        self.assertIn(
-            f"<course_prompt>\n{course_prompt}\n</course_prompt>",
-            prompt,
+        assert composition_index < course_index
+        assert course_index < profile_index
+        assert f"<course_prompt>\n{course_prompt}\n</course_prompt>" in prompt
+        assert (
+            f'{learner_profile_opening_tag}\n"{learner_profile}"\n</learner_profile>'
+            in prompt
         )
-        self.assertIn(
-            f'{learner_profile_opening_tag}\n"{learner_profile}"\n</learner_profile>',
-            prompt,
-        )
-        self.assertEqual(prompt.count(LEARNER_PROFILE_PROMPT_MARKER), 1)
+        assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 1
 
     def test_runtime_getter_returns_course_prompt_with_current_learner_profile(self):
         app = Flask("runtime-course-prompt-profile")
@@ -1492,7 +1468,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
             learner_profile="最近关注知识管理",
         )
         assert prompt is not None
-        self.assertNotIn("FALLBACK RULE", prompt)
+        assert "FALLBACK RULE" not in prompt
         mock_load.assert_called_once_with("user-1")
 
     def test_formal_preview_uses_current_explicit_nickname_without_profile_text(self):
@@ -1526,9 +1502,9 @@ class CoursePromptCompositionTests(unittest.TestCase):
         encoded_context = prompt.split('<learner_profile format="json-string">\n', 1)[
             1
         ].split("\n</learner_profile>", 1)[0]
-        self.assertEqual(
-            json.loads(encoded_context),
-            'Preferred form of address (learner-authored): "Current Learner"',
+        assert (
+            json.loads(encoded_context)
+            == 'Preferred form of address (learner-authored): "Current Learner"'
         )
 
     def test_formal_preview_reloads_profile_for_each_request(self):
@@ -1569,8 +1545,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
             course_prompt="PREVIEW COURSE RULE",
             learner_profile="偏好图解",
         )
-        self.assertEqual(cleared_prompt, "PREVIEW COURSE RULE")
-        self.assertEqual(mock_load.call_args_list, [call("user-1"), call("user-1")])
+        assert cleared_prompt == "PREVIEW COURSE RULE"
+        assert mock_load.call_args_list == [call("user-1"), call("user-1")]
 
     def test_formal_preview_recomposes_client_envelope_for_current_learner(self):
         app = Flask("preview-course-prompt-current-account")
@@ -1615,8 +1591,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
             learner_profile="CURRENT ACCOUNT PROFILE",
         )
         assert current_prompt is not None
-        self.assertNotIn("PREVIOUS ACCOUNT PROFILE", current_prompt)
-        self.assertEqual(cleared_prompt, "PREVIEW COURSE RULE")
+        assert "PREVIOUS ACCOUNT PROFILE" not in current_prompt
+        assert cleared_prompt == "PREVIEW COURSE RULE"
 
     def test_preview_learner_lookup_failure_cleans_the_database_session(self):
         app = Flask("preview-course-prompt-lookup-failure")
@@ -1634,7 +1610,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
         ):
             learner = preview_ctx._load_learner_for_course_prompt("user-1")
 
-        self.assertIsNone(learner)
+        assert learner is None
         mock_cleanup.assert_called_once_with(
             lookup_error,
             source="preview learner profile lookup",
@@ -1682,8 +1658,8 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
         ):
             output = provider.complete(messages=[{"role": "user", "content": "hello"}])
 
-        self.assertEqual(output, "First line\nSecond line")
-        self.assertIs(captured["parent_observation"], parent_observation)
+        assert output == "First line\nSecond line"
+        assert captured["parent_observation"] is parent_observation
         mock_info.assert_any_call(
             "preview llm output | shifu_bid=%s | outline_bid=%s | session_id=%s | scene=%s | model=%s | temperature=%s | output=%s",
             "shifu-1",
@@ -1752,8 +1728,8 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 preview_mode=False,
             )
 
-        self.assertIs(captured["client"], sentinel_client)
-        self.assertEqual(captured["trace_payload"]["id"], "req-trace-1")
+        assert captured["client"] is sentinel_client
+        assert captured["trace_payload"]["id"] == "req-trace-1"
 
     def test_set_input_normalizes_structured_value_for_trace(self):
         ctx = _make_context()
@@ -1761,8 +1737,8 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         ctx.set_input({"lang": ["Python", "Go"], "level": ["Beginner"]}, "select")
 
-        self.assertEqual(ctx._trace_args["input"], "Python, Go, Beginner")
-        self.assertEqual(ctx._trace_args["input_type"], "select")
+        assert ctx._trace_args["input"] == "Python, Go, Beginner"
+        assert ctx._trace_args["input_type"] == "select"
 
     def test_set_input_normalizes_python_literal_string_for_trace(self):
         ctx = _make_context()
@@ -1770,7 +1746,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         ctx.set_input("{'lang': ['Python', 'Go']}", "select")
 
-        self.assertEqual(ctx._trace_args["input"], "Python, Go")
+        assert ctx._trace_args["input"] == "Python, Go"
 
     def test_runtime_finalize_skips_empty_output_overwrite(self):
         ctx = _make_context()
@@ -1785,15 +1761,12 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         ctx._finalize_langfuse_trace()
 
-        self.assertEqual(
-            ctx._trace.updated,
-            {
-                "user_id": "user-1",
-                "session_id": "session-1",
-                "name": "lesson_runtime/trace/Outline",
-            },
-        )
-        self.assertEqual(ctx._trace_root_span.end_kwargs, {})
+        assert ctx._trace.updated == {
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "name": "lesson_runtime/trace/Outline",
+        }
+        assert ctx._trace_root_span.end_kwargs == {}
 
     def test_runtime_finalize_uses_accumulated_output(self):
         ctx = _make_context()
@@ -1809,11 +1782,11 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         ctx._finalize_langfuse_trace()
 
-        self.assertEqual(ctx._trace.updated["output"], "chunk-1chunk-2")
-        self.assertEqual(
-            ctx._trace_root_span.end_kwargs,
-            {"input": "student input", "output": "chunk-1chunk-2"},
-        )
+        assert ctx._trace.updated["output"] == "chunk-1chunk-2"
+        assert ctx._trace_root_span.end_kwargs == {
+            "input": "student input",
+            "output": "chunk-1chunk-2",
+        }
 
     def test_append_langfuse_output_normalizes_python_literal_string(self):
         ctx = _make_context()
@@ -1821,7 +1794,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         ctx.append_langfuse_output("['part-1', 'part-2']")
 
-        self.assertEqual(ctx._langfuse_output_chunks, ['["part-1", "part-2"]'])
+        assert ctx._langfuse_output_chunks == ['["part-1", "part-2"]']
 
 
 class PreviewLangfuseTraceTests(unittest.TestCase):
@@ -1846,11 +1819,11 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 _ = args, kwargs
 
             @staticmethod
-            def normalize_context_messages(_value):
+            def normalize_context_messages(_value) -> None:
                 return None
 
             @staticmethod
-            def filter_context_by_output_language(context, _output_language):
+            def filter_context_by_output_language(context, _output_language) -> object:
                 return context
 
             def get_block(self, _block_index):
@@ -1942,15 +1915,15 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 )
             )
 
-        self.assertTrue(messages)
-        self.assertEqual(captured["trace_payload"]["id"], "preview-req-trace-1")
-        self.assertEqual(captured["trace_payload"]["session_id"], "preview-session-1")
-        self.assertEqual(captured["trace"].updated["input"], "Prompt block")
-        self.assertEqual(captured["trace"].updated["output"], "Hello preview")
-        self.assertEqual(
-            captured["root_span"].end_kwargs,
-            {"input": "Prompt block", "output": "Hello preview"},
-        )
+        assert messages
+        assert captured["trace_payload"]["id"] == "preview-req-trace-1"
+        assert captured["trace_payload"]["session_id"] == "preview-session-1"
+        assert captured["trace"].updated["input"] == "Prompt block"
+        assert captured["trace"].updated["output"] == "Hello preview"
+        assert captured["root_span"].end_kwargs == {
+            "input": "Prompt block",
+            "output": "Hello preview",
+        }
 
 
 class PreviewElementizationTests(unittest.TestCase):
@@ -1970,12 +1943,9 @@ class PreviewElementizationTests(unittest.TestCase):
             is_user_input_validation=False,
         )
 
-        self.assertEqual(len(events), 1)
-        self.assertEqual(events[0].type, GeneratedType.CONTENT)
-        self.assertEqual(
-            events[0].get_mdflow_stream_parts(),
-            [("Hello preview", "text", 0)],
-        )
+        assert len(events) == 1
+        assert events[0].type == GeneratedType.CONTENT
+        assert events[0].get_mdflow_stream_parts() == [("Hello preview", "text", 0)]
 
     def test_preview_content_stream_emits_element_and_done(self):
         app = Flask("preview-content-stream")
@@ -2013,19 +1983,19 @@ class PreviewElementizationTests(unittest.TestCase):
         )
 
         element_messages = [item for item in messages if item.type == "element"]
-        self.assertGreaterEqual(len(element_messages), 2)
-        self.assertEqual(content_chunks, ["Hello preview"])
-        self.assertEqual(element_messages[0].content.element_type, ElementType.TEXT)
-        self.assertFalse(element_messages[0].content.is_final)
-        self.assertEqual(element_messages[-1].content.element_type, ElementType.TEXT)
-        self.assertTrue(element_messages[-1].content.is_final)
+        assert len(element_messages) >= 2
+        assert content_chunks == ["Hello preview"]
+        assert element_messages[0].content.element_type == ElementType.TEXT
+        assert not element_messages[0].content.is_final
+        assert element_messages[-1].content.element_type == ElementType.TEXT
+        assert element_messages[-1].content.is_final
         done_messages = [
             item for item in messages if item.type == GeneratedType.DONE.value
         ]
-        self.assertEqual(len(done_messages), 2)
-        self.assertFalse(done_messages[0].is_terminal)
-        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
-        self.assertTrue(messages[-1].is_terminal)
+        assert len(done_messages) == 2
+        assert not done_messages[0].is_terminal
+        assert messages[-1].type == GeneratedType.DONE.value
+        assert messages[-1].is_terminal
 
     def test_preview_content_uses_formatted_elements_when_top_level_content_empty(self):
         app = Flask("preview-content-formatted-elements")
@@ -2063,16 +2033,16 @@ class PreviewElementizationTests(unittest.TestCase):
         )
 
         element_messages = [item for item in messages if item.type == "element"]
-        self.assertGreaterEqual(len(element_messages), 2)
-        self.assertEqual(content_chunks, ["Visual caption"])
-        self.assertEqual(element_messages[0].content.content_text, "Visual caption")
+        assert len(element_messages) >= 2
+        assert content_chunks == ["Visual caption"]
+        assert element_messages[0].content.content_text == "Visual caption"
         done_messages = [
             item for item in messages if item.type == GeneratedType.DONE.value
         ]
-        self.assertEqual(len(done_messages), 2)
-        self.assertFalse(done_messages[0].is_terminal)
-        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
-        self.assertTrue(messages[-1].is_terminal)
+        assert len(done_messages) == 2
+        assert not done_messages[0].is_terminal
+        assert messages[-1].type == GeneratedType.DONE.value
+        assert messages[-1].is_terminal
 
     def test_preview_interaction_validation_uses_formatted_elements_when_content_empty(
         self,
@@ -2115,16 +2085,16 @@ class PreviewElementizationTests(unittest.TestCase):
         )
 
         element_messages = [item for item in messages if item.type == "element"]
-        self.assertGreaterEqual(len(element_messages), 2)
-        self.assertEqual(content_chunks, ["Validation error"])
-        self.assertEqual(element_messages[0].content.content_text, "Validation error")
+        assert len(element_messages) >= 2
+        assert content_chunks == ["Validation error"]
+        assert element_messages[0].content.content_text == "Validation error"
         done_messages = [
             item for item in messages if item.type == GeneratedType.DONE.value
         ]
-        self.assertEqual(len(done_messages), 2)
-        self.assertFalse(done_messages[0].is_terminal)
-        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
-        self.assertTrue(messages[-1].is_terminal)
+        assert len(done_messages) == 2
+        assert not done_messages[0].is_terminal
+        assert messages[-1].type == GeneratedType.DONE.value
+        assert messages[-1].is_terminal
 
     def test_preview_interaction_stream_emits_interaction_element_and_done(self):
         app = Flask("preview-interaction-stream")
@@ -2157,20 +2127,20 @@ class PreviewElementizationTests(unittest.TestCase):
         )
 
         element_messages = [item for item in messages if item.type == "element"]
-        self.assertEqual(len(element_messages), 1)
+        assert len(element_messages) == 1
         interaction = element_messages[0].content
-        self.assertEqual(interaction.element_type, ElementType.INTERACTION)
-        self.assertEqual(interaction.role, "ui")
-        self.assertEqual(interaction.content_text, "Please choose one")
-        self.assertEqual(content_chunks, [])
-        self.assertEqual(langfuse_output_chunks, ["Please choose one"])
+        assert interaction.element_type == ElementType.INTERACTION
+        assert interaction.role == "ui"
+        assert interaction.content_text == "Please choose one"
+        assert content_chunks == []
+        assert langfuse_output_chunks == ["Please choose one"]
         done_messages = [
             item for item in messages if item.type == GeneratedType.DONE.value
         ]
-        self.assertEqual(len(done_messages), 2)
-        self.assertFalse(done_messages[0].is_terminal)
-        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
-        self.assertTrue(messages[-1].is_terminal)
+        assert len(done_messages) == 2
+        assert not done_messages[0].is_terminal
+        assert messages[-1].type == GeneratedType.DONE.value
+        assert messages[-1].is_terminal
 
 
 class _InMemoryCache:
@@ -2205,7 +2175,8 @@ def _make_preview_store(
 class PreviewSentPromptCaptureTests(unittest.TestCase):
     """The preview flow stores the exact user message markdown-flow sent to
     the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the
-    replayed preview context stays byte-identical to the sent request."""
+    replayed preview context stays byte-identical to the sent request.
+    """
 
     def test_iter_preview_generated_events_captures_prompt(self):
         app = Flask("preview-prompt-capture")
@@ -2235,7 +2206,7 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(sent_prompt_chunks, ["P-PREVIEW"])
+        assert sent_prompt_chunks == ["P-PREVIEW"]
 
     def test_update_preview_context_prefers_sent_prompt(self):
         app = Flask("preview-prompt-store")
@@ -2262,9 +2233,9 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
             "re-rendered block",
         )
 
-        self.assertEqual(appended[0][2], "P-PREVIEW")
+        assert appended[0][2] == "P-PREVIEW"
         # Without a captured prompt the legacy rendering still applies.
-        self.assertEqual(appended[1][2], "re-rendered block")
+        assert appended[1][2] == "re-rendered block"
 
 
 class PreviewContextStoreTruncationTests(unittest.TestCase):
@@ -2276,38 +2247,29 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         messages = store.get_context(doc, 4)
-        self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "u0"},
-                {"role": "assistant", "content": "a0"},
-                {"role": "user", "content": "u1"},
-                {"role": "assistant", "content": "a1"},
-                {"role": "user", "content": "u2"},
-                {"role": "assistant", "content": "a2"},
-                {"role": "user", "content": "u3"},
-                {"role": "assistant", "content": "a3"},
-            ],
-        )
+        assert messages == [
+            {"role": "user", "content": "u0"},
+            {"role": "assistant", "content": "a0"},
+            {"role": "user", "content": "u1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "u2"},
+            {"role": "assistant", "content": "a2"},
+            {"role": "user", "content": "u3"},
+            {"role": "assistant", "content": "a3"},
+        ]
 
     def test_reselect_drops_entries_at_or_above_block_index(self):
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         messages = store.get_context(doc, 2)
-        self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "u0"},
-                {"role": "assistant", "content": "a0"},
-                {"role": "user", "content": "u1"},
-                {"role": "assistant", "content": "a1"},
-            ],
-        )
+        assert messages == [
+            {"role": "user", "content": "u0"},
+            {"role": "assistant", "content": "a0"},
+            {"role": "user", "content": "u1"},
+            {"role": "assistant", "content": "a1"},
+        ]
         persisted = store.load()
-        self.assertEqual(
-            [entry["block_index"] for entry in persisted["entries"]],
-            [0, 1],
-        )
+        assert [entry["block_index"] for entry in persisted["entries"]] == [0, 1]
 
     def test_repeated_reselect_does_not_grow(self):
         store, _cache, doc = _make_preview_store()
@@ -2321,38 +2283,32 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
             index_counts[entry["block_index"]] = (
                 index_counts.get(entry["block_index"], 0) + 1
             )
-        self.assertEqual(index_counts.get(2), 1)
-        self.assertEqual(index_counts.get(0), 1)
-        self.assertEqual(index_counts.get(1), 1)
+        assert index_counts.get(2) == 1
+        assert index_counts.get(0) == 1
+        assert index_counts.get(1) == 1
 
     def test_backtrack_to_earlier_block(self):
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         messages = store.get_context(doc, 1)
-        self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "u0"},
-                {"role": "assistant", "content": "a0"},
-            ],
-        )
+        assert messages == [
+            {"role": "user", "content": "u0"},
+            {"role": "assistant", "content": "a0"},
+        ]
         persisted = store.load()
-        self.assertEqual(
-            [entry["block_index"] for entry in persisted["entries"]],
-            [0],
-        )
+        assert [entry["block_index"] for entry in persisted["entries"]] == [0]
 
     def test_block_index_zero_clears(self):
         store, cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2])
-        self.assertEqual(store.get_context(doc, 0), [])
-        self.assertEqual(cache.store, {})
+        assert store.get_context(doc, 0) == []
+        assert cache.store == {}
 
     def test_document_hash_change_clears(self):
         store, cache, _doc = _make_preview_store(doc="doc-A")
         self._populate(store, "doc-A", [0, 1, 2])
-        self.assertEqual(store.get_context("doc-B", 3), [])
-        self.assertEqual(cache.store, {})
+        assert store.get_context("doc-B", 3) == []
+        assert cache.store == {}
 
     def test_legacy_flat_schema_clears(self):
         store, cache, doc = _make_preview_store()
@@ -2365,34 +2321,31 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
                 ],
             }
         )
-        self.assertEqual(store.get_context(doc, 3), [])
-        self.assertEqual(cache.store, {})
+        assert store.get_context(doc, 3) == []
+        assert cache.store == {}
 
     def test_append_skips_when_both_empty(self):
         store, cache, doc = _make_preview_store()
         store.append_context(doc, 2, None, None)
-        self.assertEqual(cache.store, {})
+        assert cache.store == {}
 
     def test_append_user_only_and_assistant_only(self):
         store, _cache, doc = _make_preview_store()
         store.append_context(doc, 1, "user-only", None)
         store.append_context(doc, 2, None, "assistant-only")
         messages = store.get_context(doc, 3)
-        self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "user-only"},
-                {"role": "assistant", "content": "assistant-only"},
-            ],
-        )
+        assert messages == [
+            {"role": "user", "content": "user-only"},
+            {"role": "assistant", "content": "assistant-only"},
+        ]
 
     def test_missing_document_hash_clears_entries(self):
         store, cache, doc = _make_preview_store()
         store.save(
             {"entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}]}
         )
-        self.assertEqual(store.get_context(doc, 3), [])
-        self.assertEqual(cache.store, {})
+        assert store.get_context(doc, 3) == []
+        assert cache.store == {}
 
     def test_empty_document_hash_clears_entries(self):
         store, cache, doc = _make_preview_store()
@@ -2402,8 +2355,8 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
                 "entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}],
             }
         )
-        self.assertEqual(store.get_context(doc, 3), [])
-        self.assertEqual(cache.store, {})
+        assert store.get_context(doc, 3) == []
+        assert cache.store == {}
 
     def test_replace_context_pairs_messages_with_sentinel_index(self):
         store, _cache, doc = _make_preview_store()
@@ -2416,17 +2369,14 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
             ],
         )
         persisted = store.load()
-        self.assertTrue(all(entry["block_index"] < 0 for entry in persisted["entries"]))
+        assert all(entry["block_index"] < 0 for entry in persisted["entries"])
         # A real block_index request should preserve all sentinel entries.
         messages = store.get_context(doc, 5)
-        self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "ctx-u-0"},
-                {"role": "assistant", "content": "ctx-a-0"},
-                {"role": "user", "content": "ctx-u-1"},
-            ],
-        )
+        assert messages == [
+            {"role": "user", "content": "ctx-u-0"},
+            {"role": "assistant", "content": "ctx-a-0"},
+            {"role": "user", "content": "ctx-u-1"},
+        ]
 
 
 class RuntimeExceptionLangfuseTests(unittest.TestCase):
@@ -2435,7 +2385,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         ctx = _make_context()
 
         def _raise_paid(_app):
-            raise PaidException()
+            raise PaidError
 
         ctx.run_inner = _raise_paid
         ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])
@@ -2444,14 +2394,15 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         with patch("flaskr.service.learn.context_v2._", lambda key: key):
             outputs = list(ctx.run(app))
 
-        self.assertEqual(outputs, ["?[server.order.checkout//_sys_pay]", "feedback"])
+        assert outputs == ["?[server.order.checkout//_sys_pay]", "feedback"]
 
 
 class BuildContextFromBlocksTests(unittest.TestCase):
     """build_context_from_blocks should hand interaction blocks to markdown-flow
     as raw ?[...] assistant messages so its _transform_context_messages can
     expand them, instead of dropping them or flattening input into a bare user
-    message."""
+    message.
+    """
 
     DOC = (
         "Content one.\n"
@@ -2491,8 +2442,8 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         interaction_msgs = [
             m for m in messages if m["role"] == "assistant" and "?[" in m["content"]
         ]
-        self.assertEqual(len(interaction_msgs), 1)
-        self.assertIn("%{{nickname}}", interaction_msgs[0]["content"])
+        assert len(interaction_msgs) == 1
+        assert "%{{nickname}}" in interaction_msgs[0]["content"]
 
     def test_transform_expands_interaction_without_adjacent_users(self):
         app = Flask(__name__)
@@ -2509,15 +2460,14 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         transformed = mf._transform_context_messages(messages, {"nickname": "Alice"})
 
         # Interaction answer becomes user(value)+assistant("ok").
-        self.assertIn({"role": "user", "content": "Alice"}, transformed)
+        assert {"role": "user", "content": "Alice"} in transformed
         # No raw interaction syntax leaks after transform.
-        self.assertTrue(all("?[" not in m["content"] for m in transformed))
+        assert all("?[" not in m["content"] for m in transformed)
         # Roles strictly alternate: no two adjacent user messages.
         roles = [m["role"] for m in transformed]
-        for prev, cur in zip(roles, roles[1:]):
-            self.assertFalse(
-                prev == "user" and cur == "user",
-                f"adjacent user messages in {roles}",
+        for prev, cur in itertools.pairwise(roles):
+            assert not (prev == "user" and cur == "user"), (
+                f"adjacent user messages in {roles}"
             )
 
 
@@ -2526,7 +2476,8 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
     rebuilt history stays byte-identical to the request previously sent to
     the LLM (keeping provider-side prefix caching effective); legacy rows
     without it fall back to re-rendering the block source with the current
-    variables."""
+    variables.
+    """
 
     DOC = (
         "Content one {{nickname}}.\n"
@@ -2557,8 +2508,8 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
             )
 
         # The stored prompt wins even though nickname now resolves to Alice.
-        self.assertEqual(messages[0]["role"], "user")
-        self.assertEqual(messages[0]["content"], self.STORED_PROMPT)
+        assert messages[0]["role"] == "user"
+        assert messages[0]["content"] == self.STORED_PROMPT
 
     def test_missing_or_empty_prompt_falls_back_to_current_rendering(self):
         blocks = [
@@ -2583,19 +2534,20 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
             )
 
         user_messages = [m for m in messages if m["role"] == "user"]
-        self.assertEqual(len(user_messages), 2)
-        self.assertIn("Alice", user_messages[0]["content"])
-        self.assertEqual(user_messages[1]["content"], "Second content.")
+        assert len(user_messages) == 2
+        assert "Alice" in user_messages[0]["content"]
+        assert user_messages[1]["content"] == "Second content."
 
 
 class StreamContentBlockPromptCaptureTests(unittest.TestCase):
     """_phase_stream_content_block captures LLMResult.prompt (the exact user
     message markdown-flow sent to the LLM) and hands it to the recorder;
     prompt-less streams (preserved content) freeze the variables-rendered
-    block source instead."""
+    block source instead.
+    """
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("stream-prompt-capture-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -2667,17 +2619,16 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
             ]
         )
         finalize_call = ctx._recorder.finalize_streamed_block.call_args
-        self.assertEqual(finalize_call.kwargs["generation_prompt"], "P-EXACT")
-        self.assertEqual(finalize_call.args[1], "Hello world")
+        assert finalize_call.kwargs["generation_prompt"] == "P-EXACT"
+        assert finalize_call.args[1] == "Hello world"
 
     def test_promptless_stream_falls_back_to_rendered_block_source(self):
         ctx, _events = self._run_stream_phase(
             [LLMResult(content="Preserved Alice text.", type="text", number=0)]
         )
         finalize_call = ctx._recorder.finalize_streamed_block.call_args
-        self.assertEqual(
-            finalize_call.kwargs["generation_prompt"],
-            'Preserved """Alice""" text.',
+        assert (
+            finalize_call.kwargs["generation_prompt"] == 'Preserved """Alice""" text.'
         )
 
 
@@ -2687,7 +2638,8 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
     in generated_content to the interaction message via the user_answer
     extension field (markdown-flow >= 0.3.0); the library then expands it
     into {user: answer} + {assistant: "ok"}, or skips the turn when the
-    answer is empty."""
+    answer is empty.
+    """
 
     DOC = (
         "Content one.\n"
@@ -2719,18 +2671,15 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
                 self._blocks("猎头公司"), self.DOC, {}
             )
 
-        self.assertEqual(
-            messages,
-            [
-                {"role": "user", "content": "Content one."},
-                {"role": "assistant", "content": "reply zero"},
-                {
-                    "role": "assistant",
-                    "content": self.INTERACTION,
-                    USER_ANSWER_CONTEXT_KEY: "猎头公司",
-                },
-            ],
-        )
+        assert messages == [
+            {"role": "user", "content": "Content one."},
+            {"role": "assistant", "content": "reply zero"},
+            {
+                "role": "assistant",
+                "content": self.INTERACTION,
+                USER_ANSWER_CONTEXT_KEY: "猎头公司",
+            },
+        ]
 
     def test_empty_selection_carries_empty_user_answer(self):
         app = Flask(__name__)
@@ -2741,19 +2690,17 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
 
         # The empty answer travels with the message; the library skips the
         # turn instead of fabricating a {user: "ok"} pair.
-        self.assertEqual(
-            messages[-1],
-            {
-                "role": "assistant",
-                "content": self.INTERACTION,
-                USER_ANSWER_CONTEXT_KEY: "",
-            },
-        )
+        assert messages[-1] == {
+            "role": "assistant",
+            "content": self.INTERACTION,
+            USER_ANSWER_CONTEXT_KEY: "",
+        }
 
     def test_library_expands_answer_and_skips_empty_turns(self):
         """End-to-end: the context built here goes through markdown-flow's
         message transform and comes out with the real answer, no raw ?[...]
-        syntax, and no fabricated "ok" for unanswered interactions."""
+        syntax, and no fabricated "ok" for unanswered interactions.
+        """
         app = Flask(__name__)
         with app.app_context():
             answered = MdflowContextV2.build_context_from_blocks(
@@ -2765,29 +2712,22 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
 
         mdflow = MarkdownFlow(self.DOC)
         transformed = mdflow._transform_context_messages(answered, {})
-        self.assertEqual(
-            transformed,
-            [
-                {"role": "user", "content": "Content one."},
-                {"role": "assistant", "content": "reply zero"},
-                {"role": "user", "content": "猎头公司"},
-                {"role": "assistant", "content": "ok"},
-            ],
-        )
-        self.assertTrue(all("?[" not in m["content"] for m in transformed))
-        self.assertTrue(
-            all(USER_ANSWER_CONTEXT_KEY not in m for m in transformed),
-            "extension fields must never reach the LLM",
+        assert transformed == [
+            {"role": "user", "content": "Content one."},
+            {"role": "assistant", "content": "reply zero"},
+            {"role": "user", "content": "猎头公司"},
+            {"role": "assistant", "content": "ok"},
+        ]
+        assert all("?[" not in m["content"] for m in transformed)
+        assert all(USER_ANSWER_CONTEXT_KEY not in m for m in transformed), (
+            "extension fields must never reach the LLM"
         )
 
         transformed_empty = mdflow._transform_context_messages(unanswered, {})
-        self.assertEqual(
-            transformed_empty,
-            [
-                {"role": "user", "content": "Content one."},
-                {"role": "assistant", "content": "reply zero"},
-            ],
-        )
+        assert transformed_empty == [
+            {"role": "user", "content": "Content one."},
+            {"role": "assistant", "content": "reply zero"},
+        ]
 
     def test_variable_free_text_input_carries_the_learner_answer(self):
         document = "Content one.\n---\n?[...What is your name?]\n---\nSecond content."
@@ -2797,17 +2737,14 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
                 self._blocks("Alice"), document, {}
             )
 
-        self.assertEqual(
-            messages[-1],
-            {
-                "role": "assistant",
-                "content": "?[...What is your name?]",
-                USER_ANSWER_CONTEXT_KEY: "Alice",
-            },
-        )
+        assert messages[-1] == {
+            "role": "assistant",
+            "content": "?[...What is your name?]",
+            USER_ANSWER_CONTEXT_KEY: "Alice",
+        }
         transformed = MarkdownFlow(document)._transform_context_messages(messages, {})
-        self.assertIn({"role": "user", "content": "Alice"}, transformed)
-        self.assertTrue(all("?[" not in m["content"] for m in transformed))
+        assert {"role": "user", "content": "Alice"} in transformed
+        assert all("?[" not in m["content"] for m in transformed)
 
 
 if __name__ == "__main__":

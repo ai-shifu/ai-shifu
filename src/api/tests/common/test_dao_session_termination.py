@@ -11,6 +11,13 @@ helper must resolve the real Session via the registry call form.
 import logging
 
 import pytest
+from flaskr.dao import (
+    cleanup_session_after,
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+    is_protocol_interrupt_error,
+)
 from sqlalchemy import text
 from sqlalchemy.exc import (
     DisconnectionError,
@@ -19,14 +26,6 @@ from sqlalchemy.exc import (
     ResourceClosedError,
 )
 from sqlalchemy.orm.exc import FlushError
-
-from flaskr.dao import (
-    cleanup_session_after,
-    db,
-    invalidate_session,
-    is_abnormal_stream_termination,
-    is_protocol_interrupt_error,
-)
 
 
 class _FakeGreenletExit(BaseException):
@@ -40,7 +39,7 @@ def _operational(errno: int) -> OperationalError:
 
 
 @pytest.mark.parametrize(
-    "exc,expected",
+    ("exc", "expected"),
     [
         (GeneratorExit(), True),
         (_FakeGreenletExit(), True),
@@ -145,8 +144,9 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
 
 def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
     """The global teardown guard must fire on abnormal context exits and run
-    BEFORE Flask-SQLAlchemy's remove (reverse registration order)."""
-    import flaskr.dao as dao
+    BEFORE Flask-SQLAlchemy's remove (reverse registration order).
+    """
+    from flaskr import dao
 
     order = []
     monkeypatch.setattr(
@@ -165,16 +165,15 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
     class _Interrupt(BaseException):
         pass
 
-    with pytest.raises(_Interrupt):
-        with app.app_context():
-            raise _Interrupt()
+    with pytest.raises(_Interrupt), app.app_context():
+        raise _Interrupt
 
     assert order[0] == "invalidate:appcontext teardown interrupt"
     assert "remove" in order
 
 
 def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(
@@ -183,9 +182,8 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
         lambda *, source, session=None: invalidations.append(source) or True,
     )
 
-    with pytest.raises(ValueError):
-        with app.app_context():
-            raise ValueError("business")
+    with pytest.raises(ValueError, match="business"), app.app_context():
+        raise ValueError("business")
 
     assert invalidations == []
 
@@ -193,7 +191,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
 def test_release_session_classified_invalidates_during_propagating_interrupt(
     app, monkeypatch
 ):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     order = []
     monkeypatch.setattr(
@@ -213,7 +211,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
     with app.app_context():
         try:
-            raise _Interrupt()
+            raise _Interrupt  # noqa: TRY301 - the in-flight exception is the subject
         except _Interrupt:
             pass
         # No in-flight exception here: plain removal, no invalidate.
@@ -223,7 +221,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
         try:
             try:
-                raise _Interrupt()
+                raise _Interrupt
             finally:
                 # In-flight BaseException visible via sys.exc_info in finally:
                 # invalidate must run BEFORE removal, otherwise remove() emits
@@ -238,7 +236,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
 
 def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(

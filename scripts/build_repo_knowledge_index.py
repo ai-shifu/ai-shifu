@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import re
-
+from dataclasses import dataclass
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_ROOT = ROOT / "docs"
@@ -122,19 +121,18 @@ def build_reference_records() -> list[DocRecord]:
 
 def build_execplan_records(subdir: str, status: str) -> list[DocRecord]:
     plan_dir = DOCS_ROOT / "exec-plans" / subdir
-    records: list[DocRecord] = []
-    for path in sorted(plan_dir.glob("*.md")):
-        records.append(
-            DocRecord(
-                path=path,
-                title=extract_title(path),
-                category=f"exec-plan-{subdir}",
-                status=status,
-                owner_surface="repo",
-                last_reviewed="",
-                canonical="true",
-            )
+    records: list[DocRecord] = [
+        DocRecord(
+            path=path,
+            title=extract_title(path),
+            category=f"exec-plan-{subdir}",
+            status=status,
+            owner_surface="repo",
+            last_reviewed="",
+            canonical="true",
         )
+        for path in sorted(plan_dir.glob("*.md"))
+    ]
     return records
 
 
@@ -176,14 +174,17 @@ def render_execplan_index(
         "",
     ]
     if active:
-        for record in active:
-            lines.append(f"- [{record.title}](./active/{record.path.name})")
+        lines.extend(
+            f"- [{record.title}](./active/{record.path.name})" for record in active
+        )
     else:
         lines.append("- No active ExecPlans.")
     lines.extend(["", "## Completed", ""])
     if completed:
-        for record in completed:
-            lines.append(f"- [{record.title}](./completed/{record.path.name})")
+        lines.extend(
+            f"- [{record.title}](./completed/{record.path.name})"
+            for record in completed
+        )
     else:
         lines.append("- No completed ExecPlans.")
     lines.extend(
@@ -207,22 +208,22 @@ def render_inventory(records: list[DocRecord]) -> str:
         "| Path | Title | Category | Status | Owner | Last Reviewed | Canonical |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for record in records:
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    f"`{rel_doc(record.path)}`",
-                    record.title.replace("|", "\\|"),
-                    f"`{record.category}`",
-                    f"`{record.status or '-'}`",
-                    f"`{record.owner_surface or '-'}`",
-                    f"`{record.last_reviewed or '-'}`",
-                    f"`{record.canonical or '-'}`",
-                ]
-            )
-            + " |"
+    lines.extend(
+        "| "
+        + " | ".join(
+            [
+                f"`{rel_doc(record.path)}`",
+                record.title.replace("|", "\\|"),
+                f"`{record.category}`",
+                f"`{record.status or '-'}`",
+                f"`{record.owner_surface or '-'}`",
+                f"`{record.last_reviewed or '-'}`",
+                f"`{record.canonical or '-'}`",
+            ]
         )
+        + " |"
+        for record in records
+    )
     lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 

@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from flask import Flask
-
 from flaskr.api.sms import aliyun
 
 

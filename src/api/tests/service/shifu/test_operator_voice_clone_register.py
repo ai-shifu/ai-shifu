@@ -111,9 +111,9 @@ def test_operator_voice_clone_register_creates_ready_free_voice(
     app, test_client, monkeypatch
 ):
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
         TTS_MINIMAX_CLONE_STATUS_READY,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)
@@ -194,9 +194,9 @@ def test_operator_voice_clone_register_volcengine_uses_free_status_check(
     app, test_client, monkeypatch
 ):
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
         TTS_MINIMAX_CLONE_STATUS_READY,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)

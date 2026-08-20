@@ -6,8 +6,7 @@ Pure in-memory tests — no DB, no Flask app context.
 from __future__ import annotations
 
 import pytest
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.creator_analytics.dsl import (
     ERR_INVALID_AGGREGATE,
     ERR_INVALID_COLUMN,
@@ -17,7 +16,6 @@ from flaskr.service.creator_analytics.dsl import (
     ERR_INVALID_TABLE,
     parse_dsl,
 )
-
 
 DEFAULT_LIMIT_MAX = 1000
 
@@ -38,7 +36,7 @@ def _parse(payload):
 
 
 def _assert_error(payload, error_name: str) -> None:
-    with pytest.raises(AppException) as excinfo:
+    with pytest.raises(AppError) as excinfo:
         _parse(payload)
     # Match by error code so the assertion holds regardless of whether i18n
     # is initialized (the localized message differs by locale).
@@ -335,7 +333,6 @@ def test_order_by_invalid_direction_rejected() -> None:
 
 def test_count_distinct_user_bid_without_selecting_it_parses() -> None:
     """count_distinct(user_bid) — user_bid as aggregate target only — still works."""
-
     payload = _payload(
         select=["status"],
         group_by=["status"],
@@ -347,7 +344,6 @@ def test_count_distinct_user_bid_without_selecting_it_parses() -> None:
 
 def test_select_user_bid_without_group_by_user_bid_is_rejected() -> None:
     """Raw learner pseudo-ID listing must be blocked."""
-
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "order_orders",
@@ -358,12 +354,11 @@ def test_select_user_bid_without_group_by_user_bid_is_rejected() -> None:
 
 
 def test_select_user_bid_with_group_by_other_dimension_is_rejected() -> None:
-    """select user_bid + group_by status — caught by the existing select-in-group-by rule.
+    """Select user_bid + group_by status — caught by the existing select-in-group-by rule.
 
     Documented here for clarity: the user_bid guard piggy-backs on the existing
     rule for the aggregate path, but we still want the surface behavior captured.
     """
-
     payload = _payload(
         select=["user_bid", "status"],
         group_by=["status"],
@@ -392,7 +387,6 @@ def _content_payload(**overrides):
 
 def test_conversation_replay_parses() -> None:
     """user_bid + generated_content + safe type filter — the happy path."""
-
     dsl = _parse(_content_payload())
     assert "user_bid" in dsl.select
     assert "generated_content" in dsl.select
@@ -406,7 +400,6 @@ def test_generated_content_without_type_filter_is_rejected() -> None:
 
 def test_generated_content_with_disallowed_type_is_rejected() -> None:
     """type=303 (input) holds learner free-form text → not allowed."""
-
     payload = _content_payload(
         where=[{"field": "type", "op": "=", "value": 303}],
     )
@@ -415,7 +408,6 @@ def test_generated_content_with_disallowed_type_is_rejected() -> None:
 
 def test_generated_content_with_partial_disallowed_type_in_list_is_rejected() -> None:
     """One disallowed type in an `in` list taints the whole query."""
-
     payload = _content_payload(
         where=[{"field": "type", "op": "in", "value": [321, 309]}],
     )
@@ -603,7 +595,6 @@ def _daily_metric_payload(**overrides):
 
 def test_bill_daily_consumed_credits_parses() -> None:
     """Sum consumed_credits filtered by stat_date range — baseline credit query."""
-
     payload = _daily_metric_payload(
         where=[
             {"field": "usage_scene", "op": "=", "value": 1203},
@@ -622,7 +613,6 @@ def test_bill_daily_consumed_credits_parses() -> None:
 
 def test_bill_daily_group_by_usage_type_parses() -> None:
     """Group by usage_type and usage_scene — LLM vs TTS credit split."""
-
     payload = _daily_metric_payload(
         select=["usage_type", "usage_scene"],
         aggregate=[{"fn": "sum", "field": "consumed_credits", "alias": "credits"}],
@@ -636,7 +626,6 @@ def test_bill_daily_group_by_usage_type_parses() -> None:
 
 def test_bill_daily_select_shifu_bid_rejected() -> None:
     """shifu_bid is injected, callers must not reference it in bill_daily_usage_metrics."""
-
     payload = _daily_metric_payload(select=["shifu_bid", "stat_date"])
     _assert_error(payload, ERR_INVALID_COLUMN)
 
@@ -648,7 +637,6 @@ def test_bill_daily_select_shifu_bid_rejected() -> None:
 
 def test_bill_usage_table_rejected() -> None:
     """`bill_usage` is no longer whitelisted; the DSL parser refuses it."""
-
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "bill_usage",
@@ -677,10 +665,10 @@ def _generated_blocks_payload(**overrides):
 
 
 def test_learn_generated_blocks_status_filterable() -> None:
-    """status is filterable even though sql_builder auto-injects status=1.
+    """Status is filterable even though sql_builder auto-injects status=1.
     Allowing explicit filtering lets a caller debug `status=0` history rows
-    in tests / one-off audits if the auto-injection is ever relaxed."""
-
+    in tests / one-off audits if the auto-injection is ever relaxed.
+    """
     payload = _generated_blocks_payload(
         where=[
             {"field": "type", "op": "=", "value": 321},
@@ -693,7 +681,6 @@ def test_learn_generated_blocks_status_filterable() -> None:
 
 def test_learn_generated_blocks_outline_item_bid_groupable() -> None:
     """Group by outline_item_bid answers "follow-up questions per lesson"."""
-
     payload = _generated_blocks_payload(
         select=["outline_item_bid"],
         where=[{"field": "type", "op": "=", "value": 321}],
@@ -705,11 +692,11 @@ def test_learn_generated_blocks_outline_item_bid_groupable() -> None:
 
 
 def test_learn_generated_blocks_position_selectable() -> None:
-    """position is needed for the four-key follow-up pairing
+    """Position is needed for the four-key follow-up pairing
     (progress_record_bid + shifu_bid + outline_item_bid + position).
     The conversation-replay path (generated_content in select) exempts
-    user_bid from the group-by guard, so list mode is the right test."""
-
+    user_bid from the group-by guard, so list mode is the right test.
+    """
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "learn_generated_blocks",
@@ -730,9 +717,9 @@ def test_learn_generated_blocks_position_selectable() -> None:
 
 
 def test_learn_generated_blocks_position_not_groupable() -> None:
-    """position is row-ordering, not a dimension; grouping on it would
-    multiply rows. Reject `group_by=["position"]`."""
-
+    """Position is row-ordering, not a dimension; grouping on it would
+    multiply rows. Reject `group_by=["position"]`.
+    """
     payload = _generated_blocks_payload(
         select=["position"],
         group_by=["position"],
@@ -749,8 +736,8 @@ def test_learn_generated_blocks_position_not_groupable() -> None:
 def test_bill_daily_creator_bid_groupable() -> None:
     """creator_bid lets the author see which wallet absorbed the course's
     credit cost — shifu_bid isolation guarantees the value is the caller's
-    own bid, but exposing it confirms that explicitly in the result."""
-
+    own bid, but exposing it confirms that explicitly in the result.
+    """
     payload = _daily_metric_payload(
         select=["creator_bid", "stat_date"],
         aggregate=[{"fn": "sum", "field": "consumed_credits", "alias": "credits"}],
@@ -764,8 +751,8 @@ def test_bill_daily_creator_bid_groupable() -> None:
 def test_bill_daily_creator_bid_filter_rejected() -> None:
     """Filtering by creator_bid is intentionally blocked — shifu_bid scope
     already binds the value, so an explicit filter is either redundant
-    (same caller) or an attempt to look at someone else's wallet."""
-
+    (same caller) or an attempt to look at someone else's wallet.
+    """
     payload = _daily_metric_payload(
         where=[
             {"field": "usage_scene", "op": "=", "value": 1203},
@@ -797,7 +784,6 @@ def _shifu_meta_payload(table_key="shifu_published_shifus", **overrides):
 
 def test_shifu_published_select_parses() -> None:
     """Baseline: select-only query on the published metadata table."""
-
     dsl = _parse(_shifu_meta_payload())
     assert dsl.table == "shifu_published_shifus"
     assert "title" in dsl.select
@@ -805,16 +791,15 @@ def test_shifu_published_select_parses() -> None:
 
 def test_shifu_draft_select_parses() -> None:
     """Baseline: select-only query on the draft metadata table."""
-
     dsl = _parse(_shifu_meta_payload(table_key="shifu_draft_shifus"))
     assert dsl.table == "shifu_draft_shifus"
 
 
 def test_shifu_meta_aggregate_rejected() -> None:
-    """count / count_distinct on metadata tables would leak permission
+    """Count / count_distinct on metadata tables would leak permission
     edges (e.g. count_distinct(shifu_bid) reveals "how many courses do I
-    own that match this filter")."""
-
+    own that match this filter").
+    """
     payload = {
         "shifu_bid": "shifu-abc",
         "table": "shifu_published_shifus",
@@ -828,8 +813,8 @@ def test_shifu_meta_group_by_rejected() -> None:
     """group_by has no row-lookup use. With groupable=frozenset(), the
     parser actually rejects at the column-membership check (column not
     groupable) before reaching the per-table guard; either rejection
-    satisfies the security goal."""
-
+    satisfies the security goal.
+    """
     payload = _shifu_meta_payload(
         select=["title"],
         group_by=["title"],
@@ -839,8 +824,8 @@ def test_shifu_meta_group_by_rejected() -> None:
 
 def test_shifu_meta_title_like_too_short_rejected() -> None:
     """`title like 'a%'` is rejected — 1 non-wildcard char approaches full
-    enumeration. Minimum is 2 non-wildcard chars."""
-
+    enumeration. Minimum is 2 non-wildcard chars.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "a%"}],
     )
@@ -849,7 +834,6 @@ def test_shifu_meta_title_like_too_short_rejected() -> None:
 
 def test_shifu_meta_title_like_minimum_accepted() -> None:
     """`title like 'ai%'` (2 non-wildcard chars) is accepted."""
-
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "ai%"}],
     )
@@ -860,8 +844,8 @@ def test_shifu_meta_title_like_minimum_accepted() -> None:
 def test_shifu_meta_title_like_underscore_rejected() -> None:
     """SQL `_` single-char wildcard would let a caller scan with `'a_%'`
     (one literal char + a wildcard floor). The metadata contract is strict
-    prefix matching — reject any `_` regardless of position."""
-
+    prefix matching — reject any `_` regardless of position.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "a_%"}],
     )
@@ -870,8 +854,8 @@ def test_shifu_meta_title_like_underscore_rejected() -> None:
 
 def test_shifu_meta_title_like_double_underscore_rejected() -> None:
     """Original bypass case raised in PR #1769 review: `'__%'` passes the
-    `rstrip('%')` length check (2 chars) but is wildcard-only. Must reject."""
-
+    `rstrip('%')` length check (2 chars) but is wildcard-only. Must reject.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "__%"}],
     )
@@ -880,8 +864,8 @@ def test_shifu_meta_title_like_double_underscore_rejected() -> None:
 
 def test_shifu_meta_title_like_internal_percent_rejected() -> None:
     """`'a%b'` would be 3 non-wildcard chars under naive counting, but the
-    middle `%` violates the prefix-only contract — reject."""
-
+    middle `%` violates the prefix-only contract — reject.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "a%b"}],
     )
@@ -890,8 +874,8 @@ def test_shifu_meta_title_like_internal_percent_rejected() -> None:
 
 def test_shifu_meta_title_like_exact_match_accepted() -> None:
     """A `like` value without any wildcard is just an exact match;
-    accepting it preserves the "look up this exact title" use case."""
-
+    accepting it preserves the "look up this exact title" use case.
+    """
     payload = _shifu_meta_payload(
         where=[{"field": "title", "op": "like", "value": "AI"}],
     )
@@ -902,14 +886,12 @@ def test_shifu_meta_title_like_exact_match_accepted() -> None:
 
 def test_shifu_meta_limit_capped_at_50() -> None:
     """Hard cap at 50 even when the global limit_max is 1000."""
-
     payload = _shifu_meta_payload(limit=51)
     _assert_error(payload, ERR_INVALID_LIMIT)
 
 
 def test_shifu_meta_limit_50_accepted() -> None:
     """Exactly 50 is accepted (cap is inclusive)."""
-
     payload = _shifu_meta_payload(limit=50)
     dsl = _parse(payload)
     assert dsl.limit == 50
@@ -917,8 +899,8 @@ def test_shifu_meta_limit_50_accepted() -> None:
 
 def test_shifu_meta_caller_user_id_threaded() -> None:
     """parse_dsl propagates user_id into QueryDSL.caller_user_id; the SQL
-    builder reads it to inject WHERE created_user_bid = :__user_id."""
-
+    builder reads it to inject WHERE created_user_bid = :__user_id.
+    """
     payload = _shifu_meta_payload()
     dsl = parse_dsl(payload, limit_max=DEFAULT_LIMIT_MAX, user_id="teacher-1")
     assert dsl.caller_user_id == "teacher-1"
@@ -926,7 +908,7 @@ def test_shifu_meta_caller_user_id_threaded() -> None:
 
 def test_shifu_meta_select_forbidden_field_rejected() -> None:
     """Author-secret fields like `llm_system_prompt` must not be selectable
-    even on the caller's own course."""
-
+    even on the caller's own course.
+    """
     payload = _shifu_meta_payload(select=["title", "llm_system_prompt"])
     _assert_error(payload, ERR_INVALID_COLUMN)

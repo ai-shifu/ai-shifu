@@ -7,22 +7,20 @@ from dataclasses import replace
 from typing import Any
 
 from flask import Response, current_app, stream_with_context
-
-from flaskr.dao import cleanup_session_after, invalidate_session
-
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
     is_tts_configured,
     synthesize_text,
 )
+from flaskr.dao import cleanup_session_after, invalidate_session
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.api import supports_cloned_voices
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.validation import (
     assert_preview_cloned_voice_available,
     validate_tts_settings_strict,

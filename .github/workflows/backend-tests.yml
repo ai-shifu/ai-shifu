@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   backend-tests:
     name: Run backend tests
@@ -34,14 +38,38 @@ jobs:
           cache: pip
           cache-dependency-path: src/api/requirements.txt
 
+      - name: Resolve testmon cache lineage
+        id: testmon-cache
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            current_sha="$PR_HEAD_SHA"
+          else
+            current_sha="$GITHUB_SHA"
+          fi
+          previous_sha="$(git rev-parse "${current_sha}^" 2>/dev/null || true)"
+          if [[ -z "$previous_sha" ]]; then
+            previous_sha="$current_sha"
+          fi
+          echo "current-sha=$current_sha" >> "$GITHUB_OUTPUT"
+          echo "previous-sha=$previous_sha" >> "$GITHUB_OUTPUT"
+
       - name: Restore testmon cache
         uses: actions/cache@v4
         with:
           path: |
             src/api/.testmondata
             src/api/.pytest_cache
-          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}
+          # A unique exact key lets each successful commit publish updated state.
+          # Prefer the exact parent commit before broader branch/main fallbacks.
+          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ steps.testmon-cache.outputs.current-sha }}
           restore-keys: |
+            testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ steps.testmon-cache.outputs.previous-sha }}
+            testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-
+            testmon-${{ runner.os }}-py311-main-main-${{ hashFiles('src/api/requirements.txt') }}-
             testmon-${{ runner.os }}-py311-main-
             testmon-${{ runner.os }}-py311-
 
@@ -51,6 +79,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install coverage pytest-testmon
+
+      - name: Run contract tests
+        working-directory: src/api
+        run: python -m pytest tests/contract -v --tb=short
 
       - name: Select test targets (PR only)
         if: github.event_name == 'pull_request'
@@ -84,10 +116,65 @@ jobs:
               prefix = "src/api/"
               return path[len(prefix):] if path.startswith(prefix) else path
 
+          def is_test_module(path: str) -> bool:
+              name = pathlib.PurePath(path).name
+              if not name.endswith(".py"):
+                  return False
+              return name.startswith("test_") or name.endswith("_test.py")
+
+          def has_test_module(directory: pathlib.Path) -> bool:
+              return any(
+                  is_test_module(str(child))
+                  for child in directory.rglob("*.py")
+              )
+
+          def enclosing_test_dir(path: str) -> str:
+              directory = pathlib.PurePath(path).parent
+              while True:
+                  if has_test_module(api_root / directory):
+                      return str(directory)
+                  if directory == pathlib.PurePath("tests") or not directory.parts:
+                      return "tests"
+                  directory = directory.parent
+
+          def module_name(path: str) -> str:
+              parts = list(pathlib.PurePath(path).with_suffix("").parts)
+              if parts[-1] == "__init__":
+                  parts.pop()
+              return ".".join(parts)
+
+          def imported_outside(path: str, package: str) -> bool:
+              # Test packages import each other's helpers by dotted path, so a
+              # helper used from another package needs the whole suite.
+              needle = module_name(path)
+              if not needle:
+                  return True
+              inside = f"{package}/"
+              for module in (api_root / "tests").rglob("*.py"):
+                  relative = module.relative_to(api_root).as_posix()
+                  if relative.startswith(inside):
+                      continue
+                  if not is_test_module(relative) and module.name != "conftest.py":
+                      continue
+                  if needle in module.read_text(encoding="utf-8"):
+                      return True
+              return False
+
           def add_target(path: str) -> None:
+              global full_run
               candidate = normalize(path)
-              if (api_root / candidate).exists():
-                  targets.add(candidate)
+              if not (api_root / candidate).exists():
+                  return
+              if (api_root / candidate).is_file() and not is_test_module(candidate):
+                  # Helpers, fixtures and conftest files hold no tests of their
+                  # own, so run the nearest enclosing package that does instead
+                  # of collecting nothing and failing with pytest exit code 5.
+                  package = enclosing_test_dir(candidate)
+                  if candidate.endswith(".py") and imported_outside(candidate, package):
+                      full_run = True
+                      return
+                  candidate = package
+              targets.add(candidate)
 
           def is_control_plane_backend_path(path: str) -> bool:
               if path in {

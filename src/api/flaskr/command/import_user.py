@@ -1,5 +1,8 @@
 from flask import Flask
 
+from flaskr.dao import db
+from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.order import init_buy_record
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.user.repository import (
@@ -8,15 +11,12 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.dao import db
 
 
 def import_user(
     app: Flask, mobile, course_id, discount_code="web", user_nick_name=None
 ):
-    """Import user and enable course"""
+    """Import user and enable course."""
     app.logger.info(f"import_user: {mobile}, {course_id}")
     with app.app_context():
         normalized_mobile = normalize_phone_identifier(mobile)

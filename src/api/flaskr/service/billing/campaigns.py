@@ -8,8 +8,6 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import func
-
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import (
@@ -17,8 +15,10 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.common.pagination import normalize_pagination
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import func
 
 from .consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
@@ -54,7 +54,6 @@ from .primitives import (
     quantize_credit_amount,
     to_decimal,
 )
-from flaskr.service.common.pagination import normalize_pagination
 from .serializers import (
     serialize_admin_campaign,
     serialize_admin_campaign_detail,
@@ -68,9 +67,9 @@ class AppliedBillingCampaignResult:
     benefit_type_code: int = 0
     discount_type_code: int = 0
     discount_amount: int = 0
-    discount_percent: Decimal = Decimal("0")
+    discount_percent: Decimal = Decimal(0)
     campaign_price_amount: int = 0
-    bonus_credit_amount: Decimal = Decimal("0")
+    bonus_credit_amount: Decimal = Decimal(0)
 
     def to_catalog_payload(self) -> dict[str, Any]:
         if not self.campaign_bid:
@@ -106,9 +105,9 @@ class NormalizedCampaignProductConfig:
     benefit_type_code: int
     discount_type_code: int = 0
     discount_amount: int = 0
-    discount_percent: Decimal = Decimal("0")
+    discount_percent: Decimal = Decimal(0)
     campaign_price_amount: int = 0
-    bonus_credit_amount: Decimal = Decimal("0")
+    bonus_credit_amount: Decimal = Decimal(0)
 
 
 def build_admin_billing_campaign_product_options(
@@ -530,7 +529,7 @@ def _normalize_campaign_product_drafts(
                     raw_product.get("discount_type"),
                     required=True,
                 )
-                discount_percent = Decimal("0")
+                discount_percent = Decimal(0)
                 campaign_price_amount = 0
                 if discount_type_code == BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED:
                     campaign_price_amount = _coerce_campaign_price_amount(
@@ -546,7 +545,7 @@ def _normalize_campaign_product_drafts(
                         "discount_type_code": discount_type_code,
                         "discount_percent": discount_percent,
                         "campaign_price_amount": campaign_price_amount,
-                        "bonus_credit_amount": Decimal("0"),
+                        "bonus_credit_amount": Decimal(0),
                     }
                 )
             else:
@@ -554,7 +553,7 @@ def _normalize_campaign_product_drafts(
                     {
                         "product_bid": normalized_product_bid,
                         "discount_type_code": 0,
-                        "discount_percent": Decimal("0"),
+                        "discount_percent": Decimal(0),
                         "campaign_price_amount": 0,
                         "bonus_credit_amount": _coerce_bonus_credit_amount(
                             raw_product.get("bonus_credit_amount")
@@ -579,7 +578,7 @@ def _normalize_campaign_product_drafts(
             payload.get("discount_type"),
             required=True,
         )
-        discount_percent = Decimal("0")
+        discount_percent = Decimal(0)
         campaign_price_amount = 0
         if discount_type_code == BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED:
             discount_amount = _coerce_discount_amount(payload.get("discount_amount"))
@@ -594,7 +593,7 @@ def _normalize_campaign_product_drafts(
                     "discount_amount": discount_amount,
                     "discount_percent": discount_percent,
                     "campaign_price_amount": campaign_price_amount,
-                    "bonus_credit_amount": Decimal("0"),
+                    "bonus_credit_amount": Decimal(0),
                 }
                 for product_bid in product_bids
             ]
@@ -609,7 +608,7 @@ def _normalize_campaign_product_drafts(
                 "product_bid": product_bid,
                 "discount_type_code": 0,
                 "discount_amount": 0,
-                "discount_percent": Decimal("0"),
+                "discount_percent": Decimal(0),
                 "campaign_price_amount": 0,
                 "bonus_credit_amount": bonus_credit_amount,
             }
@@ -696,6 +695,7 @@ def _resolve_product_type_filter(value: Any) -> int | None:
         }:
             return code
     raise_param_error("product_type")
+    return None
 
 
 def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
@@ -708,6 +708,7 @@ def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
         if label == normalized:
             return code
     raise_param_error("benefit_type")
+    return None
 
 
 def _resolve_discount_type(value: Any, *, required: bool) -> int | None:
@@ -720,6 +721,7 @@ def _resolve_discount_type(value: Any, *, required: bool) -> int | None:
         if label == normalized:
             return code
     raise_param_error("discount_type")
+    return None
 
 
 def _load_campaign(campaign_bid: str) -> BillingCampaign | None:
@@ -819,9 +821,9 @@ def _load_campaign_target_product_configs(
                     benefit_type_code=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
                     discount_type_code=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
                     discount_amount=discount_amount,
-                    discount_percent=Decimal("0"),
+                    discount_percent=Decimal(0),
                     campaign_price_amount=campaign_price_amount,
-                    bonus_credit_amount=Decimal("0"),
+                    bonus_credit_amount=Decimal(0),
                 )
             )
             continue
@@ -834,8 +836,8 @@ def _load_campaign_target_product_configs(
                 (
                     Decimal(int(product.price_amount or 0))
                     * percent_value
-                    / Decimal("100")
-                ).quantize(Decimal("1"))
+                    / Decimal(100)
+                ).quantize(Decimal(1))
             )
             campaign_price_amount = max(
                 int(product.price_amount or 0) - discount_amount, 0
@@ -849,7 +851,7 @@ def _load_campaign_target_product_configs(
                     discount_amount=discount_amount,
                     discount_percent=percent_value,
                     campaign_price_amount=campaign_price_amount,
-                    bonus_credit_amount=Decimal("0"),
+                    bonus_credit_amount=Decimal(0),
                 )
             )
             continue
@@ -1118,8 +1120,8 @@ def _resolve_campaign_rule_snapshot(
         return {
             "discount_type_code": 0,
             "discount_amount": 0,
-            "discount_percent": Decimal("0"),
-            "bonus_credit_amount": Decimal("0"),
+            "discount_percent": Decimal(0),
+            "bonus_credit_amount": Decimal(0),
             "has_custom_product_rules": False,
         }
     first = product_configs[0]
@@ -1241,14 +1243,14 @@ def _resolve_applied_campaign_result(
                 discount_percent=discount_percent,
                 campaign_price_amount=max(campaign_price_amount, 0),
             )
-        percent_value = max(min(discount_percent, Decimal("100")), Decimal("0"))
+        percent_value = max(min(discount_percent, Decimal(100)), Decimal(0))
         if discount_amount <= 0:
             discount_amount = int(
                 (
                     Decimal(int(product.price_amount or 0))
                     * percent_value
-                    / Decimal("100")
-                ).quantize(Decimal("1"))
+                    / Decimal(100)
+                ).quantize(Decimal(1))
             )
         if campaign_price_amount <= 0 and int(product.price_amount or 0) > 0:
             campaign_price_amount = max(

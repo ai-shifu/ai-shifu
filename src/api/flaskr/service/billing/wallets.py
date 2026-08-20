@@ -3,21 +3,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from flask import Flask
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.common.models import raise_error
+from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.uuid import generate_id
 from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import ObjectDeletedError
 
-from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import raise_error
-from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc, to_utc_iso
-
+from .bucket_categories import (
+    build_wallet_bucket_runtime_sort_key,
+    load_billing_order_type_by_bid,
+    resolve_credit_bucket_priority,
+    resolve_runtime_credit_bucket_category,
+    resolve_wallet_bucket_runtime_category,
+    wallet_bucket_requires_active_subscription,
+)
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_ORDER_STATUS_PAID,
@@ -40,14 +47,6 @@ from .consts import (
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
-from .bucket_categories import (
-    build_wallet_bucket_runtime_sort_key,
-    load_billing_order_type_by_bid,
-    resolve_credit_bucket_priority,
-    resolve_runtime_credit_bucket_category,
-    resolve_wallet_bucket_runtime_category,
-    wallet_bucket_requires_active_subscription,
-)
 from .dtos import BillingLedgerAdjustResultDTO, BillingWalletRefDTO
 from .models import (
     BillingOrder,
@@ -62,7 +61,7 @@ from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .queries import load_primary_active_subscription
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _PRESERVED_BUCKET_STATUSES = {
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXPIRED,
@@ -757,7 +756,6 @@ def calculate_credit_wallet_snapshot_values(
     snapshot_at: datetime | None = None,
 ) -> tuple[Decimal, Decimal]:
     """Calculate wallet balances without mutating the ORM wallet row."""
-
     resolved_snapshot_at = snapshot_at or now_utc()
     rows = (
         CreditWalletBucket.query.filter(
@@ -809,7 +807,6 @@ def refresh_credit_wallet_snapshot(
     snapshot_at: datetime | None = None,
 ) -> CreditWallet:
     """Rebuild wallet balances from the current bucket snapshot table."""
-
     available_credits, reserved_credits = calculate_credit_wallet_snapshot_values(
         wallet,
         snapshot_at=snapshot_at,
@@ -830,7 +827,6 @@ def persist_credit_wallet_snapshot(
     updated_at: datetime | None = None,
 ) -> CreditWallet:
     """Persist a wallet snapshot with optimistic version checking."""
-
     if wallet.id is None:
         db.session.flush()
     expected_version = int(wallet.version or 0)
@@ -1002,7 +998,6 @@ def rebuild_credit_wallet_snapshots(
     dry_run: bool = False,
 ) -> WalletSnapshotRebuildResult:
     """Rebuild wallet snapshots from bucket rows for one or many creators."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bid = str(wallet_bid or "").strip()
     with app.app_context():
@@ -1087,7 +1082,6 @@ def repair_renewal_state_drift(
     dry_run: bool = True,
 ) -> RenewalStateDriftRepairResult:
     """Repair creators whose subscription or bucket state stayed past cycle end."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
     repaired_at = repair_before or now_utc()
@@ -1366,7 +1360,6 @@ def repair_credit_bucket_runtime_statuses(
     wallet_bucket_bid: str = "",
 ) -> dict[str, Any]:
     """Repair buckets whose runtime status no longer matches their live balance."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
     repaired_at = now_utc()
@@ -1450,7 +1443,6 @@ def grant_refund_return_credits(
     effective_from: datetime | None = None,
 ) -> RefundReturnCreditsResult:
     """Grant refunded credits back as a new subscription/topup bucket."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_refund_bid = str(refund_bid or "").strip()
     normalized_amount = _quantize_credit_amount(amount)
@@ -1593,7 +1585,6 @@ def adjust_credit_wallet_balance(
     operator_user_bid: str = "",
 ) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through credit buckets."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_amount = _quantize_credit_amount(amount)
     normalized_note = str(note or "").strip()
@@ -1773,7 +1764,6 @@ def grant_manual_credit_wallet_balance(
     idempotency_key: str = "",
 ) -> ManualCreditGrantResult:
     """Create a dedicated manual-grant bucket and matching ledger row."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_amount = _quantize_credit_amount(amount)
     normalized_source_bid = str(source_bid or "").strip()
@@ -1926,7 +1916,6 @@ def expire_credit_wallet_buckets(
     expire_before: datetime | None = None,
 ) -> WalletExpirationResult:
     """Expire currently active buckets whose effective window has ended."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     cutoff = expire_before or now_utc()
     with app.app_context():
@@ -1956,7 +1945,6 @@ def repair_expire_ledger_bucket_drift(
     would duplicate audit entries, so the repair only synchronizes the bucket
     projection and wallet snapshot.
     """
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
@@ -2154,7 +2142,6 @@ def restore_wrongly_expired_credit_pack_buckets(
     dry_run: bool = True,
 ) -> ExpiredCreditPackBucketRestoreResult:
     """Restore explicitly scoped credit pack buckets expired before this fix."""
-
     normalized_order_bids = list(
         dict.fromkeys(_normalize_bid(bid) for bid in bill_order_bids)
     )
@@ -2537,7 +2524,6 @@ def _expire_credit_wallet_buckets_in_session(
     expire_before: datetime | None = None,
 ) -> WalletExpirationResult:
     """Expire eligible buckets inside the current transaction without committing."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     cutoff = expire_before or now_utc()
     query = CreditWalletBucket.query.filter(
@@ -2733,7 +2719,6 @@ def _refresh_frozen_credit_pack_wallet_snapshots(
 
 def _is_credit_pack_runtime_bucket(bucket: CreditWalletBucket) -> bool:
     """Return whether a bucket represents non-expiring credit pack ownership."""
-
     return (
         resolve_wallet_bucket_runtime_category(
             bucket,
@@ -2750,7 +2735,6 @@ def _expire_bucket_available_credits_if_unchanged(
     mutation_at: datetime,
 ) -> bool:
     """Expire a bucket only if its refreshed balance/window still match."""
-
     if bucket.id is None or bucket.effective_to is None:
         return False
 
@@ -2798,7 +2782,6 @@ def _sync_empty_available_bucket_status_if_unchanged(
     mutation_at: datetime,
 ) -> bool:
     """Mark an ended empty bucket exhausted only if it stayed empty."""
-
     if bucket.id is None or bucket.effective_to is None:
         return False
 
@@ -2833,7 +2816,6 @@ def _sync_empty_available_bucket_status_if_unchanged(
 
 def sync_credit_bucket_status(bucket: CreditWalletBucket) -> int:
     """Normalize mutable bucket status from its current remaining balance."""
-
     current_status = int(bucket.status or 0)
     if current_status in _PRESERVED_BUCKET_STATUSES:
         return current_status
@@ -2905,10 +2887,10 @@ def _load_or_create_credit_wallet(app: Flask, creator_bid: str) -> CreditWallet:
     wallet = CreditWallet(
         wallet_bid=generate_id(app),
         creator_bid=normalized_creator_bid,
-        available_credits=Decimal("0"),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        available_credits=Decimal(0),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )

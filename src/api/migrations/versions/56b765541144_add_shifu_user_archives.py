@@ -1,4 +1,4 @@
-"""add shifu_user_archives and drop legacy archive columns
+"""add shifu_user_archives and drop legacy archive columns.
 
 Revision ID: 56b765541144
 Revises: b5f2d3a9c1e4
@@ -6,9 +6,8 @@ Create Date: 2026-01-18 00:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "56b765541144"

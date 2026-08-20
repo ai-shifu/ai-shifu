@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
-from typing import Any, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import get_config, update_config
+
 from .primitives import normalize_bid
 
 _ADMIN_OPS_OWNER_BID = "billing-admin-ops"
@@ -53,17 +54,21 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
         from flaskr import dao
 
         redis = getattr(dao, "redis_client", None)
-        if redis is None:
-            raise RuntimeError("Redis client is not configured")
-        lock = redis.lock(
-            f"billing:admin_ops_state:{key}",
-            timeout=10,
-            blocking_timeout=5,
+        lock = (
+            None
+            if redis is None
+            else redis.lock(
+                f"billing:admin_ops_state:{key}",
+                timeout=10,
+                blocking_timeout=5,
+            )
         )
     except Exception as exc:
         raise RuntimeError(
             "Admin billing operations state lock is unavailable"
         ) from exc
+    if lock is None:
+        raise RuntimeError("Admin billing operations state lock is unavailable")
 
     acquired = lock.acquire(blocking=True, blocking_timeout=5)
     if not acquired:
@@ -71,10 +76,8 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
     try:
         yield
     finally:
-        try:
+        with suppress(Exception):
             lock.release()
-        except Exception:
-            pass
 
 
 def _read_map(key: str) -> dict[str, Any]:

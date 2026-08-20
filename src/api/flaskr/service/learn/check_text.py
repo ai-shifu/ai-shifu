@@ -1,37 +1,32 @@
 from flask import Flask
-
-from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.api.llm import invoke_llm
 from flaskr.api.check import (
-    check_text,
     CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
+    check_text,
 )
+from flaskr.api.llm import invoke_llm
+from flaskr.dao import db
 from flaskr.service.check_risk import add_risk_control_result
 from flaskr.service.learn.const import (
     ROLE_TEACHER,
 )
-from flaskr.dao import db
-from flaskr.service.user.repository import UserAggregate
-from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.learn.utils_v2 import init_generated_block
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
-from flaskr.service.metering import UsageContext
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_event_name,
     build_langfuse_generation_name,
 )
-
-
-class BreakException(Exception):
-    pass
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.metering import UsageContext
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+from flaskr.service.user.repository import UserAggregate
 
 
 def check_text_with_llm_response(
     app: Flask,
     user_info: UserAggregate,
     log_script: LearnGeneratedBlock,
-    input: str,
+    user_input: str,
     span,
     outline_item_bid: str,
     shifu_bid: str,
@@ -43,17 +38,17 @@ def check_text_with_llm_response(
     chapter_title: str = "",
     scene: str = "lesson_runtime",
 ):
-    res = check_text(app, log_script.generated_block_bid, input, user_info.user_id)
+    res = check_text(app, log_script.generated_block_bid, user_input, user_info.user_id)
     span.event(
         name=build_langfuse_event_name(chapter_title, scene, "check_text"),
-        input=input,
+        input=user_input,
         output=res,
     )
     add_risk_control_result(
         app,
         log_script.generated_block_bid,
         user_info.user_id,
-        input,
+        user_input,
         res.provider,
         res.check_result,
         str(res.raw_data),
@@ -73,7 +68,7 @@ def check_text_with_llm_response(
 {fmt_prompt}
 
 # 学生发言
-{input}
+{user_input}
 
 # 学生发言违规原因
 {", ".join(labels)}
@@ -93,7 +88,7 @@ def check_text_with_llm_response(
             ),
             usage_context=usage_context,
             usage_scene=usage_context.usage_scene,
-            **{"temperature": llm_settings.temperature},
+            temperature=llm_settings.temperature,
         )
         response_text = ""
 

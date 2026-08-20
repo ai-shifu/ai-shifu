@@ -7,18 +7,18 @@ resetting passwords where we only want to validate ownership of an identifier.
 
 from __future__ import annotations
 
+import contextlib
 import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.user.models import UserVerifyCode
+from flaskr.util.datetime import now_utc
 
 CodeKind = Literal["sms", "email"]
 
@@ -26,12 +26,10 @@ CodeKind = Literal["sms", "email"]
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     if value is None:
         return False
-    try:
+    # Defensive: keep the original value if tzinfo manipulation fails.
+    with contextlib.suppress(Exception):
         if value.tzinfo is not None:
             value = value.replace(tzinfo=None)
-    except Exception:
-        # Defensive: keep original value if tzinfo manipulation fails.
-        pass
     now = now_utc()
     return (now - value).total_seconds() <= seconds
 
@@ -49,8 +47,8 @@ def _consume_latest_code_from_db(
       - "ok" when the code is valid and is marked as used.
       - "expired" when no valid code exists (missing/used/expired).
       - "invalid" when a code exists but does not match.
-    """
 
+    """
     if kind == "sms":
         expire_seconds = int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300))
         query = UserVerifyCode.query.filter(
@@ -94,7 +92,6 @@ def _decode_cache_value(raw) -> str:
 
 def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None:
     """Validate and consume a verification code for an email or phone identifier."""
-
     identifier = (identifier or "").strip()
     code = (code or "").strip()
     # Keep helper-level parameter checks for direct service callers such as
@@ -104,7 +101,7 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     if not code:
         raise_param_error("code")
 
-    fix_code: Optional[str] = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    fix_code: str | None = app.config.get("UNIVERSAL_VERIFICATION_CODE")
     if fix_code and code == fix_code:
         # Universal code is accepted in dev/test environments and should not
         # affect cache/db state.
@@ -183,7 +180,9 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
 
     cached = None
     cached_identifier = identifier
-    for cache_key, lookup_identifier in zip(cache_keys, lookup_identifiers):
+    for cache_key, lookup_identifier in zip(
+        cache_keys, lookup_identifiers, strict=False
+    ):
         cached = redis.get(cache_key)
         if cached is not None:
             cached_identifier = lookup_identifier

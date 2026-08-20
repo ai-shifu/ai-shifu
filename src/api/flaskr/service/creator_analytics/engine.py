@@ -13,20 +13,18 @@ plain ``{"columns": [...], "rows": [...]}`` dict suitable for the HTTP layer.
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from flask import Flask
+from flaskr.dao import db
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Result
 from sqlalchemy.sql import Select
 
-from flaskr.dao import db
-
-
 _FALLBACK_WARNED = False
 _lock = threading.Lock()
-_engine: Optional[Engine] = None
-_engine_uri: Optional[str] = None
+_engine: Engine | None = None
+_engine_uri: str | None = None
 
 
 def get_analytics_engine(app: Flask) -> Engine:
@@ -36,7 +34,6 @@ def get_analytics_engine(app: Flask) -> Engine:
     cached for the process lifetime. When the URI is empty the primary
     Flask-SQLAlchemy engine is reused and a one-shot warning is emitted.
     """
-
     global _engine, _engine_uri, _FALLBACK_WARNED
 
     uri = (app.config.get("ANALYTICS_DATABASE_URI") or "").strip()
@@ -63,20 +60,18 @@ def get_analytics_engine(app: Flask) -> Engine:
         return _engine
 
 
-def run_query(app: Flask, stmt: Select) -> Dict[str, Any]:
+def run_query(app: Flask, stmt: Select) -> dict[str, Any]:
     """Execute ``stmt`` against the analytics engine and return columns/rows."""
-
     engine = get_analytics_engine(app)
     with engine.connect() as connection:
         result: Result = connection.execute(stmt)
         columns = list(result.keys())
-        rows: List[List[Any]] = [list(row) for row in result.fetchall()]
+        rows: list[list[Any]] = [list(row) for row in result.fetchall()]
     return {"columns": columns, "rows": rows}
 
 
 def reset_for_tests() -> None:
     """Clear the cached engine — used by the test suite between cases."""
-
     global _engine, _engine_uri, _FALLBACK_WARNED
     with _lock:
         if _engine is not None:

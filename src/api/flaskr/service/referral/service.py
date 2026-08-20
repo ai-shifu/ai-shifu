@@ -12,19 +12,19 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, has_app_context, has_request_context, request
-from sqlalchemy import func
-
-from flaskr.util.datetime import now_utc, to_utc_iso
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.common.config import get_config as get_common_config
 from flaskr.dao import db
 from flaskr.service.billing.api import (
     ReferralPlanRewardRequest,
+)
+from flaskr.service.billing.api import (
     grant_referral_plan_reward as _grant_referral_plan_reward_request,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
@@ -52,7 +52,6 @@ from .models import (
     ReferralInviteReward,
 )
 from .reward_queue import build_referral_reward_queue
-
 
 _INVITE_CODE_ALPHABET = string.ascii_uppercase + string.digits
 _INVITE_CODE_LENGTH = 8
@@ -140,9 +139,7 @@ def _within_window(
 ) -> bool:
     if starts_at is not None and starts_at > now:
         return False
-    if ends_at is not None and ends_at <= now:
-        return False
-    return True
+    return not (ends_at is not None and ends_at <= now)
 
 
 def _campaign_runtime_enabled(campaign: ReferralCampaign, *, now: datetime) -> bool:
@@ -271,7 +268,6 @@ def _create_invite_code_with_retry(
         db.session.add(invite_code)
         try:
             db.session.flush()
-            return invite_code
         except IntegrityError:
             db.session.rollback()
             existing = _load_active_invite_code(
@@ -280,6 +276,8 @@ def _create_invite_code_with_retry(
             )
             if existing is not None:
                 return existing
+        else:
+            return invite_code
     raise RuntimeError("unable to generate referral invite code")
 
 
@@ -688,7 +686,6 @@ def retry_pending_referral_rewards(
     dry_run: bool = True,
 ) -> list[dict[str, Any]]:
     """Retry generated referral rewards that do not yet have billing artifacts."""
-
     with _with_app_context(app):
         safe_limit = max(min(int(limit or 100), 500), 1)
         rewards = (

@@ -1,6 +1,6 @@
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 
@@ -42,7 +42,7 @@ def test_reset_password_does_not_create_new_user(test_client, app):
 
 
 def test_set_password_requires_login_and_verification_code(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
 
     phone = "15500001111"
 
@@ -86,7 +86,7 @@ def test_set_password_requires_login_and_verification_code(test_client, app):
 
 
 def test_password_login_after_setting_password(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
 
     phone = "15500002222"
     password = "Abcd1234"
@@ -118,13 +118,13 @@ def test_password_login_after_setting_password(test_client, app):
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
         load_learner_profile_state,
     )
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo, UserOnboardingState
     from flaskr.service.user.repository import create_user_entity
     from flaskr.service.user.utils import generate_token
@@ -132,7 +132,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
     target_phone = "15500002332"
     password = "Abcd1234"
     guest_profile = "可以叫我小雨。password merge sentinel"
-    profile_updated_at = datetime(2026, 8, 4, 5, 30, tzinfo=timezone.utc)
+    profile_updated_at = datetime(2026, 8, 4, 5, 30, tzinfo=UTC)
 
     with app.app_context():
         guest = create_user_entity(
@@ -235,7 +235,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         assert stored_target.nickname == "小雨"
         assert stored_target.learner_profile_updated_at is not None
         assert (
-            stored_target.learner_profile_updated_at.replace(tzinfo=timezone.utc)
+            stored_target.learner_profile_updated_at.replace(tzinfo=UTC)
             == profile_updated_at
         )
         assert stored_guest.learner_profile == guest_profile
@@ -245,8 +245,8 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
 
 
 def test_password_login_never_merges_from_a_registered_account(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
 
     source_phone = "15500002334"
@@ -262,9 +262,7 @@ def test_password_login_never_merges_from_a_registered_account(test_client, app)
         )
         source = UserInfo.query.filter_by(user_bid=source_token.userInfo.user_id).one()
         source.learner_profile = "registered profile must stay isolated"
-        source.learner_profile_updated_at = datetime(
-            2026, 8, 4, 5, 45, tzinfo=timezone.utc
-        )
+        source.learner_profile_updated_at = datetime(2026, 8, 4, 5, 45, tzinfo=UTC)
         target_user_id = target_token.userInfo.user_id
         target = UserInfo.query.filter_by(user_bid=target_user_id).one()
         target.nickname = "Existing target"
@@ -296,8 +294,8 @@ def test_password_login_never_merges_from_a_registered_account(test_client, app)
 
 
 def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.dao import db
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
     from flaskr.service.user.repository import create_user_entity
 
@@ -316,7 +314,7 @@ def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client,
             identify="password-expired-token-guest",
             nickname="Guest",
             learner_profile="expired token profile",
-            learner_profile_updated_at=datetime(2026, 8, 4, 6, 0, tzinfo=timezone.utc),
+            learner_profile_updated_at=datetime(2026, 8, 4, 6, 0, tzinfo=UTC),
         )
         db.session.commit()
         expired_token = jwt.encode(
@@ -376,8 +374,9 @@ def test_sms_login_route_logs_in_with_phone_code(test_client):
 
 
 def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client, app):
-    import flaskr.service.user.phone_flow as phone_flow
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user import phone_flow
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     original_phone = "15500005551"
     next_phone = "15500005552"
@@ -421,7 +420,8 @@ def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client
 
 
 def test_sms_login_route_normalizes_cn_prefix(test_client, app):
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     phone = "15500004444"
 

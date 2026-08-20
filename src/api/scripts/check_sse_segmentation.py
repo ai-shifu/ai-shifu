@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Replay generated blocks through AVStreamingTTSProcessor with tiny SSE chunks.
+"""Replay generated blocks through AVStreamingTTSProcessor with tiny SSE chunks.
 
 This script is intended for regression checks against real generated block
 content exported from MySQL. It compares:
@@ -20,9 +19,10 @@ import base64
 import json
 import os
 import re
+import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 from unittest.mock import MagicMock
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
@@ -30,15 +30,13 @@ os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
 from flask_sqlalchemy import SQLAlchemy
-
 from flaskr import dao
 
 if dao.db is None:
     dao.db = SQLAlchemy()
 
-from flaskr.service.tts.pipeline import split_av_speakable_segments
 from flaskr.service.tts import streaming_tts as streaming_tts_module
-
+from flaskr.service.tts.pipeline import split_av_speakable_segments
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
 VISUAL_LEAK_PATTERN = re.compile(
@@ -71,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        default="/tmp/latest_generate_blocks_b64.jsonl",
+        default=str(Path(tempfile.gettempdir()) / "latest_generate_blocks_b64.jsonl"),
         help="Path to JSONL exported from MySQL",
     )
     parser.add_argument(
@@ -196,7 +194,7 @@ def _detect_issues(
         )
 
     for idx, (expected, observed) in enumerate(
-        zip(expected_segments, observed_segments), start=1
+        zip(expected_segments, observed_segments, strict=False), start=1
     ):
         if expected != observed:
             if _normalize_text(expected) == _normalize_text(observed):

@@ -1,7 +1,6 @@
 """Tests for the shared pagination normalization helper."""
 
 import pytest
-
 from flaskr.service.common.pagination import (
     DEFAULT_PAGE_INDEX,
     DEFAULT_PAGE_SIZE,

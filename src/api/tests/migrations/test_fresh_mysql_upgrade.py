@@ -1,16 +1,15 @@
 import os
-from pathlib import Path
 import subprocess
 import sys
 import textwrap
 import uuid
+from pathlib import Path
 
 import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
-
 
 API_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_FLAG = "RUN_MYSQL_MIGRATION_SMOKE"
@@ -28,7 +27,7 @@ def test_alembic_migrations_have_single_head():
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["f9a2b3c4d5e6"]
+    assert heads == ["a9c3d5e7f1b2"]
 
 
 def _get_base_mysql_uri() -> str:

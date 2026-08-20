@@ -8,12 +8,11 @@ otherwise roll back on a possibly desynced connection.
 """
 
 import pytest
+from flaskr.service.learn import routes as learn_routes
 from sqlalchemy.exc import ResourceClosedError
 
-from flaskr.service.learn import routes as learn_routes
 
-
-@pytest.fixture()
+@pytest.fixture
 def invalidations(monkeypatch):
     calls = []
     monkeypatch.setattr(
@@ -91,7 +90,7 @@ def test_sse_business_error_does_not_invalidate(app, invalidations):
         )
         stream = iter(response.response)
         next(stream)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="business"):
             next(stream)
 
     assert invalidations == []

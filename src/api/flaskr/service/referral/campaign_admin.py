@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import or_
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_PRODUCT_STATUS_ACTIVE,
@@ -21,6 +19,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from sqlalchemy import or_
 
 from .consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
@@ -48,7 +47,6 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
-
 
 REFERRAL_CAMPAIGN_STATUS_FILTERS = {
     "active",
@@ -355,16 +353,15 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         return None
     for datetime_format in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
         try:
-            parsed = datetime.strptime(normalized, datetime_format)
-            return parsed
+            return datetime.strptime(normalized, datetime_format)
         except ValueError:
             continue
     try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError:
         raise_param_error(field_name)
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc)
+        parsed = parsed.astimezone(UTC)
     return parsed.replace(tzinfo=None)
 
 
@@ -377,6 +374,7 @@ def _parse_bool(value: object, field_name: str) -> bool:
     if normalized in {"false", "0", "no"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 def _parse_positive_int(value: object, field_name: str) -> int:
@@ -427,6 +425,7 @@ def _parse_json_object(value: object, field_name: str) -> dict[str, Any]:
         if isinstance(parsed, dict):
             return parsed
     raise_param_error(field_name)
+    return None
 
 
 def _normalize_payload(
@@ -717,6 +716,7 @@ def _apply_status_filter(query, status: str, *, now: datetime):
             )
         )
     raise_param_error("status")
+    return None
 
 
 def _computed_status(campaign: ReferralCampaign, *, now: datetime) -> str:

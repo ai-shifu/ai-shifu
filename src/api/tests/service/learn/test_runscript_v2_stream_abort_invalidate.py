@@ -12,15 +12,15 @@ rolling back on it.
 """
 
 import types
+from typing import ClassVar
 
 import pytest
-from sqlalchemy.exc import OperationalError, ResourceClosedError
-
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.runscript_v2 import (
     _is_protocol_desync_error,
     run_script_inner,
 )
+from sqlalchemy.exc import OperationalError, ResourceClosedError
 
 
 class _FakeSession:
@@ -46,7 +46,7 @@ class _FakeSession:
 class _StubRunContext:
     """Yields scripted items (or raises) through run(); has_next() once."""
 
-    script: list = []
+    script: ClassVar[list] = []
 
     def __init__(self, **_kwargs):
         self._steps = iter([True, False])
@@ -84,7 +84,7 @@ def _patch_run_dependencies(monkeypatch, script):
         runscript_v2,
         "get_outline_item_dto",
         lambda _app, _bid, _preview: types.SimpleNamespace(
-            bid="outline-1", shifu_bid="shifu-1", __json__=lambda: {}
+            bid="outline-1", shifu_bid="shifu-1", __json__=dict
         ),
     )
     monkeypatch.setattr(
@@ -159,7 +159,7 @@ def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
 
     with app.app_context():
         generator = _start_stream(app)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="business failure"):
             next(generator)
 
     assert session.invalidations == 0
@@ -238,7 +238,6 @@ def test_discard_helper_works_on_real_scoped_session(app, caplog):
 
     from flaskr.service.learn.runscript_v2 import _discard_session_connection
 
-    with app.app_context():
-        with caplog.at_level(logging.WARNING):
-            _discard_session_connection(app, source="real session smoke")
+    with app.app_context(), caplog.at_level(logging.WARNING):
+        _discard_session_connection(app, source="real session smoke")
     assert "invalidate failed" not in caplog.text

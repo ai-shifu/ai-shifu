@@ -1,15 +1,14 @@
-"""
-Unit tests for environment variable fallback mechanism in Config class.
-"""
+"""Unit tests for environment variable fallback mechanism in Config class."""
 
-import pytest
 import logging
 from unittest.mock import MagicMock
+
+import pytest
 from flask import Flask
 from flaskr.common.config import (
+    ENV_VARS,
     Config,
     EnhancedConfig,
-    ENV_VARS,
 )
 
 

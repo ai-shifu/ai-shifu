@@ -33,7 +33,6 @@ def _composition_contract() -> str:
 
 def _encode_profile_as_json_string(learner_profile: str) -> str:
     """Encode profile data without exposing prompt or template boundaries."""
-
     encoded = json.dumps(learner_profile, ensure_ascii=False)
     return (
         encoded.replace("<", r"\u003c")
@@ -46,7 +45,6 @@ def _encode_profile_as_json_string(learner_profile: str) -> str:
 
 def _preferred_address(learner: _LearnerWithProfile | None) -> str:
     """Return an explicit display name without promoting account identifiers."""
-
     nickname = str(getattr(learner, "nickname", None) or "").strip()
     if (
         not nickname
@@ -89,7 +87,6 @@ def _learner_context(learner: _LearnerWithProfile | None) -> str:
 
 def _parse_composed_course_prompt(prompt: str | None) -> str | None:
     """Recover the raw course prompt from a complete canonical envelope."""
-
     normalized_prompt = str(prompt or "").strip()
     envelope_prefix = f"{_COMPOSITION_OPEN}\n{LEARNER_PROFILE_PROMPT_MARKER}\n"
     contract_separator = f"\n{_COMPOSITION_CLOSE}\n\n{_COURSE_PROMPT_OPEN}\n"
@@ -129,7 +126,6 @@ def build_course_prompt(
     learner: _LearnerWithProfile | None,
 ) -> str | None:
     """Return one semantic envelope for course instructions and learner data."""
-
     if not course_prompt:
         return course_prompt
 

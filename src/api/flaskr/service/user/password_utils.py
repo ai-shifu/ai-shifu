@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 
 import bcrypt
-
 from flaskr.service.common.models import raise_error
 
 
@@ -25,8 +24,7 @@ def verify_password(plain_text: str, hashed: str) -> bool:
 
 
 def validate_password_strength(password: str) -> None:
-    """
-    Validate password strength, raising an error on failure.
+    """Validate password strength, raising an error on failure.
 
     Rules:
     - Minimum 8 characters

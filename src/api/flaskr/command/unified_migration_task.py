@@ -1,35 +1,56 @@
 #!/usr/bin/env python3
-"""
-Unified Database Migration Task
-"""
+"""Unified Database Migration Task."""
 
 import asyncio
 import logging
-from datetime import datetime
-from flaskr.util.datetime import now_utc
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
-from sqlalchemy import text, create_engine
-from sqlalchemy.orm import sessionmaker
 import os
+import re
 import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+from flaskr.util.datetime import now_utc
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("/tmp/unified_migration.log"),
+        logging.FileHandler(Path(tempfile.gettempdir()) / "unified_migration.log"),
         logging.StreamHandler(),
     ],
 )
 logger = logging.getLogger(__name__)
 
 
+_IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _quote_identifier(name: str) -> str:
+    """Validate a table or column name and quote it for MySQL.
+
+    The migration statements below interpolate identifiers because bound
+    parameters cannot carry them. Every identifier passes through here so an
+    unexpected value fails loudly instead of reaching the database.
+    """
+    if not _IDENTIFIER_PATTERN.fullmatch(name or ""):
+        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+    return f"`{name}`"
+
+
+class MigrationBatchError(RuntimeError):
+    """Raised when a migration batch exceeds its tolerated error count."""
+
+
 @dataclass
 class MigrationConfig:
-    """Migration configuration"""
+    """Migration configuration."""
 
     batch_size: int = 1000
     max_workers: int = 4
@@ -40,7 +61,7 @@ class MigrationConfig:
 
 @dataclass
 class MigrationResult:
-    """Migration result for a single table"""
+    """Migration result for a single table."""
 
     table_name: str
     total_records: int
@@ -48,16 +69,16 @@ class MigrationResult:
     error_records: int
     start_time: datetime
     end_time: datetime
-    errors: List[str]
+    errors: list[str]
 
     @property
     def duration(self) -> float:
-        """Get migration duration in seconds"""
+        """Get migration duration in seconds."""
         return (self.end_time - self.start_time).total_seconds()
 
     @property
     def success_rate(self) -> float:
-        """Get success rate as percentage"""
+        """Get success rate as percentage."""
         if self.total_records == 0:
             return 100.0
         return (self.synced_records / self.total_records) * 100
@@ -65,13 +86,13 @@ class MigrationResult:
 
 @dataclass
 class ConsistencyCheckResult:
-    """Consistency check result"""
+    """Consistency check result."""
 
     table_pair: str
     old_count: int
     new_count: int
     sample_integrity_passed: bool
-    data_mismatches: List[str]
+    data_mismatches: list[str]
 
     @property
     def count_match(self) -> bool:
@@ -100,12 +121,12 @@ def _resolve_default_database_url() -> str:
 
 
 class UnifiedMigrationTask:
-    """Unified migration task for study, order, and coupon tables"""
+    """Unified migration task for study, order, and coupon tables."""
 
     def __init__(
         self,
-        database_url: Optional[str] = None,
-        config: Optional[MigrationConfig] = None,
+        database_url: str | None = None,
+        config: MigrationConfig | None = None,
     ):
         if database_url is None:
             database_url = _resolve_default_database_url()
@@ -159,8 +180,8 @@ class UnifiedMigrationTask:
 
         logger.info(f"Initialized unified migration task with database: {database_url}")
 
-    async def migrate_all_tables(self) -> Dict[str, MigrationResult]:
-        """Migrate all configured tables asynchronously"""
+    async def migrate_all_tables(self) -> dict[str, MigrationResult]:
+        """Migrate all configured tables asynchronously."""
         logger.info("Starting unified migration for all tables...")
 
         results = {}
@@ -194,9 +215,9 @@ class UnifiedMigrationTask:
         return results
 
     async def _migrate_table_async(
-        self, source_table: str, table_config: Dict
+        self, source_table: str, table_config: dict
     ) -> MigrationResult:
-        """Migrate a single table asynchronously"""
+        """Migrate a single table asynchronously."""
         logger.info(f"Starting migration for table: {source_table}")
         start_time = now_utc()
 
@@ -271,10 +292,10 @@ class UnifiedMigrationTask:
                 sys.stdout.flush()
 
             except Exception as e:
-                logger.error(
-                    f"Batch processing failed for {source_table} at offset {offset}: {e}"
+                logger.exception(
+                    f"Batch processing failed for {source_table} at offset {offset}"
                 )
-                errors.append(f"Batch error at offset {offset}: {str(e)}")
+                errors.append(f"Batch error at offset {offset}: {e!s}")
                 error_count += self.config.batch_size
                 offset += self.config.batch_size
 
@@ -305,8 +326,8 @@ class UnifiedMigrationTask:
         key_field: str,
         target_key: str,
         offset: int,
-    ) -> Dict:
-        """Process a batch of records asynchronously"""
+    ) -> dict:
+        """Process a batch of records asynchronously."""
         loop = asyncio.get_event_loop()
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
@@ -319,7 +340,7 @@ class UnifiedMigrationTask:
                 target_key,
                 offset,
             )
-            return await loop.run_in_executor(None, lambda: future.result())
+            return await loop.run_in_executor(None, future.result)
 
     def _process_batch_sync(
         self,
@@ -329,8 +350,8 @@ class UnifiedMigrationTask:
         key_field: str,
         target_key: str,
         offset: int,
-    ) -> Dict:
-        """Process a batch of records synchronously"""
+    ) -> dict:
+        """Process a batch of records synchronously."""
         # Create a new session for this batch to avoid concurrency issues
         session = self.SessionClass()
         try:
@@ -357,11 +378,11 @@ class UnifiedMigrationTask:
                 # Incremental migration - get records with ID greater than last synced ID
                 query = text(
                     f"""
-                    SELECT * FROM {source_table}
+                    SELECT * FROM {_quote_identifier(source_table)}
                     WHERE id > :last_synced_id
                     ORDER BY id ASC
                     LIMIT :batch_size
-                """
+                """  # noqa: S608 - identifier validated by _quote_identifier
                 )
                 params = {
                     "last_synced_id": last_synced_id,
@@ -374,10 +395,10 @@ class UnifiedMigrationTask:
                 # Full migration - use OFFSET-based pagination
                 query = text(
                     f"""
-                    SELECT * FROM {source_table}
+                    SELECT * FROM {_quote_identifier(source_table)}
                     ORDER BY id ASC
                     LIMIT :batch_size OFFSET :offset
-                """
+                """  # noqa: S608 - identifier validated by _quote_identifier
                 )
                 params = {"batch_size": self.config.batch_size, "offset": offset}
                 logger.info(
@@ -395,9 +416,10 @@ class UnifiedMigrationTask:
                     # Check if record already exists in target table
                     existing_query = text(
                         f"""
-                        SELECT COUNT(*) FROM {target_table}
-                        WHERE {target_key} = :key_value AND deleted = 0
-                    """
+                        SELECT COUNT(*) FROM {_quote_identifier(target_table)}
+                        WHERE {_quote_identifier(target_key)} = :key_value
+                        AND deleted = 0
+                    """  # noqa: S608 - identifiers validated by _quote_identifier
                     )
 
                     existing_count = session.execute(
@@ -414,28 +436,34 @@ class UnifiedMigrationTask:
 
                         for field, value in mapped_data.items():
                             if field != target_key:  # Don't update the key field
-                                update_fields.append(f"{field} = :{field}")
+                                update_fields.append(
+                                    f"{_quote_identifier(field)} = :{field}"
+                                )
                                 update_params[field] = value
 
                         if update_fields:
                             update_query = text(
                                 f"""
-                                UPDATE {target_table}
+                                UPDATE {_quote_identifier(target_table)}
                                 SET {", ".join(update_fields)}
-                                WHERE {target_key} = :key_value
-                            """
+                                WHERE {_quote_identifier(target_key)} = :key_value
+                            """  # noqa: S608 - identifiers validated by _quote_identifier
                             )
                             session.execute(update_query, update_params)
                     else:
                         # Insert new record
                         field_names = list(mapped_data.keys())
+                        quoted_field_names = [
+                            _quote_identifier(field) for field in field_names
+                        ]
                         field_placeholders = [f":{field}" for field in field_names]
 
                         insert_query = text(
                             f"""
-                            INSERT INTO {target_table} ({", ".join(field_names)})
+                            INSERT INTO {_quote_identifier(target_table)}
+                            ({", ".join(quoted_field_names)})
                             VALUES ({", ".join(field_placeholders)})
-                        """
+                        """  # noqa: S608 - identifiers validated by _quote_identifier
                         )
                         session.execute(insert_query, mapped_data)
 
@@ -443,14 +471,16 @@ class UnifiedMigrationTask:
 
                 except Exception as e:
                     error_count += 1
-                    error_msg = f"Record migration failed for {getattr(record, key_field)}: {str(e)}"
+                    error_msg = f"Record migration failed for {getattr(record, key_field)}: {e!s}"
                     error_messages.append(error_msg)
-                    logger.error(error_msg)
+                    logger.exception(error_msg)
 
                     if (
                         error_count > self.config.batch_size * 0.5
                     ):  # If more than 50% errors
-                        raise Exception(f"Too many errors in batch: {error_count}")
+                        raise MigrationBatchError(
+                            f"Too many errors in batch: {error_count}"
+                        ) from e
 
             # Commit the batch
             session.commit()
@@ -464,21 +494,21 @@ class UnifiedMigrationTask:
                     session, f"{source_table}_sync", latest_id
                 )
 
+        except Exception:
+            session.rollback()
+            logger.exception("Batch processing failed")
+            raise
+        else:
             return {
                 "synced": synced_count,
                 "errors": error_count,
                 "error_messages": error_messages,
             }
-
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Batch processing failed: {e}")
-            raise
         finally:
             session.close()
 
-    async def verify_data_consistency(self) -> Dict[str, ConsistencyCheckResult]:
-        """Verify data consistency between old and new tables"""
+    async def verify_data_consistency(self) -> dict[str, ConsistencyCheckResult]:
+        """Verify data consistency between old and new tables."""
         logger.info("Starting comprehensive data consistency verification...")
 
         results = {}
@@ -519,30 +549,30 @@ class UnifiedMigrationTask:
                 )
 
             except Exception as e:
-                logger.error(f"Consistency check failed for {source_table}: {e}")
+                logger.exception(f"Consistency check failed for {source_table}")
                 results[source_table] = ConsistencyCheckResult(
                     table_pair=f"{source_table} -> {target_table}",
                     old_count=0,
                     new_count=0,
                     sample_integrity_passed=False,
-                    data_mismatches=[f"Check failed: {str(e)}"],
+                    data_mismatches=[f"Check failed: {e!s}"],
                 )
 
         return results
 
     async def _verify_sample_integrity_async(
         self, source_table: str, target_table: str, key_field: str, target_key: str
-    ) -> Tuple[bool, List[str]]:
-        """Verify data integrity using random sampling"""
+    ) -> tuple[bool, list[str]]:
+        """Verify data integrity using random sampling."""
         session = self.SessionClass()
         try:
             # Get random sample from source table
             sample_query = text(
                 f"""
-                SELECT * FROM {source_table}
+                SELECT * FROM {_quote_identifier(source_table)}
                 ORDER BY RAND()
                 LIMIT :sample_size
-            """
+            """  # noqa: S608 - identifier validated by _quote_identifier
             )
 
             samples = session.execute(
@@ -557,10 +587,11 @@ class UnifiedMigrationTask:
                 # Find corresponding record in target table
                 target_query = text(
                     f"""
-                    SELECT * FROM {target_table}
-                    WHERE {target_key} = :key_value AND deleted = 0
+                    SELECT * FROM {_quote_identifier(target_table)}
+                    WHERE {_quote_identifier(target_key)} = :key_value
+                    AND deleted = 0
                     LIMIT 1
-                """
+                """  # noqa: S608 - identifiers validated by _quote_identifier
                 )
 
                 target_record = session.execute(
@@ -584,18 +615,18 @@ class UnifiedMigrationTask:
             )
             passed = success_rate >= 0.95  # 95% success rate required
 
-            return passed, mismatches
-
         except Exception as e:
-            logger.error(f"Sample integrity check failed: {e}")
-            return False, [f"Integrity check error: {str(e)}"]
+            logger.exception("Sample integrity check failed")
+            return False, [f"Integrity check error: {e!s}"]
+        else:
+            return passed, mismatches
         finally:
             session.close()
 
     def _verify_record_mapping(
         self, source_table: str, source_record, target_record
     ) -> bool:
-        """Verify specific field mappings for a record"""
+        """Verify specific field mappings for a record."""
         try:
             if source_table == "discount":
                 return (
@@ -605,7 +636,7 @@ class UnifiedMigrationTask:
                     )
                     < 0.01
                 )
-            elif source_table in [
+            if source_table in [
                 "ai_course_lesson_attendscript",
                 "ai_course_lesson_attend",
             ]:
@@ -614,16 +645,16 @@ class UnifiedMigrationTask:
                     hasattr(target_record, "user_bid")
                     and target_record.user_bid is not None
                 )
-            else:
-                return True  # Basic existence check for other tables
 
-        except Exception as e:
-            logger.error(f"Record mapping verification failed: {e}")
+        except Exception:
+            logger.exception("Record mapping verification failed")
             return False
+        else:
+            return True  # Basic existence check for other tables
 
     # Table mapping functions
-    def _map_attendscript_to_progress_record(self, record) -> Dict:
-        """Map ai_course_lesson_attend to learn_progress_records"""
+    def _map_attendscript_to_progress_record(self, record) -> dict:
+        """Map ai_course_lesson_attend to learn_progress_records."""
         return {
             "progress_record_bid": getattr(record, "attend_id", ""),
             "shifu_bid": getattr(record, "course_id", ""),
@@ -637,8 +668,8 @@ class UnifiedMigrationTask:
             "updated_at": getattr(record, "updated", None),
         }
 
-    def _map_log_script_to_generated_block(self, record) -> Dict:
-        """Map ai_course_lesson_attendscript to learn_generated_blocks"""
+    def _map_log_script_to_generated_block(self, record) -> dict:
+        """Map ai_course_lesson_attendscript to learn_generated_blocks."""
         return {
             "generated_block_bid": getattr(record, "log_id", ""),
             "progress_record_bid": getattr(record, "attend_id", ""),
@@ -658,8 +689,8 @@ class UnifiedMigrationTask:
             "updated_at": getattr(record, "updated", None),
         }
 
-    def _map_discount_to_coupon(self, record) -> Dict:
-        """Map discount to promo_coupons"""
+    def _map_discount_to_coupon(self, record) -> dict:
+        """Map discount to promo_coupons."""
         return {
             "coupon_bid": record.discount_id,
             "code": record.discount_code,
@@ -679,8 +710,8 @@ class UnifiedMigrationTask:
             "updated_at": record.updated,
         }
 
-    def _map_discount_log_to_usage(self, record) -> Dict:
-        """Map discount_use_log to promo_coupon_usages"""
+    def _map_discount_log_to_usage(self, record) -> dict:
+        """Map discount_use_log to promo_coupon_usages."""
         return {
             "coupon_usage_bid": record.record_id,
             "coupon_bid": record.discount_id,
@@ -699,88 +730,98 @@ class UnifiedMigrationTask:
 
     # Helper methods
     async def _table_exists_async(self, table_name: str) -> bool:
-        """Check if table exists asynchronously"""
+        """Check if table exists asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._table_exists, table_name)
 
     def _table_exists(self, table_name: str) -> bool:
-        """Check if table exists"""
+        """Check if table exists."""
         session = self.SessionClass()
         try:
             result = session.execute(
-                text(f"SHOW TABLES LIKE '{table_name}'")
+                text("SHOW TABLES LIKE :table_name"), {"table_name": table_name}
             ).fetchone()
-            return result is not None
-        except Exception as e:
-            logger.error(f"Error checking table existence {table_name}: {e}")
+        except Exception:
+            logger.exception(f"Error checking table existence {table_name}")
             return False
+        else:
+            return result is not None
         finally:
             session.close()
 
     def _get_table_count_with_session(
         self, session, table_name: str, where_clause: str = ""
     ) -> int:
-        """Get table record count using provided session"""
-        try:
-            query = f"SELECT COUNT(*) FROM {table_name}"
-            if where_clause:
-                query += f" WHERE {where_clause}"
+        """Get table record count using provided session."""
+        # Validated outside the try so an unsafe identifier is not reported as
+        # an empty table.
+        query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
+        if where_clause:
+            query += f" WHERE {where_clause}"
 
+        try:
             count = session.execute(text(query)).scalar()
-            return count or 0
-        except Exception as e:
-            logger.error(f"Error getting table count for {table_name}: {e}")
+        except Exception:
+            logger.exception(f"Error getting table count for {table_name}")
             return 0
+        else:
+            return count or 0
 
     def _check_column_exists_with_session(
         self, session, table_name: str, column_name: str
     ) -> bool:
-        """Check if column exists in table"""
+        """Check if column exists in table."""
         try:
             result = session.execute(
                 text(
-                    f"""
+                    """
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                AND TABLE_NAME = '{table_name}'
-                AND COLUMN_NAME = '{column_name}'
+                AND TABLE_NAME = :table_name
+                AND COLUMN_NAME = :column_name
             """
-                )
+                ),
+                {"table_name": table_name, "column_name": column_name},
             ).scalar()
-            return result > 0
-        except Exception as e:
-            logger.error(
-                f"Error checking column existence {table_name}.{column_name}: {e}"
+            # Compared inside the try: scalar() returns None when the
+            # information_schema query matches nothing.
+            return result > 0  # noqa: TRY300
+        except Exception:
+            logger.exception(
+                f"Error checking column existence {table_name}.{column_name}"
             )
             return False
 
     async def _get_table_count_async(
         self, table_name: str, where_clause: str = ""
     ) -> int:
-        """Get table record count asynchronously"""
+        """Get table record count asynchronously."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None, self._get_table_count, table_name, where_clause
         )
 
     def _get_table_count(self, table_name: str, where_clause: str = "") -> int:
-        """Get table record count"""
+        """Get table record count."""
+        # Validated before the session is opened so an unsafe identifier is not
+        # reported as an empty table.
+        query = f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"  # noqa: S608
+        if where_clause:
+            query += f" WHERE {where_clause}"
+
         session = self.SessionClass()
         try:
-            query = f"SELECT COUNT(*) FROM {table_name}"
-            if where_clause:
-                query += f" WHERE {where_clause}"
-
             count = session.execute(text(query)).scalar()
-            return count or 0
-        except Exception as e:
-            logger.error(f"Error getting table count for {table_name}: {e}")
+        except Exception:
+            logger.exception(f"Error getting table count for {table_name}")
             return 0
+        else:
+            return count or 0
         finally:
             session.close()
 
     def _get_last_sync_time(self, sync_type: str) -> datetime:
-        """Get last sync time from log table"""
+        """Get last sync time from log table."""
         session = self.SessionClass()
         try:
             return self._get_last_sync_time_with_session(session, sync_type)
@@ -788,7 +829,7 @@ class UnifiedMigrationTask:
             session.close()
 
     def _get_last_sync_time_with_session(self, session, sync_type: str) -> datetime:
-        """Get last sync time from log table using provided session"""
+        """Get last sync time from log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
 
@@ -805,7 +846,7 @@ class UnifiedMigrationTask:
             return datetime(2020, 1, 1)
 
     def _get_last_synced_id_with_session(self, session, sync_type: str) -> int:
-        """Get last synced ID from log table using provided session"""
+        """Get last synced ID from log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
 
@@ -822,7 +863,7 @@ class UnifiedMigrationTask:
             return 0
 
     def _update_sync_time(self, sync_type: str, sync_time: datetime):
-        """Update sync time in log table"""
+        """Update sync time in log table."""
         session = self.SessionClass()
         try:
             self._update_sync_time_with_session(session, sync_type, sync_time)
@@ -832,7 +873,7 @@ class UnifiedMigrationTask:
     def _update_sync_time_with_session(
         self, session, sync_type: str, sync_time: datetime
     ):
-        """Update sync time in log table using provided session"""
+        """Update sync time in log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
 
@@ -849,7 +890,7 @@ class UnifiedMigrationTask:
     def _update_last_synced_id_with_session(
         self, session, sync_type: str, last_synced_id: int
     ):
-        """Update last synced ID in log table using provided session"""
+        """Update last synced ID in log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
 
@@ -864,7 +905,7 @@ class UnifiedMigrationTask:
             logger.warning(f"Error updating last synced ID: {e}")
 
     def _ensure_sync_log_table(self):
-        """Ensure sync log table exists"""
+        """Ensure sync log table exists."""
         session = self.SessionClass()
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -872,7 +913,7 @@ class UnifiedMigrationTask:
             session.close()
 
     def _ensure_sync_log_table_with_session(self, session):
-        """Ensure sync log table exists using provided session"""
+        """Ensure sync log table exists using provided session."""
         try:
             session.execute(
                 text(
@@ -922,15 +963,15 @@ class UnifiedMigrationTask:
                 logger.warning(f"Error checking/adding last_synced_id column: {e}")
 
             session.commit()
-        except Exception as e:
-            logger.error(f"Error creating sync log table: {e}")
+        except Exception:
+            logger.exception("Error creating sync log table")
 
     def generate_migration_report(
         self,
-        migration_results: Dict[str, MigrationResult],
-        consistency_results: Dict[str, ConsistencyCheckResult],
+        migration_results: dict[str, MigrationResult],
+        consistency_results: dict[str, ConsistencyCheckResult],
     ) -> str:
-        """Generate comprehensive migration report"""
+        """Generate comprehensive migration report."""
         report = []
         report.append("=" * 80)
         report.append("UNIFIED DATABASE MIGRATION REPORT")
@@ -969,7 +1010,7 @@ class UnifiedMigrationTask:
         # Consistency Check Results
         report.append("DATA CONSISTENCY VERIFICATION")
         report.append("-" * 40)
-        for table_name, result in consistency_results.items():
+        for result in consistency_results.values():
             status = "✓ PASSED" if result.is_consistent else "✗ FAILED"
             report.append(f"{status} {result.table_pair}")
             report.append(
@@ -990,20 +1031,22 @@ class UnifiedMigrationTask:
             report.append("RECOMMENDATIONS")
             report.append("-" * 40)
             report.append("The following tables failed consistency checks:")
-            for table in failed_consistency:
-                report.append(f"  - {table}: Review data mapping and re-run migration")
+            report.extend(
+                f"  - {table}: Review data mapping and re-run migration"
+                for table in failed_consistency
+            )
             report.append("")
 
         return "\n".join(report)
 
     def close(self):
-        """Close database connections"""
+        """Close database connections."""
         if self.engine:
             self.engine.dispose()
 
 
 async def main():
-    """Main execution function"""
+    """Run the unified migration task."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Unified Database Migration Task")
@@ -1047,8 +1090,13 @@ async def main():
             )
 
             if args.output_file:
-                with open(args.output_file, "w", encoding="utf-8") as f:
-                    f.write(report)
+                output_file = args.output_file
+
+                def _write_report() -> None:
+                    with Path(output_file).open("w", encoding="utf-8") as handle:
+                        handle.write(report)
+
+                await asyncio.to_thread(_write_report)
                 logger.info(f"Report saved to: {args.output_file}")
             else:
                 print(report)
@@ -1057,7 +1105,7 @@ async def main():
             logger.info("Starting data consistency verification...")
             consistency_results = await migration_task.verify_data_consistency()
 
-            for table_name, result in consistency_results.items():
+            for result in consistency_results.values():
                 status = "PASSED" if result.is_consistent else "FAILED"
                 print(f"{status}: {result.table_pair}")
                 if not result.is_consistent:

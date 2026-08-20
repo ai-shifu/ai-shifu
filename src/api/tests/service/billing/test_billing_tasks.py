@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from decimal import Decimal
 import json
 import sys
 import threading
 import time
 import types
+from datetime import datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -24,10 +24,9 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
-    BILLING_METRIC_LLM_INPUT_TOKENS,
     CREDIT_BUCKET_CATEGORY_FREE,
-    CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_SOURCE_TYPE_USAGE,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
@@ -47,9 +46,9 @@ from flaskr.service.billing.tasks import (
     expire_pending_orders_task,
     expire_wallet_buckets_task,
     finalize_daily_ledger_summary_task,
+    rebuild_daily_aggregates_task,
     reconcile_provider_reference_task,
     replay_usage_settlement_task,
-    rebuild_daily_aggregates_task,
     retry_failed_renewal_task,
     run_renewal_event_task,
     send_low_balance_alert_task,
@@ -549,9 +548,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             wallet_bid="wallet-concurrent-1",
             creator_bid="creator-concurrent-1",
             available_credits=Decimal("2.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("2.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -567,9 +566,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
                 priority=10,
                 original_credits=Decimal("2.0000000000"),
                 available_credits=Decimal("2.0000000000"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=datetime(2026, 4, 8, 12, 0, 0),
                 effective_to=None,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,

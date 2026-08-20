@@ -1,4 +1,4 @@
-"""add provider to tts cloned voices
+"""add provider to tts cloned voices.
 
 Revision ID: e7b3c9d1f5a2
 Revises: b8d5f0a2c3e4
@@ -6,9 +6,8 @@ Create Date: 2026-08-10 16:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e7b3c9d1f5a2"

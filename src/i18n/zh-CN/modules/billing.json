@@ -55,21 +55,27 @@
         "configurationSectionDescription": "补充品牌 Logo、独立域名、微信公众号与支付通道配置，保存后同步展示最新结果。",
         "createdContinue": "已为 {creator} 新增品牌与收款配置，可继续补充下方详细内容。",
         "creatorBidPlaceholder": "输入课程负责人 BID",
+        "creatorEmailPlaceholder": "输入课程负责人邮箱",
         "creatorMobilePlaceholder": "输入课程负责人手机号",
         "description": "为老师统一开通并维护品牌、域名、微信与支付配置，保存后同步更新对应能力。",
         "disabled": "未开通",
         "domainInlineDescription": "填写独立域名并完成校验，便于后续确认是否已正式可用。",
         "edit": "编辑",
         "editTitle": "编辑品牌与收款配置",
+        "emailHint": "请输入邮箱。若该邮箱尚未注册，系统会先创建账号并默认开通老师身份。",
         "enabled": "已开通",
         "errors": {
           "creatorBidRequired": "请输入课程负责人 BID",
+          "creatorEmailInvalid": "请输入有效的邮箱地址",
+          "creatorEmailRequired": "请输入课程负责人邮箱",
+          "creatorMobileInvalid": "请输入有效的手机号",
           "creatorMobileRequired": "请输入课程负责人手机号"
         },
         "fields": {
           "branding_enabled": "品牌 Logo",
           "configStatus": "配置状态",
           "creatorBid": "课程负责人 BID",
+          "creatorEmail": "课程负责人邮箱",
           "creatorMobile": "课程负责人手机号",
           "custom_domain_enabled": "独立域名",
           "custom_payment_enabled": "独立支付配置",
@@ -643,7 +649,7 @@
     },
     "featuresLabel": "包含权益",
     "footnote": {
-      "intro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用 DeepSeek，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
+      "intro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用默认模型，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
       "validity": "积分有效期：月付套餐积分自到账之日起 30 天内有效（含当日）；年付套餐积分自到账之日起 12 个月内有效。两类均以到期日 23:59 为截止。"
     },
     "learnerEstimateLabel": "预计支持学习人次",
@@ -655,24 +661,24 @@
       "business": {
         "description": "规模化交付个性化学习的大型机构。",
         "estimates": {
-          "annual": "5,000 - 15,000 人次",
-          "monthly": "400 - 1,200 人次"
+          "annual": "500 - 1,500 人次",
+          "monthly": "40 - 120 人次"
         },
         "name": "Business"
       },
       "growth": {
         "description": "中小型教学机构。",
         "estimates": {
-          "annual": "2,500 - 7,500 人次",
-          "monthly": "200 - 600 人次"
+          "annual": "250 - 750 人次",
+          "monthly": "20 - 60 人次"
         },
         "name": "Growth"
       },
       "scale": {
         "description": "开展大规模学习项目的超大型机构。",
         "estimates": {
-          "annual": "11,000 - 33,000 人次",
-          "monthly": "900 - 2,700 人次"
+          "annual": "1,100 - 3,300 人次",
+          "monthly": "90 - 270 人次"
         },
         "name": "Scale"
       },
@@ -680,7 +686,7 @@
         "description": "进行轻量级课程体验或验证首个学习项目。",
         "estimates": {
           "annual": "仅支持月付",
-          "monthly": "50 - 150 人次"
+          "monthly": "5 - 15 人次"
         },
         "name": "Studio"
       }

@@ -1,22 +1,23 @@
+from typing import ClassVar
+
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
-    String,
     DateTime,
-    Text,
     SmallInteger,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
 from ...dao import db
 
 
 class Config(db.Model):
-    """
-    Config
-    """
+    """Config."""
 
     __tablename__ = "sys_configs"
-    __table_args__ = {"comment": "System configs"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "System configs"}
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     config_bid = Column(

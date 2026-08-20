@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from flask import Flask
-
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.tts.tts_usage_recorder import (
     record_tts_aggregated_usage,

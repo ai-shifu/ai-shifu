@@ -4,14 +4,13 @@ import copy
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
-from typing import Any, Generator
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import quote
 
 import requests
 from flask import Flask
-
-from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
 
 from .base import (
     AskProviderChunk,
@@ -21,6 +20,7 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
 
 
 def _hash_sha256(content: str) -> str:
@@ -38,10 +38,7 @@ def _normalize_query(params: dict[str, Any] | None) -> str:
     encoded_parts: list[str] = []
     for key in sorted(params.keys()):
         value = params[key]
-        if isinstance(value, list):
-            values = value
-        else:
-            values = [value]
+        values = value if isinstance(value, list) else [value]
         for item in values:
             item_text = "" if item is None else str(item)
             encoded_parts.append(
@@ -66,7 +63,7 @@ def _build_volc_signature_headers(
     service: str,
     region: str,
 ) -> dict[str, str]:
-    x_date = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    x_date = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     short_x_date = x_date[:8]
     x_content_sha256 = _hash_sha256(body)
 
@@ -95,9 +92,9 @@ def _build_volc_signature_headers(
         ]
     )
     hashed_canonical_request = _hash_sha256(canonical_request_str)
-    credential_scope = "/".join([short_x_date, region, service, "request"])
-    string_to_sign = "\n".join(
-        ["HMAC-SHA256", x_date, credential_scope, hashed_canonical_request]
+    credential_scope = f"{short_x_date}/{region}/{service}/request"
+    string_to_sign = (
+        f"HMAC-SHA256\n{x_date}\n{credential_scope}\n{hashed_canonical_request}"
     )
 
     k_date = _hmac_sha256(sk.encode("utf-8"), short_x_date)

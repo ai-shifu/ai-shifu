@@ -1,15 +1,13 @@
-"""
-TTS Service Layer.
+"""TTS Service Layer.
 
 This module provides text preprocessing for TTS synthesis.
 """
 
-import logging
+import contextlib
 import html
+import logging
 import unicodedata
 
-# Import models to ensure they are registered with SQLAlchemy
-from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.patterns import (
     ANY_HTML_TAG,
@@ -31,6 +29,8 @@ from flaskr.service.tts.patterns import (
     XML_BLOCK,
 )
 
+# Import models to ensure they are registered with SQLAlchemy
+from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -52,8 +52,7 @@ def resolve_tts_billable_chars(text: str, usage_characters: int = 0) -> int:
 
 
 def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
-    """
-    Strip an incomplete fenced code block from the end of the buffer.
+    """Strip an incomplete fenced code block from the end of the buffer.
 
     For streaming text, it is common to receive the opening fence in one chunk
     and the closing fence in a later chunk. In that case we should avoid letting
@@ -61,6 +60,7 @@ def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
 
     Returns:
         (text_without_incomplete_block, had_incomplete_block)
+
     """
     fence_count = text.count(_FENCE)
     if fence_count % 2 == 0:
@@ -74,8 +74,7 @@ def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
 
 
 def _strip_incomplete_xml_block(text: str, tag_name: str) -> tuple[str, bool]:
-    """
-    Strip an incomplete XML/HTML block from the end of the buffer.
+    r"""Strip an incomplete XML/HTML block from the end of the buffer.
 
     This is primarily used for <svg> blocks which are not meant to be spoken.
     The implementation is intentionally tolerant of partial opening tags (e.g.
@@ -101,8 +100,7 @@ def _strip_incomplete_xml_block(text: str, tag_name: str) -> tuple[str, bool]:
 
 
 def _strip_incomplete_angle_bracket_tag(text: str) -> tuple[str, bool]:
-    """
-    Strip an incomplete angle-bracket tag from the end of the buffer.
+    r"""Strip an incomplete angle-bracket tag from the end of the buffer.
 
     This is a best-effort safeguard for streaming content where we might receive
     a partial HTML/XML tag split across chunks (e.g. '<p' or '<span class=\"').
@@ -136,8 +134,7 @@ def _strip_incomplete_angle_bracket_tag(text: str) -> tuple[str, bool]:
 
 
 def _strip_incomplete_markdown_image(text: str) -> tuple[str, bool]:
-    """
-    Strip an incomplete markdown image token from the end of the buffer.
+    """Strip an incomplete markdown image token from the end of the buffer.
 
     Streaming chunks may split `![alt](url)` across messages. If the trailing
     image token is incomplete, we should not let any part of it reach TTS.
@@ -161,11 +158,11 @@ def _strip_incomplete_markdown_image(text: str) -> tuple[str, bool]:
 
 
 def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
-    """
-    Strip known incomplete blocks from the end of the buffer.
+    """Strip known incomplete blocks from the end of the buffer.
 
     Returns:
         (text_without_incomplete_blocks, had_any_incomplete_block)
+
     """
     had_incomplete = False
 
@@ -197,29 +194,27 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
 
 
 def preprocess_for_tts(text: str) -> str:
-    """
-    Remove code blocks and markdown formatting not suitable for TTS.
+    """Remove code blocks and markdown formatting not suitable for TTS.
 
     Args:
         text: Raw markdown text
 
     Returns:
         Cleaned text suitable for TTS synthesis
+
     """
     if not text:
         return ""
 
     # Normalize common HTML entity escaping (e.g. '&lt;p&gt;') so tag stripping
     # works consistently for content coming from HTML renderers.
-    try:
+    # Best-effort only; keep the original text on unescape errors.
+    with contextlib.suppress(Exception):
         for _ in range(2):  # handle double-escaped content (e.g. '&amp;lt;')
             unescaped = html.unescape(text)
             if unescaped == text:
                 break
             text = unescaped
-    except Exception:
-        # Best-effort only; keep original text on unescape errors.
-        pass
 
     # Replace non-breaking spaces from HTML with regular spaces.
     if "\xa0" in text:

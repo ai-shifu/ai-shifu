@@ -67,8 +67,7 @@ class IdNormalizer:
     def normalize_string(self, value: str) -> str:
         value = UUID_RE.sub(self._replace_match, value)
         value = HEX_ID_RE.sub(self._replace_match, value)
-        value = ISO_TS_RE.sub("<TS>", value)
-        return value
+        return ISO_TS_RE.sub("<TS>", value)
 
     def normalize_value(self, value: Any, field_name: str | None = None) -> Any:
         if isinstance(value, str):
@@ -90,8 +89,8 @@ class IdNormalizer:
 def parse_sse_events(raw_transcript: str) -> list[dict]:
     """Parse ``data: {json}`` SSE lines into a list of event dicts."""
     events: list[dict] = []
-    for chunk in raw_transcript.split("\n\n"):
-        chunk = chunk.strip()
+    for raw_chunk in raw_transcript.split("\n\n"):
+        chunk = raw_chunk.strip()
         if not chunk.startswith(SSE_DATA_PREFIX):
             continue
         payload = chunk[len(SSE_DATA_PREFIX) :].strip()

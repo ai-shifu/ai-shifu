@@ -1,18 +1,21 @@
+from typing import ClassVar
+
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
-    String,
-    Text,
+    DateTime,
     Numeric,
     SmallInteger,
-    DateTime,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
 from ...dao import db
 from .consts import (
-    COUPON_TYPE_FIXED,
     COUPON_APPLY_TYPE_ALL,
     COUPON_STATUS_ACTIVE,
+    COUPON_TYPE_FIXED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_STATUS_INACTIVE,
@@ -20,12 +23,10 @@ from .consts import (
 
 
 class Coupon(db.Model):
-    """
-    Coupon
-    """
+    """Coupon."""
 
     __tablename__ = "promo_coupons"
-    __table_args__ = {"comment": "Promo coupons"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Promo coupons"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_bid = Column(
         String(36),
@@ -115,8 +116,8 @@ class Coupon(db.Model):
 
 
 class CouponUsage(db.Model):
-    """
-    Coupon Usage Record
+    """Coupon usage record.
+
     Generated:
 
     1. Generated one when user use a coupon code that could be used multiple times
@@ -124,7 +125,7 @@ class CouponUsage(db.Model):
     """
 
     __tablename__ = "promo_coupon_usages"
-    __table_args__ = {"comment": "Promo coupon usages"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Promo coupon usages"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_usage_bid = Column(
         String(36),
@@ -206,7 +207,7 @@ class PromoCampaign(db.Model):
     """Promotion campaign definition."""
 
     __tablename__ = "promo_promos"
-    __table_args__ = {
+    __table_args__: ClassVar[dict[str, str]] = {
         "comment": (
             "Promotion campaign definition table. Defines a discount campaign for a specific "
             "Shifu (join/apply type, time window, discount configuration, channel, and targeting "
@@ -330,7 +331,7 @@ class PromoRedemption(db.Model):
     """Promotion campaign redemption ledger."""
 
     __tablename__ = "promo_redemptions"
-    __table_args__ = {
+    __table_args__: ClassVar[dict[str, str]] = {
         "comment": (
             "Promotion campaign redemption ledger. Records each time a user redeems/applies a "
             "promo campaign to an order, including snapshot fields (campaign name/discount "

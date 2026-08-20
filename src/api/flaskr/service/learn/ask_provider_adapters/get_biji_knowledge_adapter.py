@@ -9,14 +9,12 @@ emitting the formatted snippets directly.
 API reference: https://www.biji.com/openapi
 """
 
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 import requests
 from flask import Flask
-
 from flaskr.i18n import _
-
-from .consts import ASK_PROVIDER_GET_BIJI_KNOWLEDGE
 
 from .base import (
     AskProviderChunk,
@@ -26,7 +24,7 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
-
+from .consts import ASK_PROVIDER_GET_BIJI_KNOWLEDGE
 
 GET_BIJI_BASE_URL = "https://openapi.biji.com"
 GET_BIJI_KNOWLEDGE_RECALL_PATH = "/open/api/v1/resource/recall/knowledge"
@@ -58,11 +56,7 @@ def _user_message_for_error(code: str, reason: str) -> str | None:
         return str(_("server.learn.askProviderNotMember"))
     if code in _AUTH_ERROR_CODES:
         return str(_("server.learn.askProviderAuthFailed"))
-    if (
-        code in _RATE_LIMIT_ERROR_CODES
-        or reason.startswith("qps_")
-        or reason.startswith("quota_")
-    ):
+    if code in _RATE_LIMIT_ERROR_CODES or reason.startswith(("qps_", "quota_")):
         return str(_("server.learn.askProviderRateLimited"))
     return None
 

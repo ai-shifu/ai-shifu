@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_COURSES,
     OSS_PROFILE_DEFAULT,
@@ -18,7 +17,6 @@ from flaskr.service.common.oss_utils import (
     upload_to_oss,
 )
 from flaskr.service.config import get_config
-
 
 STORAGE_PROVIDER_AUTO = "auto"
 STORAGE_PROVIDER_OSS = "oss"
@@ -128,7 +126,9 @@ def _upload_to_local(
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     stream = _coerce_to_binary_stream(file_content)
-    with open(target_path, "wb") as f:
+    # Builtin open() avoids CodeQL's Path.open path-injection sink after
+    # get_local_storage_path() already confined this path.
+    with open(target_path, "wb") as f:  # noqa: PTH123
         shutil.copyfileobj(stream, f)
 
     return StorageUploadResult(

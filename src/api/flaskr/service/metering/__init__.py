@@ -1,3 +1,5 @@
+"""Usage metering constants and helpers."""
+
 from flaskr.service.common.dicts import register_dict
 
 from .consts import (  # noqa: F401

@@ -1,20 +1,19 @@
 from unittest.mock import MagicMock
 
 import pytest
+from flaskr import dao
+from flaskr.dao import retry_on_deadlock
 from sqlalchemy.exc import OperationalError
 
-import flaskr.dao as dao
-from flaskr.dao import retry_on_deadlock
 
-
-class _FakeOrig(Exception):
+class _FakeOrigError(Exception):
     def __init__(self, errno, message):
         super().__init__(errno, message)
         self.args = (errno, message)
 
 
 def _operational_error(errno):
-    return OperationalError("SELECT 1", {}, _FakeOrig(errno, "boom"))
+    return OperationalError("SELECT 1", {}, _FakeOrigError(errno, "boom"))
 
 
 def test_retries_deadlock_then_succeeds():
@@ -73,7 +72,8 @@ def test_does_not_retry_non_retryable_operational_error():
 
 def test_rolls_back_session_on_every_caught_error(monkeypatch):
     """Session must be rolled back on each catch, including retries and the
-    final failed attempt, so the broken session is not reused later."""
+    final failed attempt, so the broken session is not reused later.
+    """
     fake_db = MagicMock()
     monkeypatch.setattr(dao, "db", fake_db)
 
@@ -101,7 +101,7 @@ def test_rolls_back_session_on_non_retryable_error(monkeypatch):
 
 
 def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(
@@ -124,7 +124,7 @@ def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch):
 
 
 def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(

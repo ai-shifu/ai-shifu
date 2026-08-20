@@ -1,5 +1,4 @@
-"""
-Tencent Cloud TextToVoice TTS Provider.
+"""Tencent Cloud TextToVoice TTS Provider.
 
 Calls the standard Tencent Cloud TTS API (tts.tencentcloudapi.com,
 Action=TextToVoice) with TC3-HMAC-SHA256 signing. This is a different
@@ -27,7 +26,6 @@ import json
 import logging
 import time
 import uuid
-from typing import Dict, List, Optional
 
 import requests
 
@@ -80,7 +78,7 @@ _TERMINAL_PUNCTUATION = "。！？!?；;\n"
 
 def _texttovoice_voice(
     value: str, label: str, model: str, language: str = "zh"
-) -> Dict[str, str]:
+) -> dict[str, str]:
     tier_label = {
         TENCENT_TEXTTOVOICE_PREMIUM_MODEL: "精品",
         TENCENT_TEXTTOVOICE_LARGE_MODEL: "大模型",
@@ -98,11 +96,11 @@ def _texttovoice_voice(
     }
 
 
-def _premium(value: str, label: str, language: str = "zh") -> Dict[str, str]:
+def _premium(value: str, label: str, language: str = "zh") -> dict[str, str]:
     return _texttovoice_voice(value, label, TENCENT_TEXTTOVOICE_PREMIUM_MODEL, language)
 
 
-def _large_model(value: str, label: str, language: str = "zh") -> Dict[str, str]:
+def _large_model(value: str, label: str, language: str = "zh") -> dict[str, str]:
     return _texttovoice_voice(value, label, TENCENT_TEXTTOVOICE_LARGE_MODEL, language)
 
 
@@ -160,12 +158,12 @@ def build_texttovoice_tc3_headers(
     payload_json: str,
     secret_id: str,
     secret_key: str,
-    timestamp: Optional[int] = None,
-) -> Dict[str, str]:
+    timestamp: int | None = None,
+) -> dict[str, str]:
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
         request_timestamp,
-        tz=dt.timezone.utc,
+        tz=dt.UTC,
     ).strftime("%Y-%m-%d")
     canonical_headers = (
         "content-type:application/json\n"
@@ -217,7 +215,7 @@ def build_texttovoice_tc3_headers(
     }
 
 
-def _resolve_sample_rate(voice_id: str, model: Optional[str]) -> int:
+def _resolve_sample_rate(voice_id: str, model: str | None) -> int:
     voice_model = _VOICE_MODEL_BY_ID.get(str(voice_id or "").strip())
     effective_model = voice_model or (model or "").strip()
     if effective_model == TENCENT_TEXTTOVOICE_LARGE_MODEL:
@@ -233,8 +231,8 @@ def _text_weight(text: str) -> float:
     return sum(_char_weight(char) for char in text)
 
 
-def _hard_split(text: str) -> List[str]:
-    pieces: List[str] = []
+def _hard_split(text: str) -> list[str]:
+    pieces: list[str] = []
     current = ""
     current_weight = 0.0
     for char in text:
@@ -250,13 +248,13 @@ def _hard_split(text: str) -> List[str]:
     return pieces
 
 
-def _split_text(text: str) -> List[str]:
+def _split_text(text: str) -> list[str]:
     """Split text into segments within the TextToVoice request limit."""
     normalized = str(text or "").strip()
     if not normalized:
         return []
 
-    sentences: List[str] = []
+    sentences: list[str] = []
     current = ""
     for char in normalized:
         current += char
@@ -266,7 +264,7 @@ def _split_text(text: str) -> List[str]:
     if current:
         sentences.append(current)
 
-    segments: List[str] = []
+    segments: list[str] = []
     buffer = ""
     buffer_weight = 0.0
     for sentence in sentences:
@@ -323,7 +321,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[Dict[str, str]]:
+    def get_supported_voices(self) -> list[dict[str, str]]:
         return [dict(voice) for voice in TENCENT_TEXTTOVOICE_VOICES]
 
     def _synthesize_segment(
@@ -358,10 +356,12 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             )
             body = response.json()
         except requests.RequestException as exc:
-            logger.error("Tencent TextToVoice request failed: %s", exc)
-            raise ValueError(f"Tencent TextToVoice request failed: {exc}")
+            logger.exception("Tencent TextToVoice request failed")
+            raise ValueError(f"Tencent TextToVoice request failed: {exc}") from exc
         except ValueError as exc:
-            raise ValueError(f"Tencent TextToVoice returned invalid JSON: {exc}")
+            raise ValueError(
+                f"Tencent TextToVoice returned invalid JSON: {exc}"
+            ) from exc
 
         result = body.get("Response") or {}
         error = result.get("Error")
@@ -379,9 +379,9 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
@@ -398,8 +398,10 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
         try:
             voice_type = int(voice_id)
-        except (TypeError, ValueError):
-            raise ValueError(f"Invalid Tencent TextToVoice voice id: {voice_id}")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid Tencent TextToVoice voice id: {voice_id}"
+            ) from exc
 
         sample_rate = _resolve_sample_rate(voice_id, model)
         speed = float(voice_settings.speed or 0)
@@ -424,7 +426,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         audio_data = concat_audio_best_effort(audio_segments, output_format="mp3")
         if not audio_data:
             raise ValueError("No audio data received from Tencent TextToVoice")
-        duration_ms = try_get_audio_duration_ms(audio_data, format="mp3") or 0
+        duration_ms = try_get_audio_duration_ms(audio_data, audio_format="mp3") or 0
 
         return TTSResult(
             audio_data=audio_data,

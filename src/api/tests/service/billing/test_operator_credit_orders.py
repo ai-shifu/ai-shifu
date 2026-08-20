@@ -4,8 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,
@@ -38,7 +37,8 @@ from flaskr.service.billing.read_models import (
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -170,17 +170,17 @@ def _build_app() -> Flask:
                     wallet_bid="wallet-1",
                     creator_bid="creator-1",
                     available_credits=Decimal("20.0000000000"),
-                    reserved_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
                     lifetime_granted_credits=Decimal("20.0000000000"),
-                    lifetime_consumed_credits=Decimal("0"),
+                    lifetime_consumed_credits=Decimal(0),
                 ),
                 CreditWallet(
                     wallet_bid="wallet-2",
                     creator_bid="creator-2",
-                    available_credits=Decimal("0"),
-                    reserved_credits=Decimal("0"),
-                    lifetime_granted_credits=Decimal("0"),
-                    lifetime_consumed_credits=Decimal("0"),
+                    available_credits=Decimal(0),
+                    reserved_credits=Decimal(0),
+                    lifetime_granted_credits=Decimal(0),
+                    lifetime_consumed_credits=Decimal(0),
                 ),
             ]
         )
@@ -196,9 +196,9 @@ def _build_app() -> Flask:
                     priority=10,
                     original_credits=Decimal("20.0000000000"),
                     available_credits=Decimal("20.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 27, 10, 0, 0),
                     effective_to=datetime(2026, 5, 27, 10, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -212,10 +212,10 @@ def _build_app() -> Flask:
                     source_bid="bill-order-plan-1",
                     priority=10,
                     original_credits=Decimal("22000.0000000000"),
-                    available_credits=Decimal("0"),
-                    reserved_credits=Decimal("0"),
+                    available_credits=Decimal(0),
+                    reserved_credits=Decimal(0),
                     consumed_credits=Decimal("22000.0000000000"),
-                    expired_credits=Decimal("0"),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 26, 10, 0, 0),
                     effective_to=datetime(2027, 4, 26, 10, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,

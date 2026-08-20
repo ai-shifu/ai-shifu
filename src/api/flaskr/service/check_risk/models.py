@@ -1,13 +1,14 @@
-from ...dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
     TIMESTAMP,
+    Column,
+    Integer,
+    String,
     Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
+from ...dao import db
 
 
 class RiskControlResult(db.Model):

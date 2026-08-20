@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error
 
 IN_FLIGHT_TTL_SECONDS = 360
@@ -43,7 +42,7 @@ class _LocalLease:
     expires_at: float
 
 
-class _AdmissionDenied(Exception):
+class _AdmissionDeniedError(Exception):
     pass
 
 
@@ -85,7 +84,7 @@ def _acquire_redis_admission(*, key: str, token: str) -> _AdmissionLease | None:
         )
     )
     if not acquired:
-        raise _AdmissionDenied
+        raise _AdmissionDeniedError
     return _AdmissionLease(backend="redis", token=token, key=key)
 
 
@@ -94,7 +93,7 @@ def _acquire_local_admission(*, key: str, token: str) -> _AdmissionLease:
     with _local_lock:
         existing = _local_in_flight_state.get(key)
         if existing is not None and existing.expires_at > now:
-            raise _AdmissionDenied
+            raise _AdmissionDeniedError
         _local_in_flight_state[key] = _LocalLease(
             token=token,
             expires_at=now + IN_FLIGHT_TTL_SECONDS,
@@ -109,7 +108,7 @@ def _acquire_admission(app: Flask, *, user_id: str) -> _AdmissionLease:
         lease = _acquire_redis_admission(key=key, token=token)
         if lease is not None:
             return lease
-    except _AdmissionDenied:
+    except _AdmissionDeniedError:
         raise
     except Exception as exc:
         app.logger.warning(
@@ -117,7 +116,7 @@ def _acquire_admission(app: Flask, *, user_id: str) -> _AdmissionLease:
             "denying request | error_type=%s",
             type(exc).__name__,
         )
-        raise _AdmissionDenied from exc
+        raise _AdmissionDeniedError from exc
     return _acquire_local_admission(key=key, token=token)
 
 
@@ -156,10 +155,9 @@ def learner_profile_optimization_admission(
     app: Flask, *, user_id: str
 ) -> Iterator[None]:
     """Allow only one in-flight optimization for each learner."""
-
     try:
         lease = _acquire_admission(app, user_id=user_id)
-    except _AdmissionDenied:
+    except _AdmissionDeniedError:
         app.logger.warning("Learner profile optimization already in flight")
         raise_error("server.profile.learnerProfileOptimizationRateLimited")
 

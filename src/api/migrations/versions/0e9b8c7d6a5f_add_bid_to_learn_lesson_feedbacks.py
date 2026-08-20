@@ -1,4 +1,4 @@
-"""add learn lesson feedback table
+"""add learn lesson feedback table.
 
 Revision ID: 0e9b8c7d6a5f
 Revises: f0c1e2d3a4b5
@@ -6,8 +6,8 @@ Create Date: 2026-03-09 21:05:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.

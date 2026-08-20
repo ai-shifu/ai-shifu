@@ -27,8 +27,7 @@ except ImportError:
     }
 
     def format_content(content: str) -> list[_FormattedContentPart]:
-        """
-        Compatibility formatter for older markdown_flow builds that do not
+        """Compatibility formatter for older markdown_flow builds that do not
         export `format_content`.
 
         The backfill only needs stable ordered stream parts so the listen
@@ -36,7 +35,6 @@ except ImportError:
         segmentation contract to recover text/visual boundaries and normalize
         visual kinds to element protocol types.
         """
-
         raw_content = str(content or "")
         if not raw_content.strip():
             return []
@@ -96,7 +94,6 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
-
 
 SUPPORTED_BLOCK_TYPES = {
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -617,10 +614,11 @@ def backfill_learn_generated_elements_for_progress(
             db.session.rollback()
         else:
             db.session.commit()
-        return stats
     except Exception:
         db.session.rollback()
         raise
+    else:
+        return stats
 
 
 def backfill_learn_generated_elements_batch(

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -26,27 +28,31 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .checkout import reconcile_billing_provider_reference
-from .credit_audit import audit_credit_state
 from .consts import (
     ALLOCATION_INTERVAL_MANUAL,
     ALLOCATION_INTERVAL_ONE_TIME,
     ALLOCATION_INTERVAL_PER_CYCLE,
-    BILLING_METRIC_LLM_INPUT_TOKENS,
-    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILL_SYS_CONFIG_SEEDS,
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_NONE,
     BILLING_INTERVAL_YEAR,
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_MODE_MANUAL,
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_ORDER_STATUS_FAILED,
-    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -66,16 +72,12 @@ from .consts import (
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_SUBSCRIPTION_STATUS_LABELS,
-    BILL_SYS_CONFIG_SEEDS,
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
     CREDIT_USAGE_RATE_SEEDS,
 )
+from .credit_audit import audit_credit_state
 from .daily_aggregates import (
     detect_daily_aggregate_rebuild_range,
     rebuild_daily_aggregates,
@@ -354,21 +356,18 @@ def register_billing_commands(console) -> None:
     @with_appcontext
     def seed_bootstrap_data_command() -> None:
         """Upsert billing bootstrap rates and config rows."""
-
         _echo_payload(seed_billing_bootstrap_data())
 
     @billing_group.command(name="seed-sample-exception-orders")
     @with_appcontext
     def seed_sample_exception_orders_command() -> None:
         """Upsert sample abnormal orders for local admin billing debugging."""
-
         _echo_payload(seed_sample_exception_orders())
 
     @billing_group.command(name="seed-sample-focus-teachers")
     @with_appcontext
     def seed_sample_focus_teachers_command() -> None:
         """Upsert sample focus-teacher usage metrics for local admin billing."""
-
         _echo_payload(seed_sample_focus_teachers())
 
     @billing_group.command(name="upsert-product")
@@ -479,7 +478,6 @@ def register_billing_commands(console) -> None:
         metadata_json: str,
     ) -> None:
         """Create or update one bill product from CLI-supplied values."""
-
         payload = upsert_billing_product(
             product_bid=product_bid,
             product_code=product_code,
@@ -524,7 +522,6 @@ def register_billing_commands(console) -> None:
         note: str,
     ) -> None:
         """Grant one billing plan to a user resolved by phone or email."""
-
         payload = grant_billing_plan_by_identify(
             identify=identify,
             product_bid=product_bid,
@@ -584,7 +581,6 @@ def register_billing_commands(console) -> None:
         operator_user_bid: str,
     ) -> None:
         """Grant manual credits through the operator credit grant service."""
-
         payload = grant_operator_credits_by_cli(
             identify=identify,
             user_bid=user_bid,
@@ -619,7 +615,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Grant the configured public trial plan to creators who still miss it."""
-
         if not str(creator_bid or "").strip() and not process_all:
             raise click.ClickException(
                 "Pass --creator-bid or --all for trial plan backfill."
@@ -664,7 +659,6 @@ def register_billing_commands(console) -> None:
         dry_run: bool,
     ) -> None:
         """Grant creator role to users with edit/publish shared permissions."""
-
         has_course_scope = bool(str(course_bid or "").strip())
         has_user_scope = bool(str(user_bid or "").strip())
         if not has_course_scope and not has_user_scope and not process_all:
@@ -709,7 +703,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Backfill or manually replay usage settlement from the CLI."""
-
         if (
             not str(usage_bid or "").strip()
             and usage_id_start is None
@@ -753,7 +746,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Rebuild wallet snapshots from bucket balances."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(wallet_bid or "").strip()
@@ -799,7 +791,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Run read-only billing credit invariant diagnostics."""
-
         if not str(creator_bid or "").strip() and not process_all:
             raise click.ClickException(
                 "Pass --creator-bid or --all for credit state audit."
@@ -849,7 +840,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Repair buckets skipped because an expire ledger already exists."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(wallet_bucket_bid or "").strip()
@@ -897,7 +887,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Repair lingering subscription or bucket state after cycle end."""
-
         if not str(creator_bid or "").strip() and not process_all:
             raise click.ClickException(
                 "Pass --creator-bid or --all for renewal state drift repair."
@@ -916,7 +905,6 @@ def register_billing_commands(console) -> None:
     @with_appcontext
     def repair_topup_expiry_command(creator_bid: str) -> None:
         """Repair one creator's topup grant expiry against the active paid plan."""
-
         if not str(creator_bid or "").strip():
             raise click.ClickException("Pass --creator-bid for topup expiry repair.")
 
@@ -945,7 +933,6 @@ def register_billing_commands(console) -> None:
         apply_changes: bool,
     ) -> None:
         """Restore explicitly listed credit pack buckets expired by old logic."""
-
         if not any(str(bid or "").strip() for bid in bill_order_bids):
             raise click.ClickException(
                 "Pass at least one --bill-order-bid for expired topup bucket restore."
@@ -967,7 +954,6 @@ def register_billing_commands(console) -> None:
         subscription_bid: str,
     ) -> None:
         """Repair mismatched subscription cycle rows from paid billing grants."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(subscription_bid or "").strip()
@@ -996,7 +982,6 @@ def register_billing_commands(console) -> None:
         wallet_bucket_bid: str,
     ) -> None:
         """Repair expired bucket rows that still carry live credits."""
-
         if (
             not str(creator_bid or "").strip()
             and not str(wallet_bucket_bid or "").strip()
@@ -1032,7 +1017,6 @@ def register_billing_commands(console) -> None:
         process_all: bool,
     ) -> None:
         """Rebuild one daily aggregate date window from raw usage and ledger data."""
-
         normalized_date_from = str(date_from or "").strip()
         normalized_date_to = str(date_to or "").strip()
         if not process_all and not normalized_date_from and not normalized_date_to:
@@ -1089,7 +1073,6 @@ def register_billing_commands(console) -> None:
         session_id: str,
     ) -> None:
         """Manually replay provider sync for one billing order."""
-
         if (
             not str(bill_order_bid or "").strip()
             and not str(provider_reference_id or "").strip()
@@ -1119,7 +1102,6 @@ def register_billing_commands(console) -> None:
         creator_bid: str,
     ) -> None:
         """Run one renewal/reconcile event from the CLI."""
-
         if not any(
             (
                 str(renewal_event_bid or "").strip(),
@@ -1152,7 +1134,6 @@ def register_billing_commands(console) -> None:
         bill_order_bid: str,
     ) -> None:
         """Retry a failed renewal using the shared billing compensation path."""
-
         if not any(
             (
                 str(renewal_event_bid or "").strip(),
@@ -1181,7 +1162,6 @@ def register_billing_commands(console) -> None:
         bill_order_bid: str,
     ) -> None:
         """Re-enqueue one pending or provider-failed subscription purchase SMS."""
-
         if not str(bill_order_bid or "").strip():
             raise click.ClickException(
                 "Pass --bill-order-bid for subscription purchase SMS requeue."
@@ -1392,7 +1372,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
                 "campaign_bid": "",
                 "campaign_benefit_type": 0,
                 "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal("0"),
+                "campaign_bonus_credit_amount": Decimal(0),
                 "deleted": 0,
                 "created_at": current_time,
                 "updated_at": current_time,
@@ -1420,7 +1400,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
                 "campaign_bid": "",
                 "campaign_benefit_type": 0,
                 "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal("0"),
+                "campaign_bonus_credit_amount": Decimal(0),
                 "deleted": 0,
                 "created_at": current_time,
                 "updated_at": current_time,
@@ -1448,7 +1428,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
                 "campaign_bid": "",
                 "campaign_benefit_type": 0,
                 "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal("0"),
+                "campaign_bonus_credit_amount": Decimal(0),
                 "deleted": 0,
                 "created_at": current_time,
                 "updated_at": current_time,
@@ -1530,7 +1510,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid: str,
         usage_scene: int,
         metric: int,
-        credits: str,
+        credit_amount: str,
         record_count: int,
         raw_amount: int,
     ) -> None:
@@ -1555,7 +1535,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
                 "billing_metric": metric,
                 "raw_amount": raw_amount,
                 "record_count": record_count,
-                "consumed_credits": Decimal(credits),
+                "consumed_credits": Decimal(credit_amount),
                 "window_started_at": window_started_at,
                 "window_ended_at": window_ended_at,
                 "created_at": current_time,
@@ -1571,7 +1551,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="4.2",
+        credit_amount="4.2",
         record_count=3,
         raw_amount=3200,
     )
@@ -1582,7 +1562,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="5.4",
+        credit_amount="5.4",
         record_count=2,
         raw_amount=4100,
     )
@@ -1593,7 +1573,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="3.8",
+        credit_amount="3.8",
         record_count=2,
         raw_amount=2800,
     )
@@ -1604,7 +1584,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="1.4",
+        credit_amount="1.4",
         record_count=1,
         raw_amount=1000,
     )
@@ -1616,7 +1596,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_DEBUG,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="3.6",
+        credit_amount="3.6",
         record_count=2,
         raw_amount=2600,
     )
@@ -1627,7 +1607,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_PREVIEW,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="3.1",
+        credit_amount="3.1",
         record_count=2,
         raw_amount=2200,
     )
@@ -1638,7 +1618,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="1.6",
+        credit_amount="1.6",
         record_count=2,
         raw_amount=1400,
     )
@@ -1649,7 +1629,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_DEBUG,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="2.4",
+        credit_amount="2.4",
         record_count=1,
         raw_amount=1800,
     )
@@ -1661,7 +1641,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-steady",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="2.8",
+        credit_amount="2.8",
         record_count=1,
         raw_amount=1900,
     )
@@ -1672,7 +1652,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-steady",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="2.7",
+        credit_amount="2.7",
         record_count=2,
         raw_amount=2000,
     )
@@ -1683,7 +1663,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-steady",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="3.4",
+        credit_amount="3.4",
         record_count=2,
         raw_amount=2500,
     )
@@ -1695,7 +1675,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-recent",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="4.6",
+        credit_amount="4.6",
         record_count=2,
         raw_amount=3300,
     )
@@ -1706,7 +1686,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-recent",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="3.7",
+        credit_amount="3.7",
         record_count=2,
         raw_amount=2600,
     )
@@ -1717,7 +1697,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-recent",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="0.8",
+        credit_amount="0.8",
         record_count=1,
         raw_amount=700,
     )
@@ -1813,6 +1793,16 @@ def upsert_billing_product(
     }
 
 
+@contextmanager
+def _rollback_on_error() -> Iterator[None]:
+    """Roll back the CLI transaction when the wrapped block raises."""
+    try:
+        yield
+    except Exception:
+        db.session.rollback()
+        raise
+
+
 def grant_billing_plan_by_identify(
     *,
     identify: str,
@@ -1837,7 +1827,7 @@ def grant_billing_plan_by_identify(
         )
     normalized_effective_to = str(effective_to or "").strip()
 
-    try:
+    with _rollback_on_error():
         aggregate = load_user_aggregate_by_identifier(normalized_identify)
         if aggregate is None:
             raise click.ClickException(
@@ -2033,10 +2023,7 @@ def grant_billing_plan_by_identify(
             )
             payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
             payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
-        return payload
-    except Exception:
-        db.session.rollback()
-        raise
+    return payload
 
 
 def grant_operator_credits_by_cli(
@@ -2072,7 +2059,7 @@ def grant_operator_credits_by_cli(
         str(operator_user_bid or "").strip() or _DEFAULT_CLI_OPERATOR_USER_BID
     )
 
-    try:
+    with _rollback_on_error():
         aggregate = (
             load_user_aggregate(normalized_user_bid)
             if normalized_user_bid
@@ -2114,10 +2101,7 @@ def grant_operator_credits_by_cli(
                 "mobile": getattr(aggregate, "mobile", ""),
             }
         )
-        return payload
-    except Exception:
-        db.session.rollback()
-        raise
+    return payload
 
 
 def _build_cli_credit_grant_request_id(

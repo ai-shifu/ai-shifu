@@ -3,16 +3,15 @@
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
 import json
-from pathlib import Path
 import os
 import re
 import sys
+from argparse import ArgumentParser
+from pathlib import Path
 from urllib.parse import urlencode
 
 import requests
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_DIR = ROOT / "logs"
@@ -80,9 +79,11 @@ def detect_langfuse_mode() -> str:
 def collect_matches(log_files: list[Path], request_id: str) -> list[tuple[Path, str]]:
     matches: list[tuple[Path, str]] = []
     for path in log_files:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if request_id in line:
-                matches.append((path, line))
+        matches.extend(
+            (path, line)
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if request_id in line
+        )
     return matches
 
 

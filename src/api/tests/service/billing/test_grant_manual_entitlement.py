@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import flaskr.dao as dao
+from flaskr import dao
 
 
 def _cleanup(app, creator_bid: str) -> None:

@@ -2,23 +2,25 @@
 # ref: https://support.dun.163.com/documents/588434200783982592?docId=791131792583602176
 
 
-import time
 import hashlib
-import random
-from flask import Flask
+import secrets
+import time
 from urllib.parse import urlencode
-from gmssl import sm3, func
+
 import requests
+from flask import Flask
+from gmssl import func, sm3
+
 from flaskr.service.config import get_config
+
 from .dto import (
-    CheckResultDTO,
     CHECK_RESULT_PASS,
-    CHECK_RESULT_REVIEW,
     CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNCONF,
     CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
-
 
 URL = "http://as.dun.163.com/v5/text/check"
 
@@ -60,21 +62,19 @@ CHECK_RESULT_MAP = {
 
 
 def gen_signature(params=None):
-    """
-    generate signature for yidun check
-    """
+    """Generate signature for yidun check."""
     buff = ""
     for k in sorted(params.keys()):
         buff += str(k) + str(params[k])
     buff += YIDUN_SECRET_KEY
-    if "signatureMethod" in params.keys() and params["signatureMethod"] == "SM3":
+    if "signatureMethod" in params and params["signatureMethod"] == "SM3":
         return sm3.sm3_hash(func.bytes_to_list(bytes(buff, encoding="utf8")))
-    else:
-        return hashlib.md5(buff.encode("utf8")).hexdigest()
+    # MD5 is mandated by the Yidun signature protocol.
+    return hashlib.md5(buff.encode("utf8")).hexdigest()  # noqa: S324
 
 
 def yidun_check(
-    app: Flask, data_id: str, content: str, user_id: str = None
+    app: Flask, data_id: str, content: str, user_id: str | None = None
 ) -> CheckResultDTO:
     if not YIDUN_SECRET_ID or not YIDUN_SECRET_KEY or not YIDUN_BUSINESS_ID:
         app.logger.warning(
@@ -95,7 +95,7 @@ def yidun_check(
     params["businessId"] = YIDUN_BUSINESS_ID
     params["version"] = VERSION
     params["timestamp"] = int(time.time() * 1000)
-    params["nonce"] = int(random.random() * 100000000)
+    params["nonce"] = secrets.randbelow(100000000)
     if user_id:
         params["account"] = user_id
     params["signature"] = gen_signature(params)
@@ -136,24 +136,23 @@ def yidun_check(
                 provider=PROVIDER,
                 raw_data=response_json,
             )
-        else:
-            # Yidun's error payload uses "msg" (v5 API); "message" kept as a
-            # fallback. Include the code so auth/quota failures (e.g. 401
-            # trial expiry) are identifiable from the log alone.
-            app.logger.error(
-                "yidun check error: code=%s msg=%s",
-                response_json.get("code"),
-                response_json.get("msg") or response_json.get("message", ""),
-            )
-            return CheckResultDTO(
-                check_result=CHECK_RESULT_UNKNOWN,
-                risk_labels=[],
-                risk_label_ids=[],
-                provider=PROVIDER,
-                raw_data=response_json,
-            )
-    except Exception as ex:
-        app.logger.error("yidun check error: %r", ex)
+        # Yidun's error payload uses "msg" (v5 API); "message" kept as a
+        # fallback. Include the code so auth/quota failures (e.g. 401
+        # trial expiry) are identifiable from the log alone.
+        app.logger.error(
+            "yidun check error: code=%s msg=%s",
+            response_json.get("code"),
+            response_json.get("msg") or response_json.get("message", ""),
+        )
+        return CheckResultDTO(
+            check_result=CHECK_RESULT_UNKNOWN,
+            risk_labels=[],
+            risk_label_ids=[],
+            provider=PROVIDER,
+            raw_data=response_json,
+        )
+    except Exception:
+        app.logger.exception("yidun check error")
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],

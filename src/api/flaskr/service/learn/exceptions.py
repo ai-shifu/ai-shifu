@@ -1,7 +1,8 @@
-from flaskr.service.common import AppException, ERROR_CODE
+from flaskr.service.common import ERROR_CODE, AppError
+from flaskr.util.deprecation import deprecated_alias_getattr
 
 
-class PaidException(AppException):
+class PaidError(AppError):
     def __init__(self):
         super().__init__(
             "server.order.courseNotPaid",
@@ -12,7 +13,7 @@ class PaidException(AppException):
         )
 
 
-class BreakException(AppException):
+class BreakError(AppError):
     def __init__(self):
         super().__init__(
             "server.order.courseNotPaid",
@@ -21,3 +22,8 @@ class BreakException(AppException):
                 ERROR_CODE["server.common.unknownError"],
             ),
         )
+
+
+__getattr__ = deprecated_alias_getattr(
+    __name__, {"PaidException": "PaidError", "BreakException": "BreakError"}, globals()
+)

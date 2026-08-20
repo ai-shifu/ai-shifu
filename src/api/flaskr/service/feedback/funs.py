@@ -1,8 +1,9 @@
 from flask import Flask
-from .models import FeedBack
-from ...dao import db
 from flaskr.api.doc.feishu import send_notify
 from flaskr.service.user.repository import load_user_aggregate
+
+from ...dao import db
+from .models import FeedBack
 
 
 def submit_feedback(app: Flask, user_id: str, feedback: str, mail: str):

@@ -3,12 +3,10 @@
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import List, Optional
-
-from pydantic import BaseModel, Field
 
 from flaskr.route.common import fmt
 from flaskr.service.common.dto_base import AutoJsonMixin
+from pydantic import BaseModel, Field
 
 
 class ChildDTO(AutoJsonMixin, BaseModel):
@@ -20,11 +18,11 @@ class SampleDTO(AutoJsonMixin, BaseModel):
     text: str = Field(...)
     number: int = Field(...)
     flag: bool = Field(...)
-    amount: Optional[Decimal] = Field(default=None)
-    happened_at: Optional[datetime] = Field(default=None)
-    child: Optional[ChildDTO] = Field(default=None)
-    children: List[ChildDTO] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
+    amount: Decimal | None = Field(default=None)
+    happened_at: datetime | None = Field(default=None)
+    child: ChildDTO | None = Field(default=None)
+    children: list[ChildDTO] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class RenamedDTO(AutoJsonMixin, BaseModel):
@@ -33,7 +31,7 @@ class RenamedDTO(AutoJsonMixin, BaseModel):
 
     page: int = Field(...)
     internal_state: int = Field(default=0)
-    data: List[str] = Field(default_factory=list)
+    data: list[str] = Field(default_factory=list)
 
 
 def test_json_emits_fields_in_declaration_order_with_identity_keys():

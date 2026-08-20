@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from flask import Flask, request
-
 from flaskr.dao.uow import unit_of_work
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
-from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+from flaskr.service.billing.admin_ops_state import (
+    build_admin_billing_ops_state,
+    update_admin_billing_config_status,
+)
 from flaskr.service.billing.admin_target_users import (
     resolve_admin_entitlement_grant_target,
     resolve_existing_admin_billing_target_user_bid,
@@ -21,6 +23,7 @@ from flaskr.service.billing.campaigns import (
     update_admin_billing_campaign,
     update_admin_billing_campaign_status,
 )
+from flaskr.service.billing.capabilities import build_billing_route_bootstrap
 from flaskr.service.billing.checkout import (
     create_billing_order_checkout,
     create_billing_subscription_checkout,
@@ -42,10 +45,6 @@ from flaskr.service.billing.customization import (
     verify_creator_integration,
 )
 from flaskr.service.billing.domains import manage_creator_domain_binding
-from flaskr.service.billing.admin_ops_state import (
-    build_admin_billing_ops_state,
-    update_admin_billing_config_status,
-)
 from flaskr.service.billing.entitlements import (
     grant_creator_manual_entitlement,
     serialize_creator_entitlements,
@@ -54,9 +53,9 @@ from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
     build_admin_bill_daily_usage_metrics_page,
-    build_admin_billing_focus_teachers_page,
     build_admin_bill_entitlements_page,
     build_admin_bill_subscriptions_page,
+    build_admin_billing_focus_teachers_page,
     build_billing_catalog,
     build_billing_ledger_page,
     build_billing_overview,
@@ -68,6 +67,7 @@ from flaskr.service.billing.subscriptions import (
 )
 from flaskr.service.billing.trials import acknowledge_trial_welcome_dialog
 from flaskr.service.common.models import raise_error, raise_param_error
+
 from .primitives import is_billing_enabled
 
 # Compatibility aliases keep existing route tests patchable while the concrete
@@ -152,12 +152,12 @@ def _to_optional_bool(value, field_name: str) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 @inject
 def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> None:
     """Register creator billing routes."""
-
     app.logger.info("register billing routes %s", path_prefix)
     admin_path_prefix = "/api/admin/billing"
 
@@ -883,5 +883,3 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 payload=request.get_json(silent=True) or {},
             )
         )
-
-    return None

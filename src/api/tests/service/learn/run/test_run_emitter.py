@@ -9,8 +9,7 @@ import types
 import unittest
 
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.learn_dtos import GeneratedType
@@ -92,9 +91,9 @@ class EmitterAccessorTests(unittest.TestCase):
 
         emitter = ctx._event_emitter
 
-        self.assertIsInstance(emitter, RunEventEmitter)
-        self.assertIs(emitter._context, ctx)
-        self.assertIs(ctx._event_emitter, emitter)
+        assert isinstance(emitter, RunEventEmitter)
+        assert emitter._context is ctx
+        assert ctx._event_emitter is emitter
 
 
 class WrapperDelegationTests(unittest.TestCase):
@@ -106,33 +105,25 @@ class WrapperDelegationTests(unittest.TestCase):
     def test_render_outline_updates_delegates(self):
         updates = [object()]
         events = list(self.ctx._render_outline_updates(updates, new_chapter=True))
-        self.assertEqual(events, ["outline-event"])
-        self.assertEqual(
-            self.emitter.calls, [("render_outline_updates", updates, True)]
-        )
+        assert events == ["outline-event"]
+        assert self.emitter.calls == [("render_outline_updates", updates, True)]
 
     def test_emit_next_chapter_interaction_delegates(self):
         progress = object()
         events = list(self.ctx._emit_next_chapter_interaction(progress))
-        self.assertEqual(events, ["next-event"])
-        self.assertEqual(
-            self.emitter.calls, [("emit_next_chapter_interaction", progress)]
-        )
+        assert events == ["next-event"]
+        assert self.emitter.calls == [("emit_next_chapter_interaction", progress)]
 
     def test_emit_lesson_feedback_interaction_delegates(self):
         progress = object()
         events = list(self.ctx._emit_lesson_feedback_interaction(progress))
-        self.assertEqual(events, ["feedback-event"])
-        self.assertEqual(
-            self.emitter.calls, [("emit_lesson_feedback_interaction", progress)]
-        )
+        assert events == ["feedback-event"]
+        assert self.emitter.calls == [("emit_lesson_feedback_interaction", progress)]
 
     def test_is_access_gate_blocking_interaction_delegates(self):
         parsed = {"buttons": []}
-        self.assertTrue(self.ctx._is_access_gate_blocking_interaction(parsed))
-        self.assertEqual(
-            self.emitter.calls, [("is_access_gate_blocking_interaction", parsed)]
-        )
+        assert self.ctx._is_access_gate_blocking_interaction(parsed)
+        assert self.emitter.calls == [("is_access_gate_blocking_interaction", parsed)]
 
     def test_maybe_emit_feedback_after_access_gate_delegates(self):
         parsed = {"buttons": []}
@@ -144,32 +135,26 @@ class WrapperDelegationTests(unittest.TestCase):
                 is_tail_gate=True,
             )
         )
-        self.assertEqual(events, ["gate-feedback-event"])
-        self.assertEqual(
-            self.emitter.calls,
-            [("maybe_emit_feedback_after_access_gate", parsed, progress, True)],
-        )
+        assert events == ["gate-feedback-event"]
+        assert self.emitter.calls == [
+            ("maybe_emit_feedback_after_access_gate", parsed, progress, True)
+        ]
 
     def test_emit_feedback_after_exception_gate_delegates(self):
         events = list(self.ctx._emit_feedback_after_exception_gate())
-        self.assertEqual(events, ["exception-feedback-event"])
-        self.assertEqual(self.emitter.calls, [("emit_feedback_after_exception_gate",)])
+        assert events == ["exception-feedback-event"]
+        assert self.emitter.calls == [("emit_feedback_after_exception_gate",)]
 
     def test_ensure_current_attend_for_gate_interaction_delegates(self):
-        self.assertEqual(
-            self.ctx._ensure_current_attend_for_gate_interaction(), "attend"
-        )
-        self.assertEqual(
-            self.emitter.calls, [("ensure_current_attend_for_gate_interaction",)]
-        )
+        assert self.ctx._ensure_current_attend_for_gate_interaction() == "attend"
+        assert self.emitter.calls == [("ensure_current_attend_for_gate_interaction",)]
 
     def test_emit_current_progress_gate_interaction_delegates(self):
         events = list(self.ctx._emit_current_progress_gate_interaction("content"))
-        self.assertEqual(events, ["gate-interaction-event"])
-        self.assertEqual(
-            self.emitter.calls,
-            [("emit_current_progress_gate_interaction", "content")],
-        )
+        assert events == ["gate-interaction-event"]
+        assert self.emitter.calls == [
+            ("emit_current_progress_gate_interaction", "content")
+        ]
 
     def test_emit_completion_tail_interactions_delegates(self):
         progress = object()
@@ -180,16 +165,16 @@ class WrapperDelegationTests(unittest.TestCase):
                 has_next_outline_item=False,
             )
         )
-        self.assertEqual(events, ["tail-event"])
-        self.assertEqual(
-            self.emitter.calls,
-            [("emit_completion_tail_interactions", progress, True, False)],
-        )
+        assert events == ["tail-event"]
+        assert self.emitter.calls == [
+            ("emit_completion_tail_interactions", progress, True, False)
+        ]
 
 
 class EmitterContextSeamTests(unittest.TestCase):
     """The emitter must dispatch cross-calls through the context wrappers so
-    instance-level overrides on the context keep taking effect."""
+    instance-level overrides on the context keep taking effect.
+    """
 
     def test_completion_tail_uses_context_overrides(self):
         ctx = _make_context()
@@ -214,8 +199,8 @@ class EmitterContextSeamTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["next", "feedback"])
-        self.assertEqual(events, ["next-event", "feedback-event"])
+        assert calls == ["next", "feedback"]
+        assert events == ["next-event", "feedback-event"]
 
     def test_access_gate_feedback_uses_context_overrides(self):
         ctx = _make_context()
@@ -236,13 +221,13 @@ class EmitterContextSeamTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["feedback"])
-        self.assertEqual(events, ["feedback-event"])
+        assert calls == ["feedback"]
+        assert events == ["feedback-event"]
 
 
 class EmitterPayloadSmokeTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("run-emitter-payload-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -280,19 +265,17 @@ class EmitterPayloadSmokeTests(unittest.TestCase):
                 )
             )
 
-            self.assertEqual(len(events), 1)
+            assert len(events) == 1
             event = events[0]
-            self.assertEqual(event.type, GeneratedType.INTERACTION)
-            self.assertEqual(event.outline_bid, "outline-1")
-            self.assertIn(CONTEXT_INTERACTION_NEXT, event.content)
+            assert event.type == GeneratedType.INTERACTION
+            assert event.outline_bid == "outline-1"
+            assert CONTEXT_INTERACTION_NEXT in event.content
 
             stored_blocks = LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.progress_record_bid == "progress-1"
             ).all()
-            self.assertEqual(len(stored_blocks), 1)
-            self.assertEqual(
-                stored_blocks[0].generated_block_bid, event.generated_block_bid
-            )
+            assert len(stored_blocks) == 1
+            assert stored_blocks[0].generated_block_bid == event.generated_block_bid
 
 
 if __name__ == "__main__":

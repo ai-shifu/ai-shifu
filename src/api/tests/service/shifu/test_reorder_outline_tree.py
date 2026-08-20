@@ -3,10 +3,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu import shifu_outline_funcs
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_outline_funcs import (
     assert_outline_tree_publishable,
     reorder_outline_tree,
@@ -39,7 +38,7 @@ def _seed_shifu(shifu_bid: str) -> None:
             keywords="",
             llm="gpt-test",
             llm_temperature=Decimal("0.3"),
-            price=Decimal("0"),
+            price=Decimal(0),
             deleted=0,
             created_user_bid="creator-1",
             updated_user_bid="creator-1",

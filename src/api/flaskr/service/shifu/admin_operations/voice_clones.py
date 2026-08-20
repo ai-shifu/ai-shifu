@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Optional, Sequence, Set
+from typing import Any
 
 from flask import Flask
-from sqlalchemy import or_
-
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -21,15 +20,17 @@ from flaskr.service.tts.api import (
     verify_volcengine_voice_id,
 )
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
     TTS_CLONE_PROVIDER_MINIMAX,
     TTS_CLONE_PROVIDER_VOLCENGINE,
     TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import or_
 
 OPERATOR_VOICE_CLONE_SOURCE_METHOD = "operator_register"
 # Short text/model used only to validate a registered voice_id against the
@@ -66,7 +67,7 @@ def _decimal_to_str(value: Any) -> str:
     return str(value)
 
 
-def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_course_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_text(keyword)
     if not normalized:
         return None
@@ -96,7 +97,7 @@ def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
     }
 
 
-def _find_matching_voice_owner_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_voice_owner_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_text(keyword)
     if not normalized:
         return None

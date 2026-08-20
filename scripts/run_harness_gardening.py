@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from build_repo_knowledge_index import (
@@ -15,14 +15,13 @@ from build_repo_knowledge_index import (
 )
 from check_architecture_boundaries import (
     BACKEND_ROOT,
-    FRONTEND_ROOT,
     DEFAULT_BASELINE,
+    FRONTEND_ROOT,
     collect_backend_violations,
     collect_frontend_violations,
     dedupe_violations,
     load_baseline,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUMMARY = ROOT / "docs" / "generated" / "harness-gardening-summary.md"
@@ -47,7 +46,7 @@ RETIRED_TERM_SCAN_PATHS = (
 
 def stale_review_docs() -> list[str]:
     stale: list[str] = []
-    cutoff = datetime.now(timezone.utc).date().toordinal() - REVIEW_WINDOW_DAYS
+    cutoff = datetime.now(UTC).date().toordinal() - REVIEW_WINDOW_DAYS
     for category in ("design-docs", "product-specs"):
         for path in sorted((DOCS_ROOT / category).glob("*.md")):
             if path.name == "index.md":
@@ -83,12 +82,11 @@ def retired_term_hits() -> list[str]:
         for line_number, line in enumerate(text.splitlines(), start=1):
             if any(pattern.search(line) for pattern in allowed_patterns):
                 continue
-            for term in RETIRED_TERM_PATTERNS:
-                if term in line:
-                    hits.append(
-                        f"{path.relative_to(ROOT)}:{line_number} contains retired "
-                        f"term `{term}`"
-                    )
+            hits.extend(
+                f"{path.relative_to(ROOT)}:{line_number} contains retired term `{term}`"
+                for term in RETIRED_TERM_PATTERNS
+                if term in line
+            )
     return hits
 
 

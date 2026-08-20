@@ -1,4 +1,4 @@
-"""snapshot creator payment config on learner orders
+"""snapshot creator payment config on learner orders.
 
 Revision ID: a7c4e9f1b2d3
 Revises: f6b2a4d8c9e0
@@ -6,9 +6,8 @@ Create Date: 2026-07-12 16:30:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "a7c4e9f1b2d3"
 down_revision = "f6b2a4d8c9e0"

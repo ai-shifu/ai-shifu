@@ -20,9 +20,11 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
 
     class AudioSegment:  # type: ignore[no-redef]
         @staticmethod
-        def from_file(*_args, **_kwargs):
+        def from_file(*_args, **_kwargs) -> None:
             raise RuntimeError("audio decoder is not available")
 
+
+import contextlib
 
 from flaskr.common.config import get_config
 from flaskr.dao import db
@@ -44,7 +46,6 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.resource.models import Resource
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
     TTS_CLONE_PROVIDER_MINIMAX,
     TTS_MINIMAX_CLONE_BILLING_CHARGED,
     TTS_MINIMAX_CLONE_BILLING_FAILED,
@@ -56,10 +57,10 @@ from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_PROCESSING,
     TTS_MINIMAX_CLONE_STATUS_QUEUED,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
-
 
 MINIMAX_FILE_UPLOAD_URL = "https://api.minimaxi.com/v1/files/upload"
 MINIMAX_VOICE_CLONE_URL = "https://api.minimaxi.com/v1/voice_clone"
@@ -150,7 +151,7 @@ def normalize_audio_blob(
             "unable to decode audio; please record again or upload mp3, m4a, or wav"
         ) from exc
 
-    duration_ms = int(len(segment))
+    duration_ms = len(segment)
     if purpose == "source":
         if duration_ms < _SOURCE_MIN_DURATION_MS:
             raise ValueError("source audio must be at least 10 seconds")
@@ -372,7 +373,7 @@ def submit_minimax_voice_clone(
 
         estimate = estimate_voice_clone_operation_credits(app)
         billing_enabled = is_billing_enabled()
-        should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
+        should_bill = billing_enabled and estimate.consumed_credits > _zero()
         if should_bill:
             admit_creator_usage(
                 app,
@@ -634,7 +635,7 @@ def build_minimax_clone_cost(
     billing_enabled = is_billing_enabled()
     can_submit = (
         not billing_enabled
-        or estimate.consumed_credits <= _ZERO()
+        or estimate.consumed_credits <= _zero()
         or available >= estimate.consumed_credits
     )
     return {
@@ -792,7 +793,7 @@ def _execute_clone_processing(
                 )
         else:
             row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-            row.charged_credits = _ZERO()
+            row.charged_credits = _zero()
         row.status = TTS_MINIMAX_CLONE_STATUS_READY
         row.ready_at = now_utc()
         db.session.commit()
@@ -867,13 +868,13 @@ def _mark_clone_failed(
 def _prepare_retry_billing(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
     estimate = estimate_voice_clone_operation_credits(app)
     billing_enabled = is_billing_enabled()
-    should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
+    should_bill = billing_enabled and estimate.consumed_credits > _zero()
     if not should_bill:
         row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
         row.estimated_credits = estimate.consumed_credits
         row.billing_reservation_bid = ""
         row.billing_ledger_bid = ""
-        row.charged_credits = _ZERO()
+        row.charged_credits = _zero()
         return
 
     if (
@@ -908,7 +909,7 @@ def _prepare_retry_billing(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
     )
     row.billing_status = TTS_MINIMAX_CLONE_BILLING_RESERVED
     row.estimated_credits = estimate.consumed_credits
-    row.charged_credits = _ZERO()
+    row.charged_credits = _zero()
     row.billing_reservation_bid = reservation.reservation_bid
     row.billing_ledger_bid = reservation.ledger_bid
 
@@ -989,10 +990,8 @@ def _delete_resource_object(app: Flask, resource_bid: str) -> None:
         return
     _PENDING_AUDIO_BLOBS.pop(normalized, None)
     temp_path = _temp_resource_path(normalized)
-    try:
+    with contextlib.suppress(Exception):
         temp_path.unlink(missing_ok=True)
-    except Exception:
-        pass
     with app.app_context():
         resource = Resource.query.filter(Resource.resource_id == normalized).first()
         if resource is not None:
@@ -1012,24 +1011,20 @@ def _read_resource_bytes(resource_bid: str) -> bytes:
 
     resource = Resource.query.filter(Resource.resource_id == normalized).first()
     if resource is not None and resource.oss_name:
-        try:
+        with contextlib.suppress(Exception):
             return read_storage_bytes(
                 profile=OSS_PROFILE_COURSES,
                 object_key=resource.oss_name,
                 bucket_name=resource.oss_bucket or "",
             )
-        except Exception:
-            pass
     raise ValueError("source audio is no longer available")
 
 
 def _cleanup_raw_resources(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
     for resource_bid in (row.source_audio_resource_bid, row.prompt_audio_resource_bid):
         if resource_bid:
-            try:
+            with contextlib.suppress(Exception):
                 _delete_resource_object(app, resource_bid)
-            except Exception:
-                pass
 
 
 def _remember_resource_bytes(resource_bid: str, data: bytes) -> None:
@@ -1083,7 +1078,7 @@ def _available_wallet_credits(app: Flask, creator_bid: str):
             .first()
         )
         if wallet is None:
-            return _ZERO()
+            return _zero()
         return quantize_credit_amount(wallet.available_credits)
 
 
@@ -1145,5 +1140,5 @@ def _normalize_required(value: str, field_name: str) -> str:
     return normalized
 
 
-def _ZERO() -> Any:
+def _zero() -> Any:
     return quantize_credit_amount(0)

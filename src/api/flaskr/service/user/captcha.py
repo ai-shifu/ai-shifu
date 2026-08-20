@@ -10,11 +10,9 @@ from io import BytesIO
 from typing import Any
 
 from flask import Flask
-from PIL import Image, ImageDraw, ImageFont
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.service.common.models import raise_error
-
+from PIL import Image, ImageDraw, ImageFont
 
 _CAPTCHA_ALPHABET = "ACDEFHJKLMNPRTUVWXY3479"
 _CAPTCHA_IMAGE_WIDTH = 160
@@ -129,7 +127,7 @@ def _render_captcha_png(code: str) -> bytes:
     )
     draw = ImageDraw.Draw(image)
     font = _load_captcha_font(_CAPTCHA_FONT_SIZE)
-    resample_filter = getattr(getattr(Image, "Resampling", Image), "BICUBIC")
+    resample_filter = getattr(Image, "Resampling", Image).BICUBIC
 
     for y in (13, 25, 37):
         draw.line(

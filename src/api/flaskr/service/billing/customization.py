@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from io import BytesIO
-from dataclasses import dataclass
 import base64
 import binascii
 import hashlib
 import hmac
-from importlib import import_module
 import json
+from dataclasses import dataclass
+from importlib import import_module
+from io import BytesIO
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -17,15 +17,19 @@ from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
-from PIL import Image, ImageOps, UnidentifiedImageError
-from werkzeug.datastructures import FileStorage
-
+from flaskr.service.common.contact_identifiers import (
+    CONTACT_TYPE_EMAIL,
+    normalize_contact_identifier,
+    resolve_contact_type,
+)
+from flaskr.service.common.models import AppError, raise_error, raise_param_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
-from flaskr.service.common.models import AppException, raise_error, raise_param_error
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from PIL import Image, ImageOps, UnidentifiedImageError
+from werkzeug.datastructures import FileStorage
 
 from .domains import build_creator_domain_bindings
 from .entitlements import (
@@ -309,7 +313,6 @@ def upload_creator_brand_logo(
     allow_when_customization_disabled: bool = False,
 ) -> str:
     """Validate and upload a course-owner logo through managed storage."""
-
     creator_bid = normalize_bid(creator_bid)
     normalized_target = _normalize_logo_target(target)
     with app.app_context():
@@ -617,7 +620,6 @@ def resolve_payment_integration_for_new_order(
     app: Flask, creator_bid: str, provider: str
 ) -> ProviderCredentialContext | None:
     """Resolve an eligible active merchant config or preserve global behavior."""
-
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     if provider not in PAYMENT_PROVIDERS:
@@ -681,7 +683,7 @@ def _serialize_latest_management_integration(
         return _serialize_active_integration(app, creator_bid, provider)
     try:
         integration_bid = _latest_version_bid(app, creator_bid, provider)
-    except AppException:
+    except AppError:
         return _serialize_active_integration(app, creator_bid, provider)
     record = _load_integration_record(
         app,
@@ -742,7 +744,7 @@ def _load_latest_record_or_active(
         return None
     try:
         integration_bid = _latest_version_bid(app, creator_bid, provider)
-    except AppException:
+    except AppError:
         return _load_active_record(creator_bid, provider)
     return _load_integration_record(
         app,
@@ -905,7 +907,7 @@ def _probe_stripe_credentials(
     if app.config.get("TESTING"):
         return
     try:
-        import stripe  # type: ignore
+        import stripe  # type: ignore[import-untyped]
 
         request_options: dict[str, Any] = {"api_key": secret_key}
         api_version = str(public_config.get("api_version") or "").strip()
@@ -1083,10 +1085,11 @@ def _normalize_home_url(value: Any) -> str:
 
 def _normalize_home_url_lenient(value: Any) -> str:
     """Draft-side variant: drop invalid values instead of raising, so the
-    admin draft autosave never fails on a partially typed URL."""
+    admin draft autosave never fails on a partially typed URL.
+    """
     try:
         return _normalize_home_url(value)
-    except AppException:
+    except AppError:
         return ""
 
 
@@ -1325,18 +1328,31 @@ def _to_bool(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _admin_draft_contact_digest(creator_mobile: str) -> str:
+    """Digest the contact identifier an unsaved draft is keyed by.
+
+    Emails are lowercased first so a draft stored as ``A@x.com`` is still found
+    when the dialog is reopened with ``a@x.com``. Phone numbers keep their raw
+    trimmed form so drafts written before email support remain reachable.
+    """
+    normalized_creator_contact = str(creator_mobile or "").strip()
+    if not normalized_creator_contact:
+        raise_param_error("creator_mobile")
+    contact_type = resolve_contact_type(normalized_creator_contact)
+    if contact_type == CONTACT_TYPE_EMAIL:
+        normalized_creator_contact = normalize_contact_identifier(
+            normalized_creator_contact, contact_type
+        )
+    return hashlib.sha256(normalized_creator_contact.encode("utf-8")).hexdigest()
+
+
 def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -> str:
     normalized_creator_bid = normalize_bid(creator_bid)
     if normalized_creator_bid:
         return f"billing-admin-draft:creator:{normalized_creator_bid}"
 
-    normalized_creator_mobile = str(creator_mobile or "").strip()
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    mobile_digest = hashlib.sha256(
-        normalized_creator_mobile.encode("utf-8")
-    ).hexdigest()
-    return f"billing-admin-draft:mobile:{mobile_digest}"
+    contact_digest = _admin_draft_contact_digest(creator_mobile)
+    return f"billing-admin-draft:mobile:{contact_digest}"
 
 
 def _admin_draft_storage_identity(
@@ -1346,13 +1362,8 @@ def _admin_draft_storage_identity(
     if normalized_creator_bid:
         return normalized_creator_bid, f"{ADMIN_DRAFT_KEY}.CREATOR"
 
-    normalized_creator_mobile = str(creator_mobile or "").strip()
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    mobile_digest = hashlib.sha256(
-        normalized_creator_mobile.encode("utf-8")
-    ).hexdigest()
-    return mobile_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
+    contact_digest = _admin_draft_contact_digest(creator_mobile)
+    return contact_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
 
 
 def _empty_admin_creator_customization_draft(

@@ -1,5 +1,6 @@
-from flask import Flask
 import uuid
+
+from flask import Flask
 
 
 # generate a uuid

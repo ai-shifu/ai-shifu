@@ -1,5 +1,4 @@
-"""
-Tencent Cloud TTS provider.
+"""Tencent Cloud TTS provider.
 
 Tencent's conversational SSE API is used server-side only. The browser keeps
 the existing generic TTS/SSE contract and never receives Tencent credentials.
@@ -17,7 +16,7 @@ import logging
 import time
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -42,7 +41,6 @@ from flaskr.service.tts.audio_utils import (
     try_get_audio_duration_ms,
 )
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
-
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -280,7 +278,7 @@ def _tencent_pcm_duration_ms(audio_data: bytes, *, sample_rate: int) -> int:
     if not audio_data:
         return 0
     bytes_per_second = max(int(sample_rate or TENCENT_DEFAULT_SAMPLE_RATE), 1) * 2
-    return int(round(len(audio_data) * 1000 / bytes_per_second))
+    return round(len(audio_data) * 1000 / bytes_per_second)
 
 
 def _export_tencent_pcm_to_mp3(audio_data: bytes, *, sample_rate: int) -> bytes:
@@ -348,7 +346,7 @@ def _normalize_tencent_voice_id(voice_id: Any) -> str:
     return normalized_voice_id
 
 
-def _resolve_tencent_model(model: Optional[str], emotion: str = "") -> str:
+def _resolve_tencent_model(model: str | None, emotion: str = "") -> str:
     _ = emotion
     normalized_model = str(model or "").strip()
     if normalized_model == TENCENT_DEFAULT_MODEL:
@@ -378,7 +376,7 @@ def build_tencent_sse_payload(
     text: str,
     voice_settings: VoiceSettings,
     audio_settings: AudioSettings,
-    model: Optional[str] = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     voice_id = _normalize_tencent_voice_id(
         getattr(voice_settings, "voice_id", "") or TENCENT_DEFAULT_VOICE_ID
@@ -437,12 +435,12 @@ def build_tencent_tc3_headers(
     payload_json: str,
     secret_id: str,
     secret_key: str,
-    timestamp: Optional[int] = None,
+    timestamp: int | None = None,
 ) -> dict[str, str]:
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
         request_timestamp,
-        tz=dt.timezone.utc,
+        tz=dt.UTC,
     ).strftime("%Y-%m-%d")
     canonical_headers = (
         "content-type:application/json\n"
@@ -691,12 +689,14 @@ def _group_tencent_subtitle_cues_by_source_text(
     def _time_at_weight(target_weight: float) -> int:
         if total_cue_weight <= 0:
             ratio = target_weight / total_sentence_weight
-            return start_ms + int(round(duration_ms * ratio))
+            return start_ms + round(duration_ms * ratio)
 
         bounded_target = max(min(float(target_weight), float(total_cue_weight)), 0.0)
         consumed = 0.0
         last_end_ms = start_ms
-        for index, (cue, weight) in enumerate(zip(normalized_cues, cue_weights)):
+        for index, (cue, weight) in enumerate(
+            zip(normalized_cues, cue_weights, strict=False)
+        ):
             cue_start_ms = int(cue.get("start_ms", 0) or 0)
             cue_end_ms = int(cue.get("end_ms", cue_start_ms) or cue_start_ms)
             cue_end_ms = max(cue_end_ms, cue_start_ms)
@@ -707,13 +707,12 @@ def _group_tencent_subtitle_cues_by_source_text(
                 continue
             if bounded_target <= consumed + weight:
                 ratio = (bounded_target - consumed) / weight
-                target_ms = cue_start_ms + int(
-                    round((cue_end_ms - cue_start_ms) * ratio)
-                )
+                target_ms = cue_start_ms + round((cue_end_ms - cue_start_ms) * ratio)
                 if bounded_target >= consumed + weight:
                     for next_cue, next_weight in zip(
                         normalized_cues[index + 1 :],
                         cue_weights[index + 1 :],
+                        strict=False,
                     ):
                         if next_weight > 0:
                             break
@@ -745,11 +744,11 @@ def _group_tencent_subtitle_cues_by_source_text(
             cue_start_ms = _time_at_weight(source_start_weight)
             cue_end_ms = _time_at_weight(source_end_weight)
         else:
-            cue_start_ms = start_ms + int(
-                round(duration_ms * sentence_cursor / total_sentence_weight)
+            cue_start_ms = start_ms + round(
+                duration_ms * sentence_cursor / total_sentence_weight
             )
-            cue_end_ms = start_ms + int(
-                round(duration_ms * next_sentence_cursor / total_sentence_weight)
+            cue_end_ms = start_ms + round(
+                duration_ms * next_sentence_cursor / total_sentence_weight
             )
 
         cue_start_ms = max(cue_start_ms, timeline_cursor_ms)
@@ -789,7 +788,7 @@ def _tencent_subtitle_time_ms(
         if value is None or value == "":
             continue
         try:
-            return int(round(float(value)))
+            return round(float(value))
         except (TypeError, ValueError):
             continue
     return int(default_ms or 0)
@@ -797,7 +796,7 @@ def _tencent_subtitle_time_ms(
 
 def _tencent_subtitle_index(
     raw_item: dict[str, Any], keys: tuple[str, ...]
-) -> Optional[int]:
+) -> int | None:
     for key in keys:
         if key not in raw_item:
             continue
@@ -820,7 +819,7 @@ def normalize_tencent_subtitle_cues(
     source_text: str = "",
 ) -> list[dict[str, Any]]:
     cues: list[dict[str, Any]] = []
-    seen_cue_keys: set[tuple[str, int, int, Optional[int], Optional[int]]] = set()
+    seen_cue_keys: set[tuple[str, int, int, int | None, int | None]] = set()
     for raw_item in list(subtitles or []):
         if not isinstance(raw_item, dict):
             continue
@@ -910,7 +909,7 @@ def _group_tencent_subtitle_cues_by_sentence(
     cues: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     grouped: list[dict[str, Any]] = []
-    current: Optional[dict[str, Any]] = None
+    current: dict[str, Any] | None = None
 
     for cue in normalize_subtitle_cues(cues):
         text = str(cue.get("text", "") or "").strip()
@@ -1061,7 +1060,7 @@ def parse_tencent_sse_message(
     payload: dict[str, Any],
     *,
     request_text: str,
-) -> Optional[TencentSSEStreamChunk]:
+) -> TencentSSEStreamChunk | None:
     message = _unwrap_tencent_sse_payload(payload)
     error_payload = _get_first_present(message, "Error", "error")
     message_type = str(
@@ -1202,9 +1201,9 @@ class TencentTTSProvider(BaseTTSProvider):
     def stream_synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ):
         if not self.is_configured():
             raise ValueError("Tencent TTS is not configured")
@@ -1258,11 +1257,7 @@ class TencentTTSProvider(BaseTTSProvider):
                 if line.startswith(":"):
                     continue
                 lower_line = line.lower()
-                if (
-                    lower_line.startswith("event:")
-                    or lower_line.startswith("id:")
-                    or lower_line.startswith("retry:")
-                ):
+                if lower_line.startswith(("event:", "id:", "retry:")):
                     continue
                 if line.startswith("data:"):
                     line = line[5:].strip()
@@ -1293,9 +1288,9 @@ class TencentTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         if not self.is_configured():
             raise ValueError("Tencent TTS is not configured")
@@ -1358,7 +1353,7 @@ class TencentTTSProvider(BaseTTSProvider):
                 duration_ms = (
                     try_get_audio_duration_ms(
                         chunk_mp3_audio,
-                        format=TENCENT_DEFAULT_CODEC,
+                        audio_format=TENCENT_DEFAULT_CODEC,
                     )
                     or 0
                 )
@@ -1390,7 +1385,7 @@ class TencentTTSProvider(BaseTTSProvider):
         if duration_total_ms <= 0:
             decoded_duration_ms = try_get_audio_duration_ms(
                 final_audio,
-                format=output_format,
+                audio_format=output_format,
             )
             duration_total_ms = int(decoded_duration_ms or 0)
 

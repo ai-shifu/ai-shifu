@@ -1,6 +1,8 @@
-from ...common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, Field
 import math
+
+from pydantic import BaseModel, Field
+
+from ...common.swagger import register_schema_to_swagger
 
 USER_STATE_UNREGISTERED = 0
 USER_STATE_REGISTERED = 1
@@ -81,7 +83,7 @@ class UserToken:
     userInfo: UserInfo
     token: str
 
-    def __init__(self, userInfo: UserInfo, token):
+    def __init__(self, userInfo: UserInfo, token):  # noqa: N803 - mirrors the serialized field name
         self.userInfo = userInfo
         self.token = token
 

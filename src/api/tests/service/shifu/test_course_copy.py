@@ -1,26 +1,26 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
-from flaskr.service.common.models import AppException, ERROR_CODE, raise_error
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_history_manager import get_shifu_history
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
-
+from flaskr.util.datetime import now_utc
 
 SOURCE_TITLE = "复制源课程"
 SOURCE_OPERATOR_BID = "operator-copy-1"
@@ -215,10 +215,8 @@ def _mock_operator(monkeypatch, user_id: str = SOURCE_OPERATOR_BID):
 
 
 def _clear_config_caches() -> None:
-    try:
+    with contextlib.suppress(AttributeError, KeyError, TypeError):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except (AttributeError, KeyError, TypeError):
-        pass
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
@@ -558,16 +556,16 @@ def test_copy_course_rejects_builtin_demo_course(app):
             avatar_res_bid="",
             keywords="",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid="system",
             updated_user_bid="system",
         )
         db.session.add(demo_draft)
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             copy_operator_course(
                 app,
                 shifu_bid=shifu_bid,
@@ -596,7 +594,7 @@ def test_copy_course_requires_operator_user_bid(app):
         )
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             copy_operator_course(
                 app,
                 shifu_bid=shifu_bid,
@@ -746,7 +744,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
         _reject_risk,
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         copy_operator_course(
             app,
             shifu_bid=shifu_bid,

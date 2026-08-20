@@ -2,27 +2,23 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
-from decimal import Decimal, InvalidOperation
 import json
 import re
+from copy import deepcopy
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func, or_
-
 from flaskr.api.sms.aliyun import (
     get_sms_template_ali,
     query_sms_template_list_ali,
     send_sms_ali,
 )
 from flaskr.common.observability import record_credit_notification_event
-from flaskr.dao import db
-from flaskr.dao import uow
+from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
@@ -33,9 +29,11 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
@@ -76,7 +74,7 @@ CREATOR_KEYWORD_MATCH_LIMIT = 500
 LIMIT_STATE_NORMAL = "normal"
 LIMIT_STATE_SOFTLIMIT = "softlimit"
 LIMIT_STATE_HARDLIMIT = "hardlimit"
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 LOW_BALANCE_THRESHOLD_KIND_FIXED = "fixed"
 LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS = "estimated_days"
 LOW_BALANCE_ESTIMATED_DAYS_MAX_DAYS = 365
@@ -236,6 +234,7 @@ def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     raise_param_error(field_name)
+    return None
 
 
 def _normalize_string_list(value: Any, field_name: str) -> list[str]:
@@ -740,8 +739,8 @@ def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
     if not value:
         return ""
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _load_notification_template(template_code: str) -> NotificationTemplate | None:
@@ -1237,7 +1236,7 @@ def _format_sms_datetime(app: Flask, value: Any) -> str:
         if not raw_value:
             return ""
         try:
-            resolved = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+            resolved = datetime.fromisoformat(raw_value)
         except ValueError:
             return raw_value
     return str(format_with_app_timezone(app, resolved, "%Y-%m-%d %H:%M:%S") or "")
@@ -1293,17 +1292,17 @@ def _missing_template_params(
     template_params: dict[str, Any] | None,
 ) -> list[str]:
     params = template_params or {}
-    missing: list[str] = []
-    for placeholder in _template_placeholders(template_code):
-        if not str(params.get(placeholder) or "").strip():
-            missing.append(placeholder)
+    missing: list[str] = [
+        placeholder
+        for placeholder in _template_placeholders(template_code)
+        if not str(params.get(placeholder) or "").strip()
+    ]
     return missing
 
 
 def _is_valid_sms_mobile(mobile: str) -> bool:
     normalized = str(mobile or "").strip()
-    if normalized.startswith("+"):
-        normalized = normalized[1:]
+    normalized = normalized.removeprefix("+")
     return normalized.isdigit() and 5 <= len(normalized) <= 20
 
 
@@ -1744,7 +1743,6 @@ def suppress_pending_expiring_notifications_for_bucket(
     referral_reward_grants extends the bucket and commits both writes
     together), so this function must not commit or open its own unit of work.
     """
-
     normalized_wallet_bucket_bid = _normalize_bid(wallet_bucket_bid)
     if not normalized_wallet_bucket_bid:
         return 0
@@ -2546,9 +2544,7 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
             if now is None:
                 current = datetime.now(policy_timezone)
             elif current.tzinfo is None or current.utcoffset() is None:
-                current = current.replace(tzinfo=timezone.utc).astimezone(
-                    policy_timezone
-                )
+                current = current.replace(tzinfo=UTC).astimezone(policy_timezone)
             else:
                 current = current.astimezone(policy_timezone)
         except ZoneInfoNotFoundError:
@@ -2954,23 +2950,23 @@ def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
                 "enqueued": False,
             }
         task.apply_async(kwargs={"notification_bid": normalized_notification_bid})
-        return {
-            "status": "enqueued",
-            "notification_bid": normalized_notification_bid,
-            "enqueued": True,
-        }
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for notification_bid=%s: %s",
+            "Failed to enqueue %s for notification_bid=%s",
             TASK_NAME,
             normalized_notification_bid,
-            exc,
         )
         return {
             "status": "enqueue_failed",
             "notification_bid": normalized_notification_bid,
             "message": str(exc),
             "enqueued": False,
+        }
+    else:
+        return {
+            "status": "enqueued",
+            "notification_bid": normalized_notification_bid,
+            "enqueued": True,
         }
 
 

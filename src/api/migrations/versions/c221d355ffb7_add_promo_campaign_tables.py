@@ -1,4 +1,4 @@
-"""add promo tables
+"""add promo tables.
 
 Revision ID: c221d355ffb7
 Revises: b2793bb43f97
@@ -6,8 +6,8 @@ Create Date: 2026-01-27
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.

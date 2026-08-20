@@ -1,26 +1,24 @@
 from __future__ import annotations
 
-
 from datetime import timedelta
 from decimal import Decimal
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
-    BILLING_ORDER_STATUS_PAID,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -30,23 +28,20 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
-from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.subscriptions import (
     ensure_subscription_renewal_order,
 )
 from flaskr.util.datetime import now_utc
-
-
 from tests.service.billing.renewal_execution_test_helpers import (
+    create_credit_wallet,
     create_renewal_event,
     create_renewal_subscription,
-    create_credit_wallet,
     self_managed_cycle_end_after_boundary,
 )
-
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 
@@ -199,7 +194,7 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("1005.0000000000"),
                 consumed_credits=Decimal("97.0000000000"),
-                expired_credits=Decimal("0"),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -353,7 +348,7 @@ def test_run_billing_downgrade_event_applies_paid_preorder_with_referral_reward(
         assert order.metadata_json["preorder_effective_at_source"] == "cycle_boundary"
         assert bucket.source_bid == "bill-preorder-downgrade-1"
         assert bucket.available_credits == Decimal("1005.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert wallet.available_credits == Decimal("1005.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"
@@ -448,7 +443,7 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("5.0000000000"),
                 consumed_credits=Decimal("7.0000000000"),
-                expired_credits=Decimal("0"),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -520,7 +515,7 @@ def test_run_billing_same_plan_preorder_starts_new_cycle_at_boundary(
         assert order.metadata_json["preorder_state"] == "effective_applied"
         assert bucket.source_bid == "bill-preorder-same-plan-1"
         assert bucket.available_credits == Decimal("5.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert wallet.available_credits == Decimal("5.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"

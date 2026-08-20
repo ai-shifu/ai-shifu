@@ -1,11 +1,12 @@
-from ...dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
+    TIMESTAMP,
     Column,
     String,
-    TIMESTAMP,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
+
+from ...dao import db
 
 
 class FeedBack(db.Model):

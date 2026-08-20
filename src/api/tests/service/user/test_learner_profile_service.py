@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from flaskr.api.check.dto import (
@@ -10,7 +10,7 @@ from flaskr.api.check.dto import (
     CHECK_RESULT_UNKNOWN,
 )
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.models import UserInfo, UserOnboardingState
 from flaskr.service.user.repository import (
@@ -19,12 +19,12 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 
-PROFILE_UPDATED_AT = datetime(2026, 8, 1, 8, 30, tzinfo=timezone.utc)
+PROFILE_UPDATED_AT = datetime(2026, 8, 1, 8, 30, tzinfo=UTC)
 
 
 def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
     assert value is not None
-    assert value.replace(tzinfo=timezone.utc) == expected
+    assert value.replace(tzinfo=UTC) == expected
 
 
 def _create_user(
@@ -414,7 +414,8 @@ def test_replace_and_clear_learner_profile(app, monkeypatch):
     assert loaded["has_learner_profile"] is True
     assert loaded["nickname"] == "小明"
     assert loaded["max_length"] == 1000
-    assert first_updated_at is not None and first_updated_at.endswith("Z")
+    assert first_updated_at is not None
+    assert first_updated_at.endswith("Z")
     assert unchanged["learner_profile_updated_at"] == first_updated_at
     assert cleared["learner_profile"] == ""
     assert cleared["learner_profile_updated_at"] is None
@@ -443,7 +444,7 @@ def test_replace_rejects_invalid_profile_without_overwriting(app, monkeypatch, v
     user_bid = f"profile-invalid-{type(value).__name__}-{len(str(value))}"
     with app.app_context():
         _create_user(user_bid, learner_profile="existing profile")
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             replace_learner_profile(
                 app,
                 user_id=user_bid,
@@ -560,7 +561,7 @@ def test_replace_rejects_invalid_nickname_without_overwriting(
     with app.app_context():
         user_bid = f"profile-invalid-nickname-{type(nickname).__name__}"
         _create_user(user_bid, learner_profile="existing profile")
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             replace_learner_profile(
                 app,
                 user_id=user_bid,
@@ -585,7 +586,7 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
     )
     with app.app_context():
         _create_user("profile-safety-reject", learner_profile="existing profile")
-        with pytest.raises(AppException) as caught_error:
+        with pytest.raises(AppError) as caught_error:
             replace_learner_profile(
                 app,
                 user_id="profile-safety-reject",
@@ -666,7 +667,7 @@ def test_profile_moderation_rejects_only_explicit_reject(app, monkeypatch):
     with app.app_context():
         user_bid = "profile-moderation-reject"
         _create_user(user_bid, learner_profile="existing profile")
-        with pytest.raises(AppException) as caught_error:
+        with pytest.raises(AppError) as caught_error:
             replace_learner_profile(
                 app,
                 user_id=user_bid,
@@ -703,7 +704,7 @@ def test_nickname_rejection_rolls_back_profile_nickname_and_state(app, monkeypat
     with app.app_context():
         user_bid = "profile-nickname-reject"
         _create_user(user_bid, learner_profile="existing profile")
-        with pytest.raises(AppException) as caught_error:
+        with pytest.raises(AppError) as caught_error:
             replace_learner_profile(
                 app,
                 user_id=user_bid,
@@ -964,7 +965,7 @@ def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
 
 
 def test_save_moderates_once_when_state_creation_retries(app, monkeypatch):
-    import flaskr.service.profile.learner_profile as learner_profile
+    from flaskr.service.profile import learner_profile
 
     moderation_calls: list[str] = []
     operation_calls = 0

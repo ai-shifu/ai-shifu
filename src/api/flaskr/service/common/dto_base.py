@@ -31,7 +31,7 @@ How per-class output is reproduced:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 
 def _json_field_value(value: Any, annotation: Any) -> Any:
@@ -57,7 +57,7 @@ class AutoJsonMixin:
     the per-class knobs ``__json_key_overrides__`` and ``__json_exclude__``.
     """
 
-    __json_key_overrides__: dict = {}
+    __json_key_overrides__: ClassVar[dict] = {}
     __json_exclude__: frozenset = frozenset()
 
     def __json__(self) -> dict:

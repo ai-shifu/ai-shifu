@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence
+from typing import Any
+
 from flask import Flask
-from sqlalchemy import and_, case, false, literal, not_, or_
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
@@ -22,13 +23,9 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
 )
 from flaskr.service.billing.primitives import credit_decimal_to_number
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_TTS,
+from flaskr.service.common.models import (
+    raise_param_error,
 )
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
 )
@@ -37,25 +34,19 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.common.models import (
-    raise_param_error,
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseCreditUsageDetailItemDTO,
     AdminOperationCourseCreditUsageDetailListDTO,
     AdminOperationCourseCreditUsageItemDTO,
     AdminOperationCourseCreditUsageListDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     COURSE_CREDIT_USAGE_MODE_ASK,
@@ -73,6 +64,18 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _normalize_metadata_json,
     _resolve_visible_leaf_outline_bids,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import and_, case, false, literal, not_, or_
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
@@ -82,10 +85,8 @@ def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
 
     metadata = _normalize_metadata_json(getattr(row, "extra", None))
     generation_name = str(metadata.get("generation_name", "") or "").strip().lower()
-    if (
-        "/user_follow_ask/" in generation_name
-        or generation_name.startswith("lesson_ask/")
-        or generation_name.startswith("lesson_preview_ask/")
+    if "/user_follow_ask/" in generation_name or generation_name.startswith(
+        ("lesson_ask/", "lesson_preview_ask/")
     ):
         return COURSE_CREDIT_USAGE_MODE_ASK
 
@@ -301,8 +302,8 @@ def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
     ledger_amount: Any,
-    user_map: Dict[str, Dict[str, Any]],
-    outline_context_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, Any]],
+    outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
     usage_count: int = 1,
     usage_mode: str = "",
@@ -441,7 +442,7 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
 def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
-    outline_item_bids: Optional[Sequence[str]] = None,
+    outline_item_bids: Sequence[str] | None = None,
 ):
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
@@ -711,7 +712,7 @@ def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
     model_label_resolver: _CourseCreditUsageModelLabelResolver,
-    output_summary: Optional[str] = None,
+    output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
         usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
@@ -847,7 +848,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
 def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base_query = _build_operator_course_credit_usage_base_query(
         shifu_bid,
         outline_item_bids=leaf_outline_bids,
@@ -873,7 +874,7 @@ def _build_operator_course_credit_metrics(
         )
     )
     completed_credit_user_count = 0
-    completed_credit_total = Decimal("0")
+    completed_credit_total = Decimal(0)
     if completed_user_subquery is not None:
         completed_row = (
             db.session.query(
@@ -978,7 +979,7 @@ def get_operator_course_credit_usages(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -1303,7 +1304,7 @@ def get_operator_course_credit_usage_details(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageDetailListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -1379,7 +1380,7 @@ def get_operator_course_credit_usage_details(
 
 def _load_bill_usage_record_map(
     usage_bids: Sequence[str],
-) -> Dict[str, BillUsageRecord]:
+) -> dict[str, BillUsageRecord]:
     normalized_usage_bids = sorted(
         {
             str(usage_bid or "").strip()
@@ -1398,7 +1399,7 @@ def _load_bill_usage_record_map(
         .order_by(BillUsageRecord.id.desc())
         .all()
     )
-    usage_map: Dict[str, BillUsageRecord] = {}
+    usage_map: dict[str, BillUsageRecord] = {}
     for row in rows:
         usage_bid = str(row.usage_bid or "").strip()
         if usage_bid and usage_bid not in usage_map:

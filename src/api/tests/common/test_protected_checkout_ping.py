@@ -10,9 +10,8 @@ record BEFORE any interruption propagates.
 import socket
 
 import pytest
+from flaskr import dao
 from sqlalchemy.exc import DisconnectionError
-
-import flaskr.dao as dao
 
 
 class _FakeRecord:
@@ -39,7 +38,7 @@ def _make_conn(sock, ping_exc=None):
     return _Conn()
 
 
-@pytest.fixture()
+@pytest.fixture
 def clean_sock():
     left, right = socket.socketpair()
     yield left

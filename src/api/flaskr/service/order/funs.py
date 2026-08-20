@@ -2,26 +2,64 @@ import datetime
 import decimal
 import json
 import re
-from contextlib import contextmanager, nullcontext
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext, suppress
+from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+import pytz
 from flask import Flask
-
+from flaskr.api.doc.feishu import send_notify
+from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.public_urls import build_stripe_learner_result_url
-from flaskr.util.datetime import now_utc
-from flaskr.service.config import get_config
+from flaskr.common.shifu_context import set_shifu_context
 from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.dao import db, retry_on_deadlock, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
+from flaskr.service.billing.api import (
+    build_provider_config_overrides,
+    resolve_creator_public_integrations,
+    resolve_payment_integration_for_new_order,
+    resolve_provider_credential_context,
+)
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
+from flaskr.service.common.models import raise_error
+from flaskr.service.common.native_payment_status import (
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    native_snapshot_status,
+)
+from flaskr.service.config import config_overrides, get_config
 from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
-    ORDER_STATUS_SUCCESS,
     ORDER_STATUS_REFUND,
-    ORDER_STATUS_TO_BE_PAID,
+    ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TIMEOUT,
+    ORDER_STATUS_TO_BE_PAID,
     ORDER_STATUS_VALUES,
+)
+from flaskr.service.order.models import (
+    Order,
+    PingxxOrder,
+    StripeOrder,
+)
+from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
+from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
+from flaskr.service.order.payment_providers.base import (
+    PaymentNotificationResult,
+    PaymentRefundRequest,
+)
+from flaskr.service.order.raw_snapshots import (
+    RAW_BIZ_DOMAIN_ORDER,
+    legacy_native_snapshot_query,
+    legacy_pingxx_snapshot_query,
+    legacy_stripe_snapshot_query,
+    native_snapshot_model,
+    should_update_native_snapshot_status,
+    upsert_native_snapshot,
 )
 from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,
@@ -37,66 +75,26 @@ from flaskr.service.promo.funcs import (
 )
 from flaskr.service.promo.models import (
     Coupon,
-    CouponUsage as CouponUsageModel,
     PromoCampaign,
     PromoRedemption,
 )
+from flaskr.service.promo.models import (
+    CouponUsage as CouponUsageModel,
+)
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     load_user_aggregate,
     set_user_state,
 )
-from flaskr.api.doc.feishu import send_notify
-from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
-from flaskr.service.order.payment_providers.base import (
-    PaymentNotificationResult,
-    PaymentRefundRequest,
-)
-from flaskr.service.common.native_payment_status import (
-    extract_native_trade_payload,
-    extract_native_trade_status,
-    native_snapshot_status,
-)
-from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id as get_uuid
-from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.dao import uow
-from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.service.common.models import raise_error
-from flaskr.service.order.models import (
-    Order,
-    PingxxOrder,
-    StripeOrder,
-)
-from flaskr.service.order.raw_snapshots import (
-    RAW_BIZ_DOMAIN_ORDER,
-    legacy_native_snapshot_query,
-    legacy_pingxx_snapshot_query,
-    legacy_stripe_snapshot_query,
-    native_snapshot_model,
-    should_update_native_snapshot_status,
-    upsert_native_snapshot,
-)
-import pytz
-from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
-from flaskr.common.shifu_context import set_shifu_context
-from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.billing.api import (
-    build_provider_config_overrides,
-    resolve_creator_public_integrations,
-    resolve_payment_integration_for_new_order,
-    resolve_provider_credential_context,
-)
-from flaskr.service.config import config_overrides
 
 
 @register_schema_to_swagger
 class PayItemDto:
-    """
-    PayItemDto
-    """
+    """PayItemDto."""
 
     name: str
     price_name: str
@@ -122,9 +120,7 @@ class PayItemDto:
 
 @register_schema_to_swagger
 class AICourseBuyRecordDTO:
-    """
-    AICourseBuyRecordDTO
-    """
+    """AICourseBuyRecordDTO."""
 
     order_id: str
     user_id: str
@@ -134,7 +130,7 @@ class AICourseBuyRecordDTO:
     discount: str
     active_discount: str
     value_to_pay: str
-    price_item: List[PayItemDto]
+    price_item: list[PayItemDto]
 
     def __init__(
         self,
@@ -159,10 +155,8 @@ class AICourseBuyRecordDTO:
 
     def __json__(self):
         def format_decimal(value):
-            if isinstance(value, str):
-                formatted_value = value  # Convert to string with two decimal places
-            else:
-                formatted_value = "{0:.2f}".format(value)
+            # Convert to a string with two decimal places
+            formatted_value = value if isinstance(value, str) else f"{value:.2f}"
             # If the decimal part is .00, remove it
             if formatted_value.endswith(".00"):
                 return formatted_value[:-3]
@@ -197,7 +191,7 @@ def send_order_feishu(app: Flask, record_id: str):
     if not shifu_info:
         return
 
-    _CHANNEL_LABEL = {
+    channel_labels = {
         "pingxx": "用户购买 (Pingxx)",
         "stripe": "用户购买 (Stripe)",
         "alipay": "用户购买 (支付宝)",
@@ -207,34 +201,34 @@ def send_order_feishu(app: Flask, record_id: str):
     }
     title = "购买课程通知"
     msgs = []
-    msgs.append("手机号：{}".format(aggregate.mobile))
-    msgs.append("昵称：{}".format(aggregate.name))
-    msgs.append("课程名称：{}".format(shifu_info.title))
-    msgs.append("实付金额：{}".format(order_info.price))
+    msgs.append(f"手机号：{aggregate.mobile}")
+    msgs.append(f"昵称：{aggregate.name}")
+    msgs.append(f"课程名称：{shifu_info.title}")
+    msgs.append(f"实付金额：{order_info.price}")
     channel = getattr(order_info, "payment_channel", "") or ""
-    source_label = _CHANNEL_LABEL.get(channel, channel or "未知")
-    msgs.append("订单来源：{}".format(source_label))
+    source_label = channel_labels.get(channel, channel or "未知")
+    msgs.append(f"订单来源：{source_label}")
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
     ).first()
     channel = ""
     if user_convertion:
         channel = user_convertion.conversion_source
-    msgs.append("渠道：{}".format(channel))
+    msgs.append(f"渠道：{channel}")
     for item in order_info.price_item:
-        msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
+        msgs.append(f"{item.name}-{item.price_name}-{item.price}")
         if item.is_discount:
-            msgs.append("优惠码：{}".format(item.discount_code))
+            msgs.append(f"优惠码：{item.discount_code}")
     user_count = UserEntity.query.filter(
         UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
     ).count()
-    msgs.append("总付费用户数：{}".format(user_count))
+    msgs.append(f"总付费用户数：{user_count}")
     user_reg_count = UserEntity.query.filter(
         UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
     ).count()
-    msgs.append("总注册用户数：{}".format(user_reg_count))
+    msgs.append(f"总注册用户数：{user_reg_count}")
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
-    msgs.append("总访客数：{}".format(user_total_count))
+    msgs.append(f"总访客数：{user_total_count}")
     send_notify(app, title, msgs)
 
 
@@ -245,9 +239,9 @@ def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
     title = "取消课程授权通知"
     msgs = [
-        "用户标识：{}".format(user_identify),
-        "课程名称：{}".format(shifu_info.title if shifu_info else order.shifu_bid),
-        "订单号：{}".format(order_bid),
+        f"用户标识：{user_identify}",
+        f"课程名称：{shifu_info.title if shifu_info else order.shifu_bid}",
+        f"订单号：{order_bid}",
         "来源：Open API",
     ]
     send_notify(app, title, msgs)
@@ -281,11 +275,9 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
 
 @contextmanager
 def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]:
-    """
-    Serialize order initialization for a user-course pair to avoid duplicate
+    """Serialize order initialization for a user-course pair to avoid duplicate
     unpaid orders created by concurrent requests.
     """
-
     lock = None
     acquired = False
 
@@ -302,10 +294,8 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
         yield
     finally:
         if acquired and lock is not None:
-            try:
+            with suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def _sync_order_campaign_pricing(
@@ -314,8 +304,8 @@ def _sync_order_campaign_pricing(
     buy_record: Order,
     user_id: str,
     course_id: str,
-    active_id: Optional[str],
-) -> Tuple[List, decimal.Decimal]:
+    active_id: str | None,
+) -> tuple[list, decimal.Decimal]:
     """Refresh eligible campaigns for an unpaid order and recalculate paid price.
 
     Boundary-joining helper: it flushes but never commits; the pricing update
@@ -334,7 +324,7 @@ def _sync_order_campaign_pricing(
         for campaign_application in campaign_applications:
             discount_value += decimal.Decimal(campaign_application.discount_amount)
     coupon_discount_value = decimal.Decimal("0.00")
-    coupon_records: List[CouponUsageModel] = CouponUsageModel.query.filter(
+    coupon_records: list[CouponUsageModel] = CouponUsageModel.query.filter(
         CouponUsageModel.order_bid == buy_record.order_bid,
         CouponUsageModel.status == COUPON_STATUS_USED,
         CouponUsageModel.deleted == 0,
@@ -345,7 +335,7 @@ def _sync_order_campaign_pricing(
             for coupon_record in coupon_records
             if coupon_record.coupon_bid
         ]
-        coupon_map: Dict[str, Coupon] = {}
+        coupon_map: dict[str, Coupon] = {}
         if coupon_bids:
             coupon_map = {
                 coupon.coupon_bid: coupon
@@ -377,7 +367,9 @@ def _sync_order_campaign_pricing(
 
 
 @retry_on_deadlock()
-def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
+def init_buy_record(
+    app: Flask, user_id: str, course_id: str, active_id: str | None = None
+):
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
@@ -430,7 +422,6 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                 active_id=None,
             )
             return query_buy_record(app, origin_record.order_bid)
-        # raise_error("server.order.orderNotFound")
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
             buy_record = Order()
@@ -462,16 +453,16 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             )
         )
         if campaign_applications:
-            for campaign_application in campaign_applications:
-                price_items.append(
-                    PayItemDto(
-                        _("server.order.payItemPromotion"),
-                        campaign_application.promo_name,
-                        campaign_application.discount_amount,
-                        True,
-                        None,
-                    )
+            price_items.extend(
+                PayItemDto(
+                    _("server.order.payItemPromotion"),
+                    campaign_application.promo_name,
+                    campaign_application.discount_amount,
+                    True,
+                    None,
                 )
+                for campaign_application in campaign_applications
+            )
         return AICourseBuyRecordDTO(
             buy_record.order_bid,
             buy_record.user_bid,
@@ -485,9 +476,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
 
 @register_schema_to_swagger
 class BuyRecordDTO:
-    """
-    BuyRecordDTO
-    """
+    """BuyRecordDTO."""
 
     order_id: str
     user_id: str  # 用户id
@@ -503,7 +492,7 @@ class BuyRecordDTO:
         channel,
         qr_url,
         payment_channel: str = "",
-        payment_payload: Optional[Dict[str, Any]] = None,
+        payment_payload: dict[str, Any] | None = None,
     ):
         self.order_id = record_id
         self.user_id = user_id
@@ -530,15 +519,11 @@ def generate_charge(
     record_id: str,
     channel: str,
     client_ip: str,
-    payment_channel: Optional[str] = None,
+    payment_channel: str | None = None,
 ) -> BuyRecordDTO:
-    """
-    Generate charge
-    """
+    """Generate charge."""
     with _app_context_scope(app), unit_of_work():
-        app.logger.info(
-            "generate charge for record:{} channel:{}".format(record_id, channel)
-        )
+        app.logger.info(f"generate charge for record:{record_id} channel:{channel}")
 
         buy_record: Order = Order.query.filter(
             Order.order_bid == record_id,
@@ -552,9 +537,9 @@ def generate_charge(
         shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
         if not shifu_info:
             raise_error("server.shifu.shifuNotFound")
-        app.logger.info("buy record found:{}".format(buy_record))
+        app.logger.info(f"buy record found:{buy_record}")
         if buy_record.status == ORDER_STATUS_SUCCESS:
-            app.logger.warning("buy record:{} status is not init".format(record_id))
+            app.logger.warning(f"buy record:{record_id} status is not init")
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
@@ -563,7 +548,6 @@ def generate_charge(
                 "",
                 payment_channel=buy_record.payment_channel,
             )
-            # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
         subject = shifu_info.title
         body = shifu_info.description
@@ -667,11 +651,11 @@ def generate_charge(
 
         app.logger.error("payment channel not support: %s", payment_channel)
         raise_error("server.pay.payChannelNotSupport")
+    return None
 
 
 def _order_credential_scope(app: Flask, order: Order, context=None):
     """Use the immutable credential version snapshotted on the order."""
-
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
         return nullcontext()
@@ -688,13 +672,12 @@ def _order_credential_scope(app: Flask, order: Order, context=None):
 
 def _resolve_payment_channel(
     *,
-    payment_channel_hint: Optional[str],
-    channel_hint: Optional[str],
-    stored_channel: Optional[str],
-    additional_enabled_providers: Optional[set[str]] = None,
-) -> Tuple[str, str]:
+    payment_channel_hint: str | None,
+    channel_hint: str | None,
+    stored_channel: str | None,
+    additional_enabled_providers: set[str] | None = None,
+) -> tuple[str, str]:
     """Resolve the provider and provider-specific channel based on hints."""
-
     return resolve_payment_channel(
         payment_channel_hint=payment_channel_hint,
         channel_hint=channel_hint,
@@ -734,9 +717,7 @@ def _format_response_channel(payment_channel: str, provider_channel: str) -> str
     return provider_channel
 
 
-def _sanitize_pingxx_text(
-    value: Optional[str], *, fallback: str, max_length: int
-) -> str:
+def _sanitize_pingxx_text(value: str | None, *, fallback: str, max_length: int) -> str:
     text = (value or fallback or "").strip()
     text = re.sub(r"[\r\n\t]+", " ", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
@@ -760,9 +741,9 @@ def _generate_pingxx_charge(
     """Boundary-joining helper: committed by generate_charge's unit of work."""
     provider = get_payment_provider("pingxx")
     pingpp_id = get_config("PINGXX_APP_ID")
-    provider_options: Dict[str, Any] = {"app_id": pingpp_id}
-    charge_extra: Dict[str, Any] = {}
-    qr_url_key: Optional[str] = None
+    provider_options: dict[str, Any] = {"app_id": pingpp_id}
+    charge_extra: dict[str, Any] = {}
+    qr_url_key: str | None = None
     product_id = course.bid
 
     if channel == "wx_pub_qr":  # wxpay scan
@@ -878,7 +859,7 @@ def _generate_stripe_charge(
         "user_bid": buy_record.user_bid,
         "shifu_bid": buy_record.shifu_bid,
     }
-    provider_options: Dict[str, Any] = {
+    provider_options: dict[str, Any] = {
         "mode": resolved_mode,
         "metadata": metadata,
     }
@@ -1082,7 +1063,7 @@ def _generate_wechatpay_charge(
         fallback=sanitized_subject,
         max_length=127,
     )
-    extra: Dict[str, Any] = {
+    extra: dict[str, Any] = {
         "metadata": {
             "order_bid": buy_record.order_bid,
             "user_bid": buy_record.user_bid,
@@ -1139,7 +1120,7 @@ def _generate_wechatpay_charge(
     )
     db.session.add(snapshot)
 
-    payment_payload: Dict[str, Any] = {
+    payment_payload: dict[str, Any] = {
         "qr_url": qr_url,
         "credential": credential,
     }
@@ -1166,8 +1147,8 @@ def _generate_wechatpay_charge(
 def sync_stripe_checkout_session(
     app: Flask,
     order_id: str,
-    session_id: Optional[str] = None,
-    expected_user: Optional[str] = None,
+    session_id: str | None = None,
+    expected_user: str | None = None,
 ):
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1231,8 +1212,8 @@ def sync_native_payment_order(
     app: Flask,
     order_id: str,
     *,
-    expected_user: Optional[str] = None,
-    payment_channel: Optional[str] = None,
+    expected_user: str | None = None,
+    payment_channel: str | None = None,
 ):
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1313,8 +1294,8 @@ def sync_native_payment_order(
 def _update_stripe_order_snapshot(
     *,
     stripe_order: StripeOrder,
-    session: Dict[str, Any],
-    intent: Optional[Dict[str, Any]],
+    session: dict[str, Any],
+    intent: dict[str, Any] | None,
 ):
     if session:
         stripe_order.checkout_session_id = session.get(
@@ -1346,16 +1327,14 @@ def _update_stripe_order_snapshot(
 
 
 def _is_stripe_payment_successful(
-    *, session: Optional[Dict[str, Any]], intent: Optional[Dict[str, Any]]
+    *, session: dict[str, Any] | None, intent: dict[str, Any] | None
 ) -> bool:
     if session:
         if session.get("payment_status") == "paid":
             return True
         if session.get("status") == "complete":
             return True
-    if intent and intent.get("status") == "succeeded":
-        return True
-    return False
+    return bool(intent and intent.get("status") == "succeeded")
 
 
 def _apply_native_snapshot_update(
@@ -1389,7 +1368,7 @@ def _apply_native_snapshot_update(
 
 def _native_raw_status(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     fallback: str = "",
 ) -> str:
     return extract_native_trade_status(provider, payload) or str(fallback or "")
@@ -1397,7 +1376,7 @@ def _native_raw_status(
 
 def _native_snapshot_status(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     raw_status: str,
 ) -> int:
     if raw_status and not extract_native_trade_status(provider, payload):
@@ -1411,7 +1390,7 @@ def _native_snapshot_status(
 
 def _is_native_payment_successful(
     provider: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
 ) -> bool:
     raw_status = _native_raw_status(provider, payload)
     return _native_snapshot_status(provider, payload, raw_status) == 1
@@ -1419,8 +1398,8 @@ def _is_native_payment_successful(
 
 def _extract_native_notification_amount(
     provider: str,
-    payload: Dict[str, Any],
-) -> Optional[int]:
+    payload: dict[str, Any],
+) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
         total_amount = (
@@ -1490,7 +1469,7 @@ def handle_stripe_webhook(
     sig_header: str,
     *,
     expected_integration_bid: str = "",
-) -> Tuple[Dict[str, Any], int]:
+) -> tuple[dict[str, Any], int]:
     provider = get_payment_provider("stripe")
     try:
         notification: PaymentNotificationResult = provider.verify_webhook(
@@ -1499,7 +1478,7 @@ def handle_stripe_webhook(
             app=app,
         )
     except Exception as exc:  # pragma: no cover - verified via tests for error path
-        app.logger.exception("Stripe webhook verification failed: %s", exc)
+        app.logger.exception("Stripe webhook verification failed")
         return {
             "status": "error",
             "message": str(exc),
@@ -1541,7 +1520,7 @@ def handle_stripe_webhook(
         }, 202
 
     with _app_context_scope(app), unit_of_work():
-        stripe_order: Optional[StripeOrder] = (
+        stripe_order: StripeOrder | None = (
             legacy_stripe_snapshot_query()
             .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
@@ -1630,9 +1609,9 @@ def handle_stripe_webhook(
 def refund_order_payment(
     app: Flask,
     order_bid: str,
-    amount: Optional[int] = None,
-    reason: Optional[str] = None,
-) -> Dict[str, Any]:
+    amount: int | None = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
     with _app_context_scope(app), unit_of_work():
         order = Order.query.filter(Order.order_bid == order_bid).first()
         if not order:
@@ -1699,7 +1678,7 @@ def refund_order_payment(
     }
 
 
-def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
+def get_payment_details(app: Flask, order_bid: str) -> dict[str, Any]:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     with _app_context_scope(app):
@@ -1878,9 +1857,7 @@ def success_buy_record_from_native(
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
-    """
-    Success buy record from pingxx
-    """
+    """Success buy record from pingxx."""
     with _app_context_scope(app):
         pingxx_order = (
             legacy_pingxx_snapshot_query()
@@ -1888,7 +1865,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
             .first()
         )
         if not pingxx_order:
-            return
+            return None
         lock = cache_provider.lock(
             "success_buy_record_from_pingxx" + charge_id,
             timeout=10,
@@ -1896,12 +1873,10 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
         )
 
         if not lock:
-            app.logger.error('lock failed for charge:"{}"'.format(charge_id))
+            app.logger.error(f'lock failed for charge:"{charge_id}"')
         if lock.acquire(blocking=True):
             try:
-                app.logger.info(
-                    'success buy record from pingxx charge:"{}"'.format(charge_id)
-                )
+                app.logger.info(f'success buy record from pingxx charge:"{charge_id}"')
                 with unit_of_work():
                     pingxx_order = (
                         legacy_pingxx_snapshot_query()
@@ -1924,40 +1899,36 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                     ):
                         # Pre-uow behavior: the snapshot mutation was never
                         # committed on this path, so do not mutate it at all.
-                        app.logger.error(
-                            "record:{} not found".format(pingxx_order.order_bid)
-                        )
+                        app.logger.error(f"record:{pingxx_order.order_bid} not found")
                         return None
                     pingxx_order.update = now_utc()
                     pingxx_order.status = 1
                     pingxx_order.charge_object = json.dumps(body)
                     try:
                         set_user_state(buy_record.user_bid, USER_STATE_PAID)
-                    except Exception as e:
-                        app.logger.error("update user state error:%s", e)
+                    except Exception:
+                        app.logger.exception("update user state error")
                     buy_record.status = ORDER_STATUS_SUCCESS
                 send_order_feishu(app, buy_record.order_bid)
                 return query_buy_record(app, buy_record.order_bid)
-            except Exception as e:
-                app.logger.error(
-                    'success buy record from pingxx charge:"{}" error:{}'.format(
-                        charge_id, e
-                    )
+            except Exception:
+                app.logger.exception(
+                    f'success buy record from pingxx charge:"{charge_id}"'
                 )
             finally:
                 lock.release()
+    return None
 
 
 def success_buy_record(app: Flask, record_id: str):
-    """
-    Success buy record
+    """Success buy record.
 
     Owns a unit of work so legacy callers (coupon_funcs, order admin) keep
     their self-committing behavior; when invoked inside another unit of work
     (generate_charge, payment webhooks, sync flows) the nested block joins
     the caller's transaction and the caller commits.
     """
-    app.logger.info('success buy record:"{}"'.format(record_id))
+    app.logger.info(f'success buy record:"{record_id}"')
     buy_record = Order.query.filter(Order.order_bid == record_id).first()
     if buy_record:
         with unit_of_work():
@@ -1967,8 +1938,8 @@ def success_buy_record(app: Flask, record_id: str):
             )
             try:
                 set_user_state(buy_record.user_bid, USER_STATE_PAID)
-            except Exception as e:
-                app.logger.error("update user state error:%s", e)
+            except Exception:
+                app.logger.exception("update user state error")
             buy_record.status = ORDER_STATUS_SUCCESS
             # Notify only once the SUCCESS flip is durable: nested inside a
             # caller's unit of work this defers to the caller's commit (and
@@ -1977,8 +1948,7 @@ def success_buy_record(app: Flask, record_id: str):
             order_bid = buy_record.order_bid
             uow.on_commit(lambda: send_order_feishu(app, order_bid))
         return query_buy_record(app, record_id)
-    else:
-        app.logger.error("record:{} not found".format(record_id))
+    app.logger.error(f"record:{record_id} not found")
     return None
 
 
@@ -2080,9 +2050,7 @@ def calculate_discount_value(
     campaign_applications: list,
     discount_records: list[CouponUsageModel],
 ) -> DiscountInfo:
-    """
-    Calculate discount value
-    """
+    """Calculate discount value."""
     discount_value = 0
     items = []
     if campaign_applications is not None and len(campaign_applications) > 0:
@@ -2104,7 +2072,7 @@ def calculate_discount_value(
         ).all()
         coupon_maps: dict[str, Coupon] = {i.coupon_bid: i for i in coupons}
         for discount_record in discount_records:
-            discount = coupon_maps.get(discount_record.coupon_bid, None)
+            discount = coupon_maps.get(discount_record.coupon_bid)
             if discount:
                 if discount.discount_type == COUPON_TYPE_FIXED:
                     discount_value += discount.value
@@ -2127,7 +2095,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     with _app_context_scope(app):
-        app.logger.info('query buy record:"{}"'.format(record_id))
+        app.logger.info(f'query buy record:"{record_id}"')
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
             item = []
@@ -2176,3 +2144,4 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
             )
 
         raise_error("server.order.orderNotFound")
+    return None

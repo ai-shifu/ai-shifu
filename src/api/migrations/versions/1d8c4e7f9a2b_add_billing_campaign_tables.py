@@ -1,4 +1,4 @@
-"""add billing campaign tables
+"""add billing campaign tables.
 
 Revision ID: 1d8c4e7f9a2b
 Revises: d2f4a7c9b8e1
@@ -6,10 +6,9 @@ Create Date: 2026-05-17
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
-
 
 revision = "1d8c4e7f9a2b"
 down_revision = "d2f4a7c9b8e1"

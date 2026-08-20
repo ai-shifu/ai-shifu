@@ -1,6 +1,4 @@
-"""
-Unit tests for EnvVar dataclass.
-"""
+"""Unit tests for EnvVar dataclass."""
 
 import pytest
 from flaskr.common.config import (
@@ -8,11 +6,12 @@ from flaskr.common.config import (
     EnvVar,
     parse_llm_model_max_output_tokens,
 )
+
 from tests.common.fixtures.mock_validators import (
-    mock_port_validator,
-    mock_email_validator,
     always_fail_validator,
     always_pass_validator,
+    mock_email_validator,
+    mock_port_validator,
     range_validator,
 )
 
@@ -67,7 +66,7 @@ class TestEnvVarInitialization:
 
     def test_invalid_required_with_default(self):
         """Test that required=True with default raises ValueError."""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="marked as required") as exc_info:
             EnvVar(
                 name="INVALID_VAR",
                 required=True,
@@ -264,7 +263,10 @@ class TestLLMModelMaxOutputTokensConfig:
         env_var = ENV_VARS["LLM_MODEL_MAX_OUTPUT_TOKENS"]
 
         assert env_var.validate_value(value) is False
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"must be a JSON object|model ids must|maximum output token values",
+        ):
             parse_llm_model_max_output_tokens(value)
 
 

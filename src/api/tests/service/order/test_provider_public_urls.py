@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 
-from flask import Flask
-import pytest
-
 import flaskr.common.config as common_config
+import pytest
+from flask import Flask
 from flaskr.service.order.payment_providers.alipay import AlipayProvider
 from flaskr.service.order.payment_providers.base import PaymentRequest
 from flaskr.service.order.payment_providers.stripe import StripeProvider
@@ -140,13 +139,13 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
 
     class FakeCoupon:
         @staticmethod
-        def create(**kwargs):
+        def create(**kwargs) -> dict[str, str]:
             captured_coupon.update(kwargs)
             return {"id": "coupon-1"}
 
     class FakeSession:
         @staticmethod
-        def create(**kwargs):
+        def create(**kwargs) -> object:
             captured_session.update(kwargs)
             return type(
                 "SessionResponse",
@@ -219,16 +218,16 @@ def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
 
     class FakeCoupon:
         @staticmethod
-        def create(**_kwargs):
+        def create(**_kwargs) -> dict[str, str]:
             return {"id": "coupon-cleanup-1"}
 
         @staticmethod
-        def delete(coupon_id, **_kwargs):
+        def delete(coupon_id, **_kwargs) -> None:
             deleted.append(coupon_id)
 
     class FakeSession:
         @staticmethod
-        def create(**_kwargs):
+        def create(**_kwargs) -> None:
             raise RuntimeError("session failed")
 
     class FakeCheckout:

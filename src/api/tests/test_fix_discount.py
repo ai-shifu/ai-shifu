@@ -2,11 +2,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-
-from flaskr.util.datetime import now_utc
-from flaskr.service.common.models import AppException
-
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
@@ -15,6 +12,7 @@ from flaskr.service.promo.consts import (
     COUPON_TYPE_FIXED,
 )
 from flaskr.service.promo.models import Coupon, CouponUsage
+from flaskr.util.datetime import now_utc
 
 
 def test_use_coupon_code_applies_discount(app, monkeypatch):
@@ -288,5 +286,5 @@ def test_use_coupon_code_rejects_coupon_not_yet_started_in_utc(app, monkeypatch)
         lambda *_args: None,
     )
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         use_coupon_code(app, user_bid, coupon_code, order_bid)

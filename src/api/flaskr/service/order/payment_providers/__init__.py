@@ -1,10 +1,12 @@
+"""Payment provider adapters."""
+
 from .base import (
-    PaymentProvider,
-    PaymentRequest,
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentProvider,
     PaymentRefundRequest,
     PaymentRefundResult,
+    PaymentRequest,
     SubscriptionUpdateResult,
 )
 
@@ -29,19 +31,21 @@ def get_payment_provider(channel: str) -> PaymentProvider:
 
 
 __all__ = [
-    "PaymentProvider",
-    "PaymentRequest",
     "PaymentCreationResult",
     "PaymentNotificationResult",
+    "PaymentProvider",
     "PaymentRefundRequest",
     "PaymentRefundResult",
+    "PaymentRequest",
     "SubscriptionUpdateResult",
-    "register_payment_provider",
     "get_payment_provider",
+    "register_payment_provider",
 ]
 
 # Ensure built-in providers are registered on import.
-from . import pingxx  # noqa: E402,F401
-from . import stripe  # noqa: E402,F401
-from . import alipay  # noqa: E402,F401
-from . import wechatpay  # noqa: E402,F401
+from . import (  # noqa: E402
+    alipay,  # noqa: F401
+    pingxx,  # noqa: F401
+    stripe,  # noqa: F401
+    wechatpay,  # noqa: F401
+)

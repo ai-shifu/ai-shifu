@@ -1,4 +1,4 @@
-"""add api_key field to user_users table
+"""add api_key field to user_users table.
 
 Revision ID: b596b767bde5
 Revises: e1b2c3d4e5f6
@@ -6,8 +6,8 @@ Create Date: 2026-03-28 05:50:47.416996
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "b596b767bde5"

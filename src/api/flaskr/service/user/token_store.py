@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 from dataclasses import dataclass
-from typing import Optional
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.user.models import UserToken as UserTokenModel
+from flaskr.util.datetime import now_utc
 
 
 @dataclass(frozen=True)
@@ -18,8 +17,7 @@ class TokenLookupResult:
 
 
 class TokenStoreProvider:
-    """
-    Cache-backed token store.
+    """Cache-backed token store.
 
     - Always persists tokens to the database so the system can run without Redis.
     - Uses the configured cache provider (Redis when available, otherwise in-memory)
@@ -67,14 +65,15 @@ class TokenStoreProvider:
 
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
-    ) -> Optional[TokenLookupResult]:
+    ) -> TokenLookupResult | None:
         if not token or not expected_user_id:
             return None
 
         ttl_seconds = int(ttl_seconds)
         cache_key = self._cache_key(app, token)
 
-        try:
+        # A cache outage must fall through to the database lookup below.
+        with contextlib.suppress(Exception):
             cached_user_id = self._cache.getex(cache_key, ex=ttl_seconds)
             if isinstance(cached_user_id, bytes):
                 cached_user_id = cached_user_id.decode("utf-8")
@@ -83,8 +82,6 @@ class TokenStoreProvider:
                     return TokenLookupResult(user_id=expected_user_id)
                 # Defensive: token should never map to a different user id.
                 self._cache.delete(cache_key)
-        except Exception:
-            pass
 
         now = now_utc()
         record = (
@@ -106,10 +103,8 @@ class TokenStoreProvider:
         with db.session.begin_nested():
             record.token_expired_at = new_expires_at
 
-        try:
+        with contextlib.suppress(Exception):
             self._cache.set(cache_key, expected_user_id, ex=ttl_seconds)
-        except Exception:
-            pass
 
         return TokenLookupResult(user_id=expected_user_id)
 

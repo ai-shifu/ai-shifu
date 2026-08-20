@@ -7,23 +7,18 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
-
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.dao import uow
+from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.util.datetime import now_utc, to_utc_iso
 
-from .credit_notifications import (
-    enqueue_credit_notification as _enqueue_credit_notification,
-    stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
-)
+from .checkout import sync_billing_order
 from .consts import (
-    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_LABELS,
@@ -42,35 +37,66 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     CREDIT_NOTIFICATION_STATUS_PENDING,
 )
-from .checkout import sync_billing_order
-from .preorders import (
-    is_preorder_order as _is_preorder_order,
-    load_active_preorder_order as _load_active_preorder_order,
+from .credit_notifications import (
+    enqueue_credit_notification as _enqueue_credit_notification,
 )
-from .queries import (
-    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
-    extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
-)
-from .reserved_renewal_activation import IncompleteReservedGrantActivationError
-from .renewal_event_transitions import (
-    RenewalEventClaimLostError,
-    assert_renewal_event_claim_current as _assert_renewal_event_claim_current,
-    bind_renewal_event_claim as _bind_renewal_event_claim,
-    complete_renewal_event as _complete_renewal_event,
-    fail_renewal_event as _fail_renewal_event,
-    release_renewal_event as _release_renewal_event,
-)
-from .subscriptions import (
-    activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
-    ensure_subscription_renewal_order,
-    is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
-    load_billing_product_by_bid as _load_billing_product_by_bid,
-    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
-    load_subscription_by_bid as _load_subscription_by_bid,
-    sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
+from .credit_notifications import (
+    stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .models import BillingOrder, BillingRenewalEvent, BillingSubscription
+from .preorders import (
+    is_preorder_order as _is_preorder_order,
+)
+from .preorders import (
+    load_active_preorder_order as _load_active_preorder_order,
+)
 from .primitives import normalize_bid as _normalize_bid
+from .queries import (
+    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
+)
+from .queries import (
+    extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
+)
+from .renewal_event_transitions import (
+    RenewalEventClaimLostError,
+)
+from .renewal_event_transitions import (
+    assert_renewal_event_claim_current as _assert_renewal_event_claim_current,
+)
+from .renewal_event_transitions import (
+    bind_renewal_event_claim as _bind_renewal_event_claim,
+)
+from .renewal_event_transitions import (
+    complete_renewal_event as _complete_renewal_event,
+)
+from .renewal_event_transitions import (
+    fail_renewal_event as _fail_renewal_event,
+)
+from .renewal_event_transitions import (
+    release_renewal_event as _release_renewal_event,
+)
+from .reserved_renewal_activation import IncompleteReservedGrantActivationError
+from .subscriptions import (
+    activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
+)
+from .subscriptions import (
+    ensure_subscription_renewal_order,
+)
+from .subscriptions import (
+    is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
+)
+from .subscriptions import (
+    load_billing_product_by_bid as _load_billing_product_by_bid,
+)
+from .subscriptions import (
+    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
+)
+from .subscriptions import (
+    load_subscription_by_bid as _load_subscription_by_bid,
+)
+from .subscriptions import (
+    sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
+)
 from .wallets import _expire_credit_wallet_buckets_in_session
 
 _CLAIMABLE_EVENT_STATUSES = (
@@ -296,7 +322,6 @@ def claim_billing_renewal_event(
     Pure-DB CAS flow (no external calls), so a deadlock retry is safe: a
     replayed claim either wins the CAS again or reports ``already_claimed``.
     """
-
     with _app_context_scope(app), unit_of_work():
         status, event = _claim_target_renewal_event(
             renewal_event_bid=renewal_event_bid,
@@ -321,7 +346,6 @@ def run_billing_renewal_event(
     creator_bid: str = "",
 ) -> RenewalEventResult:
     """Claim and execute a renewal event with idempotent state transitions."""
-
     with _app_context_scope(app):
         # Must-persist step: the claim (PENDING/FAILED -> PROCESSING plus the
         # attempt_count increment) commits in its own unit of work BEFORE any
@@ -402,7 +426,6 @@ def retry_billing_renewal_event(
     payment_provider: str = "",
 ) -> RenewalEventResult:
     """Resolve the latest renewal order context and sync it with the provider."""
-
     del provider_reference_id, payment_provider
 
     with _app_context_scope(app):
@@ -1111,7 +1134,7 @@ def _load_target_renewal_event(
         )
         query = query.filter(
             BillingRenewalEvent.status.in_(
-                _CLAIMABLE_EVENT_STATUSES + (BILLING_RENEWAL_EVENT_STATUS_PROCESSING,)
+                (*_CLAIMABLE_EVENT_STATUSES, BILLING_RENEWAL_EVENT_STATUS_PROCESSING)
             )
         )
     else:

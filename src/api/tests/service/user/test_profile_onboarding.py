@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 
@@ -71,7 +72,7 @@ def test_profile_onboarding_config_rejects_non_whitelisted_variable(app):
         update_profile_onboarding_config,
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(AppError):
         update_profile_onboarding_config(
             app,
             payload={

@@ -3,23 +3,34 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
+from .consts import BILLING_ORDER_STATUS_PAID
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
+)
+from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
-from .consts import BILLING_ORDER_STATUS_PAID
-from .models import BillingOrder
 from .notifications import (
     enqueue_billing_paid_feishu as _enqueue_billing_paid_feishu,
+)
+from .notifications import (
     enqueue_subscription_purchase_sms as _enqueue_subscription_purchase_sms,
+)
+from .notifications import (
     stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
+)
+from .notifications import (
     stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
 )
 from .preorders import is_preorder_order as _is_preorder_order
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
+
+if TYPE_CHECKING:
+    from .models import BillingOrder
 
 
 @dataclass(slots=True, frozen=True)
@@ -37,7 +48,6 @@ def stage_billing_paid_order_side_effects(
     previous_status: int | None,
 ) -> BillingPaidOrderSideEffects:
     """Stage idempotent side effects for one paid billing order."""
-
     if order is None or order.status != BILLING_ORDER_STATUS_PAID:
         return BillingPaidOrderSideEffects()
 
@@ -77,7 +87,6 @@ def dispatch_billing_paid_order_side_effects(
     side_effects: BillingPaidOrderSideEffects,
 ) -> None:
     """Dispatch post-commit side effects for one paid billing order."""
-
     if not side_effects.bill_order_bid:
         return
     if side_effects.should_enqueue_subscription_purchase_sms:

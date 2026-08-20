@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any
 
 import requests
 
 try:
-    import oss2  # type: ignore
+    import oss2  # type: ignore[import-untyped]
 except ModuleNotFoundError:  # pragma: no cover
     oss2 = None  # type: ignore[assignment]
 
 from flaskr.service.common.models import raise_error, raise_error_with_args
 from flaskr.service.config import get_config
-
 
 OSS_PROFILE_DEFAULT = "default"
 OSS_PROFILE_COURSES = "courses"
@@ -74,12 +74,12 @@ def get_oss_config(profile: str = OSS_PROFILE_DEFAULT) -> OSSConfig:
 
 
 def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
-    """
-    Return True if the OSS profile has enough configuration to attempt uploads.
+    """Return True if the OSS profile has enough configuration to attempt uploads.
 
     Notes:
     - This is intentionally conservative and checks credentials + bucket.
-    - It avoids raising AppException so callers can implement fallbacks (e.g., local storage).
+    - It avoids raising AppError so callers can implement fallbacks (e.g., local storage).
+
     """
     resolved_profile = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
     keys = _OSS_CONFIG_KEYS.get(resolved_profile)
@@ -114,20 +114,19 @@ def get_image_content_type(filename: str) -> str:
     if extension == "gif":
         return "image/gif"
     raise_error("server.file.fileTypeNotSupport")
+    return None
 
 
 def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
-    """
-    Warm up a CDN URL.
-    """
+    """Warm up a CDN URL."""
     try:
-        from aliyunsdkcore.client import AcsClient
         from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
             DescribeRefreshTasksRequest,
         )
         from aliyunsdkcdn.request.v20180510.PushObjectCacheRequest import (
             PushObjectCacheRequest,
         )
+        from aliyunsdkcore.client import AcsClient
 
         region_id = config.endpoint.split(".")[0].replace("oss-", "")
         client = AcsClient(
@@ -192,8 +191,6 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
             if retry_count < max_retries:
                 time.sleep(1)
 
-        return False
-
     except Exception as exc:
         app.logger.warning("CDN preheating failed: %s", exc)
         app.logger.warning("Preheating URL: %s", url)
@@ -201,6 +198,8 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
             "ObjectPath: %s",
             object_path if "object_path" in locals() else "Not set",
         )
+        return False
+    else:
         return False
 
 
@@ -211,8 +210,8 @@ def upload_to_oss(
     file_id: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,
-    config: Optional[OSSConfig] = None,
-    bucket: Optional[oss2.Bucket] = None,
+    config: OSSConfig | None = None,
+    bucket: oss2.Bucket | None = None,
     warm_up: bool = True,
 ) -> tuple[str, str]:
     resolved_config = config or get_oss_config(profile)
