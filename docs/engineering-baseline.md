@@ -408,6 +408,13 @@ Security gaps and rollout checkpoints require behavior-specific evidence:
 implement the missing guard, or prove the compatibility exit condition and
 delete the expired branch. A lint-only wording change is not resolution.
 
+`TD003` does not authorize an issue-linked `TODO`: `FIX002` still rejects the
+marker. The repository default is to put future work in the owning ExecPlan or
+issue and keep code comments limited to present behavior and invariants. If a
+future narrow FIX002 exception ever makes a TODO intrinsic to one surface, it
+must also carry the real durable issue link that owns the work; never fabricate
+a ticket or link merely to satisfy lint.
+
 For `TC002` and `TC003`, move a third-party or standard-library import into an
 `if TYPE_CHECKING:` block only after confirming every use is an annotation that
 Python does not need to resolve at runtime. Postponed annotations are the

@@ -31,8 +31,6 @@
 #   service and route modules exceed by design.
 # - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
 #   callbacks, fixtures and test doubles.
-# - TD003 has no remaining findings after the FIX002 stage. It stays separate
-#   only so each newly enforced rule remains one reviewable stacked PR.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -143,6 +141,7 @@ select = [
     "TID252",  # relative import from a parent module
     "FIX002",  # pending work belongs in an ExecPlan or issue, not a TODO comment
     "TD002",   # TODO without an author
+    "TD003",   # TODO without a durable issue link
     # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
     # this repo already satisfied is a security audit with zero current
     # violations -- eval/exec, pickle and other unsafe deserializers,

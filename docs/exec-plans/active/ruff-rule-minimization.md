@@ -195,6 +195,17 @@ plan's progress update for that rule.
   repository pre-commit gate passed.
 - [ ] Merge or retarget FIX002 PR #2587 after its predecessors without
   combining it with the TD003 rule unit.
+- [x] 2026-08-21 03:42 CST: Prepared the TD003 stage on `sunner/ruff-td003`,
+  stacked on FIX002. Added TD003 to the enforced selection after its two
+  findings were semantically resolved in the predecessor, and documented that
+  an issue link does not make a TODO acceptable while FIX002 is active.
+- [x] 2026-08-21 03:42 CST: Confirmed TD003 has zero findings and the stable
+  `ALL` census remains 29,964 findings across 33 rules; this policy-only stage
+  changes no Python runtime or test behavior.
+- [x] 2026-08-21 03:44 CST: Repository Ruff, format, generated knowledge,
+  harness, architecture boundaries, development-tool checks, and every
+  pre-commit hook pass on the TD003 tip.
+- [ ] Open the ready TD003 PR against FIX002 after repository verification.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -458,6 +469,13 @@ four findings to 29,964 across 33 rules without transferring debt. Future
 agents are directed to complete security work, prove rollout exit conditions,
 or move genuinely future work into the owning ExecPlan or issue rather than
 hiding it through comment wording or lint suppression.
+
+The TD003 stage separately enables the issue-link requirement after FIX002
+removed every TODO marker. It adds no code change and no finding reduction,
+but preserves one-rule reviewability on the path toward `select = ["ALL"]`.
+Future agents now know that TD003 is defense in depth, not permission to leave
+an issue-linked TODO: unfinished work belongs in the owning plan or issue, and
+an intrinsic future exception would still need the real durable issue link.
 
 ## Context and Orientation
 
