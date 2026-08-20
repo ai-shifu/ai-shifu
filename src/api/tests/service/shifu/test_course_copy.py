@@ -218,8 +218,8 @@ def _clear_config_caches() -> None:
     with contextlib.suppress(AttributeError, KeyError, TypeError):
         config_module.__ENHANCED_CONFIG__._cache.clear()
     try:
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
+        if config_module.Config._instance is not None:
+            config_module.Config._instance.enhanced._cache.clear()
     except (AttributeError, KeyError, TypeError):
         pass
 

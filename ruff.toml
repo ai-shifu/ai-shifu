@@ -106,7 +106,7 @@ select = [
     # --- Pylint subsets ---------------------------------------------------
     "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
     "PLC",     # pylint conventions (PLC0415 ignored below)
-    "PLW",     # pylint warnings (PLW0603 ignored below)
+    "PLW",     # pylint warnings
     # PLR is partial: the complexity/magic-value members have thousands of
     # violations, so only the mechanical ones are listed.
     "PLR01",   # comparison with itself / of two constants
@@ -234,7 +234,6 @@ ignore = [
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "G004",    # f-string logging -- house style, and rewriting it is churn
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
-    "PLW0603", # global statement -- used by module-level singletons/caches
     # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
     # revisions and boundary-check fixtures that are loaded by path rather
     # than imported.
