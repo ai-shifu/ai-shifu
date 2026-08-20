@@ -1,3 +1,5 @@
+"""Resolve LLM settings for learning sessions."""
+
 from pydantic import BaseModel
 
 

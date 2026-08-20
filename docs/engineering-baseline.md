@@ -389,6 +389,17 @@ visible result. Keep a one-line contract when sufficient, and make test-double
 operators name the fake expression they build. Do not write filler such as
 "Implement `__json__`".
 
+For `D100`, describe why the module exists at its ownership boundary. A
+production module names the service responsibility, protocol, or data contract
+it owns; a test module names the behavior group it protects; an executable
+script states the operation it performs. Do not mechanically restate the file
+name or write generic filler such as "module helpers". Remove an unreferenced
+empty placeholder instead of inventing a purpose for it. Keep the docstring as
+the first Python statement while preserving shebangs, encoding comments, and
+file-level tool directives. Because adding it changes `module.__doc__`, search
+runtime introspection before a bulk adoption and verify executable AST equality
+after removing the new module docstrings.
+
 For `TC002` and `TC003`, move a third-party or standard-library import into an
 `if TYPE_CHECKING:` block only after confirming every use is an annotation that
 Python does not need to resolve at runtime. Postponed annotations are the

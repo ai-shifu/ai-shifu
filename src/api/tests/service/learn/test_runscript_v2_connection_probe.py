@@ -1,3 +1,5 @@
+"""Verify runscript v2 connection probe behavior."""
+
 import pytest
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.runscript_v2 import _ensure_healthy_db_connection

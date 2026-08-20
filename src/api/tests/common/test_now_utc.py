@@ -1,3 +1,5 @@
+"""Verify UTC clock, parsing, and model timestamp contracts."""
+
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest

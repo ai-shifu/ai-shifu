@@ -1,3 +1,5 @@
+"""Verify Langfuse trace identifiers are valid and stable."""
+
 import re
 import types
 import unittest

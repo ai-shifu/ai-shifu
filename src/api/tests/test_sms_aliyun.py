@@ -1,3 +1,5 @@
+"""Verify Aliyun SMS queries respect provider limits."""
+
 from types import SimpleNamespace
 
 from flask import Flask

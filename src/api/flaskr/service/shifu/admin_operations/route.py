@@ -1,3 +1,5 @@
+"""Register course-administration operation routes."""
+
 from __future__ import annotations
 
 import re

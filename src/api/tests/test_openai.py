@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+"""Verify LLM streaming through the LiteLLM provider boundary."""
+
 import sys
 import types
 from types import SimpleNamespace

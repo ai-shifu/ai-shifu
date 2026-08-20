@@ -1,3 +1,5 @@
+"""Handle user support for course-administration operations."""
+
 from __future__ import annotations
 
 from flaskr.service.shifu.admin import (

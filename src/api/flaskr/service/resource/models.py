@@ -1,3 +1,5 @@
+"""Define persistence models for resources."""
+
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import TIMESTAMP, Column, Integer, String

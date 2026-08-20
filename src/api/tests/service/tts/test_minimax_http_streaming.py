@@ -1,3 +1,5 @@
+"""Verify MiniMax HTTP streaming behavior."""
+
 import json
 from types import SimpleNamespace
 

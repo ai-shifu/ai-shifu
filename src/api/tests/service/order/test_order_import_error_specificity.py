@@ -1,3 +1,5 @@
+"""Verify order import error specificity behavior."""
+
 from __future__ import annotations
 
 import flaskr.service.order.admin as order_admin

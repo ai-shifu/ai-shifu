@@ -1,3 +1,5 @@
+"""Verify transfer creator behavior."""
+
 from __future__ import annotations
 
 import contextlib

@@ -1,3 +1,5 @@
+"""Verify runtime TTS admission behavior."""
+
 from __future__ import annotations
 
 import ast

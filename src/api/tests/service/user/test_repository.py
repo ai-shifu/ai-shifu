@@ -1,3 +1,5 @@
+"""Verify user aggregates resolve active and legacy credentials."""
+
 import uuid
 from datetime import datetime
 

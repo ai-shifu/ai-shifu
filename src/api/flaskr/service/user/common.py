@@ -1,3 +1,5 @@
+"""Provide shared helpers for user accounts."""
+
 import jwt
 from flask import Flask, has_app_context
 from flaskr.dao import db

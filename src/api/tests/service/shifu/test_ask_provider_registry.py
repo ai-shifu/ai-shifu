@@ -1,3 +1,5 @@
+"""Verify ask provider registry behavior."""
+
 from flaskr.i18n import set_language
 from flaskr.service.shifu import ask_provider_registry as module
 

@@ -1,3 +1,5 @@
+"""Verify course copies preserve eligible draft content and ownership."""
+
 from __future__ import annotations
 
 import contextlib

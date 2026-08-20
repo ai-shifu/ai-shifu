@@ -1,3 +1,5 @@
+"""Verify TTS preview helper behavior."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

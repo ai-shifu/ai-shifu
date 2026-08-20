@@ -1,3 +1,5 @@
+"""Verify migrate user study record behavior."""
+
 from flaskr.dao import db
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS

@@ -1,3 +1,5 @@
+"""Integrate WeChat APIs and OAuth flows."""
+
 import requests
 from flask import Flask
 

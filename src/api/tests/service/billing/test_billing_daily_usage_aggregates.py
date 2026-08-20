@@ -1,3 +1,5 @@
+"""Verify billing daily usage aggregates behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime

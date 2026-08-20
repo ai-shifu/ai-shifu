@@ -1,3 +1,5 @@
+"""Verify legacy purchase flow behavior."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

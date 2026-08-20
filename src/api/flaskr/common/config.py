@@ -1,3 +1,5 @@
+"""Load application configuration from defaults and the environment."""
+
 from __future__ import annotations
 
 import json

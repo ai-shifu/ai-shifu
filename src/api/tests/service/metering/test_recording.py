@@ -1,3 +1,5 @@
+"""Verify billable usage is persisted and queued for settlement."""
+
 import pytest
 from flask import Flask
 from flaskr import dao

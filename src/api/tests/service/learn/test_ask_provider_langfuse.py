@@ -1,3 +1,5 @@
+"""Verify ask provider Langfuse behavior."""
+
 import types
 from unittest.mock import patch
 

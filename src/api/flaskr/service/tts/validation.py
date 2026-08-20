@@ -1,3 +1,5 @@
+"""Validate requests and settings for TTS."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

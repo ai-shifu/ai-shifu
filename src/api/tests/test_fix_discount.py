@@ -1,3 +1,5 @@
+"""Verify coupon redemption applies valid legacy discounts."""
+
 from datetime import timedelta
 from decimal import Decimal
 

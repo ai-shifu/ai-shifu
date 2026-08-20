@@ -1,3 +1,5 @@
+"""Transform SSE events into listen-mode element updates."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any

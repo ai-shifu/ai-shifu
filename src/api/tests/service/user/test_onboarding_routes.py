@@ -1,3 +1,5 @@
+"""Verify onboarding HTTP route behavior."""
+
 from __future__ import annotations
 
 import uuid

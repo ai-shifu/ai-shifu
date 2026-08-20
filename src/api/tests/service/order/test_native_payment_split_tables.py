@@ -1,3 +1,5 @@
+"""Verify native payment split tables behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal

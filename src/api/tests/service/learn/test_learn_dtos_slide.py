@@ -1,3 +1,5 @@
+"""Verify learn DTOs slide behavior."""
+
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,

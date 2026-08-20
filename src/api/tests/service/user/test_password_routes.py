@@ -1,3 +1,5 @@
+"""Verify password HTTP route behavior."""
+
 import json
 import time
 from datetime import UTC, datetime

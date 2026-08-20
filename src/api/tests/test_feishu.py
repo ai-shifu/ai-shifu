@@ -1,3 +1,5 @@
+"""Verify order notifications are formatted for Feishu."""
+
 from types import SimpleNamespace
 
 

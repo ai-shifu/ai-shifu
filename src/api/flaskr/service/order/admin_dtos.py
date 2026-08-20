@@ -1,3 +1,5 @@
+"""Define administration DTOs for legacy orders."""
+
 from __future__ import annotations
 
 from datetime import datetime

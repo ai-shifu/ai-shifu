@@ -1,3 +1,5 @@
+"""Expose config HTTP routes."""
+
 from flask import Flask, request
 
 from flaskr.common.config import ENV_VARS

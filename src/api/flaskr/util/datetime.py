@@ -1,3 +1,5 @@
+"""Provide datetime utilities."""
+
 from datetime import UTC, datetime
 
 import pytz
