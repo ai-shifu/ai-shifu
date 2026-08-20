@@ -14,6 +14,7 @@
     "mailCheckError": "Erreur du code de vérification par e-mail",
     "mailSendExpired": "Le code de vérification par e-mail a expiré",
     "passwordAlreadySet": "Mot de passe déjà défini",
+    "passwordLoginRateLimited": "Trop de tentatives de mot de passe ont échoué. Réessayez plus tard.",
     "passwordNeedsDigit": "Le mot de passe doit contenir au moins un chiffre",
     "passwordNeedsLetter": "Le mot de passe doit contenir au moins une lettre",
     "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
