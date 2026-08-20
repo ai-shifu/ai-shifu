@@ -70,6 +70,7 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.service.user.utils import ensure_demo_course_permissions
+from flaskr.util.datetime import parse_naive_utc
 from sqlalchemy import case
 
 ORDER_STATUS_KEY_MAP = {
@@ -208,7 +209,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
         return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
         try:
-            parsed = datetime.strptime(normalized, fmt)
+            parsed = parse_naive_utc(normalized, fmt)
             if fmt == "%Y-%m-%d":
                 if is_end:
                     parsed = parsed.replace(hour=23, minute=59, second=59)

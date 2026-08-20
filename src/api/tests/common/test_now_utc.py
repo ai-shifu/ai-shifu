@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta, timezone
 
-from flaskr.util.datetime import now_utc, to_utc_iso
+import pytest
+from flaskr.util.datetime import now_utc, parse_naive_utc, to_utc_iso
 
 
 def test_now_utc_returns_naive_utc() -> None:
@@ -26,6 +27,22 @@ def test_model_timestamp_default_writes_utc(app) -> None:
         assert created.tzinfo is None
         reference = datetime.now(UTC).replace(tzinfo=None)
         assert abs((reference - created).total_seconds()) < 60
+
+
+def test_parse_naive_utc_returns_naive_value() -> None:
+    value = parse_naive_utc("2026-08-14 03:04:05", "%Y-%m-%d %H:%M:%S")
+    # Naive so it stays comparable with the naive UTC timestamps in the database.
+    assert value.tzinfo is None
+    assert value == datetime(2026, 8, 14, 3, 4, 5)
+
+
+def test_parse_naive_utc_keeps_a_date_only_value_at_midnight() -> None:
+    assert parse_naive_utc("2026-08-14", "%Y-%m-%d") == datetime(2026, 8, 14)
+
+
+def test_parse_naive_utc_rejects_mismatched_format() -> None:
+    with pytest.raises(ValueError, match="does not match format"):
+        parse_naive_utc("14/08/2026", "%Y-%m-%d")
 
 
 def test_to_utc_iso_marks_naive_utc_with_z_suffix() -> None:

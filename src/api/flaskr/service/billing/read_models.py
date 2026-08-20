@@ -25,7 +25,12 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import NAIVE_DATETIME_MAX, NAIVE_DATETIME_MIN, now_utc
+from flaskr.util.datetime import (
+    NAIVE_DATETIME_MAX,
+    NAIVE_DATETIME_MIN,
+    now_utc,
+    parse_naive_utc,
+)
 from sqlalchemy import case, or_, select
 
 from .bucket_categories import (
@@ -198,7 +203,7 @@ def _parse_stat_date(value: str) -> datetime.date | None:
     if not normalized_value:
         return None
     try:
-        return datetime.strptime(normalized_value, "%Y-%m-%d").date()
+        return parse_naive_utc(normalized_value, "%Y-%m-%d").date()
     except ValueError:
         return None
 
