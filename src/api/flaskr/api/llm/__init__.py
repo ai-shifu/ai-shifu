@@ -657,7 +657,7 @@ def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
                 model=model_id,
                 custom_llm_provider="openai",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # Keep the existing prefix-based behavior for model aliases that
             # have not reached LiteLLM's bundled model map yet.
             logger.debug(

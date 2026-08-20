@@ -1280,7 +1280,7 @@ class RunScriptPreviewContextV2:
     ) -> UserAggregate | None:
         try:
             return load_user_aggregate(user_bid, with_credentials=False)
-        except Exception as exc:  # noqa: BLE001 - preview must survive lookup failures
+        except Exception as exc:  # preview must survive lookup failures
             cleanup_session_after(
                 exc,
                 source="preview learner profile lookup",

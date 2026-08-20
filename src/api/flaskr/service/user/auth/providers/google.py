@@ -243,7 +243,7 @@ class GoogleAuthProvider(AuthProvider):
             redirect_uri = state_payload.get("redirect_uri")
             login_context = state_payload.get("login_context")
             language = state_payload.get("language")
-        except Exception:  # noqa: BLE001 - defensive fallback
+        except Exception:  # defensive fallback
             current_app.logger.warning("Failed to parse Google OAuth state payload")
 
         _require_matching_initiator(state_payload, request.current_user_id)
