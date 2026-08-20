@@ -37,6 +37,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     get_shifu_published_list,
 )
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.util.datetime import parse_naive_utc
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -69,7 +70,7 @@ def register_order_handler(app: Flask, path_prefix: str):
             "%Y-%m-%dT%H:%M:%S",
         ):
             try:
-                parsed = datetime.strptime(normalized, datetime_format)
+                parsed = parse_naive_utc(normalized, datetime_format)
                 if datetime_format == "%Y-%m-%d":
                     if is_end:
                         parsed = parsed.replace(hour=23, minute=59, second=59)

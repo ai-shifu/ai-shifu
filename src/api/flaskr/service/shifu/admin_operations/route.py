@@ -103,6 +103,7 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
     list_operator_voice_clones,
     register_operator_voice_clone,
 )
+from flaskr.util.datetime import parse_naive_utc
 from pydantic import ValidationError
 
 MAX_CONTACT_LENGTH = 320
@@ -148,7 +149,7 @@ def _parse_datetime_filter(
         return None
     for datetime_format in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
         try:
-            parsed = datetime.strptime(normalized, datetime_format)
+            parsed = parse_naive_utc(normalized, datetime_format)
             if datetime_format == "%Y-%m-%d":
                 if is_end:
                     parsed = parsed.replace(hour=23, minute=59, second=59)

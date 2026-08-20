@@ -22,6 +22,18 @@ def now_utc() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def parse_naive_utc(value: str, fmt: str) -> datetime:
+    """Parse a timestamp string as UTC and return it as a naive datetime.
+
+    The inbound counterpart of ``now_utc()``: API filters, CLI arguments and
+    admin payloads carry no offset, and the stored timestamps they are compared
+    with are naive UTC, so the parsed value has to stay naive as well.
+    Propagates ``ValueError`` from ``datetime.strptime`` when the value does
+    not match the format.
+    """
+    return datetime.strptime(value, fmt)  # noqa: DTZ007
+
+
 def to_utc_iso(value: datetime | None) -> str | None:
     """Serialize a datetime to a UTC ISO 8601 string with a ``Z`` suffix.
 
