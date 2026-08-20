@@ -393,6 +393,11 @@ plan's progress update for that rule.
   Ruff and format, translation checks, repository harness, architecture
   boundaries, development-tool validation, and every repository pre-commit
   hook pass on the S101 tip.
+- [x] 2026-08-21 06:50 CST: Opened ready S101 stale-exception PR
+  [#2598](https://github.com/ai-shifu/ai-shifu/pull/2598) from
+  `sunner/ruff-s101` to the N803 branch after all local gates passed.
+- [ ] Merge or retarget S101 PR #2598 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
