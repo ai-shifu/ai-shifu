@@ -3,12 +3,15 @@ from __future__ import annotations
 import contextlib
 import datetime
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db
 from flaskr.service.user.models import UserToken as UserTokenModel
 from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass(frozen=True)

@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
@@ -23,6 +22,9 @@ from .consts import (
     normalize_usage_scene,
 )
 from .models import BillUsageRecord
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass(frozen=True)

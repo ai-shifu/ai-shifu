@@ -146,6 +146,18 @@ plan's progress update for that rule.
   ANN001 finding, and every other rule count is unchanged.
 - [ ] Merge or retarget TC003 PR #2584 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 02:00 CST: Prepared the TC002 stage on
+  `sunner/ruff-tc002`, stacked on TC003. All 134 annotation-only third-party
+  imports across 113 files moved behind `TYPE_CHECKING`. An import AST audit
+  matched every removed runtime import to its type-only replacement and found
+  no other executable changes; 908 focused tests and the full backend suite
+  pass.
+- [x] 2026-08-21 02:00 CST: Re-ran the stable `ALL` census on the TC002 tip. It
+  reports 30,384 findings across 36 rules and no TC002 or TC003 findings. The
+  134-finding reduction is exact; ANN001, E501, and PLR0911 remain unchanged.
+- [ ] Open the ready TC002 PR against the TC003 branch after the repository
+  gates pass, then merge or retarget it after its predecessors without
+  combining it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -210,6 +222,11 @@ plan's progress update for that rule.
   production never read. The focused suites exposed the fake seams; removing
   those patches while retaining their real `now_utc` injection made the tests
   describe the actual clock contract.
+- TC002's unsafe fixer moved all 134 findings without exposing a hidden runtime
+  dependency. Two modules without postponed annotations used quoted or local
+  annotations, while SQLAlchemy model classes used for executable query
+  construction stayed available at runtime. The exact import-movement audit
+  makes that boundary explicit.
 - The next numerically smaller candidate, PLR0911, spans 72 complex control-flow
   functions across authentication, billing, payment, permissions, and Alembic
   infrastructure. It is not a safe mechanical unit: adopting it requires
@@ -357,6 +374,17 @@ passes 261 tests, the full backend suite passes 3,015 tests with 17 skips, both
 diagnostic script entry points import, and the repository-wide pre-commit gate
 passes. Future agents now distinguish postponed and local annotations from
 Pydantic fields, runtime reflection, and genuine module-attribute test seams.
+
+The TC002 stage removes the global third-party type-only import exception. All
+134 findings across 113 Python files are annotation-only uses and now load
+under `TYPE_CHECKING`; runtime SQLAlchemy models remain in normal imports, and
+Pydantic field types remain protected by the shared runtime-evaluated base-
+class setting. An AST audit proves a one-for-one movement of import aliases and
+no other executable changes. The focused cross-service suite passes 908 tests,
+the full backend suite passes 3,015 tests with 17 skips, and the stable `ALL`
+census falls exactly 134 findings to 30,384 across 36 rules. Future agents now
+apply the same runtime-resolution test to both third-party and standard-library
+annotation imports instead of treating import provenance as the safety proof.
 
 ## Context and Orientation
 

@@ -5,9 +5,8 @@ import os
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_COURSES,
     OSS_PROFILE_DEFAULT,
@@ -17,6 +16,9 @@ from flaskr.service.common.oss_utils import (
     upload_to_oss,
 )
 from flaskr.service.config import get_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 STORAGE_PROVIDER_AUTO = "auto"
 STORAGE_PROVIDER_OSS = "oss"

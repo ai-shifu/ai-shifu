@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
 )
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass

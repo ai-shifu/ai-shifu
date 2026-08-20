@@ -33,11 +33,12 @@ from sqlalchemy import (
     func,
     select,
 )
-from sqlalchemy.sql import Select
-from sqlalchemy.sql.elements import ColumnElement
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from sqlalchemy.sql import Select
+    from sqlalchemy.sql.elements import ColumnElement
 
     from .dsl import Aggregate, Filter, OrderBy, QueryDSL
 

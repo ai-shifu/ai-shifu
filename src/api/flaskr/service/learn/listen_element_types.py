@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_UI
 from flaskr.service.learn.learn_dtos import ElementChangeType, ElementType
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 ELEMENT_TYPE_CODES = {
     ElementType.HTML: 201,

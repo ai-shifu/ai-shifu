@@ -6,7 +6,6 @@ from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
@@ -40,6 +39,8 @@ from .queries import (
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 TASK_NAME = "billing.send_subscription_purchase_sms"
 BILLING_PAID_FEISHU_TASK_NAME = "billing.send_billing_paid_feishu"

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.stripe_client import get_stripe_client_options
 from flaskr.service.config import get_config
 
@@ -16,6 +15,9 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class StripeProvider(PaymentProvider):
