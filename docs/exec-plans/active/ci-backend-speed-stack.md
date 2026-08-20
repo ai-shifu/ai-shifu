@@ -29,6 +29,8 @@ that branch.
   and restore the newest compatible cache.
 - [x] 2026-08-20 12:30 CST: Validated and published the three-PR stack as
   PRs #2536, #2537, and #2538.
+- [x] 2026-08-20 12:35 CST: Verified the corrected Backend Tests workflow saved
+  a cache under the pull request head SHA for an exact next-commit restore.
 
 ## Surprises & Discoveries
 
@@ -85,7 +87,9 @@ Runtime Harness times were measured in GitHub Actions:
 - PR #2538's first two Backend Tests runs passed in 1m20s and saved SHA-specific
   caches. The second run exposed that a current-PR prefix still fell through to
   main, so the final implementation resolves and restores the direct parent head
-  SHA exactly before using branch or main fallbacks.
+  SHA exactly before using branch or main fallbacks. The first corrected run
+  passed in 1m31s and saved its cache under head SHA `11cacd5f`; the next commit
+  provides the live exact-parent restore check.
 
 ## Context and Orientation
 
