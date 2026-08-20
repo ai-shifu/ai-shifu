@@ -92,7 +92,7 @@ def _increment_counter(app: Flask, key: str, window_seconds: int) -> int:
         cache.set(key, next_count, ex=window_seconds)
     except (RedisError, RuntimeError, TypeError, ValueError):
         app.logger.exception("Password login failure counter update failed")
-        return 0
+        raise_error("server.user.passwordLoginRateLimited")
     else:
         return next_count
     finally:
