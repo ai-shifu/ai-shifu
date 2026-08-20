@@ -25,7 +25,7 @@ that branch.
   cache scopes.
 - [x] 2026-08-20 12:20 CST: Reordered the Cook Web development image so dependency
   installation precedes source copying.
-- [ ] 2026-08-20 12:25 CST: Make each Backend Tests run save a new testmon cache
+- [x] 2026-08-20 12:25 CST: Made each Backend Tests commit save a new testmon cache
   and restore the newest compatible cache.
 - [ ] 2026-08-20 12:30 CST: Validate and publish the three-PR stack.
 

@@ -44,8 +44,12 @@ jobs:
           path: |
             src/api/.testmondata
             src/api/.pytest_cache
-          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}
+          # A unique exact key lets each successful commit publish updated
+          # testmon state; the prefixes below restore the newest compatible run.
+          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}-${{ github.sha }}
           restore-keys: |
+            testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}
+            testmon-${{ runner.os }}-py311-main-main-${{ hashFiles('src/api/requirements.txt') }}
             testmon-${{ runner.os }}-py311-main-
             testmon-${{ runner.os }}-py311-
 
