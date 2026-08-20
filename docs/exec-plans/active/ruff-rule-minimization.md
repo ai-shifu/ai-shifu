@@ -191,8 +191,12 @@ plan's progress update for that rule.
   tests with 17 skips; translations, repository Ruff and format, the repository
   harness, the architecture-boundary check, and every repository pre-commit
   hook also pass.
-- [ ] Open the ready FIX002 PR against D100 after the full backend suite and
-  repository pre-commit gate pass.
+- [x] 2026-08-21 03:31 CST: Opened ready FIX002 PR
+  [#2587](https://github.com/ai-shifu/ai-shifu/pull/2587) from
+  `sunner/ruff-fix002` to the D100 branch after the full backend suite and
+  repository pre-commit gate passed.
+- [ ] Merge or retarget FIX002 PR #2587 after its predecessors without
+  combining it with the TD003 rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
