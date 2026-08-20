@@ -14,7 +14,7 @@ from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 # fix windows platform
 if os.name == "nt":
     # tzutil ships with Windows and is resolved from PATH.
-    subprocess.run(["tzutil", "/s", "UTC"], check=False)  # noqa: S603, S607
+    subprocess.run(["tzutil", "/s", "UTC"], check=False)  # noqa: S607
 else:
     # Load environment variables first so we can use get_config
     if not os.getenv("SKIP_LOAD_DOTENV"):
