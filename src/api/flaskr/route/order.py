@@ -671,7 +671,7 @@ def register_order_handler(app: Flask, path_prefix: str):
                         entry["nickname"] = fallback_nickname
 
             # Validate course exists before iterating mobiles to avoid repeated errors
-            get_shifu_info(app, course_id, False)
+            get_shifu_info(app, course_id, preview_mode=False)
 
             return make_common_response(
                 import_activation_orders_from_entries(
@@ -690,7 +690,7 @@ def register_order_handler(app: Flask, path_prefix: str):
             raise_param_error(f"{contact_label} limit 50")
 
         # Validate course exists before iterating mobiles to avoid repeated errors
-        get_shifu_info(app, course_id, False)
+        get_shifu_info(app, course_id, preview_mode=False)
 
         return make_common_response(
             import_activation_orders(

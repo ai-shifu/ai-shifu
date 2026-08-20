@@ -32,7 +32,7 @@ class _FakePyMySQLConnection:
 @pytest.fixture
 def sock_pair():
     left, right = socket.socketpair()
-    left.setblocking(False)
+    left.setblocking(False)  # noqa: FBT003 -- stdlib socket API
     yield left, right
     left.close()
     right.close()

@@ -804,7 +804,7 @@ class RunScriptPreviewContextV2:
         session_id: str,
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         outline = self._get_outline_record(shifu_bid, outline_bid)
-        shifu = self._get_shifu_record(shifu_bid, True)
+        shifu = self._get_shifu_record(shifu_bid, has_draft_outline=True)
         document_prompt = self._resolve_document_prompt(
             preview_request,
             outline,

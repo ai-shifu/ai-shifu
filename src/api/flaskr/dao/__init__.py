@@ -179,7 +179,8 @@ def _reject_desynced_connection_on_checkout(
         _mark_checkout_boundary(connection_record)
         return
     try:
-        ping(False)
+        # MySQL's DBAPI ping() takes `reconnect` positionally.
+        ping(False)  # noqa: FBT003
     except BaseException as ping_exc:
         connection_record.invalidate(
             e=ping_exc if isinstance(ping_exc, Exception) else None

@@ -150,7 +150,11 @@ def verify_email_code(
                     include_nickname=include_legacy_nickname,
                 )
                 update_user_profile_with_lable(
-                    app, target_aggregate.user_bid, new_profiles, False, course_id
+                    app,
+                    target_aggregate.user_bid,
+                    new_profiles,
+                    update_all=False,
+                    course_id=course_id,
                 )
             if origin_aggregate and course_id is not None:
                 migrate_user_study_record(

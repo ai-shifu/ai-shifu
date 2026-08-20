@@ -65,7 +65,7 @@ def stub_shifu(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(
+        lambda _app, _bid, preview_mode: SimpleNamespace(
             price=Decimal("100.00"),
             title="UOW course",
             description="UOW failure-path course",

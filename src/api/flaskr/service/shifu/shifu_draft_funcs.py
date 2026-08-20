@@ -925,8 +925,8 @@ def get_shifu_published_list(
                 shifu.description,
                 res_url_map.get(shifu.avatar_res_bid, ""),
                 STATUS_PUBLISHED,
-                False,
-                False,
+                is_favorite=False,
+                archived=False,
                 can_manage_archive=True,
                 can_manage_permissions=(shifu.created_user_bid == user_id),
                 created_user_bid=shifu.created_user_bid or "",
@@ -977,8 +977,8 @@ def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
 
 
 def archive_shifu(app, user_id: str, shifu_id: str):
-    _set_shifu_archive_state(app, user_id, shifu_id, True)
+    _set_shifu_archive_state(app, user_id, shifu_id, archived=True)
 
 
 def unarchive_shifu(app, user_id: str, shifu_id: str):
-    _set_shifu_archive_state(app, user_id, shifu_id, False)
+    _set_shifu_archive_state(app, user_id, shifu_id, archived=False)

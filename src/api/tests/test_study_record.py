@@ -41,6 +41,6 @@ def test_get_learn_record_returns_blocks(app):
         db.session.add(block)
         db.session.commit()
 
-    record = get_learn_record(app, "shifu-1", "outline-1", "user-1", False)
+    record = get_learn_record(app, "shifu-1", "outline-1", "user-1", preview_mode=False)
     assert len(record.records) == 1
     assert record.records[0].content == "hello"
