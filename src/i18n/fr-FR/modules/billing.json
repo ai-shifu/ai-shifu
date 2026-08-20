@@ -66,7 +66,9 @@
         "enabled": "Activé",
         "errors": {
           "creatorBidRequired": "Saisissez le BID du responsable du cours",
+          "creatorEmailInvalid": "Saisissez une adresse e-mail valide",
           "creatorEmailRequired": "Saisissez l’e-mail du responsable",
+          "creatorMobileInvalid": "Saisissez un numéro de téléphone valide",
           "creatorMobileRequired": "Saisissez le téléphone du responsable"
         },
         "fields": {

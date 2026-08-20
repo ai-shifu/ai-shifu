@@ -30,8 +30,16 @@ describe('isValidContactIdentifier', () => {
     expect(isValidContactIdentifier('email', '13800138000')).toBe(false);
   });
 
+  it('normalizes before validating, so surrounding whitespace is accepted', () => {
+    expect(isValidContactIdentifier('phone', ' 13800138000 ')).toBe(true);
+    expect(isValidContactIdentifier('email', '  Teacher@Example.COM ')).toBe(
+      true,
+    );
+  });
+
   it('rejects blank and partial values', () => {
     expect(isValidContactIdentifier('phone', '')).toBe(false);
+    expect(isValidContactIdentifier('phone', '   ')).toBe(false);
     expect(isValidContactIdentifier('phone', '1380013800')).toBe(false);
     expect(isValidContactIdentifier('email', 'not-an-email')).toBe(false);
   });

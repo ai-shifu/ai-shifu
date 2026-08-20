@@ -8,6 +8,7 @@ import { AdminBillingOperationsConsole } from '@/app/admin/operations/billing/Ad
 import { applyAdminBillingOpsState } from '@/components/billing/AdminBillingShared';
 import type { AdminBillingSubscriptionItem } from '@/types/billing';
 
+const mockToast = jest.fn();
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockEnvState = {
@@ -32,6 +33,12 @@ jest.mock('react-i18next', () => ({
       language: 'en-US',
     },
   }),
+}));
+
+jest.mock('@/hooks/useToast', () => ({
+  __esModule: true,
+  toast: (...args: unknown[]) => mockToast(...args),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 jest.mock('@/c-store', () => ({
@@ -110,6 +117,7 @@ const createDeferred = <T,>() => {
 
 describe('AdminBillingOperationsConsole', () => {
   beforeEach(() => {
+    mockToast.mockReset();
     mockReplace.mockReset();
     mockPush.mockReset();
     window.localStorage.clear();
@@ -1020,5 +1028,51 @@ describe('AdminBillingOperationsConsole', () => {
         custom_payment_enabled: false,
       }),
     );
+  });
+
+  test('rejects a malformed owner contact before calling the backend', async () => {
+    mockEnvState.loginMethodsEnabled = ['google'];
+    mockEnvState.defaultLoginMethod = 'google';
+    const user = userEvent.setup();
+
+    render(
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+        }}
+      >
+        <AdminBillingOperationsConsole />
+      </SWRConfig>,
+    );
+
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'module.billing.admin.tabs.entitlements',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.open',
+      }),
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        'module.billing.admin.entitlements.grant.fields.creatorEmail',
+      ),
+      'not-an-email',
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.entitlements.grant.submit',
+      }),
+    );
+
+    expect(mockGrantAdminBillingEntitlement).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith({
+      title:
+        'module.billing.admin.entitlements.grant.errors.creatorEmailInvalid',
+      variant: 'destructive',
+    });
   });
 });

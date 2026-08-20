@@ -16,15 +16,20 @@ export const normalizeContactIdentifier = (
   return contactMode === 'email' ? trimmed.toLowerCase() : trimmed;
 };
 
+/**
+ * Validate an identifier the way the backend does: normalize first, so callers
+ * never have to remember to normalize before asking.
+ */
 export const isValidContactIdentifier = (
   contactMode: ContactMode,
   value: string,
 ): boolean => {
-  if (!value) {
+  const normalized = normalizeContactIdentifier(contactMode, value);
+  if (!normalized) {
     return false;
   }
   if (contactMode === 'email') {
-    return isValidEmail(value);
+    return isValidEmail(normalized);
   }
-  return CONTACT_PHONE_PATTERN.test(value);
+  return CONTACT_PHONE_PATTERN.test(normalized);
 };

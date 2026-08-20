@@ -66,7 +66,9 @@
         "enabled": "Enabled",
         "errors": {
           "creatorBidRequired": "Enter the course owner BID",
+          "creatorEmailInvalid": "Enter a valid email address",
           "creatorEmailRequired": "Enter the owner email address",
+          "creatorMobileInvalid": "Enter a valid phone number",
           "creatorMobileRequired": "Enter the owner phone number"
         },
         "fields": {

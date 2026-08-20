@@ -644,6 +644,23 @@ export function AdminBillingEntitlementDialog({
       });
       return;
     }
+    // The dialog never submits a native form, so type='email' does not gate
+    // this. Reject a malformed value here instead of relaying a generic
+    // backend param error.
+    if (
+      !resolvedItem &&
+      !isValidContactIdentifier(contactMode, normalizedCreatorContact)
+    ) {
+      toast({
+        title: t(
+          isEmailContact
+            ? 'module.billing.admin.entitlements.grant.errors.creatorEmailInvalid'
+            : 'module.billing.admin.entitlements.grant.errors.creatorMobileInvalid',
+        ),
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -781,8 +798,12 @@ export function AdminBillingEntitlementDialog({
       if (nextCreatorBid) {
         setResolvedItem(current => ({
           creator_bid: nextCreatorBid,
-          creator_mobile:
-            normalizedCreatorContact || current?.creator_mobile || '',
+          creator_mobile: isEmailContact
+            ? current?.creator_mobile || ''
+            : normalizedCreatorContact || current?.creator_mobile || '',
+          creator_email: isEmailContact
+            ? normalizedCreatorContact || current?.creator_email || ''
+            : current?.creator_email || '',
           creator_nickname: current?.creator_nickname || '',
           creator_identify: current?.creator_identify || '',
           source_kind: current?.source_kind || 'default',
