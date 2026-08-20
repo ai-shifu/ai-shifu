@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -1791,6 +1793,16 @@ def upsert_billing_product(
     }
 
 
+@contextmanager
+def _rollback_on_error() -> Iterator[None]:
+    """Roll back the CLI transaction when the wrapped block raises."""
+    try:
+        yield
+    except Exception:
+        db.session.rollback()
+        raise
+
+
 def grant_billing_plan_by_identify(
     *,
     identify: str,
@@ -1815,7 +1827,7 @@ def grant_billing_plan_by_identify(
         )
     normalized_effective_to = str(effective_to or "").strip()
 
-    try:
+    with _rollback_on_error():
         aggregate = load_user_aggregate_by_identifier(normalized_identify)
         if aggregate is None:
             raise click.ClickException(
@@ -2011,11 +2023,7 @@ def grant_billing_plan_by_identify(
             )
             payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
             payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
-    except Exception:
-        db.session.rollback()
-        raise
-    else:
-        return payload
+    return payload
 
 
 def grant_operator_credits_by_cli(
@@ -2051,7 +2059,7 @@ def grant_operator_credits_by_cli(
         str(operator_user_bid or "").strip() or _DEFAULT_CLI_OPERATOR_USER_BID
     )
 
-    try:
+    with _rollback_on_error():
         aggregate = (
             load_user_aggregate(normalized_user_bid)
             if normalized_user_bid
@@ -2093,11 +2101,7 @@ def grant_operator_credits_by_cli(
                 "mobile": getattr(aggregate, "mobile", ""),
             }
         )
-    except Exception:
-        db.session.rollback()
-        raise
-    else:
-        return payload
+    return payload
 
 
 def _build_cli_credit_grant_request_id(

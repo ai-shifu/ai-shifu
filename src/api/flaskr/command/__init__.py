@@ -68,6 +68,7 @@ def enable_commands(app: Flask):
         if dry_run:
             click.echo("DRY RUN MODE - No data will be actually migrated")
 
+        migration_failed = False
         try:
             database_url = app.config["SQLALCHEMY_DATABASE_URI"]
 
@@ -139,29 +140,31 @@ def enable_commands(app: Flask):
                         fg="red",
                     )
                 )
-                raise click.ClickException("Migration failed")
+                migration_failed = True
+            else:
+                if failed_consistency:
+                    click.echo(
+                        click.style(
+                            f"⚠️  Consistency check failed for: {', '.join(failed_consistency)}",
+                            fg="yellow",
+                        )
+                    )
 
-            if failed_consistency:
+                # Success summary
+                total_migrated = sum(
+                    r.synced_records for r in migration_results.values()
+                )
+                total_records = sum(r.total_records for r in migration_results.values())
+                overall_rate = (
+                    (total_migrated / total_records * 100) if total_records > 0 else 0
+                )
+
                 click.echo(
                     click.style(
-                        f"⚠️  Consistency check failed for: {', '.join(failed_consistency)}",
-                        fg="yellow",
+                        f"✅ Migration completed: {total_migrated}/{total_records} records ({overall_rate:.1f}%)",
+                        fg="green",
                     )
                 )
-
-            # Success summary
-            total_migrated = sum(r.synced_records for r in migration_results.values())
-            total_records = sum(r.total_records for r in migration_results.values())
-            overall_rate = (
-                (total_migrated / total_records * 100) if total_records > 0 else 0
-            )
-
-            click.echo(
-                click.style(
-                    f"✅ Migration completed: {total_migrated}/{total_records} records ({overall_rate:.1f}%)",
-                    fg="green",
-                )
-            )
 
         except Exception as e:
             logger.exception("Migration failed")
@@ -169,6 +172,9 @@ def enable_commands(app: Flask):
         finally:
             if "migration_task" in locals():
                 migration_task.close()
+
+        if migration_failed:
+            raise click.ClickException("Migration failed")
 
     @console.command(name="verify")
     def verify_command():
@@ -358,11 +364,10 @@ def enable_commands(app: Flask):
             user_id: User ID for creating/updating the shifu
 
         """
-        try:
-            # Check if file exists
-            if not Path(file_path).exists():
-                raise click.ClickException(f"File not found: {file_path}")
+        if not Path(file_path).exists():
+            raise click.ClickException(f"File not found: {file_path}")
 
+        try:
             click.echo(f"Importing shifu from {file_path}...")
             if shifu_id:
                 click.echo(f"Target shifu ID: {shifu_id} (will update if exists)")
