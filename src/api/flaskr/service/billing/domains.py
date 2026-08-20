@@ -65,6 +65,7 @@ class DomainVerificationResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
