@@ -54,8 +54,16 @@ plan's progress update for that rule.
   documented narrow exceptions.
 - [ ] Merge or retarget D405 PR #2574 after its predecessors without combining
   it with the next rule unit.
-- [ ] Remove the redundant UP040 global ignore. It has zero findings under
-  both the configured Python 3.11 target and an explicit Python 3.12 target.
+- [x] 2026-08-20 22:22 CST: Opened ready UP040 PR
+  [#2575](https://github.com/ai-shifu/ai-shifu/pull/2575) from
+  `sunner/ruff-up040` to the D405 branch. The redundant ignore was removed;
+  UP040 has zero findings under both the configured Python 3.11 target and an
+  explicit Python 3.12 target, and all repository pre-commit hooks passed.
+- [ ] Merge or retarget UP040 PR #2575 after its predecessors without combining
+  it with the next rule unit.
+- [ ] Remove the target-gated UP047 global ignore. It has zero findings under
+  the configured Python 3.11 target and one explicit Python 3.12 finding that
+  should surface in the future runtime-upgrade PR instead of staying hidden.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -141,6 +149,11 @@ covered by the schema regression test and an inline D405 code, and the applied
 no-op migration remains untouched behind an exact-file D405 exception. The
 profile suite passes 15 tests, the Swagger suite passes 10 tests, and the full
 repository gates pass.
+
+The UP040 stage removes a preemptive exception with no implementation changes.
+UP040 remains selected through the `UP` prefix and reports no findings under
+either Python 3.11 or Python 3.12. Rule-specific checks for both targets and the
+full repository gates pass.
 
 ## Context and Orientation
 
