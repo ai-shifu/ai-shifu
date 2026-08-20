@@ -119,21 +119,19 @@ select = [
     "A001",    # local variable shadowing a builtin
     "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
-    "N801",    # class name that is not CapWords
-    "N806",    # local variable that is not lowercase
-    "N802",    # function name that is not lowercase
-    "N803",    # argument name that is not lowercase
-    "N813",    # CamelCase imported under a lowercase alias
+    # pep8-naming is enabled as a whole. Beyond the members the repo already
+    # satisfied (N801-N803, N806, N813, N818), the group adds naming checks with
+    # no current violations: the first argument of a method/classmethod/
+    # metaclass method (N804/N805/N807), import aliases that change a name's
+    # case (N811/N812/N814/N817), global mixedCase (N816) and non-importable
+    # module filenames (N999). The two DTO modules whose camelCase fields ARE
+    # the serialized JSON keys the frontend reads stay exempt from N815 below.
+    "N",
     # TID252 bans reaching into a parent package with `from ..x import y`, which
     # hides which package a name really comes from; sibling-local `from .x`
     # imports stay allowed. The boundary-checker fixture below must keep its
     # parent-relative imports, since detecting them is what it tests.
     "TID252",  # relative import from a parent module
-    # N815 flags mixedCase class attributes. The two DTO modules whose fields
-    # ARE the serialized JSON keys the frontend reads are exempt below, so the
-    # rule still catches accidental camelCase everywhere else.
-    "N815",    # mixedCase variable in class scope
-    "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
     # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
     # this repo already satisfied is a security audit with zero current
