@@ -400,6 +400,15 @@ file-level tool directives. Because adding it changes `module.__doc__`, search
 runtime introspection before a bulk adoption and verify executable AST equality
 after removing the new module docstrings.
 
+For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
+adding `noqa`, or turning the same promise into an untracked prose comment.
+Complete the work when it is part of the current change. When it genuinely
+belongs later, record the actionable task in the owning ExecPlan or issue and
+leave only a present-tense invariant or compatibility reason beside the code.
+Security gaps and rollout checkpoints require behavior-specific evidence:
+implement the missing guard, or prove the compatibility exit condition and
+delete the expired branch. A lint-only wording change is not resolution.
+
 For `TC002` and `TC003`, move a third-party or standard-library import into an
 `if TYPE_CHECKING:` block only after confirming every use is an annotation that
 Python does not need to resolve at runtime. Postponed annotations are the
