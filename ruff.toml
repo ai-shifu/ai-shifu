@@ -31,8 +31,8 @@
 #   service and route modules exceed by design.
 # - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
 #   callbacks, fixtures and test doubles.
-# - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
-#   inventing one (or downgrading the comment) would hide real pending work.
+# - TD003 has no remaining findings after the FIX002 stage. It stays separate
+#   only so each newly enforced rule remains one reviewable stacked PR.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -141,6 +141,7 @@ select = [
     # imports stay allowed. The boundary-checker fixture below must keep its
     # parent-relative imports, since detecting them is what it tests.
     "TID252",  # relative import from a parent module
+    "FIX002",  # pending work belongs in an ExecPlan or issue, not a TODO comment
     "TD002",   # TODO without an author
     # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
     # this repo already satisfied is a security audit with zero current

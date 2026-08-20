@@ -1,10 +1,32 @@
 """Verify password HTTP route behavior."""
 
+from __future__ import annotations
+
 import json
 import time
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import jwt
+from flaskr.service.user import phone_flow
+from flaskr.service.user.auth.providers import password as password_provider
+
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
+    from flask.testing import FlaskClient
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+
+_HTTP_OK = 200
+_INVALID_CREDENTIALS_CODE = 1016
+_PASSWORD_LOGIN_RATE_LIMITED_CODE = 1028
+_TEST_IDENTIFIER_FAILURE_LIMIT = 2
+_TEST_IP_FAILURE_LIMIT = 100
+_TEST_FAILURE_WINDOW_SECONDS = 300
+_PASSWORD_COUNTER_KEY_COUNT = 2
 
 
 def _post_json(client, path: str, payload: dict, headers: dict | None = None):
@@ -117,6 +139,169 @@ def test_password_login_after_setting_password(test_client, app):
     assert body["code"] == 0
     assert body["data"]["token"]
     assert body["data"]["userInfo"]["mobile"] == phone
+
+
+def test_password_login_throttles_identifier_and_success_resets_it(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Throttle repeated account failures while allowing a success to reset them."""
+    phone = "15500002223"
+    password = "Abcd1234"
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IP_FAILURE_LIMIT",
+        _TEST_IP_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        _TEST_FAILURE_WINDOW_SECONDS,
+    )
+
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": password},
+        headers={"Token": user_token.token},
+    )
+
+    first_failure, first_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": "wrong-password"},
+    )
+    assert first_failure.status_code == _HTTP_OK
+    assert first_body["code"] == _INVALID_CREDENTIALS_CODE
+
+    success, success_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert success.status_code == _HTTP_OK
+    assert success_body["code"] == 0
+
+    after_reset, after_reset_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": "wrong-again"},
+    )
+    assert after_reset.status_code == _HTTP_OK
+    assert after_reset_body["code"] == _INVALID_CREDENTIALS_CODE
+
+    blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": "wrong-twice"},
+    )
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body == {
+        "code": _PASSWORD_LOGIN_RATE_LIMITED_CODE,
+        "message": "Too many failed password attempts. Try again later.",
+    }
+
+    correct_while_blocked, correct_while_blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert correct_while_blocked.status_code == _HTTP_OK
+    assert correct_while_blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+    counter_keys = [
+        key
+        for key in mock_redis_client.stored_keys()
+        if "password_login_failure:" in key
+    ]
+    assert len(counter_keys) == _PASSWORD_COUNTER_KEY_COUNT
+    assert all(phone not in key for key in counter_keys)
+    assert all("127.0.0.1" not in key for key in counter_keys)
+    assert all(mock_redis_client.ttl(key) > 0 for key in counter_keys)
+    assert phone not in caplog.text
+    assert "127.0.0.1" not in caplog.text
+
+
+def test_password_login_throttles_one_ip_across_identifiers(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Share an IP failure budget across distinct account identifiers."""
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IP_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IP_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        _TEST_FAILURE_WINDOW_SECONDS,
+    )
+
+    first_failure, first_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "first@example.com", "password": "wrong-password"},
+    )
+    assert first_failure.status_code == _HTTP_OK
+    assert first_body["code"] == _INVALID_CREDENTIALS_CODE
+
+    blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "second@example.com", "password": "wrong-password"},
+    )
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+    still_blocked, still_blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "third@example.com", "password": "wrong-password"},
+    )
+    assert still_blocked.status_code == _HTTP_OK
+    assert still_blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+
+def test_password_login_blocks_when_failure_counter_lock_is_busy(
+    test_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Do not let concurrent counter updates bypass password throttling."""
+    busy_lock = MagicMock()
+    busy_lock.acquire.return_value = False
+    lock_factory = MagicMock(return_value=busy_lock)
+    monkeypatch.setattr(password_provider.cache, "lock", lock_factory)
+
+    blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "locked@example.com", "password": "wrong-password"},
+    )
+
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+    lock_factory.assert_called_once()
+    busy_lock.release.assert_not_called()
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
