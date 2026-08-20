@@ -111,6 +111,7 @@ class PayItemDto:
         self.discount_code = discount_code
 
     def __json__(self) -> dict:
+        """Return the pay item as JSON-compatible data."""
         return {
             "name": self.name,
             "price_name": self.price_name,
@@ -156,6 +157,8 @@ class AICourseBuyRecordDTO:
         self.payment_channel = payment_channel
 
     def __json__(self) -> dict:
+        """Return the AI course buy record as JSON-compatible data."""
+
         def format_decimal(value):
             # Convert to a string with two decimal places
             formatted_value = value if isinstance(value, str) else f"{value:.2f}"
@@ -508,6 +511,7 @@ class BuyRecordDTO:
         self.payment_payload = payment_payload or {}
 
     def __json__(self) -> dict:
+        """Return the buy record as JSON-compatible data."""
         return {
             "order_id": self.order_id,
             "user_id": self.user_id,

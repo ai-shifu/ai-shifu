@@ -14,9 +14,11 @@ class ColorSetting:
         self.text_color = text_color
 
     def __json__(self) -> dict:
+        """Return the color setting as JSON-compatible data."""
         return {"color": self.color, "text_color": self.text_color}
 
     def __str__(self) -> str:
+        """Return the color settings as JSON text."""
         return json.dumps(self.__json__(), ensure_ascii=True)
 
 
@@ -55,6 +57,7 @@ class ProfileItemDefinition:
         self.is_hidden = is_hidden
 
     def __json__(self) -> dict:
+        """Return the profile item definition as JSON-compatible data."""
         return {
             "profile_key": self.profile_key,
             "color_setting": self.color_setting,
@@ -68,6 +71,7 @@ class ProfileItemDefinition:
         }
 
     def __str__(self) -> str:
+        """Return the profile definition mapping as text."""
         return str(self.__json__())
 
 
@@ -98,6 +102,7 @@ class ProfileValueDto:
         self.value = value
 
     def __json__(self) -> dict:
+        """Return the profile value as JSON-compatible data."""
         return {"name": self.name, "value": self.value}
 
 
@@ -114,4 +119,5 @@ class ProfileToSave:
         self.bid = bid
 
     def __json__(self) -> dict:
+        """Return the pending profile value as JSON-compatible data."""
         return {"key": self.key, "value": self.value, "bid": self.bid}

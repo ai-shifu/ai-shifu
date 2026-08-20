@@ -126,9 +126,11 @@ class BillingWebhookResult:
         return payload
 
     def __getitem__(self, key: str) -> Any:
+        """Return a response field by key."""
         return self.to_response_dict()[key]
 
     def __iter__(self) -> Iterator[Any]:
+        """Yield the response payload and status code for unpacking."""
         yield self.to_response_dict()
         yield self.status_code
 

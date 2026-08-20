@@ -98,6 +98,7 @@ class WalletSnapshotRecord:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -123,6 +124,7 @@ class WalletSnapshotRebuildResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -146,6 +148,7 @@ class RefundReturnCreditsResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -165,6 +168,7 @@ class WalletExpirationResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -228,6 +232,7 @@ class ExpireLedgerBucketDriftRepairResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -293,6 +298,7 @@ class ExpiredCreditPackBucketRestoreResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -320,6 +326,7 @@ class ManualCreditGrantResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -347,6 +354,7 @@ class ReservedGrantRepairRecord:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -404,6 +412,7 @@ class RenewalStateDriftRepairResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
