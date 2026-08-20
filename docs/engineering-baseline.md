@@ -336,6 +336,46 @@ src/api/tests/
 - Critical paths should target 100 percent coverage
 - Coverage command: `pytest --cov=flaskr --cov-report=html`
 
+### Ruff Findings And Rule Adoption
+
+Treat Ruff findings as code or contract signals, not as requests to make the
+configuration quieter. For a finding in new or changed code:
+
+1. Read `ruff rule <CODE>`, the nearest `AGENTS.md`, the implementation, its
+   call sites, and the closest tests.
+2. Prefer the existing project abstraction or a direct code fix. Add focused
+   regression coverage whenever the rewrite can change behavior, error paths,
+   serialization, persistence, timing, or a public/internal contract.
+3. If a framework or protocol requires the flagged construct, use an inline
+   `# noqa: CODE` for that construct and explain the reason in nearby English
+   prose. Do not use a blanket `# noqa`.
+4. Use `per-file-ignores` only when the purpose of a file or file class
+   intrinsically conflicts with the rule, such as a lint fixture or immutable
+   migration history. A single ordinary call site belongs inline, not in
+   `ruff.toml`.
+5. Use a global ignore only when a documented repository-wide contract
+   fundamentally conflicts with the rule. Do not weaken `select` or `ignore`
+   to make an unrelated PR pass.
+
+Adopt or remove exceptions one rule unit at a time. A rule unit is normally
+one Ruff code; combine codes only when they report the same construct and have
+the same fix and exception boundary. Base each rule PR on the preceding rule
+branch, and keep unrelated cleanup out of the diff. Track the stack and rule
+census in `docs/exec-plans/active/ruff-rule-minimization.md`.
+
+For each rule unit, run the focused check first and then the repository gates:
+
+```bash
+ruff check . --select CODE
+ruff check .
+ruff format --check .
+python scripts/check_repo_harness.py
+```
+
+Run the nearest behavior tests for every touched runtime surface. Lint passing
+does not replace test coverage. Before committing, also run
+`python scripts/check_dev_tools.py` and `lefthook run pre-commit --all-files`.
+
 ## Development Workflow
 
 ### Branch Naming
