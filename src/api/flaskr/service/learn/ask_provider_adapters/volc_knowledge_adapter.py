@@ -4,8 +4,9 @@ import copy
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
-from typing import Any, Generator
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -37,10 +38,7 @@ def _normalize_query(params: dict[str, Any] | None) -> str:
     encoded_parts: list[str] = []
     for key in sorted(params.keys()):
         value = params[key]
-        if isinstance(value, list):
-            values = value
-        else:
-            values = [value]
+        values = value if isinstance(value, list) else [value]
         for item in values:
             item_text = "" if item is None else str(item)
             encoded_parts.append(
@@ -65,7 +63,7 @@ def _build_volc_signature_headers(
     service: str,
     region: str,
 ) -> dict[str, str]:
-    x_date = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    x_date = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     short_x_date = x_date[:8]
     x_content_sha256 = _hash_sha256(body)
 

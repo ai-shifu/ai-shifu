@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
@@ -258,7 +258,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         description="Whether the published lesson content is newer than this user's latest learning progress",
         required=False,
     )
-    children: list["LearnOutlineItemInfoDTO"] = Field(
+    children: list[LearnOutlineItemInfoDTO] = Field(
         ..., description="outline children", required=False
     )
 
@@ -268,9 +268,9 @@ class LearnOutlineItemInfoDTO(BaseModel):
         position: str,
         title: str,
         status: LearnStatus,
-        type: OutlineType,
+        type: OutlineType,  # noqa: A002 - serialized DTO field name
         is_paid: bool,
-        children: list["LearnOutlineItemInfoDTO"],
+        children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
     ):
         super().__init__(
@@ -340,7 +340,7 @@ class AudioSegmentDTO(BaseModel):
         default=None,
         description="Target mdflow stream element type when audio is bound directly",
     )
-    av_contract: Dict[str, Any] | None = Field(
+    av_contract: dict[str, Any] | None = Field(
         default=None, description="AV boundary contract metadata"
     )
     segment_index: int = Field(..., description="Segment sequence number")
@@ -349,7 +349,7 @@ class AudioSegmentDTO(BaseModel):
     is_final: bool = Field(
         default=False, description="Whether this is the last segment"
     )
-    subtitle_cues: List["SubtitleCueDTO"] = Field(
+    subtitle_cues: list[SubtitleCueDTO] = Field(
         default_factory=list,
         description="Subtitle cues available up to the current streamed segment",
     )
@@ -363,8 +363,8 @@ class AudioSegmentDTO(BaseModel):
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: Dict[str, Any] | None = None,
-        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
+        av_contract: dict[str, Any] | None = None,
+        subtitle_cues: list[SubtitleCueDTO] | None = None,
     ):
         super().__init__(
             position=position,
@@ -412,13 +412,13 @@ class AudioCompleteDTO(BaseModel):
         default=None,
         description="Target mdflow stream element type when audio is bound directly",
     )
-    av_contract: Dict[str, Any] | None = Field(
+    av_contract: dict[str, Any] | None = Field(
         default=None, description="AV boundary contract metadata"
     )
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
-    subtitle_cues: List["SubtitleCueDTO"] = Field(
+    subtitle_cues: list[SubtitleCueDTO] = Field(
         default_factory=list,
         description="Subtitle cue list aligned with synthesized TTS segments",
     )
@@ -431,8 +431,8 @@ class AudioCompleteDTO(BaseModel):
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: Dict[str, Any] | None = None,
-        subtitle_cues: Optional[List["SubtitleCueDTO"]] = None,
+        av_contract: dict[str, Any] | None = None,
+        subtitle_cues: list[SubtitleCueDTO] | None = None,
     ):
         super().__init__(
             position=position,
@@ -521,7 +521,7 @@ class ElementAudioDTO(BaseModel):
     audio_url: str = Field(..., description="Audio URL", required=False)
     audio_bid: str = Field(..., description="Audio business identifier", required=False)
     duration_ms: int = Field(..., description="Audio duration in ms", required=False)
-    subtitle_cues: List[SubtitleCueDTO] = Field(
+    subtitle_cues: list[SubtitleCueDTO] = Field(
         default_factory=list,
         description="Subtitle cue list aligned with the final audio",
         required=False,
@@ -533,7 +533,7 @@ class ElementAudioDTO(BaseModel):
         audio_bid: str,
         duration_ms: int,
         position: int = 0,
-        subtitle_cues: Optional[List[SubtitleCueDTO]] = None,
+        subtitle_cues: list[SubtitleCueDTO] | None = None,
     ):
         super().__init__(
             position=position,
@@ -560,7 +560,7 @@ class ElementPayloadDTO(BaseModel):
     audio: ElementAudioDTO | None = Field(
         default=None, description="Final merged audio payload"
     )
-    previous_visuals: List[ElementVisualDTO] = Field(
+    previous_visuals: list[ElementVisualDTO] = Field(
         default_factory=list, description="Visual snapshots for the element"
     )
     anchor_element_bid: str | None = Field(
@@ -575,10 +575,10 @@ class ElementPayloadDTO(BaseModel):
         default=None,
         description="Interaction user input when available",
     )
-    diff_payload: List[Dict[str, Any]] | None = Field(
+    diff_payload: list[dict[str, Any]] | None = Field(
         default=None, description="Optional diff payload for incremental updates"
     )
-    asks: List[Dict[str, Any]] | None = Field(
+    asks: list[dict[str, Any]] | None = Field(
         default=None,
         description="Ask Q&A pairs embedded in anchor element",
     )
@@ -586,12 +586,12 @@ class ElementPayloadDTO(BaseModel):
     def __init__(
         self,
         audio: ElementAudioDTO | None = None,
-        previous_visuals: Optional[List[ElementVisualDTO]] = None,
+        previous_visuals: list[ElementVisualDTO] | None = None,
         anchor_element_bid: str | None = None,
         ask_element_bid: str | None = None,
         user_input: str | None = None,
-        diff_payload: List[Dict[str, Any]] | None = None,
-        asks: List[Dict[str, Any]] | None = None,
+        diff_payload: list[dict[str, Any]] | None = None,
+        asks: list[dict[str, Any]] | None = None,
     ):
         super().__init__(
             audio=audio,
@@ -667,7 +667,7 @@ class ElementDTO(BaseModel):
     audio_url: str = Field(
         default="", description="Complete audio URL; empty until audio is finalized"
     )
-    audio_segments: List[Dict[str, Any]] = Field(
+    audio_segments: list[dict[str, Any]] = Field(
         default_factory=list, description="Streaming audio segment trail"
     )
     is_navigable: int = Field(default=1, description="Navigation flag")
@@ -703,7 +703,7 @@ class ElementDTO(BaseModel):
         "sequence_number",
     )
 
-    def apply_patch(self, patch: "ElementDTO") -> None:
+    def apply_patch(self, patch: ElementDTO) -> None:
         for field_name in self._PATCH_FIELDS:
             setattr(self, field_name, getattr(patch, field_name))
 
@@ -756,7 +756,7 @@ class AudioBackfillReadyDTO(BaseModel):
     generated_block_bid: str = Field(
         ..., description="Generated block ready for persisted audio backfill"
     )
-    element_bids: List[str] = Field(
+    element_bids: list[str] = Field(
         default_factory=list,
         description="Persisted final element identifiers in this generated block",
     )
@@ -783,15 +783,15 @@ class RunElementSSEMessageDTO(BaseModel):
         default=None,
         description="Whether this event marks the terminal end of the run stream",
     )
-    content: Union[
-        str,
-        ElementDTO,
-        VariableUpdateDTO,
-        OutlineItemUpdateDTO,
-        AudioSegmentDTO,
-        AudioCompleteDTO,
-        AudioBackfillReadyDTO,
-    ] = Field(..., description="Run event content")
+    content: (
+        str
+        | ElementDTO
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO
+        | AudioBackfillReadyDTO
+    ) = Field(..., description="Run event content")
 
     def __json__(self):
         ret = {
@@ -821,13 +821,13 @@ class RunMarkdownFlowDTO(BaseModel):
         ..., description="generated block id", required=False
     )
     type: GeneratedType = Field(..., description="generated type", required=False)
-    content: Union[
-        str,
-        VariableUpdateDTO,
-        OutlineItemUpdateDTO,
-        AudioSegmentDTO,
-        AudioCompleteDTO,
-    ] = Field(..., description="generated content", required=True)
+    content: (
+        str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO
+    ) = Field(..., description="generated content", required=True)
     anchor_element_bid: str = Field(
         default="",
         description="Anchor element bid for ASK events",
@@ -837,14 +837,12 @@ class RunMarkdownFlowDTO(BaseModel):
         self,
         outline_bid: str,
         generated_block_bid: str,
-        type: GeneratedType,
-        content: Union[
-            str,
-            VariableUpdateDTO,
-            OutlineItemUpdateDTO,
-            AudioSegmentDTO,
-            AudioCompleteDTO,
-        ],
+        type: GeneratedType,  # noqa: A002 - serialized DTO field name
+        content: str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO,
         anchor_element_bid: str = "",
     ):
         super().__init__(
@@ -857,7 +855,7 @@ class RunMarkdownFlowDTO(BaseModel):
 
     def set_mdflow_stream_parts(
         self, parts: list[tuple[str, str, int]] | None
-    ) -> "RunMarkdownFlowDTO":
+    ) -> RunMarkdownFlowDTO:
         normalized_parts: list[tuple[str, str, int]] = []
         for item in parts or []:
             if not isinstance(item, tuple) or len(item) != 3:
@@ -893,33 +891,33 @@ class RunMarkdownFlowDTO(BaseModel):
 
 
 class PlaygroundPreviewRequest(BaseModel):
-    content: Optional[str] = Field(
+    content: str | None = Field(
         default=None, description="Markdown-Flow document content"
     )
     block_index: int = Field(..., description="Block index to preview")
-    context: Optional[List[Dict[str, str]]] = Field(
+    context: list[dict[str, str]] | None = Field(
         default=None, description="Conversation context messages"
     )
-    variables: Optional[Dict[str, Any]] = Field(
+    variables: dict[str, Any] | None = Field(
         default=None,
         description="Variables to replace inside Markdown-Flow document",
     )
-    user_input: Optional[Dict[str, List[str]]] = Field(
+    user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
     )
-    document_prompt: Optional[str] = Field(
+    document_prompt: str | None = Field(
         default=None, description="Document level system prompt"
     )
-    interaction_prompt: Optional[str] = Field(
+    interaction_prompt: str | None = Field(
         default=None, description="Interaction render prompt override"
     )
-    interaction_error_prompt: Optional[str] = Field(
+    interaction_error_prompt: str | None = Field(
         default=None, description="Interaction error prompt override"
     )
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None, description="Target LLM model used during preview"
     )
-    temperature: Optional[float] = Field(
+    temperature: float | None = Field(
         default=None,
         ge=0.0,
         le=2.0,
@@ -936,22 +934,22 @@ class PlaygroundPreviewRequest(BaseModel):
 
 @register_schema_to_swagger
 class LearnElementRecordDTO(BaseModel):
-    elements: List[ElementDTO] = Field(
+    elements: list[ElementDTO] = Field(
         default_factory=list, description="Listen-mode final element snapshots"
     )
-    events: Optional[List[RunElementSSEMessageDTO]] = Field(
+    events: list[RunElementSSEMessageDTO] | None = Field(
         default=None, description="Optional listen-mode event stream replay"
     )
-    last_progress_updated_at: Optional[str] = Field(
+    last_progress_updated_at: str | None = Field(
         default=None,
         description="Latest update time for the learner's progress on this lesson",
     )
 
     def __init__(
         self,
-        elements: Optional[List[ElementDTO]] = None,
-        events: Optional[List[RunElementSSEMessageDTO]] = None,
-        last_progress_updated_at: Optional[str] = None,
+        elements: list[ElementDTO] | None = None,
+        events: list[RunElementSSEMessageDTO] | None = None,
+        last_progress_updated_at: str | None = None,
     ):
         super().__init__(
             elements=elements or [],

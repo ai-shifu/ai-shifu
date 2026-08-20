@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import List
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -33,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def iter_locale_dirs() -> List[Path]:
+def iter_locale_dirs() -> list[Path]:
     if not I18N_DIR.exists():
         raise RuntimeError(f"Translation directory not found: {I18N_DIR}")
 
@@ -48,7 +47,7 @@ def namespace_to_path(namespace: str) -> Path:
     return Path(relative)
 
 
-def ensure_namespace_files(namespace: str, keys: List[str] | None, force: bool) -> None:
+def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) -> None:
     relative_path = namespace_to_path(namespace)
     locale_dirs = iter_locale_dirs()
 

@@ -5,10 +5,10 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
 import flaskr.service.billing.checkout as billing_checkout_module
 import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
@@ -276,9 +276,9 @@ def add_trial_subscription_state(
                 wallet_bid=wallet_bid,
                 creator_bid=creator_bid,
                 available_credits=credit_amount,
-                reserved_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
                 lifetime_granted_credits=credit_amount,
-                lifetime_consumed_credits=Decimal("0"),
+                lifetime_consumed_credits=Decimal(0),
                 last_settled_usage_id=0,
                 version=0,
                 created_at=trial_start,
@@ -316,9 +316,9 @@ def add_trial_subscription_state(
                 priority=20,
                 original_credits=credit_amount,
                 available_credits=credit_amount,
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=trial_start,
                 effective_to=trial_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,

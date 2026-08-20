@@ -1,12 +1,10 @@
-"""Shifu utils
+"""Shifu utils.
 
 This module contains utility functions for shifu.
 
 Author: yfge
 Date: 2025-08-07
 """
-
-from typing import Optional
 
 from flask import Flask
 from flaskr.service.resource.models import Resource
@@ -60,7 +58,7 @@ def parse_shifu_res_bid(res_url: str):
     return ""
 
 
-def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
+def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     """Resolve the creator user business identifier for a given shifu.
 
     Args:

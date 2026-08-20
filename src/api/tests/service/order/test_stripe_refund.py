@@ -1,6 +1,6 @@
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import db
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
 from flaskr.service.order.funs import get_payment_details, refund_order_payment

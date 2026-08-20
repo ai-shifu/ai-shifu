@@ -1,4 +1,4 @@
-"""add sys configs
+"""add sys configs.
 
 Revision ID: 21a3e778ef01
 Revises: 6b603528dac8

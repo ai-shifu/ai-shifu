@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -209,7 +209,7 @@ def _fetch_distinct_ids_for_event(
     if "x-umami-api-key" not in headers and "Authorization" not in headers:
         return 0
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start_at = int((now - timedelta(days=30)).timestamp() * 1000)
     end_at = int(now.timestamp() * 1000)
 

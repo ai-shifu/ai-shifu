@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from flaskr.api.check.dto import (
@@ -19,12 +19,12 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 
-PROFILE_UPDATED_AT = datetime(2026, 8, 1, 8, 30, tzinfo=timezone.utc)
+PROFILE_UPDATED_AT = datetime(2026, 8, 1, 8, 30, tzinfo=UTC)
 
 
 def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
     assert value is not None
-    assert value.replace(tzinfo=timezone.utc) == expected
+    assert value.replace(tzinfo=UTC) == expected
 
 
 def _create_user(
@@ -965,7 +965,7 @@ def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
 
 
 def test_save_moderates_once_when_state_creation_retries(app, monkeypatch):
-    import flaskr.service.profile.learner_profile as learner_profile
+    from flaskr.service.profile import learner_profile
 
     moderation_calls: list[str] = []
     operation_calls = 0

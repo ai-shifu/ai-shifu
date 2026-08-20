@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -28,7 +28,7 @@ _MONTHLY_PLAN_CREDITS = Decimal("5.0000000000")
 
 
 def _utc_epoch(value: datetime) -> int:
-    return int(value.replace(tzinfo=timezone.utc).timestamp())
+    return int(value.replace(tzinfo=UTC).timestamp())
 
 
 @pytest.fixture

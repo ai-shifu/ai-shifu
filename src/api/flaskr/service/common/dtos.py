@@ -83,7 +83,7 @@ class UserToken:
     userInfo: UserInfo
     token: str
 
-    def __init__(self, userInfo: UserInfo, token):
+    def __init__(self, userInfo: UserInfo, token):  # noqa: N803 - mirrors the serialized field name
         self.userInfo = userInfo
         self.token = token
 

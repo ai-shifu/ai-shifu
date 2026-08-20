@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_INTERVAL_MONTH,
     BILLING_ORDER_STATUS_PAID,
@@ -144,7 +144,7 @@ def create_credit_wallet(
         wallet_bid=wallet_bid or f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=normalized_available_credits,
-        reserved_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
         lifetime_granted_credits=Decimal(lifetime_granted_credits or available_credits),
         lifetime_consumed_credits=Decimal(lifetime_consumed_credits),
         last_settled_usage_id=0,
@@ -185,8 +185,8 @@ def create_credit_bucket(
         priority=20 if category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION else 30,
         original_credits=resolved_original_credits,
         available_credits=normalized_available_credits,
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
         expired_credits=normalized_expired_credits,
         effective_from=effective_from,
         effective_to=effective_to,
@@ -272,8 +272,8 @@ def add_paid_renewal_with_reserved_grant(
         original_credits=Decimal("8.0000000000"),
         available_credits=Decimal("3.0000000000"),
         reserved_credits=Decimal("5.0000000000"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=current_cycle_start,
         effective_to=current_cycle_end,
         status=CREDIT_BUCKET_STATUS_ACTIVE,

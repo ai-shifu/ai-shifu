@@ -30,7 +30,7 @@ def check_text_with_llm_response(
     app: Flask,
     user_info: UserAggregate,
     log_script: LearnGeneratedBlock,
-    input: str,
+    user_input: str,
     span,
     outline_item_bid: str,
     shifu_bid: str,
@@ -42,17 +42,17 @@ def check_text_with_llm_response(
     chapter_title: str = "",
     scene: str = "lesson_runtime",
 ):
-    res = check_text(app, log_script.generated_block_bid, input, user_info.user_id)
+    res = check_text(app, log_script.generated_block_bid, user_input, user_info.user_id)
     span.event(
         name=build_langfuse_event_name(chapter_title, scene, "check_text"),
-        input=input,
+        input=user_input,
         output=res,
     )
     add_risk_control_result(
         app,
         log_script.generated_block_bid,
         user_info.user_id,
-        input,
+        user_input,
         res.provider,
         res.check_result,
         str(res.raw_data),
@@ -72,7 +72,7 @@ def check_text_with_llm_response(
 {fmt_prompt}
 
 # 学生发言
-{input}
+{user_input}
 
 # 学生发言违规原因
 {", ".join(labels)}

@@ -2,8 +2,8 @@ import json
 import unittest
 from datetime import datetime
 
-import flaskr.dao as dao
 from flask import Flask
+from flaskr import dao
 from flaskr.service.learn.lesson_feedback import (
     _sync_feedback_to_generated_block,
     build_lesson_feedback_interaction_md,
@@ -98,20 +98,20 @@ class LessonFeedbackTests(unittest.TestCase):
             LearnLessonFeedback.outline_item_bid == "outline-1",
             LearnLessonFeedback.deleted == 0,
         ).all()
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0].score, 3)
-        self.assertEqual(rows[0].comment, "Need more examples")
-        self.assertEqual(rows[0].mode, "listen")
-        self.assertEqual(rows[0].progress_record_bid, "progress-1")
-        self.assertEqual(rows[0].bid, rows[0].lesson_feedback_bid)
-        self.assertEqual(first["lesson_feedback_bid"], second["lesson_feedback_bid"])
+        assert len(rows) == 1
+        assert rows[0].score == 3
+        assert rows[0].comment == "Need more examples"
+        assert rows[0].mode == "listen"
+        assert rows[0].progress_record_bid == "progress-1"
+        assert rows[0].bid == rows[0].lesson_feedback_bid
+        assert first["lesson_feedback_bid"] == second["lesson_feedback_bid"]
 
         synced_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.generated_block_bid == "block-1"
         ).first()
         synced_generated_content = json.loads(synced_block.generated_content)
-        self.assertEqual(synced_generated_content.get("score"), 3)
-        self.assertEqual(synced_generated_content.get("comment"), "Need more examples")
+        assert synced_generated_content.get("score") == 3
+        assert synced_generated_content.get("comment") == "Need more examples"
 
     def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(self):
         interaction = LearnGeneratedBlock(
@@ -162,8 +162,8 @@ class LessonFeedbackTests(unittest.TestCase):
             )
 
         synced_generated_content = json.loads(interaction.generated_content)
-        self.assertEqual(synced_generated_content.get("score"), 5)
-        self.assertEqual(synced_generated_content.get("comment"), "new")
+        assert synced_generated_content.get("score") == 5
+        assert synced_generated_content.get("comment") == "new"
         dao.db.session.rollback()
 
     def test_list_feedback_serializes_timestamps_as_utc_iso_z(self):
@@ -191,9 +191,9 @@ class LessonFeedbackTests(unittest.TestCase):
             page_size=20,
         )
 
-        self.assertEqual(result["total"], 1)
-        self.assertEqual(result["items"][0]["created_at"], "2026-06-30T11:57:03Z")
-        self.assertEqual(result["items"][0]["updated_at"], "2026-06-30T12:08:09Z")
+        assert result["total"] == 1
+        assert result["items"][0]["created_at"] == "2026-06-30T11:57:03Z"
+        assert result["items"][0]["updated_at"] == "2026-06-30T12:08:09Z"
 
 
 if __name__ == "__main__":

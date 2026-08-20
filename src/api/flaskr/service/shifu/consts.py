@@ -1,4 +1,4 @@
-"""Shifu consts
+"""Shifu consts.
 
 This module contains constants for shifu.
 

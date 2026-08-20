@@ -2,6 +2,7 @@ import importlib
 import os
 from functools import partial
 from inspect import getmembers, isfunction
+from pathlib import Path
 
 from flask import Flask
 
@@ -22,15 +23,17 @@ def load_plugins_from_dir(
     app.logger.info(f"load modules from: {plugins_dir}")
 
     def load_from_directory(directory, plugin_manager: PluginManager = None):
-        files = os.listdir(directory)
+        files = [path.name for path in Path(directory).iterdir()]
         plugin_obj = None
         if SRC_DIR in files:
-            for filename in os.listdir(os.path.join(directory, SRC_DIR)):
+            for filename in [
+                path.name for path in (Path(directory) / SRC_DIR).iterdir()
+            ]:
                 if filename.endswith(".py"):
                     plugin_obj = importlib.import_module(
                         f"{directory}.{SRC_DIR}.{filename[:-3]}".replace(os.sep, ".")
                     )
-                    for name, obj in getmembers(plugin_obj):
+                    for _name, obj in getmembers(plugin_obj):
                         if (
                             isinstance(obj, type)
                             and issubclass(obj, BasePlugin)
@@ -38,18 +41,18 @@ def load_plugins_from_dir(
                         ):
                             plugin_define = obj()
                             if MIGRATION_DIR in files:
-                                plugin_define.migration_dir = os.path.join(
-                                    directory, MIGRATION_DIR
+                                plugin_define.migration_dir = str(
+                                    Path(directory) / MIGRATION_DIR
                                 )
                             plugin_manager.plugins[plugin_define.name] = plugin_define
                             app.logger.info(f"load plugin: {plugin_define.name}")
         for filename in files:
             if filename in ("__pycache__", MIGRATION_DIR) or filename.startswith("."):
                 continue
-            file_path = os.path.join(directory, filename)
+            file_path = str(Path(directory) / filename)
             if filename == TRANSLATIONS_DEFAULT_NAME:
                 load_translations(app, file_path)
-            elif os.path.isdir(file_path):
+            elif Path(file_path).is_dir():
                 load_from_directory(file_path, plugin_manager)
             elif filename.endswith(".py") and filename != "__init__.py":
                 module_name = filename[:-3]
@@ -63,15 +66,15 @@ def load_plugins_from_dir(
                         wrapped_func()
 
     with app.app_context():
-        files = os.listdir(plugins_dir)
+        files = [path.name for path in Path(plugins_dir).iterdir()]
         for file in files:
-            if os.path.isdir(os.path.join(plugins_dir, file)):
+            if (Path(plugins_dir) / file).is_dir():
                 app.logger.info(f"begin load plugin: {file}")
                 try:
-                    load_from_directory(os.path.join(plugins_dir, file), plugin_manager)
+                    load_from_directory(str(Path(plugins_dir) / file), plugin_manager)
                     app.logger.info(f"load plugin: {file} success")
-                except Exception as e:
-                    app.logger.error(f"load plugin: {file} error: {e}")
+                except Exception:
+                    app.logger.exception(f"load plugin: {file} error")
             else:
                 app.logger.warning(f"skip non-directory file: {file}")
     return plugins

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
-import flaskr.dao as dao
 import pytest
+from flaskr import dao
 from flaskr.dao import retry_on_deadlock
 from sqlalchemy.exc import OperationalError
 
@@ -101,7 +101,7 @@ def test_rolls_back_session_on_non_retryable_error(monkeypatch):
 
 
 def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(
@@ -124,7 +124,7 @@ def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch):
 
 
 def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
 
     invalidations = []
     monkeypatch.setattr(

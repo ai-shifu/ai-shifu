@@ -1,4 +1,4 @@
-"""add referral invitation tables
+"""add referral invitation tables.
 
 Revision ID: 5a6b7c8d9e10
 Revises: c5d8e1f2a3b4

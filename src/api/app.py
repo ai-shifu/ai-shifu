@@ -1,5 +1,7 @@
 import os
+import subprocess
 import time
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flasgger import Swagger
@@ -11,7 +13,8 @@ from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 # set timezone to UTC
 # fix windows platform
 if os.name == "nt":
-    os.system('tzutil /s "UTC"')
+    # tzutil ships with Windows and is resolved from PATH.
+    subprocess.run(["tzutil", "/s", "UTC"], check=False)  # noqa: S603, S607
 else:
     # Load environment variables first so we can use get_config
     if not os.getenv("SKIP_LOAD_DOTENV"):
@@ -79,7 +82,7 @@ def create_app() -> Flask:
 
     # Init LLM
     with app.app_context():
-        from flaskr.api import llm  # noqa
+        from flaskr.api import llm  # noqa: F401
     # init langfuse
     from flaskr import api
 
@@ -88,9 +91,9 @@ def create_app() -> Flask:
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
     from flaskr.framework.plugin.plugin_manager import plugin_manager
 
-    load_plugins_from_dir(app, os.path.join("flaskr", "service"))
+    load_plugins_from_dir(app, str(Path("flaskr") / "service"))
     try:
-        load_plugins_from_dir(app, os.path.join("flaskr", "plugins"), plugin_manager)
+        load_plugins_from_dir(app, str(Path("flaskr") / "plugins"), plugin_manager)
     except Exception as e:
         app.logger.warning(f"load plugins error: {e}")
 
@@ -116,7 +119,8 @@ def create_app() -> Flask:
 if __name__ == "__main__":
     app = create_app()
     # Only enable debug mode if explicitly running in development environment
-    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")
+    # Binding to all interfaces is required for the containerized dev server.
+    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")  # noqa: S104
 elif not os.getenv("SKIP_APP_AUTOCREATE"):
     app = create_app()
     from flaskr.framework.plugin.enable_plugin import enable_plugins

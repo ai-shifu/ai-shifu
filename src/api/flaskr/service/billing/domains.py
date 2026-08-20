@@ -514,9 +514,11 @@ def _is_tls_ready(host: str) -> bool:
     try:
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
-        with socket.create_connection((host, 443), timeout=5) as connection:
-            with context.wrap_socket(connection, server_hostname=host):
-                return True
+        with (
+            socket.create_connection((host, 443), timeout=5) as connection,
+            context.wrap_socket(connection, server_hostname=host),
+        ):
+            return True
     except (OSError, ssl.SSLError):
         return False
 
@@ -658,9 +660,10 @@ def _is_invalid_host(host: str) -> bool:
         return True
     try:
         ipaddress.ip_address(host)
-        return True
     except ValueError:
         pass
+    else:
+        return True
     labels = host.split(".")
     if any(not label or len(label) > 63 for label in labels):
         return True

@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
@@ -173,7 +173,7 @@ def test_run_billing_renewal_event_executes_at_exact_scheduled_time(
         assert event.processed_at is not None
         assert bucket.source_bid == order_bid
         assert bucket.available_credits == Decimal("5.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert grant_entry.consumable_from == current_cycle_end
         assert grant_entry.expires_at == next_cycle_end
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"

@@ -7,11 +7,11 @@ used interchangeably.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 
-class TTSProvider(str, Enum):
+class TTSProvider(StrEnum):
     """Supported TTS providers."""
 
     MINIMAX = "minimax"
@@ -32,7 +32,7 @@ class ParamRange:
     step: float
     default: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "min": self.min,
             "max": self.max,
@@ -50,13 +50,13 @@ class ProviderConfig:
     speed: ParamRange
     pitch: ParamRange
     supports_emotion: bool
-    models: Optional[List[Dict[str, str]]] = None
-    voices: List[Dict[str, str]] = field(default_factory=list)
-    emotions: List[Dict[str, str]] = field(default_factory=list)
+    models: list[dict[str, str]] | None = None
+    voices: list[dict[str, str]] = field(default_factory=list)
+    emotions: list[dict[str, str]] = field(default_factory=list)
     supports_custom_voice_id: bool = False
     supports_voice_cloning: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         data = {
             "name": self.name,
             "label": self.label,
@@ -83,7 +83,7 @@ class TTSResult:
     format: str
     word_count: int = 0
     usage_characters: int = 0
-    subtitle_cues: List[Dict[str, Any]] = field(default_factory=list)
+    subtitle_cues: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -96,7 +96,7 @@ class VoiceSettings:
     emotion: str = ""
     volume: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "voice_id": self.voice_id,
@@ -116,7 +116,7 @@ class AudioSettings:
     bitrate: int = 128000
     channel: int = 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "format": self.format,
@@ -142,9 +142,9 @@ class BaseTTSProvider(ABC):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech.
 
@@ -170,11 +170,11 @@ class BaseTTSProvider(ABC):
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings for this provider."""
 
-    def get_supported_emotions(self) -> List[str]:
+    def get_supported_emotions(self) -> list[str]:
         """Get list of supported emotions for this provider."""
         return []
 
-    def get_supported_voices(self) -> List[Dict[str, str]]:
+    def get_supported_voices(self) -> list[dict[str, str]]:
         """Get list of supported voices for this provider."""
         return []
 

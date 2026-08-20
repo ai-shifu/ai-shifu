@@ -1,9 +1,10 @@
+import contextlib
 import json
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
+from flaskr import dao
 from flaskr.common import config as config_module
 from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
 from flaskr.service.billing.models import BillingOrder, BillingProduct
@@ -32,9 +33,9 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
             avatar_res_bid="res",
             keywords="test",
             llm="gpt",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid=owner_bid,
             updated_user_bid=owner_bid,
         )
@@ -57,10 +58,8 @@ def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
 
 
 def _clear_config_caches() -> None:
-    try:
+    with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except Exception:
-        pass
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()

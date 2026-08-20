@@ -6,8 +6,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -122,9 +123,9 @@ def _build_follow_up_user_keyword_filter(
 
 
 def _resolve_follow_up_matching_outline_bids(
-    outline_context_map: Dict[str, Dict[str, str]],
+    outline_context_map: dict[str, dict[str, str]],
     chapter_keyword: str,
-) -> Optional[Set[str]]:
+) -> set[str] | None:
     normalized_keyword = str(chapter_keyword or "").strip().lower()
     if not normalized_keyword:
         return None
@@ -561,7 +562,7 @@ def get_operator_course_follow_ups(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseFollowUpListDTO:
     with app.app_context():

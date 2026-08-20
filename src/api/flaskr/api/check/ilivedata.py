@@ -20,8 +20,6 @@ from .dto import (
     CheckResultDTO,
 )
 
-# pid = ""
-# secret_key = b""
 endpoint_host = "tsafe.ilivedata.com"
 endpoint_path = "/api/v1/text/check"
 endpoint_url = "https://tsafe.ilivedata.com/api/v1/text/check"
@@ -92,7 +90,7 @@ def ilivedata_check(
     try:
         ret = send(query_body, signature, now_date, pid, timeout=timeout_seconds)
     except URLError as err:
-        app.logger.error("ilivedata request failed: %s", err)
+        app.logger.exception("ilivedata request failed")
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],
@@ -141,8 +139,10 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )
     try:
-        return json.loads(urlopen(req, timeout=timeout).read().decode(), strict=False)
+        # The endpoint is a fixed https URL built from configuration.
+        with urlopen(req, timeout=timeout) as response:  # noqa: S310
+            return json.loads(response.read().decode(), strict=False)
     except URLError:
         raise
     except OSError as err:
-        raise URLError(err)
+        raise URLError(err) from err

@@ -18,7 +18,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Ensure `/app` (repo root for src/api) is on sys.path when executed as a file path.
 _API_ROOT = Path(__file__).resolve().parents[1]
@@ -143,7 +143,7 @@ def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
                     add_case(model_value, _safe_str(voice.get("value")))
         return cases
 
-    # matrix == "coverage"
+    # Coverage matrix:
     # 1) Test each model with a representative voice.
     for model in models:
         model_value = _safe_str(model.get("value"))
@@ -418,7 +418,7 @@ def main():
             voice_label = case.get("voice_label", "")
 
             try:
-                result: Optional[SynthesizeToOssResult] = None
+                result: SynthesizeToOssResult | None = None
                 elapsed = 0.0
                 t0 = time.monotonic()
                 result = synthesize_long_text_to_oss(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Type
+from collections.abc import Iterable
 
 from .base import AuthProvider
 
@@ -15,10 +15,10 @@ class ProviderNotFoundError(RuntimeError):
     """Raised when the requested provider has not been registered."""
 
 
-_REGISTRY: Dict[str, Type[AuthProvider]] = {}
+_REGISTRY: dict[str, type[AuthProvider]] = {}
 
 
-def register_provider(provider_cls: Type[AuthProvider]) -> None:
+def register_provider(provider_cls: type[AuthProvider]) -> None:
     """Register a provider class with the global registry."""
     provider_name = getattr(provider_cls, "provider_name", None)
     if not provider_name:
@@ -53,5 +53,5 @@ def registered_providers() -> Iterable[str]:
 
 
 def clear_providers() -> None:
-    """Utility for tests to reset the provider registry."""
+    """Reset the provider registry (test helper)."""
     _REGISTRY.clear()

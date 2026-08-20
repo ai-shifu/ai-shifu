@@ -4,7 +4,6 @@ This module provides OSS upload utility for TTS audio files.
 """
 
 import logging
-from typing import Tuple
 
 from flask import Flask
 from flaskr.common.log import AppLoggerProxy
@@ -16,7 +15,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 def upload_audio_to_oss(
     app: Flask, audio_content: bytes, audio_bid: str
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Upload audio to OSS.
 
     Args:

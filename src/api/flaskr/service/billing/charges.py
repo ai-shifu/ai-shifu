@@ -37,7 +37,7 @@ from .primitives import (
 )
 from .rate_references import resolve_llm_rate_identity
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _ROUNDING_LABELS = {
     CREDIT_ROUNDING_MODE_CEIL: "ceil",
     CREDIT_ROUNDING_MODE_FLOOR: "floor",

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from flask import Flask
 from flaskr.service.learn.learn_dtos import (

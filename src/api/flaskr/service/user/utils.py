@@ -1,5 +1,5 @@
 import json
-import random
+import secrets
 import smtplib
 import string
 import time
@@ -168,8 +168,6 @@ def send_sms_code(
         if ip:
             ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
             if redis.get(ip_ban_key):
-                # Development, debugging and use
-                # redis.delete(ip_ban_key)
                 raise_error("server.user.ipBanned")
 
             # Check IP sending frequency
@@ -202,7 +200,7 @@ def send_sms_code(
 
         characters = string.digits
         # Generate a random string of length 4
-        random_string = "".join(random.choices(characters, k=4))
+        random_string = "".join(secrets.choice(characters) for _ in range(4))
         # 发送短信验证码
         redis.set(
             _redis_prefix(app, "REDIS_KEY_PREFIX_PHONE_CODE") + phone,
@@ -242,8 +240,6 @@ def send_email_code(
         if ip:
             ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
             if redis.get(ip_ban_key):
-                # Development, debugging and use
-                # redis.delete(ip_ban_key)
                 raise_error("server.user.ipBanned")
 
             # Check IP sending frequency
@@ -280,7 +276,7 @@ def send_email_code(
         msg["To"] = email
         msg["Subject"] = _("server.user.emailVerificationSubject")
         characters = string.digits
-        random_string = "".join(random.choices(characters, k=4))
+        random_string = "".join(secrets.choice(characters) for _ in range(4))
         # to set redis
         redis.set(
             _redis_prefix(app, "REDIS_KEY_PREFIX_MAIL_CODE") + email,
@@ -317,8 +313,8 @@ def send_email_code(
             app.logger.info(f"Verification code sent to {email}")
             user_verify_code.verify_code_send = 1
             db.session.commit()
-        except Exception as e:
-            app.logger.error(f"Failed to send verification code to {email}: {e!s}")
+        except Exception:
+            app.logger.exception(f"Failed to send verification code to {email}")
             raise_error("server.user.emailSendFailed")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 

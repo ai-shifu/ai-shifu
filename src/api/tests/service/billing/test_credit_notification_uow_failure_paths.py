@@ -24,9 +24,9 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import uow
 from flaskr.i18n import load_translations
 from flaskr.service.billing import credit_notifications
@@ -221,9 +221,9 @@ def _seed_wallet(*, creator_bid: str, available_credits: str = "2") -> None:
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal(available_credits),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
         )
     )
     dao.db.session.commit()
@@ -446,7 +446,7 @@ def test_granted_dispatch_fires_after_commit_and_drops_on_rollback(
 
     # Nested: the outer failure drops the deferred dispatch — the legacy code
     # committed and enqueued mid-flow and could never be taken back.
-    with pytest.raises(RuntimeError, match="outer boom"):
+    def stage_then_fail() -> None:
         with uow.unit_of_work():
             staged = stage_credit_granted_notification(
                 app,
@@ -457,6 +457,9 @@ def test_granted_dispatch_fires_after_commit_and_drops_on_rollback(
             assert staged["status"] == CREDIT_NOTIFICATION_STATUS_PENDING
             assert enqueued == []  # not yet durable, must not dispatch
             raise RuntimeError("outer boom")
+
+    with pytest.raises(RuntimeError, match="outer boom"):
+        stage_then_fail()
     dao.db.session.expire_all()
     assert enqueued == []
     assert (

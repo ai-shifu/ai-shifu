@@ -5,9 +5,10 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -50,7 +51,7 @@ def _load_course_related_user_bids(
     shifu_bid: str,
     *,
     creator_user_bid: str,
-) -> tuple[Set[str], Set[str]]:
+) -> tuple[set[str], set[str]]:
     order_user_bids = {
         str(user_bid or "").strip()
         for (user_bid,) in db.session.query(Order.user_bid)
@@ -99,7 +100,7 @@ def _load_course_related_user_bids(
 def _load_course_user_paid_amount_map(
     shifu_bid: str,
     user_bids: Sequence[str],
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -135,7 +136,7 @@ def _load_course_user_paid_amount_map(
 def _load_course_user_last_learning_map(
     shifu_bid: str,
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -170,8 +171,8 @@ def _load_course_user_joined_at_map(
     user_bids: Sequence[str],
     *,
     creator_user_bid: str,
-    course_created_at: Optional[datetime],
-) -> Dict[str, datetime]:
+    course_created_at: datetime | None,
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -180,7 +181,7 @@ def _load_course_user_joined_at_map(
     if not normalized_user_bids:
         return {}
 
-    joined_at_map: Dict[str, datetime] = {}
+    joined_at_map: dict[str, datetime] = {}
 
     def _merge_rows(rows: Sequence[tuple[str, Any]]) -> None:
         for user_bid, joined_at in rows:
@@ -250,7 +251,7 @@ def _load_course_user_learned_lesson_count_map(
     shifu_bid: str,
     user_bids: Sequence[str],
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, int]:
+) -> dict[str, int]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -294,7 +295,7 @@ def get_operator_course_users(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> PageNationDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()

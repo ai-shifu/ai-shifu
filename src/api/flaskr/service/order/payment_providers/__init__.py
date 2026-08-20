@@ -1,3 +1,5 @@
+"""Payment provider adapters."""
+
 from .base import (
     PaymentCreationResult,
     PaymentNotificationResult,

@@ -25,9 +25,9 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import uow
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing import renewal_event_transitions
@@ -397,13 +397,16 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
     # Nested: the outer failure rolls the whole event back and the deferred
     # dispatch is dropped — the pre-migration code enqueued right after its
     # own commit and could never be taken back.
-    with pytest.raises(RuntimeError, match="outer boom"):
+    def run_then_fail() -> None:
         with uow.unit_of_work():
             run_billing_renewal_event(
                 renewal_uow_app, renewal_event_bid="renewal-uow-notify"
             )
             assert enqueued == []  # not yet durable, must not dispatch
             raise RuntimeError("outer boom")
+
+    with pytest.raises(RuntimeError, match="outer boom"):
+        run_then_fail()
     dao.db.session.expire_all()
     event = BillingRenewalEvent.query.filter_by(
         renewal_event_bid="renewal-uow-notify"
@@ -829,7 +832,7 @@ def test_lost_claim_rolls_back_business_side_effects(
     )
     dao.db.session.commit()
 
-    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+    def cancel_then_complete() -> None:
         with uow.unit_of_work():
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-uow-lost-claim-rollback"
@@ -840,6 +843,9 @@ def test_lost_claim_rolls_back_business_side_effects(
                 old_worker_event,
                 now=now_utc(),
             )
+
+    with pytest.raises(renewal_event_transitions.RenewalEventClaimLostError):
+        cancel_then_complete()
     dao.db.session.expire_all()
 
     subscription = BillingSubscription.query.filter_by(

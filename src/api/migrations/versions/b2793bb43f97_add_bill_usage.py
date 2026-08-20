@@ -1,4 +1,4 @@
-"""add bill usage table
+"""add bill usage table.
 
 Revision ID: b2793bb43f97
 Revises: 9f3a0c3aebe0

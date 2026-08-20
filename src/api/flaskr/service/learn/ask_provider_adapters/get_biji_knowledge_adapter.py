@@ -9,7 +9,8 @@ emitting the formatted snippets directly.
 API reference: https://www.biji.com/openapi
 """
 
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 import requests
 from flask import Flask

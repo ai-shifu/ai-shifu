@@ -1,14 +1,14 @@
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class FakeRedisLock:
-    def __init__(self, locks: Dict[str, bool], key: str):
+    def __init__(self, locks: dict[str, bool], key: str):
         self._locks = locks
         self._key = key
         self._held = False
 
-    def acquire(self, blocking: bool = True, blocking_timeout: Optional[int] = None):
+    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
         if self._locks.get(self._key, False):
             return False
         self._locks[self._key] = True
@@ -23,9 +23,9 @@ class FakeRedisLock:
 
 class FakeRedis:
     def __init__(self):
-        self._store: Dict[str, Any] = {}
-        self._expires: Dict[str, float] = {}
-        self._locks: Dict[str, bool] = {}
+        self._store: dict[str, Any] = {}
+        self._expires: dict[str, float] = {}
+        self._locks: dict[str, bool] = {}
 
     def _now(self) -> float:
         return time.time()
@@ -54,7 +54,7 @@ class FakeRedis:
             return None
         return self._store.get(key)
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def getex(self, key: str, ex: int | None = None, px: int | None = None):
         value = self.get(key)
         if value is None:
             return None
@@ -68,8 +68,8 @@ class FakeRedis:
         self,
         key: str,
         value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
         *args,
@@ -104,10 +104,7 @@ class FakeRedis:
 
     def incr(self, key: str, amount: int = 1):
         current = self.get(key)
-        if current is None:
-            current_value = 0
-        else:
-            current_value = int(current)
+        current_value = 0 if current is None else int(current)
         new_value = current_value + amount
         self._store[key] = self._encode(new_value)
         ttl = self._expires.get(key)
@@ -129,8 +126,8 @@ class FakeRedis:
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
     ):
         return FakeRedisLock(self._locks, key)
 

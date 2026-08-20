@@ -1,4 +1,4 @@
-"""Shifu outline funcs
+"""Shifu outline funcs.
 
 This module contains functions for managing shifu outline.
 
@@ -49,7 +49,7 @@ def convert_outline_to_reorder_outline_item_dto(
     Args:
         json_array: The json array to convert
     Returns:
-        The reorder outline item dto
+        The reorder outline item dto.
     """
     if not isinstance(json_array, list):
         raise_param_error("outlines")
@@ -77,7 +77,7 @@ def load_existing_outline_items(
     Args:
         shifu_bid: Shifu bid
     Returns:
-        list[DraftOutlineItem]: Outline items
+        list[DraftOutlineItem]: Outline items.
     """
     sub_query = (
         db.session.query(db.func.max(DraftOutlineItem.id))
@@ -165,7 +165,7 @@ def build_outline_tree(
         app: Flask application instance
         shifu_bid: Shifu bid
     Returns:
-        list[ShifuOutlineTreeNode]: Outline tree
+        list[ShifuOutlineTreeNode]: Outline tree.
     """
     outline_items = load_existing_outline_items(
         shifu_bid, include_content=include_content
@@ -187,6 +187,7 @@ def assert_outline_items_publishable(
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
+        outline_items: Draft outline items that would be published
 
     Raises:
         AppException: server.shifu.outlineStructureBroken when positions collide
@@ -219,7 +220,7 @@ def get_outline_tree_dto(
     Args:
         outline_tree: Outline tree
     Returns:
-        list[SimpleOutlineDto]: Outline tree dto
+        list[SimpleOutlineDto]: Outline tree dto.
     """
     result = []
     for node in outline_tree:
@@ -258,12 +259,11 @@ def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto
         user_id: User ID
         shifu_bid: Shifu bid
     Returns:
-        list[SimpleOutlineDto]: Outline tree
+        list[SimpleOutlineDto]: Outline tree.
     """
     app.logger.info(f"get outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}")
     with app.app_context():
         outline_tree = build_outline_tree(app, shifu_bid, include_content=False)
-        # return result
         return get_outline_tree_dto(outline_tree)
 
 
@@ -422,7 +422,7 @@ def create_outline(
         system_prompt: System prompt
         is_hidden: Is hidden
     Returns:
-        SimpleOutlineDto: Outline dto
+        SimpleOutlineDto: Outline dto.
     """
     with app.app_context():
         now_time = now_utc()
@@ -563,6 +563,9 @@ def create_outlines_batch(
     on position allocation and can leave a shifu unpublishable.
 
     Args:
+        app: Flask application instance
+        shifu_id: Shifu bid the outlines belong to
+        user_id: User bid performing the batch create
         outlines: nested nodes, each a dict with keys ``name`` (required),
             ``type``, ``system_prompt``, ``is_hidden``, and ``children`` (a list
             of the same shape).
@@ -639,7 +642,7 @@ def reorder_outline_tree(
 ):
     """Reorder outline tree
     usage:
-    1. reorder outline tree
+    1. reorder outline tree.
 
     Args:
         app: Flask application instance
@@ -737,7 +740,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         unit_id: Unit ID
     Returns:
         OutlineDto: Outline dto
-        None: If unit not found
+        None: If unit not found.
     """
     with app.app_context():
         unit: DraftOutlineItem = (
@@ -789,7 +792,7 @@ def modify_unit(
         unit_is_hidden: Unit is hidden
         unit_type: Unit type
     Returns:
-        OutlineDto: Outline dto
+        OutlineDto: Outline dto.
     """
     with app.app_context():
         app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
@@ -861,7 +864,7 @@ def modify_unit(
 
 
 def delete_unit(app, user_id: str, unit_id: str):
-    """Delete unit
+    """Delete unit.
 
     Args:
         app: Flask application instance

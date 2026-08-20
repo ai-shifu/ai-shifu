@@ -31,21 +31,12 @@ def get_engine_url():
         return str(get_engine().url).replace("%", "%%")
 
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 config.set_main_option("sqlalchemy.url", get_engine_url())
 target_db = current_app.extensions["migrate"].db
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
-
-def include_object(object, name, type_, reflected, compare_to):
-    """The simplest mode to avoid separation"""
+def include_object(db_object, name, type_, reflected, compare_to):
+    """Use the simplest mode to avoid separation."""
     # the system tables
     system_tables = [
         "alembic_version",
@@ -72,9 +63,9 @@ def include_object(object, name, type_, reflected, compare_to):
             # if not found the corresponding model, but not the system table, also include (for detection of deletion)
             return True
         # for the model table, check if it belongs to our service module
-        if hasattr(object, "metadata"):
+        if hasattr(db_object, "metadata"):
             for mapper in db.Model.registry.mappers:
-                if mapper.local_table is object:
+                if mapper.local_table is db_object:
                     model_class = mapper.class_
                     return model_class.__module__.startswith("flaskr.service")
         return False
@@ -87,8 +78,8 @@ def include_object(object, name, type_, reflected, compare_to):
         "check_constraint",
     ]:
         # for the column, index, constraint, check if it belongs to our service module
-        if hasattr(object, "table"):
-            table_name = object.table.name
+        if hasattr(db_object, "table"):
+            table_name = db_object.table.name
             # the system tables
             return not (
                 table_name in system_tables or table_name.startswith("information_")
@@ -184,7 +175,7 @@ def run_migrations_online() -> None:
                         merge_related_changes(script)
 
     def is_meaningful_operation(op):
-        """Judge if an operation is meaningful (not meaningless type conversion)"""
+        """Judge if an operation is meaningful (not meaningless type conversion)."""
         op_type = type(op).__name__
 
         # for the ALTER COLUMN operation, check if it is meaningless type conversion
@@ -236,7 +227,7 @@ def run_migrations_online() -> None:
         return True
 
     def filter_unnecessary_operations(script):
-        """Filter out the unnecessary or duplicate operations"""
+        """Filter out the unnecessary or duplicate operations."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -270,7 +261,7 @@ def run_migrations_online() -> None:
             )
 
     def get_operation_signature(op):
-        """Generate the unique signature of the operation to detect duplication"""
+        """Generate the unique signature of the operation to detect duplication."""
         op_type = type(op).__name__
 
         if hasattr(op, "table_name"):
@@ -298,12 +289,12 @@ def run_migrations_online() -> None:
         return f"{op_type}:unknown"
 
     def should_skip_operation(op):
-        """Judge if it should skip the operation"""
+        """Judge if it should skip the operation."""
         op_type = type(op).__name__
 
         # dynamically get the application table prefixes, based on the actual defined models
         def get_app_table_prefixes():
-            """Dynamically get the table prefixes from the actual models"""
+            """Dynamically get the table prefixes from the actual models."""
             prefixes = set()
 
             # traverse all the registered models
@@ -334,7 +325,7 @@ def run_migrations_online() -> None:
 
         # get all registered application table names
         def get_app_table_names():
-            """Get all registered application table names"""
+            """Get all registered application table names."""
             table_names = set()
             for mapper in db.Model.registry.mappers:
                 model_class = mapper.class_
@@ -486,7 +477,7 @@ def run_migrations_online() -> None:
         return False
 
     def merge_related_changes(script):
-        """Merge the related changes into the same migration"""
+        """Merge the related changes into the same migration."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -577,7 +568,7 @@ def run_migrations_online() -> None:
         metadata_default,
         rendered_metadata_default,
     ):
-        """自定义 server_default 比较，减少误报"""
+        """Compare server defaults leniently to reduce false positives."""
 
         # 标准化默认值的表示
         def normalize_default(default):
@@ -605,7 +596,7 @@ def run_migrations_online() -> None:
     def compare_comment(
         context, inspected_column, metadata_column, inspected_comment, metadata_comment
     ):
-        """自定义 comment 比较，减少误报但允许真正的注释变更"""
+        """Compare comments leniently, still reporting real comment changes."""
 
         # 标准化注释
         def normalize_comment(comment):
@@ -649,7 +640,7 @@ def run_migrations_online() -> None:
     def compare_type(
         context, inspected_column, metadata_column, inspected_type, metadata_type
     ):
-        """自定义类型比较，减少误报"""
+        """Compare column types leniently to reduce false positives."""
         # 对于某些类型的小差异，认为相同
         inspected_str = str(inspected_type).upper()
         metadata_str = str(metadata_type).upper()
@@ -676,9 +667,12 @@ def run_migrations_online() -> None:
         varchar_pattern = r"VARCHAR\((\d+)\)"
         inspected_match = re.search(varchar_pattern, inspected_str)
         metadata_match = re.search(varchar_pattern, metadata_str)
-        if inspected_match and metadata_match:
-            if inspected_match.group(1) == metadata_match.group(1):
-                return False
+        if (
+            inspected_match
+            and metadata_match
+            and inspected_match.group(1) == metadata_match.group(1)
+        ):
+            return False
 
         # TEXT 类型的处理 - MySQL 的 TEXT, LONGTEXT 等都映射到 SQLAlchemy 的 TEXT
         if "TEXT" in inspected_str and "TEXT" in metadata_str:

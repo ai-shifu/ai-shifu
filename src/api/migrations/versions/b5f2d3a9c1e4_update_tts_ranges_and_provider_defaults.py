@@ -1,4 +1,4 @@
-"""add tts audio records and shifu tts config
+"""add tts audio records and shifu tts config.
 
 Revision ID: b5f2d3a9c1e4
 Revises: c9c92880fc67

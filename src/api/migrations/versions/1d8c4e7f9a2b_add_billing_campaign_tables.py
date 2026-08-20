@@ -1,4 +1,4 @@
-"""add billing campaign tables
+"""add billing campaign tables.
 
 Revision ID: 1d8c4e7f9a2b
 Revises: d2f4a7c9b8e1

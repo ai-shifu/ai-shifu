@@ -3,7 +3,7 @@
 
 
 import hashlib
-import random
+import secrets
 import time
 from urllib.parse import urlencode
 
@@ -62,14 +62,15 @@ CHECK_RESULT_MAP = {
 
 
 def gen_signature(params=None):
-    """Generate signature for yidun check"""
+    """Generate signature for yidun check."""
     buff = ""
     for k in sorted(params.keys()):
         buff += str(k) + str(params[k])
     buff += YIDUN_SECRET_KEY
     if "signatureMethod" in params and params["signatureMethod"] == "SM3":
         return sm3.sm3_hash(func.bytes_to_list(bytes(buff, encoding="utf8")))
-    return hashlib.md5(buff.encode("utf8")).hexdigest()
+    # MD5 is mandated by the Yidun signature protocol.
+    return hashlib.md5(buff.encode("utf8")).hexdigest()  # noqa: S324
 
 
 def yidun_check(
@@ -94,7 +95,7 @@ def yidun_check(
     params["businessId"] = YIDUN_BUSINESS_ID
     params["version"] = VERSION
     params["timestamp"] = int(time.time() * 1000)
-    params["nonce"] = int(random.random() * 100000000)
+    params["nonce"] = secrets.randbelow(100000000)
     if user_id:
         params["account"] = user_id
     params["signature"] = gen_signature(params)
@@ -150,8 +151,8 @@ def yidun_check(
             provider=PROVIDER,
             raw_data=response_json,
         )
-    except Exception as ex:
-        app.logger.error("yidun check error: %r", ex)
+    except Exception:
+        app.logger.exception("yidun check error")
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Union, get_args, get_origin
+from typing import Union, get_args, get_origin
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
@@ -89,7 +89,7 @@ class AdminPromotionCouponItemDTO(_DTOBase):
     end_at: datetime | None = Field(..., description="Coupon end time", required=False)
     total_count: int = Field(..., description="Total count", required=False)
     used_count: int = Field(..., description="Used count", required=False)
-    ops_states: List[str] = Field(
+    ops_states: list[str] = Field(
         ..., description="Operator-facing operational states", required=False
     )
     computed_status: str = Field(..., description="Computed status", required=False)
@@ -261,4 +261,4 @@ class AdminPromotionListResponseDTO(_DTOBase):
     page_size: int = Field(..., description="Page size", required=False)
     total: int = Field(..., description="Total count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
-    items: List[dict] = Field(..., description="List items", required=False)
+    items: list[dict] = Field(..., description="List items", required=False)

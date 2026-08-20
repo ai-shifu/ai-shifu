@@ -110,7 +110,7 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
             decrypted_value = fernet.decrypt(encrypted_value.encode())
             return decrypted_value.decode()
         except Exception as e:
-            raise ValueError(f"Failed to decrypt config value: {e!s}")
+            raise ValueError(f"Failed to decrypt config value: {e!s}") from e
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:
@@ -190,7 +190,7 @@ def get_config(key: str, default: str | None = None) -> str:
                             is_encrypted=bool(config.is_encrypted),
                             value=raw_value,
                         ).model_dump_json(),
-                        ex=86400 + random.randint(0, 3600),
+                        ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
                     )
                     return value
                 finally:
@@ -203,10 +203,11 @@ def get_config(key: str, default: str | None = None) -> str:
                             "get_config lock for %s expired before release; ignoring",
                             key,
                         )
-            return default
         except (SQLAlchemyError, RuntimeError) as exc:
             app.logger.warning("Database not ready for get_config(%s): %s", key, exc)
             return get_config_from_common(key, default)
+        else:
+            return default
 
 
 def add_config(
@@ -244,7 +245,7 @@ def add_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         # Config doesn't exist, add new one
@@ -266,7 +267,7 @@ def add_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         return False
@@ -317,7 +318,7 @@ def update_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         return False

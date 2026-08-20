@@ -1,4 +1,4 @@
-"""add is_operator to user_users
+"""add is_operator to user_users.
 
 Revision ID: 1f2e3d4c5b6a
 Revises: 7b3c5d9e1a2f

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
@@ -77,7 +76,7 @@ class OrderAdminSummaryDTO(BaseModel):
     order_source_key: str = Field(
         ..., description="Order source i18n key", required=False
     )
-    coupon_codes: List[str] = Field(
+    coupon_codes: list[str] = Field(
         default_factory=list,
         description="Coupon codes applied to this order",
         required=False,
@@ -105,7 +104,7 @@ class OrderAdminSummaryDTO(BaseModel):
         updated_at: datetime | None,
         order_source: str = "",
         order_source_key: str = "",
-        coupon_codes: List[str] | None = None,
+        coupon_codes: list[str] | None = None,
     ):
         super().__init__(
             order_bid=order_bid,
@@ -354,10 +353,10 @@ class OrderAdminDetailDTO(BaseModel):
     order: OrderAdminSummaryDTO = Field(
         ..., description="Order summary", required=False
     )
-    activities: List[OrderAdminActivityDTO] = Field(
+    activities: list[OrderAdminActivityDTO] = Field(
         ..., description="Order activities", required=False
     )
-    coupons: List[OrderAdminCouponDTO] = Field(
+    coupons: list[OrderAdminCouponDTO] = Field(
         ..., description="Order coupons", required=False
     )
     payment: OrderAdminPaymentDTO = Field(
@@ -367,8 +366,8 @@ class OrderAdminDetailDTO(BaseModel):
     def __init__(
         self,
         order: OrderAdminSummaryDTO,
-        activities: List[OrderAdminActivityDTO],
-        coupons: List[OrderAdminCouponDTO],
+        activities: list[OrderAdminActivityDTO],
+        coupons: list[OrderAdminCouponDTO],
         payment: OrderAdminPaymentDTO,
     ):
         super().__init__(

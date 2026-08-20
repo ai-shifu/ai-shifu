@@ -14,7 +14,7 @@ import logging
 import struct
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -102,11 +102,11 @@ class ProtocolFrame:
     message_flags: int
     serialization: SerializationMethod
     compression: CompressionMethod
-    event: Optional[Event]
-    session_id: Optional[str]
-    connection_id: Optional[str]
-    payload: Union[bytes, Dict[str, Any], None]
-    error_code: Optional[int] = None
+    event: Event | None
+    session_id: str | None
+    connection_id: str | None
+    payload: bytes | dict[str, Any] | None
+    error_code: int | None = None
 
 
 class VolcengineProtocol:
@@ -116,8 +116,8 @@ class VolcengineProtocol:
     HEADER_SIZE = 0b0001  # 4 bytes (multiplied by 4)
 
     def __init__(self):
-        self.connection_id: Optional[str] = None
-        self.session_id: Optional[str] = None
+        self.connection_id: str | None = None
+        self.session_id: str | None = None
 
     def encode_start_connection(self) -> bytes:
         """Encode StartConnection frame."""
@@ -167,6 +167,8 @@ class VolcengineProtocol:
             volume: Volume rate (-50 to 100, 0 is normal)
             emotion: Emotion setting
             model: Model version (e.g., seed-tts-1.1)
+            enable_timestamp: Ask the provider for word-level timestamps
+            enable_subtitle: Ask the provider for subtitle events
 
         Returns:
             Encoded binary frame
@@ -301,10 +303,10 @@ class VolcengineProtocol:
         compression = CompressionMethod(byte2 & 0x0F)
 
         offset = header_size
-        event: Optional[Event] = None
-        session_id: Optional[str] = None
-        connection_id: Optional[str] = None
-        error_code: Optional[int] = None
+        event: Event | None = None
+        session_id: str | None = None
+        connection_id: str | None = None
+        error_code: int | None = None
 
         # Check if frame has event number
         has_event = (message_flags & MessageFlag.WITH_EVENT) != 0
@@ -341,26 +343,30 @@ class VolcengineProtocol:
                         )
                         offset += conn_id_len
                         self.connection_id = connection_id
-            elif event and event in [
-                Event.SESSION_STARTED,
-                Event.SESSION_CANCELED,
-                Event.SESSION_FINISHED,
-                Event.SESSION_FAILED,
-                Event.TTS_SENTENCE_START,
-                Event.TTS_SENTENCE_END,
-                Event.TTS_RESPONSE,
-                Event.TTS_SUBTITLE,
-            ]:
-                # Session events have session_id
-                if len(data) >= offset + 4:
-                    sess_id_len = struct.unpack(">I", data[offset : offset + 4])[0]
-                    offset += 4
-                    if len(data) >= offset + sess_id_len:
-                        session_id = data[offset : offset + sess_id_len].decode("utf-8")
-                        offset += sess_id_len
+            # Session events have session_id
+            elif (
+                event
+                and event
+                in [
+                    Event.SESSION_STARTED,
+                    Event.SESSION_CANCELED,
+                    Event.SESSION_FINISHED,
+                    Event.SESSION_FAILED,
+                    Event.TTS_SENTENCE_START,
+                    Event.TTS_SENTENCE_END,
+                    Event.TTS_RESPONSE,
+                    Event.TTS_SUBTITLE,
+                ]
+                and len(data) >= offset + 4
+            ):
+                sess_id_len = struct.unpack(">I", data[offset : offset + 4])[0]
+                offset += 4
+                if len(data) >= offset + sess_id_len:
+                    session_id = data[offset : offset + sess_id_len].decode("utf-8")
+                    offset += sess_id_len
 
         # Parse payload
-        payload: Union[bytes, Dict[str, Any], None] = None
+        payload: bytes | dict[str, Any] | None = None
 
         if len(data) > offset:
             if message_type == MessageType.AUDIO_ONLY_RESPONSE:
@@ -385,8 +391,8 @@ class VolcengineProtocol:
                     if serialization == SerializationMethod.JSON:
                         try:
                             payload = json.loads(payload_data.decode("utf-8"))
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse JSON payload: {e}")
+                        except json.JSONDecodeError:
+                            logger.exception("Failed to parse JSON payload")
                             payload = payload_data
                     else:
                         payload = payload_data
@@ -409,8 +415,8 @@ class VolcengineProtocol:
         message_flags: int,
         serialization: SerializationMethod,
         compression: CompressionMethod,
-        event: Optional[Event] = None,
-        payload: Optional[Dict[str, Any]] = None,
+        event: Event | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> bytes:
         """Encode a frame without session/connection ID."""
         frame = bytearray()
@@ -462,7 +468,7 @@ class VolcengineProtocol:
         compression: CompressionMethod,
         event: Event,
         session_id: str,
-        payload: Optional[Dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
     ) -> bytes:
         """Encode a frame with session ID."""
         frame = bytearray()

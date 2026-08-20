@@ -39,7 +39,7 @@ def test_fmt_prompt_uses_input_when_template_empty(app, monkeypatch):
 
     with app.app_context():
         fmt_prompt = utils_v2.get_fmt_prompt(
-            app, "user-1", "course-1", "", input="fallback-input"
+            app, "user-1", "course-1", "", user_input="fallback-input"
         )
         assert fmt_prompt == "fallback-input"
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Optional, Sequence, Set
+from typing import Any
 
 from flask import Flask
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
@@ -66,7 +67,7 @@ def _decimal_to_str(value: Any) -> str:
     return str(value)
 
 
-def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_course_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_text(keyword)
     if not normalized:
         return None
@@ -96,7 +97,7 @@ def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
     }
 
 
-def _find_matching_voice_owner_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_voice_owner_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_text(keyword)
     if not normalized:
         return None

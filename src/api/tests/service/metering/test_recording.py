@@ -1,6 +1,6 @@
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.metering import UsageContext, record_llm_usage, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,

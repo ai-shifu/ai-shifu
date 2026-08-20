@@ -1,4 +1,4 @@
-"""add (shifu_bid, outline_item_bid, id) index for draft outline
+"""add (shifu_bid, outline_item_bid, id) index for draft outline.
 
 Revision ID: e7f1a2b3c4d5
 Revises: d4e5f6a7b8c9

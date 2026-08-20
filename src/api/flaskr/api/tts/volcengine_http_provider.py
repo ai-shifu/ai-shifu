@@ -9,7 +9,6 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List, Optional
 
 import requests
 from requests import Response
@@ -150,7 +149,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_HTTP_VOICES
 
@@ -178,9 +177,9 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
@@ -242,7 +241,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             )
         except requests.RequestException as exc:
             logger.exception(
-                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s err=%s",
+                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s",
                 VOLCENGINE_HTTP_TTS_URL,
                 req_id,
                 payload["app"]["cluster"],
@@ -250,7 +249,6 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 encoding,
                 sample_rate,
                 len(text),
-                exc,
             )
             raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
 
@@ -277,7 +275,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             result = response.json()
         except ValueError as exc:
             body_preview = (response.text or "")[:2000]
-            logger.error(
+            logger.exception(
                 "Volcengine HTTP TTS invalid JSON response: url=%s status=%s reqid=%s content_type=%s body=%s",
                 response.url,
                 response.status_code,

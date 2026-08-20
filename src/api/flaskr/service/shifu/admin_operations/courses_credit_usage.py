@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence
+from typing import Any
 
 from flask import Flask
 from flaskr.api.llm import PROVIDER_STATES, get_current_models
@@ -301,8 +302,8 @@ def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
     ledger_amount: Any,
-    user_map: Dict[str, Dict[str, Any]],
-    outline_context_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, Any]],
+    outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
     usage_count: int = 1,
     usage_mode: str = "",
@@ -441,7 +442,7 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
 def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
-    outline_item_bids: Optional[Sequence[str]] = None,
+    outline_item_bids: Sequence[str] | None = None,
 ):
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
@@ -711,7 +712,7 @@ def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
     model_label_resolver: _CourseCreditUsageModelLabelResolver,
-    output_summary: Optional[str] = None,
+    output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
         usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
@@ -847,7 +848,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
 def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base_query = _build_operator_course_credit_usage_base_query(
         shifu_bid,
         outline_item_bids=leaf_outline_bids,
@@ -873,7 +874,7 @@ def _build_operator_course_credit_metrics(
         )
     )
     completed_credit_user_count = 0
-    completed_credit_total = Decimal("0")
+    completed_credit_total = Decimal(0)
     if completed_user_subquery is not None:
         completed_row = (
             db.session.query(
@@ -978,7 +979,7 @@ def get_operator_course_credit_usages(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -1303,7 +1304,7 @@ def get_operator_course_credit_usage_details(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageDetailListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -1379,7 +1380,7 @@ def get_operator_course_credit_usage_details(
 
 def _load_bill_usage_record_map(
     usage_bids: Sequence[str],
-) -> Dict[str, BillUsageRecord]:
+) -> dict[str, BillUsageRecord]:
     normalized_usage_bids = sorted(
         {
             str(usage_bid or "").strip()
@@ -1398,7 +1399,7 @@ def _load_bill_usage_record_map(
         .order_by(BillUsageRecord.id.desc())
         .all()
     )
-    usage_map: Dict[str, BillUsageRecord] = {}
+    usage_map: dict[str, BillUsageRecord] = {}
     for row in rows:
         usage_bid = str(row.usage_bid or "").strip()
         if usage_bid and usage_bid not in usage_map:

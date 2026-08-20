@@ -4,9 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.charges import (
     build_usage_metric_charges,
     resolve_credit_multiplier_label,
@@ -78,9 +78,9 @@ def _create_wallet(creator_bid: str, available_credits: str) -> CreditWallet:
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
         lifetime_granted_credits=Decimal("100.0000000000"),
-        lifetime_consumed_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )
@@ -108,9 +108,9 @@ def _create_bucket(
         priority=priority,
         original_credits=Decimal(available_credits),
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 1, 1, 0, 0, 0),
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -542,12 +542,12 @@ def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero
         assert first["consumed_credits"] == 0
         assert second["status"] == "already_settled"
         assert len(entries) == 1
-        assert entries[0].amount == Decimal("0")
+        assert entries[0].amount == Decimal(0)
         assert entries[0].balance_after == Decimal("1.0000000000")
         assert entries[0].metadata_json["metric_breakdown"][0]["consumed_credits"] == 0
         assert entries[0].metadata_json["bucket_breakdown"] == []
         assert wallet.available_credits == Decimal("1.0000000000")
-        assert wallet.lifetime_consumed_credits == Decimal("0")
+        assert wallet.lifetime_consumed_credits == Decimal(0)
         assert wallet.last_settled_usage_id == int(usage.id or 0)
 
 
@@ -1264,7 +1264,7 @@ def test_persist_credit_wallet_snapshot_rejects_stale_version(
             persist_credit_wallet_snapshot(
                 stale_wallet,
                 available_credits=Decimal("4.0000000000"),
-                reserved_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
                 updated_at=datetime(2026, 4, 8, 13, 0, 0),
             )
 

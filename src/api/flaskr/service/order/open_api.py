@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -27,7 +27,7 @@ def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:
         raise_error("server.openapi.courseOwnershipRequired")
 
 
-def _find_active_order(user_bid: str, shifu_bid: str) -> Optional[Order]:
+def _find_active_order(user_bid: str, shifu_bid: str) -> Order | None:
     """Find the latest active order for a user and course."""
     return (
         Order.query.filter(
@@ -47,7 +47,7 @@ def open_api_query_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check if a user (by phone/email) has active order for a course."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, shifu_bid)
@@ -71,7 +71,7 @@ def open_api_grant_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Grant course access (create manual order).
 
     If the user already has an active order the existing order is
@@ -104,7 +104,7 @@ def open_api_revoke_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Revoke course access by setting order status to REFUND (503)."""
     verify_course_ownership(app, owner_bid, shifu_bid)
     normalized = normalize_contact_identifier(user_identify, user_identify_type)

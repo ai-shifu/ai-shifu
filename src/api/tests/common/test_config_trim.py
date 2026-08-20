@@ -1,7 +1,11 @@
 """Unit tests for environment variable trimming functionality."""
 
 import pytest
-from flaskr.common.config import EnhancedConfig, EnvVar
+from flaskr.common.config import (
+    EnhancedConfig,
+    EnvironmentConfigError,
+    EnvVar,
+)
 
 
 class TestEnvironmentVariableTrimming:
@@ -193,7 +197,9 @@ class TestEnvironmentVariableTrimming:
         config = EnhancedConfig(env_vars)
 
         # Should fail validation because whitespace-only is treated as empty
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(
+            EnvironmentConfigError, match="Missing required environment variables"
+        ) as exc_info:
             config.validate_environment()
 
         assert "Missing required environment variables" in str(exc_info.value)

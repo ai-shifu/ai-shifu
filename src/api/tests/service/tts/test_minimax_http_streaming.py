@@ -267,11 +267,11 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 1000,
+        lambda _audio, **_kwargs: 1000,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
-        lambda **kwargs: SimpleNamespace(**kwargs),
+        SimpleNamespace,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
@@ -399,11 +399,11 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 1000,
+        lambda _audio, **_kwargs: 1000,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
-        lambda **kwargs: SimpleNamespace(**kwargs),
+        SimpleNamespace,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
@@ -497,8 +497,8 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
                 word_count=12,
             )
 
-    def _fake_try_get_duration(audio_data, format="mp3"):
-        _ = format
+    def _fake_try_get_duration(audio_data, audio_format="mp3"):
+        _ = audio_format
         if audio_data == b"broken-stream-mp3":
             return None
         if audio_data == b"complete-mp3":
@@ -529,11 +529,11 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 1200,
+        lambda _audio, **_kwargs: 1200,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
-        lambda **kwargs: SimpleNamespace(**kwargs),
+        SimpleNamespace,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
@@ -652,11 +652,11 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 3000,
+        lambda _audio, **_kwargs: 3000,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
-        lambda **kwargs: SimpleNamespace(**kwargs),
+        SimpleNamespace,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
@@ -798,11 +798,11 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 3000,
+        lambda _audio, **_kwargs: 3000,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
-        lambda **kwargs: SimpleNamespace(**kwargs),
+        SimpleNamespace,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
@@ -931,7 +931,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 2200,
+        lambda _audio, **_kwargs: 2200,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
@@ -1073,7 +1073,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 2000,
+        lambda _audio, **_kwargs: 2000,
     )
     saved_records = []
 
@@ -1226,7 +1226,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 5400,
+        lambda _audio, **_kwargs: 5400,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",
@@ -1380,7 +1380,7 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
-        lambda _audio, format="mp3": 6364,
+        lambda _audio, **_kwargs: 6364,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.build_completed_audio_record",

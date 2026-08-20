@@ -9,7 +9,6 @@ API Reference:
 """
 
 import logging
-from typing import List, Optional
 
 import requests
 
@@ -993,7 +992,7 @@ ALIYUN_VOICES = [
         "lang": "zh",
         "desc": "直播女声",
     },
-    # 臻品音色 (Ultra-HD)
+    # 臻品音色 group (Ultra-HD)
     {
         "id": "zhiqi",
         "name": "知琪",
@@ -1224,16 +1223,16 @@ class AliyunTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return ALIYUN_VOICES
 
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech using Aliyun TTS.
 
@@ -1381,11 +1380,11 @@ class AliyunTTSProvider(BaseTTSProvider):
             except ValueError as e:
                 if "Aliyun TTS API error" in str(e):
                     raise
-                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}")
+                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}") from e
 
         except requests.RequestException as e:
-            logger.error(f"Aliyun TTS request failed: {e}")
-            raise ValueError(f"Aliyun TTS request failed: {e}")
+            logger.exception("Aliyun TTS request failed")
+            raise ValueError(f"Aliyun TTS request failed: {e}") from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Aliyun provider configuration for frontend."""

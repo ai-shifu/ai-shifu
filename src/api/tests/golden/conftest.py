@@ -205,7 +205,7 @@ def mock_validate_user(monkeypatch, user_bid: str, *, is_creator: bool = False) 
 
 def seed_golden_user(app, user_bid: str) -> None:
     """Ensure a learner row exists for load_user_aggregate()."""
-    import flaskr.dao as dao
+    from flaskr import dao
     from flaskr.service.user.models import UserInfo
 
     with app.app_context():
@@ -231,7 +231,7 @@ def golden_shifu(app):
     Idempotent: existing golden rows are removed before reseeding so every
     test starts from the same published structure regardless of ordering.
     """
-    import flaskr.dao as dao
+    from flaskr import dao
     from flaskr.service.shifu.models import (
         LogPublishedStruct,
         PublishedOutlineItem,
@@ -251,9 +251,9 @@ def golden_shifu(app):
             avatar_res_bid="",
             keywords="golden,regression",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid=GOLDEN_CREATOR_BID,
             updated_user_bid=GOLDEN_CREATOR_BID,
         )

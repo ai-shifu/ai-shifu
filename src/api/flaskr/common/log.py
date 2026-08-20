@@ -1,11 +1,11 @@
 import logging
-import os
 import socket
 import threading
 import time
 import uuid
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
 import colorlog
 import pytz
@@ -24,7 +24,9 @@ class AppLoggerProxy:
         try:
             from flask import current_app
 
-            return current_app.logger
+            # Resolved inside the try: attribute access on current_app raises
+            # outside an application context.
+            return current_app.logger  # noqa: TRY300
         except Exception:
             return self._fallback
 
@@ -33,7 +35,7 @@ class AppLoggerProxy:
 
 
 class RequestFormatter(logging.Formatter):
-    def formatTime(self, record, datefmt=None):
+    def formatTime(self, record, datefmt=None):  # noqa: N802 - logging.Formatter hook name
         # create time zone info
         bj_time = pytz.timezone("Asia/Shanghai")
         # convert record.created (a float timestamp) to beijing time
@@ -104,7 +106,7 @@ class FeishuLogHandler(logging.Handler):
         try:
             from flask import current_app
 
-            current_app.logger.warning(message, exc, exc_info=True)
+            current_app.logger.warning(message, exc, exc_info=exc)
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
@@ -174,8 +176,8 @@ def init_log(app: Flask) -> Flask:
                 else:
                     request_body["Raw"] = request.get_data(as_text=True)
                 app.logger.info(f"Request body: {request_body}")
-            except Exception as e:
-                app.logger.error(f"Failed to get request body: {e}")
+            except Exception:
+                app.logger.exception("Failed to get request body")
         else:
             app.logger.info(f"Request method: {request.method}")
 
@@ -198,8 +200,8 @@ def init_log(app: Flask) -> Flask:
                 return response
             response_data = response.get_data(as_text=True)
             app.logger.info(f"Response: {response_data}")
-        except Exception as e:
-            app.logger.error(f"Error logging response: {e!s}")
+        except Exception:
+            app.logger.exception("Error logging response")
         return response
 
     host_name = socket.gethostname()
@@ -230,9 +232,9 @@ def init_log(app: Flask) -> Flask:
         },
     )
     log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
-    log_dir = os.path.dirname(log_file)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    log_dir = str(Path(log_file).parent)
+    if not Path(log_dir).exists():
+        Path(log_dir).mkdir(parents=True)
     file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)
     console_handler = logging.StreamHandler()

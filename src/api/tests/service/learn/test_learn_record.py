@@ -1,9 +1,9 @@
 import types
 import unittest
 
-import flaskr.dao as dao
 from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-learn-record")
@@ -150,10 +150,10 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertEqual(result.records[0].block_type, BlockType.INTERACTION)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert result.records[0].block_type == BlockType.INTERACTION
+        assert CONTEXT_INTERACTION_NEXT in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
     def test_uses_persisted_button_when_present(self):
         self._seed_struct(["outline-1", "outline-2"])
@@ -187,11 +187,11 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
+        assert len(result.records) == 2
         record = result.records[0]
-        self.assertEqual(record.generated_block_bid, block.generated_block_bid)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, record.content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert record.generated_block_bid == block.generated_block_bid
+        assert CONTEXT_INTERACTION_NEXT in record.content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
     def test_no_button_when_not_completed(self):
         self._seed_struct(["outline-1", "outline-2"])
@@ -207,7 +207,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(result.records, [])
+        assert result.records == []
 
     def test_feedback_when_completed_without_next(self):
         self._seed_struct(["outline-1"])
@@ -223,8 +223,8 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 1)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[0].content))
+        assert len(result.records) == 1
+        assert is_lesson_feedback_interaction(result.records[0].content)
 
     def test_feedback_after_pay_gate_when_in_progress(self):
         self._seed_struct(["outline-1"])
@@ -241,9 +241,9 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn("_sys_pay", result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert "_sys_pay" in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
     def test_feedback_after_login_gate_when_in_progress(self):
         self._seed_struct(["outline-1"])
@@ -260,9 +260,9 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn("_sys_login", result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert "_sys_login" in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
     def test_no_next_button_when_completed_with_pay_gate(self):
         self._seed_struct(["outline-1", "outline-2"])
@@ -279,10 +279,10 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn("_sys_pay", result.records[0].content)
-        self.assertNotIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert "_sys_pay" in result.records[0].content
+        assert CONTEXT_INTERACTION_NEXT not in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
     def test_inserts_fallback_next_before_existing_feedback(self):
         self._seed_struct(["outline-1", "outline-2"])
@@ -303,9 +303,9 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert CONTEXT_INTERACTION_NEXT in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
     def test_moves_existing_feedback_to_tail_when_next_already_persisted(self):
         self._seed_struct(["outline-1", "outline-2"])
@@ -332,9 +332,9 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert CONTEXT_INTERACTION_NEXT in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
 
 if __name__ == "__main__":

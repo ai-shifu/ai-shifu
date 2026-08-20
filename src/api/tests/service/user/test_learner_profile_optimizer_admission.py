@@ -46,12 +46,14 @@ def reset_local_admission_state():
 
 
 def _assert_admission_denied(app, *, user_id: str) -> None:
-    with pytest.raises(AppException) as raised:
-        with admission.learner_profile_optimization_admission(
+    with (
+        pytest.raises(AppException) as raised,
+        admission.learner_profile_optimization_admission(
             app,
             user_id=user_id,
-        ):
-            raise AssertionError("denied admission must not enter the request body")
+        ),
+    ):
+        raise AssertionError("denied admission must not enter the request body")
     assert raised.value.code == 1023
 
 
@@ -89,12 +91,14 @@ def test_admission_releases_slot_after_request_error(app, monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr("flaskr.dao.redis_client", fake_redis, raising=False)
 
-    with pytest.raises(RuntimeError, match="provider failed"):
-        with admission.learner_profile_optimization_admission(
+    with (
+        pytest.raises(RuntimeError, match="provider failed"),
+        admission.learner_profile_optimization_admission(
             app,
             user_id="error-user",
-        ):
-            raise RuntimeError("provider failed")
+        ),
+    ):
+        raise RuntimeError("provider failed")
 
     with admission.learner_profile_optimization_admission(
         app,

@@ -1,4 +1,4 @@
-"""add system profile
+"""add system profile.
 
 Revision ID: 6b603528dac8
 Revises: 185e37df3252

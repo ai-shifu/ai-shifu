@@ -22,7 +22,7 @@ def mock_app():
 
 
 def create_test_processor(mock_app, **kwargs):
-    """Helper to create a StreamingTTSProcessor with test defaults."""
+    """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
         "generated_block_bid": "test-block",
@@ -91,7 +91,8 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             # Capture the segment text from args[1]
             if len(args) > 1:
                 segment = args[1]
@@ -109,7 +110,7 @@ class TestFinalizeSegmentation:
         # Verify multiple segments were submitted
         assert len(submitted_texts) > 0
         # Each segment should end at a sentence boundary (except possibly the last)
-        for i, text in enumerate(submitted_texts[:-1]):
+        for _i, text in enumerate(submitted_texts[:-1]):
             assert text.rstrip().endswith((".", "!", "?", "。", "！", "？"))
 
     @patch("flaskr.service.tts.streaming_tts._tts_executor")
@@ -131,7 +132,8 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -162,7 +164,8 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -325,7 +328,7 @@ class TestStreamingSynthesisRetries:
         assert result.error == "No audio data received from Tencent TTS"
         assert result.is_ready is True
         warning_args = mock_logger.warning.call_args.args
-        error_args = mock_logger.error.call_args.args
+        error_args = mock_logger.exception.call_args.args
         assert "text_preview=%r" in warning_args[0]
         assert "这句有文字但腾讯没返回。" in warning_args
         assert "text_preview=%r" in error_args[0]
@@ -524,7 +527,7 @@ class TestStreamingSynthesisRetries:
                 }
             ],
         )
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 500
         mock_upload.return_value = ("https://example.com/audio.mp3", "bucket")
 
@@ -604,7 +607,7 @@ class TestStreamingSynthesisRetries:
                 ],
             ),
         ]
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 400
         mock_upload.return_value = ("https://example.com/retry.mp3", "bucket")
 

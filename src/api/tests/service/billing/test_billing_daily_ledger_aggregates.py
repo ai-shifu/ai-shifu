@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -223,7 +223,7 @@ def _add_ledger_entry(
             source_bid=f"source-{ledger_bid}",
             idempotency_key=f"idempotency-{ledger_bid}",
             amount=amount,
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             metadata_json={},
             created_at=created_at,
             updated_at=created_at,

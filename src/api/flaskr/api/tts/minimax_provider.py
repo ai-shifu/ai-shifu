@@ -5,8 +5,9 @@ This module provides TTS synthesis using Minimax's Text-to-Speech API (t2a_v2).
 
 import json
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import requests
@@ -85,7 +86,7 @@ MINIMAX_EMOTIONS = [
 ]
 
 
-def _resolve_minimax_model(model: Optional[str]) -> str:
+def _resolve_minimax_model(model: str | None) -> str:
     valid_models = {m["value"] for m in MINIMAX_MODELS}
     requested_model = (model or "").strip()
     if requested_model and requested_model not in valid_models:
@@ -101,8 +102,8 @@ def _build_minimax_voice_setting(
     voice_settings: VoiceSettings,
     *,
     model: str,
-) -> Dict[str, Any]:
-    voice_setting_dict: Dict[str, Any] = {
+) -> dict[str, Any]:
+    voice_setting_dict: dict[str, Any] = {
         "voice_id": voice_settings.voice_id,
         "speed": voice_settings.speed,
         "vol": voice_settings.volume,
@@ -149,7 +150,7 @@ def _minimax_model_tier(model: str) -> str:
     return ""
 
 
-def _parse_minimax_rpm_overrides() -> Dict[str, int]:
+def _parse_minimax_rpm_overrides() -> dict[str, int]:
     """Parse the optional MINIMAX_TTS_RPM_LIMITS JSON map (model -> rpm)."""
     raw = get_config("MINIMAX_TTS_RPM_LIMITS")
     if not raw:
@@ -165,7 +166,7 @@ def _parse_minimax_rpm_overrides() -> Dict[str, int]:
     if not isinstance(candidate, dict):
         logger.warning("Ignoring non-object MINIMAX_TTS_RPM_LIMITS: %r", raw)
         return {}
-    overrides: Dict[str, int] = {}
+    overrides: dict[str, int] = {}
     for key, value in candidate.items():
         try:
             overrides[str(key).strip()] = int(value)
@@ -203,8 +204,8 @@ class MinimaxHTTPStreamChunk:
     format: str = "mp3"
     word_count: int = 0
     usage_characters: int = 0
-    subtitles: List[Dict[str, Any]] = field(default_factory=list)
-    extra_info: Dict[str, Any] = field(default_factory=dict)
+    subtitles: list[dict[str, Any]] = field(default_factory=list)
+    extra_info: dict[str, Any] = field(default_factory=dict)
     trace_id: str = ""
 
 
@@ -215,14 +216,14 @@ def _build_minimax_tts_url() -> str:
     return f"{MINIMAX_TTS_API_URL}?{urlencode({'GroupId': group_id})}"
 
 
-def _ensure_minimax_base_resp(message: Dict[str, Any], prefix: str) -> None:
+def _ensure_minimax_base_resp(message: dict[str, Any], prefix: str) -> None:
     base_resp = message.get("base_resp") or {}
     status_code = int(base_resp.get("status_code") or 0)
     if status_code != 0:
         raise ValueError(_format_minimax_error(message, prefix))
 
 
-def _format_minimax_error(message: Dict[str, Any], prefix: str) -> str:
+def _format_minimax_error(message: dict[str, Any], prefix: str) -> str:
     base_resp = message.get("base_resp") or {}
     status_code = base_resp.get("status_code", "unknown")
     status_msg = base_resp.get("status_msg", "Unknown error")
@@ -231,7 +232,7 @@ def _format_minimax_error(message: Dict[str, Any], prefix: str) -> str:
     return f"{prefix}: {status_code} - {status_msg}{trace_suffix}"
 
 
-def _fetch_minimax_subtitle_file(url: str) -> List[Dict[str, Any]]:
+def _fetch_minimax_subtitle_file(url: str) -> list[dict[str, Any]]:
     if not url:
         return []
     try:
@@ -258,7 +259,7 @@ def _fetch_minimax_subtitle_file(url: str) -> List[Dict[str, Any]]:
     return []
 
 
-def _looks_like_subtitle_item(value: Dict[str, Any]) -> bool:
+def _looks_like_subtitle_item(value: dict[str, Any]) -> bool:
     if not str(value.get("text", "") or "").strip():
         return False
     return any(
@@ -276,7 +277,7 @@ def _looks_like_subtitle_item(value: Dict[str, Any]) -> bool:
     )
 
 
-def _collect_subtitle_items(value: Any) -> List[Dict[str, Any]]:
+def _collect_subtitle_items(value: Any) -> list[dict[str, Any]]:
     if isinstance(value, list):
         return [item for item in value if isinstance(item, dict)]
     if isinstance(value, dict):
@@ -291,7 +292,7 @@ def _collect_subtitle_items(value: Any) -> List[Dict[str, Any]]:
     return []
 
 
-def _extract_minimax_subtitles(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _extract_minimax_subtitles(message: dict[str, Any]) -> list[dict[str, Any]]:
     for container in (
         message.get("data"),
         message.get("extra_info"),
@@ -348,16 +349,16 @@ class MinimaxTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_emotions(self) -> List[str]:
+    def get_supported_emotions(self) -> list[str]:
         """Get list of supported emotions."""
         return MINIMAX_ALLOWED_EMOTIONS
 
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech using Minimax TTS.
 
@@ -421,9 +422,9 @@ class MinimaxTTSProvider(BaseTTSProvider):
     def stream_synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> Iterator[MinimaxHTTPStreamChunk]:
         """Synthesize text with MiniMax HTTP streaming.
 
@@ -537,11 +538,11 @@ class MinimaxTTSProvider(BaseTTSProvider):
     def _call_api(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
         output_format: str = "hex",
-        model: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        model: str | None = None,
+    ) -> dict[str, Any]:
         """Call Minimax TTS API.
 
         Args:

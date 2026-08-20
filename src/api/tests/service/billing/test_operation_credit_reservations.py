@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_METRIC_TTS_REQUEST_COUNT,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -59,9 +59,9 @@ def _seed_wallet(creator_bid: str, amount: str = "10.0000000000") -> None:
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(amount),
-        reserved_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
         lifetime_granted_credits=Decimal(amount),
-        lifetime_consumed_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )
@@ -75,9 +75,9 @@ def _seed_wallet(creator_bid: str, amount: str = "10.0000000000") -> None:
         priority=10,
         original_credits=Decimal(amount),
         available_credits=Decimal(amount),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 1, 1, 0, 0, 0),
         effective_to=None,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -131,7 +131,7 @@ def test_estimate_voice_clone_cost_is_zero_without_configured_rate(
 
     result = estimate_voice_clone_operation_credits(operation_credit_app)
 
-    assert result.consumed_credits == Decimal("0")
+    assert result.consumed_credits == Decimal(0)
 
 
 def test_reserve_capture_and_release_operation_credits_are_idempotent(
@@ -314,9 +314,9 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal("15.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("15.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -330,9 +330,9 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
             priority=30,
             original_credits=Decimal("15.0000000000"),
             available_credits=Decimal("15.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 1, 1, 0, 0, 0),
             effective_to=datetime(2099, 1, 1, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -424,9 +424,9 @@ def test_reserve_operation_credits_rejects_topup_after_consumption_window(
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal("15.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("15.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -440,9 +440,9 @@ def test_reserve_operation_credits_rejects_topup_after_consumption_window(
             priority=30,
             original_credits=Decimal("15.0000000000"),
             available_credits=Decimal("15.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 1, 1, 0, 0, 0),
             effective_to=datetime(2026, 1, 15, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,

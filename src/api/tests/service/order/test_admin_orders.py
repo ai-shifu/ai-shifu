@@ -81,26 +81,24 @@ def test_list_orders_returns_page_dto():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch(
-        "flaskr.service.order.admin.get_user_created_shifu_bids"
-    ) as shifu_bids_mock:
-        with patch("flaskr.service.order.admin.Order") as order_model_mock:
-            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.order.admin._load_coupon_code_map"
-                    ) as coupon_map_mock:
-                        shifu_bids_mock.return_value = ["shifu-1"]
-                        order_model_mock.query = query_mock
-                        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                        user_map_mock.return_value = {
-                            "user-1": {"mobile": "18800001111", "nickname": "Tester"}
-                        }
-                        coupon_map_mock.return_value = {}
+    with (
+        patch(
+            "flaskr.service.order.admin.get_user_created_shifu_bids"
+        ) as shifu_bids_mock,
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        shifu_bids_mock.return_value = ["shifu-1"]
+        order_model_mock.query = query_mock
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {"mobile": "18800001111", "nickname": "Tester"}
+        }
+        coupon_map_mock.return_value = {}
 
-                        result = list_orders(app, "user-1", 1, 20, {})
+        result = list_orders(app, "user-1", 1, 20, {})
 
     assert isinstance(result, PageNationDTO)
     assert result.total == 1
@@ -117,41 +115,31 @@ def test_get_order_detail_returns_detail_dto():
     query_mock = MagicMock()
     query_mock.filter.return_value.first.return_value = order
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch("flaskr.service.order.admin.get_shifu_creator_bid") as creator_mock:
-            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.order.admin._load_order_activities"
-                    ) as activities_mock:
-                        with patch(
-                            "flaskr.service.order.admin._load_order_coupons"
-                        ) as coupons_mock:
-                            with patch(
-                                "flaskr.service.order.admin._load_payment_detail"
-                            ) as payment_mock:
-                                with patch(
-                                    "flaskr.service.order.admin._load_coupon_code_map"
-                                ) as coupon_map_mock:
-                                    order_model_mock.query = query_mock
-                                    creator_mock.return_value = "user-1"
-                                    shifu_map_mock.return_value = {
-                                        "shifu-1": DummyShifu()
-                                    }
-                                    user_map_mock.return_value = {
-                                        "user-1": {
-                                            "mobile": "18800001111",
-                                            "nickname": "Tester",
-                                        }
-                                    }
-                                    activities_mock.return_value = []
-                                    coupons_mock.return_value = []
-                                    payment_mock.return_value = None
-                                    coupon_map_mock.return_value = {}
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch("flaskr.service.order.admin.get_shifu_creator_bid") as creator_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_order_activities") as activities_mock,
+        patch("flaskr.service.order.admin._load_order_coupons") as coupons_mock,
+        patch("flaskr.service.order.admin._load_payment_detail") as payment_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        creator_mock.return_value = "user-1"
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "nickname": "Tester",
+            }
+        }
+        activities_mock.return_value = []
+        coupons_mock.return_value = []
+        payment_mock.return_value = None
+        coupon_map_mock.return_value = {}
 
-                                    detail = get_order_detail(app, "user-1", "order-1")
+        detail = get_order_detail(app, "user-1", "order-1")
 
     assert isinstance(detail, OrderAdminDetailDTO)
     assert isinstance(detail.order, OrderAdminSummaryDTO)
@@ -172,24 +160,24 @@ def test_list_operator_orders_returns_page_dto():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-            with patch("flaskr.service.order.admin._load_user_map") as user_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_coupon_code_map"
-                ) as coupon_map_mock:
-                    order_model_mock.query = query_mock
-                    shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                    user_map_mock.return_value = {
-                        "user-1": {
-                            "mobile": "18800001111",
-                            "email": "",
-                            "nickname": "Tester",
-                        }
-                    }
-                    coupon_map_mock.return_value = {}
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "email": "",
+                "nickname": "Tester",
+            }
+        }
+        coupon_map_mock.return_value = {}
 
-                    result = list_operator_orders(app, 1, 20, {})
+        result = list_operator_orders(app, 1, 20, {})
 
     assert isinstance(result, PageNationDTO)
     assert result.total == 1
@@ -213,24 +201,24 @@ def test_list_operator_orders_returns_derived_source_and_coupon_codes():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-            with patch("flaskr.service.order.admin._load_user_map") as user_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_coupon_code_map"
-                ) as coupon_map_mock:
-                    order_model_mock.query = query_mock
-                    shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                    user_map_mock.return_value = {
-                        "user-1": {
-                            "mobile": "18800001111",
-                            "email": "",
-                            "nickname": "Tester",
-                        }
-                    }
-                    coupon_map_mock.return_value = {"order-1": ["FREE100"]}
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "email": "",
+                "nickname": "Tester",
+            }
+        }
+        coupon_map_mock.return_value = {"order-1": ["FREE100"]}
 
-                    result = list_operator_orders(app, 1, 20, {})
+        result = list_operator_orders(app, 1, 20, {})
 
     assert result.total == 1
     assert result.data[0].order_source == ORDER_SOURCE_COUPON_REDEEM
@@ -252,35 +240,33 @@ def test_list_operator_orders_applies_combined_course_query():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch(
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch(
             "flaskr.service.order.admin._build_course_query_shifu_bid_filter"
-        ) as course_filter_mock:
-            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.order.admin._load_coupon_code_map"
-                    ) as coupon_map_mock:
-                        order_model_mock.query = query_mock
-                        course_filter_mock.return_value = "course-query-filter"
-                        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                        user_map_mock.return_value = {
-                            "user-1": {
-                                "mobile": "18800001111",
-                                "email": "",
-                                "nickname": "Tester",
-                            }
-                        }
-                        coupon_map_mock.return_value = {}
+        ) as course_filter_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        course_filter_mock.return_value = "course-query-filter"
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "email": "",
+                "nickname": "Tester",
+            }
+        }
+        coupon_map_mock.return_value = {}
 
-                        result = list_operator_orders(
-                            app,
-                            1,
-                            20,
-                            {"course_query": "Demo Course"},
-                        )
+        result = list_operator_orders(
+            app,
+            1,
+            20,
+            {"course_query": "Demo Course"},
+        )
 
     course_filter_mock.assert_called_once_with("Demo Course")
     query_mock.filter.assert_any_call("course-query-filter")
@@ -299,35 +285,33 @@ def test_list_operator_orders_applies_order_source_filter():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch(
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch(
             "flaskr.service.order.admin._apply_order_source_filter"
-        ) as apply_order_source_filter_mock:
-            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.order.admin._load_coupon_code_map"
-                    ) as coupon_map_mock:
-                        order_model_mock.query = query_mock
-                        apply_order_source_filter_mock.return_value = query_mock
-                        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                        user_map_mock.return_value = {
-                            "user-1": {
-                                "mobile": "18800001111",
-                                "email": "",
-                                "nickname": "Tester",
-                            }
-                        }
-                        coupon_map_mock.return_value = {}
+        ) as apply_order_source_filter_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        apply_order_source_filter_mock.return_value = query_mock
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "email": "",
+                "nickname": "Tester",
+            }
+        }
+        coupon_map_mock.return_value = {}
 
-                        result = list_operator_orders(
-                            app,
-                            1,
-                            20,
-                            {"order_source": ORDER_SOURCE_COUPON_REDEEM},
-                        )
+        result = list_operator_orders(
+            app,
+            1,
+            20,
+            {"order_source": ORDER_SOURCE_COUPON_REDEEM},
+        )
 
     apply_order_source_filter_mock.assert_called_once_with(
         query_mock, ORDER_SOURCE_COUPON_REDEEM
@@ -349,39 +333,37 @@ def test_list_operator_orders_reuses_preparsed_status_and_datetimes():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch("flaskr.service.order.admin._parse_datetime") as parse_datetime_mock:
-            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.order.admin._load_coupon_code_map"
-                    ) as coupon_map_mock:
-                        order_model_mock.query = query_mock
-                        order_model_mock.deleted = column("deleted")
-                        order_model_mock.status = column("status")
-                        order_model_mock.created_at = column("created_at")
-                        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                        user_map_mock.return_value = {
-                            "user-1": {
-                                "mobile": "18800001111",
-                                "email": "",
-                                "nickname": "Tester",
-                            }
-                        }
-                        coupon_map_mock.return_value = {}
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch("flaskr.service.order.admin._parse_datetime") as parse_datetime_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        order_model_mock.deleted = column("deleted")
+        order_model_mock.status = column("status")
+        order_model_mock.created_at = column("created_at")
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "email": "",
+                "nickname": "Tester",
+            }
+        }
+        coupon_map_mock.return_value = {}
 
-                        result = list_operator_orders(
-                            app,
-                            1,
-                            20,
-                            {
-                                "status": 502,
-                                "start_time": start_time,
-                                "end_time": end_time,
-                            },
-                        )
+        result = list_operator_orders(
+            app,
+            1,
+            20,
+            {
+                "status": 502,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        )
 
     parse_datetime_mock.assert_not_called()
     assert isinstance(result, PageNationDTO)
@@ -422,36 +404,30 @@ def test_get_operator_order_detail_returns_detail_dto():
     query_mock = MagicMock()
     query_mock.filter.return_value.first.return_value = order
 
-    with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
-            with patch("flaskr.service.order.admin._load_user_map") as user_map_mock:
-                with patch(
-                    "flaskr.service.order.admin._load_order_activities"
-                ) as activities_mock:
-                    with patch(
-                        "flaskr.service.order.admin._load_order_coupons"
-                    ) as coupons_mock:
-                        with patch(
-                            "flaskr.service.order.admin._load_payment_detail"
-                        ) as payment_mock:
-                            with patch(
-                                "flaskr.service.order.admin._load_coupon_code_map"
-                            ) as coupon_map_mock:
-                                order_model_mock.query = query_mock
-                                shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
-                                user_map_mock.return_value = {
-                                    "user-1": {
-                                        "mobile": "18800001111",
-                                        "email": "",
-                                        "nickname": "Tester",
-                                    }
-                                }
-                                activities_mock.return_value = []
-                                coupons_mock.return_value = []
-                                payment_mock.return_value = None
-                                coupon_map_mock.return_value = {}
+    with (
+        patch("flaskr.service.order.admin.Order") as order_model_mock,
+        patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock,
+        patch("flaskr.service.order.admin._load_user_map") as user_map_mock,
+        patch("flaskr.service.order.admin._load_order_activities") as activities_mock,
+        patch("flaskr.service.order.admin._load_order_coupons") as coupons_mock,
+        patch("flaskr.service.order.admin._load_payment_detail") as payment_mock,
+        patch("flaskr.service.order.admin._load_coupon_code_map") as coupon_map_mock,
+    ):
+        order_model_mock.query = query_mock
+        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+        user_map_mock.return_value = {
+            "user-1": {
+                "mobile": "18800001111",
+                "email": "",
+                "nickname": "Tester",
+            }
+        }
+        activities_mock.return_value = []
+        coupons_mock.return_value = []
+        payment_mock.return_value = None
+        coupon_map_mock.return_value = {}
 
-                                detail = get_operator_order_detail(app, "order-1")
+        detail = get_operator_order_detail(app, "order-1")
 
     assert isinstance(detail, OrderAdminDetailDTO)
     assert isinstance(detail.order, OrderAdminSummaryDTO)
@@ -757,12 +733,12 @@ def test_load_matching_user_bids_for_keyword_ignores_deleted_credentials():
     db_mock.or_ = lambda *args: ("or", args)
     db_mock.session.query.side_effect = [user_query, credential_query]
 
-    with patch("flaskr.service.order.admin.db", db_mock):
-        with patch("flaskr.service.order.admin.UserEntity", fake_user_entity):
-            with patch(
-                "flaskr.service.order.admin.AuthCredential", fake_auth_credential
-            ):
-                result = _load_matching_user_bids_for_keyword("Test@Example.com")
+    with (
+        patch("flaskr.service.order.admin.db", db_mock),
+        patch("flaskr.service.order.admin.UserEntity", fake_user_entity),
+        patch("flaskr.service.order.admin.AuthCredential", fake_auth_credential),
+    ):
+        result = _load_matching_user_bids_for_keyword("Test@Example.com")
 
     filter_args = credential_query.filter.call_args.args
 
@@ -777,30 +753,34 @@ def test_apply_order_source_filter_treats_null_payment_channel_as_non_special():
         c=SimpleNamespace(order_bid="order_bid")
     )
 
-    with patch(
-        "flaskr.service.order.admin._build_coupon_usage_order_bid_subquery",
-        return_value=coupon_order_bid_subquery,
-    ):
-        with patch(
+    with (
+        patch(
+            "flaskr.service.order.admin._build_coupon_usage_order_bid_subquery",
+            return_value=coupon_order_bid_subquery,
+        ),
+        patch(
             "flaskr.service.order.admin.db.session.query",
             return_value=["order-1"],
-        ):
-            _apply_order_source_filter(query_mock, ORDER_SOURCE_COUPON_REDEEM)
+        ),
+    ):
+        _apply_order_source_filter(query_mock, ORDER_SOURCE_COUPON_REDEEM)
 
     coupon_filter_args = query_mock.filter.call_args.args
 
     query_mock.reset_mock()
     query_mock.filter.return_value = query_mock
 
-    with patch(
-        "flaskr.service.order.admin._build_coupon_usage_order_bid_subquery",
-        return_value=coupon_order_bid_subquery,
-    ):
-        with patch(
+    with (
+        patch(
+            "flaskr.service.order.admin._build_coupon_usage_order_bid_subquery",
+            return_value=coupon_order_bid_subquery,
+        ),
+        patch(
             "flaskr.service.order.admin.db.session.query",
             return_value=["order-1"],
-        ):
-            _apply_order_source_filter(query_mock, ORDER_SOURCE_USER_PURCHASE)
+        ),
+    ):
+        _apply_order_source_filter(query_mock, ORDER_SOURCE_USER_PURCHASE)
 
     user_purchase_filter_args = query_mock.filter.call_args_list[0].args
 

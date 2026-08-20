@@ -1,4 +1,4 @@
-"""common shifu funcs
+"""common shifu funcs.
 
 This module contains functions for shifu.
 
@@ -110,7 +110,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
 
     """
     with app.app_context():
-        isUpdate = False
+        is_update = False
         if resource_id == "":
             file_id = str(uuid.uuid4()).replace("-", "")
             resource = None
@@ -118,7 +118,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             file_id = resource_id
             resource = Resource.query.filter_by(resource_id=file_id).first()
             if resource is not None:
-                isUpdate = True
+                is_update = True
             else:
                 app.logger.warning(
                     "upload_file received missing resource_id=%s; creating a new resource",
@@ -134,7 +134,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             profile=OSS_PROFILE_COURSES,
         )
 
-        if isUpdate:
+        if is_update:
             resource.name = file.filename
             resource.oss_bucket = result.bucket
             resource.oss_name = result.object_key
@@ -238,14 +238,14 @@ def upload_url(app, user_id: str, url: str) -> str:
             db.session.add(resource)
             db.session.commit()
 
-            return result.url
-
-        except requests.RequestException as e:
-            app.logger.error(f"Failed to download image from URL: {url}, error: {e!s}")
+        except requests.RequestException:
+            app.logger.exception(f"Failed to download image from URL: {url}")
             raise_error("server.file.fileDownloadFailed")
-        except Exception as e:
-            app.logger.error(f"Failed to upload image to OSS: {url}, error: {e!s}")
+        except Exception:
+            app.logger.exception(f"Failed to upload image to OSS: {url}")
             raise_error("server.file.fileUploadFailed")
+        else:
+            return result.url
 
 
 def shifu_permission_verification(
@@ -273,9 +273,10 @@ def shifu_permission_verification(
         if cache_result is not None:
             try:
                 cached_auth_types = json.loads(cache_result)
-                return auth_type in cached_auth_types
             except (json.JSONDecodeError, TypeError):
                 redis.delete(cache_key)
+            else:
+                return auth_type in cached_auth_types
         # If it is not in the cache, query the database
         creator_bid = get_shifu_creator_bid(app, shifu_id)
         if creator_bid and creator_bid == user_id:
@@ -311,9 +312,10 @@ def shifu_permission_verification(
                 permissions = permissions or set(normalized)
                 result = auth_type in permissions
                 redis.set(cache_key, json.dumps(list(permissions)), cache_key_expire)
-                return result
             except (json.JSONDecodeError, TypeError):
                 return False
+            else:
+                return result
         else:
             return False
 
@@ -355,7 +357,7 @@ def get_video_info(app, user_id: str, url: str) -> dict:
                     "Connection": "keep-alive",
                 }
 
-                response = requests.get(api_url, headers=headers)
+                response = requests.get(api_url, headers=headers, timeout=10)
                 if response.status_code == 200:
                     data = response.json()
                     if data["code"] == 0:
@@ -374,12 +376,12 @@ def get_video_info(app, user_id: str, url: str) -> dict:
             else:
                 raise_error("server.file.videoUnsupportedVideoSite")
 
-        except requests.RequestException as e:
-            app.logger.error(f"Failed to fetch video info from {url}: {e!s}")
+        except requests.RequestException:
+            app.logger.exception(f"Failed to fetch video info from {url}")
             raise_error("server.file.videoNetworkError")
-        except KeyError as e:
-            app.logger.error(f"Missing expected field in API response: {e!s}")
+        except KeyError:
+            app.logger.exception("Missing expected field in API response")
             raise_error("server.file.videoParseError")
-        except Exception as e:
-            app.logger.error(f"Unexpected error getting video info: {e!s}")
+        except Exception:
+            app.logger.exception("Unexpected error getting video info")
             raise_error("server.file.videoGetInfoError")

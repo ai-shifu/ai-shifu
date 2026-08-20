@@ -158,7 +158,7 @@ def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
 
     with app.app_context():
         generator = _start_stream(app)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="business failure"):
             next(generator)
 
     assert session.invalidations == 0
@@ -237,7 +237,6 @@ def test_discard_helper_works_on_real_scoped_session(app, caplog):
 
     from flaskr.service.learn.runscript_v2 import _discard_session_connection
 
-    with app.app_context():
-        with caplog.at_level(logging.WARNING):
-            _discard_session_connection(app, source="real session smoke")
+    with app.app_context(), caplog.at_level(logging.WARNING):
+        _discard_session_connection(app, source="real session smoke")
     assert "invalidate failed" not in caplog.text

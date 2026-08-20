@@ -17,7 +17,7 @@ from flaskr.service.profile.profile_manage import (
 def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
     def get_profile_item_defination_api():
-        """Get profile item defination
+        """Get profile item defination.
         ---
         tags:
           - profiles
@@ -54,9 +54,11 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                         $ref: '#/components/schemas/ProfileItemDefinition'
         """
         parent_id = request.args.get("parent_id")
-        type = request.args.get("type", "all")
+        item_type = request.args.get("type", "all")
         return make_common_response(
-            get_profile_item_definition_list(app, parent_id=parent_id, type=type)
+            get_profile_item_definition_list(
+                app, parent_id=parent_id, definition_type=item_type
+            )
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
@@ -156,7 +158,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
 
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])
     def add_profile_item_quick_api():
-        """Add profile item
+        """Add profile item.
         ---
         tags:
           - profiles
@@ -199,7 +201,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
 
     @app.route(f"{path_prefix}/save-profile-item", methods=["POST"])
     def save_profile_item_api():
-        """Save profile item
+        """Save profile item.
         ---
         tags:
           - profiles
@@ -269,7 +271,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
 
     @app.route(f"{path_prefix}/delete-profile-item", methods=["POST"])
     def delete_profile_item_api():
-        """Delete profile item
+        """Delete profile item.
         ---
         tags:
           - profiles
@@ -311,6 +313,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
 
     @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
     def get_profile_item_api():
-        """Get profile item"""
+        """Get profile item."""
 
     return app

@@ -18,6 +18,16 @@ export const useCourseStore = create<
     courseDefaultListenModeEnabled: null,
     updateCourseDefaultListenModeEnabled: courseDefaultListenModeEnabled =>
       set(() => ({ courseDefaultListenModeEnabled })),
+    courseSettingsCourseId: null,
+    updateCourseSettings: (
+      courseSettingsCourseId,
+      { ttsEnabled, defaultListenModeEnabled },
+    ) =>
+      set(() => ({
+        courseSettingsCourseId,
+        courseTtsEnabled: ttsEnabled,
+        courseDefaultListenModeEnabled: defaultListenModeEnabled,
+      })),
     lessonId: undefined,
     updateLessonId: lessonId => set(() => ({ lessonId })),
     chapterId: '',

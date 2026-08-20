@@ -5,8 +5,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Dict, Sequence, Set
 
 from flaskr.dao import db
 from flaskr.service.learn.const import (
@@ -37,7 +37,7 @@ from flaskr.service.shifu.models import (
 
 def _build_operator_user_course_summary(
     course,
-    published_bids: Set[str],
+    published_bids: set[str],
     *,
     completed_lesson_count: int = 0,
     total_lesson_count: int = 0,
@@ -53,7 +53,7 @@ def _build_operator_user_course_summary(
 
 def _load_visible_published_leaf_outline_bids_by_shifu(
     shifu_bids: Sequence[str],
-) -> Dict[str, list[str]]:
+) -> dict[str, list[str]]:
     normalized_shifu_bids = [
         str(shifu_bid or "").strip() for shifu_bid in shifu_bids if shifu_bid
     ]
@@ -85,8 +85,8 @@ def _load_visible_published_leaf_outline_bids_by_shifu(
         .all()
     )
 
-    visible_bids_by_shifu: Dict[str, Set[str]] = {}
-    parent_bids_by_shifu: Dict[str, Set[str]] = {}
+    visible_bids_by_shifu: dict[str, set[str]] = {}
+    parent_bids_by_shifu: dict[str, set[str]] = {}
     for shifu_bid, outline_item_bid, parent_bid in outline_rows:
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_outline_item_bid = str(outline_item_bid or "").strip()
@@ -120,8 +120,8 @@ def _is_completed_leaf_progress_statuses(record_statuses: Sequence[int]) -> bool
 def _load_learning_progress_counts_by_user_and_course(
     user_bids: Sequence[str],
     shifu_bids: Sequence[str],
-    leaf_outline_bids_by_shifu: Dict[str, list[str]],
-) -> Dict[tuple[str, str], tuple[int, int]]:
+    leaf_outline_bids_by_shifu: dict[str, list[str]],
+) -> dict[tuple[str, str], tuple[int, int]]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -170,7 +170,7 @@ def _load_learning_progress_counts_by_user_and_course(
         .all()
     )
 
-    statuses_by_user_course_outline: Dict[tuple[str, str, str], list[int]] = {}
+    statuses_by_user_course_outline: dict[tuple[str, str, str], list[int]] = {}
     for user_bid, shifu_bid, outline_item_bid, status in progress_rows:
         normalized_user_bid = str(user_bid or "").strip()
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -194,7 +194,7 @@ def _load_learning_progress_counts_by_user_and_course(
             [],
         ).append(int(status or 0))
 
-    completed_counts_by_user_course: Dict[tuple[str, str], int] = {}
+    completed_counts_by_user_course: dict[tuple[str, str], int] = {}
     for (
         user_bid,
         shifu_bid,
@@ -206,7 +206,7 @@ def _load_learning_progress_counts_by_user_and_course(
             completed_counts_by_user_course.get((user_bid, shifu_bid), 0) + 1
         )
 
-    progress_counts: Dict[tuple[str, str], tuple[int, int]] = {}
+    progress_counts: dict[tuple[str, str], tuple[int, int]] = {}
     for user_bid in normalized_user_bids:
         for shifu_bid in normalized_shifu_bids:
             total_lesson_count = len(leaf_outline_bids_by_shifu.get(shifu_bid, []))
@@ -222,8 +222,8 @@ def _load_learning_progress_counts_by_user_and_course(
 def _load_operator_user_course_maps(
     user_bids: Sequence[str],
 ) -> tuple[
-    Dict[str, list[AdminOperationUserCourseSummaryDTO]],
-    Dict[str, list[AdminOperationUserCourseSummaryDTO]],
+    dict[str, list[AdminOperationUserCourseSummaryDTO]],
+    dict[str, list[AdminOperationUserCourseSummaryDTO]],
 ]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
@@ -231,10 +231,10 @@ def _load_operator_user_course_maps(
     if not normalized_user_bids:
         return {}, {}
 
-    created_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
+    created_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
         user_bid: [] for user_bid in normalized_user_bids
     }
-    learning_courses_map: Dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
+    learning_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
         user_bid: [] for user_bid in normalized_user_bids
     }
 
@@ -388,7 +388,7 @@ def _load_operator_user_course_maps(
 
 def _load_operator_user_course_count_maps(
     user_bids: Sequence[str],
-) -> tuple[Dict[str, int], Dict[str, int]]:
+) -> tuple[dict[str, int], dict[str, int]]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]

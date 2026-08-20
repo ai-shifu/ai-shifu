@@ -61,8 +61,8 @@ class TestConfigInitialization:
         with pytest.raises(EnvironmentConfigError):
             Config(parent_config, app)
 
-        # Verify error was logged
-        app.logger.error.assert_called()
+        # Verify error was logged with traceback
+        app.logger.exception.assert_called()
 
     def test_global_instance_set(self, monkeypatch):
         """Test that global instance is set on initialization."""

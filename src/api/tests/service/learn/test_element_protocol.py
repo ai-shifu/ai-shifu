@@ -15,9 +15,9 @@ import pytest
 
 @pytest.fixture
 def adapter_app():
-    import flaskr.dao as dao
     import flaskr.service.learn.models  # noqa: F401
     from flask import Flask
+    from flaskr import dao
 
     app = Flask("test-handle-ask-adapter")
     app.config.update(
@@ -225,7 +225,7 @@ class TestElementType:
     def test_invalid_value_raises(self):
         from flaskr.service.learn.learn_dtos import ElementType
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="nonexistent"):
             ElementType("nonexistent")
 
     def test_element_type_codes_complete(self):
@@ -2387,7 +2387,7 @@ class TestHandleAskAdapter:
                     context=_FollowUpContext(),
                     user_info=types.SimpleNamespace(user_id="u1"),
                     attend_id="pr1",
-                    input="hello",
+                    user_input="hello",
                     outline_item_info=types.SimpleNamespace(
                         shifu_bid="s1", bid="o1", title="Outline", position=1
                     ),
@@ -2508,7 +2508,7 @@ class TestHandleAskAdapter:
                     context=_FollowUpContext(),
                     user_info=types.SimpleNamespace(user_id="u1"),
                     attend_id="pr1",
-                    input="hello",
+                    user_input="hello",
                     outline_item_info=types.SimpleNamespace(
                         shifu_bid="s1", bid="o1", title="Outline", position=1
                     ),

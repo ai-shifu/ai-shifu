@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
-from typing import Any, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from typing import Any
 
 from flask import Flask
 from flaskr.service.common.models import raise_param_error
@@ -71,10 +72,8 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
     try:
         yield
     finally:
-        try:
+        with suppress(Exception):
             lock.release()
-        except Exception:
-            pass
 
 
 def _read_map(key: str) -> dict[str, Any]:

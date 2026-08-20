@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from flask import Flask
 from flaskr.i18n import _
@@ -17,7 +17,7 @@ from .sql_builder import build_statement
 ERR_NO_PERMISSION = "server.creatorAnalytics.noPermission"
 
 
-def run_dsl(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
+def run_dsl(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
     """Execute a DSL query on behalf of ``user_id``.
 
     Steps:
@@ -104,7 +104,7 @@ def _user_bid_candidates(filters) -> list[str]:
     return out
 
 
-def _redact_user_users_rows(result: Dict[str, Any]) -> None:
+def _redact_user_users_rows(result: dict[str, Any]) -> None:
     """Sanitise ``user_users`` result rows in-place.
 
     - ``nickname``: full PII redaction via :func:`redact_pii` (phone/email

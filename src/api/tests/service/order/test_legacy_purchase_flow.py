@@ -6,10 +6,10 @@ from types import SimpleNamespace
 from typing import Any
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
 import pytest
 from cryptography.fernet import Fernet
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID
@@ -85,11 +85,6 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         "resolve_payment_integration_for_new_order",
         lambda *_args, **_kwargs: None,
     )
-    monkeypatch.setattr(
-        order_funs,
-        "_generate_pingxx_charge",
-        lambda **kwargs: _fake_pingxx_charge(**kwargs),
-    )
 
     def _fake_pingxx_charge(**kwargs):
         buy_record = kwargs["buy_record"]
@@ -104,6 +99,12 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
             "legacy-qr-url",
             payment_channel="pingxx",
         )
+
+    monkeypatch.setattr(
+        order_funs,
+        "_generate_pingxx_charge",
+        _fake_pingxx_charge,
+    )
 
     init_result = init_buy_record(
         legacy_order_app,
@@ -212,13 +213,15 @@ class _FakeSaasConfigFuncs:
 
 
 class _FakeSaasColumn:
+    __hash__ = None
+
     def __init__(self, name: str) -> None:
         self.name = name
 
     def __eq__(self, value: object) -> tuple[str, object]:  # type: ignore[override]
         return self.name, value
 
-    def desc(self) -> "_FakeSaasColumn":
+    def desc(self) -> _FakeSaasColumn:
         return self
 
 
@@ -231,10 +234,10 @@ class _FakeSaasQuery:
         self._fake_saas = fake_saas
         self._conditions = conditions or []
 
-    def filter(self, *conditions: tuple[str, object]) -> "_FakeSaasQuery":
+    def filter(self, *conditions: tuple[str, object]) -> _FakeSaasQuery:
         return _FakeSaasQuery(self._fake_saas, [*self._conditions, *conditions])
 
-    def order_by(self, *_args) -> "_FakeSaasQuery":
+    def order_by(self, *_args) -> _FakeSaasQuery:
         return self
 
     def first(self):
@@ -333,7 +336,7 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
     monkeypatch.setattr(
         order_funs,
         "get_payment_provider",
-        lambda provider_name: FakeNativeProvider(provider_name),
+        FakeNativeProvider,
     )
     monkeypatch.setattr(
         order_funs, "get_shifu_creator_bid", lambda _app, _bid: "teacher-pay-1"

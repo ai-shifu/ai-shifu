@@ -1,7 +1,6 @@
 import json
-import os
 from decimal import Decimal
-from typing import Dict, Optional
+from pathlib import Path
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -128,11 +127,8 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
         }
 
         # Write to file
-        os.makedirs(
-            os.path.dirname(file_path) or ".",
-            exist_ok=True,
-        )
-        with open(file_path, "w", encoding="utf-8") as f:
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        with Path(file_path).open("w", encoding="utf-8") as f:
             json.dump(export_data, f, ensure_ascii=False, indent=2)
 
         return "success"
@@ -140,7 +136,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
 def import_shifu(
     app: Flask,
-    shifu_id: Optional[str],
+    shifu_id: str | None,
     file: FileStorage,
     user_id: str,
     commit: bool = True,
@@ -153,6 +149,7 @@ def import_shifu(
                   If not provided or doesn't exist, will create a new shifu.
         file: FileStorage object containing the JSON file
         user_id: User ID for creating/updating the shifu
+        commit: Commit the transaction before returning
 
     Returns:
         str: The shifu_bid of the imported shifu
@@ -165,8 +162,8 @@ def import_shifu(
             if isinstance(file_content, bytes):
                 file_content = file_content.decode("utf-8")
             import_data = json.loads(file_content)
-        except Exception as e:
-            app.logger.error(f"Failed to parse JSON file: {e}")
+        except Exception:
+            app.logger.exception("Failed to parse JSON file")
             raise_error("server.shifu.importFileInvalid")
 
         # Validate import data
@@ -300,15 +297,15 @@ def import_shifu(
             save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
 
         # Create mapping from old outline_item_bid to new outline_item_bid
-        old_to_new_bid_map: Dict[str, str] = {}
+        old_to_new_bid_map: dict[str, str] = {}
 
         # Create a map of old_bid -> outline_item_data
-        outline_items_by_old_bid: Dict[str, dict] = {
+        outline_items_by_old_bid: dict[str, dict] = {
             item["outline_item_bid"]: item for item in outline_items_data
         }
 
         # Create all outline items first (without parent_bid, will update later)
-        created_items: Dict[str, DraftOutlineItem] = {}
+        created_items: dict[str, DraftOutlineItem] = {}
 
         for item_data in outline_items_data:
             old_bid = item_data["outline_item_bid"]

@@ -1,6 +1,7 @@
 """Built-in LLM ask provider adapter."""
 
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from flask import Flask
 

@@ -1,4 +1,4 @@
-"""add hidden to profile item
+"""add hidden to profile item.
 
 Revision ID: 9f3a0c3aebe0
 Revises: d7a8e2f1b3c9

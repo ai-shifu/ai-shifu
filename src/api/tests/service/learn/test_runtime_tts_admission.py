@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import logging
 import sys
@@ -220,11 +221,8 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.WARNING):
-            try:
-                list(resp.response)
-            except AppException:
-                pass
+        with caplog.at_level(logging.WARNING), contextlib.suppress(AppException):
+            list(resp.response)
 
     assert (
         "synthesize generated block audio failed: TTS provider quota exceeded"
@@ -254,11 +252,8 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.ERROR):
-            try:
-                list(resp.response)
-            except RuntimeError:
-                pass
+        with caplog.at_level(logging.ERROR), contextlib.suppress(RuntimeError):
+            list(resp.response)
 
     assert "synthesize generated block audio failed" in caplog.text
     assert [record for record in caplog.records if record.levelno >= logging.ERROR]

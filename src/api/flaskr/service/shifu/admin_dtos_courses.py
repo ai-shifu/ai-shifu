@@ -371,7 +371,7 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
         ..., description="Last modifier nickname", required=False
     )
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
-    children: list["AdminOperationCourseDetailChapterDTO"] = Field(
+    children: list[AdminOperationCourseDetailChapterDTO] = Field(
         default_factory=list,
         description="Nested children",
         required=False,

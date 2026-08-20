@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.checkout import (
     _persist_billing_native_raw_snapshot,
     load_billing_order_for_native_event,
@@ -148,7 +148,7 @@ def test_native_snapshot_upsert_preserves_zero_amount_and_requires_identifier(
             == 0
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="requires a stable identifier"):
             upsert_native_snapshot(
                 biz_domain="order",
                 payment_provider="alipay",

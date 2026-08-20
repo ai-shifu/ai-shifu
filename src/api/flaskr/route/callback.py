@@ -74,8 +74,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
                 if provider_name == "alipay":
                     return _plain_text_response("success")
                 return jsonify({"code": "SUCCESS", "message": "成功"})
-            except Exception as exc:
-                app.logger.exception("Scoped %s webhook failed: %s", provider_name, exc)
+            except Exception:
+                app.logger.exception("Scoped %s webhook failed", provider_name)
                 if provider_name == "alipay":
                     return _plain_text_response("failure")
                 return jsonify({"code": "FAIL", "message": "processing error"}), 400
@@ -86,14 +86,14 @@ def register_callback_handler(app: Flask, path_prefix: str):
     def pingxx_callback():
         body = request.get_json()
         app.logger.info("pingxx-callback: %s", body)
-        type = body.get("type", "")
-        if type == "charge.succeeded":
+        event_type = body.get("type", "")
+        if event_type == "charge.succeeded":
             order_no = body.get("data", {}).get("object", {}).get("order_no", "")
-            id = body.get("data", {}).get("object", {}).get("id", "")
+            charge_id = body.get("data", {}).get("object", {}).get("id", "")
             app.logger.info("pingxx-callback: charge.succeeded order_no: %s", order_no)
             billing_result = handle_billing_pingxx_webhook(app, body)
             if not billing_result.matched:
-                success_buy_record_from_pingxx(app, id, body)
+                success_buy_record_from_pingxx(app, charge_id, body)
             # 处理支付成功逻辑
             # do something
 
@@ -133,8 +133,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
                         "billing_and_order_not_matched",
                     )
                     return _plain_text_response("success")
-        except Exception as exc:
-            app.logger.exception("alipay-notify failed: %s", exc)
+        except Exception:
+            app.logger.exception("alipay-notify failed")
             return _plain_text_response("failure")
         return _plain_text_response("success")
 
@@ -171,8 +171,8 @@ def register_callback_handler(app: Flask, path_prefix: str):
                         "billing_and_order_not_matched",
                     )
                     return jsonify({"code": "SUCCESS", "message": "成功"})
-        except Exception as exc:
-            app.logger.exception("wechatpay-notify failed: %s", exc)
+        except Exception:
+            app.logger.exception("wechatpay-notify failed")
             return jsonify({"code": "FAIL", "message": "processing error"}), 400
         return jsonify({"code": "SUCCESS", "message": "成功"})
 

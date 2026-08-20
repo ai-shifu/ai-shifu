@@ -64,7 +64,7 @@ def _normalize_referral_reward_amount(value: Any) -> Decimal:
         parsed = _quantize_credit_amount(Decimal(normalized))
     except (InvalidOperation, TypeError, ValueError, ArithmeticError):
         raise_param_error("amount")
-    if not parsed.is_finite() or parsed <= Decimal("0"):
+    if not parsed.is_finite() or parsed <= Decimal(0):
         raise_param_error("amount")
     return parsed
 
@@ -141,7 +141,7 @@ def load_referral_reward_summary(
         )
         available = sum(
             (_to_decimal(bucket.available_credits) for bucket in buckets),
-            start=Decimal("0"),
+            start=Decimal(0),
         )
         expires_at = buckets[0].effective_to if buckets else None
         wallet_bucket_bid = str(buckets[0].wallet_bucket_bid or "") if buckets else ""
@@ -260,9 +260,9 @@ def grant_referral_reward_credits_to_user(
                 ),
                 original_credits=granted_amount,
                 available_credits=granted_amount,
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=granted_at,
                 effective_to=new_effective_to,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,

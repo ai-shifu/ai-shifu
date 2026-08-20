@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from flask import Flask
@@ -50,7 +50,7 @@ def _serialize_datetime(value: datetime | None) -> str | None:
         return None
     if value.tzinfo is None:
         return f"{value.isoformat()}Z"
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _parse_rollout_threshold(value: Any) -> datetime | None:
@@ -65,9 +65,7 @@ def _parse_rollout_threshold(value: Any) -> datetime | None:
         try:
             parsed = datetime.fromisoformat(candidate)
             return (
-                parsed.astimezone(timezone.utc).replace(tzinfo=None)
-                if parsed.tzinfo
-                else parsed
+                parsed.astimezone(UTC).replace(tzinfo=None) if parsed.tzinfo else parsed
             )
         except ValueError:
             continue
@@ -110,7 +108,7 @@ def _resolve_user_segment(user: UserEntity | None) -> str:
     if eligible_at is None:
         return USER_SEGMENT_INELIGIBLE
     if getattr(eligible_at, "tzinfo", None) is not None:
-        eligible_at = eligible_at.astimezone(timezone.utc).replace(tzinfo=None)
+        eligible_at = eligible_at.astimezone(UTC).replace(tzinfo=None)
 
     existing_rollout_threshold = _parse_rollout_threshold(
         get_dynamic_config(EXISTING_CREATOR_ROLLOUT_CONFIG_KEY, "")

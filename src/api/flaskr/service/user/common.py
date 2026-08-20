@@ -1,5 +1,3 @@
-from typing import Optional
-
 import jwt
 from flask import Flask, has_app_context
 from flaskr.i18n import get_i18n_list
@@ -39,9 +37,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             user_id = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])[
                 "user_id"
             ]
-            app.logger.info("user_id:" + user_id)
-
-            app.logger.info("user_id:" + user_id)
+            app.logger.info("user_id: %s", user_id)
             ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
             lookup = token_store.get_and_refresh(
                 app,
@@ -154,7 +150,7 @@ def verify_sms_code(
     chekcode: str,
     course_id: str | None = None,
     language: str | None = None,
-    login_context: Optional[str] = None,
+    login_context: str | None = None,
 ) -> UserToken:
     provider = get_provider("phone")
     request = VerificationRequest(

@@ -1,4 +1,4 @@
-"""add learn generated element active lookup indexes
+"""add learn generated element active lookup indexes.
 
 Revision ID: 7b3c5d9e1a2f
 Revises: 4a1f6c8e9b2d

@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 from io import BytesIO
 from pathlib import Path
 
@@ -57,7 +56,7 @@ def _process_demo_shifu(
     current_file = Path(__file__).resolve()
     # From src/api/flaskr/command/ to src/api/: go up 2 levels (command -> flaskr -> api)
     demo_file_path = current_file.parent.parent.parent / "demo_shifus" / demo_file
-    with open(demo_file_path, "rb") as f:
+    with demo_file_path.open("rb") as f:
         file_content = f.read()
 
     file_hash = _calculate_hash(file_content)
@@ -74,7 +73,7 @@ def _process_demo_shifu(
     # Create FileStorage from bytes
     file_storage = FileStorage(
         stream=BytesIO(file_content),
-        filename=os.path.basename(demo_file_path),
+        filename=demo_file_path.name,
         name="file",
     )
 
@@ -128,7 +127,7 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
 
 
 def update_demo_shifu(app: Flask):
-    """Update demo shifu for both Chinese and English versions"""
+    """Update demo shifu for both Chinese and English versions."""
     if get_env_config("SKIP_DEMO_SHIFU_IMPORT"):
         app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")
         return

@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
     BILLING_INTERVAL_MONTH,
@@ -114,7 +114,7 @@ def add_reserved_renewal_activation_state(
         available_credits=Decimal("3.0000000000"),
         reserved_credits=Decimal("1000.0000000000"),
         lifetime_granted_credits=Decimal("1003.0000000000"),
-        lifetime_consumed_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )
@@ -129,8 +129,8 @@ def add_reserved_renewal_activation_state(
         original_credits=Decimal("1003.0000000000"),
         available_credits=Decimal("3.0000000000"),
         reserved_credits=Decimal("1000.0000000000"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=current_cycle_start,
         effective_to=current_cycle_end,
         status=CREDIT_BUCKET_STATUS_ACTIVE,

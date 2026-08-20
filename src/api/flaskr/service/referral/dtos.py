@@ -27,7 +27,7 @@ class InviteProfileDTO:
     available: bool = True
 
     @classmethod
-    def unavailable(cls) -> "InviteProfileDTO":
+    def unavailable(cls) -> InviteProfileDTO:
         return cls(
             campaign_bid="",
             campaign_code="",

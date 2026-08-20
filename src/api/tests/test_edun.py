@@ -64,6 +64,12 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
     captured = {}
 
     class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            captured["closed"] = True
+
         def read(self):
             return b'{"errorCode":0,"textSpam":{"result":0,"tags":[]}}'
 
@@ -83,3 +89,4 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
     assert result.provider == "ilivedata"
     assert captured["host"] == ilivedata_module.endpoint_url
     assert captured["timeout"] == 4
+    assert captured["closed"] is True

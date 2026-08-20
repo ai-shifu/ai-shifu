@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
@@ -70,9 +70,9 @@ def _create_wallet(creator_bid: str, available_credits: str) -> CreditWallet:
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
     )
 
 
@@ -96,9 +96,9 @@ def _create_bucket(
         priority=10,
         original_credits=Decimal(available_credits),
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=effective_from or dao.db.func.now(),
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -304,7 +304,7 @@ def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
 
     assert payload["allowed"] is True
     assert payload["creator_bid"] == "creator-disabled-1"
-    assert payload["wallet_available_credits"] == Decimal("0")
+    assert payload["wallet_available_credits"] == Decimal(0)
     assert payload["priority_class"] == "standard"
 
 

@@ -6,8 +6,9 @@ import threading
 import time
 import traceback
 import uuid
+from collections.abc import Generator
 from datetime import datetime
-from typing import Any, Generator, Optional
+from typing import Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
@@ -284,7 +285,7 @@ def _clear_run_script_status(app: Flask, user_bid: str, outline_bid: str) -> Non
 
 def _get_run_script_started_at(
     app: Flask, user_bid: str, outline_bid: str
-) -> Optional[int]:
+) -> int | None:
     try:
         raw = cache_provider.get(_get_run_script_status_key(app, user_bid, outline_bid))
     except Exception as exc:
@@ -317,7 +318,7 @@ def run_script_inner(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    input: str | dict | None = None,
+    user_input: str | dict | None = None,
     input_type: str | None = None,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
@@ -327,7 +328,7 @@ def run_script_inner(
     element_adapter: ListenElementRunAdapter | None = None,
     manage_app_context: bool = True,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
-    """Core function for running course scripts"""
+    """Core function for running course scripts."""
 
     def _finalize_langfuse_if_available(
         context: RunScriptContextV2 | None,
@@ -378,10 +379,7 @@ def run_script_inner(
                     .order_by(Order.id.desc())
                     .first()
                 )
-                if not success_buy_record:
-                    is_paid = False
-                else:
-                    is_paid = True
+                is_paid = bool(success_buy_record)
             else:
                 is_paid = True
 
@@ -397,7 +395,7 @@ def run_script_inner(
                 stop_event=stop_event,
             )
 
-            run_script_context.set_input(input, input_type)
+            run_script_context.set_input(user_input, input_type)
 
             ready_element_bids_by_block_bid: dict[str, list[str]] = {}
 
@@ -680,14 +678,14 @@ def run_script(
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
-    input: str | dict | None = None,
+    user_input: str | dict | None = None,
     input_type: str | None = None,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
     listen: bool = False,
     preview_mode: bool = False,
-    shifu_context_snapshot: Optional[dict[str, Any]] = None,
-    language: Optional[str] = None,
+    shifu_context_snapshot: dict[str, Any] | None = None,
+    language: str | None = None,
 ) -> Generator[str, None, None]:
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
@@ -777,7 +775,7 @@ def run_script(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_bid=outline_bid,
-                    input=input,
+                    user_input=user_input,
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     reload_element_bid=reload_element_bid,
@@ -965,41 +963,44 @@ def run_script(
                     done_received = True
                     break
 
-            if stream_error and not client_disconnected:
-                if isinstance(stream_error, Exception):
-                    _log_run_script_stream_error(app, stream_error)
-                    if isinstance(stream_error, AppException):
-                        error_content = str(stream_error)
-                    elif _is_retryable_llm_stream_connection_error(stream_error):
-                        error_content = str(_("server.learn.llmStreamInterrupted"))
-                    else:
-                        error_content = str(_("server.common.unknownError"))
-                    yield _to_sse_chunk(
-                        _make_terminal_event(
-                            outline_bid=outline_bid,
-                            event_type="error",
-                            content=error_content,
-                            element_adapter=stream_element_adapter,
-                        )
-                    )
-                    last_stream_type = "error"
-                    block_end_event = _make_terminal_event(
+            if (
+                stream_error
+                and not client_disconnected
+                and isinstance(stream_error, Exception)
+            ):
+                _log_run_script_stream_error(app, stream_error)
+                if isinstance(stream_error, AppException):
+                    error_content = str(stream_error)
+                elif _is_retryable_llm_stream_connection_error(stream_error):
+                    error_content = str(_("server.learn.llmStreamInterrupted"))
+                else:
+                    error_content = str(_("server.common.unknownError"))
+                yield _to_sse_chunk(
+                    _make_terminal_event(
                         outline_bid=outline_bid,
-                        event_type=GeneratedType.BREAK.value,
-                        content="",
+                        event_type="error",
+                        content=error_content,
                         element_adapter=stream_element_adapter,
-                        is_terminal=False if runtime_listen else None,
                     )
-                    if not _should_suppress_live_payload(block_end_event):
-                        yield _to_sse_chunk(block_end_event)
-                        last_stream_type = (
-                            GeneratedType.DONE.value
-                            if use_element_protocol
-                            else GeneratedType.BREAK.value
-                        )
-                        last_stream_done_is_terminal = (
-                            False if use_element_protocol else None
-                        )
+                )
+                last_stream_type = "error"
+                block_end_event = _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.BREAK.value,
+                    content="",
+                    element_adapter=stream_element_adapter,
+                    is_terminal=False if runtime_listen else None,
+                )
+                if not _should_suppress_live_payload(block_end_event):
+                    yield _to_sse_chunk(block_end_event)
+                    last_stream_type = (
+                        GeneratedType.DONE.value
+                        if use_element_protocol
+                        else GeneratedType.BREAK.value
+                    )
+                    last_stream_done_is_terminal = (
+                        False if use_element_protocol else None
+                    )
 
             if not client_disconnected and not (
                 use_element_protocol

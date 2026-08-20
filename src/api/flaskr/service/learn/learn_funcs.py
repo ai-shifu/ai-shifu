@@ -5,7 +5,7 @@ import queue
 import time
 import uuid
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.tts import (
@@ -125,8 +125,8 @@ def _normalize_dt_to_utc(
     if value is None:
         return None
     if value.tzinfo is not None:
-        return value.astimezone(timezone.utc)
-    return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(UTC)
+    return value.replace(tzinfo=UTC)
 
 
 def _resolve_published_effective_updated_at(
@@ -308,10 +308,7 @@ def get_outline_item_tree(
                 .order_by(Order.id.desc())
                 .first()
             )
-            if not buy_record:
-                is_paid = False
-            else:
-                is_paid = True
+            is_paid = bool(buy_record)
         struct = (
             struct_model.query.filter(
                 struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
@@ -453,15 +450,14 @@ def get_outline_item_tree(
                 banner_info=banner_info_dto,
                 outline_items=outline_items,
             )
-        if not is_paid:
-            if add_banner:
-                banner_info_dto = LearnBannerInfoDTO(
-                    title=_("server.banner.bannerTitle"),
-                    pop_up_title=_("server.banner.bannerPopUpTitle"),
-                    pop_up_content=_("server.banner.bannerPopUpContent"),
-                    pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
-                    pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
-                )
+        if not is_paid and add_banner:
+            banner_info_dto = LearnBannerInfoDTO(
+                title=_("server.banner.bannerTitle"),
+                pop_up_title=_("server.banner.bannerPopUpTitle"),
+                pop_up_content=_("server.banner.bannerPopUpContent"),
+                pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
+                pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
+            )
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,
             outline_items=outline_items,
@@ -519,9 +515,10 @@ def get_learn_record(
                     for button in parsed_interaction.get("buttons"):
                         if button.get("value") == "_sys_pay":
                             pass
-                        if button.get("value") == "_sys_login":
-                            if bool(request.user.mobile):
-                                records.remove(last_record)
+                        if button.get("value") == "_sys_login" and bool(
+                            request.user.mobile
+                        ):
+                            records.remove(last_record)
         struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
         outline_item_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
         has_next_outline = False
@@ -959,7 +956,7 @@ def _finalize_tts_stream_audio(
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = int(get_audio_duration_ms(final_audio, format="mp3") or 0)
+    duration_ms = int(get_audio_duration_ms(final_audio, audio_format="mp3") or 0)
     oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
 
     if persist_audio:

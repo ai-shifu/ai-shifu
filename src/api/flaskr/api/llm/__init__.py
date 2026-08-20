@@ -1,11 +1,14 @@
+"""LLM invocation wrappers built on LiteLLM."""
+
 import asyncio
 import logging
 import os
 import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any
 
 import requests
 
@@ -55,6 +58,8 @@ logger = logging.getLogger(__name__)
 # specific case where a loop is already running, we fall back to scheduling
 # the coroutine on the existing loop instead of raising.
 _original_asyncio_run = asyncio.run
+# Strong references so fire-and-forget tasks are not garbage-collected mid-run.
+_background_asyncio_tasks: set[asyncio.Task] = set()
 
 
 def _safe_asyncio_run(coro, *args, **kwargs):
@@ -65,13 +70,11 @@ def _safe_asyncio_run(coro, *args, **kwargs):
         if "cannot be called from a running event loop" not in message:
             # Preserve original behaviour for unrelated errors.
             raise
+        loop = asyncio.get_running_loop()
         try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # No running loop available, re-raise the original error.
-            raise
-        try:
-            loop.create_task(coro)
+            task = loop.create_task(coro)
+            _background_asyncio_tasks.add(task)
+            task.add_done_callback(_background_asyncio_tasks.discard)
         except Exception:
             # If even scheduling fails, swallow the error so logging/caching
             # failures do not break the main application.
@@ -90,33 +93,33 @@ class ProviderConfig:
     prefix: str = ""
     fetch_models: bool = True
     filter_fn: Callable[[str], bool] | None = None
-    static_models: List[str] = field(default_factory=list)
-    extra_models: List[str] = field(default_factory=list)
-    wildcard_prefixes: Tuple[str, ...] = ()
+    static_models: list[str] = field(default_factory=list)
+    extra_models: list[str] = field(default_factory=list)
+    wildcard_prefixes: tuple[str, ...] = ()
     config_hint: str = ""
     custom_llm_provider: str | None = None
-    model_loader: Optional[
+    model_loader: (
         Callable[
-            ["ProviderConfig", Dict[str, str], Optional[str]],
-            List[Union[str, Tuple[str, str]]],
+            ["ProviderConfig", dict[str, str], str | None], list[str | tuple[str, str]]
         ]
-    ] = None
-    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
+        | None
+    ) = None
+    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
 @dataclass
 class ProviderState:
     enabled: bool
-    params: Optional[Dict[str, str]]
-    models: List[str]
+    params: dict[str, str] | None
+    models: list[str]
     prefix: str = ""
-    wildcard_prefixes: Tuple[str, ...] = ()
-    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
+    wildcard_prefixes: tuple[str, ...] = ()
+    reload_params: Callable[[str, float], dict[str, Any]] | None = None
 
 
-MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
-PROVIDER_STATES: Dict[str, ProviderState] = {}
-MODEL_MAX_OUTPUT_TOKENS: Dict[str, int] = {}
+MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
+PROVIDER_STATES: dict[str, ProviderState] = {}
+MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 _USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 
 
@@ -169,9 +172,9 @@ def _extract_input_cache(usage: Any) -> int:
 
 
 def _attach_usage_output_text(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     response_text: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Store a bounded response excerpt for operator usage detail summaries."""
     normalized_response_text = str(response_text or "").strip()
     if not normalized_response_text or "output_text" in metadata:
@@ -295,7 +298,7 @@ def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
     return allowed, display_names
 
 
-def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
+def _load_and_register_model_max_output_tokens() -> dict[str, int]:
     raw_limits = get_config("LLM_MODEL_MAX_OUTPUT_TOKENS", "")
     try:
         limits = parse_llm_model_max_output_tokens(raw_limits)
@@ -327,10 +330,10 @@ def _load_and_register_model_max_output_tokens() -> Dict[str, int]:
 
 
 def _register_provider_models(
-    config: ProviderConfig, raw_models: List[Union[str, Tuple[str, str]]]
-) -> List[str]:
+    config: ProviderConfig, raw_models: list[str | tuple[str, str]]
+) -> list[str]:
     seen = set()
-    display_models: List[str] = []
+    display_models: list[str] = []
     for model_id in raw_models:
         actual_model = None
         if isinstance(model_id, tuple):
@@ -367,13 +370,14 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         base_url = get_config(config.base_url_env)
     if not base_url:
         base_url = config.default_base_url
-    if config.key == "gemini" and base_url:
-        if "generativelanguage.googleapis.com" in base_url:
-            base_url = None
-            _log_info(
-                "Skipping GEMINI_API_URL override to use LiteLLM default endpoint"
-            )
-    params: Dict[str, str] = {"api_key": api_key}
+    if (
+        config.key == "gemini"
+        and base_url
+        and "generativelanguage.googleapis.com" in base_url
+    ):
+        base_url = None
+        _log_info("Skipping GEMINI_API_URL override to use LiteLLM default endpoint")
+    params: dict[str, str] = {"api_key": api_key}
     if base_url:
         params["api_base"] = base_url
     if config.custom_llm_provider:
@@ -381,7 +385,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     if config.model_loader:
         raw_models = config.model_loader(config, params, base_url)
     else:
-        raw_models: List[Union[str, Tuple[str, str]]] = list(config.static_models)
+        raw_models: list[str | tuple[str, str]] = list(config.static_models)
         if config.fetch_models:
             try:
                 fetched_models = _fetch_provider_models(api_key, base_url)
@@ -551,7 +555,6 @@ def _iter_stream_with_precontent_retry(
                 else:
                     yield res
             yield from pending_reasoning_chunks
-            return
         except Exception as exc:
             attempts += 1
             retryable = _retryable_stream_error_types()
@@ -567,9 +570,11 @@ def _iter_stream_with_precontent_retry(
                 f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
                 f"reissuing request: {exc}"
             )
+        else:
+            return
 
 
-def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
+def _resolve_provider_for_model(model: str) -> tuple[str | None, str]:
     alias = MODEL_ALIAS_MAP.get(model)
     if alias:
         return alias
@@ -584,9 +589,9 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
 
 
 def _load_gemini_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
-    models: List[Union[str, Tuple[str, str]]] = []
+    config: ProviderConfig, params: dict[str, str], base_url: str | None
+) -> list[str | tuple[str, str]]:
+    models: list[str | tuple[str, str]] = []
     api_key = params.get("api_key")
     if not api_key:
         return models
@@ -595,9 +600,10 @@ def _load_gemini_models(
     if base_url and "generativelanguage.googleapis.com" not in base_url:
         try:
             models.extend(_fetch_provider_models(api_key, base_url))
-            return models
         except Exception as exc:
             _log_warning(f"load gemini models via custom base error: {exc}")
+        else:
+            return models
 
     # Default to Google Gemini ListModels endpoint (v1beta).
     google_base = base_url or "https://generativelanguage.googleapis.com"
@@ -621,8 +627,8 @@ def _load_gemini_models(
 
 
 def _load_deepseek_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
+    config: ProviderConfig, params: dict[str, str], base_url: str | None
+) -> list[str | tuple[str, str]]:
     api_key = params.get("api_key", "")
     try:
         return _fetch_provider_models(api_key, base_url)
@@ -644,7 +650,7 @@ DEEPSEEK_FALLBACK_MODELS = [
 ]
 
 
-def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
     if model_id.startswith("gpt-5"):
         try:
             model_info = litellm.get_model_info(
@@ -711,11 +717,11 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
-def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
     # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
     # Gemini model ids are not included in LiteLLM's supported-params table yet,
     # so explicitly allow reasoning_effort for Gemini requests.
-    params: Dict[str, Any] = {
+    params: dict[str, Any] = {
         "temperature": temperature,
         "allowed_openai_params": ["reasoning_effort"],
     }
@@ -733,7 +739,7 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
     return params
 
 
-def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "thinking": {"type": "disabled"},
@@ -743,21 +749,21 @@ def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
-def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
     }
 
 
-def _reload_qwen_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
     }
 
 
-def _reload_deepseek_params(model_id: str, temperature: float) -> Dict[str, Any]:
+def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, Any]:
     return {
         "temperature": temperature,
         "reasoning_effort": "none",
@@ -847,7 +853,7 @@ def _apply_provider_params(
     kwargs.update(applied_params)
 
 
-LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
+LITELLM_PROVIDER_CONFIGS: list[ProviderConfig] = [
     ProviderConfig(
         key="openai",
         api_key_env="OPENAI_API_KEY",
@@ -931,7 +937,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ),
 ]
 
-PROVIDER_CONFIG_HINTS: Dict[str, str] = {}
+PROVIDER_CONFIG_HINTS: dict[str, str] = {}
 for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_STATES[config.key] = _init_litellm_provider(config)
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
@@ -952,8 +958,8 @@ class LLMStreamaUsage:
 
 
 class LLMStreamResponse:
-    def __init__(self, id, is_end, is_truncated, result, finish_reason, usage):
-        self.id = id
+    def __init__(self, response_id, is_end, is_truncated, result, finish_reason, usage):
+        self.id = response_id
 
         self.is_end = is_end
         self.is_truncated = is_truncated
@@ -990,12 +996,12 @@ def invoke_llm(
     system: str | None = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
-    usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[Union[str, int]] = None,
-    billable: Optional[int] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    usage_metadata: Optional[Dict[str, Any]] = None,
+    usage_context: UsageContext | None = None,
+    usage_scene: str | int | None = None,
+    billable: int | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
+    usage_metadata: dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     stream_flag = bool(kwargs.get("stream", True))
@@ -1173,12 +1179,12 @@ def chat_llm(
     messages: list,
     json: bool = False,
     generation_name: str = "user_follow_ask",
-    usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[Union[str, int]] = None,
-    billable: Optional[int] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
-    usage_metadata: Optional[Dict[str, Any]] = None,
+    usage_context: UsageContext | None = None,
+    usage_scene: str | int | None = None,
+    billable: int | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
+    usage_metadata: dict[str, Any] | None = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")
@@ -1509,10 +1515,11 @@ def _attach_credit_multipliers(
                     "is_default": model == default_model,
                 }
             )
-        return enriched
     except Exception as exc:
         _log_warning(f"load LLM credit multipliers error: {exc}")
         return [{**option, "credit_multiplier": None} for option in options]
+    else:
+        return enriched
 
 
 def get_current_models(app: Flask) -> list[dict[str, Any]]:

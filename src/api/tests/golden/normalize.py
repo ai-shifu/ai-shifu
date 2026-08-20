@@ -89,8 +89,8 @@ class IdNormalizer:
 def parse_sse_events(raw_transcript: str) -> list[dict]:
     """Parse ``data: {json}`` SSE lines into a list of event dicts."""
     events: list[dict] = []
-    for chunk in raw_transcript.split("\n\n"):
-        chunk = chunk.strip()
+    for raw_chunk in raw_transcript.split("\n\n"):
+        chunk = raw_chunk.strip()
         if not chunk.startswith(SSE_DATA_PREFIX):
             continue
         payload = chunk[len(SSE_DATA_PREFIX) :].strip()

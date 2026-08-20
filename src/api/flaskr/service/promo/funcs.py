@@ -1,4 +1,4 @@
-"""Promo functions"""
+"""Promo functions."""
 
 import decimal
 from contextlib import nullcontext
@@ -92,7 +92,7 @@ def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
     Args:
         app: Flask app
         user_bid: User bid
-        order_bid: Order bid
+        order_bid: Order bid.
     """
     with app.app_context():
         usage = CouponUsageModel.query.filter(

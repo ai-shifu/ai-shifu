@@ -5,9 +5,10 @@ def mock_port_validator(value):
     """Mock port validator that accepts 1-65535."""
     try:
         port = int(value)
-        return 1 <= port <= 65535
     except (ValueError, TypeError):
         return False
+    else:
+        return 1 <= port <= 65535
 
 
 def mock_email_validator(value):
@@ -21,12 +22,12 @@ def mock_email_validator(value):
 
 
 def always_fail_validator(value):
-    """Validator that always fails (for testing)."""
+    """Fail validation always (test helper)."""
     return False
 
 
 def always_pass_validator(value):
-    """Validator that always passes (for testing)."""
+    """Pass validation always (test helper)."""
     return True
 
 
@@ -36,9 +37,10 @@ def range_validator(min_val, max_val):
     def validator(value):
         try:
             num = float(value)
-            return min_val <= num <= max_val
         except (ValueError, TypeError):
             return False
+        else:
+            return min_val <= num <= max_val
 
     return validator
 

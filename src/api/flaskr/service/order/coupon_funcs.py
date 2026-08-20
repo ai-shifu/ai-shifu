@@ -1,6 +1,5 @@
 import decimal
 import json
-from typing import List, Optional, Tuple
 
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
@@ -27,7 +26,7 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
 
-def _get_course_id_from_filter(coupon: Coupon) -> Optional[str]:
+def _get_course_id_from_filter(coupon: Coupon) -> str | None:
     """Extract course_id from coupon.filter; return None if missing/invalid/empty."""
     if not coupon or not coupon.filter:
         return None
@@ -58,20 +57,20 @@ def _coupon_matches_course(coupon: Coupon, shifu_bid: str) -> bool:
 
 
 def _pick_coupon_candidate(
-    active_usages: List[CouponUsageModel],
+    active_usages: list[CouponUsageModel],
     coupons_by_bid: dict[str, Coupon],
-    coupons_by_code: List[Coupon],
+    coupons_by_code: list[Coupon],
     shifu_bid: str,
     user_id: str,
-) -> Tuple[Optional[CouponUsageModel], Optional[Coupon], bool]:
+) -> tuple[CouponUsageModel | None, Coupon | None, bool]:
     """Pick a coupon_usage/coupon pair that matches the current course.
     Returns (usage, coupon, has_candidate_with_same_code).
     """
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
 
     def select(
-        usages: List[CouponUsageModel],
-    ) -> Tuple[Optional[CouponUsageModel], Optional[Coupon]]:
+        usages: list[CouponUsageModel],
+    ) -> tuple[CouponUsageModel | None, Coupon | None]:
         for usage in usages:
             coupon = coupons_by_bid.get(getattr(usage, "coupon_bid", None))
             if coupon and _coupon_matches_course(coupon, shifu_bid):
@@ -146,7 +145,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
     Returns:
         Order object
     Raises:
-        raise_error: If the coupon code is not found or the coupon is already used
+        raise_error: If the coupon code is not found or the coupon is already used.
     """
     with app.app_context():
         now = now_utc()
@@ -160,7 +159,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         if order_coupon_useage:
             raise_error("server.discount.orderDiscountAlreadyUsed")
 
-        active_usages: List[CouponUsageModel] = (
+        active_usages: list[CouponUsageModel] = (
             CouponUsageModel.query.filter(
                 CouponUsageModel.code == coupon_code,
                 CouponUsageModel.status == COUPON_STATUS_ACTIVE,
@@ -177,7 +176,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
                 Coupon.deleted == 0,
             ).all()
             coupons_by_bid = {coupon.coupon_bid: coupon for coupon in coupons}
-        coupons_by_code: List[Coupon] = (
+        coupons_by_code: list[Coupon] = (
             Coupon.query.filter(
                 Coupon.code == coupon_code,
                 Coupon.deleted == 0,

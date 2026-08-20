@@ -4,9 +4,9 @@ import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.cli import register_billing_commands
 from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -123,10 +123,10 @@ def test_audit_credit_state_reports_overdue_reserved_grant(
             creator_bid="creator-audit-reserved",
             wallet_bid="wallet-audit-reserved",
             bucket_bid="bucket-audit-reserved",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             wallet_reserved=Decimal("5.0000000000"),
             original=Decimal("5.0000000000"),
-            available=Decimal("0"),
+            available=Decimal(0),
             reserved=Decimal("5.0000000000"),
         )
         dao.db.session.add(
@@ -140,7 +140,7 @@ def test_audit_credit_state_reports_overdue_reserved_grant(
                 source_bid="order-audit-reserved",
                 idempotency_key="grant:audit-reserved",
                 amount=Decimal("5.0000000000"),
-                balance_after=Decimal("0"),
+                balance_after=Decimal(0),
                 consumable_from=now - timedelta(days=1),
                 expires_at=now + timedelta(days=30),
                 metadata_json={"bucket_credit_state": "reserved"},
@@ -168,9 +168,9 @@ def test_audit_credit_state_reports_expire_ledger_and_subscription_window_drift(
             creator_bid="creator-audit-drift",
             wallet_bid="wallet-audit-drift",
             bucket_bid="bucket-audit-expired-drift",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("10.0000000000"),
-            available=Decimal("0"),
+            available=Decimal(0),
             consumed=Decimal("4.0000000000"),
             expired=Decimal("6.0000000000"),
             status=CREDIT_BUCKET_STATUS_EXPIRED,
@@ -203,9 +203,9 @@ def test_audit_credit_state_reports_expire_ledger_and_subscription_window_drift(
                 priority=20,
                 original_credits=Decimal("4.0000000000"),
                 available_credits=Decimal("4.0000000000"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=now - timedelta(days=1),
                 effective_to=bucket_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -243,7 +243,7 @@ def test_audit_credit_state_cli_outputs_read_only_report(
             creator_bid="creator-audit-cli",
             wallet_bid="wallet-audit-cli",
             bucket_bid="bucket-audit-cli",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("2.0000000000"),
             available=Decimal("2.0000000000"),
         )
@@ -288,9 +288,9 @@ def test_audit_credit_state_does_not_flush_pending_session_mutations(
                 wallet_bid="wallet-audit-pending",
                 creator_bid="creator-audit-pending",
                 available_credits=Decimal("1.0000000000"),
-                reserved_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
                 lifetime_granted_credits=Decimal("1.0000000000"),
-                lifetime_consumed_credits=Decimal("0"),
+                lifetime_consumed_credits=Decimal(0),
                 last_settled_usage_id=0,
                 version=0,
             )
@@ -312,15 +312,11 @@ def test_audit_credit_state_does_not_flush_pending_session_mutations(
 def test_audit_credit_state_rejects_invalid_explicit_as_of(
     billing_credit_audit_app: Flask,
 ) -> None:
-    with billing_credit_audit_app.app_context():
-        try:
-            audit_credit_state(
-                creator_bid="creator-audit-invalid-time", as_of="bad-date"
-            )
-        except ValueError as exc:
-            assert "Unable to parse as_of value" in str(exc)
-        else:
-            raise AssertionError("Expected invalid as_of to raise ValueError")
+    with (
+        billing_credit_audit_app.app_context(),
+        pytest.raises(ValueError, match="Unable to parse as_of value"),
+    ):
+        audit_credit_state(creator_bid="creator-audit-invalid-time", as_of="bad-date")
 
     runner = billing_credit_audit_app.test_cli_runner()
     result = runner.invoke(
@@ -348,7 +344,7 @@ def test_audit_credit_state_does_not_truncate_issues_for_limited_creator_scan(
             creator_bid="creator-audit-limit",
             wallet_bid="wallet-audit-limit",
             bucket_bid="bucket-audit-limit",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("10.0000000000"),
             available=Decimal("7.0000000000"),
             consumed=Decimal("1.0000000000"),
@@ -393,7 +389,7 @@ def test_audit_credit_state_limited_all_reports_unscanned_creators(
             creator_bid="creator-audit-page-z",
             wallet_bid="wallet-audit-page-z",
             bucket_bid="bucket-audit-page-z",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("10.0000000000"),
             available=Decimal("10.0000000000"),
         )
@@ -434,7 +430,7 @@ def test_audit_credit_state_limited_all_uses_creator_not_row_id_order(
             creator_bid="creator-audit-row-a",
             wallet_bid="wallet-audit-row-a",
             bucket_bid="bucket-audit-row-a",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("10.0000000000"),
             available=Decimal("10.0000000000"),
         )
@@ -508,9 +504,9 @@ def test_audit_credit_state_loads_expire_counterpart_ledgers_with_limited_scan(
             creator_bid="creator-audit-counterpart",
             wallet_bid="wallet-audit-counterpart",
             bucket_bid="bucket-audit-counterpart",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("5.0000000000"),
-            available=Decimal("0"),
+            available=Decimal(0),
             consumed=Decimal("1.0000000000"),
             expired=Decimal("4.0000000000"),
             status=CREDIT_BUCKET_STATUS_EXPIRED,
@@ -544,7 +540,7 @@ def test_audit_credit_state_loads_expire_counterpart_ledgers_with_limited_scan(
                 source_bid="order-audit-counterpart",
                 idempotency_key="expire:audit-counterpart",
                 amount=Decimal("-4.0000000000"),
-                balance_after=Decimal("0"),
+                balance_after=Decimal(0),
                 consumable_from=now - timedelta(days=30),
                 expires_at=now - timedelta(days=1),
             )
@@ -566,9 +562,9 @@ def test_audit_credit_state_aggregates_reused_bucket_expire_ledgers(
             creator_bid="creator-audit-reused-expire",
             wallet_bid="wallet-audit-reused-expire",
             bucket_bid="bucket-audit-reused-expire",
-            wallet_available=Decimal("0"),
+            wallet_available=Decimal(0),
             original=Decimal("10.0000000000"),
-            available=Decimal("0"),
+            available=Decimal(0),
             consumed=Decimal("4.0000000000"),
             expired=Decimal("6.0000000000"),
             status=CREDIT_BUCKET_STATUS_EXPIRED,
@@ -586,7 +582,7 @@ def test_audit_credit_state_aggregates_reused_bucket_expire_ledgers(
                     source_bid="order-audit-reused-expire",
                     idempotency_key=f"expire:audit-reused-expire:{index}",
                     amount=Decimal(amount),
-                    balance_after=Decimal("0"),
+                    balance_after=Decimal(0),
                     consumable_from=now - timedelta(days=60),
                     expires_at=now - timedelta(days=index),
                 )
@@ -644,12 +640,12 @@ def _seed_wallet_with_bucket(
     wallet_bid: str,
     bucket_bid: str,
     wallet_available: Decimal | None = None,
-    wallet_reserved: Decimal = Decimal("0"),
+    wallet_reserved: Decimal = Decimal(0),
     original: Decimal,
     available: Decimal,
-    reserved: Decimal = Decimal("0"),
-    consumed: Decimal = Decimal("0"),
-    expired: Decimal = Decimal("0"),
+    reserved: Decimal = Decimal(0),
+    consumed: Decimal = Decimal(0),
+    expired: Decimal = Decimal(0),
     status: int = CREDIT_BUCKET_STATUS_ACTIVE,
     effective_to: datetime | None = None,
 ) -> tuple[CreditWallet, CreditWalletBucket]:

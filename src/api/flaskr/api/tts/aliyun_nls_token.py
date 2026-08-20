@@ -12,6 +12,7 @@ Docs:
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
@@ -19,7 +20,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -49,7 +50,7 @@ class AliyunNlsToken:
     def expires_in_seconds(self) -> int:
         return max(0, int(self.expire_time - time.time()))
 
-    def is_expired(self, now: Optional[float] = None) -> bool:
+    def is_expired(self, now: float | None = None) -> bool:
         now_ts = time.time() if now is None else float(now)
         return self.expire_time <= int(now_ts)
 
@@ -103,7 +104,7 @@ def _get_lock_key() -> str:
     return f"{prefix}tts:aliyun:nls_token:lock"
 
 
-def _decode_cache_value(raw: Any) -> Optional[AliyunNlsToken]:
+def _decode_cache_value(raw: Any) -> AliyunNlsToken | None:
     if raw is None:
         return None
     if isinstance(raw, bytes):
@@ -134,7 +135,7 @@ def _store_cache_value(value: AliyunNlsToken) -> None:
     cache.set(_get_cache_key(), payload, ex=ttl_seconds)
 
 
-def _get_access_keys() -> Tuple[str, str]:
+def _get_access_keys() -> tuple[str, str]:
     """Resolve AccessKeyId/AccessKeySecret for NLS CreateToken.
 
     Prefer the dedicated variables from Aliyun docs. Fall back to OSS keys when
@@ -264,7 +265,6 @@ def get_aliyun_nls_token(
                 "Fetched Aliyun NLS token (expires_in=%ss)",
                 max(0, int(fresh.expire_time - time.time())),
             )
-            return fresh.token
         except Exception as exc:
             # If we still have a cached token that hasn't expired, use it as a fallback.
             if cached and not cached.is_expired(now=now):
@@ -274,12 +274,12 @@ def get_aliyun_nls_token(
                 )
                 return cached.token
             raise
+        else:
+            return fresh.token
     finally:
         if acquired:
-            try:
+            with contextlib.suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def is_aliyun_nls_token_configured() -> bool:

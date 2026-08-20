@@ -7,8 +7,9 @@ Billing settlement stays asynchronous; request threads stop after raw
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from flask import Flask
 from flaskr.dao import cleanup_session_after, db, invalidate_session
@@ -37,7 +38,7 @@ class UsageContext:
     request_id: str = ""
     trace_id: str = ""
     usage_scene: int = BILL_USAGE_SCENE_PROD
-    billable: Optional[int] = None
+    billable: int | None = None
 
 
 def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) -> int:
@@ -55,13 +56,10 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
         try:
             db.session.add(record)
             db.session.commit()
-            return True
         except Exception as exc:
-            try:
-                app.logger.exception("Usage metering persist failed: %s", exc)
-            except Exception:
-                # Never mask the persistence failure with a logging failure.
-                pass
+            # Never mask the persistence failure with a logging failure.
+            with contextlib.suppress(Exception):
+                app.logger.exception("Usage metering persist failed")
             # Clean up INSIDE the pushed context so it targets the session
             # that actually failed - the previous cleanup ran after the
             # context pop and rolled back the CALLER's session instead.
@@ -75,6 +73,8 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
             # before the context teardown would roll back on it.
             invalidate_session(source="usage metering persist interrupt")
             raise
+        else:
+            return True
 
 
 def _should_enqueue_usage_settlement(
@@ -106,15 +106,12 @@ def _enqueue_usage_settlement(app: Flask, *, usage_bid: str) -> None:
             )
             return
         task.apply_async(kwargs={"usage_bid": normalized_usage_bid})
-    except Exception as exc:
-        try:
+    except Exception:
+        with contextlib.suppress(Exception):
             app.logger.exception(
-                "Usage settlement enqueue failed for usage_bid=%s: %s",
+                "Usage settlement enqueue failed for usage_bid=%s",
                 normalized_usage_bid,
-                exc,
             )
-        except Exception:
-            pass
 
 
 def record_llm_usage(
@@ -124,14 +121,14 @@ def record_llm_usage(
     provider: str,
     model: str,
     is_stream: bool,
-    input: int,
+    input: int,  # noqa: A002 - mirrors the BillUsageRecord column name
     input_cache: int = 0,
     output: int,
     total: int,
     latency_ms: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: Optional[Dict[str, Any]] = None,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     usage_bid = generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
@@ -214,11 +211,11 @@ def record_tts_usage(
     app: Flask,
     context: UsageContext,
     *,
-    usage_bid: Optional[str] = None,
+    usage_bid: str | None = None,
     provider: str,
     model: str,
     is_stream: bool,
-    input: int,
+    input: int,  # noqa: A002 - mirrors the BillUsageRecord column name
     output: int,
     total: int,
     word_count: int,
@@ -230,7 +227,7 @@ def record_tts_usage(
     segment_count: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: Optional[Dict[str, Any]] = None,
+    extra: dict[str, Any] | None = None,
     enqueue_settlement: bool = True,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)

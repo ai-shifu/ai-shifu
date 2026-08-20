@@ -7,16 +7,16 @@ background threads spawned from that request.
 
 from __future__ import annotations
 
+import contextlib
 import threading
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 _context_local = threading.local()
 
 
-def set_shifu_context(
-    shifu_bid: Optional[str], shifu_creator_bid: Optional[str]
-) -> None:
+def set_shifu_context(shifu_bid: str | None, shifu_creator_bid: str | None) -> None:
     """Set the shifu context for the current thread.
 
     Args:
@@ -35,12 +35,12 @@ def clear_shifu_context() -> None:
             delattr(_context_local, attr)
 
 
-def get_shifu_creator_bid() -> Optional[str]:
+def get_shifu_creator_bid() -> str | None:
     """Get current shifu creator user business identifier from context."""
     return getattr(_context_local, "shifu_creator_bid", None)
 
 
-def get_shifu_context_snapshot() -> Dict[str, Any]:
+def get_shifu_context_snapshot() -> dict[str, Any]:
     """Capture the current shifu context as a plain dict.
 
     This snapshot can be passed into a background thread and applied there.
@@ -51,7 +51,7 @@ def get_shifu_context_snapshot() -> Dict[str, Any]:
     }
 
 
-def apply_shifu_context_snapshot(snapshot: Optional[Dict[str, Any]]) -> None:
+def apply_shifu_context_snapshot(snapshot: dict[str, Any] | None) -> None:
     """Apply a previously captured shifu context snapshot to the current thread.
 
     Args:
@@ -66,7 +66,7 @@ def apply_shifu_context_snapshot(snapshot: Optional[Dict[str, Any]]) -> None:
         _context_local.shifu_creator_bid = snapshot.get("shifu_creator_bid")
 
 
-def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
+def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
     """Resolve creator bid for a shifu with a lightweight Redis cache.
 
     The mapping (shifu_bid -> creator_bid) is effectively immutable, so we can
@@ -76,11 +76,15 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
         return None
 
     try:
-        from flaskr.common.cache_provider import cache as cache_provider  # type: ignore
+        from flaskr.common.cache_provider import (
+            cache as cache_provider,  # type: ignore[import-untyped]
+        )
         from flaskr.service.shifu.utils import get_shifu_creator_bid
     except Exception:
         try:
-            from flaskr.service.shifu.utils import get_shifu_creator_bid  # type: ignore
+            from flaskr.service.shifu.utils import (
+                get_shifu_creator_bid,  # type: ignore[import-not-found]
+            )
         except Exception:
             return None
         return get_shifu_creator_bid(app, shifu_bid)
@@ -114,19 +118,19 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> Optional[str]:
             return creator_bid
         finally:
             if acquired:
-                try:
+                with contextlib.suppress(Exception):
                     lock.release()
-                except Exception:
-                    pass
     except Exception:
         try:
-            from flaskr.service.shifu.utils import get_shifu_creator_bid  # type: ignore
+            from flaskr.service.shifu.utils import (
+                get_shifu_creator_bid,  # type: ignore[import-not-found]
+            )
         except Exception:
             return None
         return get_shifu_creator_bid(app, shifu_bid)
 
 
-def _resolve_host_creator_bid(app, host: str) -> Optional[str]:
+def _resolve_host_creator_bid(app, host: str) -> str | None:
     """Resolve creator_bid from a verified custom domain host."""
     normalized_host = str(host or "").strip()
     if not normalized_host:
@@ -143,7 +147,7 @@ def _resolve_host_creator_bid(app, host: str) -> Optional[str]:
         return None
 
 
-def _extract_request_host(request) -> Optional[str]:
+def _extract_request_host(request) -> str | None:
     forwarded_host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
     if forwarded_host:
         return forwarded_host.split(",", 1)[0].strip()
@@ -152,9 +156,9 @@ def _extract_request_host(request) -> Optional[str]:
 
 
 def with_shifu_context(
-    resolve_shifu_bid: Optional[Callable[..., Optional[str]]] = None,
+    resolve_shifu_bid: Callable[..., str | None] | None = None,
 ) -> Callable:
-    """Decorator to automatically populate shifu context for a route handler.
+    """Populate shifu context for a route handler.
 
     By default it tries to resolve shifu_bid from:
       - path parameters: request.view_args["shifu_bid"]
@@ -176,7 +180,7 @@ def with_shifu_context(
 
             clear_shifu_context()
 
-            shifu_bid: Optional[str] = None
+            shifu_bid: str | None = None
             if resolve_shifu_bid is not None:
                 try:
                     shifu_bid = resolve_shifu_bid(*args, **kwargs)

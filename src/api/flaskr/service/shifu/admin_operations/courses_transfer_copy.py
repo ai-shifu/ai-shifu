@@ -5,8 +5,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Dict, Sequence
+from typing import Any
 
 from flask import Flask, current_app
 from flaskr.common.cache_provider import cache as redis
@@ -134,7 +135,7 @@ def _resolve_course_copy_title(source_title: str, requested_title: str) -> str:
 def _build_outline_history_tree(
     outlines: Sequence[DraftOutlineItem],
 ) -> list[HistoryItem]:
-    outline_children_map: Dict[str, list[DraftOutlineItem]] = {}
+    outline_children_map: dict[str, list[DraftOutlineItem]] = {}
     for outline in outlines:
         parent_bid = str(outline.parent_bid or "").strip()
         outline_children_map.setdefault(parent_bid, []).append(outline)
@@ -264,7 +265,7 @@ def _prepare_operator_target_creator(
     identifier: str,
     previous_creator_user_bid: str = "",
     allow_same_user: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     normalized_contact_type = str(contact_type or "").strip().lower()
     normalized_identifier = _validate_operator_target_contact(
         normalized_contact_type, identifier
@@ -395,7 +396,7 @@ def transfer_operator_course_creator(
     contact_type: str,
     identifier: str,
     operator_user_bid: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
@@ -468,7 +469,7 @@ def copy_operator_course(
     identifier: str,
     operator_user_bid: str,
     new_course_name: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
@@ -491,7 +492,7 @@ def copy_operator_course(
             new_course_name,
         )
         source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
-        outline_bid_map: Dict[str, str] = {
+        outline_bid_map: dict[str, str] = {
             str(item.outline_item_bid or "").strip(): generate_id(app)
             for item in source_outlines
         }
@@ -539,7 +540,7 @@ def copy_operator_course(
         source_outline_map = {
             str(item.outline_item_bid or "").strip(): item for item in source_outlines
         }
-        copied_outlines: Dict[str, DraftOutlineItem] = {}
+        copied_outlines: dict[str, DraftOutlineItem] = {}
 
         for source_outline in source_outlines:
             old_outline_bid = str(source_outline.outline_item_bid or "").strip()

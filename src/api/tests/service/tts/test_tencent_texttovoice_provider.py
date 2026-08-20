@@ -123,7 +123,7 @@ def test_provider_config_exposes_two_model_tiers_with_tagged_voices():
     large_voices = [
         voice for voice in cfg.voices if voice["resource_id"] == "large-model"
     ]
-    assert {"value": v["value"] for v in premium_voices}  # non-empty
+    assert premium_voices  # non-empty
     assert all(v["value"].startswith("101") for v in premium_voices)
     assert all(v["value"][:3] in {"501", "601"} for v in large_voices)
 
@@ -193,7 +193,7 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
     monkeypatch.setattr(
         module,
         "try_get_audio_duration_ms",
-        lambda audio, format="mp3": 1234,
+        lambda audio, **_kwargs: 1234,
     )
 
     provider = module.TencentTextToVoiceProvider()
@@ -239,7 +239,7 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     )
 
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="InvalidParameterValue") as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
@@ -261,7 +261,9 @@ def test_synthesize_raises_on_empty_audio(monkeypatch):
     )
 
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="No audio data received from Tencent TextToVoice"
+    ) as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
@@ -274,7 +276,9 @@ def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
 
     _patch_credentials(monkeypatch)
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="Invalid Tencent TextToVoice voice id"
+    ) as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="v-female-R2s4N9qJ"),

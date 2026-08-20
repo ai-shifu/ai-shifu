@@ -12,7 +12,7 @@ import logging
 import re
 import threading
 import uuid
-from typing import Any, List, Optional
+from typing import Any
 
 from flaskr.api.tts.base import (
     AudioSettings,
@@ -416,16 +416,16 @@ class VolcengineTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_VOICES
 
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         """Synthesize text to speech using Volcengine TTS.
 
@@ -433,6 +433,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             text: Text to synthesize
             voice_settings: Voice settings (optional)
             audio_settings: Audio settings (optional)
+            model: Model version override (optional)
 
         Returns:
             TTSResult with audio data and metadata
@@ -485,9 +486,9 @@ class VolcengineTTSProvider(BaseTTSProvider):
         session_id = str(uuid.uuid4()).replace("-", "")
 
         # Collect audio data
-        audio_chunks: List[bytes] = []
+        audio_chunks: list[bytes] = []
         subtitle_cues: list[dict[str, Any]] = []
-        error_message: Optional[str] = None
+        error_message: str | None = None
         connection_established = threading.Event()
         session_started = threading.Event()
         session_finished = threading.Event()
@@ -581,7 +582,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                         session_finished.set()
 
             except Exception as e:
-                logger.error(f"Error processing message: {e}")
+                logger.exception("Error processing message")
                 error_message = str(e)
                 session_started.set()
                 session_finished.set()

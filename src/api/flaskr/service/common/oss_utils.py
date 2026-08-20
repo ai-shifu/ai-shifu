@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any
 
 import requests
 
 try:
-    import oss2  # type: ignore
+    import oss2  # type: ignore[import-untyped]
 except ModuleNotFoundError:  # pragma: no cover
     oss2 = None  # type: ignore[assignment]
 
@@ -190,8 +191,6 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
             if retry_count < max_retries:
                 time.sleep(1)
 
-        return False
-
     except Exception as exc:
         app.logger.warning("CDN preheating failed: %s", exc)
         app.logger.warning("Preheating URL: %s", url)
@@ -199,6 +198,8 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
             "ObjectPath: %s",
             object_path if "object_path" in locals() else "Not set",
         )
+        return False
+    else:
         return False
 
 
@@ -209,8 +210,8 @@ def upload_to_oss(
     file_id: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,
-    config: Optional[OSSConfig] = None,
-    bucket: Optional[oss2.Bucket] = None,
+    config: OSSConfig | None = None,
+    bucket: oss2.Bucket | None = None,
     warm_up: bool = True,
 ) -> tuple[str, str]:
     resolved_config = config or get_oss_config(profile)

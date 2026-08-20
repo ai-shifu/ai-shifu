@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class BillingBaseDTO(BaseModel):
     """Base DTO with stable JSON serialization for common route responses."""
 
+    __hash__ = None
+
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     def __json__(self) -> dict[str, Any]:

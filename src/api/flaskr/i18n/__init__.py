@@ -1,10 +1,12 @@
+"""Backend translation loading and lookup."""
+
 import importlib.util
 import json
 import os
 import threading
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable, List
 
 from flask import Flask
 
@@ -13,7 +15,7 @@ from flaskr.common.config import get_config
 TRANSLATIONS_DEFAULT_NAME = "i18n"
 
 _thread_local = threading.local()
-_translations: Dict[str, Dict[str, str]] = defaultdict(dict)
+_translations: dict[str, dict[str, str]] = defaultdict(dict)
 
 
 def _shared_json_root() -> Path:
@@ -73,9 +75,9 @@ def _load_json_translations(app: Flask, root: Path):
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             language_codes = metadata.get("locales", {}).keys()
-        except Exception as exc:  # pragma: no cover - defensive log
-            app.logger.error(
-                "Failed to parse locales metadata at %s: %s", metadata_path, exc
+        except Exception:  # pragma: no cover - defensive log
+            app.logger.exception(
+                "Failed to parse locales metadata at %s", metadata_path
             )
 
     if not language_codes:
@@ -106,10 +108,8 @@ def _load_json_translations(app: Flask, root: Path):
                 namespace = file_path.stem
             try:
                 content = json.loads(file_path.read_text(encoding="utf-8"))
-            except Exception as exc:  # pragma: no cover - IO errors are logged
-                app.logger.error(
-                    "Failed to load translation file %s: %s", file_path, exc
-                )
+            except Exception:  # pragma: no cover - IO errors are logged
+                app.logger.exception("Failed to load translation file %s", file_path)
                 continue
 
             flat_entries = {}
@@ -151,7 +151,7 @@ def _validate_json_translations(app: Flask, root: Path):
             f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
         )
 
-    problems: List[str] = []
+    problems: list[str] = []
 
     metadata_path = root / "locales.json"
     metadata_declared_locales: set[str] = set()
@@ -218,16 +218,18 @@ def _load_python_translations(app: Flask, translations_dir: Path):
     if not translations_dir.exists():
         return
 
-    for lang in os.listdir(translations_dir):
-        lang_dir = os.path.join(translations_dir, lang)
-        if os.path.isdir(lang_dir) and lang_dir != "__pycache__" and lang_dir[0] != ".":
+    for lang in (path.name for path in translations_dir.iterdir()):
+        lang_dir = str(Path(translations_dir) / lang)
+        if Path(lang_dir).is_dir() and lang_dir != "__pycache__" and lang_dir[0] != ".":
             app.logger.info("load_python_translations lang: %s", lang)
-            for module_name in os.listdir(lang_dir):
-                module_path = os.path.join(lang_dir, module_name)
-                if os.path.isdir(module_path):
-                    for file_name in os.listdir(module_path):
+            for module_name in (path.name for path in Path(lang_dir).iterdir()):
+                module_path = str(Path(lang_dir) / module_name)
+                if Path(module_path).is_dir():
+                    for file_name in (
+                        path.name for path in Path(module_path).iterdir()
+                    ):
                         if file_name.endswith(".py"):
-                            file_path = os.path.join(module_path, file_name)
+                            file_path = str(Path(module_path) / file_name)
                             spec = importlib.util.spec_from_file_location(
                                 module_name, file_path
                             )
@@ -255,8 +257,8 @@ def load_translations(app: Flask, translations_dir=None):
     shared_root = _shared_json_root()
     try:
         _validate_json_translations(app, shared_root)
-    except Exception as exc:
-        app.logger.error("i18n validation failed: %s", exc)
+    except Exception:
+        app.logger.exception("i18n validation failed")
         raise
 
     _load_json_translations(app, shared_root)

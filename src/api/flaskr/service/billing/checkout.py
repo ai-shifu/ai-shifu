@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterator
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask
@@ -391,10 +392,8 @@ def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     try:
         yield
     finally:
-        try:
+        with suppress(Exception):
             lock.release()
-        except Exception:
-            pass
 
 
 _CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS = 60

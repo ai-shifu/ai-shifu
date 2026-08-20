@@ -1,4 +1,4 @@
-"""add billing core phase
+"""add billing core phase.
 
 Revision ID: b114d7f5e2c1
 Revises: 1c8f4b7a9d2e

@@ -4,9 +4,9 @@ import math
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -80,7 +80,7 @@ def _bucket(
         available_credits=Decimal("7.0000000000"),
         reserved_credits=Decimal("2.0000000000"),
         consumed_credits=Decimal("1.0000000000"),
-        expired_credits=Decimal("0"),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 4, 1, 0, 0, 0),
         effective_to=datetime(2026, 5, 1, 0, 0, 0),
         status=CREDIT_BUCKET_STATUS_ACTIVE,

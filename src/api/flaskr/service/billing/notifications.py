@@ -266,10 +266,9 @@ def enqueue_subscription_purchase_sms(
         )
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s",
             TASK_NAME,
             normalized_bill_order_bid,
-            exc,
         )
         return _build_result(
             "enqueue_failed",
@@ -463,10 +462,9 @@ def enqueue_billing_paid_feishu(
         )
     except Exception as exc:
         app.logger.exception(
-            "Failed to enqueue %s for bill_order_bid=%s: %s",
+            "Failed to enqueue %s for bill_order_bid=%s",
             BILLING_PAID_FEISHU_TASK_NAME,
             normalized_bill_order_bid,
-            exc,
         )
         return _build_feishu_result(
             "enqueue_failed",
@@ -489,9 +487,9 @@ def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
 
 def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
     try:
-        major_amount = Decimal(str(amount or 0)) / Decimal("100")
+        major_amount = Decimal(str(amount or 0)) / Decimal(100)
     except (InvalidOperation, TypeError, ValueError):
-        major_amount = Decimal("0")
+        major_amount = Decimal(0)
     return f"{_normalize_bid(currency) or 'CNY'} {major_amount:.2f}"
 
 
@@ -499,7 +497,7 @@ def _format_credit_amount(amount: Any) -> str:
     try:
         credit_amount = Decimal(str(amount or 0))
     except (InvalidOperation, TypeError, ValueError):
-        credit_amount = Decimal("0")
+        credit_amount = Decimal(0)
     if credit_amount == credit_amount.to_integral_value():
         return str(int(credit_amount))
     return format(credit_amount.normalize(), "f").rstrip("0").rstrip(".")
@@ -736,9 +734,8 @@ def deliver_billing_paid_feishu(
     except Exception as exc:
         provider_error_message = str(exc)
         app.logger.exception(
-            "Billing paid Feishu provider failed for bill_order_bid=%s: %s",
+            "Billing paid Feishu provider failed for bill_order_bid=%s",
             normalized_bill_order_bid,
-            exc,
         )
 
     with app.app_context():
@@ -881,9 +878,8 @@ def deliver_subscription_purchase_sms(
     except Exception as exc:  # pragma: no cover - guarded by send_sms_ali
         provider_error_message = str(exc)
         app.logger.exception(
-            "Subscription purchase SMS provider failed for bill_order_bid=%s: %s",
+            "Subscription purchase SMS provider failed for bill_order_bid=%s",
             normalized_bill_order_bid,
-            exc,
         )
 
     with app.app_context():

@@ -1,24 +1,31 @@
 name: Lint
 
 # Replaces the pre-commit.ci PR check, mirroring its behaviour:
-#   - auto-fixable issues are fixed and pushed back to the PR branch as a commit
+#   - auto-fixable issues are fixed and exported as a patch artifact, which the
+#     trusted lint-autofix-push.yml workflow commits back to the PR branch
 #   - issues that cannot be auto-fixed (ruff E722, invalid YAML/JSON, merge
 #     markers, hardcoded CJK in backend) fail the run.
 #
+# This job runs pull-request-controlled tooling (npm ci, linters), so it never
+# holds a write-capable token; see lint-autofix-push.yml.
+#
 # Scope: only the checks NOT already enforced by another workflow. Prettier has
 # prettier-check.yml, the repo-harness scripts have repo-harness.yml, and the
-# translation scripts have translations-check.yml -- those are intentionally
-# not duplicated here. ESLint mirrors the old pre-commit.ci behaviour (auto-fix
-# only, never a hard gate), since cook-web carries known eslint warnings.
+# translation scripts have the Static Checks job in repo-harness.yml -- those
+# are intentionally not duplicated here. ESLint mirrors the old pre-commit.ci
+# behaviour (auto-fix only, never a hard gate), since cook-web carries known
+# eslint warnings.
 #
-# Auto-fixes are scoped to the files changed in the PR (like pre-commit.ci), so
-# pre-existing non-conforming files elsewhere are never reformatted.
+# Auto-fixes stay scoped to the files changed in the PR (like pre-commit.ci),
+# so unrelated trees are not rewritten. Ruff check and format are then
+# enforced on the whole repository so the pinned rule set in ruff.toml is a
+# repo-wide gate, including PRs that only change ruff.toml.
 
 on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: lint-${{ github.ref }}
@@ -27,6 +34,10 @@ concurrency:
 jobs:
   autofix:
     runs-on: ubuntu-latest
+    # This job installs and runs pull-request-controlled tooling, so it stays
+    # read-only. The patch it produces is pushed by lint-autofix-push.yml.
+    permissions:
+      contents: read
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v6
@@ -36,10 +47,8 @@ jobs:
           # the default PR merge ref (read-only; fork fixes are never pushed).
           ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
           fetch-depth: 0
-          # Do not leave the write-capable token in .git/config while
-          # PR-controlled tooling (npm ci, linters) runs. The push step
-          # supplies it explicitly. The repo is public, so the base fetch
-          # below needs no credentials.
+          # Nothing here needs credentials: the repo is public and the auto-fix
+          # commit is pushed by a separate trusted workflow.
           persist-credentials: false
 
       - name: Set up Python
@@ -87,10 +96,10 @@ jobs:
           [ -n "$cwlint" ] && { (cd src/cook-web && npm run lint-file -- $cwlint) || true; }
           true
 
-      - name: Apply auto-fixes (push on same-repo PRs; fail forks that need fixes)
+      - name: Export auto-fixes as a patch (fail what CI cannot push)
+        id: patch
         env:
-          HEAD_REF: ${{ github.head_ref }}
-          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           if [ -z "$(git status --porcelain)" ]; then
@@ -98,18 +107,29 @@ jobs:
             exit 0
           fi
           echo "Auto-fixable changes detected:"; git --no-pager diff --stat
-          if [ "$SAME_REPO" = "true" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "style: auto-fix from lint hooks"
-            # Token supplied only here (branch name via env, never expanded in shell).
-            git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" \
-              push origin "HEAD:${HEAD_REF}"
-          else
+          if [ "$SAME_REPO" != "true" ]; then
             echo "::error::Auto-fixable lint issues found on a fork PR (cannot push fixes). Run 'lefthook run pre-commit --all-files' locally and push the result."
             exit 1
           fi
+          # GITHUB_TOKEN may not create or update workflow files, so those fixes
+          # can never be pushed back.
+          if [ -n "$(git status --porcelain -- .github/workflows)" ]; then
+            echo "::error::Auto-fixable lint issues under .github/workflows/ cannot be pushed by CI. Run 'lefthook run pre-commit --all-files' locally and push the result."
+            exit 1
+          fi
+          mkdir -p /tmp/autofix
+          git add -A
+          git diff --cached --binary > /tmp/autofix/autofix.patch
+          printf '%s\n' "$HEAD_SHA" > /tmp/autofix/head_sha
+          echo "has-patch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload auto-fix patch
+        if: steps.patch.outputs.has-patch == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-autofix
+          path: /tmp/autofix
+          retention-days: 1
 
       - name: Hard-fail checks (on the now-fixed tree)
         run: |
@@ -120,6 +140,7 @@ jobs:
           [ -n "$txt" ] && check-merge-conflict $txt
           all=$(cat /tmp/changed.txt)
           [ -n "$all" ] && check-symlinks $all
-          py=$(sel '\.py$'); [ -n "$py" ] && ruff check $py
+          ruff check .
+          ruff format --check .
           python3 scripts/check_backend_hardcoded_cn.py
           echo "Lint hard-fail checks passed."

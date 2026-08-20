@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-generated-block-tts-av-mode")
@@ -84,11 +84,11 @@ def _patch_run_tts_processor(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
+        b"".join,
     )
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
+        b"".join,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",

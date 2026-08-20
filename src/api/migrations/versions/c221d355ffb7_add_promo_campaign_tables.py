@@ -1,4 +1,4 @@
-"""add promo tables
+"""add promo tables.
 
 Revision ID: c221d355ffb7
 Revises: b2793bb43f97

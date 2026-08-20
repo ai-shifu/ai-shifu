@@ -7,8 +7,8 @@ import logging
 import math
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -183,9 +183,7 @@ def _model_scope_key(*, provider: str, api_key: str, model: str) -> str:
     return base
 
 
-def _parse_timestamp(
-    raw: Optional[bytes | str | float | int], *, default: float
-) -> float:
+def _parse_timestamp(raw: bytes | str | float | None, *, default: float) -> float:
     if raw is None:
         return default
     if isinstance(raw, bytes):

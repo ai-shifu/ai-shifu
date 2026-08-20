@@ -26,9 +26,9 @@ import shutil
 import sys
 import tempfile
 from collections import Counter, OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
@@ -55,7 +55,7 @@ def _compile_bigint_sqlite(_type, _compiler, **_kw):
 
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
-DEFAULT_MDFLOW_ROOT = "/tmp/mdflow255"
+DEFAULT_MDFLOW_ROOT = str(Path(tempfile.gettempdir()) / "mdflow255")
 
 
 @dataclass
@@ -94,7 +94,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        default="/tmp/latest_generate_blocks_b64.jsonl",
+        default=str(Path(tempfile.gettempdir()) / "latest_generate_blocks_b64.jsonl"),
         help="Path to JSONL exported from generated blocks",
     )
     parser.add_argument(
@@ -240,7 +240,7 @@ def _format_stream_parts(
 def _group_expected_stream_elements(
     parts: list[tuple[str, str, int]],
 ) -> list[ExpectedStreamElement]:
-    grouped: "OrderedDict[int, ExpectedStreamElement]" = OrderedDict()
+    grouped: OrderedDict[int, ExpectedStreamElement] = OrderedDict()
     for content, stream_type, number in parts:
         if not content or not stream_type:
             continue

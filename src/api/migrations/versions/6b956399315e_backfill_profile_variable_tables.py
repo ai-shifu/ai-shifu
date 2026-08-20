@@ -1,4 +1,4 @@
-"""backfill variable tables
+"""backfill variable tables.
 
 Revision ID: 6b956399315e
 Revises: 716efaaeb662

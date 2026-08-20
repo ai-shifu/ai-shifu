@@ -80,6 +80,8 @@ def _compile_bigint_sqlite(_type, _compiler, **_kw):
 if dao.db is None:
     dao.db = SQLAlchemy()
 
+import contextlib
+
 from tests.common.fixtures.fake_llm import (
     fake_chat_llm,
     fake_get_allowed_models,
@@ -89,10 +91,6 @@ from tests.common.fixtures.fake_llm import (
 from tests.common.fixtures.fake_redis import FakeRedis
 
 
-# Path: test/test_flaskr.py
-# Compare this snippet from flaskr/plugin/test.py:
-# from ..service.schedule import *
-#
 @pytest.fixture(scope="session")
 def app():
     if os.getenv("SKIP_APP_FIXTURE"):
@@ -243,10 +241,8 @@ def isolate_env_for_non_app_tests(request):
     # reflects per-test env changes.
     from flaskr.common import config as config_module
 
-    try:
+    with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except Exception:
-        pass
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
@@ -259,10 +255,8 @@ def isolate_env_for_non_app_tests(request):
         else:
             os.environ[key] = value
 
-    try:
+    with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except Exception:
-        pass
     try:
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()

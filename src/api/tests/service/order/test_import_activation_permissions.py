@@ -2,7 +2,7 @@ import json
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
+from flaskr import dao
 
 
 def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
@@ -20,9 +20,9 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
                 avatar_res_bid="res",
                 keywords="test",
                 llm="gpt",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="",
-                price=Decimal("0"),
+                price=Decimal(0),
                 created_user_bid=owner_bid,
                 updated_user_bid=owner_bid,
             )
@@ -93,7 +93,7 @@ def test_admin_import_activation_allows_owner(monkeypatch, test_client, app):
 
     monkeypatch.setattr(
         "flaskr.route.order.get_shifu_info",
-        lambda _app, _shifu_bid, _preview: SimpleNamespace(price=Decimal("0")),
+        lambda _app, _shifu_bid, _preview: SimpleNamespace(price=Decimal(0)),
         raising=False,
     )
     monkeypatch.setattr(

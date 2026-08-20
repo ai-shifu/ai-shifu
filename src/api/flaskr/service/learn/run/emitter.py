@@ -23,7 +23,8 @@ Event names, payload shapes, and sequencing are FROZEN per
 ``flaskr/service/learn/AGENTS.md``; the golden suite is the contract gate.
 """
 
-from typing import TYPE_CHECKING, Generator, Union
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.i18n import _
@@ -75,15 +76,15 @@ class RunEventEmitter:
     ) -> Generator[str, None, None]:
         ctx = self._context
         shifu_bids = [o.outline_bid for o in outline_updates]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
             ctx._outline_model.query.filter(
                 ctx._outline_model.outline_item_bid.in_(shifu_bids),
                 ctx._outline_model.deleted == 0,
             ).all()
         )
-        outline_item_info_map: dict[
-            str, Union[DraftOutlineItem, PublishedOutlineItem]
-        ] = {o.outline_item_bid: o for o in outline_item_info_db}
+        outline_item_info_map: dict[str, DraftOutlineItem | PublishedOutlineItem] = {
+            o.outline_item_bid: o for o in outline_item_info_db
+        }
         recorder = ctx._recorder
         for update in outline_updates:
             outline_item_info = outline_item_info_map.get(update.outline_bid)

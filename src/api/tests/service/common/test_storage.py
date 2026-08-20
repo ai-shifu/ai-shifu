@@ -97,7 +97,7 @@ def test_read_storage_bytes_fetches_from_oss_when_local_file_is_missing(
     monkeypatch,
     tmp_path,
 ):
-    import flaskr.service.common.storage as storage
+    from flaskr.service.common import storage
     from flaskr.service.common.oss_utils import OSSConfig
 
     _make_storage_app(monkeypatch, tmp_path, "oss")

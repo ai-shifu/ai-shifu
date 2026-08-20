@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_ORDER_STATUS_PENDING,
@@ -548,9 +548,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             wallet_bid="wallet-concurrent-1",
             creator_bid="creator-concurrent-1",
             available_credits=Decimal("2.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("2.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -566,9 +566,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
                 priority=10,
                 original_credits=Decimal("2.0000000000"),
                 available_credits=Decimal("2.0000000000"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=datetime(2026, 4, 8, 12, 0, 0),
                 effective_to=None,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,

@@ -19,9 +19,10 @@ import base64
 import json
 import os
 import re
+import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 from unittest.mock import MagicMock
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
@@ -68,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        default="/tmp/latest_generate_blocks_b64.jsonl",
+        default=str(Path(tempfile.gettempdir()) / "latest_generate_blocks_b64.jsonl"),
         help="Path to JSONL exported from MySQL",
     )
     parser.add_argument(

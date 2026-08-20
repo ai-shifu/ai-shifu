@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -14,8 +14,8 @@ from flaskr.service.profile import learner_profile_optimizer as optimizer
 from flaskr.service.user.models import UserInfo, UserOnboardingState
 from flaskr.service.user.repository import create_user_entity
 
-PROFILE_UPDATED_AT = datetime(2026, 8, 14, 8, 30, tzinfo=timezone.utc)
-STATE_COMPLETED_AT = datetime(2026, 8, 14, 8, 45, tzinfo=timezone.utc)
+PROFILE_UPDATED_AT = datetime(2026, 8, 14, 8, 30, tzinfo=UTC)
+STATE_COMPLETED_AT = datetime(2026, 8, 14, 8, 45, tzinfo=UTC)
 
 
 def _create_profile_state(user_bid: str, *, language: str = "zh-CN") -> None:

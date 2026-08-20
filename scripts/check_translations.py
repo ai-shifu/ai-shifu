@@ -6,8 +6,8 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -26,18 +26,18 @@ def iter_locale_dirs() -> Iterable[Path]:
             yield entry
 
 
-def load_json(path: Path) -> Dict:
+def load_json(path: Path) -> dict:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
         raise TranslationError(f"Failed to parse JSON: {path} ({exc})") from exc
 
 
-def flatten_translation(data, namespace: str) -> Dict[str, str]:
+def flatten_translation(data, namespace: str) -> dict[str, str]:
     """Flatten nested translation JSON to dot-separated keys."""
 
     def _flatten(obj, prefix: str):
-        items: Dict[str, str] = {}
+        items: dict[str, str] = {}
         if isinstance(obj, dict):
             # __flat__ allows specifying exact keys without additional nesting
             flat_section = obj.get("__flat__")
@@ -66,12 +66,12 @@ def flatten_translation(data, namespace: str) -> Dict[str, str]:
 
 
 def validate_locale_files(locale_dirs: Iterable[Path]):
-    files_per_locale: Dict[str, Dict[str, Path]] = {}
-    flattened_per_locale: Dict[str, Dict[str, Dict[str, str]]] = {}
+    files_per_locale: dict[str, dict[str, Path]] = {}
+    flattened_per_locale: dict[str, dict[str, dict[str, str]]] = {}
 
     for locale_dir in locale_dirs:
-        files: Dict[str, Path] = {}
-        flattened: Dict[str, Dict[str, str]] = {}
+        files: dict[str, Path] = {}
+        flattened: dict[str, dict[str, str]] = {}
 
         for file_path in sorted(locale_dir.rglob("*.json")):
             rel = file_path.relative_to(locale_dir)

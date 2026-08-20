@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Dict, Iterable, Optional, Set
+from typing import Any
 
 from flaskr.dao import db
 from sqlalchemy import and_, or_
@@ -10,10 +11,10 @@ from .models import DraftOutlineItem, DraftShifu, PublishedOutlineItem, Publishe
 
 
 def _record_course_activity(
-    activity_map: Dict[str, Dict[str, Any]],
+    activity_map: dict[str, dict[str, Any]],
     *,
     shifu_bid: str,
-    updated_at: Optional[datetime],
+    updated_at: datetime | None,
     updated_user_bid: str,
     prefer_on_equal: bool = False,
 ) -> None:
@@ -46,9 +47,9 @@ def load_course_activity_map(
     published: Iterable[PublishedShifu],
     *,
     include_published_outline: bool = True,
-) -> Dict[str, Dict[str, Any]]:
-    activity_map: Dict[str, Dict[str, Any]] = {}
-    shifu_bids: Set[str] = set()
+) -> dict[str, dict[str, Any]]:
+    activity_map: dict[str, dict[str, Any]] = {}
+    shifu_bids: set[str] = set()
 
     for course in list(drafts) + list(published):
         shifu_bid = str(course.shifu_bid or "").strip()

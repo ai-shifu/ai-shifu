@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
@@ -357,11 +357,11 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         except ValueError:
             continue
     try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError:
         raise_param_error(field_name)
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc)
+        parsed = parsed.astimezone(UTC)
     return parsed.replace(tzinfo=None)
 
 

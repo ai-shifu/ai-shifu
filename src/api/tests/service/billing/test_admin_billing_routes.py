@@ -5,7 +5,6 @@ from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.customization as billing_customization_module
 import flaskr.service.billing.queries as billing_queries_module
@@ -13,6 +12,7 @@ import flaskr.service.billing.serializers as billing_serializers_module
 import flaskr.service.billing.wallets as billing_wallets_module
 import pytest
 from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.i18n import _translations, load_translations, set_language
 from flaskr.service.billing.campaigns import (
     build_admin_billing_campaign_detail,
@@ -159,17 +159,17 @@ def admin_billing_client(monkeypatch):
                     wallet_bid="wallet-1",
                     creator_bid="creator-1",
                     available_credits=Decimal("110.0000000000"),
-                    reserved_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
                     lifetime_granted_credits=Decimal("110.0000000000"),
-                    lifetime_consumed_credits=Decimal("0"),
+                    lifetime_consumed_credits=Decimal(0),
                 ),
                 CreditWallet(
                     wallet_bid="wallet-2",
                     creator_bid="creator-2",
                     available_credits=Decimal("5.0000000000"),
-                    reserved_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
                     lifetime_granted_credits=Decimal("5.0000000000"),
-                    lifetime_consumed_credits=Decimal("0"),
+                    lifetime_consumed_credits=Decimal(0),
                 ),
             ]
         )
@@ -305,9 +305,9 @@ def admin_billing_client(monkeypatch):
                     priority=10,
                     original_credits=Decimal("10.0000000000"),
                     available_credits=Decimal("10.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -322,9 +322,9 @@ def admin_billing_client(monkeypatch):
                     priority=20,
                     original_credits=Decimal("100.0000000000"),
                     available_credits=Decimal("100.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=datetime(2026, 5, 1, 0, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1394,8 +1394,8 @@ class TestAdminBillingRoutes:
                     benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
                     discount_type=0,
                     discount_amount=0,
-                    discount_percent=Decimal("0"),
-                    bonus_credit_amount=Decimal("12"),
+                    discount_percent=Decimal(0),
+                    bonus_credit_amount=Decimal(12),
                     enabled=1,
                     start_at=datetime(2026, 4, 10, 0, 0, 0),
                     end_at=datetime(2026, 4, 20, 23, 59, 0),

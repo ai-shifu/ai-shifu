@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as redis
@@ -48,12 +48,12 @@ FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 
 
-def configure_fix_check_code(value: Optional[str]) -> None:
+def configure_fix_check_code(value: str | None) -> None:
     global FIX_CHECK_CODE
     FIX_CHECK_CODE = value
 
 
-def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> Optional[bool]:
+def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> bool | None:
     bind = db.session.get_bind()
     dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect_name != "mysql":
@@ -130,9 +130,9 @@ def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
 
 
 def migrate_user_study_record(
-    app: Flask, from_user_id: str, to_user_id: str, course_id: Optional[str] = None
+    app: Flask, from_user_id: str, to_user_id: str, course_id: str | None = None
 ) -> None:
-    from flaskr.service.learn.models import LearnProgressRecord
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 
     normalized_course_id = str(course_id or "").strip()
     if not normalized_course_id:
@@ -179,24 +179,15 @@ def migrate_user_study_record(
         )
         return
 
-    db.session.execute(
-        text(
-            "update learn_progress_records set user_bid = '%s' where id in (%s)"
-            % (to_user_id, ",".join(str(attend.id) for attend in migrate_attends))
-        )
-    )
-    db.session.execute(
-        text(
-            "update learn_generated_blocks set user_bid = '%s' where progress_record_bid in (%s)"
-            % (
-                to_user_id,
-                ",".join(
-                    "'" + str(attend.progress_record_bid) + "'"
-                    for attend in migrate_attends
-                ),
-            )
-        )
-    )
+    record_ids = [attend.id for attend in migrate_attends]
+    progress_record_bids = [attend.progress_record_bid for attend in migrate_attends]
+    db.session.query(LearnProgressRecord).filter(
+        LearnProgressRecord.id.in_(record_ids)
+    ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
+    db.session.query(LearnGeneratedBlock).filter(
+        LearnGeneratedBlock.user_bid == from_user_id,
+        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+    ).update({LearnGeneratedBlock.user_bid: to_user_id}, synchronize_session=False)
     db.session.flush()
     app.logger.info(
         "migrate_user_study_record done: migrated_records=%s course_id=%s",
@@ -241,12 +232,13 @@ def init_first_course(app: Flask, user_id: str) -> bool:
         creator_granted_now = not bool(verified_users[0].is_creator)
         mark_user_roles(user_id, is_creator=True, is_operator=True)
 
-        ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
+        # Holds a model class, so it keeps the CapWords spelling.
+        ShifuModel: PublishedShifu | DraftShifu = PublishedShifu  # noqa: N806
         # Assign demo shifu only when there is exactly one published course
         course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
         if course_count == 0:
             course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-            ShifuModel = DraftShifu
+            ShifuModel = DraftShifu  # noqa: N806
         if course_count != 1:
             db.session.flush()
             return creator_granted_now
@@ -275,13 +267,13 @@ def init_first_course(app: Flask, user_id: str) -> bool:
 
 def verify_phone_code(
     app: Flask,
-    user_id: Optional[str],
+    user_id: str | None,
     phone: str,
     code: str,
-    course_id: Optional[str] = None,
-    language: Optional[str] = None,
-    login_context: Optional[str] = None,
-) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    course_id: str | None = None,
+    language: str | None = None,
+    login_context: str | None = None,
+) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
@@ -427,7 +419,7 @@ def verify_phone_code(
                 target_aggregate.user_bid, include_deleted=True
             )
             if entity:
-                updates: Dict[str, Any] = {"identify": normalized_phone}
+                updates: dict[str, Any] = {"identify": normalized_phone}
                 promote_state = target_aggregate.state in (
                     USER_STATE_UNREGISTERED,
                     0,

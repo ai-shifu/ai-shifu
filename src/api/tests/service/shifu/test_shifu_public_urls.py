@@ -5,9 +5,9 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.util.datetime import now_utc
 
@@ -72,9 +72,9 @@ def _seed_preview_route_course(
                 avatar_res_bid="avatar-1",
                 keywords="test",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="",
-                price=Decimal("0"),
+                price=Decimal(0),
                 created_user_bid=owner_bid,
                 updated_user_bid=owner_bid,
             )
@@ -154,7 +154,7 @@ def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch):
     monkeypatch.setattr(
         shifu_publish_funcs,
         "get_latest_shifu_draft",
-        lambda _shifu_id: _make_draft(_shifu_id),
+        _make_draft,
         raising=False,
     )
 

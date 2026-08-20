@@ -18,7 +18,7 @@ class PluginManager:
         self.is_enabled = True
 
     def enable_hot_reload(self):
-        """Enable the hot reload"""
+        """Enable the hot reload."""
         if not self.is_enabled:
             return
         if not self.hot_reloader:
@@ -26,13 +26,13 @@ class PluginManager:
             self.hot_reloader.start()
 
     def disable_hot_reload(self):
-        """Disable the hot reload"""
+        """Disable the hot reload."""
         if self.hot_reloader:
             self.hot_reloader.stop()
             self.hot_reloader = None
 
     def clear_extension(self, target_func_name):
-        """Clear all registered functions for the specified extension point"""
+        """Clear all registered functions for the specified extension point."""
         if target_func_name in self.extension_functions:
             del self.extension_functions[target_func_name]
 
@@ -73,10 +73,11 @@ class PluginManager:
             return result
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
-                while hasattr(runc, "__wrapped__"):
-                    self.app.logger.warning(f"func is wrapped {runc.__name__}")
-                    runc = runc.__wrapped__
-                result = runc(result, *args, **kwargs)
+                func = runc
+                while hasattr(func, "__wrapped__"):
+                    self.app.logger.warning(f"func is wrapped {func.__name__}")
+                    func = func.__wrapped__
+                result = func(result, *args, **kwargs)
                 if result:
                     yield from result
         return None

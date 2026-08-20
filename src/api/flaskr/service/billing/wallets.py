@@ -61,7 +61,7 @@ from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .queries import load_primary_active_subscription
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _PRESERVED_BUCKET_STATUSES = {
     CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXPIRED,
@@ -2887,10 +2887,10 @@ def _load_or_create_credit_wallet(app: Flask, creator_bid: str) -> CreditWallet:
     wallet = CreditWallet(
         wallet_bid=generate_id(app),
         creator_bid=normalized_creator_bid,
-        available_credits=Decimal("0"),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        available_credits=Decimal(0),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )

@@ -1370,7 +1370,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
                 "campaign_bid": "",
                 "campaign_benefit_type": 0,
                 "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal("0"),
+                "campaign_bonus_credit_amount": Decimal(0),
                 "deleted": 0,
                 "created_at": current_time,
                 "updated_at": current_time,
@@ -1398,7 +1398,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
                 "campaign_bid": "",
                 "campaign_benefit_type": 0,
                 "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal("0"),
+                "campaign_bonus_credit_amount": Decimal(0),
                 "deleted": 0,
                 "created_at": current_time,
                 "updated_at": current_time,
@@ -1426,7 +1426,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
                 "campaign_bid": "",
                 "campaign_benefit_type": 0,
                 "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal("0"),
+                "campaign_bonus_credit_amount": Decimal(0),
                 "deleted": 0,
                 "created_at": current_time,
                 "updated_at": current_time,
@@ -1508,7 +1508,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid: str,
         usage_scene: int,
         metric: int,
-        credits: str,
+        credit_amount: str,
         record_count: int,
         raw_amount: int,
     ) -> None:
@@ -1533,7 +1533,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
                 "billing_metric": metric,
                 "raw_amount": raw_amount,
                 "record_count": record_count,
-                "consumed_credits": Decimal(credits),
+                "consumed_credits": Decimal(credit_amount),
                 "window_started_at": window_started_at,
                 "window_ended_at": window_ended_at,
                 "created_at": current_time,
@@ -1549,7 +1549,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="4.2",
+        credit_amount="4.2",
         record_count=3,
         raw_amount=3200,
     )
@@ -1560,7 +1560,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="5.4",
+        credit_amount="5.4",
         record_count=2,
         raw_amount=4100,
     )
@@ -1571,7 +1571,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="3.8",
+        credit_amount="3.8",
         record_count=2,
         raw_amount=2800,
     )
@@ -1582,7 +1582,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-growth",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="1.4",
+        credit_amount="1.4",
         record_count=1,
         raw_amount=1000,
     )
@@ -1594,7 +1594,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_DEBUG,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="3.6",
+        credit_amount="3.6",
         record_count=2,
         raw_amount=2600,
     )
@@ -1605,7 +1605,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_PREVIEW,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="3.1",
+        credit_amount="3.1",
         record_count=2,
         raw_amount=2200,
     )
@@ -1616,7 +1616,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="1.6",
+        credit_amount="1.6",
         record_count=2,
         raw_amount=1400,
     )
@@ -1627,7 +1627,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-debug",
         usage_scene=BILL_USAGE_SCENE_DEBUG,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="2.4",
+        credit_amount="2.4",
         record_count=1,
         raw_amount=1800,
     )
@@ -1639,7 +1639,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-steady",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="2.8",
+        credit_amount="2.8",
         record_count=1,
         raw_amount=1900,
     )
@@ -1650,7 +1650,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-steady",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="2.7",
+        credit_amount="2.7",
         record_count=2,
         raw_amount=2000,
     )
@@ -1661,7 +1661,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-steady",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="3.4",
+        credit_amount="3.4",
         record_count=2,
         raw_amount=2500,
     )
@@ -1673,7 +1673,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-recent",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="4.6",
+        credit_amount="4.6",
         record_count=2,
         raw_amount=3300,
     )
@@ -1684,7 +1684,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-recent",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credits="3.7",
+        credit_amount="3.7",
         record_count=2,
         raw_amount=2600,
     )
@@ -1695,7 +1695,7 @@ def seed_sample_focus_teachers() -> dict[str, Any]:
         shifu_bid="billing-focus-shifu-recent",
         usage_scene=BILL_USAGE_SCENE_PROD,
         metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credits="0.8",
+        credit_amount="0.8",
         record_count=1,
         raw_amount=700,
     )
@@ -2011,10 +2011,11 @@ def grant_billing_plan_by_identify(
             )
             payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
             payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
-        return payload
     except Exception:
         db.session.rollback()
         raise
+    else:
+        return payload
 
 
 def grant_operator_credits_by_cli(
@@ -2092,10 +2093,11 @@ def grant_operator_credits_by_cli(
                 "mobile": getattr(aggregate, "mobile", ""),
             }
         )
-        return payload
     except Exception:
         db.session.rollback()
         raise
+    else:
+        return payload
 
 
 def _build_cli_credit_grant_request_id(

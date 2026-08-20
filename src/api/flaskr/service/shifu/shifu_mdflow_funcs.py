@@ -26,7 +26,7 @@ from markdown_flow import MarkdownFlow
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
-    """Get shifu mdflow"""
+    """Get shifu mdflow."""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -145,7 +145,7 @@ def save_shifu_mdflow(
     content: str,
     base_revision: int | None = None,
 ) -> DraftSaveResponse:
-    """Save shifu mdflow"""
+    """Save shifu mdflow."""
     content = content or ""
     with app.app_context():
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
@@ -265,7 +265,7 @@ def save_shifu_mdflow(
 def parse_shifu_mdflow(
     app: Flask, shifu_bid: str, outline_bid: str, data: str | None = None
 ) -> MdflowDTOParseResult:
-    """Parse shifu mdflow"""
+    """Parse shifu mdflow."""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(

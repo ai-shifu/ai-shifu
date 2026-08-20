@@ -12,9 +12,9 @@ import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
 import pytest
 from flask import Flask
+from flaskr import dao
 from flaskr.dao import uow
 from flaskr.service.order import funs as order_funs
 from flaskr.service.order.consts import (
@@ -166,7 +166,7 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
 ):
     """(b) Clean run: the timeout flip and the new order commit together."""
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
-    stale_created_at = datetime.datetime.now(datetime.timezone.utc).replace(
+    stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) - datetime.timedelta(hours=2)
     origin_bid = _seed_order(created_at=stale_created_at)
@@ -195,7 +195,7 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     replacement order.
     """
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
-    stale_created_at = datetime.datetime.now(datetime.timezone.utc).replace(
+    stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
     ) - datetime.timedelta(hours=2)
     origin_bid = _seed_order(created_at=stale_created_at)
@@ -280,11 +280,14 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     # Nested: an outer failure must roll the success flip back too, and the
     # Feishu notification scheduled via uow.on_commit must be dropped — the
     # old code notified for a flip that could later be rolled back.
-    with pytest.raises(RuntimeError, match="outer boom"):
+    def flip_then_fail() -> None:
         with uow.unit_of_work():
             success_buy_record(order_app, order_bid)
             assert feishu_calls == []  # not yet durable, must not notify
             raise RuntimeError("outer boom")
+
+    with pytest.raises(RuntimeError, match="outer boom"):
+        flip_then_fail()
     dao.db.session.expire_all()
     order = Order.query.filter(Order.order_bid == order_bid).first()
     assert order.status == ORDER_STATUS_TO_BE_PAID

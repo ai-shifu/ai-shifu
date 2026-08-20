@@ -1,6 +1,5 @@
 import datetime
 import logging
-from typing import Optional
 
 from flask import Flask
 from flaskr.api.check import (
@@ -35,7 +34,7 @@ def _get_latest_variable_value(
     values: list[VariableValue],
     variable_key: str,
     shifu_bid: str,
-) -> Optional[VariableValue]:
+) -> VariableValue | None:
     """Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
@@ -49,7 +48,7 @@ def _get_latest_variable_value(
     """
     target_shifu = shifu_bid or ""
 
-    def _pick(scope_shifu_bid: str) -> Optional[VariableValue]:
+    def _pick(scope_shifu_bid: str) -> VariableValue | None:
         return next(
             (
                 item
@@ -69,7 +68,7 @@ def _get_latest_variable_value(
     return None
 
 
-def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
+def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
     aggregate = load_user_aggregate(user_id)
     if aggregate:
         return aggregate
@@ -78,7 +77,7 @@ def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
 
 
 def _update_aggregate_field(
-    aggregate: Optional[UserAggregate], mapping: str, value
+    aggregate: UserAggregate | None, mapping: str, value
 ) -> None:
     if not aggregate:
         return
@@ -119,7 +118,7 @@ def _apply_core_mapping(user_id: str, mapping: str, value):
     return normalized
 
 
-def _current_core_value(aggregate: Optional[UserAggregate], mapping: str):
+def _current_core_value(aggregate: UserAggregate | None, mapping: str):
     if not aggregate:
         return None
     if mapping == "name":
@@ -136,15 +135,15 @@ def _current_core_value(aggregate: Optional[UserAggregate], mapping: str):
 def check_text_content(
     app: Flask,
     user_id: str,
-    input: str,
+    user_input: str,
 ):
     check_id = generate_id(app)
-    res = check_text(app, check_id, input, user_id)
+    res = check_text(app, check_id, user_input, user_id)
     add_risk_control_result(
         app,
         check_id,
         user_id,
-        input,
+        user_input,
         res.provider,
         res.check_result,
         str(res.raw_data),
@@ -155,7 +154,6 @@ def check_text_content(
 
 
 def get_profile_labels():
-    # language = get_current_language()
     return {
         "sys_user_nickname": {
             "label": _("server.profile.nickname"),
@@ -210,7 +208,7 @@ def get_profile_labels():
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:
-    PROFILES_LABLES = get_profile_labels()
+    profile_labels = get_profile_labels()
     app.logger.info("save user profiles:%s", profiles)
     aggregate = _ensure_user_aggregate(user_id)
     profiles_items = get_profile_item_definition_list(app, course_id)
@@ -240,7 +238,7 @@ def save_user_profiles(
         variable_bid = (profile.bid or "").strip() or (
             profile_item.profile_id if profile_item else ""
         )
-        target_shifu = "" if profile.key in PROFILES_LABLES else (course_id or "")
+        target_shifu = "" if profile.key in profile_labels else (course_id or "")
 
         latest_value = _get_latest_variable_value(
             user_values,
@@ -260,8 +258,8 @@ def save_user_profiles(
             db.session.add(user_value)
             user_values.insert(0, user_value)
 
-        if profile.key in PROFILES_LABLES:
-            profile_lable = PROFILES_LABLES[profile.key]
+        if profile.key in profile_labels:
+            profile_lable = profile_labels[profile.key]
             if profile_lable.get("mapping"):
                 if profile_lable.get("items_mapping"):
                     profile.value = profile_lable["items_mapping"].get(
@@ -285,10 +283,10 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
 
     This function must follow the same shifu_bid routing rules as
     :func:`save_user_profiles`, otherwise the run context may see values different
-    from what the user sees in "个人设置".
+    from what the user sees in the personal settings page.
 
     """
-    PROFILES_LABLES = get_profile_labels()
+    profile_labels = get_profile_labels()
     profiles_items = get_profile_item_definition_list(app, course_id)
 
     candidate_shifus = [course_id or ""]
@@ -315,7 +313,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     for profile_item in profiles_items:
         # Follow save_user_profiles routing: label keys are global, others per-course.
         target_shifu = (
-            "" if profile_item.profile_key in PROFILES_LABLES else (course_id or "")
+            "" if profile_item.profile_key in profile_labels else (course_id or "")
         )
 
         user_value = (
@@ -333,7 +331,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     # Keep runtime variable resolution aligned with /api/user/get_profile:
     # mapped system fields should use the latest canonical user entity values.
     if aggregate:
-        for key, profile_label in PROFILES_LABLES.items():
+        for key, profile_label in profile_labels.items():
             mapping = profile_label.get("mapping")
             if not mapping:
                 continue
@@ -371,7 +369,7 @@ def get_user_profile_labels(
         user_id: User id
         course_id: Course id
     Returns:
-        list: User profile labels
+        list: User profile labels.
     """
     app.logger.info(f"get user profile labels:{course_id}")
     candidate_shifus = [course_id or ""]
@@ -392,13 +390,13 @@ def get_user_profile_labels(
         app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
     profiles_items = get_profile_item_definition_list(app, course_id)
-    PROFILES_LABLES = get_profile_labels()
+    profile_labels = get_profile_labels()
     aggregate = load_user_aggregate(user_id)
     language_value = aggregate.user_language if aggregate else "en-US"
     result = UserProfileLabelDTO(profiles=[], language=language_value)
     mapping_keys = []
     if aggregate:
-        for key, meta in PROFILES_LABLES.items():
+        for key, meta in profile_labels.items():
             mapping = meta.get("mapping")
             if not mapping:
                 continue
@@ -430,19 +428,19 @@ def get_user_profile_labels(
                     items=meta.get("items"),
                 )
             )
-    for key in PROFILES_LABLES:
+    for key in profile_labels:
         if key in mapping_keys:
             continue
         profile_key = key
         item = {
             "key": profile_key,
-            "label": PROFILES_LABLES[profile_key]["label"],
-            "type": PROFILES_LABLES[profile_key].get(
+            "label": profile_labels[profile_key]["label"],
+            "type": profile_labels[profile_key].get(
                 "type",
-                ("select" if "items" in PROFILES_LABLES[profile_key] else "text"),
+                ("select" if "items" in profile_labels[profile_key] else "text"),
             ),
             "value": "",
-            "items": PROFILES_LABLES[profile_key].get("items"),
+            "items": profile_labels[profile_key].get("items"),
         }
         user_value = None
         profile_item = next(
@@ -490,7 +488,7 @@ def update_user_profile_with_lable(
     course_id: str | None = None,
 ):
     app.logger.info(f"update user profile with lable:{course_id}")
-    PROFILES_LABLES = get_profile_labels()
+    profile_labels = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []
     elif isinstance(profiles, UserProfileLabelItemDTO):
@@ -550,7 +548,7 @@ def update_user_profile_with_lable(
 
         app.logger.info("update user profile:%s-%s", key, profile_value)
 
-        profile_lable = PROFILES_LABLES.get(key, None)
+        profile_lable = profile_labels.get(key, None)
         default_value = profile_lable.get("default", None) if profile_lable else None
 
         if profile_lable and profile_lable.get("items_mapping"):
@@ -578,10 +576,10 @@ def update_user_profile_with_lable(
         elif not profile_lable:
             app.logger.info("profile_lable not found:%s", key)
 
-        # System variables (in PROFILES_LABLES) are global; custom variables
+        # System variables (in profile_labels) are global; custom variables
         # are scoped to the course.  This must match save_user_profiles() so
         # that the run interface reads the same value the settings page wrote.
-        target_shifu = "" if key in PROFILES_LABLES else (course_id or "")
+        target_shifu = "" if key in profile_labels else (course_id or "")
 
         should_persist_value = (
             profile_value not in (None, "") and profile_value != default_value

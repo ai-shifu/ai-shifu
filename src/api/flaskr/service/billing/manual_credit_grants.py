@@ -58,7 +58,7 @@ def _normalize_credit_amount(value: Any) -> Decimal:
         parsed = _quantize_credit_amount(Decimal(normalized))
     except (InvalidOperation, TypeError, ValueError, ArithmeticError):
         raise_param_error("amount")
-    if not parsed.is_finite() or parsed <= Decimal("0"):
+    if not parsed.is_finite() or parsed <= Decimal(0):
         raise_param_error("amount")
     return parsed
 

@@ -45,8 +45,9 @@ result so the summary is stable.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any
 
 from flask import Flask
 from flaskr.i18n import _
@@ -76,7 +77,7 @@ _ALLOWED_USAGE_TYPES = frozenset({1101, 1102})
 _DEFAULT_LIMIT = 100
 
 
-def run(app: Flask, user_id: str, payload: Any) -> Dict[str, Any]:
+def run(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
     """Execute the credit-detail query for ``user_id``.
 
     Validates the payload, enforces the per-shifu permission check, then
@@ -160,10 +161,10 @@ class _Params:
         self,
         *,
         shifu_bid: str,
-        start_date: Optional[date],
-        end_date: Optional[date],
-        usage_scene: Optional[Tuple[int, ...]],
-        usage_type: Optional[Tuple[int, ...]],
+        start_date: date | None,
+        end_date: date | None,
+        usage_scene: tuple[int, ...] | None,
+        usage_type: tuple[int, ...] | None,
         limit: int,
         offset: int,
     ) -> None:
@@ -215,7 +216,7 @@ def _parse_payload(payload: Any, limit_max: int) -> _Params:
     )
 
 
-def _parse_optional_date(raw: Any, field_name: str) -> Optional[date]:
+def _parse_optional_date(raw: Any, field_name: str) -> date | None:
     if raw is None or raw == "":
         return None
     if not isinstance(raw, str):
@@ -233,13 +234,13 @@ def _parse_optional_date(raw: Any, field_name: str) -> Optional[date]:
 
 def _parse_int_set(
     raw: Any, field_name: str, allowed: Iterable[int]
-) -> Optional[Tuple[int, ...]]:
+) -> tuple[int, ...] | None:
     if raw is None:
         return None
     if not isinstance(raw, list) or not raw:
         _raise(ERR_INVALID_DSL, f"'{field_name}' must be a non-empty list of integers")
     allowed_set = set(allowed)
-    out: List[int] = []
+    out: list[int] = []
     seen: set[int] = set()
     for item in raw:
         if isinstance(item, bool) or not isinstance(item, int):
@@ -293,7 +294,7 @@ def _join_conditions(params: _Params):
 
 
 def _where_clauses(params: _Params):
-    """Common WHERE predicates shared by detail + summary queries."""
+    """Build the WHERE predicates shared by detail + summary queries."""
     bu = BillUsageRecord.__table__
     clauses = [bu.c.shifu_bid == bindparam("__shifu_bid", value=params.shifu_bid)]
     if params.start_date is not None:
@@ -382,14 +383,14 @@ def _build_summary_statement(params: _Params) -> Select:
 # ---------------------------------------------------------------------------
 
 
-def _row_to_dict(columns: Sequence[str], values: Sequence[Any]) -> Dict[str, Any]:
-    row: Dict[str, Any] = {}
+def _row_to_dict(columns: Sequence[str], values: Sequence[Any]) -> dict[str, Any]:
+    row: dict[str, Any] = {}
     for col, val in zip(columns, values, strict=False):
         row[col] = _coerce_value(val)
     return row
 
 
-def _summary_row_to_dict(summary_row: Any) -> Dict[str, Any]:
+def _summary_row_to_dict(summary_row: Any) -> dict[str, Any]:
     if summary_row is None:
         return {
             "total_records": 0,
@@ -444,7 +445,7 @@ def _coerce_value(value: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def _raise(error_name: str, detail: Optional[str] = None) -> None:
+def _raise(error_name: str, detail: str | None = None) -> None:
     message = _(error_name)
     if detail:
         message = f"{message} ({detail})"

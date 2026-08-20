@@ -1,4 +1,4 @@
-"""add notification record operator indexes
+"""add notification record operator indexes.
 
 Revision ID: f4a6b8c2d9e1
 Revises: e3b1c2d4f5a6

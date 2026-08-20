@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -46,7 +46,7 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
 
@@ -559,10 +559,8 @@ def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
         yield
     finally:
         if acquired and lock is not None:
-            try:
+            with suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def _load_usage_record(

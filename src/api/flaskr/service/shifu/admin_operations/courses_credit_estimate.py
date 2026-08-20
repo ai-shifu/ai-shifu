@@ -37,7 +37,7 @@ from flaskr.service.shifu.admin_dtos_courses import (
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.util.datetime import now_utc
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _MARKDOWN_CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
 _MARKDOWN_INLINE_CODE_RE = re.compile(r"`([^`]*)`")
 _MARKDOWN_LINK_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
@@ -277,7 +277,7 @@ def _estimate_llm_cost(
         app, normalized_model
     )
     input_tokens = _ceil_decimal(
-        Decimal(str(prompt_char_count + content_char_count)) / Decimal("2")
+        Decimal(str(prompt_char_count + content_char_count)) / Decimal(2)
     )
     output_low = _ceil_decimal(Decimal(str(input_tokens)) * Decimal("0.6"))
     output_high = _ceil_decimal(Decimal(str(input_tokens)) * Decimal("1.5"))
