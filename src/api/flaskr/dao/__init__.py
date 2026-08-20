@@ -659,7 +659,7 @@ def init_db(app: Flask):
                 else:
                     raw_sql = formatted_sql
 
-                app.logger.info(f"\nLocation: {caller_info}\n{raw_sql}\n")
+                app.logger.info("\nLocation: %s\n%s\n", caller_info, raw_sql)
 
         # Set the event listener in the application context
         with app.app_context():
@@ -710,19 +710,19 @@ def init_redis(app: Flask):
 
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
-        app.logger.info(f"run_with_redis start {key}")
+        app.logger.info("run_with_redis start %s", key)
         redis_client = get_redis_client()
         if redis_client is None:
-            app.logger.info(f"run_with_redis skipped without Redis {key}")
+            app.logger.info("run_with_redis skipped without Redis %s", key)
             return None
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
-            app.logger.info(f"run_with_redis get lock {key}")
+            app.logger.info("run_with_redis get lock %s", key)
             try:
                 return func(*args)
             finally:
                 with contextlib.suppress(Exception):
                     lock.release()
         else:
-            app.logger.info(f"run_with_redis get lock failed {key}")
+            app.logger.info("run_with_redis get lock failed %s", key)
             return None

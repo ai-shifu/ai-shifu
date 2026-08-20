@@ -323,7 +323,7 @@ class VolcengineProtocol:
                 try:
                     event = Event(event_value)
                 except ValueError:
-                    logger.warning(f"Unknown event code: {event_value}")
+                    logger.warning("Unknown event code: %s", event_value)
                     event = None
                 offset += 4
 

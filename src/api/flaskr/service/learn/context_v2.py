@@ -387,13 +387,13 @@ class RUNLLMProvider(LLMProvider):
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
         )
-        self.app.logger.info(f"stream invoke_llm res: {res}")
+        self.app.logger.info("stream invoke_llm res: %s", res)
         first_result = False
         for i in res:
             if i.result:
                 if not first_result:
                     first_result = True
-                    self.app.logger.info(f"stream first result: {i.result}")
+                    self.app.logger.info("stream first result: %s", i.result)
                 yield i.result
         self.app.logger.info("stream invoke_llm end")
 
@@ -544,7 +544,7 @@ class MdflowContextV2:
 
         from flask import current_app
 
-        current_app.logger.info(f"build_context_from_blocks variables: {variables}")
+        current_app.logger.info("build_context_from_blocks variables: %s", variables)
 
         for generated_block in blocks:
             if generated_block.position < 0 or generated_block.position >= len(
@@ -2200,7 +2200,9 @@ class RunScriptContextV2:
         self._stop_if_requested()
         self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         app.logger.info(
-            f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
+            "run_context.run %s %s",
+            self._current_attend.block_position,
+            self._current_attend.status,
         )
         self._bind_trace_session()
         proceed = yield from self._phase_sync_outline_progress(app)
@@ -2234,8 +2236,8 @@ class RunScriptContextV2:
                 self._can_continue = False
             return
         state.block = state.block_list[run_script_info.block_position]
-        app.logger.info(f"block: {state.block}")
-        app.logger.info(f"self._run_type: {self._run_type}")
+        app.logger.info("block: %s", state.block)
+        app.logger.info("self._run_type: %s", self._run_type)
         state.has_effective_input = self._has_effective_input()
         if self._run_type == RunType.INPUT:
             handled = yield from self._phase_process_input(app, state)
@@ -2289,7 +2291,8 @@ class RunScriptContextV2:
                 LEARN_STATUS_NOT_STARTED,
             ]:
                 app.logger.info(
-                    f"current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: {self._current_attend.status}"
+                    "current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: %s",
+                    self._current_attend.status,
                 )
                 self._can_continue = False
                 return False
@@ -2331,12 +2334,12 @@ class RunScriptContextV2:
         if self._last_position == -1:
             self._last_position = run_script_info.block_position
         ask_input = self._input
-        app.logger.info(f"ask_input: {ask_input}")
+        app.logger.info("ask_input: %s", ask_input)
         if isinstance(ask_input, dict):
             ask_input = ask_input.get("input", "")
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
-        app.logger.info(f"ask_input: {ask_input}")
+        app.logger.info("ask_input: %s", ask_input)
         res = handle_input_ask(
             app,
             self,
@@ -2716,7 +2719,8 @@ class RunScriptContextV2:
             block_index=run_script_info.block_position,
         )
         app.logger.info(
-            f"generated_block not found, init new one: {generated_block.generated_block_bid}"
+            "generated_block not found, init new one: %s",
+            generated_block.generated_block_bid,
         )
 
         # Render interaction content with translation (INPUT mode, no cached block)
@@ -2856,7 +2860,7 @@ class RunScriptContextV2:
         has_content = False
         for i in res:
             if i is not None and i != "":
-                self.app.logger.info(f"check_text_with_llm_response: {i}")
+                self.app.logger.info("check_text_with_llm_response: %s", i)
                 has_content = True
                 self.append_langfuse_output(i)
                 yield RunMarkdownFlowDTO(
@@ -2997,7 +3001,7 @@ class RunScriptContextV2:
             )
             self._run_type = RunType.OUTPUT
             self.app.logger.warning(
-                f"passed and position: {self._current_attend.block_position}"
+                "passed and position: %s", self._current_attend.block_position
             )
             return True
         else:
@@ -3225,7 +3229,7 @@ class RunScriptContextV2:
         # Render interaction content with translation (markdown-flow 0.2.34+)
         # Call process() without user_input to trigger interaction rendering
         # Note: Do NOT pass variables here - we only want translation, not variable replacement
-        app.logger.info(f"render_interaction: {run_script_info.block_position}")
+        app.logger.info("render_interaction: %s", run_script_info.block_position)
         state.llm_provider.set_usage_generated_block_bid(
             generated_block.generated_block_bid
         )
@@ -3312,8 +3316,8 @@ class RunScriptContextV2:
         )
 
         # Direct synchronous stream processing (markdown-flow 0.2.27+)
-        app.logger.info(f"process_stream: {run_script_info.block_position}")
-        app.logger.info(f"variables: {user_profile}")
+        app.logger.info("process_stream: %s", run_script_info.block_position)
+        app.logger.info("variables: %s", user_profile)
 
         def _build_content_event(
             chunk_text: str,
@@ -3606,7 +3610,8 @@ class RunScriptContextV2:
                 and outline_item_info.llm_system_prompt != ""
             ):
                 self.app.logger.info(
-                    f"outline_item_info.llm_system_prompt: {outline_item_info.llm_system_prompt}"
+                    "outline_item_info.llm_system_prompt: %s",
+                    outline_item_info.llm_system_prompt,
                 )
                 course_prompt = outline_item_info.llm_system_prompt
                 break
@@ -3620,11 +3625,11 @@ class RunScriptContextV2:
                 .order_by(self._shifu_model.id.desc())
                 .first()
             )
-            self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
+            self.app.logger.info("shifu_info_db: %s", shifu_info_db)
             if shifu_info_db and shifu_info_db.llm_system_prompt:
                 self.app.logger.info(
-                    "shifu_info_db.llm_system_prompt: "
-                    f"{shifu_info_db.llm_system_prompt}"
+                    "shifu_info_db.llm_system_prompt: %s",
+                    shifu_info_db.llm_system_prompt,
                 )
                 course_prompt = shifu_info_db.llm_system_prompt
 
@@ -3705,7 +3710,9 @@ class RunScriptContextV2:
                 self._can_continue = False
                 if self._input_type != "ask":
                     app.logger.info(
-                        f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
+                        "reload generated_block: %s,block_position: %s",
+                        generated_block.id,
+                        generated_block.position,
                     )
 
                     def _deactivate_superseded_generated_rows(

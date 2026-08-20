@@ -356,7 +356,8 @@ class StreamingTTSProcessor:
         self._enabled = is_tts_configured(tts_provider)
         if not self._enabled:
             logger.warning(
-                f"TTS is not configured for provider '{tts_provider or '(unset)'}', streaming TTS disabled"
+                "TTS is not configured for provider '%s', streaming TTS disabled",
+                tts_provider or "(unset)",
             )
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -475,7 +476,10 @@ class StreamingTTSProcessor:
         segment = TTSSegment(index=segment_index, text=text)
 
         logger.debug(
-            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
+            "Submitting TTS task %s: %s chars, provider=%s",
+            segment_index,
+            len(text),
+            self.tts_provider or "(unset)",
         )
 
         future = _get_tts_executor().submit(
@@ -509,7 +513,7 @@ class StreamingTTSProcessor:
             return
 
         logger.debug(
-            f"Submitting remaining text in segments: {len(remaining_text)} chars"
+            "Submitting remaining text in segments: %s chars", len(remaining_text)
         )
 
         cursor = 0
@@ -519,8 +523,9 @@ class StreamingTTSProcessor:
             if segment_text and len(segment_text) >= 2:
                 self._submit_tts_task(segment_text)
                 logger.debug(
-                    f"Submitted finalize segment: {len(segment_text)} chars, "
-                    f"remaining: {len(remaining_text) - split_pos} chars"
+                    "Submitted finalize segment: %s chars, remaining: %s chars",
+                    len(segment_text),
+                    len(remaining_text) - split_pos,
                 )
             cursor = split_pos
 
@@ -529,7 +534,7 @@ class StreamingTTSProcessor:
             if tail_text and len(tail_text) >= 2:
                 self._submit_tts_task(tail_text)
                 logger.debug(
-                    f"Submitted finalize trailing fragment: {len(tail_text)} chars"
+                    "Submitted finalize trailing fragment: %s chars", len(tail_text)
                 )
 
     def _synthesize_text_with_retry(
@@ -671,8 +676,10 @@ class StreamingTTSProcessor:
                     )
 
                 logger.debug(
-                    f"TTS segment {segment.index} synthesized: "
-                    f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
+                    "TTS segment %s synthesized: text_len=%s, duration=%sms",
+                    segment.index,
+                    len(segment.text),
+                    segment.duration_ms,
                 )
             except TTSRpmQueueTimeoutError as e:
                 self._enabled = False
@@ -732,8 +739,9 @@ class StreamingTTSProcessor:
                             provider_subtitle_cues
                         )
                     logger.debug(
-                        f"TTS stored segment {segment.index} for concatenation, "
-                        f"total stored: {len(self._all_audio_data)}"
+                        "TTS stored segment %s for concatenation, total stored: %s",
+                        segment.index,
+                        len(self._all_audio_data),
                     )
 
             if segment.audio_data and not segment.error:
@@ -1992,11 +2000,12 @@ class StreamingTTSProcessor:
             cleaned_text_length = 0
 
         logger.debug(
-            f"TTS finalize called: enabled={self._enabled}, "
-            f"buffer_len={len(self._buffer)}, "
-            f"segment_index={self._segment_index}, "
-            f"pending_futures={len(self._pending_futures)}, "
-            f"all_audio_data={len(self._all_audio_data)}"
+            "TTS finalize called: enabled=%s, buffer_len=%s, segment_index=%s, pending_futures=%s, all_audio_data=%s",
+            self._enabled,
+            len(self._buffer),
+            self._segment_index,
+            len(self._pending_futures),
+            len(self._all_audio_data),
         )
         has_existing_work = bool(
             self._pending_futures or self._completed_segments or self._all_audio_data
@@ -2050,15 +2059,16 @@ class StreamingTTSProcessor:
         with self._lock:
             all_segments = list(self._all_audio_data)
             logger.debug(
-                f"TTS finalize: _all_audio_data has {len(self._all_audio_data)} segments"
+                "TTS finalize: _all_audio_data has %s segments",
+                len(self._all_audio_data),
             )
 
         if not all_segments:
             logger.warning(
-                f"No audio segments to concatenate. "
-                f"segment_index={self._segment_index}, "
-                f"next_yield_index={self._next_yield_index}, "
-                f"completed_segments keys={list(self._completed_segments.keys())}"
+                "No audio segments to concatenate. segment_index=%s, next_yield_index=%s, completed_segments keys=%s",
+                self._segment_index,
+                self._next_yield_index,
+                list(self._completed_segments.keys()),
             )
             return
 

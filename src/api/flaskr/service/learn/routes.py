@@ -185,7 +185,7 @@ def _stream_passthrough_response(
 @inject
 def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """Register learn routes."""
-    app.logger.info(f"register learn routes {path_prefix}")
+    app.logger.info("register learn routes %s", path_prefix)
     preview_service = RunScriptPreviewContextV2(app)
 
     def _require_shifu_owner(shifu_bid: str) -> str:
@@ -268,7 +268,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         """
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
-            f"get shifu, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
+            "get shifu, shifu_bid: %s, preview_mode: %s", shifu_bid, preview_mode
         )
         preview_mode = preview_mode.lower() == "true"
         if preview_mode:
@@ -308,7 +308,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         """
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
-            f"get outline item tree, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
+            "get outline item tree, shifu_bid: %s, preview_mode: %s",
+            shifu_bid,
+            preview_mode,
         )
         preview_mode = preview_mode.lower() == "true"
         user_bid = request.user.user_id
@@ -382,7 +384,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             listen = bool(listen_raw)
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
-            f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
+            "run outline item, shifu_bid: %s, outline_bid: %s, preview_mode: %s, listen: %s",
+            shifu_bid,
+            outline_bid,
+            preview_mode,
+            listen,
         )
         preview_mode = preview_mode.lower() == "true"
         if preview_mode:
@@ -654,7 +660,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = request.args.get("preview_mode", "False")
         include_non_navigable = request.args.get("include_non_navigable", "False")
         app.logger.info(
-            f"get learn element record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
+            "get learn element record, shifu_bid: %s, outline_bid: %s, preview_mode: %s",
+            shifu_bid,
+            outline_bid,
+            preview_mode,
         )
         preview_mode = preview_mode.lower() == "true"
         include_non_navigable = include_non_navigable.lower() == "true"
@@ -857,7 +866,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         """
         user_bid = request.user.user_id
         app.logger.info(
-            f"generate content, shifu_bid: {shifu_bid}, generated_block_bid: {generated_block_bid}, action: {action}"
+            "generate content, shifu_bid: %s, generated_block_bid: %s, action: %s",
+            shifu_bid,
+            generated_block_bid,
+            action,
         )
         return make_common_response(
             handle_reaction(app, shifu_bid, user_bid, generated_block_bid, action)
@@ -899,7 +911,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         user_bid = request.user.user_id
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
-            f"get generated content, shifu_bid: {shifu_bid}, generated_block_bid: {generated_block_bid}, preview_mode: {preview_mode}"
+            "get generated content, shifu_bid: %s, generated_block_bid: %s, preview_mode: %s",
+            shifu_bid,
+            generated_block_bid,
+            preview_mode,
         )
         preview_mode = preview_mode.lower() == "true"
         if preview_mode:
