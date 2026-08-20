@@ -39,6 +39,8 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
+- [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 
 ## Supporting Tracker
 
