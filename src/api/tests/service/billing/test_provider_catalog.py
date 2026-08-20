@@ -451,6 +451,26 @@ def test_plan_provider_price_mapping_allows_shared_product_with_price_sku_metada
     assert result.warnings == []
 
 
+def test_plan_metadata_tier_prefers_explicit_local_metadata() -> None:
+    product = _plan_product(
+        product_code="creator-global-growth-monthly",
+        metadata_json={"plan_tier": "enterprise"},
+    )
+    snapshot = _snapshot(
+        product_metadata={
+            "market": "global",
+            "plan_tier": "enterprise",
+            "product_type": "plan",
+        },
+    )
+
+    result = _validate(product, snapshot)
+
+    assert result.valid is True
+    assert result.errors == []
+    assert result.warnings == []
+
+
 def test_provider_price_mapping_reports_metadata_drift_as_warning_only() -> None:
     result = _validate(
         _plan_product(),

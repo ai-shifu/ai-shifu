@@ -453,11 +453,13 @@ def _expected_plan_tier_metadata(product: BillingProduct) -> str:
         explicit_tier = str(metadata.get(key) or "").strip()
         if explicit_tier:
             return explicit_tier
+    raw_tier = str(metadata.get("plan_tier") or "").strip()
+    if raw_tier:
+        return raw_tier
     parts = str(product.product_code or "").strip().split("-")
     if len(parts) >= 4 and parts[0] == "creator":
         return parts[2]
-    raw_tier = metadata.get("plan_tier")
-    return str(raw_tier or "").strip()
+    return ""
 
 
 def _product_type_label(value: Any) -> str:
