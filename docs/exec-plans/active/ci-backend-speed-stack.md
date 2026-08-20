@@ -23,7 +23,7 @@ that branch.
   default GitHub Actions cache scope and import the same cache manifest.
 - [x] 2026-08-20 12:15 CST: Gave the API and Cook Web image builds independent
   cache scopes.
-- [ ] 2026-08-20 12:20 CST: Reorder the Cook Web development image so dependency
+- [x] 2026-08-20 12:20 CST: Reordered the Cook Web development image so dependency
   installation precedes source copying.
 - [ ] 2026-08-20 12:25 CST: Make each Backend Tests run save a new testmon cache
   and restore the newest compatible cache.
