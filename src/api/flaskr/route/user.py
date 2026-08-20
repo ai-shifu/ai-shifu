@@ -619,7 +619,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             400:
                 description: parameter error
 
-        """  # noqa: D406
+        """  # noqa: D406, D407
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         _apply_request_language(payload)
