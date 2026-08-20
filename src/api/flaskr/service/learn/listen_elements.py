@@ -63,6 +63,7 @@ class ListenElementRunAdapter(
         user_bid: str,
         run_session_bid: str | None = None,
     ) -> None:
+        """Configure legacy listen-mode event adaptation."""
         self.app = app
         self.shifu_bid = shifu_bid
         self.outline_bid = outline_bid

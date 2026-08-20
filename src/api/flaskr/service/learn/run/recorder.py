@@ -42,6 +42,7 @@ class RunRecorder:
     """Transactional persistence steps for the /run runtime."""
 
     def __init__(self, app: Flask) -> None:
+        """Bind transactional run persistence to the Flask app."""
         self.app = app
 
     def save_new_progress_records(self, records: list[LearnProgressRecord]) -> None:

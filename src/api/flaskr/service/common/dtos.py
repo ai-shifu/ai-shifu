@@ -44,6 +44,7 @@ class UserInfo:
         is_creator=False,
         is_operator=False,
     ) -> None:
+        """Build a serialized user-information payload."""
         self.user_id = user_id
         self.username = username
         self.name = name
@@ -83,6 +84,7 @@ class UserToken:
     token: str
 
     def __init__(self, userInfo: UserInfo, token) -> None:  # noqa: N803 - mirrors the serialized field name
+        """Pair serialized user information with its access token."""
         self.userInfo = userInfo
         self.token = token
 
@@ -99,6 +101,7 @@ class OAuthStartDTO:
     state: str
 
     def __init__(self, authorization_url: str, state: str) -> None:
+        """Build an OAuth authorization-start payload."""
         self.authorization_url = authorization_url
         self.state = state
 
@@ -118,6 +121,7 @@ class PageNationDTO(BaseModel):
     data: list = Field(..., description="data")
 
     def __init__(self, page: int, page_size: int, total: int, data) -> None:
+        """Build a paginated response payload."""
         super().__init__(
             page=page,
             page_count=math.ceil(total / page_size if page_size > 0 else 0),

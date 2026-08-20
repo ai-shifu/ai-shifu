@@ -58,6 +58,7 @@ class TypeStateMachine:
     """
 
     def __init__(self) -> None:
+        """Initialize content-block type tracking."""
         self._state = TypeState.IDLE
 
     @property

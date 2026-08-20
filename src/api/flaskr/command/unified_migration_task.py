@@ -128,6 +128,7 @@ class UnifiedMigrationTask:
         database_url: str | None = None,
         config: MigrationConfig | None = None,
     ) -> None:
+        """Configure the unified data-migration task."""
         if database_url is None:
             database_url = _resolve_default_database_url()
 

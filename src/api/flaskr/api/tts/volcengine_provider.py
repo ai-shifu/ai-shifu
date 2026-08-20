@@ -324,6 +324,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine bidirectional WebSocket API."""
 
     def __init__(self) -> None:
+        """Initialize the Volcengine WebSocket TTS provider."""
         self._protocol = VolcengineProtocol()
         self._lock = threading.Lock()
 

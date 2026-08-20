@@ -56,6 +56,7 @@ class IdNormalizer:
     """First-seen mapping of volatile ids to stable placeholders."""
 
     def __init__(self) -> None:
+        """Initialize an empty stable-ID mapping."""
         self._mapping: dict[str, str] = {}
 
     def _replace_match(self, match: re.Match) -> str:
