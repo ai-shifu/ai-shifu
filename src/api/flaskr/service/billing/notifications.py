@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.api.doc.feishu import send_notify
@@ -38,6 +37,9 @@ from .queries import (
 from .queries import (
     load_subscription_by_bid as _load_subscription_by_bid,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 TASK_NAME = "billing.send_subscription_purchase_sms"
 BILLING_PAID_FEISHU_TASK_NAME = "billing.send_billing_paid_feishu"

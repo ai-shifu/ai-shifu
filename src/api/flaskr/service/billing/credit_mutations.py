@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -15,6 +14,8 @@ from .primitives import normalize_json_object, quantize_credit_amount, to_decima
 from .wallets import sync_credit_bucket_status
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from .models import CreditLedgerEntry, CreditWalletBucket
 
 

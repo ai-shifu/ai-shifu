@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -28,6 +27,9 @@ from .models import BillingRenewalEvent, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 MANAGED_RENEWAL_EVENT_TYPES = (
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,

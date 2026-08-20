@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -36,6 +35,9 @@ from .primitives import (
     to_decimal,
 )
 from .rate_references import resolve_llm_rate_identity
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _ZERO = Decimal(0)
 _ROUNDING_LABELS = {

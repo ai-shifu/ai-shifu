@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -35,6 +34,9 @@ from .consts import (
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .subscriptions import load_effective_topup_subscription
 from .wallets import persist_credit_wallet_snapshot, sync_credit_bucket_status
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _ZERO = Decimal(0)
 

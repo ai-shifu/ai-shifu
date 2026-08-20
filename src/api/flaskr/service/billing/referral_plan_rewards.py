@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _MANUAL_PROVIDER_NAME = "manual"
 _CHECKOUT_TYPE = "referral_invitation_reward"

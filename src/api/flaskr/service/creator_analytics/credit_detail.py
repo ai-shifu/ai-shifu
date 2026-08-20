@@ -45,9 +45,8 @@ result so the summary is stable.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.i18n import _
@@ -60,6 +59,9 @@ from sqlalchemy import and_, bindparam, func, select
 from sqlalchemy.sql import Select
 
 from .engine import get_analytics_engine
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 # Reuse the DSL-path error names so the HTTP wrapper maps them consistently
 # (the error name → HTTP code mapping lives in error_codes.json).

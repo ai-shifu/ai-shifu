@@ -6,9 +6,8 @@ import hashlib
 import secrets
 import string
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, has_app_context, has_request_context, request
@@ -52,6 +51,9 @@ from .models import (
     ReferralInviteReward,
 )
 from .reward_queue import build_referral_reward_queue
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _INVITE_CODE_ALPHABET = string.ascii_uppercase + string.digits
 _INVITE_CODE_LENGTH = 8

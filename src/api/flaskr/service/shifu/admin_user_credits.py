@@ -6,11 +6,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
-from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import current_app
 from flaskr.dao import db
@@ -128,6 +126,10 @@ from flaskr.service.user.models import (
 )
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import case, not_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:

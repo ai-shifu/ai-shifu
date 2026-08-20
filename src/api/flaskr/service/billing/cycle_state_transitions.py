@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
@@ -22,6 +22,9 @@ from .consts import (
 )
 from .models import BillingSubscription, CreditLedgerEntry, CreditWalletBucket
 from .primitives import normalize_bid as _normalize_bid
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 @dataclass(frozen=True)

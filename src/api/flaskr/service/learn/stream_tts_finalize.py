@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import queue
 import threading
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
@@ -12,6 +11,9 @@ from flaskr.common.shifu_context import (
 from flaskr.dao import cleanup_session_after, invalidate_session
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class _StreamTTSFinalizeJob:
