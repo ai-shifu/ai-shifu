@@ -381,6 +381,14 @@ real side effects or invariants. Do not copy the signature or write a generic
 "Initialize the object" sentence merely to satisfy the rule. Test doubles
 should name the state or collaborator they stand in for.
 
+For `D105`, document the observable protocol contract instead of restating the
+magic method name. A `__json__` docstring says whether it returns a scalar,
+JSON-compatible data, or a JSON string; mapping methods identify the keys or
+payload they proxy; representation and comparison methods describe their
+visible result. Keep a one-line contract when sufficient, and make test-double
+operators name the fake expression they build. Do not write filler such as
+"Implement `__json__`".
+
 Adopt or remove exceptions one rule unit at a time. A rule unit is normally
 one Ruff code; combine codes only when they report the same construct and have
 the same fix and exception boundary. Base each rule PR on the preceding rule

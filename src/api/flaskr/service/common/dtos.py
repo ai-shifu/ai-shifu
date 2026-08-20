@@ -60,6 +60,7 @@ class UserInfo:
         self.is_operator = is_operator
 
     def __json__(self) -> dict:
+        """Return the user information as JSON-compatible data."""
         return {
             "user_id": self.user_id,
             "username": self.username,
@@ -75,6 +76,7 @@ class UserInfo:
         }
 
     def __html__(self) -> dict:
+        """Return the serialized user-information payload."""
         return self.__json__()
 
 
@@ -89,6 +91,7 @@ class UserToken:
         self.token = token
 
     def __json__(self) -> dict:
+        """Return the user token as JSON-compatible data."""
         return {
             "userInfo": self.userInfo,
             "token": self.token,
@@ -106,6 +109,7 @@ class OAuthStartDTO:
         self.state = state
 
     def __json__(self) -> dict:
+        """Return the OAuth start response as JSON-compatible data."""
         return {
             "authorization_url": self.authorization_url,
             "state": self.state,
@@ -136,6 +140,7 @@ class PageNationDTO(BaseModel):
         self.data = data
 
     def __json__(self) -> dict:
+        """Return the paginated response as JSON-compatible data."""
         return {
             "page": self.page,
             "page_size": self.page_size,
