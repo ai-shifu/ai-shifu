@@ -1,9 +1,12 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import AuthPage from './page';
 
 const replaceMock = jest.fn();
 const logoutMock = jest.fn(() => Promise.resolve());
+const searchParamsMock = {
+  get: jest.fn(() => null),
+};
 
 const mockUserState = {
   userInfo: null as { language?: string } | null,
@@ -16,9 +19,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: replaceMock,
   }),
-  useSearchParams: () => ({
-    get: jest.fn(() => null),
-  }),
+  useSearchParams: () => searchParamsMock,
 }));
 
 jest.mock('next/image', () => ({
@@ -153,6 +154,9 @@ describe('AuthPage', () => {
     mockUserState.userInfo = null;
     mockUserState.isLoggedIn = false;
     mockUserState.isInitialized = true;
+    mockEnvState.logoWideUrl = '';
+    mockEnvState.loginMethodsEnabled = ['phone'];
+    mockEnvState.defaultLoginMethod = 'phone';
   });
 
   it('switches an authenticated browser session to a guest session on the login page', async () => {
@@ -186,5 +190,16 @@ describe('AuthPage', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(logoutMock).not.toHaveBeenCalled();
+  });
+
+  it('renders password login when password is the only enabled method', async () => {
+    mockEnvState.loginMethodsEnabled = ['password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
   });
 });

@@ -293,7 +293,11 @@ function getLoginMethodsEnabled(): string[] {
  * Gets default login method
  */
 function getDefaultLoginMethod(): string {
-  return 'phone';
+  return (
+    getRuntimeEnv('DEFAULT_LOGIN_METHOD') ||
+    process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD ||
+    'phone'
+  );
 }
 
 /**
