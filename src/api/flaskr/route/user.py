@@ -1106,7 +1106,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         vr = VerificationRequest(
             identifier=identifier,
             code=password,
-            metadata={"remote_addr": request.remote_addr or ""},
+            metadata={"remote_addr": _request_client_ip()},
         )
         auth_result = provider.verify(app, vr)
         current_user = _best_effort_password_login_user(app)
