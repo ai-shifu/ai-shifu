@@ -27,6 +27,7 @@ from werkzeug.datastructures import FileStorage
 
 def _extract_import_ask_provider_config(shifu_data: dict) -> str:
     """Extract and normalize ask_provider_config from import payload.
+
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
     if "ask_provider_config" not in shifu_data:

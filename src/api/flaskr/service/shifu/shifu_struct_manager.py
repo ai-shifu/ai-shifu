@@ -61,13 +61,15 @@ class ShifuInfoDto(BaseModel):
 def get_shifu_struct(
     app: Flask, shifu_bid: str, is_preview: bool = False
 ) -> HistoryItem:
-    """Get shifu struct
+    """Get shifu struct.
+
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
         is_preview: Is preview
     Returns:
         HistoryItem: Shifu struct.
+
     """
     with app.app_context():
         app.logger.info("get_shifu_struct:%s,%s", shifu_bid, is_preview)
@@ -171,13 +173,15 @@ def get_shifu_outline_tree(
 
 
 def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> ShifuInfoDto:
-    """Get shifu dto
+    """Get shifu dto.
+
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
         is_preview: Is preview
     Returns:
         ShifuInfoDto: Shifu dto.
+
     """
     shifu_model = DraftShifu if is_preview else PublishedShifu
     shifu: DraftShifu | PublishedShifu = (
@@ -209,13 +213,15 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
 def get_outline_item_dto(
     app: Flask, outline_item_bid: str, is_preview: bool = False
 ) -> ShifuOutlineItemDto:
-    """Get outline item dto
+    """Get outline item dto.
+
     Args:
         app: Flask application instance
         outline_item_bid: Outline item bid
         is_preview: Is preview
     Returns:
         ShifuOutlineItemDto: Outline item dto.
+
     """
     app.logger.info("get_outline_item_dto: %s,%s", outline_item_bid, is_preview)
 

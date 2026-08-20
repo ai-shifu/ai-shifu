@@ -238,6 +238,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def get_shifu_api(shifu_bid: str):
         """Get shifu.
+
         ---
         tags:
             - learn
@@ -280,6 +281,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def get_outline_item_tree_api(shifu_bid: str):
         """Get outline item tree.
+
         ---
         tags:
             - learn
@@ -324,6 +326,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def run_outline_item_api(shifu_bid: str, outline_bid: str):
         """Run the MarkdownFlow of the outline.
+
         ---
         tags:
             - learn
@@ -430,6 +433,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def preview_outline_block_api(shifu_bid: str, outline_bid: str):
         """Preview a specific outline block.
+
         ---
         tags:
             - learn
@@ -585,6 +589,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def get_run_status_api(shifu_bid: str, outline_bid: str):
         """Get run status.
+
         ---
         tags:
             - learn
@@ -623,6 +628,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def get_record_api(shifu_bid: str, outline_bid: str):
         """Get learn records of the outline.
+
         ---
         tags:
             - learn
@@ -655,7 +661,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     description: message
                                 data:
                                     $ref: "#/components/schemas/LearnElementRecordDTO"
-
         """
         preview_mode = request.args.get("preview_mode", "False")
         include_non_navigable = request.args.get("include_non_navigable", "False")
@@ -687,6 +692,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def delete_record_api(shifu_bid: str, outline_bid: str):
         """Reset the record of the outline.
+
         ---
         tags:
             - learn
@@ -710,7 +716,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                 message:
                                     type: string
                                     description: message
-
         """
         user_bid = request.user.user_id
         return make_common_response(
@@ -724,6 +729,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str):
         """Submit lesson feedback.
+
         ---
         tags:
             - learn
@@ -785,6 +791,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def list_lesson_feedbacks_api(shifu_bid: str):
         """List lesson feedbacks for a course (teacher/authoring side).
+
         ---
         tags:
             - learn
@@ -838,6 +845,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def generate_content_api(shifu_bid: str, generated_block_bid: str, action: str):
         """Generate the content of the generated block.
+
         ---
         tags:
             - learn
@@ -882,6 +890,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def get_generated_content_api(shifu_bid: str, generated_block_bid: str):
         """Get the content of the generated block.
+
         ---
         tags:
             - learn
@@ -932,6 +941,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def synthesize_generated_block_audio_api(shifu_bid: str, generated_block_bid: str):
         """Synthesize audio for a generated block (C-end, persisted).
+
         ---
         tags:
             - learn
@@ -999,6 +1009,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @with_shifu_context()
     def synthesize_preview_tts_audio_api(shifu_bid: str):
         """Synthesize audio for an arbitrary text (editor preview, not persisted).
+
         ---
         tags:
             - learn

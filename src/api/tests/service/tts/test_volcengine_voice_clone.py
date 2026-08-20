@@ -93,9 +93,7 @@ def test_query_status_raises_without_credentials(monkeypatch) -> None:
 
 
 def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> None:
-    """Provider unreachable / timeout must fail through the controlled
-    parameter-error path, not bubble a raw RequestException into a 500.
-    """
+    """Provider unreachable / timeout must fail through the controlled parameter-error path, not bubble a raw RequestException into a 500."""
     import requests as requests_lib
 
     _patch_config(monkeypatch)
@@ -128,9 +126,7 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
 
 
 def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
-    """Volcengine answers 4xx (with a JSON message) for unknown speakers or
-    missing grants; that must surface as a parameter error, not an HTTPError.
-    """
+    """Volcengine answers 4xx (with a JSON message) for unknown speakers or missing grants; that must surface as a parameter error, not an HTTPError."""
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
@@ -171,9 +167,7 @@ def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
 
 
 def test_icl_resource_is_not_a_selectable_model() -> None:
-    """The clone resource id must stay out of the model dropdown; it is
-    inferred from the S_ speaker id inside the provider instead.
-    """
+    """The clone resource id must stay out of the model dropdown; it is inferred from the S_ speaker id inside the provider instead."""
     from flaskr.api.tts.volcengine_provider import VOLCENGINE_MODELS
 
     assert VOLCENGINE_ICL_RESOURCE_ID not in {

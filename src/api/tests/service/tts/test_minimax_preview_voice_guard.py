@@ -107,9 +107,7 @@ def test_ready_clone_owned_by_another_user_is_rejected(app):
 
 
 def test_isolation_when_same_voice_id_has_different_owners(app):
-    """Two clones share the same voice_id but differ by owner: the requester
-    only matches their own row, never the foreign one.
-    """
+    """Two clones share the same voice_id but differ by owner: the requester only matches their own row, never the foreign one."""
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -180,9 +178,7 @@ def test_failed_clone_is_rejected(app):
 
 
 def test_deleted_clone_is_rejected(app):
-    """A ready, owned clone that has been soft-deleted is rejected like an
-    unknown voice.
-    """
+    """A ready, owned clone that has been soft-deleted is rejected like an unknown voice."""
     _prepare_tables(app)
     _seed_clone(
         app,

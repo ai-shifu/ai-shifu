@@ -2157,10 +2157,7 @@ def _make_preview_store(
 
 
 class PreviewSentPromptCaptureTests(unittest.TestCase):
-    """The preview flow stores the exact user message markdown-flow sent to
-    the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the
-    replayed preview context stays byte-identical to the sent request.
-    """
+    """The preview flow stores the exact user message markdown-flow sent to the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the replayed preview context stays byte-identical to the sent request."""
 
     def test_iter_preview_generated_events_captures_prompt(self):
         app = Flask("preview-prompt-capture")
@@ -2382,11 +2379,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
 
 
 class BuildContextFromBlocksTests(unittest.TestCase):
-    """build_context_from_blocks should hand interaction blocks to markdown-flow
-    as raw ?[...] assistant messages so its _transform_context_messages can
-    expand them, instead of dropping them or flattening input into a bare user
-    message.
-    """
+    """build_context_from_blocks should hand interaction blocks to markdown-flow as raw ?[...] assistant messages so its _transform_context_messages can expand them, instead of dropping them or flattening input into a bare user message."""
 
     DOC = (
         "Content one.\n"
@@ -2456,12 +2449,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
 
 
 class BuildContextGenerationPromptReplayTests(unittest.TestCase):
-    """Content blocks replay the persisted generation_prompt verbatim so the
-    rebuilt history stays byte-identical to the request previously sent to
-    the LLM (keeping provider-side prefix caching effective); legacy rows
-    without it fall back to re-rendering the block source with the current
-    variables.
-    """
+    """Content blocks replay the persisted generation_prompt verbatim so the rebuilt history stays byte-identical to the request previously sent to the LLM (keeping provider-side prefix caching effective); legacy rows without it fall back to re-rendering the block source with the current variables."""
 
     DOC = (
         "Content one {{nickname}}.\n"
@@ -2524,11 +2512,7 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
 
 
 class StreamContentBlockPromptCaptureTests(unittest.TestCase):
-    """_phase_stream_content_block captures LLMResult.prompt (the exact user
-    message markdown-flow sent to the LLM) and hands it to the recorder;
-    prompt-less streams (preserved content) freeze the variables-rendered
-    block source instead.
-    """
+    """_phase_stream_content_block captures LLMResult.prompt (the exact user message markdown-flow sent to the LLM) and hands it to the recorder; prompt-less streams (preserved content) freeze the variables-rendered block source instead."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -2617,12 +2601,12 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
 
 
 class BuildContextNoVariableInteractionTests(unittest.TestCase):
-    """No-variable interactions carry a real learner answer with no variable
-    to recover it from. build_context_from_blocks attaches the answer stored
-    in generated_content to the interaction message via the user_answer
-    extension field (markdown-flow >= 0.3.0); the library then expands it
-    into {user: answer} + {assistant: "ok"}, or skips the turn when the
-    answer is empty.
+    """No-variable interactions carry a real learner answer with no variable to recover it from.
+
+    build_context_from_blocks attaches the answer stored in generated_content to the
+    interaction message via the user_answer extension field (markdown-flow >= 0.3.0); the
+    library then expands it into {user: answer} + {assistant: "ok"}, or skips the turn when
+    the answer is empty.
     """
 
     DOC = (
@@ -2681,10 +2665,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
         }
 
     def test_library_expands_answer_and_skips_empty_turns(self):
-        """End-to-end: the context built here goes through markdown-flow's
-        message transform and comes out with the real answer, no raw ?[...]
-        syntax, and no fabricated "ok" for unanswered interactions.
-        """
+        """End-to-end: the context built here goes through markdown-flow's message transform and comes out with the real answer, no raw ?[...] syntax, and no fabricated "ok" for unanswered interactions."""
         app = Flask(__name__)
         with app.app_context():
             answered = MdflowContextV2.build_context_from_blocks(
