@@ -67,8 +67,16 @@ The implementation is published as three ready pull requests:
 Workflow parsing, repository harness validation, architecture boundaries, npm
 lockfile installation, and the full lefthook pre-commit gate passed locally.
 Docker is unavailable in the worktree, so actual cache-hit rates and elapsed
-Runtime Harness time remain live-CI acceptance measurements rather than local
-claims.
+Runtime Harness times were measured in GitHub Actions:
+
+- PR #2536 completed in 7m42s cold and 6m10s warm. Its image-build step fell
+  from 3m51s to 1m47s.
+- PR #2537 completed in 7m44s cold and 5m15s warm. Its image-build step fell
+  from 3m49s to 1m19s, and the logs reported cache hits for both the API pip
+  layer and the Cook Web `npm ci` layer.
+- PR #2538's first Backend Tests run passed in 1m20s and saved the SHA-specific
+  testmon cache. This measurement update provides the next commit that can
+  restore that newly written state by prefix.
 
 ## Context and Orientation
 
