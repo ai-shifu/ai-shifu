@@ -1,3 +1,5 @@
+"""Expose storage HTTP routes."""
+
 from __future__ import annotations
 
 import mimetypes

@@ -1,3 +1,5 @@
+"""Provide compare utilities."""
+
 import decimal
 
 

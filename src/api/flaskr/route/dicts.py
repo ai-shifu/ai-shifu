@@ -1,3 +1,5 @@
+"""Expose dicts HTTP routes."""
+
 from flask import Flask
 
 from flaskr.api.llm import get_current_models

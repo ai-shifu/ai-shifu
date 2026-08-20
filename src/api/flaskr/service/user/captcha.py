@@ -1,3 +1,5 @@
+"""Create, verify, and consume captcha challenges."""
+
 from __future__ import annotations
 
 import base64

@@ -1,3 +1,5 @@
+"""Run the grant white label maintenance workflow."""
+
 from __future__ import annotations
 
 import argparse

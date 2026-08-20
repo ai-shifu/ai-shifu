@@ -1,3 +1,5 @@
+"""Handle admin target users for creator billing."""
+
 from __future__ import annotations
 
 from importlib import import_module

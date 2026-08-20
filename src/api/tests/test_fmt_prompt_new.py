@@ -1,3 +1,6 @@
+"""Verify double-brace prompt variables and invalid names."""
+
+
 def test_fmt_prompt_replaces_double_braces(app, monkeypatch):
     from flaskr.service.learn import utils_v2
 

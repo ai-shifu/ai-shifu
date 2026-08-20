@@ -1,3 +1,5 @@
+"""Implement administrative operations for promotions."""
+
 from __future__ import annotations
 
 import decimal

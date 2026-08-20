@@ -1,3 +1,5 @@
+"""Send SMS messages through Aliyun."""
+
 import json
 
 from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models

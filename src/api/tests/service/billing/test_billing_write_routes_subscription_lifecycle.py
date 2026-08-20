@@ -1,3 +1,5 @@
+"""Verify billing write routes subscription lifecycle behavior."""
+
 from __future__ import annotations
 
 import pytest

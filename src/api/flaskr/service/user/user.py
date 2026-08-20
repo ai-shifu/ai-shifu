@@ -3,6 +3,8 @@
 #
 
 
+"""Implement user account and authentication operations."""
+
 import uuid
 from urllib.parse import urlsplit
 

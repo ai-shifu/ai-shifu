@@ -1,3 +1,5 @@
+"""Verify listen element payloads behavior."""
+
 from flaskr.service.learn.listen_element_payloads import (
     _mark_last_audio_segment_final,
     _upsert_audio_segment_payload,

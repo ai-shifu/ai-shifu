@@ -1,3 +1,5 @@
+"""Implement business operations for risk control."""
+
 from flask import Flask
 from flaskr.api.check import CHECK_RESULT_PASS, CHECK_RESULT_REJECT, check_text
 from flaskr.api.check.dto import CheckResultDTO

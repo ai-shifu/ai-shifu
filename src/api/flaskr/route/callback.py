@@ -1,3 +1,5 @@
+"""Expose callback HTTP routes."""
+
 from flask import Flask, jsonify, make_response, request
 
 from flaskr.service.billing.customization import (

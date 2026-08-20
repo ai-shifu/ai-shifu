@@ -1,3 +1,5 @@
+"""Define persistence models for user feedback."""
+
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (

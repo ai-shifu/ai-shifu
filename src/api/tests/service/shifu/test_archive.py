@@ -1,3 +1,5 @@
+"""Verify course archiving and initial draft state."""
+
 from datetime import datetime
 from decimal import Decimal
 

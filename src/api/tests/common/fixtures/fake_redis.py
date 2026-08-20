@@ -1,3 +1,5 @@
+"""Provide fake Redis support for common fixtures tests."""
+
 import time
 from typing import Any
 

@@ -1,3 +1,5 @@
+"""Verify Celery Flask-context and configuration ownership."""
+
 from __future__ import annotations
 
 import sys

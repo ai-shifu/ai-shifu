@@ -1,3 +1,5 @@
+"""Verify tencent provider behavior."""
+
 import base64
 import hashlib
 import hmac

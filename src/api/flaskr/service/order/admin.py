@@ -1,3 +1,5 @@
+"""Implement administrative operations for legacy orders."""
+
 from __future__ import annotations
 
 import hashlib

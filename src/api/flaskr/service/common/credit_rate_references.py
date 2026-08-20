@@ -1,3 +1,5 @@
+"""Resolve shared LLM credit-rate references."""
+
 from __future__ import annotations
 
 import logging

@@ -1,3 +1,5 @@
+"""Load configured Flask plugin modules."""
+
 import importlib
 import os
 from functools import partial

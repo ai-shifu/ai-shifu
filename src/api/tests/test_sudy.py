@@ -1,3 +1,5 @@
+"""Verify study records remain empty before learner progress."""
+
 from flaskr.service.learn.learn_funcs import get_learn_record
 
 

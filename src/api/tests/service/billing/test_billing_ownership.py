@@ -1,3 +1,5 @@
+"""Verify billing ownership behavior."""
+
 from __future__ import annotations
 
 import pytest

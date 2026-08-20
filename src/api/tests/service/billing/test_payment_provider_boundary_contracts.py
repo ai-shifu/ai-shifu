@@ -1,3 +1,5 @@
+"""Protect payment provider boundary contracts."""
+
 from __future__ import annotations
 
 from flaskr.service.billing import checkout, subscriptions, webhooks

@@ -1,3 +1,5 @@
+"""Verify admin datetime filters behavior."""
+
 from datetime import datetime
 
 from flaskr.service.order.admin import _parse_datetime

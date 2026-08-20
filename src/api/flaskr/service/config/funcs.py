@@ -1,3 +1,5 @@
+"""Implement business operations for persisted configuration."""
+
 import base64
 import hashlib
 import random

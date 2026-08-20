@@ -1,3 +1,5 @@
+"""Configure application logging and request context."""
+
 import logging
 import socket
 import threading

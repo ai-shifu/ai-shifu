@@ -1,3 +1,5 @@
+"""Define state objects for listen-mode run adaptation."""
+
 from __future__ import annotations
 
 from collections import OrderedDict

@@ -1,3 +1,5 @@
+"""Verify streaming TTS AV contract behavior."""
+
 import pytest
 
 

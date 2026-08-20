@@ -1,3 +1,5 @@
+"""Verify completed learning records expose the correct next action."""
+
 import types
 import unittest
 

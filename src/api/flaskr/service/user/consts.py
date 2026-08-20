@@ -1,3 +1,5 @@
+"""Define constants for user accounts."""
+
 USER_STATE_UNREGISTERED = 1101
 USER_STATE_REGISTERED = 1102
 USER_STATE_TRAIL = 1103

@@ -1,3 +1,5 @@
+"""Provide shared utilities for user accounts."""
+
 import json
 import secrets
 import smtplib

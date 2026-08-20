@@ -1,3 +1,5 @@
+"""Verify course resource URLs and owner resolution."""
+
 from flaskr.dao import db
 from flaskr.service.resource.models import Resource
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu

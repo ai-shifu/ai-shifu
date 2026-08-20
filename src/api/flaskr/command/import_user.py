@@ -1,3 +1,5 @@
+"""Implement the import user CLI command."""
+
 from flask import Flask
 
 from flaskr.dao import db
