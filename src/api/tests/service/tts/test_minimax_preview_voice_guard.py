@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_FAILED,
     TTS_MINIMAX_CLONE_STATUS_READY,
@@ -96,7 +96,7 @@ def test_ready_clone_owned_by_another_user_is_rejected(app):
         owner="other-creator",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
     )
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="minimax",
@@ -132,7 +132,7 @@ def test_isolation_when_same_voice_id_has_different_owners(app):
             owner_user_bid="creator-1",
         )
         # creator-3 owns none -> rejected even though the id exists for others.
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             assert_preview_cloned_voice_available(
                 app,
                 provider="minimax",
@@ -151,7 +151,7 @@ def test_custom_voice_with_empty_owner_is_rejected(app):
         owner="creator-1",
         status=TTS_MINIMAX_CLONE_STATUS_READY,
     )
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="minimax",
@@ -169,7 +169,7 @@ def test_failed_clone_is_rejected(app):
         owner="creator-1",
         status=TTS_MINIMAX_CLONE_STATUS_FAILED,
     )
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="minimax",
@@ -191,7 +191,7 @@ def test_deleted_clone_is_rejected(app):
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         deleted=1,
     )
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="minimax",
@@ -203,7 +203,7 @@ def test_deleted_clone_is_rejected(app):
 
 def test_unknown_custom_voice_is_rejected(app):
     _prepare_tables(app)
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="minimax",
@@ -215,7 +215,7 @@ def test_unknown_custom_voice_is_rejected(app):
 
 def test_empty_voice_id_is_rejected(app):
     _prepare_tables(app)
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app, provider="minimax", voice_id="   ", owner_user_bid="creator-1"
         )
@@ -249,7 +249,7 @@ def test_volcengine_ready_clone_of_another_owner_is_rejected(app):
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
     )
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="volcengine",
@@ -269,7 +269,7 @@ def test_volcengine_clone_row_does_not_leak_to_minimax_provider(app):
         status=TTS_MINIMAX_CLONE_STATUS_READY,
         provider="volcengine",
     )
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
             app,
             provider="minimax",

@@ -22,10 +22,6 @@ from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.service.user.repository import UserAggregate
 
 
-class BreakException(Exception):
-    pass
-
-
 def check_text_with_llm_response(
     app: Flask,
     user_info: UserAggregate,

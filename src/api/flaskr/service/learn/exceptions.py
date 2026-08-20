@@ -1,7 +1,7 @@
-from flaskr.service.common import ERROR_CODE, AppException
+from flaskr.service.common import ERROR_CODE, AppError
 
 
-class PaidException(AppException):
+class PaidError(AppError):
     def __init__(self):
         super().__init__(
             "server.order.courseNotPaid",
@@ -12,7 +12,7 @@ class PaidException(AppException):
         )
 
 
-class BreakException(AppException):
+class BreakError(AppError):
     def __init__(self):
         super().__init__(
             "server.order.courseNotPaid",

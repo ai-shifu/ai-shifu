@@ -120,6 +120,7 @@ select = [
     "N802",    # function name that is not lowercase
     "N803",    # argument name that is not lowercase
     "N813",    # CamelCase imported under a lowercase alias
+    "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
     # S101 bans `assert` in shipped code (python -O strips it, so an assert is
     # not a runtime guard). Test suites and script self-tests are exempt via

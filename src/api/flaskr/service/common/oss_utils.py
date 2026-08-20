@@ -78,7 +78,7 @@ def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
 
     Notes:
     - This is intentionally conservative and checks credentials + bucket.
-    - It avoids raising AppException so callers can implement fallbacks (e.g., local storage).
+    - It avoids raising AppError so callers can implement fallbacks (e.g., local storage).
 
     """
     resolved_profile = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT

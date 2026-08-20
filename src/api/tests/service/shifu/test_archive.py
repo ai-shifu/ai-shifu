@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 from flaskr import dao
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 
 
 def _get_models():
@@ -360,7 +360,7 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypa
     )
 
     def fail_default_outlines(*_args, **_kwargs):
-        raise AppException("outline init failed")
+        raise AppError("outline init failed")
 
     monkeypatch.setattr(
         draft_module,
@@ -368,7 +368,7 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypa
         fail_default_outlines,
     )
 
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         draft_module.create_shifu_draft(
             app,
             user_id=owner_bid,
@@ -388,7 +388,7 @@ def test_archive_requires_creator_permission(app):
     _seed_shifu(app, shifu_bid, creator)
     archive_shifu, _ = _get_archive_funcs()
 
-    with pytest.raises(AppException) as excinfo:
+    with pytest.raises(AppError) as excinfo:
         archive_shifu(app, "intruder", shifu_bid)
 
     assert "permission" in excinfo.value.message.lower()

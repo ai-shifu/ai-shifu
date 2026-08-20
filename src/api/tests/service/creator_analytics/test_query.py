@@ -121,7 +121,7 @@ def test_user_cannot_query_a_shifu_they_do_not_own(mock_request_user, test_clien
         },
     )
 
-    # The error envelope is wrapped by AppException → make_common_response.
+    # The error envelope is wrapped by AppError → make_common_response.
     payload = response.get_json(force=True)
     assert payload["code"] == 11001  # server.creatorAnalytics.noPermission
 

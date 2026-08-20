@@ -53,7 +53,7 @@ from flask import Flask
 from flaskr.i18n import _
 from flaskr.service.billing.consts import CREDIT_SOURCE_TYPE_USAGE
 from flaskr.service.billing.models import CreditLedgerEntry
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from sqlalchemy import and_, bindparam, func, select
@@ -450,7 +450,7 @@ def _raise(error_name: str, detail: str | None = None) -> None:
     if detail:
         message = f"{message} ({detail})"
     code = ERROR_CODE.get(error_name, ERROR_CODE.get("server.common.unknownError"))
-    raise AppException(message, code)
+    raise AppError(message, code)
 
 
 __all__ = ["ERR_INVALID_DSL", "ERR_INVALID_LIMIT", "ERR_NO_PERMISSION", "run"]

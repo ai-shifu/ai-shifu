@@ -6,7 +6,7 @@ Pure in-memory tests — no DB, no Flask app context.
 from __future__ import annotations
 
 import pytest
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.creator_analytics.dsl import (
     ERR_INVALID_AGGREGATE,
     ERR_INVALID_COLUMN,
@@ -36,7 +36,7 @@ def _parse(payload):
 
 
 def _assert_error(payload, error_name: str) -> None:
-    with pytest.raises(AppException) as excinfo:
+    with pytest.raises(AppError) as excinfo:
         _parse(payload)
     # Match by error code so the assertion holds regardless of whether i18n
     # is initialized (the localized message differs by locale).

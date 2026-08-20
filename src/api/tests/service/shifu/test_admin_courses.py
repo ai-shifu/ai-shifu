@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from flask import Flask
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
@@ -817,7 +817,7 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
         ) as overview_mock,
         patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
     ):
-        with pytest.raises(AppException) as excinfo:
+        with pytest.raises(AppError) as excinfo:
             list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
         assert excinfo.value.code is not None
 

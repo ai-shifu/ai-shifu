@@ -22,7 +22,7 @@ from flaskr.service.billing.domains import (
     verify_domain_binding,
 )
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -48,8 +48,8 @@ def billing_domain_client(monkeypatch):
 
     dao.db.init_app(app)
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

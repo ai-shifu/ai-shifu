@@ -26,7 +26,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_TYPE_TTS,
@@ -285,7 +285,7 @@ def test_reserve_operation_credits_rejects_insufficient_balance(
         _seed_wallet("creator-insufficient", "1.0000000000")
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         reserve_operation_credits(
             operation_credit_app,
             creator_bid="creator-insufficient",
@@ -349,7 +349,7 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
         dao.db.session.add_all([wallet, bucket, subscription])
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         reserve_operation_credits(
             operation_credit_app,
             creator_bid=creator_bid,
@@ -459,7 +459,7 @@ def test_reserve_operation_credits_rejects_topup_after_consumption_window(
         dao.db.session.add_all([wallet, bucket, subscription])
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         reserve_operation_credits(
             operation_credit_app,
             creator_bid=creator_bid,

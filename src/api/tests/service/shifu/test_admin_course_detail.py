@@ -19,7 +19,7 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditLedgerEntry, CreditUsageRate
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -1768,7 +1768,7 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
 
 
 def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(app):
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         get_operator_course_detail(app, shifu_bid="   ")
 
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
@@ -1777,7 +1777,7 @@ def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(ap
 def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
     app,
 ):
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         get_operator_course_chapter_detail(
             app,
             shifu_bid="   ",

@@ -5,7 +5,7 @@ from pathlib import Path
 from flaskr.i18n import _
 
 
-class AppException(Exception):
+class AppError(Exception):
     def __init__(self, message, status_code=None, payload=None):
         Exception.__init__(self)
         self.message = message
@@ -53,21 +53,21 @@ def register_error(error_name, error_code):
 
 
 def raise_param_error(param_message):
-    raise AppException(
+    raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
         ERROR_CODE["server.common.paramsError"],
     )
 
 
 def raise_error(error_name):
-    raise AppException(
+    raise AppError(
         _(error_name),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
 
 
 def raise_error_with_args(error_name, **kwargs):
-    raise AppException(
+    raise AppError(
         _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )

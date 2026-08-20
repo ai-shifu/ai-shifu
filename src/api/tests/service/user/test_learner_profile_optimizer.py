@@ -8,7 +8,7 @@ import pytest
 from flaskr.api.check import CHECK_RESULT_UNKNOWN
 from flaskr.dao import db
 from flaskr.service.check_risk.models import RiskControlResult
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.profile import learner_profile_optimizer as optimizer
 from flaskr.service.user.models import UserInfo, UserOnboardingState
@@ -319,7 +319,7 @@ def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
     with app.app_context():
         _create_profile_state(user_bid)
         before = _snapshot_profile_state(user_bid)
-        with pytest.raises(AppException) as raised:
+        with pytest.raises(AppError) as raised:
             optimizer.optimize_learner_profile(
                 app,
                 user_id=user_bid,
@@ -393,7 +393,7 @@ def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
     with app.app_context():
         _create_profile_state(user_bid)
         before = _snapshot_profile_state(user_bid)
-        with pytest.raises(AppException) as raised:
+        with pytest.raises(AppError) as raised:
             optimizer.optimize_learner_profile(
                 app,
                 user_id=user_bid,
@@ -428,7 +428,7 @@ def test_optimize_rejects_empty_model_output_without_changing_state(
     with app.app_context():
         _create_profile_state(user_bid)
         before = _snapshot_profile_state(user_bid)
-        with pytest.raises(AppException) as raised:
+        with pytest.raises(AppError) as raised:
             optimizer.optimize_learner_profile(
                 app,
                 user_id=user_bid,
@@ -458,7 +458,7 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(app, monkeypatc
     with app.app_context():
         _create_profile_state(user_bid)
         before = _snapshot_profile_state(user_bid)
-        with pytest.raises(AppException) as raised:
+        with pytest.raises(AppError) as raised:
             optimizer.optimize_learner_profile(
                 app,
                 user_id=user_bid,
@@ -481,12 +481,12 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
         try:
             raise TimeoutError("provider timeout")
         except TimeoutError as exc:
-            raise AppException("wrapped provider failure", 9999) from exc
+            raise AppError("wrapped provider failure", 9999) from exc
         yield  # pragma: no cover
 
     monkeypatch.setattr(optimizer, "invoke_llm", timeout_invoke)
 
-    with app.app_context(), pytest.raises(AppException) as raised:
+    with app.app_context(), pytest.raises(AppError) as raised:
         optimizer.optimize_learner_profile(
             app,
             user_id=user_bid,
@@ -502,7 +502,7 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
     [
         (RuntimeError("provider unavailable"), 1021, "encountered an error"),
         (
-            AppException("model route unavailable", 8002),
+            AppError("model route unavailable", 8002),
             1024,
             "No profile optimization model is configured",
         ),
@@ -525,7 +525,7 @@ def test_optimize_reports_runtime_failure_reason_without_changing_state(
     with app.app_context():
         _create_profile_state(user_bid)
         before = _snapshot_profile_state(user_bid)
-        with pytest.raises(AppException) as raised:
+        with pytest.raises(AppError) as raised:
             optimizer.optimize_learner_profile(
                 app,
                 user_id=user_bid,
@@ -555,7 +555,7 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
     monkeypatch.setattr(optimizer, "check_text_content", failed_moderation)
     monkeypatch.setattr(optimizer, "invoke_llm", unexpected_invoke)
 
-    with app.app_context(), pytest.raises(AppException) as raised:
+    with app.app_context(), pytest.raises(AppError) as raised:
         optimizer.optimize_learner_profile(
             app,
             user_id="profile-optimize-moderation-error",
@@ -580,7 +580,7 @@ def test_optimize_rejects_invalid_input_before_moderation(
 
     monkeypatch.setattr(optimizer, "check_text_content", unexpected_moderation)
 
-    with app.app_context(), pytest.raises(AppException) as raised:
+    with app.app_context(), pytest.raises(AppError) as raised:
         optimizer.optimize_learner_profile(
             app,
             user_id="profile-optimize-invalid-input",

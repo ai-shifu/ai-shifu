@@ -18,7 +18,7 @@ from flaskr.service.tts.minimax_voice_clone import (
     submit_minimax_voice_clone,
 )
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
-from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
+from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
@@ -36,7 +36,7 @@ def create_streaming_tts_processor(**kwargs):
 
 
 __all__ = [
-    "TTSRpmQueueTimeout",
+    "TTSRpmQueueTimeoutError",
     "append_subtitle_cue",
     "build_av_segmentation_contract",
     "build_minimax_clone_cost",

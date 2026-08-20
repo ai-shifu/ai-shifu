@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_READY,
     TTSMiniMaxClonedVoice,
@@ -94,21 +94,21 @@ def test_volcengine_registered_clone_keeps_teacher_selected_model(app):
 def test_volcengine_clone_with_unlisted_model_is_rejected(app):
     _prepare_tables(app)
     _seed_ready_clone(app, provider="volcengine", voice_id="S_xxxxxxxxxx")
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         _validate("volcengine", "seed-tts-9.9", "S_xxxxxxxxxx")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
 def test_volcengine_unregistered_clone_is_rejected(app):
     _prepare_tables(app)
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         _validate("volcengine", "seed-tts-2.0", "S_xxxxxxxxxxxx")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
 def test_volcengine_bad_shape_custom_voice_is_rejected(app):
     _prepare_tables(app)
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         _validate("volcengine", "seed-tts-2.0", "AiShifu_not_a_speaker")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 

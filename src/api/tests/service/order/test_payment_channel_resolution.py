@@ -1,5 +1,5 @@
 import pytest
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.order.funs import _resolve_payment_channel
 
 
@@ -14,7 +14,7 @@ class TestResolvePaymentChannel:
         assert sub_channel == "wx_pub_qr"
 
     def test_pingxx_channel_missing_sub_channel_raises(self):
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             _resolve_payment_channel(
                 payment_channel_hint=None,
                 channel_hint="",
@@ -79,7 +79,7 @@ class TestResolvePaymentChannel:
             fake_get_config,
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             _resolve_payment_channel(
                 payment_channel_hint="pingxx",
                 channel_hint="wx_pub_qr",
@@ -183,7 +183,7 @@ class TestResolvePaymentChannel:
             fake_get_config,
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             _resolve_payment_channel(
                 payment_channel_hint="alipay",
                 channel_hint="wx_pub_qr",

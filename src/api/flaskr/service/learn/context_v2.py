@@ -30,7 +30,7 @@ from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
-from flaskr.service.learn.exceptions import PaidException
+from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -106,7 +106,7 @@ from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_struct,
 )
 from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.service.user.exceptions import UserNotLoginException
+from flaskr.service.user.exceptions import UserNotLoginError
 from flaskr.service.user.repository import UserAggregate, load_user_aggregate
 from flaskr.util import generate_id
 from markdown_flow import (
@@ -1956,13 +1956,13 @@ class RunScriptContextV2:
                 raise_error("server.shifu.lessonNotFoundInCourse")
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
-                    raise PaidException
+                    raise PaidError
             elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL and (
                 not self._preview_mode
                 and not self._user_info.mobile
                 and not self._user_info.email
             ):
-                raise UserNotLoginException
+                raise UserNotLoginError
             parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             new_records: list[LearnProgressRecord] = []
@@ -3562,15 +3562,15 @@ class RunScriptContextV2:
     def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         try:
             yield from self.run_inner(app)
-        except PaidException:
-            app.logger.info("PaidException")
+        except PaidError:
+            app.logger.info("PaidError")
             self._can_continue = False
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.order.checkout')}//_sys_pay]"
             )
             yield from self._emit_feedback_after_exception_gate()
-        except UserNotLoginException:
-            app.logger.info("UserNotLoginException")
+        except UserNotLoginError:
+            app.logger.info("UserNotLoginError")
             self._can_continue = False
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.user.login')}//_sys_login]"
