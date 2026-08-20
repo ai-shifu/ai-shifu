@@ -47,6 +47,7 @@ class FollowUpInfo:
         self.ask_provider_config = ask_provider_config or {}
 
     def __json__(self) -> dict:
+        """Return the follow-up info as JSON-compatible data."""
         return {
             "ask_model": self.ask_model,
             "ask_prompt": self.ask_prompt,

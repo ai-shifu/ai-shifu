@@ -15,6 +15,7 @@ class LearnStatus(Enum):
     LOCKED = "locked"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -25,6 +26,7 @@ class OutlineType(Enum):
     GUEST = "guest"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -44,6 +46,7 @@ class GeneratedType(Enum):
     ASK = "ask"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -71,6 +74,7 @@ class ElementType(Enum):
     _VIDEO = "video"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -80,6 +84,7 @@ class ElementChangeType(Enum):
     DIFF = "diff"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -90,6 +95,7 @@ class LikeStatus(Enum):
     NONE = "none"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -102,6 +108,7 @@ class BlockType(Enum):
     ANSWER = "answer"
 
     def __json__(self) -> str:
+        """Return the serialized enum value."""
         return self.value
 
 
@@ -119,6 +126,7 @@ class VariableUpdateDTO(BaseModel):
         super().__init__(variable_name=variable_name, variable_value=variable_value)
 
     def __json__(self) -> dict:
+        """Return the variable update as JSON-compatible data."""
         return {
             "variable_name": self.variable_name,
             "variable_value": self.variable_value,
@@ -150,6 +158,7 @@ class OutlineItemUpdateDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the outline item update as JSON-compatible data."""
         return {
             "outline_bid": self.outline_bid,
             "title": self.title,
@@ -197,6 +206,7 @@ class LearnShifuInfoDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return learner-facing course information as JSON-compatible data."""
         return {
             "bid": self.bid,
             "title": self.title,
@@ -240,6 +250,7 @@ class LearnBannerInfoDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the learner banner as JSON-compatible data."""
         return {
             "title": self.title,
             "pop_up_title": self.pop_up_title,
@@ -290,6 +301,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the learner outline item as JSON-compatible data."""
         return {
             "bid": self.bid,
             "position": self.position,
@@ -323,6 +335,7 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the learner banner and outline collection as JSON-compatible data."""
         return {
             "banner_info": None
             if self.banner_info is None
@@ -386,6 +399,7 @@ class AudioSegmentDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the audio segment as JSON-compatible data."""
         ret = {
             "position": self.position,
             "segment_index": self.segment_index,
@@ -454,6 +468,7 @@ class AudioCompleteDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return completed-audio metadata as JSON-compatible data."""
         ret = {
             "position": self.position,
             "audio_url": self.audio_url,
@@ -481,6 +496,7 @@ class ElementVisualDTO(BaseModel):
         super().__init__(visual_type=visual_type, content=content)
 
     def __json__(self) -> dict:
+        """Return the element visual as JSON-compatible data."""
         return {"visual_type": self.visual_type, "content": self.content}
 
 
@@ -514,6 +530,7 @@ class SubtitleCueDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the subtitle cue as JSON-compatible data."""
         return {
             "text": self.text or "",
             "start_ms": int(self.start_ms or 0),
@@ -555,6 +572,7 @@ class ElementAudioDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the element audio as JSON-compatible data."""
         ret = {
             "position": int(self.position or 0),
             "audio_url": self.audio_url,
@@ -616,6 +634,7 @@ class ElementPayloadDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the composite element payload as JSON-compatible data."""
         ret = {
             "audio": self.audio.__json__() if self.audio is not None else None,
             "previous_visuals": [
@@ -732,6 +751,7 @@ class ElementDTO(BaseModel):
         return segments
 
     def __json__(self) -> dict:
+        """Return the element as JSON-compatible data."""
         ret = {
             "event_type": self.event_type,
             "element_bid": self.element_bid,
@@ -774,6 +794,7 @@ class AudioBackfillReadyDTO(BaseModel):
     )
 
     def __json__(self) -> dict:
+        """Return audio-backfill readiness as JSON-compatible data."""
         return {
             "generated_block_bid": self.generated_block_bid,
             "element_bids": self.element_bids,
@@ -806,6 +827,7 @@ class RunElementSSEMessageDTO(BaseModel):
     ) = Field(..., description="Run event content")
 
     def __json__(self) -> dict:
+        """Return the run element SSE message as JSON-compatible data."""
         ret = {
             "type": self.type,
             "event_type": self.event_type,
@@ -890,6 +912,7 @@ class RunMarkdownFlowDTO(BaseModel):
         return list(self._mdflow_stream_parts)
 
     def __json__(self) -> dict:
+        """Return the MarkdownFlow execution payload as JSON-compatible data."""
         ret = {
             "outline_bid": self.outline_bid,
             "generated_block_bid": self.generated_block_bid,
@@ -972,6 +995,7 @@ class LearnElementRecordDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the learner element record as JSON-compatible data."""
         ret = {
             "elements": [
                 item.__json__() if isinstance(item, BaseModel) else item
@@ -1002,6 +1026,7 @@ class RunStatusDTO(BaseModel):
         super().__init__(is_running=is_running, running_time=running_time)
 
     def __json__(self) -> dict:
+        """Return the run status as JSON-compatible data."""
         return {
             "is_running": self.is_running,
             "running_time": self.running_time,
@@ -1030,6 +1055,7 @@ class GeneratedInfoDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return generated-outline metadata as JSON-compatible data."""
         return {
             "position": self.position,
             "outline_name": self.outline_name,

@@ -42,6 +42,7 @@ class OrderAdminOverviewDTO(BaseModel):
     )
 
     def __json__(self) -> dict:
+        """Return the operator order overview as JSON-compatible data."""
         return {
             "total_order_count": self.total_order_count,
             "paid_order_count": self.paid_order_count,
@@ -130,6 +131,7 @@ class OrderAdminSummaryDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the operator order summary as JSON-compatible data."""
         return {
             "order_bid": self.order_bid,
             "shifu_bid": self.shifu_bid,
@@ -187,6 +189,7 @@ class OrderAdminActivityDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the operator order activity as JSON-compatible data."""
         return {
             "active_id": self.active_id,
             "active_name": self.active_name,
@@ -243,6 +246,7 @@ class OrderAdminCouponDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the operator order coupon as JSON-compatible data."""
         return {
             "coupon_bid": self.coupon_bid,
             "code": self.code,
@@ -330,6 +334,7 @@ class OrderAdminPaymentDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the operator order payment as JSON-compatible data."""
         return {
             "payment_channel": self.payment_channel,
             "payment_channel_key": self.payment_channel_key,
@@ -383,6 +388,7 @@ class OrderAdminDetailDTO(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the operator order detail as JSON-compatible data."""
         return {
             "order": self.order,
             "activities": self.activities,
