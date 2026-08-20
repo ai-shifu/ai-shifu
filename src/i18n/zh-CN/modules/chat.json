@@ -40,6 +40,7 @@
   "listenModeTtsDisabled": "当前课程未开启听课模式，无法使用该模式",
   "listenPlaybackSpeedAriaLabel": "播放倍速：{speed}",
   "listenPlaybackSpeedLabel": "播放倍速",
+  "loading": "正在加载…",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "已学习完所有章节",
   "openCatalog": "打开目录",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate/refresh src/i18n/locales.json
+"""Generate/refresh src/i18n/locales.json.
 
 - Updates locale labels from common/language.json
 - Rebuilds the namespaces list by scanning JSON and honoring __namespace__
@@ -68,7 +68,7 @@ def main() -> int:
         for file_path in collect_json_files(code_dir):
             try:
                 data = read_json(file_path)
-            except Exception:
+            except (OSError, ValueError):
                 continue
             declared = data.get("__namespace__")
             if isinstance(declared, str) and declared:
@@ -77,7 +77,7 @@ def main() -> int:
                 rel = str(file_path.relative_to(code_dir).with_suffix(""))
                 namespaces.add(rel.replace("/", "."))
 
-    locales_meta["namespaces"] = sorted(list(namespaces))
+    locales_meta["namespaces"] = sorted(namespaces)
 
     LOCALES_FILE.write_text(
         json.dumps(locales_meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

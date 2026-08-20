@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import logging
-from pathlib import Path
 import sys
-from types import ModuleType
-from types import SimpleNamespace
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 from flask import Flask
 
@@ -16,7 +16,13 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = ModuleType("litellm")
+
+    def get_model_info(*args, **kwargs):
+        _ = args, kwargs
+        raise ValueError("unknown model")
+
     litellm_stub.get_max_tokens = lambda _model: 4096
+    litellm_stub.get_model_info = get_model_info
     litellm_stub.completion = lambda *args, **kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
@@ -55,21 +61,9 @@ def _install_openai_responses_stub() -> None:
 
     response_function_tool_call = type("ResponseFunctionToolCall", (), {})
     response_text_config = type("ResponseTextConfigParam", (), {})
-    setattr(
-        response_function_mod,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
-    setattr(
-        response_text_mod,
-        "ResponseTextConfigParam",
-        response_text_config,
-    )
-    setattr(
-        responses_pkg,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
+    response_function_mod.ResponseFunctionToolCall = response_function_tool_call
+    response_text_mod.ResponseTextConfigParam = response_text_config
+    responses_pkg.ResponseFunctionToolCall = response_function_tool_call
 
     sys.modules["openai.types.responses"] = responses_pkg
     sys.modules["openai.types.responses.response"] = response_mod
@@ -206,7 +200,7 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatc
 
 
 def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
-    from flaskr.service.common.models import AppException
+    from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -217,7 +211,7 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
     )
 
     def _messages():
-        raise AppException("TTS provider quota exceeded", 45000292)
+        raise AppError("TTS provider quota exceeded", 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -227,11 +221,8 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.WARNING):
-            try:
-                list(resp.response)
-            except AppException:
-                pass
+        with caplog.at_level(logging.WARNING), contextlib.suppress(AppError):
+            list(resp.response)
 
     assert (
         "synthesize generated block audio failed: TTS provider quota exceeded"
@@ -261,11 +252,8 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.ERROR):
-            try:
-                list(resp.response)
-            except RuntimeError:
-                pass
+        with caplog.at_level(logging.ERROR), contextlib.suppress(RuntimeError):
+            list(resp.response)
 
     assert "synthesize generated block audio failed" in caplog.text
     assert [record for record in caplog.records if record.levelno >= logging.ERROR]
@@ -274,7 +262,7 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
 def test_stream_sse_emits_error_event_for_business_error_with_factory(
     monkeypatch, caplog
 ):
-    from flaskr.service.common.models import AppException
+    from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -285,7 +273,7 @@ def test_stream_sse_emits_error_event_for_business_error_with_factory(
     )
 
     def _messages():
-        raise AppException("TTS provider quota exceeded", 45000292)
+        raise AppError("TTS provider quota exceeded", 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):

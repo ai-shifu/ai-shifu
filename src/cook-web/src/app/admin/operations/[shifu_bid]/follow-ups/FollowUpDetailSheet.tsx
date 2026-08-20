@@ -231,11 +231,8 @@ export default function FollowUpDetailSheet({
   );
   const nickname = useMemo(() => {
     const normalizedNickname = basicInfo?.nickname?.trim() || '';
-    if (!normalizedNickname || normalizedNickname === defaultUserName) {
-      return emptyValue;
-    }
-    return normalizedNickname;
-  }, [basicInfo?.nickname, defaultUserName, emptyValue]);
+    return normalizedNickname || defaultUserName;
+  }, [basicInfo?.nickname, defaultUserName]);
   const turnIndexLabel = useMemo(() => {
     if (!basicInfo?.turn_index) {
       return emptyValue;

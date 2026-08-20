@@ -1,51 +1,32 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-
 from decimal import Decimal
-
 from types import SimpleNamespace
 
-from flask import Flask, jsonify, request
-
 import flaskr.common.config as common_config
-
-import flaskr.dao as dao
-
+import flaskr.service.billing.checkout as billing_checkout_module
+import flaskr.service.billing.subscriptions as billing_subscriptions_module
+from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.i18n import load_translations, set_language
-
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
-    CREDIT_BUCKET_CATEGORY_FREE,
-    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
-    CREDIT_BUCKET_CATEGORY_TOPUP,
-    CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_BUCKET_STATUS_EXPIRED,
-    BILLING_ORDER_TYPE_TOPUP,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
-    CREDIT_SOURCE_TYPE_GIFT,
-    CREDIT_SOURCE_TYPE_REFUND,
-    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-    CREDIT_SOURCE_TYPE_TOPUP,
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
@@ -53,9 +34,23 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_TRIAL_PRODUCT_BID,
+    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
 )
-
 from flaskr.service.billing.models import (
     BillingCampaign,
     BillingCampaignProduct,
@@ -67,49 +62,32 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-
+from flaskr.service.billing.preorders import mark_preorder_effective_applied
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
-
-import flaskr.service.billing.checkout as billing_checkout_module
-
-from flaskr.service.billing.preorders import mark_preorder_effective_applied
-
-from flaskr.service.billing.primitives import normalize_mysql_datetime
-
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
-
-import flaskr.service.billing.subscriptions as billing_subscriptions_module
-
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
     repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
-
-from flaskr.service.common.models import AppException, ERROR_CODE
-
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order.models import PingxxOrder, StripeOrder
-
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentRefundResult,
     SubscriptionUpdateResult,
 )
-
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-
 from flaskr.service.user.repository import create_user_entity
-
 from flaskr.util.datetime import now_utc, to_utc_iso
-
 from tests.common.fixtures.bill_products import build_bill_products
-
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
@@ -144,12 +122,6 @@ __all__ = [
     "BILLING_SUBSCRIPTION_STATUS_EXPIRED",
     "BILLING_SUBSCRIPTION_STATUS_PAST_DUE",
     "BILLING_TRIAL_PRODUCT_BID",
-    "BillingCampaign",
-    "BillingCampaignProduct",
-    "BillingOrder",
-    "BillingProduct",
-    "BillingRenewalEvent",
-    "BillingSubscription",
     "CREDIT_BUCKET_CATEGORY_FREE",
     "CREDIT_BUCKET_CATEGORY_SUBSCRIPTION",
     "CREDIT_BUCKET_CATEGORY_TOPUP",
@@ -161,11 +133,17 @@ __all__ = [
     "CREDIT_SOURCE_TYPE_REFUND",
     "CREDIT_SOURCE_TYPE_SUBSCRIPTION",
     "CREDIT_SOURCE_TYPE_TOPUP",
+    "ERROR_CODE",
+    "BillingCampaign",
+    "BillingCampaignProduct",
+    "BillingOrder",
+    "BillingProduct",
+    "BillingRenewalEvent",
+    "BillingSubscription",
     "CreditLedgerEntry",
     "CreditWallet",
     "CreditWalletBucket",
     "Decimal",
-    "ERROR_CODE",
     "PingxxOrder",
     "StripeOrder",
     "add_active_subscription",
@@ -298,9 +276,9 @@ def add_trial_subscription_state(
                 wallet_bid=wallet_bid,
                 creator_bid=creator_bid,
                 available_credits=credit_amount,
-                reserved_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
                 lifetime_granted_credits=credit_amount,
-                lifetime_consumed_credits=Decimal("0"),
+                lifetime_consumed_credits=Decimal(0),
                 last_settled_usage_id=0,
                 version=0,
                 created_at=trial_start,
@@ -338,9 +316,9 @@ def add_trial_subscription_state(
                 priority=20,
                 original_credits=credit_amount,
                 available_credits=credit_amount,
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=trial_start,
                 effective_to=trial_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -546,8 +524,8 @@ def billing_write_client(monkeypatch):
         lambda: True,
     )
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

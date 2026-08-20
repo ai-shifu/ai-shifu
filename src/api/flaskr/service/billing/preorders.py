@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from flaskr.util.datetime import now_utc, to_utc_iso
+
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -12,7 +14,6 @@ from .consts import (
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
-from flaskr.util.datetime import now_utc, to_utc_iso
 
 CHECKOUT_ACTION_PREORDER = "preorder"
 CHECKOUT_ACTION_UPGRADE_IMMEDIATE = "upgrade_immediate"

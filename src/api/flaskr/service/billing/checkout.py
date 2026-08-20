@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterator
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask
-
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
-from flaskr.i18n import _ as translate
 from flaskr.dao import db
+from flaskr.i18n import _ as translate
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.native_payment_status import (
+    NATIVE_PAYMENT_STATE_CANCELED,
+    NATIVE_PAYMENT_STATE_FAILED,
+    NATIVE_PAYMENT_STATE_PAID,
+    extract_native_trade_payload,
+    extract_native_trade_status,
+    resolve_native_payment_state,
+)
 from flaskr.service.config import get_config
 from flaskr.service.order.models import PingxxOrder, StripeOrder
 from flaskr.service.order.payment_channel_resolution import resolve_payment_channel
@@ -24,22 +32,14 @@ from flaskr.service.order.payment_providers import (
     PaymentRequest,
     get_payment_provider,
 )
-from flaskr.service.common.native_payment_status import (
-    NATIVE_PAYMENT_STATE_CANCELED,
-    NATIVE_PAYMENT_STATE_FAILED,
-    NATIVE_PAYMENT_STATE_PAID,
-    extract_native_trade_payload,
-    extract_native_trade_status,
-    resolve_native_payment_state,
-)
 from flaskr.service.order.raw_snapshots import (
-    billing_pingxx_snapshot_query,
     billing_native_snapshot_query,
+    billing_pingxx_snapshot_query,
     billing_stripe_snapshot_query,
     native_snapshot_model,
-    upsert_native_snapshot,
     upsert_billing_pingxx_snapshot,
     upsert_billing_stripe_snapshot,
+    upsert_native_snapshot,
 )
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.datetime import now_utc
@@ -56,19 +56,19 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_LABELS,
-    BILLING_PENDING_ORDER_TIMEOUT_DELTA,
-    BILLING_PENDING_ORDER_TIMEOUT_MINUTES,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_PENDING_ORDER_TIMEOUT_DELTA,
+    BILLING_PENDING_ORDER_TIMEOUT_MINUTES,
     BILLING_PRODUCT_STATUS_ACTIVE,
-    BILLING_TRIAL_PRODUCT_CODE,
-    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_TRIAL_PRODUCT_CODE,
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
 )
 from .dtos import (
     BillingCheckoutResultDTO,
@@ -78,40 +78,74 @@ from .dtos import (
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
+)
+from .paid_side_effects import (
     dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
+)
+from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
-from .provider_state import (
-    BillingOrderProviderUpdateResult,
-    apply_billing_order_provider_update as _apply_billing_order_provider_update,
-    apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
-    apply_subscription_checkout_success as _apply_subscription_checkout_success,
-    is_stripe_checkout_paid as _is_stripe_checkout_paid,
-    merge_provider_metadata as _merge_provider_metadata,
-    resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
-)
-from .queries import (
-    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
-    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
-    load_primary_active_subscription as _load_primary_active_subscription,
-)
-from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
-from .primitives import normalize_bid as _normalize_bid
-from .primitives import normalize_json_object as _normalize_json_object
-from .primitives import to_decimal as _to_decimal
 from .preorders import (
     CHECKOUT_ACTION_PREORDER,
     CHECKOUT_ACTION_UPGRADE_IMMEDIATE,
     PREORDER_CHECKOUT_TYPE,
+)
+from .preorders import (
     build_preorder_order_metadata as _build_preorder_order_metadata,
+)
+from .preorders import (
     load_active_preorder_order as _load_active_preorder_order,
+)
+from .preorders import (
     normalize_checkout_action as _normalize_checkout_action,
+)
+from .preorders import (
     resolve_plan_tier as _resolve_plan_tier,
 )
+from .primitives import normalize_bid as _normalize_bid
+from .primitives import normalize_json_object as _normalize_json_object
+from .primitives import to_decimal as _to_decimal
+from .provider_state import (
+    BillingOrderProviderUpdateResult,
+)
+from .provider_state import (
+    apply_billing_order_provider_update as _apply_billing_order_provider_update,
+)
+from .provider_state import (
+    apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
+)
+from .provider_state import (
+    apply_subscription_checkout_success as _apply_subscription_checkout_success,
+)
+from .provider_state import (
+    is_stripe_checkout_paid as _is_stripe_checkout_paid,
+)
+from .provider_state import (
+    merge_provider_metadata as _merge_provider_metadata,
+)
+from .provider_state import (
+    resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
+)
+from .queries import (
+    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
+)
+from .queries import (
+    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
+)
+from .queries import (
+    load_primary_active_subscription as _load_primary_active_subscription,
+)
+from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
 from .subscriptions import (
     load_billing_product_by_bid as _load_billing_product_by_bid,
+)
+from .subscriptions import (
     load_effective_topup_subscription as _load_effective_topup_subscription,
+)
+from .subscriptions import (
     load_subscription_by_bid as _load_subscription_by_bid,
+)
+from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .wallets import grant_refund_return_credits
@@ -344,11 +378,9 @@ def _build_subscription_checkout_lock_key(app: Flask, creator_bid: str) -> str:
 
 @contextmanager
 def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
-    """
-    Serialize subscription checkout per creator to avoid duplicate pending
+    """Serialize subscription checkout per creator to avoid duplicate pending
     orders without taking row locks on the pending-order query itself.
     """
-
     lock = cache_provider.cache.lock(
         _build_subscription_checkout_lock_key(app, creator_bid),
         timeout=30,
@@ -360,10 +392,8 @@ def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     try:
         yield
     finally:
-        try:
+        with suppress(Exception):
             lock.release()
-        except Exception:
-            pass
 
 
 _CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS = 60
@@ -392,7 +422,6 @@ def _credit_ledger_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     in ``settlement.py``: on lock-backend failure it degrades to running without
     the lock rather than blocking the sync.
     """
-
     lock = cache_provider.cache.lock(
         _build_credit_ledger_lock_key(app, creator_bid),
         timeout=_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS,
@@ -453,7 +482,6 @@ def create_billing_subscription_checkout(
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create a subscription checkout order for the current creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     checkout_action = _normalize_checkout_action(payload.get("action"))
@@ -727,7 +755,6 @@ def create_billing_topup_checkout(
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create a one-time topup checkout order for the current creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     payment_provider, channel = _resolve_billing_payment_channel(
@@ -794,7 +821,6 @@ def create_billing_order_checkout(
     payload: dict[str, Any],
 ) -> BillingCheckoutResultDTO:
     """Create or refresh a Pingxx charge for one existing pending billing order."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
@@ -902,7 +928,6 @@ def refund_billing_order(
     payload: dict[str, Any],
 ) -> BillingRefundResultDTO:
     """Refund a paid billing order through the shared provider adapter."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     refund_reason = _normalize_bid(payload.get("reason"))
@@ -1039,7 +1064,6 @@ def sync_billing_order(
     payload: dict[str, Any],
 ) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
@@ -1102,7 +1126,6 @@ def reconcile_billing_provider_reference(
     session_id: str = "",
 ) -> ProviderReferenceReconcileResult:
     """Reconcile a provider reference back into one billing order state."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)
@@ -1650,6 +1673,7 @@ def _build_native_provider_options(
             return {"open_id": open_id}
         raise_error("server.pay.payChannelNotSupport")
     raise_error("server.pay.payChannelNotSupport")
+    return None
 
 
 def _persist_billing_raw_snapshot_from_checkout(

@@ -133,15 +133,19 @@ export default function ChatLayout({
 
   const {
     courseTtsEnabled,
+    courseDefaultListenModeEnabled,
+    courseSettingsCourseId,
     updateCourseName,
     updateCourseAvatar,
-    updateCourseTtsEnabled,
+    updateCourseSettings,
   } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       courseTtsEnabled: state.courseTtsEnabled,
+      courseDefaultListenModeEnabled: state.courseDefaultListenModeEnabled,
+      courseSettingsCourseId: state.courseSettingsCourseId,
       updateCourseName: state.updateCourseName,
       updateCourseAvatar: state.updateCourseAvatar,
-      updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      updateCourseSettings: state.updateCourseSettings,
     })),
   );
 
@@ -177,11 +181,18 @@ export default function ChatLayout({
   const hasClassroomModeOverride = urlModeParam === 'classroom';
   const canUseClassroomModeForCourse =
     classroomAccessCourseId === storageCourseId ? canUseClassroomMode : null;
-  const isCourseListenModeAvailable = courseTtsEnabled === true;
+  const courseSettingsMatchStorage = courseSettingsCourseId === storageCourseId;
+  const courseTtsEnabledForMode = courseSettingsMatchStorage
+    ? courseTtsEnabled
+    : null;
+  const courseDefaultListenModeEnabledForMode = courseSettingsMatchStorage
+    ? courseDefaultListenModeEnabled
+    : null;
+  const isCourseListenModeAvailable = courseTtsEnabledForMode === true;
   const hasListenModeUrlOverride = urlModeParam === 'listen';
   const hasClassroomModeUrlOverride = urlModeParam === 'classroom';
   const showLearningModeToggle =
-    courseTtsEnabled === null
+    courseTtsEnabledForMode === null
       ? listenModeParam === true ||
         hasListenModeUrlOverride ||
         hasClassroomModeUrlOverride ||
@@ -405,7 +416,8 @@ export default function ChatLayout({
   useEffect(() => {
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
     const nextLearningMode = resolveCourseLearningMode({
-      courseTtsEnabled,
+      courseTtsEnabled: courseTtsEnabledForMode,
+      courseDefaultListenModeEnabled: courseDefaultListenModeEnabledForMode,
       canUseClassroomMode: canUseClassroomModeForCourse,
       hasListenModeOverride,
       listenModeParam,
@@ -420,7 +432,8 @@ export default function ChatLayout({
 
     updateLearningMode(nextLearningMode);
   }, [
-    courseTtsEnabled,
+    courseTtsEnabledForMode,
+    courseDefaultListenModeEnabledForMode,
     canUseClassroomModeForCourse,
     hasListenModeOverride,
     listenModeParam,
@@ -468,6 +481,8 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    let canceled = false;
+
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
@@ -479,19 +494,30 @@ export default function ChatLayout({
               ? `${window.location.pathname}${window.location.search}`
               : '',
         });
+        updateCourseSettings(null, {
+          ttsEnabled: null,
+          defaultListenModeEnabled: null,
+        });
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
+          if (canceled) {
+            return;
+          }
           debugInfo('[course-info] request success', {
             courseId,
             previewMode: isPreviewMode,
             courseName: resp.course_name,
             coursePrice: resp.course_price,
             ttsEnabled: resp.course_tts_enabled,
+            defaultListenModeEnabled: resp.default_listen_mode_enabled,
           });
           setShowVip(resp.course_price > 0);
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
-          updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+          updateCourseSettings(courseId, {
+            ttsEnabled: resp.course_tts_enabled ?? null,
+            defaultListenModeEnabled: resp.default_listen_mode_enabled ?? null,
+          });
           if (isPreviewMode) {
             setClassroomAccessCourseId(courseId);
             updateCanUseClassroomMode(true);
@@ -522,6 +548,9 @@ export default function ChatLayout({
           const isCourseNotFound = Boolean(
             (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
           );
+          if (canceled) {
+            return;
+          }
           debugError('[course-info] request failed', {
             courseId,
             previewMode: isPreviewMode,
@@ -576,6 +605,9 @@ export default function ChatLayout({
       }
     };
     fetchCourseInfo();
+    return () => {
+      canceled = true;
+    };
   }, [
     courseId,
     envDataInitialized,
@@ -583,7 +615,7 @@ export default function ChatLayout({
     t,
     updateCourseName,
     updateCourseAvatar,
-    updateCourseTtsEnabled,
+    updateCourseSettings,
     updateCanUseClassroomMode,
     isPreviewMode,
   ]);

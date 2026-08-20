@@ -1,8 +1,7 @@
 import pytest
-from sqlalchemy.exc import OperationalError
-
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.runscript_v2 import _ensure_healthy_db_connection
+from sqlalchemy.exc import OperationalError
 
 
 class _EchoResult:

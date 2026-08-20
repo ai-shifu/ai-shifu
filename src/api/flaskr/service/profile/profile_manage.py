@@ -1,25 +1,25 @@
 import hashlib
 
 from flask import Flask
-from markdown_flow import MarkdownFlow
-from sqlalchemy import func, inspect, text
-
-from ...dao import db
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from markdown_flow import MarkdownFlow
+from sqlalchemy import func, inspect, text
+
+from ...dao import db
 from .dtos import (
-    ColorSetting,
     DEFAULT_COLOR_SETTINGS,
+    ColorSetting,
     ProfileItemDefinition,
 )
 from .models import (
-    CONST_PROFILE_TYPE_TEXT,
     CONST_PROFILE_SCOPE_SYSTEM,
     CONST_PROFILE_SCOPE_USER,
+    CONST_PROFILE_TYPE_TEXT,
     PROFILE_CONF_TYPE_PROFILE,
     PROFILE_SHOW_TYPE_ALL,
     PROFILE_TYPE_INPUT_TEXT,
@@ -28,8 +28,7 @@ from .models import (
 
 
 def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
-    """
-    Collect variable names referenced across the latest mdflow content
+    """Collect variable names referenced across the latest mdflow content
     for all draft outline items under a shifu.
     """
     with app.app_context():
@@ -77,7 +76,7 @@ def _build_color_from_definition(definition: Variable) -> ColorSetting:
     seed = (definition.key or "") + (definition.variable_bid or "")
     color_index = 0
     if seed and DEFAULT_COLOR_SETTINGS:
-        digest = hashlib.md5(seed.encode("utf-8")).digest()
+        digest = hashlib.md5(seed.encode("utf-8"), usedforsecurity=False).digest()
         color_index = int.from_bytes(digest[:4], "big") % len(DEFAULT_COLOR_SETTINGS)
     return DEFAULT_COLOR_SETTINGS[color_index]
 
@@ -85,10 +84,7 @@ def _build_color_from_definition(definition: Variable) -> ColorSetting:
 def convert_variable_definition_to_profile_item_definition(
     definition: Variable,
 ) -> ProfileItemDefinition:
-    """
-    Convert variable definition model to legacy response DTO shape.
-    """
-
+    """Convert variable definition model to legacy response DTO shape."""
     scope = (
         CONST_PROFILE_SCOPE_SYSTEM
         if definition.shifu_bid == ""
@@ -101,33 +97,30 @@ def convert_variable_definition_to_profile_item_definition(
         _("PROFILE.PROFILE_TYPE_TEXT"),
         "",
         scope,
-        _("PROFILE.PROFILE_SCOPE_{}".format(scope).upper()),
+        _(f"PROFILE.PROFILE_SCOPE_{scope}".upper()),
         definition.variable_bid,
         bool(definition.is_hidden),
     )
 
 
 def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
-    """
-    Determine custom profile keys that are not referenced in any outline content.
-    """
+    """Determine custom profile keys that are not referenced in any outline content."""
     definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
     used_variables = _collect_used_variables(app, shifu_bid)
-    unused_keys: list[str] = []
-    for definition in definitions:
-        if (
-            definition.profile_scope == CONST_PROFILE_SCOPE_USER
-            and definition.profile_key
-            and definition.profile_key not in used_variables
-        ):
-            unused_keys.append(definition.profile_key)
+    unused_keys: list[str] = [
+        definition.profile_key
+        for definition in definitions
+        if definition.profile_scope == CONST_PROFILE_SCOPE_USER
+        and definition.profile_key
+        and definition.profile_key not in used_variables
+    ]
     return unused_keys
 
 
 def get_profile_item_definition_list(
-    app: Flask, parent_id: str, type: str = "all"
+    app: Flask, parent_id: str, definition_type: str = "all"
 ) -> list[ProfileItemDefinition]:
-    _ = type  # Kept for backward compatibility with existing callers.
+    _ = definition_type  # Kept for backward compatibility with existing callers.
     normalized_parent_id = parent_id or ""
     with app.app_context():
         definitions = (
@@ -147,9 +140,7 @@ def get_profile_item_definition_list(
 def update_profile_item_hidden_state(
     app: Flask, parent_id: str, profile_keys: list[str], hidden: bool, user_id: str
 ) -> list[ProfileItemDefinition]:
-    """
-    Update is_hidden flag for given custom profile keys.
-    """
+    """Update is_hidden flag for given custom profile keys."""
     if not parent_id:
         raise_error("server.profile.parentIdRequired")
     if not profile_keys:
@@ -177,9 +168,7 @@ def update_profile_item_hidden_state(
 def hide_unused_profile_items(
     app: Flask, parent_id: str, user_id: str
 ) -> list[ProfileItemDefinition]:
-    """
-    Hide all custom profile items that are not referenced in any outline content.
-    """
+    """Hide all custom profile items that are not referenced in any outline content."""
     unused_keys = get_unused_profile_keys(app, parent_id)
     if not unused_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
@@ -193,9 +182,7 @@ def hide_unused_profile_items(
 
 
 def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
-    """
-    Return custom profile keys split by whether they are referenced in any outline content.
-    """
+    """Return custom profile keys split by whether they are referenced in any outline content."""
     if not parent_id:
         raise_error("server.profile.parentIdRequired")
 
@@ -270,7 +257,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 _("PROFILE.PROFILE_TYPE_TEXT"),
                 "",
                 legacy_scope,
-                _("PROFILE.PROFILE_SCOPE_{}".format(legacy_scope).upper()),
+                _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
                 legacy_item["profile_id"],
                 False,
             )
@@ -354,7 +341,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             _("PROFILE.PROFILE_TYPE_TEXT"),
             "",
             legacy_scope,
-            _("PROFILE.PROFILE_SCOPE_{}".format(legacy_scope).upper()),
+            _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
             profile_id,
             False,
         )
@@ -464,10 +451,7 @@ def save_profile_item(
     user_id: str,
     key: str,
 ):
-    """
-    Save (create/update) a custom variable definition.
-    """
-
+    """Save (create/update) a custom variable definition."""
     with app.app_context():
         normalized_parent_id = parent_id or ""
         if normalized_parent_id == "" and user_id != "":

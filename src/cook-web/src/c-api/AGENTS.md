@@ -11,9 +11,8 @@ domain-specific frontend ownership.
 - This domain owns legacy compatibility API wrappers used by the `c`
   experience and older frontend business flows.
 
-- Representative files in this subtree: `src/cook-web/src/c-api/c.ts`,
-  `src/cook-web/src/c-api/course.ts`, `src/cook-web/src/c-api/lesson.ts`,
-  `src/cook-web/src/c-api/studyV2.ts`
+- Representative files in this subtree: `src/cook-web/src/c-api/course.ts`,
+  `src/cook-web/src/c-api/lesson.ts`, `src/cook-web/src/c-api/studyV2.ts`
 
 - Keep durable frontend rules here only when they are more specific than the
   Cook Web-wide guidance in the parent directory.

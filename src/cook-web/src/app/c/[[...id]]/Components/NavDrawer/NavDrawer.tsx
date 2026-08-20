@@ -76,7 +76,6 @@ type NavDrawerProps = {
   onChapterCollapse?: (id: string) => void;
   onLessonSelect?: (params: { id: string }) => void;
   onTryLessonSelect?: (params: { chapterId: string; lessonId: string }) => void;
-  onBasicInfoClick?: () => void;
   onPersonalInfoClick?: () => void;
 };
 
@@ -90,8 +89,7 @@ const NavDrawer = ({
   onChapterCollapse,
   onLessonSelect,
   onTryLessonSelect,
-  onBasicInfoClick,
-  onPersonalInfoClick,
+  onPersonalInfoClick = () => {},
 }: NavDrawerProps) => {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const [delayedIsLoggedIn, setDelayedIsLoggedIn] = useState(isLoggedIn);
@@ -213,8 +211,8 @@ const NavDrawer = ({
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
-          onBasicInfoClick={onBasicInfoClick}
           onPersonalInfoClick={onPersonalInfoClick}
+          surface='learner'
         />
         <FeedbackModal
           open={feedbackModalOpen}

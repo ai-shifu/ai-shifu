@@ -1,7 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-streaming-tts-subtitles")
@@ -19,7 +18,7 @@ if not hasattr(dao, "redis_client"):
 
 class TestStreamingTtsSubtitles:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("streaming-tts-subtitles")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -60,14 +59,14 @@ class TestStreamingTtsSubtitles:
         monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.synthesize_text",
             lambda **kwargs: SimpleNamespace(
-                audio_data=f"audio:{kwargs['text']}".encode("utf-8"),
+                audio_data=f"audio:{kwargs['text']}".encode(),
                 duration_ms=120,
                 word_count=2,
             ),
         )
         monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-            lambda parts: b"".join(parts),
+            b"".join,
         )
         monkeypatch.setattr(
             "flaskr.service.tts.streaming_tts.get_audio_duration_ms",

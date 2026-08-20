@@ -147,29 +147,29 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.creditPacks.instantAndPermanent':
           'Credits are added immediately and never expire.',
         'module.billing.globalPricing.footnote.intro':
-          'Estimates use DeepSeek.',
+          'Estimates use the default model.',
         'module.billing.globalPricing.learnerEstimateLabel':
           'Estimated learner sessions',
         'module.billing.globalPricing.monthlyOnly': 'Monthly only',
         'module.billing.globalPricing.mostPopular': 'Most Popular',
         'module.billing.globalPricing.plans.business.name': 'Business',
         'module.billing.globalPricing.plans.business.estimates.annual':
-          '5,000 - 15,000 learner sessions',
+          '500 - 1,500 learner sessions',
         'module.billing.globalPricing.plans.business.estimates.monthly':
-          '400 - 1,200 learner sessions',
+          '40 - 120 learner sessions',
         'module.billing.globalPricing.plans.growth.name': 'Growth',
         'module.billing.globalPricing.plans.growth.estimates.annual':
-          '2,500 - 7,500 learner sessions',
+          '250 - 750 learner sessions',
         'module.billing.globalPricing.plans.growth.estimates.monthly':
-          '200 - 600 learner sessions',
+          '20 - 60 learner sessions',
         'module.billing.globalPricing.plans.scale.name': 'Scale',
         'module.billing.globalPricing.plans.scale.estimates.annual':
-          '11,000 - 33,000 learner sessions',
+          '1,100 - 3,300 learner sessions',
         'module.billing.globalPricing.plans.scale.estimates.monthly':
-          '900 - 2,700 learner sessions',
+          '90 - 270 learner sessions',
         'module.billing.globalPricing.plans.studio.name': 'Studio',
         'module.billing.globalPricing.plans.studio.estimates.monthly':
-          '50 - 150 learner sessions',
+          '5 - 15 learner sessions',
         'module.billing.globalPricing.tabs.creditPacks': 'Credit Packs',
         'module.billing.globalPricing.tabs.plans': 'Plans',
         'module.billing.globalPricing.validity.annual':
@@ -294,25 +294,64 @@ describe('GlobalBillingPricing', () => {
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
-  test('renders the approved annual plans by default with DeepSeek estimates', async () => {
+  test('renders the approved annual plans with domestic learner estimates', async () => {
     renderPricing();
 
     const studio = await screen.findByTestId('global-plan-studio');
     const growth = screen.getByTestId('global-plan-growth');
     const business = screen.getByTestId('global-plan-business');
     const scale = screen.getByTestId('global-plan-scale');
+    const planGrid = screen.getByTestId('global-plan-grid');
+
+    expect(planGrid).toHaveClass(
+      'grid-cols-1',
+      'gap-3',
+      'sm:grid-cols-2',
+      'xl:grid-cols-4',
+    );
+    for (const card of [studio, growth, business, scale]) {
+      expect(card).toHaveClass(
+        'sm:row-span-7',
+        'sm:grid',
+        'sm:grid-rows-subgrid',
+        'sm:gap-y-0',
+      );
+    }
+    for (const tier of ['studio', 'growth', 'business', 'scale']) {
+      expect(
+        screen.getByTestId(`global-plan-${tier}-title`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`global-plan-${tier}-price`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`global-plan-${tier}-credits`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`global-plan-${tier}-action`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`global-plan-${tier}-audience`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`global-plan-${tier}-estimate`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`global-plan-${tier}-benefits`),
+      ).toBeInTheDocument();
+    }
 
     expect(within(studio).getByText('Monthly only')).toBeInTheDocument();
     expect(within(studio).getByText('$59')).toBeInTheDocument();
     expect(
-      within(studio).getByText('50 - 150 learner sessions'),
+      within(studio).getByText('5 - 15 learner sessions'),
     ).toBeInTheDocument();
     expect(within(growth).getByText('$183')).toBeInTheDocument();
     expect(
       within(growth).getByText('50,000 credits per 12-month billing period'),
     ).toBeInTheDocument();
     expect(
-      within(growth).getByText('2,500 - 7,500 learner sessions'),
+      within(growth).getByText('250 - 750 learner sessions'),
     ).toBeInTheDocument();
     expect(
       within(growth).getByText('Save $549 per year (20.0%)'),
@@ -323,7 +362,7 @@ describe('GlobalBillingPricing', () => {
       within(business).getByText('Save $1,029 per year (20.5%)'),
     ).toBeInTheDocument();
     expect(
-      within(business).getByText('5,000 - 15,000 learner sessions'),
+      within(business).getByText('500 - 1,500 learner sessions'),
     ).toBeInTheDocument();
     expect(business).not.toHaveClass('border-primary');
     expect(business).not.toHaveClass('ring-1');
@@ -332,13 +371,15 @@ describe('GlobalBillingPricing', () => {
       within(scale).getByText('220,000 credits per 12-month billing period'),
     ).toBeInTheDocument();
     expect(
-      within(scale).getByText('11,000 - 33,000 learner sessions'),
+      within(scale).getByText('1,100 - 3,300 learner sessions'),
     ).toBeInTheDocument();
     expect(
       within(scale).getByText('Save $2,069 per year (20.6%)'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/extra|bonus/i)).not.toBeInTheDocument();
-    expect(screen.getByText('Estimates use DeepSeek.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Estimates use the default model.'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Online checkout is still in development.'),
     ).toBeInTheDocument();
@@ -393,17 +434,17 @@ describe('GlobalBillingPricing', () => {
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-growth')).getByText(
-        '200 - 600 learner sessions',
+        '20 - 60 learner sessions',
       ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-business')).getByText(
-        '400 - 1,200 learner sessions',
+        '40 - 120 learner sessions',
       ),
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('global-plan-scale')).getByText(
-        '900 - 2,700 learner sessions',
+        '90 - 270 learner sessions',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/first month/i)).not.toBeInTheDocument();

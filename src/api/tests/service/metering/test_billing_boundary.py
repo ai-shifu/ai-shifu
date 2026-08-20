@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWallet,

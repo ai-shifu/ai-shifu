@@ -1,8 +1,7 @@
 import uuid
 
-import pytest
-
 import flaskr.common.config as common_config
+import pytest
 from flaskr.dao import db
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
@@ -13,7 +12,11 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
+)
+from flaskr.service.user.models import (
     UserInfo as UserEntity,
+)
+from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
 
@@ -174,6 +177,71 @@ def test_google_verified_login_does_not_downgrade_paid_user(app, monkeypatch):
             assert stored.state == USER_STATE_PAID
             assert stored.is_creator == 1
             assert stored.is_operator == 1
+        finally:
+            _reset_user_auth_tables()
+
+
+def test_google_existing_account_keeps_pre_profile_display_name_behavior(
+    app,
+    monkeypatch,
+):
+    email = f"{uuid.uuid4().hex[:10]}@example.com"
+
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            existing_user = UserEntity(
+                user_bid=uuid.uuid4().hex[:32],
+                user_identify=email,
+                nickname="Canonical Name",
+                learner_profile="Please call me Canonical Name.",
+                language="en-US",
+                state=USER_STATE_UNREGISTERED,
+            )
+            db.session.add(existing_user)
+            db.session.commit()
+
+            query_type = type(UserEntity.query)
+            original_first = query_type.first
+            reads: list[tuple[str, str, bool, bool]] = []
+
+            def track_first(query):
+                statement = str(query.statement)
+                parameters = query.statement.compile().params
+                table = (
+                    "user_onboarding_states"
+                    if "user_onboarding_states" in statement
+                    else "user_users"
+                    if "user_users" in statement
+                    else "other"
+                )
+                reads.append(
+                    (
+                        table,
+                        str(parameters.get("user_bid_1", "")),
+                        query._for_update_arg is not None,
+                        bool(query.load_options._populate_existing),
+                    )
+                )
+                return original_first(query)
+
+            monkeypatch.setattr(query_type, "first", track_first)
+            result = _run_google_callback(
+                app,
+                monkeypatch,
+                {
+                    "sub": uuid.uuid4().hex,
+                    "email": email,
+                    "email_verified": False,
+                    "name": "Current Google Name",
+                },
+            )
+
+            assert not any(read[0] == "user_onboarding_states" for read in reads)
+            assert result.user.name == "Current Google Name"
+            db.session.expire_all()
+            stored = UserEntity.query.filter_by(user_bid=existing_user.user_bid).one()
+            assert stored.nickname == "Current Google Name"
         finally:
             _reset_user_auth_tables()
 

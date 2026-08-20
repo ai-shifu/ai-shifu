@@ -1,7 +1,7 @@
 import base64
+from typing import ClassVar
 
 import requests
-
 from flaskr.api.tts.base import AudioSettings, VoiceSettings
 from flaskr.api.tts.volcengine_http_provider import (
     VOLCENGINE_HTTP_TTS_URL,
@@ -23,7 +23,7 @@ def test_volcengine_http_synthesize_success(monkeypatch):
     class DummyResponse:
         status_code = 200
         url = VOLCENGINE_HTTP_TTS_URL
-        headers = {"Content-Type": "application/json"}
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
         text = ""
 
         def raise_for_status(self):
@@ -88,7 +88,7 @@ def test_volcengine_http_legacy_resource_id_overrides_default_cluster(monkeypatc
     class DummyResponse:
         status_code = 200
         url = VOLCENGINE_HTTP_TTS_URL
-        headers = {"Content-Type": "application/json"}
+        headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
         text = ""
 
         def raise_for_status(self):

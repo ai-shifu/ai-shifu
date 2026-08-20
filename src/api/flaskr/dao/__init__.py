@@ -1,7 +1,19 @@
+"""Database, cache and session infrastructure."""
+
 import collections
 import contextlib
+import functools
 import itertools
+import logging
+import os
+import random
+import select as select_module
+import sys
+import time
+import traceback
+from pathlib import Path
 
+import sqlparse
 from flask import Flask
 from flask.globals import app_ctx
 from flask_sqlalchemy import SQLAlchemy
@@ -9,7 +21,6 @@ from redis import Redis
 from sqlalchemy import event
 from sqlalchemy import pool as sa_pool
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.exc import (
     DisconnectionError,
     InterfaceError,
@@ -17,15 +28,7 @@ from sqlalchemy.exc import (
     ResourceClosedError,
     SQLAlchemyError,
 )
-import functools
-import random
-import select as select_module
-import sys
-import sqlparse
-import logging
-import time
-import traceback
-import os
+from sqlalchemy.orm.exc import FlushError
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +122,9 @@ def _pool_diagnostics_logger():
     try:
         from flask import current_app
 
-        return current_app.logger
+        # Resolved inside the try: attribute access on current_app raises
+        # outside an application context.
+        return current_app.logger  # noqa: TRY300
     except Exception:  # noqa: BLE001 - outside app context
         return logger
 
@@ -372,12 +377,13 @@ def invalidate_session(*, source: str, session=None) -> bool:
         if not hasattr(target, "invalidate") and callable(target):
             target = target()
         target.invalidate()
-        return True
     except Exception:  # noqa: BLE001 - termination cleanup must not raise
         _pool_diagnostics_logger().warning(
             "%s: session invalidate failed", source, exc_info=True
         )
         return False
+    else:
+        return True
 
 
 def cleanup_session_after(
@@ -400,7 +406,6 @@ def cleanup_session_after(
         return "noop"
     try:
         target.rollback()
-        return "rolled_back"
     except Exception:  # noqa: BLE001 - escalate, never raise from cleanup
         _pool_diagnostics_logger().warning(
             "%s: rollback failed; escalating to session invalidate",
@@ -409,6 +414,8 @@ def cleanup_session_after(
         )
         invalidate_session(source=source, session=session)
         return "invalidated"
+    else:
+        return "rolled_back"
 
 
 def release_session_classified(*, source: str) -> None:
@@ -434,8 +441,7 @@ def release_session_classified(*, source: str) -> None:
 
 
 def _rollback_quietly() -> bool:
-    """
-    Roll back the current session after a failed transaction. An OperationalError
+    """Roll back the current session after a failed transaction. An OperationalError
     leaves the session in a broken state, so this must run on every catch -
     including non-retryable errors and the final attempt - otherwise later
     operations in the same context raise InvalidRequestError. A rollback
@@ -446,7 +452,6 @@ def _rollback_quietly() -> bool:
         return True
     try:
         db.session.rollback()
-        return True
     except SQLAlchemyError as rollback_exc:
         # A database-layer rollback failure means the connection itself is
         # broken; escalate to invalidate and tell the caller to stop
@@ -462,11 +467,12 @@ def _rollback_quietly() -> bool:
         # legacy tolerant behavior: log and let the retry loop proceed.
         logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)
         return True
+    else:
+        return True
 
 
 def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
-    """
-    Retry a transactional function when MySQL reports a deadlock (1213) or a
+    """Retry a transactional function when MySQL reports a deadlock (1213) or a
     lock wait timeout (1205). The failed transaction is rolled back on every
     caught error so the session is left clean; retryable errors are retried with
     exponential backoff plus jitter, while non-retryable errors and the final
@@ -507,7 +513,7 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
                     # Exponential backoff with jitter to avoid re-colliding with
                     # the peer transaction under sustained lock contention.
                     delay = backoff_seconds * (2 ** (attempt - 1))
-                    time.sleep(delay + random.uniform(0, backoff_seconds))
+                    time.sleep(delay + random.uniform(0, backoff_seconds))  # noqa: S311 - retry jitter
 
         return wrapper
 
@@ -600,9 +606,7 @@ def init_db(app: Flask):
                 conn, cursor, statement, parameters, context, executemany
             ):
                 stack = traceback.extract_stack()
-                project_root = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "../../../")
-                )
+                project_root = str((Path(__file__).parent / "../../../").resolve())
                 caller_info = "Unknown location"
 
                 for frame in reversed(stack[:-2]):
@@ -650,9 +654,10 @@ def init_redis(app: Flask):
         return
 
     app.logger.info(
-        "init redis {} {} {}".format(
-            app.config["REDIS_HOST"], app.config["REDIS_PORT"], app.config["REDIS_DB"]
-        )
+        "init redis %s %s %s",
+        app.config["REDIS_HOST"],
+        app.config["REDIS_PORT"],
+        app.config["REDIS_DB"],
     )
 
     if (
@@ -677,17 +682,15 @@ def init_redis(app: Flask):
 
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
-        app.logger.info("run_with_redis start {}".format(key))
+        app.logger.info(f"run_with_redis start {key}")
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
-            app.logger.info("run_with_redis get lock {}".format(key))
+            app.logger.info(f"run_with_redis get lock {key}")
             try:
                 return func(*args)
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     lock.release()
-                except Exception:
-                    pass
         else:
-            app.logger.info("run_with_redis get lock failed {}".format(key))
+            app.logger.info(f"run_with_redis get lock failed {key}")
             return None

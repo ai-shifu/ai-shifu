@@ -5,13 +5,16 @@ import queue
 import time
 import uuid
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
-from markdown_flow import (
-    InteractionParser,
+from flaskr.api.tts import (
+    get_default_audio_settings,
+    get_default_voice_settings,
+    get_tts_provider,
+    is_tts_configured,
+    synthesize_text,
 )
-
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -23,22 +26,22 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedInfoDTO,
     GeneratedType,
     LearnBannerInfoDTO,
-    LearnOutlineItemsWithBannerInfoDTO,
     LearnOutlineItemInfoDTO,
+    LearnOutlineItemsWithBannerInfoDTO,
     LearnShifuInfoDTO,
     LearnStatus,
     LikeStatus,
     OutlineType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.lesson_feedback import (
-    build_lesson_feedback_interaction_md,
-    is_lesson_feedback_interaction,
-)
 from flaskr.service.learn.legacy_record_builder import (
     LegacyGeneratedBlockRecord,
     LegacyLearnRecord,
     build_legacy_record_for_progress,
+)
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
 )
 from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
@@ -78,45 +81,42 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.shifu.utils import get_shifu_res_url
-from flaskr.api.tts import (
-    get_default_audio_settings,
-    get_default_voice_settings,
-    get_tts_provider,
-    is_tts_configured,
-    synthesize_text,
-)
 from flaskr.service.tts import (
     has_speakable_text,
     preprocess_for_tts,
     resolve_tts_billable_chars,
 )
-from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
-from flaskr.service.tts.audio_utils import (
-    concat_audio_best_effort,
-    get_audio_duration_ms,
+from flaskr.service.tts.api import (
+    TTSRpmQueueTimeoutError,
+    create_streaming_tts_processor,
+    find_ready_cloned_voice,
+    find_tracked_cloned_voice,
+    get_clone_provider_spec,
 )
 from flaskr.service.tts.audio_record_utils import (
     build_completed_audio_record,
     save_audio_record,
 )
+from flaskr.service.tts.audio_utils import (
+    concat_audio_best_effort,
+    get_audio_duration_ms,
+)
+from flaskr.service.tts.models import (
+    AUDIO_STATUS_COMPLETED,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+    LearnGeneratedAudio,
+)
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
-from flaskr.service.tts.api import (
-    find_ready_cloned_voice,
-    find_tracked_cloned_voice,
-    get_clone_provider_spec,
-)
-from flaskr.service.tts.models import (
-    AUDIO_STATUS_COMPLETED,
-    LearnGeneratedAudio,
-    TTS_MINIMAX_CLONE_STATUS_READY,
-)
-from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
+from markdown_flow import (
+    InteractionParser,
+)
 
 
 def _normalize_dt_to_utc(
@@ -125,15 +125,14 @@ def _normalize_dt_to_utc(
     if value is None:
         return None
     if value.tzinfo is not None:
-        return value.astimezone(timezone.utc)
-    return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(UTC)
+    return value.replace(tzinfo=UTC)
 
 
 def _resolve_published_effective_updated_at(
     outline_item: PublishedOutlineItem,
 ) -> datetime | None:
-    updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
-    return updated_at
+    return _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
 
 
 def _resolve_progress_effective_updated_at(
@@ -266,6 +265,9 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
             price=str(shifu.price),
             keywords=shifu.keywords.split(",") if shifu.keywords else [],
             tts_enabled=tts_enabled,
+            default_listen_mode_enabled=bool(
+                getattr(shifu, "default_listen_mode_enabled", 0)
+            ),
         )
 
 
@@ -306,10 +308,7 @@ def get_outline_item_tree(
                 .order_by(Order.id.desc())
                 .first()
             )
-            if not buy_record:
-                is_paid = False
-            else:
-                is_paid = True
+            is_paid = bool(buy_record)
         struct = (
             struct_model.query.filter(
                 struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
@@ -363,11 +362,7 @@ def get_outline_item_tree(
             latest_progress_updated_at = _resolve_progress_effective_updated_at(
                 latest_progress_record
             )
-            if latest_progress_record is None:
-                latest_progress_record_map[progress_record.outline_item_bid] = (
-                    progress_record
-                )
-            elif (
+            if latest_progress_record is None or (
                 (
                     progress_updated_at is not None
                     and latest_progress_updated_at is not None
@@ -392,9 +387,7 @@ def get_outline_item_tree(
             )
             if not outline_item or outline_item.hidden == 1:
                 return None
-            progress_record = progress_records_map.get(
-                outline_item.outline_item_bid, None
-            )
+            progress_record = progress_records_map.get(outline_item.outline_item_bid)
             if not progress_record:
                 status = LEARN_STATUS_NOT_STARTED
             else:
@@ -457,15 +450,14 @@ def get_outline_item_tree(
                 banner_info=banner_info_dto,
                 outline_items=outline_items,
             )
-        if not is_paid:
-            if add_banner:
-                banner_info_dto = LearnBannerInfoDTO(
-                    title=_("server.banner.bannerTitle"),
-                    pop_up_title=_("server.banner.bannerPopUpTitle"),
-                    pop_up_content=_("server.banner.bannerPopUpContent"),
-                    pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
-                    pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
-                )
+        if not is_paid and add_banner:
+            banner_info_dto = LearnBannerInfoDTO(
+                title=_("server.banner.bannerTitle"),
+                pop_up_title=_("server.banner.bannerPopUpTitle"),
+                pop_up_content=_("server.banner.bannerPopUpContent"),
+                pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
+                pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
+            )
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,
             outline_items=outline_items,
@@ -523,9 +515,10 @@ def get_learn_record(
                     for button in parsed_interaction.get("buttons"):
                         if button.get("value") == "_sys_pay":
                             pass
-                        if button.get("value") == "_sys_login":
-                            if bool(request.user.mobile):
-                                records.remove(last_record)
+                        if button.get("value") == "_sys_login" and bool(
+                            request.user.mobile
+                        ):
+                            records.remove(last_record)
         struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
         outline_item_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
         has_next_outline = False
@@ -799,7 +792,7 @@ def _resolve_runtime_tts_voice_id(
     default_voice_settings = get_default_voice_settings(normalized_provider)
     fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
     if not fallback_voice_id and built_in_voice_ids:
-        fallback_voice_id = sorted(built_in_voice_ids)[0]
+        fallback_voice_id = min(built_in_voice_ids)
     app.logger.warning(
         "%s TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
         normalized_provider,
@@ -963,7 +956,7 @@ def _finalize_tts_stream_audio(
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = int(get_audio_duration_ms(final_audio, format="mp3") or 0)
+    duration_ms = int(get_audio_duration_ms(final_audio, audio_format="mp3") or 0)
     oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
 
     if persist_audio:
@@ -1003,7 +996,7 @@ def _yield_with_tts_error_mapping(
         yield from body()
     except ValueError as exc:
         raise_error_with_args("server.common.paramsError", param_message=str(exc))
-    except TTSRpmQueueTimeout as exc:
+    except TTSRpmQueueTimeoutError as exc:
         # The TTS provider's RPM quota is saturated. This is expected
         # backpressure, not a crash: log at WARNING (so it does not page ops as
         # an ERROR) and surface a retryable message instead of a generic

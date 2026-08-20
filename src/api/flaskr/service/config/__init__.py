@@ -1,3 +1,5 @@
+"""Runtime configuration overrides for services."""
+
 from .funcs import (
     config_overrides,
     get_config,

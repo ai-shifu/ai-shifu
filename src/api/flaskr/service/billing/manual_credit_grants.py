@@ -7,16 +7,19 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .credit_notifications import stage_credit_granted_notification
 from .grant_results import ManualCreditGrantResult
 from .primitives import (
     credit_decimal_to_number as _credit_decimal_to_number,
+)
+from .primitives import (
     normalize_bid as _normalize_bid,
+)
+from .primitives import (
     quantize_credit_amount as _quantize_credit_amount,
 )
 from .queries import add_months as _add_months
@@ -55,7 +58,7 @@ def _normalize_credit_amount(value: Any) -> Decimal:
         parsed = _quantize_credit_amount(Decimal(normalized))
     except (InvalidOperation, TypeError, ValueError, ArithmeticError):
         raise_param_error("amount")
-    if not parsed.is_finite() or parsed <= Decimal("0"):
+    if not parsed.is_finite() or parsed <= Decimal(0):
         raise_param_error("amount")
     return parsed
 
@@ -90,6 +93,7 @@ def _resolve_manual_credit_grant_expiry(
     if normalized_preset == MANUAL_CREDIT_VALIDITY_1Y:
         return _add_years(granted_at, 1)
     raise_param_error("validity_preset")
+    return None
 
 
 def grant_manual_credits_to_user(
@@ -106,7 +110,6 @@ def grant_manual_credits_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualCreditGrantResult:
     """Grant manual credits to one user through the shared operator semantics."""
-
     with app.app_context():
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)

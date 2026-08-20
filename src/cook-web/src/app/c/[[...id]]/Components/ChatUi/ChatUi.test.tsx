@@ -53,13 +53,6 @@ jest.mock('@/c-store/useSystemStore', () => ({
 }));
 
 jest.mock(
-  '../Settings/UserSettings',
-  () =>
-    function MockUserSettings() {
-      return <div />;
-    },
-);
-jest.mock(
   '../CourseHeaderSummary',
   () =>
     function MockCourseHeaderSummary() {
@@ -125,7 +118,6 @@ const createChatUi = (lessonId = 'lesson-1') => (
     lessonUpdate={jest.fn()}
     onGoChapter={jest.fn()}
     onPurchased={jest.fn()}
-    showUserSettings={false}
     updateSelectedLesson={jest.fn()}
   />
 );
@@ -238,6 +230,43 @@ describe('ChatUi lesson PDF action', () => {
       'data-size',
       'mobile',
     );
+  });
+});
+
+describe('ChatUi runtime gate', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFrameLayout = FRAME_LAYOUT_PC;
+    mockPreviewMode = false;
+    mockShowLearningModeToggle = false;
+    mockChatComponentProps = {};
+  });
+
+  it('keeps the lesson shell visible without mounting the chat runtime', () => {
+    render(
+      <ChatUi
+        courseId='course-1'
+        chapterId='chapter-1'
+        chapterUpdate={jest.fn()}
+        getNextLessonId={jest.fn()}
+        lessonId='lesson-1'
+        lessonUpdate={jest.fn()}
+        onGoChapter={jest.fn()}
+        onPurchased={jest.fn()}
+        runtimeReady={false}
+        updateSelectedLesson={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('course-summary')).toBeInTheDocument();
+    const loadingStatus = screen.getByRole('status');
+    expect(loadingStatus).toBe(screen.getByTestId('chat-runtime-placeholder'));
+    expect(loadingStatus).toHaveAttribute('aria-busy', 'true');
+    expect(loadingStatus).toHaveTextContent('module.chat.loading');
+    expect(
+      loadingStatus.querySelector('[aria-hidden="true"]'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('chat-components')).not.toBeInTheDocument();
   });
 });
 

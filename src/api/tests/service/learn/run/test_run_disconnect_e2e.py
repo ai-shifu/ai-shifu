@@ -32,8 +32,8 @@ from __future__ import annotations
 from tests.golden.conftest import (  # noqa: F401
     golden_disable_risk_audit_commit,
     golden_llm,
-    golden_sse_settings,
     golden_shifu,
+    golden_sse_settings,
     seed_golden_user,
 )
 
@@ -52,7 +52,7 @@ def _open_run_generator(app, user_bid: str, shifu, *, input_type: str):
         user_bid=user_bid,
         shifu_bid=shifu.shifu_bid,
         outline_bid=shifu.lesson_bid,
-        input=None,
+        user_input=None,
         input_type=input_type,
         manage_app_context=False,
     )

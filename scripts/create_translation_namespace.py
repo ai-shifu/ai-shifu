@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import List
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -33,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def iter_locale_dirs() -> List[Path]:
+def iter_locale_dirs() -> list[Path]:
     if not I18N_DIR.exists():
         raise RuntimeError(f"Translation directory not found: {I18N_DIR}")
 
@@ -48,13 +47,13 @@ def namespace_to_path(namespace: str) -> Path:
     return Path(relative)
 
 
-def ensure_namespace_files(namespace: str, keys: List[str] | None, force: bool) -> None:
+def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) -> None:
     relative_path = namespace_to_path(namespace)
     locale_dirs = iter_locale_dirs()
 
     payload = {"__flat__": {}}
     if keys:
-        payload["__flat__"].update({key: "" for key in keys})
+        payload["__flat__"].update(dict.fromkeys(keys, ""))
 
     for locale_dir in locale_dirs:
         target_path = (locale_dir / relative_path).with_suffix(".json")
@@ -74,7 +73,7 @@ def update_locales_metadata(namespace: str) -> None:
     if LOCALES_FILE.exists():
         try:
             data = json.loads(LOCALES_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:  # noqa: BLE001
+        except json.JSONDecodeError as exc:
             raise RuntimeError(f"Invalid JSON in {LOCALES_FILE}: {exc}") from exc
 
     namespaces = set(data.get("namespaces", []))

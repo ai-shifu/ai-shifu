@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -18,7 +18,7 @@ class PaymentRequest:
     subject: str
     body: str
     client_ip: str
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -26,10 +26,10 @@ class PaymentCreationResult:
     """Response data returned after creating a payment."""
 
     provider_reference: str
-    raw_response: Dict[str, Any]
-    client_secret: Optional[str] = None
-    checkout_session_id: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    raw_response: dict[str, Any]
+    client_secret: str | None = None
+    checkout_session_id: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -38,8 +38,8 @@ class PaymentNotificationResult:
 
     order_bid: str
     status: str
-    provider_payload: Dict[str, Any]
-    charge_id: Optional[str] = None
+    provider_payload: dict[str, Any]
+    charge_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -47,9 +47,9 @@ class SubscriptionUpdateResult:
     """Normalized result returned from subscription state updates."""
 
     provider_reference: str
-    raw_response: Dict[str, Any]
+    raw_response: dict[str, Any]
     status: str
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -57,9 +57,9 @@ class PaymentRefundRequest:
     """Request payload for initiating a refund."""
 
     order_bid: str
-    amount: Optional[int] = None
-    reason: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    amount: int | None = None
+    reason: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -67,7 +67,7 @@ class PaymentRefundResult:
     """Response payload returned from a refund request."""
 
     provider_reference: str
-    raw_response: Dict[str, Any]
+    raw_response: dict[str, Any]
     status: str
 
 
@@ -105,7 +105,7 @@ class PaymentProvider(ABC):
         )
 
     def verify_webhook(
-        self, *, headers: Dict[str, str], raw_body: bytes | str, app
+        self, *, headers: dict[str, str], raw_body: bytes | str, app
     ) -> PaymentNotificationResult:
         """Verify and normalize a provider webhook payload."""
         raise NotImplementedError(
@@ -113,7 +113,7 @@ class PaymentProvider(ABC):
         )
 
     def handle_notification(
-        self, *, payload: Dict[str, Any], app
+        self, *, payload: dict[str, Any], app
     ) -> PaymentNotificationResult:
         """Process provider webhook payloads."""
         return self.verify_webhook(

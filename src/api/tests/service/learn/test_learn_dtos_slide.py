@@ -1,9 +1,10 @@
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
+    BlockType,
     GeneratedType,
+    LikeStatus,
 )
-from flaskr.service.learn.learn_dtos import BlockType, LikeStatus
 from flaskr.service.learn.legacy_record_builder import (
     LegacyGeneratedBlockRecord,
     LegacyLearnRecord,

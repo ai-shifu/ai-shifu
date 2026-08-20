@@ -4,23 +4,22 @@
 import base64
 import hmac
 import json
-from hashlib import sha256 as sha256
-from urllib.request import Request, urlopen
+from hashlib import sha256
 from urllib.error import URLError
+from urllib.request import Request, urlopen
+
 from flask import Flask
+
 from flaskr.util.datetime import now_utc
 
 from .dto import (
-    CheckResultDTO,
     CHECK_RESULT_PASS,
-    CHECK_RESULT_REVIEW,
     CHECK_RESULT_REJECT,
+    CHECK_RESULT_REVIEW,
     CHECK_RESULT_UNKNOWN,
+    CheckResultDTO,
 )
 
-
-# pid = ""
-# secret_key = b""
 endpoint_host = "tsafe.ilivedata.com"
 endpoint_path = "/api/v1/text/check"
 endpoint_url = "https://tsafe.ilivedata.com/api/v1/text/check"
@@ -91,7 +90,7 @@ def ilivedata_check(
     try:
         ret = send(query_body, signature, now_date, pid, timeout=timeout_seconds)
     except URLError as err:
-        app.logger.error("ilivedata request failed: %s", err)
+        app.logger.exception("ilivedata request failed")
         return CheckResultDTO(
             check_result=CHECK_RESULT_UNKNOWN,
             risk_labels=[],
@@ -116,15 +115,14 @@ def ilivedata_check(
             provider=PROVIDER,
             raw_data=ret,
         )
-    else:
-        app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
-        return CheckResultDTO(
-            check_result=CHECK_RESULT_UNKNOWN,
-            risk_labels=[],
-            risk_label_ids=[],
-            provider=PROVIDER,
-            raw_data=ret,
-        )
+    app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
+    return CheckResultDTO(
+        check_result=CHECK_RESULT_UNKNOWN,
+        risk_labels=[],
+        risk_label_ids=[],
+        provider=PROVIDER,
+        raw_data=ret,
+    )
 
 
 def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):
@@ -141,8 +139,10 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )
     try:
-        return json.loads(urlopen(req, timeout=timeout).read().decode(), strict=False)
+        # The endpoint is a fixed https URL built from configuration.
+        with urlopen(req, timeout=timeout) as response:  # noqa: S310
+            return json.loads(response.read().decode(), strict=False)
     except URLError:
         raise
     except OSError as err:
-        raise URLError(err)
+        raise URLError(err) from err

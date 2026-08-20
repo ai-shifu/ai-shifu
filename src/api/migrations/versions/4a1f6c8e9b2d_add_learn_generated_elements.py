@@ -1,4 +1,4 @@
-"""add learn_generated_elements with element protocol fields
+"""add learn_generated_elements with element protocol fields.
 
 Revision ID: 4a1f6c8e9b2d
 Revises: b596b767bde5
@@ -6,9 +6,8 @@ Create Date: 2026-03-17 12:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "4a1f6c8e9b2d"

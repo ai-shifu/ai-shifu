@@ -1,34 +1,32 @@
 import json
-import os
-from flask import Flask
-from werkzeug.datastructures import FileStorage
 from decimal import Decimal
-from typing import Dict, Optional
+from pathlib import Path
 
+from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.models import raise_error
-from flaskr.service.shifu.models import DraftShifu, DraftOutlineItem
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
     normalize_ask_provider_config,
     serialize_ask_provider_config,
 )
-from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.shifu_history_manager import (
     HistoryItem,
-    save_shifu_history,
     save_outline_tree_history,
+    save_shifu_history,
 )
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc, to_utc_iso
 from markdown_flow import MarkdownFlow
+from werkzeug.datastructures import FileStorage
 
 
 def _extract_import_ask_provider_config(shifu_data: dict) -> str:
-    """
-    Extract and normalize ask_provider_config from import payload.
+    """Extract and normalize ask_provider_config from import payload.
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
     if "ask_provider_config" not in shifu_data:
@@ -37,8 +35,7 @@ def _extract_import_ask_provider_config(shifu_data: dict) -> str:
 
 
 def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
-    """
-    Export a shifu to a JSON file.
+    """Export a shifu to a JSON file.
 
     Args:
         app: Flask application instance
@@ -47,6 +44,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
     Returns:
         str: Success message
+
     """
     with app.app_context():
         # Get shifu draft
@@ -129,11 +127,8 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
         }
 
         # Write to file
-        os.makedirs(
-            os.path.dirname(file_path) if os.path.dirname(file_path) else ".",
-            exist_ok=True,
-        )
-        with open(file_path, "w", encoding="utf-8") as f:
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        with Path(file_path).open("w", encoding="utf-8") as f:
             json.dump(export_data, f, ensure_ascii=False, indent=2)
 
         return "success"
@@ -141,13 +136,12 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
 def import_shifu(
     app: Flask,
-    shifu_id: Optional[str],
+    shifu_id: str | None,
     file: FileStorage,
     user_id: str,
     commit: bool = True,
 ) -> str:
-    """
-    Import a shifu from a JSON file.
+    """Import a shifu from a JSON file.
 
     Args:
         app: Flask application instance
@@ -155,9 +149,11 @@ def import_shifu(
                   If not provided or doesn't exist, will create a new shifu.
         file: FileStorage object containing the JSON file
         user_id: User ID for creating/updating the shifu
+        commit: Commit the transaction before returning
 
     Returns:
         str: The shifu_bid of the imported shifu
+
     """
     with app.app_context():
         # Read JSON file
@@ -166,8 +162,8 @@ def import_shifu(
             if isinstance(file_content, bytes):
                 file_content = file_content.decode("utf-8")
             import_data = json.loads(file_content)
-        except Exception as e:
-            app.logger.error(f"Failed to parse JSON file: {e}")
+        except Exception:
+            app.logger.exception("Failed to parse JSON file")
             raise_error("server.shifu.importFileInvalid")
 
         # Validate import data
@@ -301,15 +297,15 @@ def import_shifu(
             save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
 
         # Create mapping from old outline_item_bid to new outline_item_bid
-        old_to_new_bid_map: Dict[str, str] = {}
+        old_to_new_bid_map: dict[str, str] = {}
 
         # Create a map of old_bid -> outline_item_data
-        outline_items_by_old_bid: Dict[str, dict] = {
+        outline_items_by_old_bid: dict[str, dict] = {
             item["outline_item_bid"]: item for item in outline_items_data
         }
 
         # Create all outline items first (without parent_bid, will update later)
-        created_items: Dict[str, DraftOutlineItem] = {}
+        created_items: dict[str, DraftOutlineItem] = {}
 
         for item_data in outline_items_data:
             old_bid = item_data["outline_item_bid"]
@@ -424,7 +420,7 @@ def import_shifu(
             new_structure = rebuild_structure(structure_data)
             if new_structure:
                 # Save outline tree history
-                outline_tree = new_structure.children if new_structure.children else []
+                outline_tree = new_structure.children or []
                 save_outline_tree_history(
                     app, user_id, shifu_bid, outline_tree, new_shifu.id
                 )

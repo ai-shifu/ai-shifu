@@ -1,5 +1,4 @@
-"""
-Generate a full TTS provider test report (HTML with <audio> playback).
+"""Generate a full TTS provider test report (HTML with <audio> playback).
 
 Requirements implemented:
 1) Uses the unified top-level pipeline (segmentation, synthesis, concat, OSS upload).
@@ -19,7 +18,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Ensure `/app` (repo root for src/api) is on sys.path when executed as a file path.
 _API_ROOT = Path(__file__).resolve().parents[1]
@@ -30,9 +29,7 @@ if str(_API_ROOT) not in sys.path:
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 
 from app import create_app  # noqa: E402
-
 from flaskr.api.tts import get_tts_provider  # noqa: E402
-
 
 ZH_TEXT = """在辅导过几十家企业、上万人用 AI 提升业绩、效率之后，我总结出这三种观点是多数人都会有的对 AI 的误解：
 
@@ -91,8 +88,7 @@ def _safe_str(value: Any) -> str:
 
 
 def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
-    """
-    Build test cases for a provider.
+    """Build test cases for a provider.
 
     matrix="coverage":
       - test all models (each with 1 representative voice)
@@ -147,7 +143,7 @@ def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
                     add_case(model_value, _safe_str(voice.get("value")))
         return cases
 
-    # matrix == "coverage"
+    # Coverage matrix:
     # 1) Test each model with a representative voice.
     for model in models:
         model_value = _safe_str(model.get("value"))
@@ -192,22 +188,21 @@ def _render_html(rows: list[ReportRow], *, output_path: str) -> str:
     success = sum(1 for row in rows if row.audio_url and not row.error)
     failed = len(rows) - success
 
-    tr_rows = []
-    for row in rows:
-        tr_rows.append(
-            "<tr>"
-            f"<td>{html.escape(row.provider)}</td>"
-            f"<td>{html.escape(row.model)}</td>"
-            f"<td>{html.escape(row.voice_id)}</td>"
-            f"<td>{html.escape(row.voice_label)}</td>"
-            f"<td>{html.escape(row.language)}</td>"
-            f"<td>{row.segment_count}</td>"
-            f"<td>{row.duration_ms}</td>"
-            f"<td>{row.elapsed_seconds:.3f}</td>"
-            f"<td>{row.to_html_audio()}</td>"
-            f"<td style='color:#b91c1c'>{html.escape(row.error)}</td>"
-            "</tr>"
-        )
+    tr_rows = [
+        "<tr>"
+        f"<td>{html.escape(row.provider)}</td>"
+        f"<td>{html.escape(row.model)}</td>"
+        f"<td>{html.escape(row.voice_id)}</td>"
+        f"<td>{html.escape(row.voice_label)}</td>"
+        f"<td>{html.escape(row.language)}</td>"
+        f"<td>{row.segment_count}</td>"
+        f"<td>{row.duration_ms}</td>"
+        f"<td>{row.elapsed_seconds:.3f}</td>"
+        f"<td>{row.to_html_audio()}</td>"
+        f"<td style='color:#b91c1c'>{html.escape(row.error)}</td>"
+        "</tr>"
+        for row in rows
+    ]
 
     html_body = f"""<!doctype html>
 <html lang="en">
@@ -263,8 +258,7 @@ def _escape_markdown_cell(value: Any) -> str:
     # Avoid breaking Markdown tables.
     cell = cell.replace("|", "\\|")
     # Render newlines as <br> so the table stays intact.
-    cell = cell.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
-    return cell
+    return cell.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
 
 
 def _render_markdown(rows: list[ReportRow], *, output_path: str) -> str:
@@ -283,25 +277,25 @@ def _render_markdown(rows: list[ReportRow], *, output_path: str) -> str:
     )
     lines.append("|---|---|---|---|---|---:|---:|---:|---|---|")
 
-    for row in rows:
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    _escape_markdown_cell(row.provider),
-                    _escape_markdown_cell(row.model),
-                    _escape_markdown_cell(row.voice_id),
-                    _escape_markdown_cell(row.voice_label),
-                    _escape_markdown_cell(row.language),
-                    str(int(row.segment_count)),
-                    str(int(row.duration_ms)),
-                    f"{row.elapsed_seconds:.3f}",
-                    row.to_html_audio() or "",
-                    _escape_markdown_cell(row.error),
-                ]
-            )
-            + " |"
+    lines.extend(
+        "| "
+        + " | ".join(
+            [
+                _escape_markdown_cell(row.provider),
+                _escape_markdown_cell(row.model),
+                _escape_markdown_cell(row.voice_id),
+                _escape_markdown_cell(row.voice_label),
+                _escape_markdown_cell(row.language),
+                str(int(row.segment_count)),
+                str(int(row.duration_ms)),
+                f"{row.elapsed_seconds:.3f}",
+                row.to_html_audio() or "",
+                _escape_markdown_cell(row.error),
+            ]
         )
+        + " |"
+        for row in rows
+    )
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -371,8 +365,10 @@ def main():
     app.logger.setLevel(logging.ERROR)
 
     # Import after app initialization because some modules require an initialized DB.
-    from flaskr.service.tts.pipeline import synthesize_long_text_to_oss  # noqa: E402
-    from flaskr.service.tts.pipeline import SynthesizeToOssResult  # noqa: E402
+    from flaskr.service.tts.pipeline import (
+        SynthesizeToOssResult,
+        synthesize_long_text_to_oss,
+    )
 
     provider_names = [p.strip() for p in args.providers.split(",") if p.strip()]
     languages = [("zh", ZH_TEXT), ("en", EN_TEXT)]
@@ -384,25 +380,25 @@ def main():
             # Still produce rows (as failures) so the report is complete.
             cfg = provider.get_provider_config()
             if cfg.models:
-                for model in cfg.models:
-                    cases.append(
-                        {
-                            "provider": provider_name,
-                            "model": _safe_str(model.get("value")),
-                            "voice_id": provider.get_default_voice_settings().voice_id,
-                            "voice_label": "",
-                        }
-                    )
+                cases.extend(
+                    {
+                        "provider": provider_name,
+                        "model": _safe_str(model.get("value")),
+                        "voice_id": provider.get_default_voice_settings().voice_id,
+                        "voice_label": "",
+                    }
+                    for model in cfg.models
+                )
             else:
-                for voice in cfg.voices:
-                    cases.append(
-                        {
-                            "provider": provider_name,
-                            "model": "",
-                            "voice_id": _safe_str(voice.get("value")),
-                            "voice_label": _safe_str(voice.get("label")),
-                        }
-                    )
+                cases.extend(
+                    {
+                        "provider": provider_name,
+                        "model": "",
+                        "voice_id": _safe_str(voice.get("value")),
+                        "voice_label": _safe_str(voice.get("label")),
+                    }
+                    for voice in cfg.voices
+                )
             continue
 
         cases.extend(_build_cases(provider_name=provider_name, matrix=args.matrix))
@@ -421,7 +417,7 @@ def main():
             voice_label = case.get("voice_label", "")
 
             try:
-                result: Optional[SynthesizeToOssResult] = None
+                result: SynthesizeToOssResult | None = None
                 elapsed = 0.0
                 t0 = time.monotonic()
                 result = synthesize_long_text_to_oss(

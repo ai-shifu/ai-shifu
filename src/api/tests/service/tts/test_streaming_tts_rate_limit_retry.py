@@ -8,7 +8,6 @@ segment's audio. Throttled calls now retry with a staggered backoff.
 import types
 
 import pytest
-
 from flaskr.service.tts import streaming_tts
 from flaskr.service.tts.streaming_tts import (
     _RATE_LIMIT_RETRY_MAX_ATTEMPTS,
@@ -22,7 +21,7 @@ _TENCENT_MESSAGE = (
 
 
 @pytest.mark.parametrize(
-    "message,expected",
+    ("message", "expected"),
     [
         (_TENCENT_MESSAGE, True),
         ("HTTP 429 Too many requests", True),

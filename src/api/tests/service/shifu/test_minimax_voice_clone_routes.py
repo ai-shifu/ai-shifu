@@ -63,9 +63,9 @@ def _seed_course_and_wallet(
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(amount),
-        reserved_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
         lifetime_granted_credits=Decimal(amount),
-        lifetime_consumed_credits=Decimal("0"),
+        lifetime_consumed_credits=Decimal(0),
         version=0,
     )
     bucket = CreditWalletBucket(
@@ -78,9 +78,9 @@ def _seed_course_and_wallet(
         priority=10,
         original_credits=Decimal(amount),
         available_credits=Decimal(amount),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 1, 1, 0, 0, 0),
         status=CREDIT_BUCKET_STATUS_ACTIVE,
     )
@@ -173,8 +173,8 @@ def test_minimax_voice_clone_submit_creates_queued_voice(
     monkeypatch,
 ):
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)
@@ -282,9 +282,9 @@ def test_minimax_voice_routes_only_expose_current_owner_voices(
     monkeypatch,
 ):
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_STATUS_FAILED,
         TTS_MINIMAX_CLONE_STATUS_READY,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)

@@ -1,62 +1,125 @@
+import contextlib
 import hashlib
 import inspect
 import json
 import queue
 import threading
-import contextlib
+from collections.abc import Callable, Generator, Iterable
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Generator, Iterable, Optional, Union
+from typing import Any, Union
+
+from flask import Flask
+from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.i18n_utils import (
+    get_markdownflow_output_language,
+    resolve_markdownflow_output_language,
+)
+from flaskr.common.shifu_context import (
+    apply_shifu_context_snapshot,
+    get_shifu_context_snapshot,
+)
+from flaskr.dao import cleanup_session_after, db, invalidate_session
+from flaskr.i18n import _, get_current_language, set_language
+from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import (
     INPUT_TYPE_ASK,
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
+from flaskr.service.learn.exceptions import PaidError
+from flaskr.service.learn.handle_input_ask import handle_input_ask
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
+    build_langfuse_trace_name,
+)
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    OutlineItemUpdateDTO,
+    PlaygroundPreviewRequest,
+    RunElementSSEMessageDTO,
+    RunMarkdownFlowDTO,
+    VariableUpdateDTO,
+)
+from flaskr.service.learn.learner_profile_prompt import (
+    build_course_prompt,
+)
+from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.models import (
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+    LearnProgressRecord,
+)
+from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.learn.run.emitter import RunEventEmitter
+from flaskr.service.learn.run.recorder import RunRecorder
+from flaskr.service.learn.run.state import RunStateResolver
+from flaskr.service.learn.stream_tts_finalize import StreamTTSFinalizeDrainer
+from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
+from flaskr.service.order.consts import (
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
+)
+from flaskr.service.profile.constants import SYS_USER_LANGUAGE
+from flaskr.service.profile.funcs import (
+    ProfileToSave,
+    get_user_profiles,
+    save_user_profiles,
+)
+from flaskr.service.profile.profile_manage import (
+    ProfileItemDefinition,
+    get_profile_item_definition_list,
+)
 from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDINTERACTION_VALUE,
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-)
-from markdown_flow import (
-    MarkdownFlow,
-    ProcessMode,
-    LLMProvider,
-    BlockType,
-    InteractionParser,
-    replace_variables_in_text,
-    USER_ANSWER_CONTEXT_KEY,
-)
-from markdown_flow.llm import LLMResult
-from flask import Flask
-from flaskr.common.i18n_utils import (
-    get_markdownflow_output_language,
-    resolve_markdownflow_output_language,
-)
-from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import cleanup_session_after, db, invalidate_session
-from flaskr.service.shifu.shifu_struct_manager import (
-    ShifuOutlineItemDto,
-    ShifuInfoDto,
-    get_shifu_struct,
-    # Kept as a module attribute: run/state.py resolves it through this
-    # namespace at call time and tests patch it here.
-    get_outline_item_dto_with_mdflow,  # noqa: F401
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
-    PublishedOutlineItem,
     DraftShifu,
+    PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.learn.models import (
-    LearnProgressRecord,
-    LearnGeneratedBlock,
-    LearnGeneratedElement,
-)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_struct_manager import (
+    ShifuInfoDto,
+    ShifuOutlineItemDto,
+    # Kept as a module attribute: run/state.py resolves it through this
+    # namespace at call time and tests patch it here.
+    get_outline_item_dto_with_mdflow,  # noqa: F401
+    get_shifu_struct,
+)
+from flaskr.service.shifu.struct_utils import find_node_with_parents
+from flaskr.service.user.exceptions import UserNotLoginError
+from flaskr.service.user.repository import UserAggregate, load_user_aggregate
+from flaskr.util import generate_id
+from markdown_flow import (
+    USER_ANSWER_CONTEXT_KEY,
+    BlockType,
+    InteractionParser,
+    LLMProvider,
+    MarkdownFlow,
+    ProcessMode,
+    replace_variables_in_text,
+)
+from markdown_flow.llm import LLMResult
+
 from ...api.langfuse import (
     LangfuseTraceHandle,
     MockClient,
@@ -66,63 +129,6 @@ from ...api.langfuse import (
     get_request_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
-)
-from flaskr.service.common import raise_error, raise_error_with_args
-from flaskr.service.order.consts import (
-    LEARN_STATUS_RESET,
-    LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_NOT_STARTED,
-)
-from flaskr.service.shifu.consts import (
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_VALUE_NORMAL,
-)
-
-from flaskr.service.user.repository import UserAggregate
-from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.util import generate_id
-from flaskr.service.profile.funcs import get_user_profiles
-from flaskr.service.profile.constants import SYS_USER_LANGUAGE
-from flaskr.service.learn.learn_dtos import (
-    PlaygroundPreviewRequest,
-    RunElementSSEMessageDTO,
-    RunMarkdownFlowDTO,
-    GeneratedType,
-    OutlineItemUpdateDTO,
-)
-from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
-from flaskr.service.learn.handle_input_ask import handle_input_ask
-from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    ProfileItemDefinition,
-)
-from flaskr.service.metering import UsageContext
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-)
-from flaskr.service.learn.learn_dtos import VariableUpdateDTO
-from flaskr.service.learn.check_text import check_text_with_llm_response
-from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.learn.langfuse_naming import (
-    build_langfuse_generation_name,
-    build_langfuse_span_name,
-    build_langfuse_trace_name,
-)
-from flaskr.service.learn.utils_v2 import init_generated_block
-from flaskr.service.learn.run.emitter import RunEventEmitter
-from flaskr.service.learn.run.recorder import RunRecorder
-from flaskr.service.learn.run.state import RunStateResolver
-from flaskr.service.learn.exceptions import PaidException
-from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
-from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
-from flaskr.service.learn.stream_tts_finalize import StreamTTSFinalizeDrainer
-from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.user.exceptions import UserNotLoginException
-from flaskr.common.shifu_context import (
-    get_shifu_context_snapshot,
-    apply_shifu_context_snapshot,
 )
 
 context_local = threading.local()
@@ -333,10 +339,7 @@ class RUNLLMProvider(LLMProvider):
             usage_scene=self.usage_scene,
         )
         # Collect all stream responses and concatenate the results
-        content_parts = []
-        for response in res:
-            if response.result:
-                content_parts.append(response.result)
+        content_parts = [response.result for response in res if response.result]
         output = "".join(content_parts)
         self._log_preview_output(
             model=actual_model,
@@ -354,11 +357,6 @@ class RUNLLMProvider(LLMProvider):
         # Extract the last message content as the main prompt
         if not messages:
             raise ValueError("No messages provided")
-
-        # system_prompt = messages[0].get("content", "")
-        # Get the last message content
-        # last_message = messages[-1]
-        # prompt = last_message.get("content", "")
 
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
@@ -406,13 +404,13 @@ class MdflowContextV2:
         self,
         *,
         document: str,
-        document_prompt: Optional[str] = None,
-        llm_provider: Optional[LLMProvider] = None,
-        interaction_prompt: Optional[str] = None,
-        interaction_error_prompt: Optional[str] = None,
+        document_prompt: str | None = None,
+        llm_provider: LLMProvider | None = None,
+        interaction_prompt: str | None = None,
+        interaction_error_prompt: str | None = None,
         use_learner_language: bool = False,
         visual_mode: bool = True,
-        output_language: Optional[str] = None,
+        output_language: str | None = None,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
@@ -447,9 +445,9 @@ class MdflowContextV2:
         *,
         block_index: int,
         mode: ProcessMode,
-        context: Optional[list[dict[str, str]]] = None,
-        variables: Optional[dict] = None,
-        user_input: Optional[dict[str, list[str]]] = None,
+        context: list[dict[str, str]] | None = None,
+        variables: dict | None = None,
+        user_input: dict[str, list[str]] | None = None,
     ):
         return self._mdflow.process(
             block_index=block_index,
@@ -461,8 +459,8 @@ class MdflowContextV2:
 
     @staticmethod
     def normalize_context_messages(
-        context: Optional[Iterable[dict[str, str]]],
-    ) -> Optional[list[dict[str, str]]]:
+        context: Iterable[dict[str, str]] | None,
+    ) -> list[dict[str, str]] | None:
         if not context:
             return None
         filtered: list[dict[str, str]] = []
@@ -478,9 +476,9 @@ class MdflowContextV2:
 
     @staticmethod
     def filter_context_by_output_language(
-        context: Optional[list[dict[str, str]]],
+        context: list[dict[str, str]] | None,
         output_language: str,
-    ) -> Optional[list[dict[str, str]]]:
+    ) -> list[dict[str, str]] | None:
         if not context:
             return context
         normalized_language = (output_language or "").strip().lower()
@@ -523,7 +521,7 @@ class MdflowContextV2:
 
     @staticmethod
     def flatten_user_input_map(
-        user_input: Optional[dict[str, list[str]]],
+        user_input: dict[str, list[str]] | None,
     ) -> str:
         if not user_input:
             return ""
@@ -539,7 +537,7 @@ class MdflowContextV2:
     def build_context_from_blocks(
         blocks: Iterable["LearnGeneratedBlock"],
         document: str,
-        variables: Optional[dict] = None,
+        variables: dict | None = None,
     ) -> list[dict[str, str]]:
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
@@ -622,8 +620,8 @@ class _PreviewContextStore:
         user_bid: str,
         shifu_bid: str,
         outline_bid: str,
-        ttl_seconds: Optional[int] = None,
-        language: Optional[str] = None,
+        ttl_seconds: int | None = None,
+        language: str | None = None,
     ):
         self._cache = cache_provider
         self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
@@ -675,7 +673,7 @@ class _PreviewContextStore:
                 messages.append({"role": "assistant", "content": assistant_text})
         return messages
 
-    def _load_entries(self, document: str) -> Optional[list[dict]]:
+    def _load_entries(self, document: str) -> list[dict] | None:
         payload = self.load()
         if not payload:
             return None
@@ -720,7 +718,7 @@ class _PreviewContextStore:
         block-based truncation in get_context() preserves them.
         """
         entries: list[dict] = []
-        pending_user: Optional[str] = None
+        pending_user: str | None = None
         for item in context or []:
             if not isinstance(item, dict):
                 continue
@@ -766,8 +764,8 @@ class _PreviewContextStore:
         self,
         document: str,
         block_index: int,
-        user_message: Optional[str],
-        assistant_message: Optional[str],
+        user_message: str | None,
+        assistant_message: str | None,
     ) -> None:
         if not user_message and not assistant_message:
             return
@@ -809,7 +807,12 @@ class RunScriptPreviewContextV2:
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, True)
         document_prompt = self._resolve_document_prompt(
-            preview_request, outline, shifu, shifu_bid, outline_bid
+            preview_request,
+            outline,
+            shifu,
+            shifu_bid,
+            outline_bid,
+            user_bid,
         )
         self.app.logger.info(
             "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
@@ -1070,7 +1073,7 @@ class RunScriptPreviewContextV2:
         preview_request: PlaygroundPreviewRequest,
         user_bid: str,
         shifu_bid: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         request_variables = (
             dict(preview_request.variables)
             if isinstance(preview_request.variables, dict)
@@ -1101,7 +1104,7 @@ class RunScriptPreviewContextV2:
     def _iter_preview_generated_events(
         self,
         *,
-        result: Optional[LLMResult] | Generator[LLMResult, None, None],
+        result: LLMResult | Generator[LLMResult, None, None] | None,
         outline_bid: str,
         block_index: int,
         current_block,
@@ -1153,7 +1156,7 @@ class RunScriptPreviewContextV2:
     def _preview_events_from_result(
         self,
         *,
-        llm_result: Optional[LLMResult],
+        llm_result: LLMResult | None,
         outline_bid: str,
         generated_block_bid: str,
         current_block,
@@ -1242,36 +1245,62 @@ class RunScriptPreviewContextV2:
     def _resolve_document_prompt(
         self,
         preview_request: PlaygroundPreviewRequest,
-        outline: Optional[DraftOutlineItem | PublishedOutlineItem],
-        shifu: Optional[DraftShifu | PublishedShifu],
+        outline: DraftOutlineItem | PublishedOutlineItem | None,
+        shifu: DraftShifu | PublishedShifu | None,
         shifu_bid: str,
         outline_bid: str,
-    ) -> Optional[str]:
+        user_bid: str,
+    ) -> str | None:
+        course_prompt: str | None = None
         if preview_request.document_prompt:
             prompt = preview_request.document_prompt.strip()
             if prompt:
-                return prompt
+                course_prompt = prompt
 
-        prompt = self._resolve_prompt_from_outline_chain(
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            outline_record=outline,
-        )
-        if prompt:
-            return prompt
+        if not course_prompt:
+            course_prompt = self._resolve_prompt_from_outline_chain(
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                outline_record=outline,
+            )
 
-        if shifu:
+        if not course_prompt and shifu:
             prompt = (getattr(shifu, "llm_system_prompt", None) or "").strip()
             if prompt:
-                return prompt
-        return None
+                course_prompt = prompt
+
+        if not course_prompt:
+            return course_prompt
+
+        learner = self._load_learner_for_course_prompt(user_bid)
+        return build_course_prompt(course_prompt, learner=learner)
+
+    def _load_learner_for_course_prompt(
+        self,
+        user_bid: str,
+    ) -> UserAggregate | None:
+        try:
+            return load_user_aggregate(user_bid, with_credentials=False)
+        except Exception as exc:  # noqa: BLE001 - preview must survive lookup failures
+            cleanup_session_after(
+                exc,
+                source="preview learner profile lookup",
+                session=db.session,
+            )
+            self.app.logger.warning(
+                "learner lookup failed for preview course prompt | "
+                "user_bid=%s | error_class=%s",
+                user_bid,
+                type(exc).__name__,
+            )
+            return None
 
     def _resolve_prompt_from_outline_chain(
         self,
         shifu_bid: str,
         outline_bid: str,
-        outline_record: Optional[DraftOutlineItem | PublishedOutlineItem],
-    ) -> Optional[str]:
+        outline_record: DraftOutlineItem | PublishedOutlineItem | None,
+    ) -> str | None:
         target_bid = outline_record.outline_item_bid if outline_record else outline_bid
         if not target_bid:
             return None
@@ -1317,6 +1346,13 @@ class RunScriptPreviewContextV2:
             try:
                 struct = get_shifu_struct(self.app, shifu_bid, is_preview)
             except Exception:
+                self.app.logger.debug(
+                    "outline hierarchy lookup skipped a struct: "
+                    "shifu_bid=%s is_preview=%s",
+                    shifu_bid,
+                    is_preview,
+                    exc_info=True,
+                )
                 continue
             path = find_node_with_parents(struct, outline_bid)
             if not path:
@@ -1342,8 +1378,8 @@ class RunScriptPreviewContextV2:
     def _resolve_llm_settings(
         self,
         preview_request: PlaygroundPreviewRequest,
-        outline: Optional[DraftOutlineItem | PublishedOutlineItem],
-        shifu: Optional[DraftShifu | PublishedShifu],
+        outline: DraftOutlineItem | PublishedOutlineItem | None,
+        shifu: DraftShifu | PublishedShifu | None,
     ) -> tuple[str, float]:
         def _normalize_model(value: object | None) -> str | None:
             if value is None:
@@ -1425,7 +1461,7 @@ class RunScriptPreviewContextV2:
 
     def _get_outline_record(
         self, shifu_bid: str, outline_bid: str
-    ) -> Optional[DraftOutlineItem | PublishedOutlineItem]:
+    ) -> DraftOutlineItem | PublishedOutlineItem | None:
         outline = (
             DraftOutlineItem.query.filter(
                 DraftOutlineItem.shifu_bid == shifu_bid,
@@ -1449,7 +1485,7 @@ class RunScriptPreviewContextV2:
 
     def _get_shifu_record(
         self, shifu_bid: str, has_draft_outline: bool
-    ) -> Optional[DraftShifu | PublishedShifu]:
+    ) -> DraftShifu | PublishedShifu | None:
         if has_draft_outline:
             shifu = (
                 DraftShifu.query.filter(
@@ -1469,7 +1505,7 @@ class RunScriptPreviewContextV2:
             .first()
         )
 
-    def _decimal_to_float(self, value) -> Optional[float]:
+    def _decimal_to_float(self, value) -> float | None:
         if value is None:
             return None
         if isinstance(value, Decimal):
@@ -1520,12 +1556,12 @@ class RunScriptContextV2:
     _shifu_ids: list[str]
     _run_type: RunType
     _app: Flask
-    _shifu_model: Union[DraftShifu, PublishedShifu]
-    _outline_model: Union[DraftOutlineItem, PublishedOutlineItem]
+    _shifu_model: DraftShifu | PublishedShifu
+    _outline_model: DraftOutlineItem | PublishedOutlineItem
     _trace_args: dict
     _trace_id: str
     _shifu_info: ShifuInfoDto
-    _trace: Union[LangfuseTraceHandle, MockClient]
+    _trace: LangfuseTraceHandle | MockClient
     _trace_root_span: Any
     _input_type: str
     _input: str
@@ -1628,7 +1664,7 @@ class RunScriptContextV2:
     def _stop_if_requested(self) -> None:
         if self._stop_requested():
             self.app.logger.info("run_script context cancelled")
-            raise GeneratorExit()
+            raise GeneratorExit
 
     def _iter_until_active(self, items: Iterable[Any]) -> Generator[Any, None, None]:
         for item in items:
@@ -1636,7 +1672,7 @@ class RunScriptContextV2:
             yield item
 
     @staticmethod
-    def get_current_context(app: Flask) -> Union["RunScriptContextV2", None]:
+    def get_current_context(_app: Flask) -> Union["RunScriptContextV2", None]:
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
@@ -1836,7 +1872,7 @@ class RunScriptContextV2:
                 except Exception as exc:
                     produce_exc = exc
                     result_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     produce_exc = exc
                     raise
                 finally:
@@ -1912,7 +1948,7 @@ class RunScriptContextV2:
             .first()
         )
         if not attend_info:
-            outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+            outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
                 self._outline_model.query.filter(
                     self._outline_model.outline_item_bid == outline_bid,
                     self._outline_model.deleted == 0,
@@ -1924,14 +1960,13 @@ class RunScriptContextV2:
                 raise_error("server.shifu.lessonNotFoundInCourse")
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
-                    raise PaidException()
-            elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL:
-                if (
-                    not self._preview_mode
-                    and not self._user_info.mobile
-                    and not self._user_info.email
-                ):
-                    raise UserNotLoginException()
+                    raise PaidError
+            elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL and (
+                not self._preview_mode
+                and not self._user_info.mobile
+                and not self._user_info.email
+            ):
+                raise UserNotLoginError
             parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             new_records: list[LearnProgressRecord] = []
@@ -2124,20 +2159,20 @@ class RunScriptContextV2:
             return False
         return bool(str(input_value).strip())
 
-    def set_input(self, input: str | dict, input_type: str):
-        """
-        Set user input.
+    def set_input(self, user_input: str | dict, input_type: str):
+        """Set user input.
 
         Args:
-            input: User input, can be:
+            user_input: User input, can be:
                    - str: legacy format (e.g., "Python")
                    - dict: new format from markdown-flow 0.2.27+ (e.g., {"lang": ["Python"]})
             input_type: Input type
+
         """
-        self._trace_args["input"] = normalize_langfuse_input_value(input)
+        self._trace_args["input"] = normalize_langfuse_input_value(user_input)
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
-        self._input = input
+        self._input = user_input
         self._anchor_element_bid = ""
 
     def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
@@ -2300,8 +2335,6 @@ class RunScriptContextV2:
         app.logger.info(f"ask_input: {ask_input}")
         if isinstance(ask_input, dict):
             ask_input = ask_input.get("input", "")
-        else:
-            ask_input = ask_input
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
         app.logger.info(f"ask_input: {ask_input}")
@@ -2615,8 +2648,7 @@ class RunScriptContextV2:
                         return True
                 if button.get("value") == "_sys_login":
                     # Same logged-in definition as the emitter's
-                    # is_access_gate_blocking_interaction: email-only
-                    # accounts are logged in too.
+                    # access-gate check: email-only accounts are logged in too.
                     if bool(self._user_info.mobile or self._user_info.email):
                         self._can_continue = True
                         self._recorder.update_progress_pointer(
@@ -2806,7 +2838,7 @@ class RunScriptContextV2:
             app,
             user_info=self._user_info,
             log_script=generated_block,
-            input=generated_block.generated_content,  # Use converted string value
+            user_input=generated_block.generated_content,  # Use converted string value
             span=self._trace_root_span,
             outline_item_bid=self._outline_item_info.bid,
             shifu_bid=self._outline_item_info.shifu_bid,
@@ -3170,26 +3202,26 @@ class RunScriptContextV2:
             and len(parsed_interaction.get("buttons")) > 0
         ):
             for button in parsed_interaction.get("buttons"):
-                if button.get("value") == "_sys_pay":
-                    if self._is_paid:
-                        self._can_continue = True
-                        self._recorder.update_progress_pointer(
-                            self._current_attend,
-                            block_position=(self._current_attend.block_position + 1),
-                        )
-                        self._run_type = RunType.OUTPUT
-                        return
-                if button.get("value") == "_sys_login":
+                if button.get("value") == "_sys_pay" and self._is_paid:
+                    self._can_continue = True
+                    self._recorder.update_progress_pointer(
+                        self._current_attend,
+                        block_position=(self._current_attend.block_position + 1),
+                    )
+                    self._run_type = RunType.OUTPUT
+                    return
+                if button.get("value") == "_sys_login" and bool(
+                    self._user_info.mobile or self._user_info.email
+                ):
                     # Same logged-in definition as the emitter's
                     # is_access_gate_blocking_interaction.
-                    if bool(self._user_info.mobile or self._user_info.email):
-                        self._can_continue = True
-                        self._recorder.update_progress_pointer(
-                            self._current_attend,
-                            block_position=(self._current_attend.block_position + 1),
-                        )
-                        self._run_type = RunType.OUTPUT
-                        return
+                    self._can_continue = True
+                    self._recorder.update_progress_pointer(
+                        self._current_attend,
+                        block_position=(self._current_attend.block_position + 1),
+                    )
+                    self._run_type = RunType.OUTPUT
+                    return
 
         # Render interaction content with translation (markdown-flow 0.2.34+)
         # Call process() without user_input to trigger interaction rendering
@@ -3396,7 +3428,7 @@ class RunScriptContextV2:
             app.logger.warning(
                 "Idle streaming TTS drain failed; disable for this block: %s",
                 exc,
-                exc_info=True,
+                exc_info=exc,
             )
             _disable_all_tts()
 
@@ -3534,15 +3566,15 @@ class RunScriptContextV2:
     def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         try:
             yield from self.run_inner(app)
-        except PaidException:
-            app.logger.info("PaidException")
+        except PaidError:
+            app.logger.info("PaidError")
             self._can_continue = False
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.order.checkout')}//_sys_pay]"
             )
             yield from self._emit_feedback_after_exception_gate()
-        except UserNotLoginException:
-            app.logger.info("UserNotLoginException")
+        except UserNotLoginError:
+            app.logger.info("UserNotLoginError")
             self._can_continue = False
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.user.login')}//_sys_login]"
@@ -3552,22 +3584,23 @@ class RunScriptContextV2:
     def has_next(self) -> bool:
         return self._can_continue
 
-    def get_system_prompt(self, outline_item_bid: str) -> str:
+    def get_system_prompt(self, outline_item_bid: str) -> str | None:
         path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
             self._outline_model.query.filter(
                 self._outline_model.id.in_(outline_ids),
                 self._outline_model.deleted == 0,
             ).all()
         )
-        outline_item_info_map: dict[
-            str, Union[DraftOutlineItem, PublishedOutlineItem]
-        ] = {o.id: o for o in outline_item_info_db}
-        for id in outline_ids:
-            outline_item_info = outline_item_info_map.get(id, None)
+        outline_item_info_map: dict[str, DraftOutlineItem | PublishedOutlineItem] = {
+            o.id: o for o in outline_item_info_db
+        }
+        course_prompt: str | None = None
+        for outline_id in outline_ids:
+            outline_item_info = outline_item_info_map.get(outline_id)
             if (
                 outline_item_info
                 and outline_item_info.llm_system_prompt
@@ -3576,48 +3609,51 @@ class RunScriptContextV2:
                 self.app.logger.info(
                     f"outline_item_info.llm_system_prompt: {outline_item_info.llm_system_prompt}"
                 )
-                return outline_item_info.llm_system_prompt
-        shifu_info_db: Union[DraftShifu, PublishedShifu] = (
-            self._shifu_model.query.filter(
-                self._shifu_model.id.in_(shifu_ids),
-                self._shifu_model.deleted == 0,
+                course_prompt = outline_item_info.llm_system_prompt
+                break
+
+        if not course_prompt:
+            shifu_info_db: DraftShifu | PublishedShifu = (
+                self._shifu_model.query.filter(
+                    self._shifu_model.id.in_(shifu_ids),
+                    self._shifu_model.deleted == 0,
+                )
+                .order_by(self._shifu_model.id.desc())
+                .first()
             )
-            .order_by(self._shifu_model.id.desc())
-            .first()
-        )
-        self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
-        if shifu_info_db and shifu_info_db.llm_system_prompt:
-            self.app.logger.info(
-                f"shifu_info_db.llm_system_prompt: {shifu_info_db.llm_system_prompt}"
-            )
-            return shifu_info_db.llm_system_prompt
-        return None
+            self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
+            if shifu_info_db and shifu_info_db.llm_system_prompt:
+                self.app.logger.info(
+                    "shifu_info_db.llm_system_prompt: "
+                    f"{shifu_info_db.llm_system_prompt}"
+                )
+                course_prompt = shifu_info_db.llm_system_prompt
+
+        return build_course_prompt(course_prompt, learner=self._user_info)
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
             self._outline_model.query.filter(
                 self._outline_model.id.in_(outline_ids),
                 self._outline_model.deleted == 0,
             ).all()
         )
         outline_item_info_map = {o.id: o for o in outline_item_info_db}
-        for id in outline_ids:
-            outline_item_info = outline_item_info_map.get(id, None)
+        for outline_id in outline_ids:
+            outline_item_info = outline_item_info_map.get(outline_id)
             if outline_item_info and outline_item_info.llm:
                 return LLMSettings(
                     model=outline_item_info.llm,
                     temperature=outline_item_info.llm_temperature,
                 )
-        shifu_info_db: Union[DraftShifu, PublishedShifu] = (
-            self._shifu_model.query.filter(
-                self._shifu_model.id.in_(shifu_ids),
-                self._shifu_model.deleted == 0,
-            ).first()
-        )
+        shifu_info_db: DraftShifu | PublishedShifu = self._shifu_model.query.filter(
+            self._shifu_model.id.in_(shifu_ids),
+            self._shifu_model.deleted == 0,
+        ).first()
         if shifu_info_db and shifu_info_db.llm:
             return LLMSettings(
                 model=shifu_info_db.llm, temperature=shifu_info_db.llm_temperature
@@ -3629,7 +3665,7 @@ class RunScriptContextV2:
         app: Flask,
         reload_generated_block_bid: str,
         *,
-        reload_element_bid: str = None,
+        reload_element_bid: str | None = None,
     ):
         with app.app_context():
             anchor_element = None
@@ -3769,4 +3805,3 @@ class RunScriptContextV2:
         with app.app_context():
             yield from self.run(app)
             db.session.commit()
-        return

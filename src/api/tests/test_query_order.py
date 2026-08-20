@@ -2,8 +2,8 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from flaskr.dao import db
-from flaskr.service.order.funs import query_buy_record
 from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.funs import query_buy_record
 from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,

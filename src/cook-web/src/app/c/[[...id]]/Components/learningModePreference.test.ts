@@ -1,7 +1,7 @@
 import { resolveCourseLearningMode } from './learningModePreference';
 
 describe('resolveCourseLearningMode', () => {
-  it('defaults to listen when the course supports listen mode and no storage exists yet', () => {
+  it('defaults to read when the course supports listen mode and no storage exists yet', () => {
     expect(
       resolveCourseLearningMode({
         courseTtsEnabled: true,
@@ -10,7 +10,7 @@ describe('resolveCourseLearningMode', () => {
         listenModeParam: null,
         storedLearningMode: null,
       }),
-    ).toBe('listen');
+    ).toBe('read');
   });
 
   it('keeps read when the course listen capability is still unknown', () => {
@@ -37,10 +37,50 @@ describe('resolveCourseLearningMode', () => {
     ).toBe('read');
   });
 
+  it('defaults to listen when the teacher enables default listen mode', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: true,
+        courseDefaultListenModeEnabled: true,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toBe('listen');
+  });
+
+  it('falls back to read when teacher default listen mode is enabled but course listen mode is disabled', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: false,
+        courseDefaultListenModeEnabled: true,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toBe('read');
+  });
+
+  it('keeps read when teacher default listen mode is enabled but course listen capability is still unknown', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: null,
+        courseDefaultListenModeEnabled: true,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toBe('read');
+  });
+
   it('respects an explicit stored read preference', () => {
     expect(
       resolveCourseLearningMode({
         courseTtsEnabled: true,
+        courseDefaultListenModeEnabled: true,
         canUseClassroomMode: false,
         hasListenModeOverride: false,
         listenModeParam: null,

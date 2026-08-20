@@ -371,7 +371,29 @@ export const useUserStore = create<
 
     // Public API: Refresh user information from server
     refreshUserInfo: async () => {
-      const res = await getUserInfo();
+      const requestedToken = tokenTool.get().token;
+      const requestedUserId = get().userInfo?.user_id;
+      const identityChanged = () =>
+        tokenTool.get().token !== requestedToken ||
+        get().userInfo?.user_id !== requestedUserId;
+      let res: Awaited<ReturnType<typeof getUserInfo>>;
+      try {
+        res = await getUserInfo();
+      } catch (error) {
+        if (identityChanged()) {
+          debugInfo(
+            '[auth-chain] stale refreshUserInfo error ignored after identity change',
+          );
+          return;
+        }
+        throw error;
+      }
+      if (identityChanged()) {
+        debugInfo(
+          '[auth-chain] refreshUserInfo ignored because identity changed during fetch',
+        );
+        return;
+      }
       set(() => ({
         userInfo: {
           ...res,

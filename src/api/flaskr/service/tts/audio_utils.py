@@ -1,12 +1,11 @@
-"""
-Audio Processing Utilities.
+"""Audio Processing Utilities.
 
 This module provides audio concatenation and processing functions using pydub/ffmpeg.
 """
 
 import io
 import logging
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
 
 from flaskr.common.log import AppLoggerProxy
 
@@ -44,7 +43,9 @@ def _load_audio_segment(audio_data: bytes, *, input_format: str = "mp3"):
     return AudioSegment.from_file(audio_io, format=input_format)
 
 
-def try_get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> Optional[int]:
+def try_get_audio_duration_ms(
+    audio_data: bytes, audio_format: str = "mp3"
+) -> int | None:
     """Return decoded audio duration, or None when the bytes are not decodable."""
     if not audio_data:
         return 0
@@ -52,12 +53,12 @@ def try_get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> Optiona
         return _estimated_duration_ms(audio_data)
 
     try:
-        audio = _load_audio_segment(audio_data, input_format=format)
+        audio = _load_audio_segment(audio_data, input_format=audio_format)
         return len(audio)
     except Exception as exc:
         logger.debug(
             "Audio duration decode failed: format=%s bytes=%s error=%s",
-            format,
+            audio_format,
             len(audio_data or b""),
             exc,
             exc_info=True,
@@ -66,12 +67,11 @@ def try_get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> Optiona
 
 
 def concat_audio_mp3(
-    segments: List[bytes],
+    segments: list[bytes],
     output_format: str = "mp3",
     crossfade_ms: int = DEFAULT_CROSSFADE_MS,
 ) -> bytes:
-    """
-    Concatenate multiple MP3 audio segments into a single audio file.
+    """Concatenate multiple MP3 audio segments into a single audio file.
 
     Args:
         segments: List of audio data bytes (MP3 format)
@@ -85,6 +85,7 @@ def concat_audio_mp3(
     Raises:
         ImportError: If pydub is not available
         ValueError: If no segments provided
+
     """
     if not PYDUB_AVAILABLE:
         raise ImportError(
@@ -201,8 +202,7 @@ def _concat_decodable_audio_segments(
 def concat_audio_best_effort(
     segments: Sequence[bytes], output_format: str = "mp3"
 ) -> bytes:
-    """
-    Concatenate audio segments with graceful fallback when processing is unavailable.
+    """Concatenate audio segments with graceful fallback when processing is unavailable.
 
     Never raw-byte-joins multiple MP3 files. If normal concatenation fails, it
     re-exports the decodable subset so callers upload a standalone audio file.
@@ -215,7 +215,8 @@ def concat_audio_best_effort(
             return b""
         if (
             is_audio_processing_available()
-            and try_get_audio_duration_ms(only_segment, format=output_format) is None
+            and try_get_audio_duration_ms(only_segment, audio_format=output_format)
+            is None
         ):
             logger.warning(
                 "Dropping undecodable single audio segment (%s bytes)",
@@ -255,12 +256,11 @@ def export_audio_range_best_effort(
     audio_data: bytes,
     *,
     start_ms: int = 0,
-    end_ms: Optional[int] = None,
+    end_ms: int | None = None,
     input_format: str = "mp3",
     output_format: str = "mp3",
 ) -> tuple[bytes, int]:
-    """
-    Export a time range from an encoded audio blob as a standalone audio file.
+    """Export a time range from an encoded audio blob as a standalone audio file.
 
     Returns ``(audio_bytes, duration_ms)``. If pydub/ffmpeg cannot decode the
     range, returns ``(b"", 0)`` except for the full-audio fallback, where the
@@ -297,25 +297,25 @@ def export_audio_range_best_effort(
     return b"", 0
 
 
-def get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int:
-    """
-    Get duration of audio data in milliseconds.
+def get_audio_duration_ms(audio_data: bytes, audio_format: str = "mp3") -> int:
+    """Get duration of audio data in milliseconds.
 
     Args:
         audio_data: Audio data bytes
-        format: Audio format (default: mp3)
+        audio_format: Audio format (default: mp3)
 
     Returns:
         Duration in milliseconds
+
     """
-    duration_ms = try_get_audio_duration_ms(audio_data, format=format)
+    duration_ms = try_get_audio_duration_ms(audio_data, audio_format=audio_format)
     if duration_ms is not None:
         return duration_ms
 
     logger.warning(
         "Could not decode audio duration; falling back to bitrate estimate "
         "(format=%s, bytes=%s)",
-        format,
+        audio_format,
         len(audio_data or b""),
     )
     return _estimated_duration_ms(audio_data)

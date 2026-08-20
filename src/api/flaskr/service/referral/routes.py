@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from flask import Flask, request
-
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.common.models import raise_param_error
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     JSON,
     Column,
@@ -14,9 +16,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-
-from flaskr.dao import db
 
 from .consts import (
     REFERRAL_ABNORMAL_STATUS_NORMAL,
@@ -30,7 +29,6 @@ from .consts import (
     REFERRAL_RULE_STATUS_DRAFT,
     REFERRAL_TRIGGER_INVITED_REGISTRATION,
 )
-
 
 REFERRAL_CREDIT_NUMERIC = Numeric(20, 10)
 

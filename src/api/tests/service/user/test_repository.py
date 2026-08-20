@@ -1,18 +1,17 @@
 import uuid
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.dao import db
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_REGISTERED,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     create_user_entity,
@@ -21,6 +20,7 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     upsert_user_entity,
 )
+from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture

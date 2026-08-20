@@ -4,8 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 
 import pytest
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing import subscriptions as subscriptions_mod
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,

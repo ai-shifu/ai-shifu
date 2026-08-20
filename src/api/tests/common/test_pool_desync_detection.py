@@ -9,9 +9,8 @@ recirculating them.
 import socket
 
 import pytest
+from flaskr import dao
 from sqlalchemy.pool import QueuePool
-
-import flaskr.dao as dao
 
 
 class _FakePyMySQLConnection:
@@ -30,7 +29,7 @@ class _FakePyMySQLConnection:
         self._sock.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def sock_pair():
     left, right = socket.socketpair()
     left.setblocking(False)
@@ -135,7 +134,8 @@ def test_probe_timeout_waits_for_in_flight_data(sock_pair):
     exactly how a just-interrupted exchange poisons the pool. A generous
     test window (far larger than any CI scheduler delay) keeps this
     deterministic; the early-return assertion proves the probe wakes on
-    arrival rather than sleeping out the timeout."""
+    arrival rather than sleeping out the timeout.
+    """
     import threading
     import time as time_module
 

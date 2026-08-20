@@ -1,8 +1,8 @@
-from decimal import Decimal
 import json
+from decimal import Decimal
 from types import SimpleNamespace
 
-import flaskr.dao as dao
+from flaskr import dao
 
 
 def _seed_course(app, shifu_bid: str, owner_bid: str) -> None:
@@ -21,9 +21,9 @@ def _seed_course(app, shifu_bid: str, owner_bid: str) -> None:
                     avatar_res_bid="",
                     keywords="preview",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("0"),
+                    price=Decimal(0),
                     created_user_bid=owner_bid,
                     updated_user_bid=owner_bid,
                 )

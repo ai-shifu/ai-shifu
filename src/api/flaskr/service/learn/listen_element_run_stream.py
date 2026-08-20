@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
@@ -16,8 +17,8 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.listen_element_audio_binding import (
-    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_audio_target_element_bid,
+    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_pending_audio_for_stream_element,
     _resolve_stream_audio_for_element_bid,
 )
@@ -134,11 +135,11 @@ class ListenElementRunStreamMixin:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
-        for raw_position in state.audio_by_position.keys():
+        for raw_position in state.audio_by_position:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
-        for raw_position in state.live_audio_by_position.keys():
+        for raw_position in state.live_audio_by_position:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
@@ -694,8 +695,7 @@ class ListenElementRunStreamMixin:
                 position=position,
                 subtitle_cues=(
                     progressive_subtitle_cues
-                    if progressive_subtitle_cues
-                    else list(getattr(current_audio, "subtitle_cues", []) or [])
+                    or list(getattr(current_audio, "subtitle_cues", []) or [])
                 ),
             )
             segment_data = _audio_segment_payload(content)

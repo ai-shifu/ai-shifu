@@ -1,9 +1,7 @@
-import pytest
 import jwt
-
+import pytest
 from flask import Flask
-
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.common import validate_user
 
 
@@ -19,7 +17,7 @@ def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(monkeypatc
 
     monkeypatch.setattr(jwt, "decode", _raise_invalid_algorithm)
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         validate_user(app, "invalid-token")
 
     assert exc_info.value.code == ERROR_CODE["server.user.userNotFound"]

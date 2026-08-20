@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementChangeType,
@@ -165,18 +164,17 @@ def _build_final_elements_for_av_contract(
             if (
                 visual_segment is not None
                 and (visual_segment.visual_kind or "").strip()
-            ):
-                if visual_segment.segment_id not in emitted_visual_ids:
-                    visual_segment.element_index = next_element_index
-                    built.append(
-                        _build_visual_element_from_segment(
-                            segment=visual_segment,
-                            raw_content=raw_content,
-                            role=role,
-                        )
+            ) and visual_segment.segment_id not in emitted_visual_ids:
+                visual_segment.element_index = next_element_index
+                built.append(
+                    _build_visual_element_from_segment(
+                        segment=visual_segment,
+                        raw_content=raw_content,
+                        role=role,
                     )
-                    emitted_visual_ids.add(visual_segment.segment_id)
-                    next_element_index += 1
+                )
+                emitted_visual_ids.add(visual_segment.segment_id)
+                next_element_index += 1
 
             text = _text_for_speakable_segment(raw_content, item)
             if not _default_is_speakable(ElementType.TEXT, text):

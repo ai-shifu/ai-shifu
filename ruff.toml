@@ -6,41 +6,253 @@
 # of the installed Ruff version. Widening the rule set is a deliberate
 # decision, not a side effect of a version bump.
 #
-# DTZ selection is intentionally partial. The repo's UTC contract (AGENTS.md)
-# stores naive-UTC datetimes and provides `now_utc()` as the sanctioned naive
-# "now", so the rules that demand tz-aware values everywhere (DTZ001 naive
-# datetime(), DTZ007 naive strptime(), DTZ901 datetime.min/max) would fight
-# the house convention -- naive-UTC construction is correct here. The enabled
-# DTZ rules catch only calls whose result depends on the process time zone
-# (now()/today()/utcnow()/fromtimestamp() without tz), which are exactly the
-# UTC-vs-local drifts the contract forbids; use `now_utc()` instead.
+# How to read this file:
+# - `select` lists whole linters or prefixes wherever the codebase already
+#   satisfies every rule underneath. A rule is spelled out individually only
+#   when its prefix would drag in rules that do have violations.
+# - `ignore` carves the exceptions back out, one comment per reason.
+# - Groups that stay off entirely are listed under "Deliberately not selected"
+#   below, so the rationale survives the next Ruff upgrade.
 #
-# Other rule groups from ruff 0.16's broadened defaults were evaluated and
-# deliberately left off:
+# Deliberately not selected:
+# - ANN (except ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
+#   (and D1xx, see the ignore block): thousands of violations each; enforcing
+#   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
-#   tuples/lists, not a missed comma.
+#   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
+#   formatter.
+# - COM812: ruff lists it as conflicting with the formatter. Applying its
+#   6k fixes adds magic trailing commas that make `ruff format` re-explode
+#   every affected call and signature one argument per line -- a repo-wide
+#   reflow with no correctness value.
 # - BLE001 / S110 / S112: blind/except-pass handlers are deliberate fail-open
 #   patterns here (moderation, logging, notification side channels).
-# - G001 / G003 / G004: f-string logging is the established house style; the
-#   lazy-%-formatting argument does not outweigh the churn. G201 IS enabled --
-#   `.exception(...)` is strictly equivalent to `.error(..., exc_info=True)`.
-# - SIM* / RUF012 / RUF013 / RUF046 / UP*: style or modernization churn with
-#   no bug-catching value for this codebase today; revisit deliberately.
+# - C901 / PLR09xx: complexity and argument-count budgets that the existing
+#   service and route modules exceed by design.
+# - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
+#   callbacks, fixtures and test doubles.
+# - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
+#   inventing one (or downgrading the comment) would hide real pending work.
+# - N815: camelCase DTO attributes encode serialized JSON field names.
+
+# Matches the Python pinned by src/api/Dockerfile and the CI workflows.
+target-version = "py311"
 
 [lint]
 select = [
-    "E4",
-    "E7",
-    "E9",
-    "F",
-    "DTZ002", # datetime.today()
-    "DTZ003", # datetime.utcnow()
-    "DTZ004", # datetime.utcfromtimestamp()
-    "DTZ005", # datetime.now() without tz
-    "DTZ006", # datetime.fromtimestamp() without tz
-    "DTZ011", # date.today()
-    "DTZ012", # date.fromtimestamp()
-    "EXE",    # shebang vs executable-bit consistency
-    "G201",   # .error(..., exc_info=True) -> .exception(...)
-    "RUF059", # unused unpacked variable
+    # --- Core correctness -------------------------------------------------
+    "E",       # pycodestyle errors (E501 ignored below)
+    "F",       # pyflakes
+    "W",       # pycodestyle warnings
+    "I",       # import sorting and grouping
+    "B",       # flake8-bugbear
+    "SIM",     # flake8-simplify
+    "PIE",     # flake8-pie (redundant placeholders, dict kwargs, startswith)
+    "RET",     # flake8-return (explicit, non-redundant return statements)
+    "RSE",     # unnecessary parentheses on a raised exception
+    "C4",      # comprehension and collection-literal simplifications
+    "FLY",     # static str.join that should be an f-string
+    "PERF",    # performance anti-patterns
+    "FURB",    # refurb modernizations
+    "PYI",     # flake8-pyi (Any in __eq__, int | float unions, ...)
+    "Q",       # quote style, matching the formatter
+    "FA",      # missing from __future__ import annotations
+    "ICN",     # import naming conventions
+    "INT",     # gettext calls with f-strings
+    "SLOT",    # subclasses of str/tuple/namedtuple without __slots__
+    "YTT",     # sys.version checks that break on two-digit versions
+    "EXE",     # shebang vs executable-bit consistency
+    "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
+    "T1",      # leftover debugger calls
+    "ERA001",  # commented-out code
+
+    # --- Datetime / UTC contract -----------------------------------------
+    # Partial on purpose. The repo's UTC contract (AGENTS.md) stores naive-UTC
+    # datetimes and provides `now_utc()` as the sanctioned naive "now", so the
+    # rules demanding tz-aware values everywhere (DTZ001/DTZ007/DTZ901) fight
+    # the convention and are ignored below. What stays enabled are the calls
+    # whose result depends on the process time zone (now()/today()/utcnow()/
+    # fromtimestamp() without tz) -- exactly the drifts the contract forbids.
+    "DTZ",
+
+    # --- Logging ----------------------------------------------------------
+    # G004 (f-string logging) is the established house style and stays ignored
+    # below; the rest catch real defects: G001/G003 format the message eagerly
+    # (and `+` can raise TypeError on non-string values), G201 replaces
+    # `.error(..., exc_info=True)` with the equivalent `.exception(...)`, and
+    # G202 drops `exc_info` arguments that already match the call's default.
+    "G",
+    "LOG",     # flake8-logging (exc_info must name the exception outside except blocks)
+    "TRY2",    # verbose re-raise / exception handler that only re-raises
+    "TRY002",  # raising a vanilla Exception instead of a named class
+    "TRY400",  # logging.error inside except that should be logging.exception
+    "TRY401",  # exception object interpolated into a logging.exception message
+    "TRY300",  # return at the end of a try body that belongs in `else`
+    "TRY301",  # raise inside a try body that the same block then catches
+    "TRY004",  # type check raising something other than TypeError
+
+    # --- Pylint subsets ---------------------------------------------------
+    "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
+    "PLC",     # pylint conventions (PLC0415 ignored below)
+    "PLW",     # pylint warnings (PLW0603 ignored below)
+    # PLR is partial: the complexity/magic-value members have thousands of
+    # violations, so only the mechanical ones are listed.
+    "PLR01",   # comparison with itself / of two constants
+    "PLR0206", # property with parameters
+    "PLR0402", # import module.member as member that should be from-import
+    "PLR1",    # useless return, repeated comparison, manual min()/max()
+    "PLR2044", # empty comment
+    "PLR5",    # else: if ... that should be elif
+
+    # --- Pytest -----------------------------------------------------------
+    "PT",      # flake8-pytest-style
+
+    # --- Paths, suppressions, shadowing, security -------------------------
+    "PTH",     # os.path calls that should use pathlib
+    "PGH",     # blanket noqa / type: ignore, invalid suppressions
+    "ARG003",  # unused classmethod argument
+    "ARG004",  # unused staticmethod argument
+    "A001",    # local variable shadowing a builtin
+    "A002",    # function argument shadowing a builtin
+    "A006",    # lambda argument shadowing a builtin
+    # pep8-naming is partial: N815 stays off (see the header above).
+    "N801",    # class name that is not CapWords
+    "N806",    # local variable that is not lowercase
+    "N802",    # function name that is not lowercase
+    "N803",    # argument name that is not lowercase
+    "N813",    # CamelCase imported under a lowercase alias
+    "N818",    # exception class name without an Error suffix
+    "TD002",   # TODO without an author
+    # S101 bans `assert` in shipped code (python -O strips it, so an assert is
+    # not a runtime guard). Test suites and script self-tests are exempt via
+    # per-file-ignores below.
+    "S101",    # assert used outside tests
+    "S104",    # binding a socket to all interfaces
+    "S107",    # hardcoded password as a function default
+    "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
+    # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
+    # best-effort block reads better as `contextlib.suppress(...)`, which the
+    # repo already uses; a narrower `except OSError:` is not flagged either.
+    "S110",    # try-except-pass that swallows every exception
+    "S112",    # try-except-continue that swallows every exception
+    "S113",    # requests call without a timeout
+    "S310",    # urlopen without an audited URL scheme
+    "S311",    # `random` where a cryptographic generator is required
+    "S324",    # hashlib md5/sha1 without usedforsecurity=False
+    # S603/S605/S607 flag every subprocess and shell invocation. Application
+    # code justifies each one inline; developer tooling is exempt through
+    # per-file-ignores below.
+    "S603",    # subprocess call with unvalidated input
+    "S605",    # process started with a shell
+    "S607",    # process started with a partial executable path
+    # S608 flags every SQL string built by interpolation. Values always use
+    # bound parameters; the remaining sites interpolate table or column names,
+    # which bound parameters cannot carry, and justify it inline. Applied
+    # Alembic revisions must not be edited, so they are exempt below.
+    "S608",    # SQL query built by string interpolation
+
+    # --- Type annotations -------------------------------------------------
+    # flake8-annotations is otherwise off (see the header): annotating every
+    # argument and return in the repo is a separate project. ANN205 is small
+    # enough to keep enforced, and a staticmethod is where a missing return
+    # type hides the most, since there is no `self` to infer from. ANN206
+    # covers the classmethod counterpart, mostly alternative constructors and
+    # frozen-clock `now()` doubles.
+    "ANN205",  # missing return type on a staticmethod
+    "ANN206",  # missing return type on a classmethod
+    # flake8-type-checking is partial: TC002/TC003 would push third-party
+    # imports (SQLAlchemy, pydantic) behind TYPE_CHECKING, where any decorator
+    # or mapper that resolves annotations at runtime then fails. TC001 only
+    # covers first-party imports used solely in annotations, and every module
+    # it touches already has `from __future__ import annotations`.
+    "TC001",   # first-party import used only in annotations
+
+    # --- Docstrings -------------------------------------------------------
+    # pydocstyle is enabled as a whole; the members that would need thousands
+    # of new docstrings, conflict with a selected sibling rule, or rewrite
+    # embedded Swagger YAML are ignored below.
+    "D",
+
+    # --- Modernization ----------------------------------------------------
+    # UP040/UP046/UP047 (PEP 695 type parameters) are ignored below.
+    # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
+    # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
+    # of their public surface and carry a file-level `# ruff: noqa: UP035`.
+    "UP",
+
+    # --- Ruff-native rules ------------------------------------------------
+    # RUF001 (ambiguous unicode in a string) and RUF100 are ignored
+    # below.
+    "RUF",
 ]
+ignore = [
+    "E501",    # line length is owned by the formatter
+    # D1xx (except D104, which is enforced): ~4.6k undocumented modules,
+    # classes, methods, functions and __init__s. Writing them is a codebase
+    # project, not a lint config change.
+    "D100",    # undocumented public module
+    "D101",    # undocumented public class
+    "D102",    # undocumented public method
+    "D103",    # undocumented public function
+    "D105",    # undocumented magic method
+    "D107",    # undocumented __init__
+    "D203",    # blank line before a class docstring -- conflicts with D211
+    "D205",    # summary wrapped over two lines -- 260 prose rewrites, deferred
+    "D213",    # summary on the second line -- conflicts with D212
+    # D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec
+    # after a `---` line, and these rules read YAML keys such as `parameters:`
+    # as numpydoc section headers. Their fixes strip the colon and insert a
+    # dashed underline, turning the embedded spec into invalid YAML.
+    "D405",
+    "D406",
+    "D407",
+    "DTZ001",  # naive datetime() -- naive UTC is the house convention
+    "DTZ007",  # naive strptime() -- naive UTC is the house convention
+    "DTZ901",  # datetime.min/max -- naive UTC is the house convention
+    "G004",    # f-string logging -- house style, and rewriting it is churn
+    "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
+    "PLW0603", # global statement -- used by module-level singletons/caches
+    "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
+    # RUF100: with a partial select list, ruff reports deliberate `# noqa:
+    # BLE001 / DTZ001 / SLF001 / S102` markers as unused simply because those
+    # rules are off here, so enforcing it would delete documentation of
+    # intentional exceptions. Stale directives are pruned by hand instead.
+    "RUF100",
+    # UP040 / UP046 / UP047: PEP 695 type-parameter syntax (`type`, `class T`,
+    # `def T`). target-version is py311, which currently suppresses them; if
+    # the target later moves to py312+, ruff would start reporting them and
+    # `ruff check --fix` would leave their unsafe fixes unapplied, so CI would
+    # fail. The rewrite can also change TypeVar variance. Defer until the
+    # runtime is Python 3.12+.
+    "UP040",
+    "UP046",
+    "UP047",
+]
+
+[lint.per-file-ignores]
+# `assert` is the point of a test, and both scripts below are test code: one is
+# a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
+# Developer tooling (repo scripts, backend scripts, test harnesses) also shells
+# out to `git`, `node` and `python` with statically built argument lists, so the
+# subprocess audit rules only add noise there.
+"src/api/tests/**" = ["S101", "S603", "S607"]
+# These suites bind SQLAlchemy model classes and session factories to local
+# names, where the CapWords spelling is the point.
+"src/api/tests/service/shifu/test_archive.py" = ["N806"]
+"src/api/tests/service/shifu/test_mdflow_history_routes.py" = ["N806"]
+"src/api/tests/service/shifu/test_permissions.py" = ["N806"]
+"src/api/tests/service/billing/test_renewal_uow_failure_paths.py" = ["N806"]
+"src/api/conftest.py" = ["S101"]
+"scripts/test_*.py" = ["S101"]
+"scripts/check_example_identifiers.py" = ["S101"]
+# These applied Alembic revisions are immutable history: their backfill
+# statements interpolate table names and cannot be rewritten after deployment.
+# Listed one by one so new revisions stay covered by S608.
+"src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
+"src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
+"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
+"src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
+"src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
+"src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
+"scripts/**" = ["S603", "S607"]
+"src/api/scripts/**" = ["S603", "S607"]

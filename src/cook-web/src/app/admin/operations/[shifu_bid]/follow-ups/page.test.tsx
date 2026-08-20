@@ -90,7 +90,13 @@ jest.mock('react-i18next', () => ({
     const cacheKey = ns || 'translation';
     if (!mockTranslationCache.has(cacheKey)) {
       mockTranslationCache.set(cacheKey, {
-        t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
+        t: (key: string) => {
+          const translatedKey =
+            ns && ns !== 'translation' ? `${ns}.${key}` : key;
+          return translatedKey === 'module.user.defaultUserName'
+            ? 'Anonymous User'
+            : translatedKey;
+        },
       });
     }
     return {
@@ -391,6 +397,43 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         name: 'module.operationsCourse.detail.title',
       }),
     ).toHaveAttribute('href', '/admin/operations/course-1');
+  });
+
+  test('uses the shared anonymous user label in the list and detail drawer', async () => {
+    const followUps = await mockGetAdminOperationCourseFollowUps();
+    const detail = await mockGetAdminOperationCourseFollowUpDetail();
+    mockGetAdminOperationCourseFollowUps.mockClear();
+    mockGetAdminOperationCourseFollowUpDetail.mockClear();
+    mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
+      ...followUps,
+      items: followUps.items.map(
+        (item: { generated_block_bid: string; nickname: string }) =>
+          item.generated_block_bid === 'ask-2'
+            ? { ...item, nickname: '   ' }
+            : item,
+      ),
+    });
+    mockGetAdminOperationCourseFollowUpDetail.mockResolvedValueOnce({
+      ...detail,
+      basic_info: {
+        ...detail.basic_info,
+        nickname: '   ',
+      },
+    });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    expect(await screen.findByText('Anonymous User')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.table.detailAction',
+      })[0],
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Anonymous User')).toHaveLength(2);
+    });
   });
 
   test('formats follow-up summary counts without grouping in Chinese locale', async () => {

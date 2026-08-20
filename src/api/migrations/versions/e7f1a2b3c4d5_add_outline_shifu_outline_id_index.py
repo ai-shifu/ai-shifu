@@ -1,4 +1,4 @@
-"""add (shifu_bid, outline_item_bid, id) index for draft outline
+"""add (shifu_bid, outline_item_bid, id) index for draft outline.
 
 Revision ID: e7f1a2b3c4d5
 Revises: d4e5f6a7b8c9
@@ -12,10 +12,9 @@ locking the whole version range. This removes the deadlock observed under
 concurrent saves of the same outline.
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.exc import SQLAlchemyError
-
 
 # revision identifiers, used by Alembic.
 revision = "e7f1a2b3c4d5"

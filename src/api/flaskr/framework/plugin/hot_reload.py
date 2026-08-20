@@ -1,8 +1,9 @@
 import importlib
 import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+
 from flask import Flask
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 
 class PluginHotReloader:
@@ -13,19 +14,19 @@ class PluginHotReloader:
         self.observer = Observer()
 
     def start(self):
-        """1111111"""
+        """1111111."""
         event_handler = PluginFileHandler(self)
         self.observer.schedule(event_handler, self.plugin_dir, recursive=True)
         self.observer.start()
         self.app.logger.info("Plugin hot reload started")
 
     def stop(self):
-        """停止热加载监听"""
+        """Stop watching for hot reloads."""
         self.observer.stop()
         self.observer.join()
 
     def reload_plugin(self, plugin_path: str):
-        """重新加载单个插件"""
+        """Reload a single plugin."""
         try:
             # 1. unload plugin
             self._unload_plugin(plugin_path)
@@ -39,13 +40,11 @@ class PluginHotReloader:
             self._register_plugin(module)
 
             self.app.logger.info(f"Hot reload plugin success: {plugin_path}")
-        except Exception as e:
-            self.app.logger.error(
-                f"Hot reload plugin failed: {plugin_path}, error: {str(e)}"
-            )
+        except Exception:
+            self.app.logger.exception(f"Hot reload plugin failed: {plugin_path}")
 
     def _unload_plugin(self, plugin_path: str):
-        """Unload a plugin and clean up its resources
+        """Unload a plugin and clean up its resources.
 
         Args:
             plugin_path: Path to the plugin file
@@ -56,9 +55,11 @@ class PluginHotReloader:
             3. Call lifecycle hooks
             4. Clean up registered extensions
             5. Remove from sys.modules
+
         """
         try:
             import sys
+
             from .plugin_manager import plugin_manager
 
             # Convert path to module name
@@ -81,11 +82,11 @@ class PluginHotReloader:
 
             self.app.logger.info(f"Plugin unloaded: {module_name}")
 
-        except Exception as e:
-            self.app.logger.error(f"Failed to unload plugin {plugin_path}: {str(e)}")
+        except Exception:
+            self.app.logger.exception(f"Failed to unload plugin {plugin_path}")
 
     def _register_plugin(self, module):
-        """Register a newly loaded plugin
+        """Register a newly loaded plugin.
 
         Args:
             module: The reloaded module object
@@ -94,6 +95,7 @@ class PluginHotReloader:
             1. Initialize plugin class if exists
             2. Call lifecycle hooks
             3. Register new extensions
+
         """
         try:
             # Initialize plugin if Plugin class exists
@@ -108,10 +110,8 @@ class PluginHotReloader:
 
             self.app.logger.info(f"Plugin registered: {module.__name__}")
 
-        except Exception as e:
-            self.app.logger.error(
-                f"Failed to register plugin {module.__name__}: {str(e)}"
-            )
+        except Exception:
+            self.app.logger.exception(f"Failed to register plugin {module.__name__}")
 
 
 class PluginFileHandler(FileSystemEventHandler):

@@ -31,7 +31,7 @@ PR3 scope notes (mirroring the emitter's PR1 conventions):
 """
 
 import queue
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common import raise_error
@@ -46,7 +46,6 @@ from flaskr.service.shifu.struct_utils import find_node_with_parents
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard, typing only
     from flask import Flask
-
     from flaskr.service.learn.context_v2 import RunScriptContextV2, RunScriptInfo
     from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 
@@ -122,13 +121,10 @@ class RunStateResolver:
                 return True
             if outline_item_info.children[0].type == "outline":
                 return False
-        if outline_item_info.type == "outline":
-            return True
-        return False
+        return outline_item_info.type == "outline"
 
     def get_current_outline_block_count(self) -> int:
-        """
-        Determine the completion threshold for the current outline.
+        """Determine the completion threshold for the current outline.
 
         History metadata (`child_count` / block children) can lag behind the
         latest mdflow document. When that happens, relying on the history tree
@@ -170,7 +166,6 @@ class RunStateResolver:
                 ).get_all_blocks()
             )
             block_count_cache[outline_bid] = block_count
-            return block_count
         except Exception as exc:
             self.app.logger.warning(
                 "Load runtime block count failed for outline %s: %s",
@@ -179,6 +174,8 @@ class RunStateResolver:
                 exc_info=True,
             )
             return history_block_count
+        else:
+            return block_count
 
     # get the outline items to start or complete
     def get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
@@ -356,7 +353,7 @@ class RunStateResolver:
                     q.put(child)
         return outline_struct
 
-    def get_outline_row_id(self, outline_item_bid: str) -> Union[int, None]:
+    def get_outline_row_id(self, outline_item_bid: str) -> int | None:
         ctx = self._context
         if not outline_item_bid:
             return None

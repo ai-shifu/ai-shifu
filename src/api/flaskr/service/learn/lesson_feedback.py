@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import raise_param_error
@@ -18,6 +16,7 @@ from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.util import generate_id
 from flaskr.util.datetime import to_utc_iso
+from sqlalchemy.exc import IntegrityError
 
 _FEEDBACK_COMMENT_MAX_LENGTH = 1000
 _VALID_MODES = {"read", "listen"}

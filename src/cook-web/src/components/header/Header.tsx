@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 import {
   buildCourseLearningUrl,
   buildLearningModeUrl,
+  buildParameterlessCourseUrl,
   isPublishLearningModeAvailable,
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
@@ -196,8 +197,17 @@ const Header = ({
       return;
     }
 
+    const url = getLearningModeUrl(mode);
+    if (!url) {
+      toast({
+        title: t('component.header.copyLinkFailed'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      await writeClipboardText(getLearningModeUrl(mode));
+      await writeClipboardText(url);
       trackEvent('creator_publish_link_copy', {
         shifu_bid: currentShifu?.bid || '',
         learning_mode: mode,
@@ -214,6 +224,14 @@ const Header = ({
     publishedUrl: string,
     mode?: LearningMode,
   ) => {
+    if (!publishedUrl) {
+      toast({
+        title: t('component.header.copyLinkFailed'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       await writeClipboardText(publishedUrl);
       trackEvent('creator_publish_link_copy', {
@@ -232,6 +250,7 @@ const Header = ({
     publishedUrl: string,
     mode?: LearningMode,
   ) => {
+    const shareUrl = buildParameterlessCourseUrl(publishedUrl);
     alert.showAlert({
       title: t('component.header.publishSuccess'),
       confirmText: t('component.header.publishSuccessDone'),
@@ -261,31 +280,33 @@ const Header = ({
             </div>
             <p>{t('component.header.publishSuccessAudienceDescription')}</p>
           </div>
-          <div className='space-y-1.5'>
-            <div className='text-xs font-medium text-foreground'>
-              {t('component.header.learningLink')}
+          {shareUrl ? (
+            <div className='space-y-1.5'>
+              <div className='text-xs font-medium text-foreground'>
+                {t('component.header.learningLink')}
+              </div>
+              <div className='flex items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2'>
+                <a
+                  href={shareUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='min-w-0 flex-1 break-all text-sm font-medium text-blue-600 hover:underline'
+                >
+                  {shareUrl}
+                </a>
+                <button
+                  type='button'
+                  aria-label={t('component.header.copyLearningLink')}
+                  className='flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
+                  onClick={() => {
+                    void copyPublishedUrl(shareUrl, mode);
+                  }}
+                >
+                  <Copy className='h-4 w-4' />
+                </button>
+              </div>
             </div>
-            <div className='flex items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2'>
-              <a
-                href={publishedUrl}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='min-w-0 flex-1 break-all text-sm font-medium text-blue-600 hover:underline'
-              >
-                {publishedUrl}
-              </a>
-              <button
-                type='button'
-                aria-label={t('component.header.copyLearningLink')}
-                className='flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
-                onClick={() => {
-                  void copyPublishedUrl(publishedUrl, mode);
-                }}
-              >
-                <Copy className='h-4 w-4' />
-              </button>
-            </div>
-          </div>
+          ) : null}
         </div>
       ),
     });
@@ -296,6 +317,11 @@ const Header = ({
     pendingWindow?: Window | null,
   ) => {
     const targetUrl = buildLearningModeUrl(courseUrl, mode);
+    if (!targetUrl) {
+      pendingWindow?.close();
+      return false;
+    }
+
     if (pendingWindow && !pendingWindow.closed) {
       pendingWindow.opener = null;
       pendingWindow.location.href = targetUrl;
@@ -336,7 +362,7 @@ const Header = ({
           return;
         }
 
-        showPublishSuccessAlert(buildLearningModeUrl(result, mode), mode);
+        showPublishSuccessAlert(result, mode);
         return;
       }
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -23,8 +23,10 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -80,9 +82,9 @@ def _seed_course(shifu_bid: str, creator_user_bid: str) -> None:
         avatar_res_bid="",
         keywords="",
         llm="gpt-test",
-        llm_temperature=Decimal("0"),
+        llm_temperature=Decimal(0),
         llm_system_prompt="",
-        price=Decimal("0"),
+        price=Decimal(0),
         created_user_bid=creator_user_bid,
         updated_user_bid=creator_user_bid,
     )
@@ -98,9 +100,9 @@ def _seed_published_course(shifu_bid: str, creator_user_bid: str) -> None:
         avatar_res_bid="",
         keywords="",
         llm="gpt-test",
-        llm_temperature=Decimal("0"),
+        llm_temperature=Decimal(0),
         llm_system_prompt="",
-        price=Decimal("0"),
+        price=Decimal(0),
         created_user_bid=creator_user_bid,
         updated_user_bid=creator_user_bid,
     )
@@ -124,15 +126,11 @@ def _mock_operator(monkeypatch, user_id: str = "operator-1"):
 
 
 def _clear_config_caches() -> None:
-    try:
+    with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         if config_module.__INSTANCE__ is not None:
             config_module.__INSTANCE__.enhanced._cache.clear()
-    except Exception:
-        pass
 
 
 def _ensure_trial_billing_enabled(app, monkeypatch) -> None:

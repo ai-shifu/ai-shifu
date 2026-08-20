@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from flaskr.util.datetime import now_utc
 from types import SimpleNamespace
-from typing import Optional
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -28,6 +25,7 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc
 
 
 def _clear_tables() -> None:
@@ -125,8 +123,8 @@ def seed_published_shifu(
 ) -> None:
     """Seed one PublishedShifu row. Pair with seed_owned_course when the test
     needs both the draft and the published version of a course (e.g. to cover
-    the "draft title diverges from published title after rename" scenario)."""
-
+    the "draft title diverges from published title after rename" scenario).
+    """
     now = now_utc()
     db.session.add(
         PublishedShifu(
@@ -160,7 +158,7 @@ def seed_progress(
     user_bid: str,
     status: int,
     outline_item_bid: str = "outline-1",
-    progress_record_bid: Optional[str] = None,
+    progress_record_bid: str | None = None,
 ) -> str:
     now = now_utc()
     record_bid = progress_record_bid or f"pr-{shifu_bid}-{user_bid}-{status}"
@@ -204,16 +202,16 @@ def seed_generated_block(
     *,
     shifu_bid: str,
     user_bid: str,
-    type: int,
+    block_type: int,
     role: int,
     content: str,
     progress_record_bid: str = "pr-default",
-    generated_block_bid: Optional[str] = None,
+    generated_block_bid: str | None = None,
     outline_item_bid: str = "",
     position: int = 0,
     status: int = 1,
 ) -> str:
-    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
+    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{block_type}-{content[:8]}"
     now = now_utc()
     db.session.add(
         LearnGeneratedBlock(
@@ -223,7 +221,7 @@ def seed_generated_block(
             progress_record_bid=progress_record_bid,
             outline_item_bid=outline_item_bid,
             position=position,
-            type=type,
+            type=block_type,
             role=role,
             status=status,
             generated_content=content,
@@ -265,7 +263,7 @@ def seed_bill_usage_record(
     usage_scene: int = 1203,
     provider: str = "deepseek",
     model: str = "deepseek-v4-flash",
-    created_at: Optional[datetime] = None,
+    created_at: datetime | None = None,
     deleted: int = 0,
 ) -> str:
     """Seed one BillUsageRecord row for credit-detail E2E tests.
@@ -274,7 +272,6 @@ def seed_bill_usage_record(
     empty, numeric fields to zero) so callers only have to set what the
     test cares about.
     """
-
     db.session.add(
         BillUsageRecord(
             usage_bid=usage_bid,
@@ -304,8 +301,8 @@ def seed_credit_ledger_entry(
     entry_type: int = CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     wallet_bid: str = "",
     wallet_bucket_bid: str = "",
-    idempotency_key: Optional[str] = None,
-    created_at: Optional[datetime] = None,
+    idempotency_key: str | None = None,
+    created_at: datetime | None = None,
     deleted: int = 0,
 ) -> str:
     """Seed one CreditLedgerEntry row.
@@ -315,7 +312,6 @@ def seed_credit_ledger_entry(
     deductions). ``idempotency_key`` defaults to a per-source-bid value to
     satisfy the (creator_bid, idempotency_key) unique constraint.
     """
-
     db.session.add(
         CreditLedgerEntry(
             ledger_bid=ledger_bid,
@@ -348,10 +344,9 @@ def seed_bill_daily_metric(
     billing_metric: int = 1,
     consumed_credits: float = 10.0,
     record_count: int = 5,
-    daily_usage_metric_bid: Optional[str] = None,
+    daily_usage_metric_bid: str | None = None,
 ) -> None:
     """Seed one BillingDailyUsageMetric row for E2E credit-query tests."""
-
     bid = (
         daily_usage_metric_bid
         or f"dm-{shifu_bid}-{stat_date}-{usage_type}-{provider}-{model}"

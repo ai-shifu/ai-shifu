@@ -40,8 +40,23 @@ tools already installed on your machine). The git hooks only fire after
 `lefthook install` has wired them into `.git/hooks`, and each hook shells out to
 tools that must already be on `PATH`. One-time setup:
 
+Install lefthook for your platform.
+
+macOS (Homebrew):
+
 ```bash
 brew install lefthook
+```
+
+Linux or Windows (npm):
+
+```bash
+npm install -g @evilmartians/lefthook
+```
+
+Then install the remaining development tools:
+
+```bash
 pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install
@@ -355,10 +370,12 @@ src/api/tests/
 
 - `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
   direct pushes to `main`.
-- `contract-tests.yml`: runs contract tests for backend-facing changes.
 - `prettier-check.yml`: checks Cook Web formatting for frontend changes.
-- `translations-check.yml`: validates translation parity, key usage, and
-  locale metadata on PRs, selected branches, and a schedule.
+- `repo-harness.yml`: the `Static Checks` job validates architecture
+  boundaries, generated AI and knowledge artifacts, translation parity and
+  locale metadata, and the MarkdownFlow release pins on PRs into `main`.
+- `runtime-harness.yml`: runs the Docker-backed Playwright smoke harness for
+  runtime-affecting backend, frontend, Docker, and script changes.
 - `prepare-release.yml`: manually prepares a release draft from a requested
   `vX.Y.Z` version and updates versioned project files.
 - `build-latest.yml`: builds the freshest published Docker images from `main`

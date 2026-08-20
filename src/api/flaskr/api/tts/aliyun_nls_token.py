@@ -1,5 +1,4 @@
-"""
-Aliyun NLS token helper.
+"""Aliyun NLS token helper.
 
 Aliyun RESTful TTS requires a short-lived NLS access token. This module fetches
 the token via Aliyun POP OpenAPI (CreateToken) and caches it in Redis when
@@ -13,6 +12,7 @@ Docs:
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
@@ -20,7 +20,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -28,7 +28,6 @@ import requests
 from flaskr.common.cache_provider import cache
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
-
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -51,29 +50,24 @@ class AliyunNlsToken:
     def expires_in_seconds(self) -> int:
         return max(0, int(self.expire_time - time.time()))
 
-    def is_expired(self, now: Optional[float] = None) -> bool:
+    def is_expired(self, now: float | None = None) -> bool:
         now_ts = time.time() if now is None else float(now)
         return self.expire_time <= int(now_ts)
 
 
 def _percent_encode(value: Any) -> str:
-    """
-    RFC3986 percent encoding compatible with Aliyun POP signing rules.
-    """
-
+    """RFC3986 percent encoding compatible with Aliyun POP signing rules."""
     if value is None:
         value = ""
     return quote(str(value), safe="-_.~")
 
 
 def _canonicalized_query(params: dict[str, Any]) -> str:
-    """
-    Build canonicalized query string from params (excluding Signature).
-    """
-
-    parts: list[str] = []
-    for key in sorted(params.keys()):
-        parts.append(f"{_percent_encode(key)}={_percent_encode(params[key])}")
+    """Build canonicalized query string from params (excluding Signature)."""
+    parts: list[str] = [
+        f"{_percent_encode(key)}={_percent_encode(params[key])}"
+        for key in sorted(params.keys())
+    ]
     return "&".join(parts)
 
 
@@ -111,7 +105,7 @@ def _get_lock_key() -> str:
     return f"{prefix}tts:aliyun:nls_token:lock"
 
 
-def _decode_cache_value(raw: Any) -> Optional[AliyunNlsToken]:
+def _decode_cache_value(raw: Any) -> AliyunNlsToken | None:
     if raw is None:
         return None
     if isinstance(raw, bytes):
@@ -142,15 +136,13 @@ def _store_cache_value(value: AliyunNlsToken) -> None:
     cache.set(_get_cache_key(), payload, ex=ttl_seconds)
 
 
-def _get_access_keys() -> Tuple[str, str]:
-    """
-    Resolve AccessKeyId/AccessKeySecret for NLS CreateToken.
+def _get_access_keys() -> tuple[str, str]:
+    """Resolve AccessKeyId/AccessKeySecret for NLS CreateToken.
 
     Prefer the dedicated variables from Aliyun docs. Fall back to OSS keys when
     present to reduce configuration friction in deployments that already have
     Alibaba Cloud account keys configured.
     """
-
     ak_id = (get_config("ALIYUN_AK_ID") or "").strip()
     ak_secret = (get_config("ALIYUN_AK_SECRET") or "").strip()
     if ak_id and ak_secret:
@@ -225,8 +217,7 @@ def get_aliyun_nls_token(
     force_refresh: bool = False,
     refresh_leeway_seconds: int = _DEFAULT_REFRESH_LEEWAY_SECONDS,
 ) -> str:
-    """
-    Get a valid Aliyun NLS access token for RESTful TTS.
+    """Get a valid Aliyun NLS access token for RESTful TTS.
 
     Resolution order:
     1) Use `ALIYUN_TTS_TOKEN` when explicitly configured (manual override).
@@ -234,7 +225,6 @@ def get_aliyun_nls_token(
     3) Fetch a new token using `ALIYUN_AK_ID` + `ALIYUN_AK_SECRET` (or OSS key fallback),
        cache it, and return it.
     """
-
     override = (get_config("ALIYUN_TTS_TOKEN") or "").strip()
     if override:
         return override
@@ -276,7 +266,6 @@ def get_aliyun_nls_token(
                 "Fetched Aliyun NLS token (expires_in=%ss)",
                 max(0, int(fresh.expire_time - time.time())),
             )
-            return fresh.token
         except Exception as exc:
             # If we still have a cached token that hasn't expired, use it as a fallback.
             if cached and not cached.is_expired(now=now):
@@ -286,21 +275,19 @@ def get_aliyun_nls_token(
                 )
                 return cached.token
             raise
+        else:
+            return fresh.token
     finally:
         if acquired:
-            try:
+            with contextlib.suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def is_aliyun_nls_token_configured() -> bool:
-    """
-    Return True if the service has enough configuration to obtain an NLS token.
+    """Return True if the service has enough configuration to obtain an NLS token.
 
     This function does not perform any network requests.
     """
-
     if (get_config("ALIYUN_TTS_TOKEN") or "").strip():
         return True
     access_key_id, access_key_secret = _get_access_keys()

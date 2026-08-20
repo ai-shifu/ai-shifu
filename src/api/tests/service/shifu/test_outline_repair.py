@@ -3,7 +3,6 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 from flaskr.service.shifu.repair import repair_shifu_outline_structure
@@ -19,7 +18,7 @@ def _mk_shifu(shifu_bid: str, title: str = "Draft") -> DraftShifu:
         keywords="",
         llm="gpt-test",
         llm_temperature=Decimal("0.3"),
-        price=Decimal("0"),
+        price=Decimal(0),
         deleted=0,
         created_user_bid="owner-1",
         updated_user_bid="owner-1",
@@ -164,7 +163,7 @@ def test_repair_shifu_outline_structure_requires_user_bid_before_processing(app)
         _mk_outline("shifu-user-bid-check", "child-b", "0101", parent_bid="root-1")
         db.session.commit()
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="user_bid is required") as exc_info:
         repair_shifu_outline_structure(
             app,
             user_bid=None,

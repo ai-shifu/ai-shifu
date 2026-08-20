@@ -3,9 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import requests
-
-from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.common import umami_client
+from flaskr.common.cache_provider import InMemoryCacheProvider
 
 
 def _mock_config(monkeypatch, values: dict[str, object]) -> None:

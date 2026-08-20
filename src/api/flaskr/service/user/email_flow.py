@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-import uuid
+import contextlib
 import datetime
-from typing import Any, Dict, Optional, Tuple
+import uuid
+from typing import Any
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
-from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.service.user.utils import generate_token
 from flaskr.service.user.models import UserVerifyCode
+from flaskr.service.user.phone_flow import init_first_course, migrate_user_study_record
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -25,16 +24,18 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
-    update_user_entity_fields,
-    upsert_wechat_credentials,
-    upsert_credential,
     transactional_session,
+    update_user_entity_fields,
+    upsert_credential,
+    upsert_wechat_credentials,
 )
+from flaskr.service.user.utils import generate_token
+from flaskr.util.datetime import now_utc
 
 FIX_CHECK_CODE = None
 
 
-def configure_fix_check_code(value: Optional[str]) -> None:
+def configure_fix_check_code(value: str | None) -> None:
     global FIX_CHECK_CODE
     FIX_CHECK_CODE = value
 
@@ -42,23 +43,21 @@ def configure_fix_check_code(value: Optional[str]) -> None:
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     if value is None:
         return False
-    try:
+    with contextlib.suppress(Exception):
         if value.tzinfo is not None:
             value = value.replace(tzinfo=None)
-    except Exception:
-        pass
     now = now_utc()
     return (now - value).total_seconds() <= seconds
 
 
 def _consume_latest_email_code_from_db(app: Flask, email: str, code: str) -> str:
-    """
-    Consume the latest sent email verification code from the database.
+    """Consume the latest sent email verification code from the database.
 
     Returns:
       - "ok" when the code is valid and is marked as used.
       - "expired" when no valid code exists (missing/used/expired).
       - "invalid" when a code exists but does not match.
+
     """
     expire_seconds = int(app.config.get("MAIL_CODE_EXPIRE_TIME", 300))
     latest = (
@@ -84,12 +83,12 @@ def _consume_latest_email_code_from_db(app: Flask, email: str, code: str) -> str
 
 def verify_email_code(
     app: Flask,
-    user_id: Optional[str],
+    user_id: str | None,
     email: str,
     code: str,
-    course_id: Optional[str] = None,
-    language: Optional[str] = None,
-) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    course_id: str | None = None,
+    language: str | None = None,
+) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
@@ -138,17 +137,22 @@ def verify_email_code(
         if not target_aggregate and origin_aggregate:
             target_aggregate = origin_aggregate
 
-        if (
-            target_aggregate
-            and user_id
-            and target_aggregate.user_bid != user_id
-            and course_id is not None
-        ):
-            new_profiles = get_user_profile_labels(app, user_id, course_id)
-            update_user_profile_with_lable(
-                app, target_aggregate.user_bid, new_profiles, False, course_id
+        if target_aggregate and user_id and target_aggregate.user_bid != user_id:
+            include_legacy_nickname = merge_learner_profile_for_sign_in(
+                source_user_id=user_id,
+                target_user_id=target_aggregate.user_bid,
             )
-            if origin_aggregate:
+            if course_id is not None:
+                new_profiles = get_user_profile_labels(
+                    app,
+                    user_id,
+                    course_id,
+                    include_nickname=include_legacy_nickname,
+                )
+                update_user_profile_with_lable(
+                    app, target_aggregate.user_bid, new_profiles, False, course_id
+                )
+            if origin_aggregate and course_id is not None:
                 migrate_user_study_record(
                     app,
                     origin_aggregate.user_bid,
@@ -186,7 +190,7 @@ def verify_email_code(
                 target_aggregate.user_bid, include_deleted=True
             )
             if entity:
-                updates: Dict[str, Any] = {"identify": normalized_email}
+                updates: dict[str, Any] = {"identify": normalized_email}
                 promote_state = target_aggregate.state in (
                     USER_STATE_UNREGISTERED,
                     0,

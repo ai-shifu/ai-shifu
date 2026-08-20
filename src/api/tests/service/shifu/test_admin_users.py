@@ -1,23 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from flaskr.util.datetime import now_utc
+import sys
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-import sys
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
-from flaskr.service.shifu import admin as admin_module
-from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
-    BILL_USAGE_TYPE_TTS,
+from flaskr.service.billing import (
+    referral_reward_grants as referral_reward_grants_module,
 )
+from flaskr.service.billing.bucket_categories import resolve_credit_bucket_priority
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -36,47 +29,53 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
-from flaskr.service.billing import (
-    referral_reward_grants as referral_reward_grants_module,
-)
-from flaskr.service.billing.bucket_categories import resolve_credit_bucket_priority
-from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
 )
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
-from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserListDTO,
+    AdminOperationUserOverviewDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserSummaryDTO,
+)
+from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
+from flaskr.service.shifu.admin_operations.user_credits import (
+    get_operator_user_credit_usage_detail,
+    get_operator_user_credits,
+    get_operator_user_grant_bootstrap,
+    grant_operator_user_credits,
+    grant_operator_user_package,
+)
 from flaskr.service.shifu.admin_operations.users import (
     get_operator_user_detail,
     get_operator_user_overview,
     list_operator_users,
-)
-from flaskr.service.shifu.admin_operations.user_credits import (
-    get_operator_user_grant_bootstrap,
-    grant_operator_user_credits,
-    grant_operator_user_package,
-    get_operator_user_credit_usage_detail,
-    get_operator_user_credits,
-)
-from flaskr.service.shifu.admin_dtos import (
-    AdminOperationUserCreditGrantRequestDTO,
-    AdminOperationUserPackageGrantRequestDTO,
-    AdminOperationUserListDTO,
-    AdminOperationUserOverviewDTO,
-    AdminOperationUserSummaryDTO,
 )
 from flaskr.service.shifu.models import (
     AiCourseAuth,
@@ -94,10 +93,13 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
 )
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.billing_products import build_bill_products
 
 
@@ -183,8 +185,8 @@ def _mock_operator(
 def _z(value):
     """Serialize a datetime the way flaskr.route.common.fmt does (UTC ISO 'Z')."""
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _build_active_window(
@@ -410,9 +412,9 @@ def _seed_credit_wallet_bucket(
         priority=10,
         original_credits=Decimal(available_credits),
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=effective_from,
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -866,7 +868,7 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:
             return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -980,7 +982,7 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:
             return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -2483,7 +2485,7 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
             user_bid="usage-detail-wallet-owner",
             usage_bid="usage-detail-owner-check",
         )
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             get_operator_user_credit_usage_detail(
                 app,
                 user_bid="usage-detail-other-owner",
@@ -2920,7 +2922,7 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
 def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
@@ -3002,10 +3004,10 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
     assert len(buckets) == 1
     assert buckets[0].metadata_json["grant_type"] == "referral_reward"
     assert buckets[0].metadata_json["validity_strategy"] == "stack_by_reward_scene"
-    assert Decimal(str(buckets[0].available_credits)) == Decimal("1800")
+    assert Decimal(str(buckets[0].available_credits)) == Decimal(1800)
     assert len(ledgers) == 2
     assert ledgers[0].expires_at == ledgers[1].expires_at == buckets[0].effective_to
-    assert Decimal(ledgers[1].metadata_json["reward_credits"]) == Decimal("800")
+    assert Decimal(ledgers[1].metadata_json["reward_credits"]) == Decimal(800)
     assert ledgers[1].metadata_json["previous_effective_to"]
     assert ledgers[1].metadata_json["new_effective_to"]
     assert bootstrap.referral_reward_summary.available_credits == "1800"
@@ -3018,7 +3020,7 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
@@ -3056,11 +3058,11 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
                 priority=resolve_credit_bucket_priority(
                     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
                 ),
-                original_credits=Decimal("1000"),
-                available_credits=Decimal("0"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("1000"),
-                expired_credits=Decimal("0"),
+                original_credits=Decimal(1000),
+                available_credits=Decimal(0),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(1000),
+                expired_credits=Decimal(0),
                 effective_from=datetime(2026, 4, 1, 0, 0, 0),
                 effective_to=datetime(2026, 5, 21, 0, 0, 0),
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -3096,7 +3098,7 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
     assert result.note == "extend empty active bucket"
     assert len(buckets) == 1
     assert buckets[0].effective_to == datetime(2026, 6, 21, 0, 0, 0)
-    assert Decimal(str(buckets[0].available_credits)) == Decimal("1000")
+    assert Decimal(str(buckets[0].available_credits)) == Decimal(1000)
 
 
 def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_id(
@@ -3168,7 +3170,7 @@ def test_grant_operator_user_referral_reward_rejects_non_integer_amount(app):
             providers=[("email", "referral-reward-invalid-amount@example.com")],
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             grant_operator_user_credits(
                 app,
                 user_bid="referral-reward-invalid-amount",
@@ -3229,7 +3231,7 @@ def test_grant_operator_user_credits_rejects_unknown_grant_type(app):
             providers=[("email", "credits-grant-unknown-type@example.com")],
         )
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             grant_operator_user_credits(
                 app,
                 user_bid="credits-grant-unknown-type",
@@ -3321,7 +3323,7 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app):
             providers=[("email", "credits-grant-regular@example.com")],
         )
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             grant_operator_user_credits(
                 app,
                 user_bid="credits-grant-regular",
@@ -3610,7 +3612,7 @@ def test_grant_operator_user_package_rejects_active_stripe_subscription(app):
             current_period_end_at=now_utc() + timedelta(days=29),
         )
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             grant_operator_user_package(
                 app,
                 user_bid="package-grant-stripe-conflict",

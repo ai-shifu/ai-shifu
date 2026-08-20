@@ -6,35 +6,38 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from flask import Flask
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
-from flaskr.service.shifu import admin as admin_module
-from flaskr.service.shifu.admin_operations import courses as admin_courses_module
-from flaskr.service.shifu.admin_operations import (
-    courses_listing as courses_listing_module,
-)
-from flaskr.service.shifu.admin import (
-    _load_latest_shifus,
-    _build_operator_course_overview,
-    OperatorCourseListSeed,
-    list_operator_courses,
-)
-from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.common.models import AppError
 from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin import (
+    OperatorCourseListSeed,
+    _build_operator_course_overview,
+    _load_latest_shifus,
+    list_operator_courses,
+)
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseListDTO,
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.service.shifu.admin_operations import courses as admin_courses_module
+from flaskr.service.shifu.admin_operations import (
+    courses_listing as courses_listing_module,
+)
+from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
 from flaskr.util.datetime import now_utc
-
 
 EMPTY_COURSE_OVERVIEW = AdminOperationCourseOverviewDTO()
 
@@ -90,49 +93,43 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
         updated_at=datetime(2025, 4, 2, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = {"creator-1"}
-                        latest_mock.side_effect = [[draft_course], [published_course]]
-                        activity_mock.return_value = {}
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "15811112222",
-                                "email": "creator@example.com",
-                                "nickname": "Creator Mars",
-                            },
-                            "editor-1": {
-                                "mobile": "15833334444",
-                                "email": "editor@example.com",
-                                "nickname": "Editor Venus",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = {"creator-1"}
+        latest_mock.side_effect = [[draft_course], [published_course]]
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "15811112222",
+                "email": "creator@example.com",
+                "nickname": "Creator Mars",
+            },
+            "editor-1": {
+                "mobile": "15833334444",
+                "email": "editor@example.com",
+                "nickname": "Editor Venus",
+            },
+        }
 
-                        result = list_operator_courses(
-                            app,
-                            1,
-                            20,
-                            {
-                                "course_name": "Draft",
-                                "creator_keyword": "creator@example.com",
-                                "updated_start_time": updated_start_time,
-                                "updated_end_time": updated_end_time,
-                            },
-                        )
+        result = list_operator_courses(
+            app,
+            1,
+            20,
+            {
+                "course_name": "Draft",
+                "creator_keyword": "creator@example.com",
+                "updated_start_time": updated_start_time,
+                "updated_end_time": updated_end_time,
+            },
+        )
 
     assert isinstance(result, AdminOperationCourseListDTO)
     assert result.total == 1
@@ -178,42 +175,36 @@ def test_list_operator_courses_paginates_merged_results():
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = None
-                        latest_mock.side_effect = [
-                            [draft_course],
-                            [published_only_course],
-                        ]
-                        activity_mock.return_value = {}
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "",
-                                "email": "creator-1@example.com",
-                                "nickname": "",
-                            },
-                            "creator-2": {
-                                "mobile": "",
-                                "email": "creator-2@example.com",
-                                "nickname": "",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = [
+            [draft_course],
+            [published_only_course],
+        ]
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "",
+                "email": "creator-1@example.com",
+                "nickname": "",
+            },
+            "creator-2": {
+                "mobile": "",
+                "email": "creator-2@example.com",
+                "nickname": "",
+            },
+        }
 
-                        result = list_operator_courses(app, 2, 1, {})
+        result = list_operator_courses(app, 2, 1, {})
 
     assert result.total == 2
     assert len(result.items) == 1
@@ -249,43 +240,37 @@ def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items(
         for row in rows:
             row.has_course_prompt = model is PublishedShifu
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._attach_course_prompt_flags",
-                    side_effect=attach_prompt_flags,
-                ):
-                    with patch(
-                        "flaskr.service.shifu.admin._load_user_map"
-                    ) as user_map_mock:
-                        with patch(
-                            "flaskr.service.shifu.admin._build_operator_course_overview",
-                            return_value=EMPTY_COURSE_OVERVIEW,
-                        ):
-                            creator_mock.return_value = None
-                            latest_mock.side_effect = [[draft_seed], [published_seed]]
-                            activity_mock.return_value = {}
-                            user_map_mock.return_value = {
-                                "creator-1": {
-                                    "mobile": "",
-                                    "email": "creator-1@example.com",
-                                    "nickname": "",
-                                },
-                                "creator-2": {
-                                    "mobile": "",
-                                    "email": "creator-2@example.com",
-                                    "nickname": "",
-                                },
-                            }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch(
+            "flaskr.service.shifu.admin._attach_course_prompt_flags",
+            side_effect=attach_prompt_flags,
+        ),
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = [[draft_seed], [published_seed]]
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "",
+                "email": "creator-1@example.com",
+                "nickname": "",
+            },
+            "creator-2": {
+                "mobile": "",
+                "email": "creator-2@example.com",
+                "nickname": "",
+            },
+        }
 
-                            result = list_operator_courses(app, 2, 1, {})
+        result = list_operator_courses(app, 2, 1, {})
 
     assert result.total == 2
     assert len(result.items) == 1
@@ -314,49 +299,43 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = None
-                        latest_mock.side_effect = [[draft_course, older_course], []]
-                        activity_mock.return_value = {
-                            "course-activity": {
-                                "updated_at": datetime(2025, 4, 5, 9, 0, 0),
-                                "updated_user_bid": "editor-9",
-                            }
-                        }
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "15811112222",
-                                "email": "creator-1@example.com",
-                                "nickname": "Creator One",
-                            },
-                            "creator-2": {
-                                "mobile": "15822223333",
-                                "email": "creator-2@example.com",
-                                "nickname": "Creator Two",
-                            },
-                            "editor-9": {
-                                "mobile": "13223532334",
-                                "email": "editor-9@example.com",
-                                "nickname": "Editor Nine",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = [[draft_course, older_course], []]
+        activity_mock.return_value = {
+            "course-activity": {
+                "updated_at": datetime(2025, 4, 5, 9, 0, 0),
+                "updated_user_bid": "editor-9",
+            }
+        }
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "15811112222",
+                "email": "creator-1@example.com",
+                "nickname": "Creator One",
+            },
+            "creator-2": {
+                "mobile": "15822223333",
+                "email": "creator-2@example.com",
+                "nickname": "Creator Two",
+            },
+            "editor-9": {
+                "mobile": "13223532334",
+                "email": "editor-9@example.com",
+                "nickname": "Editor Nine",
+            },
+        }
 
-                        result = list_operator_courses(app, 1, 20, {})
+        result = list_operator_courses(app, 1, 20, {})
 
     assert [item.shifu_bid for item in result.items] == [
         "course-activity",
@@ -380,52 +359,46 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range():
         updated_at=datetime(2025, 4, 2, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = None
-                        latest_mock.side_effect = [[draft_course], []]
-                        activity_mock.return_value = {
-                            "course-activity-filter": {
-                                "updated_at": datetime(2025, 4, 5, 9, 0, 0),
-                                "updated_user_bid": "editor-9",
-                            }
-                        }
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "15811112222",
-                                "email": "creator-1@example.com",
-                                "nickname": "Creator One",
-                            },
-                            "editor-9": {
-                                "mobile": "13223532334",
-                                "email": "editor-9@example.com",
-                                "nickname": "Editor Nine",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = [[draft_course], []]
+        activity_mock.return_value = {
+            "course-activity-filter": {
+                "updated_at": datetime(2025, 4, 5, 9, 0, 0),
+                "updated_user_bid": "editor-9",
+            }
+        }
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "15811112222",
+                "email": "creator-1@example.com",
+                "nickname": "Creator One",
+            },
+            "editor-9": {
+                "mobile": "13223532334",
+                "email": "editor-9@example.com",
+                "nickname": "Editor Nine",
+            },
+        }
 
-                        result = list_operator_courses(
-                            app,
-                            1,
-                            20,
-                            {
-                                "updated_start_time": datetime(2025, 4, 5, 0, 0, 0),
-                                "updated_end_time": datetime(2025, 4, 5, 23, 59, 59),
-                            },
-                        )
+        result = list_operator_courses(
+            app,
+            1,
+            20,
+            {
+                "updated_start_time": datetime(2025, 4, 5, 0, 0, 0),
+                "updated_end_time": datetime(2025, 4, 5, 23, 59, 59),
+            },
+        )
 
     assert result.total == 1
     assert len(result.items) == 1
@@ -447,9 +420,9 @@ def test_load_course_activity_map_prefers_latest_outline_activity_row(app):
             avatar_res_bid="",
             keywords="",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid=creator_bid,
             updated_user_bid=creator_bid,
             updated_at=datetime(2025, 4, 2, 10, 0, 0),
@@ -502,9 +475,9 @@ def test_load_course_activity_map_prefers_outline_when_timestamp_ties_course(app
             avatar_res_bid="",
             keywords="",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid=creator_bid,
             updated_user_bid="course-editor",
             updated_at=shared_updated_at,
@@ -562,42 +535,36 @@ def test_list_operator_courses_filters_out_builtin_demo_courses_only():
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = None
-                        latest_mock.side_effect = [
-                            [builtin_demo_course, system_custom_course],
-                            [normal_course],
-                        ]
-                        activity_mock.return_value = {}
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "15811112222",
-                                "email": "creator@example.com",
-                                "nickname": "Creator Mars",
-                            },
-                            "editor-1": {
-                                "mobile": "15833334444",
-                                "email": "editor@example.com",
-                                "nickname": "Editor Venus",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = [
+            [builtin_demo_course, system_custom_course],
+            [normal_course],
+        ]
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "15811112222",
+                "email": "creator@example.com",
+                "nickname": "Creator Mars",
+            },
+            "editor-1": {
+                "mobile": "15833334444",
+                "email": "editor@example.com",
+                "nickname": "Editor Venus",
+            },
+        }
 
-                        result = list_operator_courses(app, 1, 20, {})
+        result = list_operator_courses(app, 1, 20, {})
 
     assert result.total == 2
     assert len(result.items) == 2
@@ -628,39 +595,33 @@ def test_list_operator_courses_skips_system_user_lookup():
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = None
-                        latest_mock.side_effect = [[system_course], [normal_course]]
-                        activity_mock.return_value = {}
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "15811112222",
-                                "email": "creator@example.com",
-                                "nickname": "Creator Mars",
-                            },
-                            "editor-1": {
-                                "mobile": "15833334444",
-                                "email": "editor@example.com",
-                                "nickname": "Editor Venus",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = [[system_course], [normal_course]]
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "15811112222",
+                "email": "creator@example.com",
+                "nickname": "Creator Mars",
+            },
+            "editor-1": {
+                "mobile": "15833334444",
+                "email": "editor@example.com",
+                "nickname": "Editor Venus",
+            },
+        }
 
-                        list_operator_courses(app, 1, 20, {})
+        list_operator_courses(app, 1, 20, {})
 
     assert set(user_map_mock.call_args.args[0]) == {"creator-1", "editor-1"}
     assert "system" not in user_map_mock.call_args.args[0]
@@ -687,48 +648,42 @@ def test_list_operator_courses_filters_by_course_status():
         updated_at=datetime(2025, 4, 2, 10, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._build_operator_course_overview",
-                        return_value=EMPTY_COURSE_OVERVIEW,
-                    ):
-                        creator_mock.return_value = None
-                        latest_mock.side_effect = lambda model, **kwargs: (
-                            [draft_only_course]
-                            if model.__name__ == "DraftShifu"
-                            else [published_course]
-                        )
-                        activity_mock.return_value = {}
-                        user_map_mock.return_value = {
-                            "creator-1": {
-                                "mobile": "",
-                                "email": "creator-1@example.com",
-                                "nickname": "",
-                            },
-                            "creator-2": {
-                                "mobile": "",
-                                "email": "creator-2@example.com",
-                                "nickname": "",
-                            },
-                        }
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = lambda model, **kwargs: (
+            [draft_only_course]
+            if model.__name__ == "DraftShifu"
+            else [published_course]
+        )
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "",
+                "email": "creator-1@example.com",
+                "nickname": "",
+            },
+            "creator-2": {
+                "mobile": "",
+                "email": "creator-2@example.com",
+                "nickname": "",
+            },
+        }
 
-                        unpublished_result = list_operator_courses(
-                            app, 1, 20, {"course_status": "unpublished"}
-                        )
-                        published_result = list_operator_courses(
-                            app, 1, 20, {"course_status": "published"}
-                        )
+        unpublished_result = list_operator_courses(
+            app, 1, 20, {"course_status": "unpublished"}
+        )
+        published_result = list_operator_courses(
+            app, 1, 20, {"course_status": "published"}
+        )
 
     assert [item.shifu_bid for item in unpublished_result.items] == [
         "course-draft-only"
@@ -741,11 +696,11 @@ def test_list_operator_courses_filters_by_course_status():
 def test_list_operator_courses_applies_quick_filters(monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_courses_module, "now_utc", lambda: FixedDateTime.now())
+    monkeypatch.setattr(admin_courses_module, "now_utc", FixedDateTime.now)
 
     app = Flask(__name__)
     recent_course = DummyCourse(
@@ -785,74 +740,68 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
         updated_at=datetime(2025, 4, 24, 18, 0, 0),
     )
 
-    with patch(
-        "flaskr.service.shifu.admin._find_matching_creator_bids"
-    ) as creator_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            with patch(
-                "flaskr.service.shifu.admin._load_course_activity_map"
-            ) as activity_mock:
-                with patch(
-                    "flaskr.service.shifu.admin._load_user_map"
-                ) as user_map_mock:
-                    with patch(
-                        "flaskr.service.shifu.admin._load_recent_learning_active_course_bids"
-                    ) as learning_mock:
-                        with patch(
-                            "flaskr.service.shifu.admin._load_recent_paid_order_course_bids"
-                        ) as paid_mock:
-                            with patch(
-                                "flaskr.service.shifu.admin._build_operator_course_overview",
-                                return_value=EMPTY_COURSE_OVERVIEW,
-                            ):
-                                creator_mock.return_value = None
-                                latest_mock.side_effect = lambda model, **kwargs: (
-                                    [
-                                        recent_course,
-                                        paid_course,
-                                        learning_course,
-                                        rolling_window_only_course,
-                                    ]
-                                    if model.__name__ == "DraftShifu"
-                                    else []
-                                )
-                                activity_mock.return_value = {}
-                                user_map_mock.return_value = {
-                                    "creator-1": {
-                                        "mobile": "",
-                                        "email": "creator-1@example.com",
-                                        "nickname": "",
-                                    },
-                                    "creator-2": {
-                                        "mobile": "",
-                                        "email": "creator-2@example.com",
-                                        "nickname": "",
-                                    },
-                                    "creator-3": {
-                                        "mobile": "",
-                                        "email": "creator-3@example.com",
-                                        "nickname": "",
-                                    },
-                                    "creator-4": {
-                                        "mobile": "",
-                                        "email": "creator-4@example.com",
-                                        "nickname": "",
-                                    },
-                                }
-                                learning_mock.return_value = {"course-learning"}
-                                paid_mock.return_value = {"course-paid"}
+    with (
+        patch("flaskr.service.shifu.admin._find_matching_creator_bids") as creator_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+        patch("flaskr.service.shifu.admin._load_course_activity_map") as activity_mock,
+        patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock,
+        patch(
+            "flaskr.service.shifu.admin._load_recent_learning_active_course_bids"
+        ) as learning_mock,
+        patch(
+            "flaskr.service.shifu.admin._load_recent_paid_order_course_bids"
+        ) as paid_mock,
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview",
+            return_value=EMPTY_COURSE_OVERVIEW,
+        ),
+    ):
+        creator_mock.return_value = None
+        latest_mock.side_effect = lambda model, **kwargs: (
+            [
+                recent_course,
+                paid_course,
+                learning_course,
+                rolling_window_only_course,
+            ]
+            if model.__name__ == "DraftShifu"
+            else []
+        )
+        activity_mock.return_value = {}
+        user_map_mock.return_value = {
+            "creator-1": {
+                "mobile": "",
+                "email": "creator-1@example.com",
+                "nickname": "",
+            },
+            "creator-2": {
+                "mobile": "",
+                "email": "creator-2@example.com",
+                "nickname": "",
+            },
+            "creator-3": {
+                "mobile": "",
+                "email": "creator-3@example.com",
+                "nickname": "",
+            },
+            "creator-4": {
+                "mobile": "",
+                "email": "creator-4@example.com",
+                "nickname": "",
+            },
+        }
+        learning_mock.return_value = {"course-learning"}
+        paid_mock.return_value = {"course-paid"}
 
-                                created_result = list_operator_courses(
-                                    app, 1, 20, {"quick_filter": "created_last_7d"}
-                                )
-                                learning_result = list_operator_courses(
-                                    app, 1, 20, {"quick_filter": "learning_active_30d"}
-                                )
-                                paid_result = list_operator_courses(
-                                    app, 1, 20, {"quick_filter": "paid_order_30d"}
-                                )
+        created_result = list_operator_courses(
+            app, 1, 20, {"quick_filter": "created_last_7d"}
+        )
+        learning_result = list_operator_courses(
+            app, 1, 20, {"quick_filter": "learning_active_30d"}
+        )
+        paid_result = list_operator_courses(
+            app, 1, 20, {"quick_filter": "paid_order_30d"}
+        )
 
     assert [item.shifu_bid for item in created_result.items] == ["course-recent"]
     assert [item.shifu_bid for item in learning_result.items] == ["course-learning"]
@@ -862,18 +811,15 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
 def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overview():
     app = Flask(__name__)
 
-    with patch(
-        "flaskr.service.shifu.admin._build_operator_course_overview"
-    ) as overview_mock:
-        with patch(
-            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
-        ) as latest_mock:
-            try:
-                list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
-            except AppException as exc:
-                assert exc.code is not None
-            else:
-                raise AssertionError("Expected AppException for invalid quick_filter")
+    with (
+        patch(
+            "flaskr.service.shifu.admin._build_operator_course_overview"
+        ) as overview_mock,
+        patch("flaskr.service.shifu.admin._load_latest_shifu_seeds") as latest_mock,
+    ):
+        with pytest.raises(AppError) as excinfo:
+            list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
+        assert excinfo.value.code is not None
 
     overview_mock.assert_not_called()
     latest_mock.assert_not_called()
@@ -882,11 +828,11 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
 def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz=None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_courses_module, "now_utc", lambda: FixedDateTime.now())
+    monkeypatch.setattr(admin_courses_module, "now_utc", FixedDateTime.now)
 
     draft_only_bid = uuid.uuid4().hex[:32]
     published_only_bid = uuid.uuid4().hex[:32]
@@ -911,9 +857,9 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("0"),
+                    price=Decimal(0),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 28, 9, 0, 0),
@@ -926,9 +872,9 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="Prompt",
-                    price=Decimal("99"),
+                    price=Decimal(99),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 30, 9, 0, 0),
@@ -941,9 +887,9 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("0"),
+                    price=Decimal(0),
                     created_user_bid="system",
                     updated_user_bid="system",
                     created_at=datetime(2025, 4, 29, 9, 0, 0),
@@ -956,9 +902,9 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("49"),
+                    price=Decimal(49),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 15, 9, 0, 0),
@@ -971,9 +917,9 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("79"),
+                    price=Decimal(79),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 20, 9, 0, 0),
@@ -1025,8 +971,8 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     order_bid=uuid.uuid4().hex[:32],
                     shifu_bid=draft_only_bid,
                     user_bid=user_bid,
-                    payable_price=Decimal("19"),
-                    paid_price=Decimal("19"),
+                    payable_price=Decimal(19),
+                    paid_price=Decimal(19),
                     status=ORDER_STATUS_SUCCESS,
                     created_at=datetime(2025, 4, 25, 10, 0, 0),
                     updated_at=datetime(2025, 4, 25, 10, 0, 0),
@@ -1035,8 +981,8 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     order_bid=uuid.uuid4().hex[:32],
                     shifu_bid=published_with_draft_bid,
                     user_bid=user_bid,
-                    payable_price=Decimal("29"),
-                    paid_price=Decimal("29"),
+                    payable_price=Decimal(29),
+                    paid_price=Decimal(29),
                     status=ORDER_STATUS_SUCCESS,
                     created_at=datetime(2025, 4, 29, 10, 0, 0),
                     updated_at=datetime(2025, 4, 29, 10, 0, 0),
@@ -1045,8 +991,8 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     order_bid=uuid.uuid4().hex[:32],
                     shifu_bid=published_only_bid,
                     user_bid=user_bid,
-                    payable_price=Decimal("39"),
-                    paid_price=Decimal("0"),
+                    payable_price=Decimal(39),
+                    paid_price=Decimal(0),
                     status=ORDER_STATUS_INIT,
                     created_at=datetime(2025, 4, 29, 10, 0, 0),
                     updated_at=datetime(2025, 4, 29, 10, 0, 0),
@@ -1055,8 +1001,8 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
                     order_bid=uuid.uuid4().hex[:32],
                     shifu_bid=builtin_demo_bid,
                     user_bid=user_bid,
-                    payable_price=Decimal("0"),
-                    paid_price=Decimal("0"),
+                    payable_price=Decimal(0),
+                    paid_price=Decimal(0),
                     status=ORDER_STATUS_SUCCESS,
                     created_at=datetime(2025, 4, 29, 10, 0, 0),
                     updated_at=datetime(2025, 4, 29, 10, 0, 0),
@@ -1098,9 +1044,9 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="draft prompt",
-                    price=Decimal("19"),
+                    price=Decimal(19),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 28, 9, 0, 0),
@@ -1113,9 +1059,9 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="draft prompt",
-                    price=Decimal("99"),
+                    price=Decimal(99),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 20, 9, 0, 0),
@@ -1128,9 +1074,9 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("0"),
+                    price=Decimal(0),
                     created_user_bid="system",
                     updated_user_bid="system",
                     created_at=datetime(2025, 4, 29, 9, 0, 0),
@@ -1143,9 +1089,9 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("49"),
+                    price=Decimal(49),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 15, 9, 0, 0),
@@ -1158,9 +1104,9 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("79"),
+                    price=Decimal(79),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 18, 9, 0, 0),
@@ -1239,10 +1185,10 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(app
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-4.1",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
                     tts_model="speech-01-turbo",
-                    price=Decimal("79"),
+                    price=Decimal(79),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 10, 9, 0, 0),
@@ -1255,10 +1201,10 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(app
                     avatar_res_bid="",
                     keywords="",
                     llm="",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
                     tts_model="",
-                    price=Decimal("99"),
+                    price=Decimal(99),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 20, 9, 0, 0),
@@ -1271,10 +1217,10 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(app
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-4.1-mini",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
                     tts_model="speech-01",
-                    price=Decimal("59"),
+                    price=Decimal(59),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 12, 9, 0, 0),
@@ -1287,10 +1233,10 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(app
                     avatar_res_bid="",
                     keywords="",
                     llm="",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
                     tts_model="",
-                    price=Decimal("59"),
+                    price=Decimal(59),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 13, 9, 0, 0),
@@ -1333,10 +1279,10 @@ def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(app):
                 avatar_res_bid="",
                 keywords="",
                 llm="",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="",
                 tts_model="",
-                price=Decimal("9"),
+                price=Decimal(9),
                 created_user_bid=creator_bid,
                 updated_user_bid=creator_bid,
                 created_at=datetime(2025, 4, 20, 9, 0, 0),
@@ -1372,9 +1318,9 @@ def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(app)
                 avatar_res_bid="",
                 keywords="",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="",
-                price=Decimal("19"),
+                price=Decimal(19),
                 created_user_bid=creator_bid,
                 updated_user_bid=creator_bid,
                 created_at=datetime(2025, 4, 1, 9, 0, 0),
@@ -1445,9 +1391,9 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("0"),
+                    price=Decimal(0),
                     created_user_bid=" system ",
                     updated_user_bid="system",
                     created_at=datetime(2025, 4, 29, 9, 0, 0),
@@ -1460,9 +1406,9 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("19"),
+                    price=Decimal(19),
                     created_user_bid=creator_bid,
                     updated_user_bid=creator_bid,
                     created_at=datetime(2025, 4, 28, 9, 0, 0),
@@ -1500,9 +1446,9 @@ def test_list_operator_courses_sql_path_filters_by_combined_course_query(app):
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("19"),
+                    price=Decimal(19),
                     created_user_bid="creator-1",
                     updated_user_bid="creator-1",
                     created_at=base_time - timedelta(days=2),
@@ -1515,9 +1461,9 @@ def test_list_operator_courses_sql_path_filters_by_combined_course_query(app):
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("29"),
+                    price=Decimal(29),
                     created_user_bid="creator-2",
                     updated_user_bid="creator-2",
                     created_at=base_time - timedelta(days=1),
@@ -1530,9 +1476,9 @@ def test_list_operator_courses_sql_path_filters_by_combined_course_query(app):
                     avatar_res_bid="",
                     keywords="",
                     llm="gpt-test",
-                    llm_temperature=Decimal("0"),
+                    llm_temperature=Decimal(0),
                     llm_system_prompt="",
-                    price=Decimal("39"),
+                    price=Decimal(39),
                     created_user_bid="creator-3",
                     updated_user_bid="creator-3",
                     created_at=base_time,
@@ -1596,6 +1542,8 @@ def test_merge_courses_checks_published_visibility_once():
 
 
 class FakeColumn:
+    __hash__ = None
+
     def __init__(self, name: str):
         self.name = name
 
@@ -1703,7 +1651,7 @@ class FakeSession:
 
 class FakeFunc:
     @staticmethod
-    def max(column: FakeColumn):
+    def max(column: FakeColumn) -> FakeMaxExpression:
         return FakeMaxExpression(column)
 
 

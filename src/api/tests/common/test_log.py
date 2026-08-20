@@ -1,7 +1,6 @@
 import logging
 
 import requests
-
 from flaskr.common.log import FeishuLogHandler
 
 

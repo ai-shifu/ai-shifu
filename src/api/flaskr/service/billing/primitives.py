@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from datetime import UTC, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from flask import has_app_context
-
 from flaskr.common.config import get_config as get_common_config
 from flaskr.service.config.funcs import get_config
 from flaskr.service.metering.consts import (
@@ -38,7 +37,7 @@ def to_decimal(value: Any) -> Decimal:
     if isinstance(value, Decimal):
         return value
     if value in (None, ""):
-        return Decimal("0")
+        return Decimal(0)
     return Decimal(str(value))
 
 
@@ -84,7 +83,7 @@ def build_credit_quantizer(*, precision: int | None = None) -> Decimal:
         if precision is None
         else clamp_billing_credit_precision(precision)
     )
-    return Decimal("1").scaleb(-normalized_precision)
+    return Decimal(1).scaleb(-normalized_precision)
 
 
 def quantize_credit_amount(
@@ -153,7 +152,7 @@ def coerce_datetime(value: Any) -> datetime | None:
     if isinstance(value, (int, float)):
         if value <= 0:
             return None
-        return datetime.fromtimestamp(value, timezone.utc).replace(tzinfo=None)
+        return datetime.fromtimestamp(value, UTC).replace(tzinfo=None)
     text = str(value).strip()
     if not text:
         return None
@@ -161,19 +160,18 @@ def coerce_datetime(value: Any) -> datetime | None:
         epoch_seconds = int(text)
         if epoch_seconds <= 0:
             return None
-        return datetime.fromtimestamp(epoch_seconds, timezone.utc).replace(tzinfo=None)
+        return datetime.fromtimestamp(epoch_seconds, UTC).replace(tzinfo=None)
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
     if parsed.tzinfo is not None:
-        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 
 def normalize_mysql_datetime(value: datetime) -> datetime:
     """Normalize to MySQL DATETIME(0)'s default fractional-second rounding."""
-
     if value.microsecond >= 500_000:
         value = value + timedelta(seconds=1)
     return value.replace(microsecond=0)

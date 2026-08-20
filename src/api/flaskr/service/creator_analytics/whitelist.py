@@ -18,26 +18,25 @@ builder, driven by :class:`TableSpec` flags:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import FrozenSet, Mapping, Optional, Type
 
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu, ShifuUserArchive
 from flaskr.service.user.models import UserInfo
 
-
-ALLOWED_AGGREGATE_FUNCTIONS: FrozenSet[str] = frozenset(
+ALLOWED_AGGREGATE_FUNCTIONS: frozenset[str] = frozenset(
     {"count", "count_distinct", "sum", "avg", "min", "max"}
 )
 
-ALLOWED_OPERATORS: FrozenSet[str] = frozenset(
+ALLOWED_OPERATORS: frozenset[str] = frozenset(
     {
         "=",
         "!=",
@@ -60,11 +59,11 @@ class TableSpec:
     """Declarative whitelist for one analyzable table."""
 
     table_key: str
-    model: Type
-    selectable: FrozenSet[str]
-    filterable: FrozenSet[str]
-    groupable: FrozenSet[str]
-    aggregatable: Mapping[str, FrozenSet[str]]
+    model: type
+    selectable: frozenset[str]
+    filterable: frozenset[str]
+    groupable: frozenset[str]
+    aggregatable: Mapping[str, frozenset[str]]
     has_deleted: bool
     # True for shifu-scoped tables (sql_builder injects WHERE shifu_bid=:sb).
     # False for global tables like user_users — permission is still enforced
@@ -75,16 +74,16 @@ class TableSpec:
     # Used for creator-owned metadata tables (shifu_published_shifus /
     # shifu_draft_shifus) so the row's creator must match the caller. Pairs
     # with has_shifu_bid for a double-gate: shifu permission AND row ownership.
-    creator_scoped_column: Optional[str] = None
+    creator_scoped_column: str | None = None
     # When True, sql_builder injects AND status = 1 to exclude rerolled /
     # superseded history rows. Only enabled where status semantics are
     # "1 = current, 0 = history" (e.g. learn_generated_blocks).
     auto_filter_status_active: bool = False
 
 
-_DIMENSION_AGGS: FrozenSet[str] = frozenset({"count", "count_distinct"})
-_NUMERIC_AGGS: FrozenSet[str] = frozenset({"count", "sum", "avg", "min", "max"})
-_TIMESTAMP_AGGS: FrozenSet[str] = frozenset({"count", "min", "max"})
+_DIMENSION_AGGS: frozenset[str] = frozenset({"count", "count_distinct"})
+_NUMERIC_AGGS: frozenset[str] = frozenset({"count", "sum", "avg", "min", "max"})
+_TIMESTAMP_AGGS: frozenset[str] = frozenset({"count", "min", "max"})
 
 
 WHITELIST: Mapping[str, TableSpec] = {
@@ -406,5 +405,4 @@ WHITELIST: Mapping[str, TableSpec] = {
 
 def get_table_spec(table_key: str) -> TableSpec:
     """Return the spec for ``table_key`` or raise :class:`KeyError`."""
-
     return WHITELIST[table_key]

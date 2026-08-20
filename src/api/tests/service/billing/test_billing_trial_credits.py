@@ -4,10 +4,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask, jsonify, request
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_STATUS_PAID,
@@ -31,7 +30,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
 from tests.common.fixtures.bill_products import build_bill_products
@@ -73,8 +72,8 @@ def trial_billing_client(monkeypatch):
 
     dao.db.init_app(app)
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -277,9 +276,9 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
             wallet_bid="wallet-legacy-trial",
             creator_bid="creator-trial",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -427,9 +426,9 @@ def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
             wallet_bid="wallet-legacy-ack",
             creator_bid="creator-trial",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )

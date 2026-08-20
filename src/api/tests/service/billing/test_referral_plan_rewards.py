@@ -3,19 +3,18 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -33,13 +32,13 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.billing.referral_plan_rewards import (
-    ReferralPlanRewardRequest,
-    grant_referral_plan_reward,
-)
 from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end_after_boundary,
+)
+from flaskr.service.billing.referral_plan_rewards import (
+    ReferralPlanRewardRequest,
+    grant_referral_plan_reward,
 )
 from flaskr.service.billing.renewal import run_billing_renewal_event
 from flaskr.util.datetime import now_utc
@@ -159,9 +158,9 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
             wallet_bid="wallet-referral-trial-upgrade",
             creator_bid="creator-ref-billing-1",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -214,9 +213,9 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
             priority=20,
             original_credits=Decimal("100.0000000000"),
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=trial_started_at,
             effective_to=trial_ends_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -345,9 +344,9 @@ def test_referral_plan_reward_queues_multiple_trial_rewards_in_order(
             wallet_bid="wallet-referral-trial-queue",
             creator_bid="creator-ref-billing-1",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -400,9 +399,9 @@ def test_referral_plan_reward_queues_multiple_trial_rewards_in_order(
             priority=20,
             original_credits=Decimal("100.0000000000"),
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=trial_started_at,
             effective_to=trial_ends_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -590,7 +589,7 @@ def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("2000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -647,8 +646,8 @@ def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
             original_credits=Decimal("2000.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=current_cycle_start,
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -738,7 +737,7 @@ def test_referral_plan_reward_boundary_releases_all_due_reserved_cycle_grants(
             available_credits=Decimal("200.0000000000"),
             reserved_credits=Decimal("1050.0000000000"),
             lifetime_granted_credits=Decimal("1250.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -814,8 +813,8 @@ def test_referral_plan_reward_boundary_releases_all_due_reserved_cycle_grants(
             original_credits=Decimal("1250.0000000000"),
             available_credits=Decimal("200.0000000000"),
             reserved_credits=Decimal("1050.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=current_cycle_start,
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1079,7 +1078,7 @@ def test_referral_plan_reward_releases_reserved_trial_reward_at_boundary(
             available_credits=Decimal("100.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1139,8 +1138,8 @@ def test_referral_plan_reward_releases_reserved_trial_reward_at_boundary(
             original_credits=Decimal("1100.0000000000"),
             available_credits=Decimal("100.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=trial_started_at,
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,

@@ -1,5 +1,4 @@
-"""
-Volcengine HTTP TTS Provider.
+"""Volcengine HTTP TTS Provider.
 
 This module provides TTS synthesis using Volcengine's HTTP v1/tts API
 (ByteDance TTS). See docs/bytedance-tts-api.md for request/response format.
@@ -10,21 +9,19 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import Optional, List
 
 import requests
 from requests import Response
 
-from flaskr.common.config import get_config, get_explicit_env_override
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
-
+from flaskr.common.config import get_config, get_explicit_env_override
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +131,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="BV700_streaming",
@@ -151,7 +149,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_HTTP_VOICES
 
@@ -166,8 +164,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return rate
 
     def _resolve_pitch_ratio(self, pitch: int) -> float:
-        """
-        Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
+        """Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
 
         The UI uses integer pitch values, where 10 maps to 1.0.
         """
@@ -180,9 +177,9 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
@@ -244,7 +241,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             )
         except requests.RequestException as exc:
             logger.exception(
-                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s err=%s",
+                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s",
                 VOLCENGINE_HTTP_TTS_URL,
                 req_id,
                 payload["app"]["cluster"],
@@ -252,7 +249,6 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 encoding,
                 sample_rate,
                 len(text),
-                exc,
             )
             raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
 
@@ -279,7 +275,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             result = response.json()
         except ValueError as exc:
             body_preview = (response.text or "")[:2000]
-            logger.error(
+            logger.exception(
                 "Volcengine HTTP TTS invalid JSON response: url=%s status=%s reqid=%s content_type=%s body=%s",
                 response.url,
                 response.status_code,
@@ -352,8 +348,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Never log credentials (token).
         - Avoid logging full request text; use only text_len.
-        """
 
+        """
         body_preview = (response.text or "")[:2000]
         # Keep only a small, stable subset of headers to avoid log noise and
         # reduce the risk of accidentally logging sensitive data.

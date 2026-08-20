@@ -10,7 +10,7 @@ class BasePlugin:
             self._run_migrations()
 
     def _run_migrations(self):
-        """执行插件的migrations"""
+        """Run the plugin migrations."""
         from alembic import command
         from alembic.config import Config
 
@@ -23,9 +23,7 @@ class BasePlugin:
         command.upgrade(alembic_cfg, "head")
 
     def on_unload(self):
-        """插件卸载时调用"""
-        pass
+        """Handle the plugin being unloaded."""
 
     def on_reload(self):
-        """插件重载时调用"""
-        pass
+        """Handle the plugin being reloaded."""

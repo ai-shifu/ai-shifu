@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from flask import Flask
 import pytest
-from sqlalchemy import inspect
-from sqlalchemy.exc import IntegrityError
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.checkout import (
     _persist_billing_native_raw_snapshot,
     load_billing_order_for_native_event,
@@ -26,6 +23,8 @@ from flaskr.service.order.raw_snapshots import (
     legacy_native_snapshot_query,
     upsert_native_snapshot,
 )
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.fixture
@@ -149,7 +148,7 @@ def test_native_snapshot_upsert_preserves_zero_amount_and_requires_identifier(
             == 0
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="requires a stable identifier"):
             upsert_native_snapshot(
                 biz_domain="order",
                 payment_provider="alipay",

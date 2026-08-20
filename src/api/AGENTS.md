@@ -24,10 +24,17 @@ hard backend constraints close to `src/api/`.
   cross-cutting.
 - Use the request-id and Langfuse helpers in existing shared paths instead of
   inventing parallel diagnostics logic.
+- Define the intended schema in SQLAlchemy models first, then generate schema
+  revisions with `FLASK_APP=app.py flask db migrate -m "message"` and review
+  the candidate migration before accepting it.
 
 ## Avoid
 
 - Do not edit applied Alembic migrations.
+- Do not use SQLAlchemy or Flask-SQLAlchemy `create_all()` calls, or custom
+  schema-introspection guards, as a substitute for versioned Alembic
+  migrations. Add a narrowly scoped guard only when a documented
+  non-transactional DDL recovery requirement makes it necessary.
 - Do not add hard foreign-key constraints for business-key relationships
   unless the architectural contract changes deliberately.
 - Do not bypass the LiteLLM wrapper or shared provider helpers for

@@ -18,9 +18,7 @@ from ...service.profile.funcs import get_user_profiles
 
 
 class FollowUpInfo:
-    """
-    Follow up info
-    """
+    """Follow up info."""
 
     ask_model: str
     ask_prompt: str
@@ -74,9 +72,7 @@ def extract_variables(template: str) -> list:
 
 
 def safe_format_template(template: str, variables: dict) -> str:
-    """
-    Safe format template
-    """
+    """Safe format template."""
     # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
@@ -122,23 +118,22 @@ def get_fmt_prompt(
     user_id: str,
     course_id: str,
     profile_tmplate: str,
-    input: str | None = None,
+    user_input: str | None = None,
     *,
     profile_overrides: dict | None = None,
 ) -> str:
-    """
-    Get fmt prompt
+    """Get fmt prompt
     Args:
         app: Flask application instance
         user_id: User id
         course_id: Course id
         profile_tmplate: Profile template
-        input: Input
+        user_input: Input
         profile_overrides: Request-local profile values that take precedence
     Returns:
-        str: Fmt prompt
+        str: Fmt prompt.
     """
-    app.logger.info("raw prompt:" + profile_tmplate)
+    app.logger.info("raw prompt: %s", profile_tmplate)
     propmpt_keys = []
     profiles = {}
 
@@ -146,8 +141,8 @@ def get_fmt_prompt(
     if profile_overrides:
         profiles.update(profile_overrides)
     propmpt_keys = list(profiles.keys())
-    if input:
-        profiles["sys_user_input"] = input
+    if user_input:
+        profiles["sys_user_input"] = user_input
         propmpt_keys.append("sys_user_input")
     app.logger.info(propmpt_keys)
     app.logger.info(profiles)
@@ -157,10 +152,10 @@ def get_fmt_prompt(
         if key in profiles:
             fmt_keys[key] = profiles[key]
         else:
-            app.logger.info("key not found:" + key + " ,user_id:" + user_id)
+            app.logger.info("key not found: %s ,user_id: %s", key, user_id)
     app.logger.info(fmt_keys)
     if not keys:
-        prompt = input if not profile_tmplate else profile_tmplate
+        prompt = profile_tmplate or user_input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
     app.logger.info(f"fomat input:{prompt}")
@@ -174,8 +169,7 @@ def get_follow_up_info_v2(
     attend_id: str,
     is_preview: bool = False,
 ) -> FollowUpInfo:
-    """
-    Get follow up info.
+    """Get follow up info.
 
     Args:
         app (Flask): The Flask application instance.
@@ -188,6 +182,7 @@ def get_follow_up_info_v2(
 
     Returns:
         FollowUpInfo: The follow up information for the given parameters.
+
     """
     struct_info = get_shifu_struct(app, shifu_bid, is_preview)
     path = find_node_with_parents(struct_info, outline_item_bid)
@@ -225,16 +220,14 @@ def get_follow_up_info_v2(
     shifu_ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_info, "ask_provider_config", "{}")
     )
-    ask_model = shifu_info.ask_llm if shifu_info.ask_llm else shifu_info.llm
+    ask_model = shifu_info.ask_llm or shifu_info.llm
 
     for p in path:
         if p.type == "outline":
-            outline_info = outline_infos_map.get(p.bid, None)
+            outline_info = outline_infos_map.get(p.bid)
             if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
                 return FollowUpInfo(
-                    ask_model=outline_info.ask_llm
-                    if outline_info.ask_llm
-                    else ask_model,
+                    ask_model=outline_info.ask_llm or ask_model,
                     ask_prompt=outline_info.ask_llm_system_prompt,
                     ask_history_count=10,
                     ask_limit_count=10,

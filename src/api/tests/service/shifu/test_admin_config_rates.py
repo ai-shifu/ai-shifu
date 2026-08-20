@@ -17,7 +17,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.common import credit_rate_references
-from flaskr.service.common.models import ERROR_CODE, AppException
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
     BILL_USAGE_TYPE_LLM,
@@ -448,7 +448,7 @@ def test_update_rate_rejects_missing_credit_1x_anchor(monkeypatch, app):
         db.session.query(CreditUsageRate).delete()
         _seed_default_llm_rates()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             config_rates.update_operator_rate_config(
                 app,
                 payload={
@@ -803,7 +803,7 @@ def test_create_only_rejects_duplicate_active_exact_identity(monkeypatch, app):
         )
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             config_rates.update_operator_rate_config(
                 app,
                 payload={
@@ -878,7 +878,7 @@ def test_create_only_rejects_invalid_identity_and_fixed_fields(
     }
     payload.update(overrides)
 
-    with app.app_context(), pytest.raises(AppException) as exc_info:
+    with app.app_context(), pytest.raises(AppError) as exc_info:
         config_rates.update_operator_rate_config(
             app,
             payload=payload,

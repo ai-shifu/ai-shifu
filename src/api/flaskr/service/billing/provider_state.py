@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_ORDER_STATUS_CANCELED,
@@ -17,32 +18,41 @@ from .consts import (
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
 )
-from .models import BillingOrder, BillingSubscription
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
-    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
-    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
-from .queries import (
-    extract_order_metadata_datetime as _extract_order_metadata_datetime,
-    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
-    load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
+from .paid_side_effects import (
+    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
+)
+from .paid_side_effects import (
+    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
+from .queries import (
+    extract_order_metadata_datetime as _extract_order_metadata_datetime,
+)
+from .queries import (
+    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
+)
+from .queries import (
+    load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
+)
 from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .value_objects import JsonObjectMap
-from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from .models import BillingOrder, BillingSubscription
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
     "payment_intent.succeeded",
@@ -553,9 +563,7 @@ def _is_stripe_checkout_paid(
         return True
     if session.get("status") == "complete" and not session.get("payment_status"):
         return True
-    if intent and intent.get("status") == "succeeded":
-        return True
-    return False
+    return bool(intent and intent.get("status") == "succeeded")
 
 
 apply_billing_order_provider_update = _apply_billing_order_provider_update

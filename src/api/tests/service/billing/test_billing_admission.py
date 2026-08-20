@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
@@ -17,8 +16,8 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_MANUAL,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from flaskr.service.billing.models import (
     BillingEntitlement,
@@ -28,7 +27,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.subscriptions import repair_subscription_cycle_mismatches
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -71,9 +70,9 @@ def _create_wallet(creator_bid: str, available_credits: str) -> CreditWallet:
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
     )
 
 
@@ -97,9 +96,9 @@ def _create_bucket(
         priority=10,
         original_credits=Decimal(available_credits),
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=effective_from or dao.db.func.now(),
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -176,7 +175,7 @@ def test_admit_creator_usage_rejects_topup_credits_without_active_subscription(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-topup-no-sub-1",
@@ -270,7 +269,7 @@ def test_admit_creator_usage_rejects_missing_credits(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-empty-1",
@@ -305,7 +304,7 @@ def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
 
     assert payload["allowed"] is True
     assert payload["creator_bid"] == "creator-disabled-1"
-    assert payload["wallet_available_credits"] == Decimal("0")
+    assert payload["wallet_available_credits"] == Decimal(0)
     assert payload["priority_class"] == "standard"
 
 
@@ -336,7 +335,7 @@ def test_admit_creator_usage_rejects_inactive_subscription_only_balance(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-subscription-1",
@@ -429,7 +428,7 @@ def test_admit_creator_usage_rejects_expired_topup_bucket_even_if_wallet_snapsho
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-expired-topup-1",
@@ -461,7 +460,7 @@ def test_admit_creator_usage_rejects_future_bucket_before_effective_time(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-future-bucket-1",
@@ -537,7 +536,7 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-repair-cycle-1",

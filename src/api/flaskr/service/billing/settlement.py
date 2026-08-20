@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
+from .bucket_categories import (
+    build_wallet_bucket_runtime_sort_key,
+    load_billing_order_type_by_bid,
+    wallet_bucket_requires_active_subscription,
+)
 from .charges import (
     UsageBucketBreakdownItem,
     UsageBucketMetricBreakdownItem,
@@ -28,11 +32,6 @@ from .consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_SOURCE_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_USAGE,
-)
-from .bucket_categories import (
-    build_wallet_bucket_runtime_sort_key,
-    load_billing_order_type_by_bid,
-    wallet_bucket_requires_active_subscription,
 )
 from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .ownership import resolve_usage_creator_bid
@@ -47,7 +46,7 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
 
@@ -148,7 +147,6 @@ def settle_bill_usage(
     usage_id: int | None = None,
 ) -> SettlementResult:
     """Settle a single metering usage record into credit ledger consumption."""
-
     normalized_usage_bid = str(usage_bid or "").strip()
     with app.app_context():
         usage = _load_usage_record(usage_bid=normalized_usage_bid, usage_id=usage_id)
@@ -419,7 +417,6 @@ def replay_bill_usage_settlement(
     usage_id: int | None = None,
 ) -> SettlementResult:
     """Replay a usage settlement safely without duplicating credit consumption."""
-
     requested_creator_bid = str(creator_bid or "").strip() or None
     normalized_usage_bid = str(usage_bid or "").strip()
     with app.app_context():
@@ -476,7 +473,6 @@ def backfill_bill_usage_settlement(
     limit: int | None = None,
 ) -> SettlementResult | BackfillSettlementResult:
     """Replay one or many usage settlements for offline repair/backfill."""
-
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_usage_bid = str(usage_bid or "").strip()
     normalized_limit = max(int(limit or 0), 0) or None
@@ -563,10 +559,8 @@ def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
         yield
     finally:
         if acquired and lock is not None:
-            try:
+            with suppress(Exception):
                 lock.release()
-            except Exception:
-                pass
 
 
 def _load_usage_record(

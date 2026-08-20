@@ -1,9 +1,10 @@
+from typing import ClassVar
+
+from flaskr.util.datetime import now_utc
 from sqlalchemy import Column, DateTime, SmallInteger, String, Text
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
 
 from ...dao import db
-
 
 PROFILE_TYPE_SYSTEM = 2801
 PROFILE_TYPE_USER = 2802
@@ -43,8 +44,7 @@ CONST_PROFILE_SCOPE_SYSTEM = "system"
 
 
 class Variable(db.Model):
-    """
-    Variable definition table for MarkdownFlow-based shifu.
+    """Variable definition table for MarkdownFlow-based shifu.
 
     Defines variables referenced in course content (via MarkdownFlow markers) and used to
     collect learner inputs. Variables can be scoped to a specific Shifu or defined at
@@ -53,7 +53,7 @@ class Variable(db.Model):
     """
 
     __tablename__ = "var_variables"
-    __table_args__ = {
+    __table_args__: ClassVar[dict[str, str]] = {
         "comment": (
             "Variable definition table for MarkdownFlow-based shifu. Defines variables "
             "referenced in course content (via MarkdownFlow markers) and used to collect "
@@ -132,8 +132,7 @@ class Variable(db.Model):
 
 
 class VariableValue(db.Model):
-    """
-    User variable value table for variables.
+    """User variable value table for variables.
 
     Stores the actual values entered during learning for variables defined in var_variables.
     Each record represents a user's value for a variable within a Shifu or global/system
@@ -141,7 +140,7 @@ class VariableValue(db.Model):
     """
 
     __tablename__ = "var_variable_values"
-    __table_args__ = {
+    __table_args__: ClassVar[dict[str, str]] = {
         "comment": (
             "User variable value table for variables. Stores the actual values entered "
             "during learning for variables defined in var_variables. Each record represents "

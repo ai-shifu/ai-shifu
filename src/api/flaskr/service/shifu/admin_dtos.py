@@ -9,16 +9,12 @@ Shim retained for one release cycle per backend-overhaul-master.md B5.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import math
+from datetime import datetime
 from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
 
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.billing.dtos import BillingPlanDTO
-
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseChapterDetailDTO,
     AdminOperationCourseCreditUsageDetailItemDTO,
@@ -62,3 +58,4 @@ from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserReferralRewardSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
+from pydantic import BaseModel, ConfigDict, Field

@@ -1,4 +1,4 @@
-"""add generation_prompt to learn_generated_blocks
+"""add generation_prompt to learn_generated_blocks.
 
 Revision ID: b8d5f0a2c3e4
 Revises: a7c4e9f1b2d3
@@ -6,8 +6,8 @@ Create Date: 2026-08-03 10:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "b8d5f0a2c3e4"

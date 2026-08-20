@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from tests.common.fixtures.bill_products import build_bill_products
 
 

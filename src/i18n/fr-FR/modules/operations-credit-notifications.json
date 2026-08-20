@@ -91,7 +91,6 @@
       "blockedSummary": "{count} enseignants bloqués",
       "delete": "Supprimer",
       "duplicateBlockedCreators": "La saisie existe déjà dans la liste de blocage.",
-      "emptyNickname": "Aucun pseudo",
       "emptyPreview": "Aucun détail",
       "emptyResult": "Aucun résultat.",
       "invalidBlockedCreators": "Contenu non reconnu : {values}",

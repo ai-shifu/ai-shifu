@@ -9,11 +9,11 @@ from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementPayloadDTO,
     ElementType,
-    SubtitleCueDTO,
     ElementVisualDTO,
+    SubtitleCueDTO,
 )
-from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.learn.listen_element_types import _visual_type_for_element
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 
 def _payload_from_stream_element(
@@ -231,20 +231,19 @@ def _sanitize_audio_segments_for_storage(
     *,
     is_final: bool,
 ) -> list[dict[str, Any]]:
-    sanitized: list[dict[str, Any]] = []
-    for item in _prepare_audio_segments_for_element(
-        audio_segments,
-        is_final=is_final,
-    ):
-        sanitized.append(
-            {
-                "position": int(item.get("position", 0) or 0),
-                "segment_index": int(item.get("segment_index", 0) or 0),
-                "audio_data": "",
-                "duration_ms": int(item.get("duration_ms", 0) or 0),
-                "is_final": bool(item.get("is_final", False)),
-            }
+    sanitized: list[dict[str, Any]] = [
+        {
+            "position": int(item.get("position", 0) or 0),
+            "segment_index": int(item.get("segment_index", 0) or 0),
+            "audio_data": "",
+            "duration_ms": int(item.get("duration_ms", 0) or 0),
+            "is_final": bool(item.get("is_final", False)),
+        }
+        for item in _prepare_audio_segments_for_element(
+            audio_segments,
+            is_final=is_final,
         )
+    ]
     return sanitized
 
 

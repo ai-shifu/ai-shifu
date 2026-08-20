@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 from flask import Flask, request
-
 from flaskr.service.common import raise_error
 from flaskr.service.common.dtos import UserInfo
 from flaskr.service.config import get_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
-
 
 BUILTIN_DEMO_TITLES = {
     "AI 师傅教学引导",
@@ -17,7 +14,7 @@ BUILTIN_DEMO_TITLES = {
 }
 
 
-def _extract_preview_token() -> Optional[str]:
+def _extract_preview_token() -> str | None:
     token = request.cookies.get("token", None)
     if not token:
         token = request.args.get("token", None)
@@ -74,7 +71,7 @@ def _auth_types_to_permissions(auth_types: set[str]) -> set[str]:
             permissions.add("view")
         if lowered in {"edit", "write"} or lowered == "2":
             permissions.update({"view", "edit"})
-        if lowered in {"publish"} or lowered == "4":
+        if lowered in {"publish", "4"}:
             permissions.add("publish")
     return permissions
 
@@ -123,7 +120,7 @@ def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
     return False
 
 
-def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
+def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     with app.app_context():
         for row in _load_course_rows(shifu_bid):
             creator_bid = str(getattr(row, "created_user_bid", "") or "").strip()

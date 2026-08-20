@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import pytest
-
 from tests.service.billing import (
     billing_write_routes_test_helpers as write_route_helpers,
 )
-
 from tests.service.billing.billing_write_routes_test_helpers import (
     ALLOCATION_INTERVAL_PER_CYCLE,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
@@ -20,13 +18,13 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_TRIAL_PRODUCT_BID,
+    ERROR_CODE,
     BillingCampaign,
     BillingCampaignProduct,
     BillingOrder,
     BillingProduct,
     BillingSubscription,
     Decimal,
-    ERROR_CODE,
     billing_write_routes_module,
     dao,
     now_utc,

@@ -1,5 +1,4 @@
-"""
-TTS Provider Base Classes and Interfaces.
+"""TTS Provider Base Classes and Interfaces.
 
 This module defines the abstract base classes for TTS providers,
 allowing multiple TTS backends (Minimax, Volcengine, etc.) to be
@@ -8,11 +7,11 @@ used interchangeably.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
-from enum import Enum
+from enum import StrEnum
+from typing import Any
 
 
-class TTSProvider(str, Enum):
+class TTSProvider(StrEnum):
     """Supported TTS providers."""
 
     MINIMAX = "minimax"
@@ -33,7 +32,7 @@ class ParamRange:
     step: float
     default: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "min": self.min,
             "max": self.max,
@@ -51,13 +50,13 @@ class ProviderConfig:
     speed: ParamRange
     pitch: ParamRange
     supports_emotion: bool
-    models: Optional[List[Dict[str, str]]] = None
-    voices: List[Dict[str, str]] = field(default_factory=list)
-    emotions: List[Dict[str, str]] = field(default_factory=list)
+    models: list[dict[str, str]] | None = None
+    voices: list[dict[str, str]] = field(default_factory=list)
+    emotions: list[dict[str, str]] = field(default_factory=list)
     supports_custom_voice_id: bool = False
     supports_voice_cloning: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         data = {
             "name": self.name,
             "label": self.label,
@@ -84,7 +83,7 @@ class TTSResult:
     format: str
     word_count: int = 0
     usage_characters: int = 0
-    subtitle_cues: List[Dict[str, Any]] = field(default_factory=list)
+    subtitle_cues: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -97,7 +96,7 @@ class VoiceSettings:
     emotion: str = ""
     volume: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "voice_id": self.voice_id,
@@ -117,7 +116,7 @@ class AudioSettings:
     bitrate: int = 128000
     channel: int = 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "format": self.format,
@@ -134,23 +133,20 @@ class BaseTTSProvider(ABC):
     @abstractmethod
     def provider_name(self) -> str:
         """Return the provider name."""
-        pass
 
     @abstractmethod
     def is_configured(self) -> bool:
         """Check if the provider is properly configured."""
-        pass
 
     @abstractmethod
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech.
+        """Synthesize text to speech.
 
         Args:
             text: Text to synthesize
@@ -163,33 +159,30 @@ class BaseTTSProvider(ABC):
 
         Raises:
             ValueError: If synthesis fails
+
         """
-        pass
 
     @abstractmethod
     def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings for this provider."""
-        pass
 
     @abstractmethod
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings for this provider."""
-        pass
 
-    def get_supported_emotions(self) -> List[str]:
+    def get_supported_emotions(self) -> list[str]:
         """Get list of supported emotions for this provider."""
         return []
 
-    def get_supported_voices(self) -> List[Dict[str, str]]:
+    def get_supported_voices(self) -> list[dict[str, str]]:
         """Get list of supported voices for this provider."""
         return []
 
     @abstractmethod
     def get_provider_config(self) -> ProviderConfig:
-        """
-        Get provider configuration for frontend.
+        """Get provider configuration for frontend.
 
         Returns:
             ProviderConfig with parameter ranges, voices, models, etc.
+
         """
-        pass

@@ -1,17 +1,16 @@
 import datetime
-from functools import wraps
-from flask import Flask, jsonify, request
-from werkzeug.exceptions import HTTPException
-from ..service.common import AppException
+import decimal
 import json
 import traceback
-import decimal
-from flaskr.common.shifu_context import clear_shifu_context
-from flaskr.i18n import clear_language
-from flaskr.i18n import set_language
-from flaskr.i18n import _
-from flaskr.i18n import _translations
+from functools import wraps
 
+from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
+
+from flaskr.common.shifu_context import clear_shifu_context
+from flaskr.i18n import _, _translations, clear_language, set_language
+
+from ..service.common import AppError
 
 by_pass_login_func = [
     "flasgger.apispec_1",
@@ -29,11 +28,11 @@ def _resolve_supported_language(raw_language: str | None) -> str | None:
         return None
 
     normalized_language_lower = normalized_language.lower()
-    for supported_language in _translations.keys():
+    for supported_language in _translations:
         if supported_language.lower() == normalized_language_lower:
             return supported_language
 
-    for supported_language in _translations.keys():
+    for supported_language in _translations:
         if supported_language.lower().startswith(normalized_language_lower):
             return supported_language
 
@@ -59,7 +58,7 @@ def _extract_request_language() -> str | None:
     return _resolve_supported_language(raw_language)
 
 
-# 装饰器函数，用于跳过Token校验
+# Decorator that exempts a route from token validation
 def bypass_token_validation(func):
     by_pass_login_func.append(func.__name__)
 
@@ -71,8 +70,8 @@ def bypass_token_validation(func):
 
 
 def register_common_handler(app: Flask) -> Flask:
-    @app.errorhandler(AppException)
-    def handle_invalid_usage(error: AppException):
+    @app.errorhandler(AppError)
+    def handle_invalid_usage(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -110,20 +109,18 @@ def fmt(o):
         # convert aware values to UTC, always emitting ISO 8601 with a 'Z'
         # suffix. Display-time timezone conversion is a pure frontend concern.
         if o.tzinfo is None:
-            o = o.replace(tzinfo=datetime.timezone.utc)
-        return o.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
-    elif isinstance(o, datetime.date):
+            o = o.replace(tzinfo=datetime.UTC)
+        return o.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
+    if isinstance(o, datetime.date):
         return o.isoformat()
-    elif isinstance(o, decimal.Decimal):
+    if isinstance(o, decimal.Decimal):
         return str(o)
-    else:
-        return o.__json__()
+    return o.__json__()
 
 
 def make_common_response(data):
     if data is None:
         data = {}
-    response = json.dumps(
+    return json.dumps(
         {"code": 0, "message": "success", "data": data}, default=fmt, ensure_ascii=False
     )
-    return response

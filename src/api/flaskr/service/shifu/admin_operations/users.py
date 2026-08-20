@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from flask import Flask
-from sqlalchemy import and_, case, or_
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_dtos import (
@@ -57,7 +53,9 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
+from sqlalchemy import and_, case, or_
 
 
 def _build_user_query_filter(user_query: str):
@@ -197,7 +195,7 @@ def list_operator_users(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationUserListDTO:
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)

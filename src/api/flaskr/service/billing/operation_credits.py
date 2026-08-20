@@ -8,14 +8,13 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import or_
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+from sqlalchemy import or_
 
 from . import primitives as billing_primitives
 from .bucket_categories import (
@@ -37,8 +36,7 @@ from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .subscriptions import load_effective_topup_subscription
 from .wallets import persist_credit_wallet_snapshot, sync_credit_bucket_status
 
-
-_ZERO = Decimal("0")
+_ZERO = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)
@@ -78,7 +76,6 @@ class OperationCreditReleaseResult:
 
 def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimate:
     """Estimate MiniMax voice-clone cost using only configured active rates."""
-
     with app.app_context():
         now = now_utc()
         usage = BillUsageRecord(

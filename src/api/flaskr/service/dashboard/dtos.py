@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from typing import List
-
-from pydantic import BaseModel, Field
-
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.common.dto_base import AutoJsonMixin
+from pydantic import BaseModel, Field
 
 
 @register_schema_to_swagger
@@ -59,7 +56,7 @@ class DashboardEntryDTO(AutoJsonMixin, BaseModel):
     page_size: int = Field(..., description="Page size", required=False)
     page_count: int = Field(..., description="Page count", required=False)
     total: int = Field(..., description="Total course count", required=False)
-    items: List[DashboardEntryCourseItemDTO] = Field(
+    items: list[DashboardEntryCourseItemDTO] = Field(
         default_factory=list, description="Course rows", required=False
     )
 
@@ -163,7 +160,7 @@ class DashboardCourseDetailLearnersDTO(AutoJsonMixin, BaseModel):
     page_size: int = Field(..., description="Page size", required=False)
     page_count: int = Field(..., description="Page count", required=False)
     total: int = Field(..., description="Total learner count", required=False)
-    items: List[DashboardCourseDetailLearnerItemDTO] = Field(
+    items: list[DashboardCourseDetailLearnerItemDTO] = Field(
         default_factory=list, description="Learner rows", required=False
     )
 
@@ -241,7 +238,7 @@ class DashboardCourseFollowUpListDTO(AutoJsonMixin, BaseModel):
     page_size: int = Field(..., description="Page size", required=False)
     page_count: int = Field(..., description="Page count", required=False)
     total: int = Field(..., description="Total follow-up count", required=False)
-    items: List[DashboardCourseFollowUpItemDTO] = Field(
+    items: list[DashboardCourseFollowUpItemDTO] = Field(
         default_factory=list, description="Follow-up rows", required=False
     )
 
@@ -306,7 +303,7 @@ class DashboardCourseFollowUpDetailDTO(AutoJsonMixin, BaseModel):
     current_record: DashboardCourseFollowUpCurrentRecordDTO = Field(
         ..., description="Current follow-up record", required=False
     )
-    timeline: List[DashboardCourseFollowUpTimelineItemDTO] = Field(
+    timeline: list[DashboardCourseFollowUpTimelineItemDTO] = Field(
         default_factory=list, description="Follow-up timeline", required=False
     )
 
@@ -367,6 +364,6 @@ class DashboardCourseRatingListDTO(AutoJsonMixin, BaseModel):
     page_size: int = Field(..., description="Page size", required=False)
     page_count: int = Field(..., description="Page count", required=False)
     total: int = Field(..., description="Total rating count", required=False)
-    items: List[DashboardCourseRatingItemDTO] = Field(
+    items: list[DashboardCourseRatingItemDTO] = Field(
         default_factory=list, description="Rating rows", required=False
     )

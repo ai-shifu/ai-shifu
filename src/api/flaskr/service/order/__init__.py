@@ -1,13 +1,15 @@
+"""Order and payment service."""
+
 from __future__ import annotations
 
 from importlib import import_module
 from typing import Any
 
-from .consts import *  # noqa: F403
 from ..common.dicts import register_dict
+from .consts import *  # noqa: F403
 
-register_dict("order_status", "订单状态", ORDER_STATUS_TYPES)  # noqa
-register_dict("learn_status", "学习状态", LEARN_STATUS_TYPES)  # noqa
+register_dict("order_status", "订单状态", ORDER_STATUS_TYPES)  # noqa: F405
+register_dict("learn_status", "学习状态", LEARN_STATUS_TYPES)  # noqa: F405
 
 
 def __getattr__(name: str) -> Any:

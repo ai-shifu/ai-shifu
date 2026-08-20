@@ -1,4 +1,4 @@
-"""add referral invitation tables
+"""add referral invitation tables.
 
 Revision ID: 5a6b7c8d9e10
 Revises: c5d8e1f2a3b4
@@ -8,10 +8,9 @@ Create Date: 2026-06-09 18:20:00.000000
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
-
 
 revision = "5a6b7c8d9e10"
 down_revision = "c5d8e1f2a3b4"

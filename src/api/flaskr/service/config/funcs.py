@@ -1,22 +1,25 @@
-from flask import Flask
-from cryptography.fernet import Fernet
 import base64
 import hashlib
-from flaskr.service.config.models import Config
-from flaskr.common.config import (
-    get_config as get_config_from_common,
-    has_explicit_env_override,
-)
-from flaskr.common.cache_provider import cache as redis
-from flaskr.dao import db
-from flaskr.util import generate_id
-from pydantic import BaseModel, Field
-from flaskr.framework import extensible
-from sqlalchemy.exc import SQLAlchemyError
-from redis.exceptions import LockNotOwnedError
-from contextlib import contextmanager
 import random
 import threading
+from contextlib import contextmanager
+
+from cryptography.fernet import Fernet
+from flask import Flask
+from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import (
+    get_config as get_config_from_common,
+)
+from flaskr.common.config import (
+    has_explicit_env_override,
+)
+from flaskr.dao import db
+from flaskr.framework import extensible
+from flaskr.service.config.models import Config
+from flaskr.util import generate_id
+from pydantic import BaseModel, Field
+from redis.exceptions import LockNotOwnedError
+from sqlalchemy.exc import SQLAlchemyError
 
 MAX_UPDATED_BY_LEN = 36
 _config_override_local = threading.local()
@@ -52,8 +55,7 @@ def _normalize_updated_by(value: str) -> str:
 
 
 def _get_fernet_key(app: Flask) -> bytes:
-    """
-    Generate Fernet key from SECRET_KEY.
+    """Generate Fernet key from SECRET_KEY.
     Fernet requires a 32-byte key, so we hash SECRET_KEY with SHA256.
     """
     with app.app_context():
@@ -66,16 +68,13 @@ def _get_fernet_key(app: Flask) -> bytes:
 
 
 def _get_fernet(app: Flask) -> Fernet:
-    """
-    Get Fernet instance for encryption/decryption.
-    """
+    """Get Fernet instance for encryption/decryption."""
     key = _get_fernet_key(app)
     return Fernet(key)
 
 
 def _encrypt_config(app: Flask, value: str) -> str:
-    """
-    Encrypt config value and store it in database.
+    """Encrypt config value and store it in database.
 
     Args:
         app: Flask application instance
@@ -83,6 +82,7 @@ def _encrypt_config(app: Flask, value: str) -> str:
 
     Returns:
         Encrypted value as base64 string
+
     """
     with app.app_context():
         fernet = _get_fernet(app)
@@ -91,8 +91,7 @@ def _encrypt_config(app: Flask, value: str) -> str:
 
 
 def _decrypt_config(app: Flask, encrypted_value: str) -> str:
-    """
-    Decrypt config value.
+    """Decrypt config value.
 
     Args:
         app: Flask application instance
@@ -103,6 +102,7 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
 
     Raises:
         ValueError: If decryption fails (invalid token or corrupted data)
+
     """
     with app.app_context():
         try:
@@ -110,7 +110,7 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
             decrypted_value = fernet.decrypt(encrypted_value.encode())
             return decrypted_value.decode()
         except Exception as e:
-            raise ValueError(f"Failed to decrypt config value: {str(e)}")
+            raise ValueError(f"Failed to decrypt config value: {e!s}") from e
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:
@@ -128,9 +128,8 @@ def _get_config_lock_key(app: Flask, key: str) -> str:
 
 
 @extensible
-def get_config(key: str, default: str = None) -> str:
-    """
-    Get config value by key, automatically decrypt if is_secret=1.
+def get_config(key: str, default: str | None = None) -> str:
+    """Get config value by key, automatically decrypt if is_secret=1.
 
     Args:
         key: Config key
@@ -141,6 +140,7 @@ def get_config(key: str, default: str = None) -> str:
         None if config not found
     Raises:
         ValueError: If config not found or decryption fails
+
     """
     from contextlib import nullcontext
 
@@ -156,8 +156,7 @@ def get_config(key: str, default: str = None) -> str:
     with nullcontext():
         # Only explicit env vars should bypass DB-backed config lookups.
         if has_explicit_env_override(key):
-            env_value = get_config_from_common(key, default)
-            return env_value
+            return get_config_from_common(key, default)
         try:
             cache_key = _get_config_cache_key(app, key)
             cache = redis.get(cache_key)
@@ -191,7 +190,7 @@ def get_config(key: str, default: str = None) -> str:
                             is_encrypted=bool(config.is_encrypted),
                             value=raw_value,
                         ).model_dump_json(),
-                        ex=86400 + random.randint(0, 3600),
+                        ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
                     )
                     return value
                 finally:
@@ -204,10 +203,11 @@ def get_config(key: str, default: str = None) -> str:
                             "get_config lock for %s expired before release; ignoring",
                             key,
                         )
-            return default
         except (SQLAlchemyError, RuntimeError) as exc:
             app.logger.warning("Database not ready for get_config(%s): %s", key, exc)
             return get_config_from_common(key, default)
+        else:
+            return default
 
 
 def add_config(
@@ -218,13 +218,11 @@ def add_config(
     remark: str = "",
     updated_by: str = "system",
 ) -> bool | None:
-    """
-    Add config to database.
-    """
+    """Add config to database."""
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):
-            return
+            return None
         # Check if config already exists in database
         existing_config = (
             Config.query.filter(
@@ -247,7 +245,7 @@ def add_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         # Config doesn't exist, add new one
@@ -269,7 +267,7 @@ def add_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         return False
@@ -283,9 +281,7 @@ def update_config(
     remark: str = "",
     updated_by: str = "system",
 ) -> bool:
-    """
-    Update config in database.
-    """
+    """Update config in database."""
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         if has_explicit_env_override(key):
@@ -322,7 +318,7 @@ def update_config(
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
+                ex=86400 + random.randint(0, 3600),  # noqa: S311 - cache TTL jitter
             )
             return True
         return False

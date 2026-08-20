@@ -1,6 +1,5 @@
 import flaskr.common.config as common_config
 from flask import Flask
-
 from flaskr.route.storage import register_storage_handler
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, OSS_PROFILE_DEFAULT
 from flaskr.service.common.storage import (
@@ -98,7 +97,7 @@ def test_read_storage_bytes_fetches_from_oss_when_local_file_is_missing(
     monkeypatch,
     tmp_path,
 ):
-    import flaskr.service.common.storage as storage
+    from flaskr.service.common import storage
     from flaskr.service.common.oss_utils import OSSConfig
 
     _make_storage_app(monkeypatch, tmp_path, "oss")

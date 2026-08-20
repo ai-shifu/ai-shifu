@@ -1,7 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-listen-element-history-subtitles")
@@ -19,7 +18,7 @@ if not hasattr(dao, "redis_client"):
 
 class TestListenElementHistorySubtitles:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("listen-element-history-subtitles")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

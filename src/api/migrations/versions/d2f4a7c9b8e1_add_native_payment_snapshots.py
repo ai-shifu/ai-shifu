@@ -1,4 +1,4 @@
-"""add native payment snapshots
+"""add native payment snapshots.
 
 Revision ID: d2f4a7c9b8e1
 Revises: 4d9f6c7b8a1e
@@ -8,10 +8,9 @@ Create Date: 2026-04-27 00:00:00.000000
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
-
 
 revision = "d2f4a7c9b8e1"
 down_revision = "4d9f6c7b8a1e"

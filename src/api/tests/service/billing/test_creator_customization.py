@@ -1,23 +1,24 @@
-from io import BytesIO
+import hashlib
 from importlib import import_module
+from io import BytesIO
 from types import SimpleNamespace
 
-from cryptography.fernet import Fernet
-from PIL import Image
 import pytest
-from werkzeug.datastructures import FileStorage
-
+from cryptography.fernet import Fernet
+from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+from flaskr.dao import db
 from flaskr.service.billing import customization
 from flaskr.service.billing.entitlements import (
     grant_creator_manual_entitlement,
     resolve_creator_entitlement_state,
 )
 from flaskr.service.billing.models import BillingEntitlement
-from flaskr.service.common.models import AppException
-from flaskr.util.datetime import now_utc
-from flaskr.dao import db
-from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+from flaskr.service.common import contact_identifiers
+from flaskr.service.common.models import AppError
 from flaskr.service.user import user as user_service
+from flaskr.util.datetime import now_utc
+from PIL import Image
+from werkzeug.datastructures import FileStorage
 
 
 def _require_saas_config_plugin() -> None:
@@ -220,6 +221,76 @@ def test_admin_creator_customization_draft_mobile_identity_fits_saas_storage(app
         assert all(len(row.user_bid) <= 36 for row in rows)
 
 
+def test_admin_draft_storage_identity_folds_email_case_only(monkeypatch):
+    """Email drafts key on the lowercased address; phone keys stay byte-identical."""
+    monkeypatch.setattr(
+        contact_identifiers,
+        "get_config",
+        lambda key, default=None: (
+            "google" if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
+    upper = customization._admin_draft_storage_identity(
+        creator_mobile="Teacher@Example.com"
+    )
+    lower = customization._admin_draft_storage_identity(
+        creator_mobile=" teacher@example.com "
+    )
+    assert upper == lower
+    assert len(upper[0]) <= 36
+
+    monkeypatch.setattr(
+        contact_identifiers,
+        "get_config",
+        lambda key, default=None: (
+            "phone" if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
+    phone_identity = customization._admin_draft_storage_identity(
+        creator_mobile="13800138000"
+    )
+    expected_digest = hashlib.sha256(b"13800138000").hexdigest()[:36]
+    assert phone_identity[0] == expected_digest
+
+    with pytest.raises(AppError):
+        customization._admin_draft_storage_identity(creator_mobile="   ")
+
+
+def test_admin_creator_customization_draft_email_identity_is_case_insensitive(
+    app, monkeypatch
+):
+    """An overseas draft must reload no matter how the operator typed the email."""
+    _require_saas_config_plugin()
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+    monkeypatch.setattr(
+        contact_identifiers,
+        "get_config",
+        lambda key, default=None: (
+            "google" if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
+
+    with app.app_context():
+        customization.save_admin_creator_customization_draft(
+            app,
+            creator_mobile="Teacher@Example.com",
+            payload={"note": "email draft"},
+        )
+        loaded = customization.build_admin_creator_customization_draft(
+            app,
+            creator_mobile="teacher@example.com",
+        )
+        model = customization._saas_model()
+        rows = model.query.filter(
+            model.key == f"{customization.ADMIN_DRAFT_KEY}.MOBILE",
+            model.deleted == 0,
+        ).all()
+
+        assert loaded["note"] == "email draft"
+        assert len(rows) == 1
+        assert all(len(row.user_bid) <= 36 for row in rows)
+
+
 def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
@@ -258,7 +329,7 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
             customization.resolve_payment_integration_for_new_order(
                 app, "creator-expired-1", "stripe"
             )
-        except AppException:
+        except AppError:
             pass
         else:
             raise AssertionError("expired custom payment must block new checkout")
@@ -615,7 +686,8 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
 def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
     """A deployment can ship the plugin package without configuring its
     database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points
-    at an unreachable host, so customization reads must not touch it."""
+    at an unreachable host, so customization reads must not touch it.
+    """
 
     class _ExplodingModule:
         def __getattr__(self, name):
@@ -716,7 +788,7 @@ def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
             filename="fake.ico",
             content_type="image/x-icon",
         )
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             customization.upload_creator_brand_logo(
                 app,
                 "creator-favicon-1",
@@ -803,7 +875,7 @@ def test_creator_branding_home_url_roundtrip(app, monkeypatch):
         )
         assert cleared["home_url"] == ""
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             customization.save_creator_branding(
                 app,
                 "creator-home-url-1",
@@ -839,7 +911,7 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monke
                     "creator-logo-invalid",
                     logo,
                 )
-            except AppException:
+            except AppError:
                 pass
             else:
                 raise AssertionError("invalid logo content must be rejected")

@@ -3,7 +3,8 @@
 
 def test_transactional_session_classifies_before_savepoint_rollback(app, monkeypatch):
     """Abnormal terminations must invalidate WITHOUT any savepoint rollback
-    reaching the wire; ordinary errors keep the legacy full-rollback path."""
+    reaching the wire; ordinary errors keep the legacy full-rollback path.
+    """
     import flaskr.service.user.repository as repo_module
     from sqlalchemy.exc import ResourceClosedError
 
@@ -37,20 +38,21 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
         repo_module.db.session, "begin_nested", lambda: nested, raising=False
     )
 
-    import pytest as _pytest
+    import pytest
 
     # Desync inside the body: invalidate only, savepoint untouched.
-    with _pytest.raises(ResourceClosedError):
-        with repo_module.transactional_session():
-            raise ResourceClosedError("desynced")
+    with pytest.raises(ResourceClosedError), repo_module.transactional_session():
+        raise ResourceClosedError("desynced")
     assert events == [("invalidate", "transactional_session desync")]
     assert nested.rollbacks == 0
     events.clear()
 
     # Ordinary error: savepoint rollback then classified session cleanup.
-    with _pytest.raises(ValueError):
-        with repo_module.transactional_session():
-            raise ValueError("business")
+    with (
+        pytest.raises(ValueError, match="business"),
+        repo_module.transactional_session(),
+    ):
+        raise ValueError("business")
     assert events == [("cleanup", "transactional_session")]
     assert nested.rollbacks == 1
     events.clear()

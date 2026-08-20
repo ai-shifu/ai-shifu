@@ -7,7 +7,6 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
-
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
 
@@ -23,7 +22,7 @@ from .primitives import is_billing_enabled
 from .primitives import to_decimal as _to_decimal
 from .subscriptions import load_effective_topup_subscription
 
-_ZERO_CREDITS = Decimal("0")
+_ZERO_CREDITS = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)
@@ -59,7 +58,6 @@ def admit_creator_usage(
     usage_scene: int | None = None,
 ) -> CreatorUsageAdmission:
     """Validate whether a creator-owned usage request may proceed."""
-
     normalized_creator_bid = _resolve_creator_bid(
         app,
         creator_bid=creator_bid,

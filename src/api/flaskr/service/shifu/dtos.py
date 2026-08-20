@@ -1,5 +1,4 @@
-"""
-Shifu dtos
+"""Shifu dtos.
 
 This module contains dtos for shifu.
 
@@ -7,12 +6,13 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Any
+
 from flask import Flask
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
 )
-from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -28,9 +28,7 @@ def resolve_demo_course_for_language(
 
 @register_schema_to_swagger
 class ShifuDto(BaseModel):
-    """
-    Shifu dto
-    """
+    """Shifu dto."""
 
     bid: str = Field(..., description="shifu id", required=False)
     name: str = Field(..., description="shifu name", required=False)
@@ -103,9 +101,7 @@ class ShifuDto(BaseModel):
 
 @register_schema_to_swagger
 class ShifuDetailDto(BaseModel):
-    """
-    Shifu detail dto
-    """
+    """Shifu detail dto."""
 
     bid: str = Field(..., description="shifu id", required=False)
     name: str = Field(..., description="shifu name", required=False)
@@ -147,6 +143,11 @@ class ShifuDetailDto(BaseModel):
         required=False,
     )
     tts_emotion: str = Field("", description="TTS emotion setting", required=False)
+    default_listen_mode_enabled: bool = Field(
+        False,
+        description="Default learner mode to listen when TTS is enabled",
+        required=False,
+    )
     use_learner_language: bool = Field(
         False,
         description="Use learner language for AI output",
@@ -203,6 +204,7 @@ class ShifuDetailDto(BaseModel):
         tts_speed: float = 1.0,
         tts_pitch: int = 0,
         tts_emotion: str = "",
+        default_listen_mode_enabled: bool = False,
         use_learner_language: bool = False,
         ask_enabled_status: int = 5101,
         ask_model: str = "",
@@ -234,6 +236,7 @@ class ShifuDetailDto(BaseModel):
             tts_speed=tts_speed,
             tts_pitch=tts_pitch,
             tts_emotion=tts_emotion,
+            default_listen_mode_enabled=default_listen_mode_enabled,
             use_learner_language=use_learner_language,
             ask_enabled_status=ask_enabled_status,
             ask_model=ask_model,
@@ -267,6 +270,7 @@ class ShifuDetailDto(BaseModel):
             "tts_speed": self.tts_speed,
             "tts_pitch": self.tts_pitch,
             "tts_emotion": self.tts_emotion,
+            "default_listen_mode_enabled": self.default_listen_mode_enabled,
             "use_learner_language": self.use_learner_language,
             "ask_enabled_status": self.ask_enabled_status,
             "ask_model": self.ask_model,
@@ -278,9 +282,7 @@ class ShifuDetailDto(BaseModel):
 
 @register_schema_to_swagger
 class SimpleOutlineDto(BaseModel):
-    """
-    Simple outline dto
-    """
+    """Simple outline dto."""
 
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline position", required=False)
@@ -301,10 +303,10 @@ class SimpleOutlineDto(BaseModel):
         position: str,
         name: str,
         children: list,
-        type: str | None = None,
+        type: str | None = None,  # noqa: A002 - serialized DTO field name
         is_hidden: bool | None = None,
     ):
-        normalized_children: list["SimpleOutlineDto"] = []
+        normalized_children: list[SimpleOutlineDto] = []
         if children:
             for child in children:
                 if isinstance(child, SimpleOutlineDto):
@@ -341,7 +343,7 @@ class SimpleOutlineDto(BaseModel):
 
 
 # new outline tree node class, for handling DraftOutlineItem
-# author: yfge
+# written by yfge
 # date: 2025-07-13
 # version: 1.0.0
 # description: this class is used to handle DraftOutlineItem
@@ -350,9 +352,7 @@ class SimpleOutlineDto(BaseModel):
 # 2. add a child to the node
 # 3. remove a child from the node
 class ShifuOutlineTreeNode:
-    """
-    Shifu outline tree node
-    """
+    """Shifu outline tree node."""
 
     def __init__(self, outline_item: DraftOutlineItem):
         self.outline = outline_item
@@ -366,37 +366,28 @@ class ShifuOutlineTreeNode:
         self.parent_node = None
 
     def add_child(self, child: "ShifuOutlineTreeNode"):
-        """
-        add a child to the node
-        """
+        """Add a child to the node."""
         self.children.append(child)
         child.parent_node = self
 
     def remove_child(self, child: "ShifuOutlineTreeNode"):
-        """
-        remove a child from the node
-        """
+        """Remove a child from the node."""
         child.parent_node = None
         self.children.remove(child)
 
     def get_new_position(self):
-        """
-        get the new position of the node
-        """
+        """Get the new position of the node."""
         if not self.parent_node:
             return self.position
-        else:
-            return (
-                self.parent_node.get_new_position()
-                + f"{self.parent_node.children.index(self) + 1:02d}"
-            )
+        return (
+            self.parent_node.get_new_position()
+            + f"{self.parent_node.children.index(self) + 1:02d}"
+        )
 
 
 @register_schema_to_swagger
 class OutlineDto(BaseModel):
-    """
-    Outline dto
-    """
+    """Outline dto."""
 
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline no", required=False)
@@ -409,14 +400,14 @@ class OutlineDto(BaseModel):
 
     def __init__(
         self,
-        bid: str = None,
-        position: str = None,
-        name: str = None,
-        description: str = None,
-        type: str = None,
-        index: int = None,
-        system_prompt: str = None,
-        is_hidden: bool = None,
+        bid: str | None = None,
+        position: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        type: str | None = None,  # noqa: A002 - serialized DTO field name
+        index: int | None = None,
+        system_prompt: str | None = None,
+        is_hidden: bool | None = None,
     ):
         super().__init__(
             bid=bid,
@@ -444,17 +435,13 @@ class OutlineDto(BaseModel):
 
 @register_schema_to_swagger
 class ReorderOutlineItemDto:
-    """
-    Reorder outline item dto
-    """
+    """Reorder outline item dto."""
 
     bid: str
     children: list["ReorderOutlineItemDto"]
 
     def __init__(self, bid: str, children: list["ReorderOutlineItemDto"]):
-        """
-        init reorder outline item dto
-        """
+        """Init reorder outline item dto."""
         self.bid = bid
         self.children = children
 
@@ -467,9 +454,7 @@ class ReorderOutlineItemDto:
 
 @register_schema_to_swagger
 class ReorderOutlineDto:
-    """
-    Reorder outline dto
-    """
+    """Reorder outline dto."""
 
     outlines: list[ReorderOutlineItemDto]
 

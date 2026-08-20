@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import calendar
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
-
-from sqlalchemy import case
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
+from sqlalchemy import case
 
-from .primitives import coerce_datetime, normalize_bid
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
@@ -26,13 +24,13 @@ from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
 )
 from .models import (
     BillingDailyLedgerSummary,
@@ -45,6 +43,7 @@ from .models import (
     BillingSubscription,
     CreditWallet,
 )
+from .primitives import coerce_datetime, normalize_bid
 from .value_objects import PageWindow
 
 _SELF_MANAGED_CYCLE_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -271,10 +270,7 @@ def calculate_self_managed_billing_cycle_end_after_boundary(
 
 
 def to_self_managed_cycle_local_time(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    else:
-        value = value.astimezone(timezone.utc)
+    value = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
     return value.astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
 
 
@@ -282,7 +278,7 @@ def self_managed_local_day_end_to_utc_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
         value = value.replace(tzinfo=_SELF_MANAGED_CYCLE_TIMEZONE)
     local_day_end = end_of_day(value).astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
-    return local_day_end.astimezone(timezone.utc).replace(tzinfo=None)
+    return local_day_end.astimezone(UTC).replace(tzinfo=None)
 
 
 def end_of_day(value: datetime) -> datetime:
@@ -305,9 +301,12 @@ def add_years(value: datetime, years: int) -> datetime:
 
 def add_self_managed_years(value: datetime, years: int) -> datetime:
     target_year = value.year + years
-    if value.month == 2 and value.day == 29:
-        if calendar.monthrange(target_year, 2)[1] < 29:
-            return value.replace(year=target_year, month=3, day=1)
+    if (
+        value.month == 2
+        and value.day == 29
+        and calendar.monthrange(target_year, 2)[1] < 29
+    ):
+        return value.replace(year=target_year, month=3, day=1)
     return value.replace(year=target_year)
 
 

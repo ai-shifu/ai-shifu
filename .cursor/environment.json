@@ -1,0 +1,31 @@
+{
+  "name": "AI-Shifu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "bash .cursor/run-api.sh",
+      "description": "Flask backend API (gunicorn) on http://localhost:5800"
+    },
+    {
+      "name": "cook-web",
+      "command": "bash .cursor/run-web.sh",
+      "description": "Next.js Cook Web dev server on http://localhost:3000; proxies /api/* to the backend"
+    },
+    {
+      "name": "celery",
+      "command": "bash .cursor/run-celery.sh",
+      "description": "Celery worker for async tasks (billing, TTS) on the local Redis broker"
+    },
+    {
+      "name": "celery-beat",
+      "command": "bash .cursor/run-celery-beat.sh",
+      "description": "Celery beat scheduler for periodic tasks"
+    }
+  ],
+  "ports": [
+    { "name": "cook-web", "port": 3000 },
+    { "name": "api", "port": 5800 }
+  ]
+}

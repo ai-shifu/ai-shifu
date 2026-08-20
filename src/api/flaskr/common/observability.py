@@ -13,7 +13,6 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_
 
 from .request_context import thread_local
 
-
 HTTP_REQUEST_COUNT = Counter(
     "ai_shifu_http_requests_total",
     "Total HTTP requests handled by the backend.",

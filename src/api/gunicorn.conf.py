@@ -7,7 +7,7 @@ import sys
 
 
 def _gevent_worker_requested(argv) -> bool:
-    """True when the command line selects the gevent worker class.
+    """Report whether the command line selects the gevent worker class.
 
     Monkey-patching must match the worker class. The production deployment
     runs ``-k gthread``; patching gevent onto gthread workers turns their
@@ -103,11 +103,10 @@ def post_fork(server, worker):
         worker.log.exception("post_fork hub observer install failed")
 
     try:
+        from flaskr.api.langfuse import init_langfuse
         from langfuse._client.resource_manager import LangfuseResourceManager
         from opentelemetry import trace as otel_trace_api
         from opentelemetry.util._once import Once
-
-        from flaskr.api.langfuse import init_langfuse
 
         LangfuseResourceManager._instances.clear()
         otel_trace_api._TRACER_PROVIDER = None

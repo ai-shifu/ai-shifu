@@ -7,15 +7,19 @@
 }
 
 .mainMenuModal {
-  font-size: var(--font-size-4);
+  color: var(--font-color-main, #06295d);
+  font-family: var(--font-app-sans, system-ui, sans-serif);
+  font-size: var(--font-size-4, 14px);
+  font-style: normal;
+  font-weight: 400;
   line-height: 2em;
 
   .languageRow {
-    border-top: 1px solid var(--color-8);
-    border-bottom: 1px solid var(--color-8);
+    border-top: 1px solid var(--color-8, #9ba9be);
+    border-bottom: 1px solid var(--color-8, #9ba9be);
 
     .langDownIcon {
-      font-size: var(--font-size-5);
+      font-size: var(--font-size-5, 12px);
     }
 
     .languageRowLeft {
@@ -27,8 +31,14 @@
 
   .mainMenuModalRow {
     display: flex;
+    width: 100%;
     flex-flow: row nowrap;
     align-items: center;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
     padding-top: 10px;
     padding-bottom: 10px;
     cursor: pointer;
@@ -36,7 +46,7 @@
     margin-block: 4px;
 
     &:hover {
-      background-color: var(--hover-color);
+      background-color: var(--hover-color, rgba(0, 0, 0, 0.06));
     }
 
     &.languageRowInner {

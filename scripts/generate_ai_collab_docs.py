@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import textwrap
+from dataclasses import dataclass
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH = 78
@@ -221,6 +221,9 @@ API_SPEC = DocSpec(
         "Use `FLASK_APP=app.py` from `src/api/` for Flask commands, and update "
         "module imports so new models or routes participate in the app factory "
         "and migration discovery paths.",
+        "Define the intended schema in SQLAlchemy models first, then generate "
+        "schema revisions with `FLASK_APP=app.py flask db migrate -m "
+        '"message"` and review the candidate migration before accepting it.',
         "Keep database models aligned with the project conventions: business keys "
         "before foreign references, indexed `_bid` columns, soft-delete flags "
         "when applicable, and timestamp fields with server defaults.",
@@ -236,6 +239,10 @@ API_SPEC = DocSpec(
         "provider wrappers, or service utilities already cover the use case.",
         "Do not edit applied migration files. Generate a new Alembic revision and "
         "review it before committing any schema change.",
+        "Do not use SQLAlchemy or Flask-SQLAlchemy `create_all()` calls, or "
+        "custom schema-introspection guards, as a substitute for versioned "
+        "Alembic migrations. Add a narrowly scoped guard only when a documented "
+        "non-transactional DDL recovery requirement makes it necessary.",
         "Do not add hard database foreign-key constraints for business-key "
         "relationships unless the architecture decision changes explicitly.",
         "Do not bypass the LiteLLM wrapper or shared backend helper layers when "
@@ -975,7 +982,7 @@ FRONTEND_META = {
             "shared TypeScript declarations, ambient module definitions, and "
             "cross-domain frontend interfaces"
         ),
-        key_files=("global.ts", "shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
+        key_files=("shifu.ts", "markdown-flow-ui.d.ts", "i18n-keys.d.ts"),
         invariants=(
             "treat shared type exports as compatibility surfaces consumed across "
             "routes, stores, hooks, and components",
@@ -1000,7 +1007,7 @@ FRONTEND_META = {
             "legacy compatibility API wrappers used by the `c` experience and "
             "older frontend business flows"
         ),
-        key_files=("c.ts", "course.ts", "lesson.ts", "studyV2.ts"),
+        key_files=("course.ts", "lesson.ts", "studyV2.ts"),
         invariants=(
             "preserve legacy request shapes and naming as long as the `c` routes "
             "still depend on them",
@@ -1078,18 +1085,10 @@ FRONTEND_META = {
         test_focus="src/cook-web/src/c-components/",
     ),
     "c-constants": FrontendDomainMeta(
-        summary=(
-            "legacy constants for course, environment, product, UI, and user "
-            "behavior used throughout the `c` experience"
-        ),
-        key_files=(
-            "uiConstants.ts",
-            "env.ts",
-            "courseConstants.ts",
-            "productConstants.ts",
-        ),
+        summary=("legacy course and UI constants used throughout the `c` experience"),
+        key_files=("uiConstants.ts", "courseConstants.ts"),
         invariants=(
-            "keep shared breakpoint, environment, and product constants as the "
+            "keep shared breakpoint, course, and UI constants as the "
             "single source of truth for legacy consumers",
             "preserve constant names and semantics when skills or stores already "
             "depend on them indirectly",
@@ -1109,10 +1108,10 @@ FRONTEND_META = {
     ),
     "c-service": FrontendDomainMeta(
         summary=(
-            "legacy business orchestration for shifu, shortcuts, and state "
-            "transform helpers consumed by the `c` experience"
+            "legacy business orchestration for shifu and state transform helpers "
+            "consumed by the `c` experience"
         ),
-        key_files=("Shifu.ts", "shifuUtils.ts", "shortcut.ts", "storeUtil.ts"),
+        key_files=("Shifu.ts", "shifuUtils.ts", "storeUtil.ts"),
         invariants=(
             "keep legacy business transformations centralized so `c` pages and "
             "stores do not all reshape the same payloads differently",
@@ -1122,7 +1121,7 @@ FRONTEND_META = {
             "for low-level request or UI-only helpers",
         ),
         avoid_points=(
-            "do not duplicate shifu or shortcut transformations in pages when "
+            "do not duplicate shifu or state transformations in pages when "
             "this service layer already owns them",
             "do not move compatibility behavior into modern domains without a "
             "clear migration plan and adapter",
@@ -1173,7 +1172,7 @@ FRONTEND_META = {
             "legacy ambient declarations and compatibility types used across the "
             "`c` experience"
         ),
-        key_files=("index.ts", "store.ts", "sse.d.ts", "user-roles.ts"),
+        key_files=("index.ts", "store.ts", "sse.d.ts"),
         invariants=(
             "keep compatibility types aligned with the actual `c` stores, "
             "services, and runtime payloads they describe",
@@ -1232,19 +1231,16 @@ FRONTEND_META = {
 
 def wrap_bullet(text: str) -> list[str]:
     """Wrap one markdown bullet item."""
-
     return wrap_markdown(text, initial_indent="- ", subsequent_indent="  ")
 
 
 def wrap_paragraph(text: str) -> list[str]:
     """Wrap a plain paragraph."""
-
     return wrap_markdown(text)
 
 
 def protect_inline_code(text: str) -> str:
     """Replace spaces inside inline-code spans so wrapping keeps them intact."""
-
     return INLINE_CODE_PATTERN.sub(
         lambda match: match.group(0).replace(" ", INLINE_CODE_SPACE),
         text,
@@ -1258,7 +1254,6 @@ def wrap_markdown(
     subsequent_indent: str = "",
 ) -> list[str]:
     """Wrap Markdown while keeping inline-code spans on one line."""
-
     protected = protect_inline_code(text)
     wrapped = textwrap.fill(
         protected,
@@ -1273,7 +1268,6 @@ def wrap_markdown(
 
 def sentence_case(text: str) -> str:
     """Normalize a metadata fragment into a sentence-like bullet."""
-
     normalized = text.strip()
     if not normalized:
         return normalized
@@ -1285,7 +1279,6 @@ def sentence_case(text: str) -> str:
 
 def render_section(heading: str, items: tuple[str, ...]) -> list[str]:
     """Render a markdown section with wrapped bullets."""
-
     lines = [f"## {heading}", ""]
     for item in items:
         lines.extend(wrap_bullet(item))
@@ -1295,7 +1288,6 @@ def render_section(heading: str, items: tuple[str, ...]) -> list[str]:
 
 def render_agents(spec: DocSpec) -> str:
     """Render one AGENTS.md file."""
-
     lines = [DOC_COMMENT, "", f"# {spec.title}", ""]
     lines.extend(wrap_paragraph(spec.intro))
     lines.append("")
@@ -1310,7 +1302,6 @@ def render_agents(spec: DocSpec) -> str:
 
 def render_claude(entry_name: str) -> str:
     """Render a thin CLAUDE.md wrapper."""
-
     lines = [
         DOC_COMMENT,
         "",
@@ -1327,13 +1318,11 @@ def render_claude(entry_name: str) -> str:
 
 def join_paths(*paths: str) -> str:
     """Format a list of relative paths for display."""
-
     return ", ".join(f"`{path}`" for path in paths)
 
 
 def maybe_tests_note(meta: BackendModuleMeta) -> str:
     """Describe the expected pytest location."""
-
     if meta.tests_exist:
         return f"`{meta.tests_path}` already exists and should remain the first stop."
     return (
@@ -1344,7 +1333,6 @@ def maybe_tests_note(meta: BackendModuleMeta) -> str:
 
 def backend_test_command(meta: BackendModuleMeta) -> str:
     """Describe the focused backend test command for one service."""
-
     if meta.tests_exist:
         tests_cmd_path = meta.tests_path.removeprefix("src/api/")
         return (
@@ -1361,7 +1349,6 @@ def backend_test_command(meta: BackendModuleMeta) -> str:
 
 def build_backend_spec(name: str, meta: BackendModuleMeta) -> DocSpec:
     """Build one backend service AGENTS.md spec."""
-
     title = f"Backend Service: {name}"
     key_files = (
         join_paths(
@@ -1436,7 +1423,6 @@ def build_backend_spec(name: str, meta: BackendModuleMeta) -> DocSpec:
 
 def build_frontend_spec(name: str, meta: FrontendDomainMeta) -> DocSpec:
     """Build one frontend domain AGENTS.md spec."""
-
     title = f"Cook Web Domain: {name}"
     key_files = join_paths(
         *(f"src/cook-web/src/{name}/{path}" for path in meta.key_files)
@@ -1504,7 +1490,6 @@ def build_frontend_spec(name: str, meta: FrontendDomainMeta) -> DocSpec:
 
 def render_rule(title: str, intro: str, bullets: tuple[str, ...]) -> str:
     """Render a Claude-only rule file."""
-
     lines = [DOC_COMMENT, "", f"# {title}", ""]
     lines.extend(wrap_paragraph(intro))
     lines.append("")
@@ -1523,14 +1508,12 @@ def render_cursor_rule(
     globs: tuple[str, ...] = (),
 ) -> str:
     """Render one Cursor MDC rule file."""
-
     lines = [
         "---",
         f"description: {description}",
         "globs:",
     ]
-    for glob in globs:
-        lines.append(f"  - {glob}")
+    lines.extend(f"  - {glob}" for glob in globs)
     lines.extend(
         [
             f"alwaysApply: {'true' if always_apply else 'false'}",
@@ -1550,7 +1533,6 @@ def render_cursor_rule(
 
 def render_copilot_repo_instructions(title: str, bullets: tuple[str, ...]) -> str:
     """Render repository-wide Copilot instructions."""
-
     lines = [DOC_COMMENT, "", f"# {title}", ""]
     for bullet in bullets:
         lines.extend(wrap_bullet(bullet))
@@ -1564,7 +1546,6 @@ def render_copilot_path_instructions(
     bullets: tuple[str, ...],
 ) -> str:
     """Render one path-specific Copilot instructions file."""
-
     lines = [
         "---",
         f'applyTo: "{apply_to}"',
@@ -1583,7 +1564,6 @@ def render_copilot_path_instructions(
 
 def build_documents() -> dict[Path, str]:
     """Build every generated AI collaboration document."""
-
     docs: dict[Path, str] = {
         ROOT / "CLAUDE.md": render_claude("Claude Entry"),
         ROOT / "src" / "api" / "CLAUDE.md": render_claude("Backend Claude Entry"),
@@ -1731,10 +1711,14 @@ def build_documents() -> dict[Path, str]:
                 "abstractions.",
                 "Keep shared translations in `src/i18n/` and use backend helpers "
                 "instead of inventing per-service translation or error patterns.",
-                "Generate and review new Alembic migrations instead of editing "
-                "applied revisions, do not add hard business-key foreign-key "
-                "constraints, and keep OpenAI-compatible providers behind the "
-                "LiteLLM and shared helper layers.",
+                "Define schema changes in SQLAlchemy models, generate and review "
+                "Alembic revisions with `flask db migrate`, and do not use "
+                "`create_all()` or custom schema-introspection guards as a "
+                "substitute for versioned migrations. Add a narrowly scoped "
+                "guard only for a documented non-transactional DDL recovery "
+                "requirement. Do not edit applied revisions, add hard "
+                "business-key foreign-key constraints, or bypass the LiteLLM "
+                "and shared provider layers.",
             ),
             always_apply=False,
         ),
@@ -1865,9 +1849,14 @@ def build_documents() -> dict[Path, str]:
                 "configuration helpers before creating new abstractions.",
                 "Keep backend translations in shared JSON namespaces under "
                 "`src/i18n/`, not in ad-hoc Python translation modules.",
-                "Generate new migrations instead of editing applied ones, do not "
-                "add hard business-key foreign-key constraints, and keep "
-                "OpenAI-compatible providers behind LiteLLM and shared helpers.",
+                "Define schema changes in SQLAlchemy models, generate and review "
+                "Alembic revisions with `flask db migrate`, and do not use "
+                "`create_all()` or custom schema-introspection guards as a "
+                "substitute for versioned migrations. Add a narrowly scoped "
+                "guard only for a documented non-transactional DDL recovery "
+                "requirement. Do not edit applied revisions, add hard "
+                "business-key foreign-key constraints, or bypass LiteLLM and "
+                "shared provider helpers.",
             ),
         ),
         ROOT
@@ -1997,7 +1986,6 @@ def build_documents() -> dict[Path, str]:
 
 def write_documents() -> int:
     """Write all generated docs to disk."""
-
     docs = build_documents()
     for path, content in sorted(docs.items()):
         path.parent.mkdir(parents=True, exist_ok=True)

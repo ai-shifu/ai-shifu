@@ -4,8 +4,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-
-import flaskr.dao as dao
+from flaskr import dao
 
 
 def _seed_shifu(
@@ -339,6 +338,136 @@ def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
         assert latest is not None
         assert latest.tts_pitch == 0
         assert latest.tts_emotion == ""
+
+
+def test_save_shifu_draft_info_persists_default_listen_mode_setting(app, monkeypatch):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-default-listen"
+    owner_bid = "owner-default-listen"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "validate_tts_settings_strict",
+        lambda **kwargs: SimpleNamespace(
+            provider=kwargs["provider"],
+            model=kwargs["model"],
+            voice_id=kwargs["voice_id"],
+            speed=kwargs["speed"],
+            pitch=kwargs["pitch"],
+            emotion=kwargs["emotion"],
+        ),
+        raising=False,
+    )
+
+    result = shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        tts_enabled=True,
+        tts_provider="minimax",
+        tts_model="speech-01-turbo",
+        tts_voice_id="voice-1",
+        tts_speed=1.2,
+        default_listen_mode_enabled=True,
+    )
+
+    assert result.default_listen_mode_enabled is True
+
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.default_listen_mode_enabled == 1
+
+
+def test_save_shifu_draft_info_clears_default_listen_mode_when_tts_is_disabled(
+    app, monkeypatch
+):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-default-listen-disabled"
+    owner_bid = "owner-default-listen-disabled"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    with app.app_context():
+        draft = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        draft.tts_enabled = 1
+        draft.default_listen_mode_enabled = 1
+        dao.db.session.commit()
+
+    result = shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        tts_enabled=False,
+    )
+
+    assert result.default_listen_mode_enabled is False
+
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.tts_enabled == 0
+        assert latest.default_listen_mode_enabled == 0
+
+
+@pytest.mark.parametrize(
+    "invalid_value",
+    ["yes", "", " true ", "TRUE", 1, 0, [], {}],
+)
+def test_save_shifu_detail_route_rejects_invalid_default_listen_mode_enabled(
+    app, test_client, monkeypatch, invalid_value
+):
+    shifu_bid = "test-save-shifu-default-listen-invalid"
+    owner_bid = "owner-default-listen-invalid"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_route_user(monkeypatch, owner_bid)
+    _mock_route_permission(monkeypatch, {"edit": True})
+
+    response = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/detail",
+        json={"default_listen_mode_enabled": invalid_value},
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] != 0
 
 
 def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeypatch):

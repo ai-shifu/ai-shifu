@@ -9,7 +9,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = REPO_ROOT / "src/cook-web/scripts/prettier-check-changed.mjs"
 
@@ -23,8 +22,7 @@ def run(
         env=env,
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
 
 
@@ -66,7 +64,7 @@ class PrettierCheckChangedTest(unittest.TestCase):
     def commit_changes(self, message: str) -> str:
         run(["git", "add", "."], self.repo)
         result = run(["git", "commit", "-m", message], self.repo)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        assert result.returncode == 0, result.stderr
         return run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
 
     def test_checks_only_changed_cook_web_files(self) -> None:
@@ -82,10 +80,10 @@ class PrettierCheckChangedTest(unittest.TestCase):
             self.script_env(),
         )
 
-        self.assertEqual(result.returncode, 0, result.stderr)
+        assert result.returncode == 0, result.stderr
         args = self.args_file.read_text().splitlines()
-        self.assertEqual(args[:4], ["prettier", "--check", "--ignore-unknown", "--"])
-        self.assertCountEqual(args[4:], ["docs/notes.md", "src/existing.ts"])
+        assert args[:4] == ["prettier", "--check", "--ignore-unknown", "--"]
+        assert sorted(args[4:]) == sorted(["docs/notes.md", "src/existing.ts"])
 
     def test_skips_prettier_when_no_cook_web_files_changed(self) -> None:
         (self.repo / "src/api/app.py").write_text("print('outside only')\n")
@@ -97,9 +95,9 @@ class PrettierCheckChangedTest(unittest.TestCase):
             self.script_env(),
         )
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(self.args_file.exists())
-        self.assertIn("No changed Cook Web files", result.stdout)
+        assert result.returncode == 0, result.stderr
+        assert not self.args_file.exists()
+        assert "No changed Cook Web files" in result.stdout
 
 
 if __name__ == "__main__":

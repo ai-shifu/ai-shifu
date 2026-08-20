@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Replay exported generated blocks through markdown-flow 0.2.55 StreamFormatter
+"""Replay exported generated blocks through markdown-flow 0.2.55 StreamFormatter
 and the listen-mode element adapter.
 
 This script validates the new internal chain:
@@ -27,9 +26,9 @@ import shutil
 import sys
 import tempfile
 from collections import Counter, OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
@@ -37,10 +36,9 @@ os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flaskr import dao
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.ext.compiler import compiles
-
-from flaskr import dao
 
 if dao.db is None:
     dao.db = SQLAlchemy()
@@ -57,7 +55,7 @@ def _compile_bigint_sqlite(_type, _compiler, **_kw):
 
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
-DEFAULT_MDFLOW_ROOT = "/tmp/mdflow255"
+DEFAULT_MDFLOW_ROOT = str(Path(tempfile.gettempdir()) / "mdflow255")
 
 
 @dataclass
@@ -96,7 +94,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        default="/tmp/latest_generate_blocks_b64.jsonl",
+        default=str(Path(tempfile.gettempdir()) / "latest_generate_blocks_b64.jsonl"),
         help="Path to JSONL exported from generated blocks",
     )
     parser.add_argument(
@@ -230,19 +228,21 @@ def _format_stream_parts(
     parts: list[tuple[str, str, int]] = []
 
     for chunk in _iter_chunks(content, chunk_sizes):
-        for item in formatter.process(chunk):
-            parts.append(
-                (str(item.content or ""), str(item.type or ""), int(item.number))
-            )
-    for item in formatter.flush():
-        parts.append((str(item.content or ""), str(item.type or ""), int(item.number)))
+        parts.extend(
+            (str(item.content or ""), str(item.type or ""), int(item.number))
+            for item in formatter.process(chunk)
+        )
+    parts.extend(
+        (str(item.content or ""), str(item.type or ""), int(item.number))
+        for item in formatter.flush()
+    )
     return parts
 
 
 def _group_expected_stream_elements(
     parts: list[tuple[str, str, int]],
 ) -> list[ExpectedStreamElement]:
-    grouped: "OrderedDict[int, ExpectedStreamElement]" = OrderedDict()
+    grouped: OrderedDict[int, ExpectedStreamElement] = OrderedDict()
     for content, stream_type, number in parts:
         if not content or not stream_type:
             continue
@@ -532,7 +532,7 @@ def _analyze_stream_only(
             )
 
         for idx, (expected_item, observed_item) in enumerate(
-            zip(expected, observed), start=1
+            zip(expected, observed, strict=False), start=1
         ):
             expected_type = _element_type_from_mdflow_stream(
                 expected_item.stream_type, expected_item.content_text

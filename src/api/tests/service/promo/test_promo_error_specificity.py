@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
-
 import flaskr.service.promo.admin as promo_admin
+import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.promo.consts import COUPON_STATUS_ACTIVE, COUPON_TYPE_FIXED
 from flaskr.service.promo.models import Coupon, CouponUsage
 
@@ -46,7 +45,7 @@ def test_generate_unique_coupon_code_failure_returns_specific_error(app, monkeyp
         )
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             promo_admin._generate_unique_coupon_code()
 
     assert (
@@ -70,7 +69,7 @@ def test_generate_unique_coupon_codes_failure_returns_specific_error(app, monkey
                     code=code,
                     name="Duplicate Usage",
                     discount_type=COUPON_TYPE_FIXED,
-                    value=Decimal("1"),
+                    value=Decimal(1),
                     status=COUPON_STATUS_ACTIVE,
                     deleted=0,
                 )
@@ -79,7 +78,7 @@ def test_generate_unique_coupon_codes_failure_returns_specific_error(app, monkey
         )
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             promo_admin._generate_unique_coupon_codes(1)
 
     assert (

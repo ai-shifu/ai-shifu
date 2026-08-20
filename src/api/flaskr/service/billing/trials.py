@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
+import uuid
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-import uuid
 from typing import Any
 
 from flask import Flask, has_app_context
-from sqlalchemy.exc import IntegrityError
-
 from flaskr.dao import db
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
 from flaskr.util.datetime import now_utc
+from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
@@ -33,11 +32,13 @@ from .consts import (
     BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT,
     BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS,
 )
-from .dtos import BillingTrialOfferDTO, BillingTrialWelcomeAckDTO
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
+)
+from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
+from .dtos import BillingTrialOfferDTO, BillingTrialWelcomeAckDTO
 from .models import BillingOrder, BillingProduct, BillingSubscription, CreditLedgerEntry
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import credit_decimal_to_number as _credit_decimal_to_number

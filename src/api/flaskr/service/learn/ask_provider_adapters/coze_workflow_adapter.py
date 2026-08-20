@@ -1,12 +1,11 @@
 """Coze workflow ask provider adapter."""
 
 import json
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 import requests
 from flask import Flask
-
-from .consts import ASK_PROVIDER_COZE_WORKFLOW
 
 from .base import (
     AskProviderChunk,
@@ -16,7 +15,7 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
-
+from .consts import ASK_PROVIDER_COZE_WORKFLOW
 
 DEFAULT_COZE_WORKFLOW_BASE_URL = "https://api.coze.cn"
 WORKFLOW_PATH = "/v1/workflow/run"
@@ -72,9 +71,7 @@ def _format_workflow_item(item: Any) -> str:
 
     if not summary:
         fallback = extract_text(item).strip()
-        if fallback and fallback != str(raw_output or "").strip():
-            summary = fallback
-        elif not title:
+        if (fallback and fallback != str(raw_output or "").strip()) or not title:
             summary = fallback
 
     if title and summary and summary != title:

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-
 from datetime import timedelta
 from decimal import Decimal
 
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -15,6 +13,9 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -22,9 +23,6 @@ from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
-    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-    BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.models import (
     BillingRenewalEvent,
@@ -33,24 +31,21 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.renewal import (
     claim_billing_renewal_event,
     run_billing_renewal_event,
 )
-from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.subscriptions import (
     sync_subscription_lifecycle_events,
 )
 from flaskr.util.datetime import now_utc
-
-
 from tests.service.billing.renewal_execution_test_helpers import (
     create_credit_bucket,
+    create_credit_wallet,
     create_renewal_event,
     create_renewal_subscription,
-    create_credit_wallet,
 )
-
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 
@@ -230,8 +225,8 @@ def test_run_billing_renewal_event_applies_expire(
         assert buckets["bucket-expire-subscription-1"].expired_credits == Decimal(
             "5.0000000000"
         )
-        assert buckets["bucket-expire-topup-1"].expired_credits == Decimal("0")
-        assert buckets["bucket-expire-subscription-1"].available_credits == Decimal("0")
+        assert buckets["bucket-expire-topup-1"].expired_credits == Decimal(0)
+        assert buckets["bucket-expire-subscription-1"].available_credits == Decimal(0)
         assert buckets["bucket-expire-topup-1"].available_credits == Decimal(
             "2.5000000000"
         )
@@ -365,7 +360,7 @@ def test_manual_trial_subscription_schedules_and_applies_expire(
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
         assert wallet.available_credits == Decimal("0E-10")
         assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-        assert bucket.available_credits == Decimal("0")
+        assert bucket.available_credits == Decimal(0)
         assert bucket.expired_credits == Decimal("100.0000000000")
         assert ledger_entry.amount == Decimal("-100.0000000000")
 

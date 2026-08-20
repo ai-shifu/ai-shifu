@@ -1,26 +1,24 @@
 from __future__ import annotations
 
-
 from datetime import timedelta
 from decimal import Decimal
 
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-    BILLING_ORDER_STATUS_PAID,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -34,15 +32,12 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.util.datetime import now_utc, to_utc_iso
-
-
 from tests.service.billing.renewal_execution_test_helpers import (
     create_credit_bucket,
-    create_renewal_event,
     create_credit_wallet,
+    create_renewal_event,
     self_managed_cycle_end_after_boundary,
 )
-
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 
@@ -292,8 +287,8 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
                 original_credits=Decimal("8.0000000000"),
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("5.0000000000"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -371,7 +366,7 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
         assert subscription.current_period_end_at == next_cycle_end
         assert bucket.source_bid == "bill-pingxx-expire-reserved-1"
         assert bucket.available_credits == Decimal("5.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert bucket.expired_credits == Decimal("3.0000000000")
         assert bucket.effective_from == current_cycle_end
         assert bucket.effective_to == next_cycle_end
@@ -479,7 +474,7 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
                 available_credits=Decimal("2.0000000000"),
                 reserved_credits=Decimal("5.0000000000"),
                 consumed_credits=Decimal("3.0000000000"),
-                expired_credits=Decimal("0"),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_end,
                 effective_to=next_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -569,7 +564,7 @@ def test_expire_event_allows_shared_bucket_after_activated_grant_was_consumed(
         ).one()
 
         assert bucket.available_credits == Decimal("7.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert bucket.consumed_credits == Decimal("3.0000000000")
         assert wallet.available_credits == Decimal("7.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
@@ -649,8 +644,8 @@ def test_expire_event_fails_when_reserved_renewal_activation_is_incomplete(
                 original_credits=Decimal("8.0000000000"),
                 available_credits=Decimal("3.0000000000"),
                 reserved_credits=Decimal("4.0000000000"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=current_cycle_start,
                 effective_to=current_cycle_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,

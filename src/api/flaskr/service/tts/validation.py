@@ -4,14 +4,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask
-
 from flaskr.api.tts import get_tts_provider
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.tts.cloned_voice_registry import (
     find_ready_cloned_voice,
     get_clone_provider_spec,
 )
-
 
 SUPPORTED_TTS_PROVIDERS = {
     "minimax",
@@ -62,12 +60,12 @@ def validate_tts_settings_strict(
     pitch: Any,
     emotion: str,
 ) -> StrictTTSSettings:
-    """
-    Validate strict, DB-driven TTS settings.
+    """Validate strict, DB-driven TTS settings.
 
     Notes:
     - Provider, voice_id, speed, and pitch must be explicit (no "system default").
     - `model` is required for providers that expose model/resource selection.
+
     """
     normalized_provider = (provider or "").strip().lower()
     if not normalized_provider:

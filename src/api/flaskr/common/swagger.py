@@ -1,6 +1,6 @@
-import typing
 import ast
 import inspect
+import typing
 from enum import Enum
 
 swagger_config = {
@@ -47,7 +47,8 @@ def parse_comments(cls):
                     else:  # ast.Assign
                         field_name = item.targets[0].id
 
-                    line_num = item.lineno - 1  # ast 行号从1开始，列表索引从0开始
+                    # ast line numbers are 1-based, list indexes are 0-based
+                    line_num = item.lineno - 1
                     line = source_lines[line_num].strip()
 
                     if "#" in line:
@@ -90,19 +91,15 @@ def get_field_schema(typ, description: str = ""):
         elif typ is float:
             field_schema["type"] = "number"
     elif origin in (typing.Union, getattr(__import__("types"), "UnionType", ())):
-        if hasattr(typ, "__args__"):
-            union_types = typ.__args__
-        else:
-            union_types = args
+        union_types = typ.__args__ if hasattr(typ, "__args__") else args
 
         non_none_types = [t for t in union_types if t is not type(None)]
 
         if len(non_none_types) == 1:
             return get_field_schema(non_none_types[0], description)
-        else:
-            field_schema["oneOf"] = []
-            for union_type in non_none_types:
-                field_schema["oneOf"].append(get_field_schema(union_type))
+        field_schema["oneOf"] = []
+        for union_type in non_none_types:
+            field_schema["oneOf"].append(get_field_schema(union_type))
     elif origin is list:
         item_type = args[0]
         field_schema["type"] = "array"

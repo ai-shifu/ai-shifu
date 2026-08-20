@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing import subscriptions as subscriptions_mod
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -183,9 +182,9 @@ def test_repair_paid_reserved_grant_handles_cycle_window_boundaries(
             priority=20,
             original_credits=Decimal("1000.0000000000"),
             available_credits=Decimal("1000.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=initial_bucket_start,
             effective_to=initial_bucket_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,

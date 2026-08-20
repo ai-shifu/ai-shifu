@@ -23,6 +23,7 @@ type BillingTranslator = (
 export type AdminBillingCreatorTarget = {
   creator_bid?: string | null;
   creator_mobile?: string | null;
+  creator_email?: string | null;
   creator_nickname?: string | null;
 };
 
@@ -139,8 +140,11 @@ export function resolveAdminBillingCreatorPrimary(
     creator_identify?: string | null;
   },
 ): string {
+  // Overseas creators have no phone credential, so fall through to the email
+  // before the raw identify value.
   return (
     String(item.creator_mobile || '').trim() ||
+    String(item.creator_email || '').trim() ||
     String(item.creator_identify || '').trim() ||
     String(item.creator_bid || '').trim() ||
     ''

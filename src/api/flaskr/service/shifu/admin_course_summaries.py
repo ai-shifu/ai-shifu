@@ -5,25 +5,29 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
-from typing import Any, Dict, Iterable, Optional, Sequence, Set
-from sqlalchemy import and_, case, literal, not_
-from sqlalchemy.orm import defer
-from flaskr.i18n import _
+from typing import Any
+
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.shifu.admin_course_summary_mapper import (
+    build_admin_operation_course_summary,
+)
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.admin_course_summary_mapper import (
-    build_admin_operation_course_summary,
+from flaskr.service.shifu.admin_shared import (
+    COURSE_QUICK_FILTER_VALUES,
+    COURSE_STATUS_PUBLISHED,
+    COURSE_STATUS_UNPUBLISHED,
 )
 from flaskr.service.shifu.consts import (
     SHIFU_NAME_MAX_LENGTH,
@@ -34,27 +38,23 @@ from flaskr.service.shifu.demo_courses import (
     load_builtin_demo_titles,
     load_demo_shifu_bids,
 )
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
-
-from flaskr.service.shifu.admin_shared import (
-    COURSE_QUICK_FILTER_VALUES,
-    COURSE_STATUS_PUBLISHED,
-    COURSE_STATUS_UNPUBLISHED,
-)
+from sqlalchemy import and_, case, literal, not_
+from sqlalchemy.orm import defer
 
 
-def _format_average_score(value: Optional[Decimal]) -> str:
+def _format_average_score(value: Decimal | None) -> str:
     if value is None:
         return ""
-    return "{0:.1f}".format(value)
+    return f"{value:.1f}"
 
 
 def _resolve_course_rating_mode(value: str) -> str:
@@ -82,9 +82,9 @@ class OperatorCourseListSeed:
     llm: str
     created_user_bid: str
     updated_user_bid: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    has_course_prompt: Optional[bool] = None
+    created_at: datetime | None
+    updated_at: datetime | None
+    has_course_prompt: bool | None = None
 
 
 @dataclass
@@ -96,13 +96,13 @@ class OperatorCourseListCandidate:
     llm: str
     created_user_bid: str
     updated_user_bid: str
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    created_at: datetime | None
+    updated_at: datetime | None
     selected_source: str
     course_status: str
-    activity_updated_at: Optional[datetime] = None
+    activity_updated_at: datetime | None = None
     activity_updated_user_bid: str = ""
-    has_course_prompt: Optional[bool] = None
+    has_course_prompt: bool | None = None
 
 
 def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
@@ -169,9 +169,9 @@ def _build_latest_operator_course_rows_query(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
 ):
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
@@ -210,9 +210,9 @@ def _build_latest_operator_course_rows_subquery(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
     alias_name: str,
 ):
     base_query = _build_latest_operator_course_rows_query(
@@ -232,9 +232,9 @@ def _build_operator_course_candidate_query(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
     include_activity: bool = False,
 ):
     draft_rows_subquery = _build_latest_operator_course_rows_subquery(
@@ -530,11 +530,11 @@ def _build_latest_shifus_query(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
     lightweight: bool = False,
 ):
     is_mapped_model = hasattr(model, "__mapper__")
@@ -571,11 +571,11 @@ def _load_latest_shifus(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
     attach_prompt_flags: bool = False,
     lightweight: bool = False,
 ):
@@ -618,11 +618,11 @@ def _load_latest_shifu_seeds(
     *,
     shifu_bid: str,
     course_name: str,
-    creator_bids: Optional[Set[str]],
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    updated_start_time: Optional[datetime],
-    updated_end_time: Optional[datetime],
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    updated_start_time: datetime | None,
+    updated_end_time: datetime | None,
 ) -> list[OperatorCourseListSeed]:
     ordered_query = _build_latest_shifus_query(
         model,
@@ -679,18 +679,16 @@ def _attach_course_prompt_flags(model, rows) -> None:
         for row_id, has_course_prompt in has_course_prompt_rows
     }
     for row in rows:
-        setattr(
-            row,
-            "has_course_prompt",
-            bool(has_course_prompt_map.get(getattr(row, "id", None), False)),
+        row.has_course_prompt = bool(
+            has_course_prompt_map.get(getattr(row, "id", None), False)
         )
 
 
 def _build_course_summary(
     course,
-    user_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: Optional[Dict[str, Any]] = None,
+    activity: dict[str, Any] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     return build_admin_operation_course_summary(
         course,
@@ -708,7 +706,7 @@ def _is_operator_visible_course(course) -> bool:
     )
 
 
-def _resolve_course_status(shifu_bid: str, published_bids: Set[str]) -> str:
+def _resolve_course_status(shifu_bid: str, published_bids: set[str]) -> str:
     if shifu_bid in published_bids:
         return COURSE_STATUS_PUBLISHED
     return COURSE_STATUS_UNPUBLISHED
@@ -724,7 +722,7 @@ def _resolve_course_quick_filter(value: str) -> str:
 
 
 def _resolve_created_last_7d_window(
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> tuple[datetime, datetime]:
     current = now or now_utc()
     start = (current - timedelta(days=6)).replace(
@@ -737,7 +735,7 @@ def _resolve_created_last_7d_window(
 def _load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     return load_course_activity_map(drafts, published)
 
 
@@ -809,7 +807,7 @@ def _resolve_course_copy_title(source_title: str, requested_title: str) -> str:
 def _build_outline_history_tree(
     outlines: Sequence[DraftOutlineItem],
 ) -> list[HistoryItem]:
-    outline_children_map: Dict[str, list[DraftOutlineItem]] = {}
+    outline_children_map: dict[str, list[DraftOutlineItem]] = {}
     for outline in outlines:
         parent_bid = str(outline.parent_bid or "").strip()
         outline_children_map.setdefault(parent_bid, []).append(outline)
@@ -825,17 +823,16 @@ def _build_outline_history_tree(
     def _build(parent_bid: str) -> list[HistoryItem]:
         children = outline_children_map.get(parent_bid, [])
         children.sort(key=lambda item: (item.position or "", item.id))
-        history_items: list[HistoryItem] = []
-        for child in children:
-            history_items.append(
-                HistoryItem(
-                    bid=str(child.outline_item_bid or "").strip(),
-                    id=int(child.id),
-                    type="outline",
-                    children=_build(str(child.outline_item_bid or "").strip()),
-                    child_count=_count_blocks(child.content or ""),
-                )
+        history_items: list[HistoryItem] = [
+            HistoryItem(
+                bid=str(child.outline_item_bid or "").strip(),
+                id=int(child.id),
+                type="outline",
+                children=_build(str(child.outline_item_bid or "").strip()),
+                child_count=_count_blocks(child.content or ""),
             )
+            for child in children
+        ]
         return history_items
 
     return _build("")
@@ -846,8 +843,8 @@ def _merge_courses(
     published: Iterable[PublishedShifu],
 ):
     course_map = {}
-    published_bids: Set[str] = set()
-    selected_sources: Dict[str, str] = {}
+    published_bids: set[str] = set()
+    selected_sources: dict[str, str] = {}
     for course in drafts:
         visible = _is_operator_visible_course(course)
         if visible:
@@ -877,7 +874,7 @@ def _merge_courses(
 
 def _load_latest_course_versions(
     shifu_bid: str,
-) -> tuple[Optional[DraftShifu], Optional[PublishedShifu]]:
+) -> tuple[DraftShifu | None, PublishedShifu | None]:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,

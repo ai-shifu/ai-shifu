@@ -91,7 +91,6 @@
       "blockedSummary": "已屏蔽 {count} 位老师",
       "delete": "删除",
       "duplicateBlockedCreators": "输入内容已在屏蔽名单中。",
-      "emptyNickname": "暂无昵称",
       "emptyPreview": "暂无明细",
       "emptyResult": "暂无匹配结果。",
       "invalidBlockedCreators": "以下内容未识别：{values}",

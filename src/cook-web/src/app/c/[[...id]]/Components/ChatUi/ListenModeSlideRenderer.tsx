@@ -80,6 +80,15 @@ type ListenSlideElement = SlideElement & {
   isAudioStreaming?: boolean;
   ask_list?: AskMessage[];
   subtitle_cues?: ElementSubtitleCue[];
+  // Identity seed for elements whose `content` is a React node rather than a
+  // string. The reuse fingerprint cannot inspect a node, so such elements must
+  // declare what makes them distinct or they all collapse into one cache entry.
+  fingerprintSeed?: string;
+};
+
+type ListenSlideElementCacheEntry = {
+  element: ListenSlideElement;
+  fingerprint: string;
 };
 
 const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
@@ -461,6 +470,74 @@ const hasBlockingListenInteraction = (element?: SlideElement) => {
   );
 };
 
+const buildListenSlideElementCacheKey = (
+  element: ListenSlideElement,
+  index: number,
+) =>
+  getListenMarkerIdentityKey(
+    element,
+    typeof element.content === 'string' && element.content
+      ? `${index}:${element.content}`
+      : index,
+  );
+
+const buildListenSlideElementFingerprint = (element: ListenSlideElement) =>
+  JSON.stringify({
+    type: element.type,
+    sequence_number: element.sequence_number,
+    content:
+      typeof element.content === 'string'
+        ? element.content
+        : // A React node cannot be fingerprinted, and `blockBid` is a constant
+          // for the placeholder slide, so without the seed every lesson would
+          // reuse the first lesson's rendered title.
+          (element.fingerprintSeed ?? element.blockBid),
+    is_marker: element.is_marker,
+    is_renderable: element.is_renderable,
+    is_speakable: element.is_speakable,
+    blockBid: element.blockBid,
+    page: element.page,
+    user_input: element.user_input,
+    readonly: element.readonly,
+    audio_url: element.audio_url,
+    audio_segments: element.audio_segments,
+    is_audio_streaming: element.is_audio_streaming,
+    isAudioStreaming: element.isAudioStreaming,
+    subtitle_cues: element.subtitle_cues,
+  });
+
+const stabilizeListenSlideElements = (
+  elements: ListenSlideElement[],
+  cache: Map<string, ListenSlideElementCacheEntry>,
+) => {
+  const activeKeys = new Set<string>();
+
+  const stableElements = elements.map((element, index) => {
+    const cacheKey = buildListenSlideElementCacheKey(element, index);
+    const fingerprint = buildListenSlideElementFingerprint(element);
+    activeKeys.add(cacheKey);
+
+    const cachedEntry = cache.get(cacheKey);
+    if (cachedEntry?.fingerprint === fingerprint) {
+      return cachedEntry.element;
+    }
+
+    cache.set(cacheKey, {
+      element,
+      fingerprint,
+    });
+    return element;
+  });
+
+  for (const cacheKey of Array.from(cache.keys())) {
+    if (!activeKeys.has(cacheKey)) {
+      cache.delete(cacheKey);
+    }
+  }
+
+  return stableElements;
+};
+
 const getListenPlaybackSequenceActive = ({
   currentStepIndex,
   totalStepCount,
@@ -509,6 +586,7 @@ const createEmptyStateElement = (
   is_new: true,
   blockBid: 'empty-ppt',
   page: 0,
+  fingerprintSeed: JSON.stringify([sectionTitle, sectionPlaceholderTips]),
 });
 
 const buildSlideElementList = ({
@@ -747,6 +825,9 @@ const ListenModeSlideRenderer = ({
   const playerCustomActionSetActiveRef = useRef<(active: boolean) => void>(
     () => {},
   );
+  const listenSlideElementCacheRef = useRef<
+    Map<string, ListenSlideElementCacheEntry>
+  >(new Map());
   const customAskOverlayRef = useRef<HTMLDivElement | null>(null);
   const slideShellRef = useRef<HTMLDivElement | null>(null);
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
@@ -897,7 +978,10 @@ const ListenModeSlideRenderer = ({
       sequenceMap.delete(streamKey);
     }
 
-    return nextElementList;
+    return stabilizeListenSlideElements(
+      nextElementList,
+      listenSlideElementCacheRef.current,
+    );
   }, [
     askListByAnchorElementBid,
     includeAudio,
@@ -1024,10 +1108,15 @@ const ListenModeSlideRenderer = ({
         return [];
       }
 
+      const latestAskList = askListByAnchorElementBid.get(elementBid);
+      if (latestAskList) {
+        return latestAskList;
+      }
+
       return (elementList.find(element => element.blockBid === elementBid)
         ?.ask_list ?? []) as AskMessage[];
     },
-    [elementList],
+    [askListByAnchorElementBid, elementList],
   );
   const playerCustomAskList = useMemo<AskMessage[]>(() => {
     return resolveAskListByElementBid(renderedPlayerCustomAskElementBid);

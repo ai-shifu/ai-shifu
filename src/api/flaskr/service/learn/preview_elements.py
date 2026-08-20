@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from typing import Generator
+from collections.abc import Generator
 
 from flask import Flask
-
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementPayloadDTO,
@@ -12,8 +11,8 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.listen_element_run_state import BlockMeta
+from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
 
 class PreviewElementRunAdapter(ListenElementRunAdapter):

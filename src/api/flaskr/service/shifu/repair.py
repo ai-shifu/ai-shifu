@@ -6,7 +6,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.util.datetime import now_utc

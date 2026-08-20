@@ -1,5 +1,4 @@
-"""
-Centralized regex patterns for TTS text processing and AV segmentation.
+"""Centralized regex patterns for TTS text processing and AV segmentation.
 
 All compiled regex patterns used across the TTS service layer are defined
 here. Import patterns from this module rather than defining them locally.
@@ -23,6 +22,25 @@ DATA_URI = re.compile(r"data:[a-zA-Z0-9/+;=,]+")
 MULTI_NEWLINE = re.compile(r"\n{3,}")
 MULTI_SPACE = re.compile(r"[ \t]+")
 ANY_HTML_TAG = re.compile(r"<[^>]*>")
+
+# ---------------------------------------------------------------------------
+# MarkdownFlow authoring syntax (never speak these aloud)
+# ---------------------------------------------------------------------------
+# Interaction blocks: `?[A | B | C]`, `?[%{{var}} A | B]`, `?[...prompt]`,
+# `?[label//value]`, `?[]`. Option text is the learner's choice, not narration,
+# so the whole block is dropped rather than flattened into speech.
+# LINK above only matches `[text](url)`, so it never covers these.
+# The negative lookahead hands a markdown link that merely follows a question
+# mark (`?[label](url)`) over to LINK instead. Without it the label would be
+# dropped here and the orphaned `(url)` would survive every later rule and end
+# up being read aloud.
+MDFLOW_INTERACTION = re.compile(r"\?\[[^\[\]]*\](?!\()")
+# A trailing interaction block that has not been closed yet. Streaming chunks
+# can split mid-block, and half of one must not reach the synthesizer.
+MDFLOW_INTERACTION_INCOMPLETE = re.compile(r"\?\[[^\[\]]*\Z")
+# Variable placeholders: `%{{preserved}}` and `{{replaceable}}`. An unresolved
+# placeholder is authoring syntax, not something to read out.
+MDFLOW_VARIABLE = re.compile(r"%?\{\{[^{}]*\}\}")
 
 # Stray SVG text elements (malformed streaming fragments)
 SVG_TEXT_TAGS = [

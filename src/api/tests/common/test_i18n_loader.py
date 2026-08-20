@@ -2,13 +2,14 @@ from pathlib import Path
 
 import pytest
 from flask import Flask
-
+from flaskr.i18n import (
+    _ as t,
+)
 from flaskr.i18n import (
     _translations,
     clear_language,
     load_translations,
     set_language,
-    _ as t,
 )
 
 

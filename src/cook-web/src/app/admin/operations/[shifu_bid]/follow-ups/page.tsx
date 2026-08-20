@@ -570,13 +570,8 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
 
   const resolveUserSecondary = useCallback(
-    (item: AdminOperationCourseFollowUpItem) => {
-      const nickname = item.nickname?.trim() || '';
-      if (!nickname || nickname === defaultUserName) {
-        return '';
-      }
-      return nickname;
-    },
+    (item: AdminOperationCourseFollowUpItem) =>
+      item.nickname?.trim() || defaultUserName,
     [defaultUserName],
   );
 

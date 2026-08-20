@@ -6,6 +6,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from flaskr.dao import db
+from flaskr.service.common.models import raise_param_error
+from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+
 from .consts import (
     BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
     BILLING_ENTITLEMENT_ANALYTICS_TIER_LABELS,
@@ -19,16 +24,11 @@ from .consts import (
 )
 from .dtos import BillingEntitlementsDTO
 from .models import BillingEntitlement, BillingProduct
+from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     load_primary_active_subscription as _load_primary_active_subscription,
 )
-from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
-
-from flaskr.dao import db
-from flaskr.service.common.models import raise_param_error
-from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
 
 
 @dataclass(slots=True, frozen=True)
@@ -72,7 +72,6 @@ def resolve_creator_entitlement_state(
     as_of: datetime | None = None,
 ) -> CreatorEntitlementState:
     """Resolve the effective entitlement snapshot for a creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     resolved_at = as_of or now_utc()
 
@@ -97,7 +96,6 @@ def serialize_creator_entitlements(
     state: CreatorEntitlementState,
 ) -> BillingEntitlementsDTO:
     """Return the public creator entitlement projection."""
-
     return BillingEntitlementsDTO(**state.to_public_payload())
 
 
@@ -123,7 +121,6 @@ def grant_creator_manual_entitlement(
     root-path redirects independently of ``branding_enabled``. Returns the
     freshly resolved entitlement state for verification.
     """
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         raise_param_error("creator_bid")

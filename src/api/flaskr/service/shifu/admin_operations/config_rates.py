@@ -172,7 +172,6 @@ def _resolve_llm_rate_identity(model: str) -> tuple[str, list[str]]:
 
 def _load_llm_credit_1x_reference_cost() -> Decimal | None:
     """Return the fixed 1x anchor used by the operator config page."""
-
     return load_llm_credit_1x_unit_cost()
 
 

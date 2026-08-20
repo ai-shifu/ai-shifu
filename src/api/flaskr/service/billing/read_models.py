@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import case, or_, select
-
 from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
@@ -25,9 +23,16 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
+from sqlalchemy import case, or_, select
 
+from .bucket_categories import (
+    OrderTypeLoader,
+    resolve_credit_bucket_priority,
+)
+from .campaigns import resolve_catalog_campaign_payload
 from .consts import (
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
@@ -35,22 +40,17 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_PRODUCT_STATUS_ACTIVE,
-    BILLING_TRIAL_PRODUCT_CODE,
-    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    CREDIT_SOURCE_TYPE_MANUAL,
+    BILLING_TRIAL_PRODUCT_CODE,
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_LABELS,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_USAGE,
-)
-from .campaigns import resolve_catalog_campaign_payload
-from .bucket_categories import (
-    OrderTypeLoader,
-    resolve_credit_bucket_priority,
 )
 from .credit_grant_allocation_views import (
     CreditAllocationView,
@@ -60,21 +60,21 @@ from .credit_grant_allocation_views import (
 from .credit_notifications import build_creator_limit_state_for_available_credits
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
+    AdminBillingDailyUsageMetricsPageDTO,
     AdminBillingFocusTeacherDTO,
     AdminBillingFocusTeachersPageDTO,
-    AdminBillingDailyUsageMetricsPageDTO,
     BillingCatalogDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
     BillingLedgerPageDTO,
+    BillingOverviewDTO,
     BillingPlanDTO,
+    BillingSubscriptionsPageDTO,
+    BillingTopupProductDTO,
+    BillingWalletBucketListDTO,
     OperatorCreditOrderDetailDTO,
     OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
-    BillingSubscriptionsPageDTO,
-    BillingTopupProductDTO,
-    BillingOverviewDTO,
-    BillingWalletBucketListDTO,
 )
 from .entitlements import (
     resolve_creator_entitlement_state,
@@ -90,37 +90,78 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from .queries import (
-    build_list_page_payload as _build_list_page_payload,
-    build_page_payload as _build_page_payload,
-    load_admin_creator_bids as _load_admin_creator_bids,
-    load_current_subscription as _load_current_subscription,
-    load_latest_renewal_event_map as _load_latest_renewal_event_map,
-    load_product_code_map as _load_product_code_map,
-    load_wallet_map as _load_wallet_map,
-    normalize_stat_date_filter as _normalize_stat_date_filter,
-    resolve_order_status_filter as _resolve_order_status_filter,
-    resolve_subscription_status_filter as _resolve_subscription_status_filter,
-    subscription_has_attention as _subscription_has_attention,
-)
+from .primitives import credit_decimal_to_number, is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
-from .primitives import credit_decimal_to_number
-from .primitives import is_billing_enabled
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+from .queries import (
+    build_list_page_payload as _build_list_page_payload,
+)
+from .queries import (
+    build_page_payload as _build_page_payload,
+)
+from .queries import (
+    load_admin_creator_bids as _load_admin_creator_bids,
+)
+from .queries import (
+    load_current_subscription as _load_current_subscription,
+)
+from .queries import (
+    load_latest_renewal_event_map as _load_latest_renewal_event_map,
+)
+from .queries import (
+    load_product_code_map as _load_product_code_map,
+)
+from .queries import (
+    load_wallet_map as _load_wallet_map,
+)
+from .queries import (
+    normalize_stat_date_filter as _normalize_stat_date_filter,
+)
+from .queries import (
+    resolve_order_status_filter as _resolve_order_status_filter,
+)
+from .queries import (
+    resolve_subscription_status_filter as _resolve_subscription_status_filter,
+)
+from .queries import (
+    subscription_has_attention as _subscription_has_attention,
+)
 from .serializers import (
     build_billing_alerts as _build_billing_alerts,
+)
+from .serializers import (
     serialize_admin_daily_ledger_summary as _serialize_admin_daily_ledger_summary,
+)
+from .serializers import (
     serialize_admin_daily_usage_metric as _serialize_admin_daily_usage_metric,
+)
+from .serializers import (
     serialize_admin_entitlement_state as _serialize_admin_entitlement_state,
+)
+from .serializers import (
     serialize_admin_subscription as _serialize_admin_subscription,
+)
+from .serializers import (
     serialize_ledger_entry as _serialize_ledger_entry,
+)
+from .serializers import (
     serialize_operator_credit_order as _serialize_operator_credit_order,
+)
+from .serializers import (
     serialize_operator_credit_order_grant as _serialize_operator_credit_order_grant,
+)
+from .serializers import (
     serialize_product as _serialize_product,
+)
+from .serializers import (
     serialize_subscription as _serialize_subscription,
+)
+from .serializers import (
     serialize_wallet as _serialize_wallet,
+)
+from .serializers import (
     serialize_wallet_bucket as _serialize_wallet_bucket,
 )
 from .trials import resolve_new_creator_trial_offer as _resolve_new_creator_trial_offer
@@ -274,7 +315,7 @@ def _load_numeric_credit_order_product_bids(keyword: str) -> list[str]:
     if numeric_value >= 0:
         if numeric_value == numeric_value.to_integral_value():
             price_amount_candidates.add(int(numeric_value))
-        price_amount_minor = numeric_value * Decimal("100")
+        price_amount_minor = numeric_value * Decimal(100)
         if price_amount_minor == price_amount_minor.to_integral_value():
             price_amount_candidates.add(int(price_amount_minor))
     if price_amount_candidates:
@@ -569,7 +610,6 @@ def _build_usage_metadata_map(
 
 def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
     """Return plan and topup catalog projections."""
-
     with app.app_context():
         rows = (
             BillingProduct.query.filter(
@@ -605,7 +645,6 @@ def build_billing_overview(
     creator_bid: str,
 ) -> BillingOverviewDTO:
     """Return the wallet snapshot, current subscription, and alerts."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         trial_offer = _resolve_new_creator_trial_offer(
@@ -624,7 +663,7 @@ def build_billing_overview(
         subscription = _load_current_subscription(normalized_creator_bid)
 
         wallet_payload = _serialize_wallet(wallet)
-        available_credits = Decimal("0")
+        available_credits = Decimal(0)
         if wallet is not None:
             available_credits, reserved_credits = (
                 calculate_credit_wallet_snapshot_values(
@@ -667,7 +706,6 @@ def build_billing_wallet_buckets(
     creator_bid: str,
 ) -> BillingWalletBucketListDTO:
     """Return wallet bucket projections sorted by actual consumption order."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         rows = (
@@ -813,7 +851,6 @@ def build_billing_ledger_page(
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> BillingLedgerPageDTO:
     """Return paginated credit ledger entries for a creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     with app.app_context():
@@ -898,7 +935,6 @@ def build_admin_bill_subscriptions_page(
     attention_only: bool = False,
 ) -> BillingSubscriptionsPageDTO:
     """Return paginated billing subscriptions for the admin billing surface."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_creator_keyword = str(creator_keyword or "").strip()
@@ -1049,7 +1085,6 @@ def build_admin_bill_entitlements_page(
     independent_only: bool = False,
 ) -> BillingEntitlementsPageDTO:
     """Return paginated effective entitlement snapshots for admin billing."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
 
@@ -1159,6 +1194,7 @@ def _resolve_credit_order_kind_filter(kind: str) -> int | None:
     if normalized_kind == "topup":
         return BILLING_PRODUCT_TYPE_TOPUP
     raise_param_error("credit_order_kind")
+    return None
 
 
 def build_operator_credit_orders_page(
@@ -1177,7 +1213,6 @@ def build_operator_credit_orders_page(
     end_time: Any = "",
 ) -> OperatorCreditOrdersPageDTO:
     """Return paginated operator-facing creator credit orders."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     normalized_payment_provider = str(payment_provider or "").strip()
@@ -1292,7 +1327,6 @@ def build_operator_credit_orders_overview(
     app: Flask,
 ) -> OperatorCreditOrderOverviewDTO:
     """Return aggregate metrics for operator creator credit orders."""
-
     with app.app_context():
         summary = (
             BillingOrder.query.with_entities(
@@ -1401,7 +1435,6 @@ def get_operator_credit_order_detail(
     bill_order_bid: str,
 ) -> OperatorCreditOrderDetailDTO:
     """Return operator-facing creator credit order detail."""
-
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         raise_param_error("bill_order_bid")
@@ -1451,7 +1484,6 @@ def build_admin_bill_daily_usage_metrics_page(
     stat_date_to: str = "",
 ) -> AdminBillingDailyUsageMetricsPageDTO:
     """Return paginated cross-creator daily usage rows for admin reporting."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_stat_date_from = _normalize_stat_date_filter(
@@ -1527,7 +1559,6 @@ def build_admin_billing_focus_teachers_page(
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> AdminBillingFocusTeachersPageDTO:
     """Return operator-focused teachers that match billing attention rules."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     today = now_utc().date()
     current_7d_start = today - timedelta(days=6)
@@ -1567,31 +1598,33 @@ def build_admin_billing_focus_teachers_page(
                 creator_bid,
                 {
                     "creator_bid": creator_bid,
-                    "credits_7d": Decimal("0"),
-                    "credits_prev_7d": Decimal("0"),
-                    "credits_30d": Decimal("0"),
+                    "credits_7d": Decimal(0),
+                    "credits_prev_7d": Decimal(0),
+                    "credits_30d": Decimal(0),
                     "record_count_7d": 0,
                     "active_days_7d": set(),
-                    "production_credits_30d": Decimal("0"),
-                    "debug_preview_credits_30d": Decimal("0"),
-                    "total_credits_30d": Decimal("0"),
+                    "production_credits_30d": Decimal(0),
+                    "debug_preview_credits_30d": Decimal(0),
+                    "total_credits_30d": Decimal(0),
                     "latest_usage_at": None,
                 },
             )
 
-            credits = Decimal(str(credit_decimal_to_number(row.consumed_credits) or 0))
+            credit_amount = Decimal(
+                str(credit_decimal_to_number(row.consumed_credits) or 0)
+            )
             record_count = int(row.record_count or 0)
             # Use the start of the UTC stat window as the visible "latest
             # active" day. `window_ended_at` points at the next UTC day
             # boundary and can render as a future local date in the admin UI.
             latest_usage_at = row.window_started_at or row.window_ended_at
 
-            item["credits_30d"] += credits
-            item["total_credits_30d"] += credits
+            item["credits_30d"] += credit_amount
+            item["total_credits_30d"] += credit_amount
             if row.usage_scene == BILL_USAGE_SCENE_PROD:
-                item["production_credits_30d"] += credits
+                item["production_credits_30d"] += credit_amount
             elif row.usage_scene in (BILL_USAGE_SCENE_DEBUG, BILL_USAGE_SCENE_PREVIEW):
-                item["debug_preview_credits_30d"] += credits
+                item["debug_preview_credits_30d"] += credit_amount
 
             if latest_usage_at is not None and (
                 item["latest_usage_at"] is None
@@ -1600,12 +1633,12 @@ def build_admin_billing_focus_teachers_page(
                 item["latest_usage_at"] = latest_usage_at
 
             if current_7d_start <= stat_date <= today:
-                item["credits_7d"] += credits
+                item["credits_7d"] += credit_amount
                 item["record_count_7d"] += record_count
-                if credits > 0:
+                if credit_amount > 0:
                     item["active_days_7d"].add(stat_date.isoformat())
             elif previous_7d_start <= stat_date <= previous_7d_end:
-                item["credits_prev_7d"] += credits
+                item["credits_prev_7d"] += credit_amount
 
         focus_items: list[AdminBillingFocusTeacherDTO] = []
         for creator_bid, stats in aggregated.items():
@@ -1619,14 +1652,14 @@ def build_admin_billing_focus_teachers_page(
             active_days_7d = len(stats["active_days_7d"])
 
             reasons: set[str] = set()
-            if credits_30d >= Decimal("8"):
+            if credits_30d >= Decimal(8):
                 reasons.add("high_consumption")
             if record_count_7d >= 5:
                 reasons.add("high_frequency")
-            if production_credits_30d >= Decimal("8"):
+            if production_credits_30d >= Decimal(8):
                 reasons.add("active_production")
             if (
-                total_credits_30d >= Decimal("8")
+                total_credits_30d >= Decimal(8)
                 and total_credits_30d > 0
                 and (debug_preview_credits_30d / total_credits_30d) >= Decimal("0.7")
             ):
@@ -1637,15 +1670,15 @@ def build_admin_billing_focus_teachers_page(
             growth_delta = credits_7d - credits_prev_7d
             if credits_prev_7d > 0:
                 growth_ratio = growth_delta / credits_prev_7d
-                if growth_ratio >= Decimal("1") and growth_delta >= Decimal("8"):
+                if growth_ratio >= Decimal(1) and growth_delta >= Decimal(8):
                     reasons.add("rapid_growth")
-            elif credits_7d >= Decimal("8"):
+            elif credits_7d >= Decimal(8):
                 reasons.add("rapid_growth")
 
             if not reasons:
                 continue
 
-            production_ratio_30d = Decimal("0")
+            production_ratio_30d = Decimal(0)
             if total_credits_30d > 0:
                 production_ratio_30d = production_credits_30d / total_credits_30d
 
@@ -1654,6 +1687,7 @@ def build_admin_billing_focus_teachers_page(
                 AdminBillingFocusTeacherDTO(
                     creator_bid=creator_bid,
                     creator_mobile=str(creator.get("mobile") or ""),
+                    creator_email=str(creator.get("email") or ""),
                     creator_nickname=str(creator.get("nickname") or ""),
                     credits_7d=credit_decimal_to_number(credits_7d),
                     credits_30d=credit_decimal_to_number(credits_30d),
@@ -1706,7 +1740,6 @@ def build_admin_bill_daily_ledger_summary_page(
     stat_date_to: str = "",
 ) -> AdminBillingDailyLedgerSummaryPageDTO:
     """Return paginated cross-creator daily ledger rows for admin reporting."""
-
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_stat_date_from = _normalize_stat_date_filter(
@@ -1760,7 +1793,6 @@ def adjust_admin_billing_ledger(
     payload: dict[str, Any],
 ) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through wallet buckets."""
-
     normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))
     if not normalized_creator_bid:
         raise_param_error("creator_bid")

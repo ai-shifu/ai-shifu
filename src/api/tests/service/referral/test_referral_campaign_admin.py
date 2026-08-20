@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import BILLING_PRODUCT_TYPE_PLAN
 from flaskr.service.billing.models import BillingProduct
-from flaskr.service.common.models import ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.referral.admin import (
+    list_operator_referral_campaign_invitations,
+    list_operator_referrals,
+)
 from flaskr.service.referral.campaign_admin import (
     create_operator_referral_campaign,
     get_operator_referral_campaign_detail,
@@ -17,18 +19,14 @@ from flaskr.service.referral.campaign_admin import (
     update_operator_referral_campaign,
     update_operator_referral_campaign_status,
 )
-from flaskr.service.referral.admin import (
-    list_operator_referral_campaign_invitations,
-    list_operator_referrals,
-)
 from flaskr.service.referral.consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
+    REFERRAL_CAMPAIGN_STATUS_PAUSED,
     REFERRAL_INVITE_CODE_STATUS_ACTIVE,
     REFERRAL_INVITE_EVENT_CODE_ENTERED,
     REFERRAL_INVITE_EVENT_LINK_CLICKED,
     REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED,
     REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED,
-    REFERRAL_CAMPAIGN_STATUS_PAUSED,
     REFERRAL_RELATION_STATUS_CANCELED,
     REFERRAL_RELATION_STATUS_REWARD_GENERATED,
     REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
@@ -36,7 +34,6 @@ from flaskr.service.referral.consts import (
     REFERRAL_RULE_STATUS_ACTIVE,
     REFERRAL_RULE_STATUS_PAUSED,
 )
-from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.referral.models import (
     ReferralCampaign,
     ReferralCampaignRewardRule,
@@ -45,6 +42,8 @@ from flaskr.service.referral.models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 
 
 def _seed_plan_product(product_code: str = "creator-plan-monthly-pro") -> None:
@@ -104,7 +103,7 @@ def test_operator_referral_campaign_create_list_detail_and_status(referral_app):
         ).one()
         assert campaign.campaign_status == REFERRAL_CAMPAIGN_STATUS_ACTIVE
         assert rule.rule_status == REFERRAL_RULE_STATUS_ACTIVE
-        assert rule.reward_credit_amount == Decimal("1000")
+        assert rule.reward_credit_amount == Decimal(1000)
 
         listed = list_operator_referral_campaigns(
             referral_app,
@@ -202,7 +201,7 @@ def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
             reward_type="billing_plan_cycle",
             reward_product_code="creator-plan-monthly-pro",
             reward_cycle_count=1,
-            reward_credit_amount=Decimal("1000"),
+            reward_credit_amount=Decimal(1000),
             reward_credit_validity_days=30,
             reward_cap_scope=REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
             reward_cap_count=12,
@@ -231,7 +230,7 @@ def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
         campaign = ReferralCampaign.query.filter_by(campaign_bid=campaign_bid).one()
         assert campaign.campaign_code == "domestic_creator_invite_202606"
         assert campaign.campaign_name == "Updated invite"
-        assert rule.reward_credit_amount == Decimal("1200")
+        assert rule.reward_credit_amount == Decimal(1200)
         assert rule.reward_cap_count == 15
         assert rule.priority == 20
         assert reward.rule_snapshot == {"reward_credit_amount": "1000"}
@@ -286,7 +285,7 @@ def test_operator_referral_campaign_list_includes_invite_funnel_counts(
             reward_type="billing_plan_cycle",
             reward_product_code="creator-plan-monthly-pro",
             reward_cycle_count=1,
-            reward_credit_amount=Decimal("1000"),
+            reward_credit_amount=Decimal(1000),
             reward_credit_validity_days=30,
             reward_cap_scope=REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
             reward_cap_count=12,
@@ -556,7 +555,7 @@ def test_operator_referral_filters_accept_user_identifier(referral_app):
 def test_operator_referral_campaign_rejects_invalid_payload(referral_app, payload):
     with referral_app.app_context():
         _seed_plan_product()
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             create_operator_referral_campaign(
                 referral_app,
                 operator_user_bid="operator-1",
@@ -581,7 +580,7 @@ def test_operator_referral_campaign_rejects_enabling_ended_campaign(referral_app
             ),
         )
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             update_operator_referral_campaign_status(
                 referral_app,
                 operator_user_bid="operator-1",
@@ -602,7 +601,7 @@ def test_operator_referral_campaign_duplicate_code_is_rejected(referral_app):
             operator_user_bid="operator-1",
             payload=_payload(),
         )
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             create_operator_referral_campaign(
                 referral_app,
                 operator_user_bid="operator-1",

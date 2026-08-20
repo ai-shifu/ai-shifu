@@ -1,7 +1,6 @@
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.metering import UsageContext, record_llm_usage, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -339,11 +338,11 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
 def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch):
     """Cleanup must run inside the pushed context (targeting the session that
     failed) and classify the failure: ordinary errors roll back, protocol
-    interrupts invalidate."""
+    interrupts invalidate.
+    """
     from flask import current_app
-    from sqlalchemy.exc import ResourceClosedError
-
     from flaskr.service.metering import recorder as recorder_module
+    from sqlalchemy.exc import ResourceClosedError
 
     events = []
 
@@ -389,7 +388,7 @@ def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch):
             pass
 
         def commit(self):
-            raise _Interrupt()
+            raise _Interrupt
 
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _InterruptedSession()})

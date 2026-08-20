@@ -1,4 +1,4 @@
-"""add is_operator to user_users
+"""add is_operator to user_users.
 
 Revision ID: 1f2e3d4c5b6a
 Revises: 7b3c5d9e1a2f
@@ -6,8 +6,8 @@ Create Date: 2026-04-04 12:00:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "1f2e3d4c5b6a"

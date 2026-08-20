@@ -1,5 +1,4 @@
-"""
-High-level TTS pipeline helpers.
+"""High-level TTS pipeline helpers.
 
 This module provides a top-level, provider-agnostic pipeline that:
 1) preprocesses text for TTS,
@@ -21,29 +20,27 @@ import logging
 import re
 import time
 import uuid
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Optional, Sequence
 
 from flask import Flask
-
-from flaskr.common.config import get_config
 from flaskr.api.tts import (
-    synthesize_text,
-    is_tts_configured,
-    get_default_voice_settings,
-    get_default_audio_settings,
-    VoiceSettings,
     AudioSettings,
+    VoiceSettings,
+    get_default_audio_settings,
+    get_default_voice_settings,
+    is_tts_configured,
+    synthesize_text,
 )
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
+from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
 )
-from flaskr.service.tts.tts_handler import upload_audio_to_oss
-from flaskr.common.log import AppLoggerProxy
-from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.tts.patterns import (
     AV_CLOSING_BOUNDARY,
     AV_IFRAME_CLOSE,
@@ -64,7 +61,7 @@ from flaskr.service.tts.patterns import (
     FIXED_MARKER_TAIL,
     TAG_NAME_EXTRACT,
 )
-
+from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.util.uuid import generate_id
 
 _AV_LATEX_BLOCK = AV_LATEX_BLOCK
@@ -79,8 +76,7 @@ _AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "templat
 
 
 def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
-    """
-    Return ranges for triple-backtick fenced blocks: [(start, end), ...].
+    """Return ranges for triple-backtick fenced blocks: [(start, end), ...].
 
     If a fence is not closed, the range will extend to the end of the string.
     """
@@ -111,9 +107,7 @@ def _is_index_in_ranges(index: int, ranges: list[tuple[int, int]]) -> bool:
 def _find_first_match_outside_fence(
     raw: str, pattern: re.Pattern[str], fence_ranges: list[tuple[int, int]]
 ) -> re.Match[str] | None:
-    """
-    Find the first regex match whose start index is not inside a fenced block.
-    """
+    """Find the first regex match whose start index is not inside a fenced block."""
     match = pattern.search(raw)
     while match:
         if not _is_index_in_ranges(match.start(), fence_ranges):
@@ -123,8 +117,7 @@ def _find_first_match_outside_fence(
 
 
 def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int, bool]:
-    """
-    Best-effort end boundary for a sandbox HTML block.
+    """Best-effort end boundary for a sandbox HTML block.
 
     Returns: (end, complete)
 
@@ -201,8 +194,7 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
 
 
 def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
-    """
-    If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
+    """If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
     visual tag (e.g. `=== <iframe ...`), rewind start to include the marker.
     """
     if not raw or start_index <= 0:
@@ -223,8 +215,7 @@ def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
 
 
 def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
-    """
-    If `raw` contains a trailing fixed marker suffix on the same line as a
+    """If `raw` contains a trailing fixed marker suffix on the same line as a
     visual close tag (e.g. `</iframe> ===`), extend end to include it (and one
     trailing newline if present).
     """
@@ -245,8 +236,7 @@ def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
 def _find_markdown_table_block(
     raw: str, fence_ranges: list[tuple[int, int]]
 ) -> tuple[int, int, bool] | None:
-    """
-    Find the first Markdown table block outside fences.
+    """Find the first Markdown table block outside fences.
 
     Returns: (start, end, complete)
     """
@@ -316,11 +306,11 @@ def _find_next_av_boundary(
     *,
     include_partial_md_image: bool = False,
 ) -> tuple[str, int, int, bool] | None:
-    """
-    Return the earliest AV boundary candidate from `raw`.
+    """Return the earliest AV boundary candidate from `raw`.
 
     Returns:
         (kind, start, end, complete), where `end` is exclusive.
+
     """
     if not raw:
         return None
@@ -433,8 +423,7 @@ def _find_next_av_boundary(
 
 
 def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
-    """
-    Build a shared AV segmentation contract used by backend and frontend.
+    """Build a shared AV segmentation contract used by backend and frontend.
 
     Contract shape:
     - visual_boundaries[]: {kind, position, block_bid, source_span}
@@ -518,8 +507,7 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
 
 
 def split_av_speakable_segments(raw: str) -> list[str]:
-    """
-    Split raw Markdown/HTML content into ordered speakable segments for AV sync.
+    """Split raw Markdown/HTML content into ordered speakable segments for AV sync.
 
     The output segments correspond to "text" gaps between visual blocks such as
     SVG, images, fenced code/mermaid blocks, and sandbox HTML blocks.
@@ -533,8 +521,7 @@ def split_av_speakable_segments(raw: str) -> list[str]:
 
 
 def _split_by_sentence_and_newline(text: str) -> list[str]:
-    """
-    Split text into small units using newlines and sentence-ending punctuation.
+    """Split text into small units using newlines and sentence-ending punctuation.
 
     This is intentionally conservative and avoids provider-specific assumptions.
     """
@@ -566,8 +553,8 @@ def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
 
     segments: list[str] = []
     current = ""
-    for unit in units:
-        unit = (unit or "").strip()
+    for raw_unit in units:
+        unit = (raw_unit or "").strip()
         if not unit:
             continue
 
@@ -576,8 +563,9 @@ def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
                 current = unit
                 continue
             # Unit itself is too long; hard-split.
-            for i in range(0, len(unit), max_chars):
-                segments.append(unit[i : i + max_chars])
+            segments.extend(
+                unit[i : i + max_chars] for i in range(0, len(unit), max_chars)
+            )
             current = ""
             continue
 
@@ -589,8 +577,9 @@ def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
             if len(unit) <= max_chars:
                 current = unit
             else:
-                for i in range(0, len(unit), max_chars):
-                    segments.append(unit[i : i + max_chars])
+                segments.extend(
+                    unit[i : i + max_chars] for i in range(0, len(unit), max_chars)
+                )
                 current = ""
 
     if current:
@@ -605,8 +594,7 @@ def _split_text_by_max_bytes(
     max_bytes: int,
     encoding: str,
 ) -> list[str]:
-    """
-    Ensure every segment stays within max bytes for a given encoding.
+    """Ensure every segment stays within max bytes for a given encoding.
 
     This is mainly required for providers like Baidu which enforce byte limits.
     """
@@ -614,8 +602,8 @@ def _split_text_by_max_bytes(
         raise ValueError("max_bytes must be > 0")
 
     output: list[str] = []
-    for segment in segments:
-        segment = (segment or "").strip()
+    for raw_segment in segments:
+        segment = (raw_segment or "").strip()
         if not segment:
             continue
 
@@ -649,10 +637,9 @@ def split_text_for_tts(
     text: str,
     *,
     provider_name: str,
-    max_segment_chars: Optional[int] = None,
+    max_segment_chars: int | None = None,
 ) -> list[str]:
-    """
-    Split text into segments suitable for unified TTS synthesis.
+    """Split text into segments suitable for unified TTS synthesis.
 
     - Applies `preprocess_for_tts` (removes markdown/code/SVG, etc).
     - Splits by newline and sentence endings.
@@ -704,22 +691,22 @@ def synthesize_long_text_to_oss(
     model: str = "",
     voice_id: str = "",
     language: str = "",
-    max_segment_chars: Optional[int] = None,
+    max_segment_chars: int | None = None,
     max_workers: int = 4,
     sleep_between_segments: float = 0.0,
-    audio_bid: Optional[str] = None,
-    voice_settings: Optional[VoiceSettings] = None,
-    audio_settings: Optional[AudioSettings] = None,
-    usage_context: Optional[UsageContext] = None,
-    parent_usage_bid: Optional[str] = None,
+    audio_bid: str | None = None,
+    voice_settings: VoiceSettings | None = None,
+    audio_settings: AudioSettings | None = None,
+    usage_context: UsageContext | None = None,
+    parent_usage_bid: str | None = None,
 ) -> SynthesizeToOssResult:
-    """
-    Synthesize a long text, upload the final audio to OSS, and return URL + metrics.
+    """Synthesize a long text, upload the final audio to OSS, and return URL + metrics.
 
     Notes:
     - Uses the unified TTS client (`flaskr.api.tts.synthesize_text`).
     - Segments are synthesized in parallel (bounded by `max_workers`).
     - Final output is uploaded as an MP3 file for browser playback.
+
     """
     provider = (provider_name or "").strip().lower()
     if not provider:
@@ -740,7 +727,7 @@ def synthesize_long_text_to_oss(
     raw_length = len(text or "")
     cleaned_length = len(cleaned_text or "")
     usage_parent_bid = ""
-    usage_metadata: Optional[dict] = None
+    usage_metadata: dict | None = None
     total_word_count = 0
     total_output_chars = 0
     if usage_context is not None:
@@ -821,7 +808,7 @@ def synthesize_long_text_to_oss(
                 provider,
             )
         audio_parts = [b""] * len(segments)
-        segment_map = {idx: segment for idx, segment in enumerate(segments)}
+        segment_map = dict(enumerate(segments))
 
         def _synthesize_in_app_context(segment_text: str):
             with app.app_context():
@@ -880,7 +867,7 @@ def synthesize_long_text_to_oss(
     if not final_audio:
         raise ValueError("No audio data produced")
 
-    duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+    duration_ms = get_audio_duration_ms(final_audio, audio_format="mp3")
 
     audio_bid = (audio_bid or "").strip() or uuid.uuid4().hex
     with app.app_context():

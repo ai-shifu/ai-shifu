@@ -110,6 +110,8 @@
   "askTemperatureHint": "Contrôler la variété des réponses aux questions (0-2, 0 est recommandé)",
   "askTitle": "Questions des apprenants",
   "debugDisabledBySoftLimit": "Le solde de crédits est sous le seuil d’alerte. La prévisualisation de débogage est désactivée.",
+  "defaultListenModeDescription": "Une fois activé, les apprenants commencent ce cours en mode écoute par défaut",
+  "defaultListenModeTitle": "Ouvrir en écoute par défaut",
   "draftConflictDescription": "Ce cours a été mis à jour par {phone}. Chargez le contenu le plus récent pour continuer à modifier en sécurité.",
   "draftConflictRefresh": "Charger la dernière version",
   "draftConflictSynced": "Cette leçon a été mise à jour par {phone}. Le contenu le plus récent a été synchronisé.",

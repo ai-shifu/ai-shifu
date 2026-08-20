@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.tts import volcengine_voice_clone
 from flaskr.service.tts.volcengine_voice_clone import (
     VOLCENGINE_ICL_RESOURCE_ID,
@@ -37,7 +37,7 @@ class _FakeResponse:
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("S_xxxxxxxxxx", True),
         ("S_xxxxxxxxx", True),
@@ -82,19 +82,20 @@ def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
             {"BaseResp": {"StatusCode": 1001, "StatusMessage": "bad request"}}
         ),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
 def test_query_status_raises_without_credentials(monkeypatch) -> None:
     _patch_config(monkeypatch, config={})
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
 def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> None:
     """Provider unreachable / timeout must fail through the controlled
-    parameter-error path, not bubble a raw RequestException into a 500."""
+    parameter-error path, not bubble a raw RequestException into a 500.
+    """
     import requests as requests_lib
 
     _patch_config(monkeypatch)
@@ -103,7 +104,7 @@ def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> No
         raise requests_lib.exceptions.ConnectTimeout("connect timeout")
 
     monkeypatch.setattr(volcengine_voice_clone.requests, "post", _raise_transport_error)
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
@@ -122,13 +123,14 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
         "post",
         lambda *args, **kwargs: _BadJsonResponse(),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
 def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
     """Volcengine answers 4xx (with a JSON message) for unknown speakers or
-    missing grants; that must surface as a parameter error, not an HTTPError."""
+    missing grants; that must surface as a parameter error, not an HTTPError.
+    """
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
@@ -137,7 +139,7 @@ def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
             {"message": "parameter license not found for appid"}, status_code=403
         ),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxxx")
 
 
@@ -164,13 +166,14 @@ def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
             {"BaseResp": {"StatusCode": 0}, "status": status}
         ),
     )
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         verify_volcengine_voice_id("S_xxxxxxxxxx")
 
 
 def test_icl_resource_is_not_a_selectable_model() -> None:
     """The clone resource id must stay out of the model dropdown; it is
-    inferred from the S_ speaker id inside the provider instead."""
+    inferred from the S_ speaker id inside the provider instead.
+    """
     from flaskr.api.tts.volcengine_provider import VOLCENGINE_MODELS
 
     assert VOLCENGINE_ICL_RESOURCE_ID not in {

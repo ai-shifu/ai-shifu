@@ -1,16 +1,16 @@
-"""
-Unit tests for EnhancedConfig class.
-"""
+"""Unit tests for EnhancedConfig class."""
+
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
 from flaskr.common.config import EnhancedConfig, EnvironmentConfigError, EnvVar
+
 from tests.common.fixtures.config_data import (
-    MINIMAL_ENV_VARS,
-    FULL_TEST_ENV_VARS,
     DOCKER_ENV_CONFIG,
-    MISSING_REQUIRED_ENV,
+    FULL_TEST_ENV_VARS,
     INVALID_VALUES_ENV,
+    MINIMAL_ENV_VARS,
+    MISSING_REQUIRED_ENV,
     NO_LLM_ENV,
 )
 

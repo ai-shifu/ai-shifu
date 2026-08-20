@@ -1,26 +1,26 @@
-from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    DateTime,
-    Text,
-    SmallInteger,
-    Index,
-)
-from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-from ...dao import db
+from typing import ClassVar
 
 from flaskr.service.order.consts import LEARN_STATUS_LOCKED
+from flaskr.util.datetime import now_utc
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.mysql import BIGINT
+
+from ...dao import db
 
 
 class LearnProgressRecord(db.Model):
-    """
-    Learn progress record
-    """
+    """Learn progress record."""
 
     __tablename__ = "learn_progress_records"
-    __table_args__ = {"comment": "Learn progress records"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Learn progress records"}
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     progress_record_bid = Column(
@@ -89,12 +89,10 @@ class LearnProgressRecord(db.Model):
 
 
 class LearnGeneratedBlock(db.Model):
-    """
-    Learn generated block
-    """
+    """Learn generated block."""
 
     __tablename__ = "learn_generated_blocks"
-    __table_args__ = {"comment": "Learn generated blocks"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Learn generated blocks"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     generated_block_bid = Column(
         String(36),
@@ -192,7 +190,9 @@ class LearnGeneratedElement(db.Model):
     """Listen-mode generated element snapshots and events."""
 
     __tablename__ = "learn_generated_elements"
-    __table_args__ = {"comment": "Listen-mode generated elements"}
+    __table_args__: ClassVar[dict[str, str]] = {
+        "comment": "Listen-mode generated elements"
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     element_bid = Column(

@@ -2,7 +2,7 @@
   "__namespace__": "module.user",
   "confirmLogoutContent": "Êtes-vous sûr de vouloir vous déconnecter ?",
   "confirmLogoutTitle": "Confirmer la déconnexion",
-  "defaultUserName": "Nom par défaut",
+  "defaultUserName": "Utilisateur anonyme",
   "gender": {
     "female": "Femme",
     "male": "Homme",

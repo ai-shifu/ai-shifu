@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from flask import Flask
-from sqlalchemy import and_, or_
-
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementDTO,
@@ -33,6 +32,7 @@ from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
+from sqlalchemy import and_, or_
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -293,7 +293,7 @@ def _enrich_elements_with_persisted_audio(
         return elements
 
     available_positions_by_block: dict[str, list[int]] = {}
-    for block_bid, position in latest_audio_by_key.keys():
+    for block_bid, position in latest_audio_by_key:
         available_positions_by_block.setdefault(block_bid, []).append(position)
     available_positions_by_block = {
         block_bid: sorted(set(positions))

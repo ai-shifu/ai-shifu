@@ -22,8 +22,66 @@
     "updatedBy": "Mis à jour par",
     "version": "Version"
   },
+  "characterCount": "{count} / {max} caractères",
+  "characterCountOverLimit": "{count} caractères saisis ; la limite est de {max}. Raccourcissez le texte avant de l’enregistrer.",
   "complete": "Terminer",
   "description": "Répondez à quelques questions pour personnaliser votre apprentissage.",
+  "dialog": {
+    "cancel": "Annuler",
+    "chips": {
+      "goals": {
+        "hint": "Situation actuelle, objectifs et questions",
+        "label": "Ma situation actuelle"
+      },
+      "identity": {
+        "hint": "Identité, secteur, métier et informations associées",
+        "label": "Mon parcours"
+      },
+      "teaching": {
+        "hint": "Ton et expression préférés, ainsi que les sujets tabous",
+        "label": "Mon style de langage préféré"
+      }
+    },
+    "close": "Fermer",
+    "description": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
+    "discard": "Abandonner les modifications",
+    "discardDescription": "Tout contenu non enregistré sera perdu.",
+    "discardTitle": "Abandonner ces modifications ?",
+    "dismissFailed": "Impossible de terminer cette action. Réessayez.",
+    "emptyProfile": "Cette présentation ne peut pas être vide. Ajoutez quelques informations avant de l’enregistrer.",
+    "keepEditing": "Continuer à modifier",
+    "later": "Plus tard",
+    "legacyPrefill": {
+      "background": "Mon parcours : {value}",
+      "style": "Mon style de langage préféré : {value}"
+    },
+    "loadFailed": "Impossible de charger ces informations. Réessayez.",
+    "loading": "Chargement de votre profil d’apprentissage…",
+    "nicknameLabel": "Comment votre enseignant IA doit-il vous appeler ? (facultatif)",
+    "nicknamePlaceholder": "Par exemple : Camille",
+    "onboardingTitle": "Aidez votre enseignant IA à mieux vous connaître",
+    "optimize": "Améliorer avec l’IA",
+    "optimizeEmptyHint": "Écrivez quelques lignes, puis laissez l’IA vous aider à les améliorer.",
+    "optimizeEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
+    "optimizeFailed": "Impossible d’améliorer ce texte pour le moment. Vous pouvez toujours l’enregistrer tel quel.",
+    "optimizeHint": "L’IA ajoute des détails utiles et organise la formulation sans changer votre intention ni inventer de faits.",
+    "optimizeInvalidResponse": "L’IA a renvoyé un format de réponse incorrect. Réessayez.",
+    "optimizeSuccess": "Texte amélioré. Vous pouvez continuer à le modifier.",
+    "optimizing": "Amélioration…",
+    "profileLabel": "Écrivez ce que votre enseignant IA doit retenir de vous",
+    "profilePlaceholder": "Exemple : Je travaille dans un bureau à Shanghai et j’ai étudié la gestion à l’université. J’aimerais maintenant utiliser l’IA pour transformer mes idées en articles et en petits outils. Je préfère que mon enseignant IA s’exprime de façon chaleureuse, directe, concise et facile à comprendre, avec peu de jargon.",
+    "promptHeading": "Commencez par l’un de ces aspects",
+    "reassurance": "Vous n’avez pas besoin de tout écrire en une fois et pourrez modifier ces informations à tout moment. Si vos préférences vont à l’encontre du cadre du cours défini par l’enseignant humain, ce cadre reste prioritaire.",
+    "retry": "Recharger",
+    "save": "Enregistrer le profil",
+    "saveAndContinue": "Enregistrer et continuer",
+    "saveChanges": "Enregistrer les modifications",
+    "saveFailed": "Impossible d’enregistrer votre profil. Réessayez.",
+    "saving": "Enregistrement…",
+    "settingsDescription": "Présentez votre parcours, vos objectifs et vos préférences de langage afin que votre enseignant IA rapproche davantage le contenu du cours de votre situation.",
+    "settingsTitle": "Présentez-vous à votre enseignant IA",
+    "undoOptimize": "Annuler"
+  },
   "emptyFlow": "Aucune question de profil n’est configurée.",
   "inputPlaceholder": "Saisissez votre réponse",
   "loadFailed": "Le guide du profil d’apprentissage n’a pas pu être chargé et a été ignoré pour le moment. Réessayez plus tard.",

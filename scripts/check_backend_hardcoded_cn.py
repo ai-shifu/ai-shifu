@@ -8,8 +8,8 @@ generated or cache directories.
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "src" / "api"
@@ -26,7 +26,7 @@ def main() -> int:
     for path in BACKEND.rglob("*.py"):
         # Skip virtualenvs or caches if any
         parts = set(path.parts)
-        if any(p in parts for p in {".venv", "__pycache__"}):
+        if any(p in parts for p in (".venv", "__pycache__")):
             continue
         # Skip migrations, tests and constant tables for now (pending i18n migration)
         if "migrations" in parts:
@@ -40,7 +40,7 @@ def main() -> int:
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except OSError:
             continue
         for i, line in enumerate(text.splitlines(), start=1):
             if CJK.search(line):

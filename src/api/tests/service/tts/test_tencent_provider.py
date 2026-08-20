@@ -2,8 +2,10 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 
 import pytest
+from flaskr.service.common.models import AppError
 
 
 class _FakeSSEStreamingResponse:
@@ -17,8 +19,7 @@ class _FakeSSEStreamingResponse:
 
     def iter_lines(self, decode_unicode=True):
         _ = decode_unicode
-        for line in self._lines:
-            yield line
+        yield from self._lines
 
     def close(self):
         self.closed = True
@@ -36,15 +37,8 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
     signed_headers = "content-type;host;x-tc-action"
     hashed_payload = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
-    canonical_request = "\n".join(
-        [
-            "POST",
-            "/",
-            "",
-            canonical_headers,
-            signed_headers,
-            hashed_payload,
-        ]
+    canonical_request = (
+        f"POST\n/\n\n{canonical_headers}\n{signed_headers}\n{hashed_payload}"
     )
     credential_scope = f"{date}/{service}/tc3_request"
     string_to_sign = "\n".join(
@@ -130,7 +124,7 @@ def test_tencent_sse_tc3_headers_sign_exact_request_payload():
 
 def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     import flaskr.api.tts as tts_api
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
     from flaskr.common.config import ENV_VARS
     from flaskr.service.tts.validation import validate_tts_settings_strict
 
@@ -177,7 +171,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     assert validated.provider == "tencent"
     assert validated.model == ""
 
-    with pytest.raises(Exception):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent",
             model="",
@@ -191,7 +185,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
 def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
     monkeypatch,
 ):
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
     _patch_tencent_config(monkeypatch, tencent_provider)
@@ -275,7 +269,7 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
 def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     monkeypatch,
 ):
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
     _patch_tencent_config(monkeypatch, tencent_provider)
@@ -337,7 +331,7 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     monkeypatch.setattr(
         tencent_provider,
         "try_get_audio_duration_ms",
-        lambda audio_data, format="mp3": 600 if audio_data else 0,
+        lambda audio_data, **_kwargs: 600 if audio_data else 0,
     )
 
     result = tencent_provider.TencentTTSProvider().synthesize(
@@ -360,7 +354,7 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
 
 
 def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch):
-    import flaskr.api.tts.tencent_provider as tencent_provider
+    from flaskr.api.tts import tencent_provider
 
     _patch_tencent_config(monkeypatch, tencent_provider)
 
@@ -387,7 +381,7 @@ def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch):
 
     with pytest.raises(
         ValueError,
-        match="Tencent TTS error InvalidParameter.Voice",
+        match=re.escape("Tencent TTS error InvalidParameter.Voice"),
     ):
         list(
             tencent_provider.TencentTTSProvider().stream_synthesize(

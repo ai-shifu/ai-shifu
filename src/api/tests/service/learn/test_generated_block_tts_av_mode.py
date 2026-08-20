@@ -4,8 +4,7 @@ from types import SimpleNamespace
 import pytest
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
+from flaskr import dao
 
 if dao.db is None:
     _test_app = Flask("test-generated-block-tts-av-mode")
@@ -70,7 +69,7 @@ def _patch_run_tts_processor(
     def _fake_synthesize_text(**kwargs):
         synthesized_texts.append(kwargs["text"])
         return SimpleNamespace(
-            audio_data=f"fake-audio:{kwargs['text']}".encode("utf-8"),
+            audio_data=f"fake-audio:{kwargs['text']}".encode(),
             duration_ms=123,
             word_count=1,
         )
@@ -85,11 +84,11 @@ def _patch_run_tts_processor(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
+        b"".join,
     )
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
+        b"".join,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -131,7 +130,7 @@ def _patch_run_tts_processor(
 
 class TestGeneratedBlockListenTtsElementFirst:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("generated-block-listen-tts")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -1889,7 +1888,7 @@ class TestGeneratedBlockListenTtsElementFirst:
         self, monkeypatch
     ):
         from flaskr.dao import db
-        from flaskr.service.common.models import AppException
+        from flaskr.service.common.models import AppError
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
 
         user_bid = "user-finalize-no-complete-1"
@@ -1954,7 +1953,7 @@ class TestGeneratedBlockListenTtsElementFirst:
             lambda _parts: b"",
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             list(
                 stream_generated_block_audio(
                     self.app,

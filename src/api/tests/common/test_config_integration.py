@@ -1,19 +1,19 @@
-"""
-Integration tests for the complete configuration system.
-"""
+"""Integration tests for the complete configuration system."""
 
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from flask import Flask
 from flaskr.common.config import (
+    ENV_VARS,
     Config,
     EnhancedConfig,
-    EnvVar,
-    ENV_VARS,
     EnvironmentConfigError,
+    EnvVar,
     get_config,
 )
+
 from tests.common.fixtures.config_data import (
     DOCKER_ENV_CONFIG,
     PRODUCTION_ENV_CONFIG,
@@ -396,7 +396,7 @@ class TestBackwardCompatibility:
 
     def test_required_means_no_default(self):
         """Test that required=True prevents having defaults."""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="marked as required") as exc_info:
             EnvVar(name="TEST", required=True, default="should-fail")
 
         assert "marked as required" in str(exc_info.value)

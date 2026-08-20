@@ -29,12 +29,18 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 # Install hints. Versions mirror lefthook.yml's header comment (lines 10-13).
-BREW_INSTALL = "brew install lefthook"
+if sys.platform == "darwin":
+    LEFTHOOK_PKG_INSTALL = "brew install lefthook"
+else:
+    LEFTHOOK_PKG_INSTALL = (
+        "npm install -g @evilmartians/lefthook  # (or use your package manager)"
+    )
 PIP_INSTALL = "pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0"
 NPM_INSTALL = "cd src/cook-web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
@@ -75,6 +81,7 @@ def _hooks_dir() -> Path | None:
             cwd=ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
         if configured.returncode == 0 and configured.stdout.strip():
             # git config values may use ~ / ~user; Path() does not expand it.
@@ -95,7 +102,7 @@ def _hooks_dir() -> Path | None:
 
 
 def _lefthook_hook_installed() -> bool:
-    """True when ``lefthook install`` has wired the pre-commit hook in."""
+    """Report whether ``lefthook install`` has wired the pre-commit hook in."""
     hooks_dir = _hooks_dir()
     if hooks_dir is None:
         return False
@@ -113,7 +120,7 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
     lefthook_present = shutil.which("lefthook") is not None
 
     core: list[Check] = [
-        Check("lefthook", lefthook_present, BREW_INSTALL),
+        Check("lefthook", lefthook_present, LEFTHOOK_PKG_INSTALL),
         # Only meaningful once the binary exists; surface the install step
         # regardless so a half-finished setup is obvious.
         Check(
@@ -124,8 +131,10 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
         Check("ruff", shutil.which("ruff") is not None, PIP_INSTALL),
         Check("cz (commitizen)", shutil.which("cz") is not None, PIP_INSTALL),
     ]
-    for script in PRE_COMMIT_HOOKS_SCRIPTS:
-        core.append(Check(script, shutil.which(script) is not None, PIP_INSTALL))
+    core.extend(
+        Check(script, shutil.which(script) is not None, PIP_INSTALL)
+        for script in PRE_COMMIT_HOOKS_SCRIPTS
+    )
 
     frontend: list[Check] = [
         Check("node", shutil.which("node") is not None, NODE_INSTALL, required=False),
@@ -148,7 +157,7 @@ def _report(title: str, checks: list[Check]) -> None:
 
 
 def _fix_lines(missing: list[Check]) -> list[str]:
-    """Unique fix commands, preserving first-seen order."""
+    """Collect unique fix commands, preserving first-seen order."""
     seen: list[str] = []
     for check in missing:
         if check.fix not in seen:

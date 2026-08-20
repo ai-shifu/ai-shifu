@@ -4,7 +4,7 @@ import pytest
 
 
 def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
     from flaskr.dao.uow import unit_of_work
 
     invalidations = []
@@ -17,16 +17,14 @@ def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch):
     class _Interrupt(BaseException):
         pass
 
-    with app.app_context():
-        with pytest.raises(_Interrupt):
-            with unit_of_work():
-                raise _Interrupt()
+    with app.app_context(), pytest.raises(_Interrupt), unit_of_work():
+        raise _Interrupt
 
     assert invalidations == ["unit_of_work interrupt"]
 
 
 def test_unit_of_work_classifies_desync_exceptions(app, monkeypatch):
-    import flaskr.dao as dao
+    from flaskr import dao
     from flaskr.dao.uow import unit_of_work
 
     outcomes = []
@@ -40,9 +38,7 @@ def test_unit_of_work_classifies_desync_exceptions(app, monkeypatch):
 
     from sqlalchemy.exc import ResourceClosedError
 
-    with app.app_context():
-        with pytest.raises(ResourceClosedError):
-            with unit_of_work():
-                raise ResourceClosedError("desynced")
+    with app.app_context(), pytest.raises(ResourceClosedError), unit_of_work():
+        raise ResourceClosedError("desynced")
 
     assert outcomes == [("ResourceClosedError", "unit_of_work")]

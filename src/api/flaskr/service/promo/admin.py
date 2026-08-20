@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import decimal
 import json
+import math
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
-import math
-from typing import Dict, Optional
+from datetime import UTC, datetime, timedelta
 
 from flask import Flask
-from sqlalchemy import and_, case, func, not_, or_
-
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.api import (
@@ -64,9 +61,11 @@ from flaskr.service.promo.models import (
     PromoRedemption,
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import and_, case, func, not_, or_
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
@@ -136,7 +135,7 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
     if parsed is None:
         raise_param_error(field_name)
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 
@@ -167,6 +166,7 @@ def _parse_bool_value(value: object, field_name: str) -> bool:
     if normalized in {"false", "0"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 def _resolve_update_datetime(
@@ -305,6 +305,7 @@ def _build_coupon_status_filter(status: str):
             Coupon.end < now,
         )
     raise_param_error("status")
+    return None
 
 
 def _build_campaign_status_filter(status: str):
@@ -332,6 +333,7 @@ def _build_campaign_status_filter(status: str):
             PromoCampaign.end_at < now,
         )
     raise_param_error("status")
+    return None
 
 
 def _generate_random_coupon_code(length: int = 12) -> str:
@@ -352,6 +354,7 @@ def _generate_unique_coupon_code() -> str:
         if not usage_exists:
             return code
     raise_error("server.discount.couponCodeGenerationFailed")
+    return None
 
 
 def _generate_unique_coupon_codes(count: int) -> list[str]:
@@ -520,8 +523,8 @@ def _compute_campaign_status(campaign: PromoCampaign) -> str:
 
 def _build_coupon_item(
     coupon: Coupon,
-    course_map: Dict[str, DraftShifu | PublishedShifu],
-    user_name_map: Dict[str, str] | None = None,
+    course_map: dict[str, DraftShifu | PublishedShifu],
+    user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCouponItemDTO:
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
     course = course_map.get(shifu_bid)
@@ -562,11 +565,11 @@ def _build_coupon_item(
 
 def _build_campaign_item(
     campaign: PromoCampaign,
-    course_map: Dict[str, DraftShifu | PublishedShifu],
+    course_map: dict[str, DraftShifu | PublishedShifu],
     applied_order_count: int,
     total_discount_amount: decimal.Decimal,
     has_redemptions: bool,
-    user_name_map: Dict[str, str] | None = None,
+    user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCampaignItemDTO:
     computed_status = _compute_campaign_status(campaign)
     course = course_map.get(campaign.shifu_bid or "")
@@ -598,7 +601,7 @@ def _build_campaign_item(
     )
 
 
-def _load_user_name_map(user_bids: list[str]) -> Dict[str, str]:
+def _load_user_name_map(user_bids: list[str]) -> dict[str, str]:
     if not user_bids:
         return {}
     users = UserEntity.query.filter(UserEntity.user_bid.in_(user_bids)).all()
@@ -868,7 +871,7 @@ def create_operator_promotion_coupon(
         if discount_type not in {COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT}:
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         total_count = payload.get("total_count")
         if total_count in (None, ""):
@@ -956,7 +959,7 @@ def update_operator_promotion_coupon(
             raise_param_error("discount_type")
 
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         if value != decimal.Decimal(coupon.value or 0).quantize(
             decimal.Decimal("0.01")
@@ -1112,7 +1115,7 @@ def update_operator_promotion_coupon_status(
         return {"coupon_bid": coupon.coupon_bid, "enabled": enabled_value}
 
 
-def _load_order_map(order_bids: list[str]) -> Dict[str, Order]:
+def _load_order_map(order_bids: list[str]) -> dict[str, Order]:
     if not order_bids:
         return {}
     orders = Order.query.filter(Order.order_bid.in_(order_bids)).all()
@@ -1120,7 +1123,7 @@ def _load_order_map(order_bids: list[str]) -> Dict[str, Order]:
 
 
 def _calculate_coupon_usage_discount_amount(
-    order: Optional[Order], usage: CouponUsage
+    order: Order | None, usage: CouponUsage
 ) -> str:
     if order is None:
         return _format_decimal(usage.value)
@@ -1130,8 +1133,7 @@ def _calculate_coupon_usage_discount_amount(
         int(usage.discount_type or COUPON_TYPE_FIXED),
         decimal.Decimal(usage.value or 0),
     )
-    if discount_amount > payable_price:
-        discount_amount = payable_price
+    discount_amount = min(discount_amount, payable_price)
     return _format_decimal(discount_amount)
 
 
@@ -1340,7 +1342,7 @@ def list_operator_promotion_coupon_codes(
     return _build_paged_response(summary, page, page_size, summary.total, items)
 
 
-def _load_redemption_stats(promo_bids: list[str]) -> Dict[str, dict]:
+def _load_redemption_stats(promo_bids: list[str]) -> dict[str, dict]:
     if not promo_bids:
         return {}
     rows = (
@@ -1571,7 +1573,7 @@ def list_operator_promotion_campaigns(
             course_map,
             int(stats_map.get(campaign.promo_bid or "", {}).get("count", 0)),
             stats_map.get(campaign.promo_bid or "", {}).get(
-                "discount_amount", decimal.Decimal("0")
+                "discount_amount", decimal.Decimal(0)
             ),
             bool(
                 stats_map.get(campaign.promo_bid or "", {}).get("redemption_count", 0)
@@ -1631,7 +1633,7 @@ def create_operator_promotion_campaign(
         if discount_type not in {COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT}:
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         start_at = _parse_datetime(payload.get("start_at"), "start_at")
         end_at = _parse_datetime(payload.get("end_at"), "end_at", is_end=True)
@@ -1687,7 +1689,7 @@ def update_operator_promotion_campaign(
         if discount_type != int(campaign.discount_type or COUPON_TYPE_FIXED):
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         strategy_fields_editable = _campaign_strategy_fields_editable(campaign)
         if value != decimal.Decimal(campaign.value or 0).quantize(
@@ -1758,7 +1760,7 @@ def get_operator_promotion_campaign_detail(
         campaign,
         course_map,
         int(stats.get("count", 0)),
-        stats.get("discount_amount", decimal.Decimal("0")),
+        stats.get("discount_amount", decimal.Decimal(0)),
         bool(stats.get("redemption_count", 0)),
         user_name_map,
     )

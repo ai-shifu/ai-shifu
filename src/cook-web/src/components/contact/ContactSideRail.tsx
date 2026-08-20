@@ -21,7 +21,7 @@ export function ContactSideRail({ className, label }: ContactSideRailProps) {
   const contactUsUrl = useEnvStore(
     (state: EnvStoreState) => state.contactUsUrl,
   );
-  const resolvedLabel = label ?? t(CONTACT_RAIL_I18N_KEY);
+  const resolvedLabel = label ?? t('component.navigation.contactUs');
   const resolvedHref = contactUsUrl.trim();
 
   if (!resolvedHref) {

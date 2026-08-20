@@ -167,15 +167,15 @@ const CREDIT_PACK_CODES = [
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 const LEARNER_ESTIMATE_MARKER = '①';
 const CREDIT_VALIDITY_MARKER = '②';
-const LEARNER_SESSIONS_PER_100_CREDITS = {
+const LEARNER_SESSIONS_PER_1000_CREDITS = {
   minimum: 5,
   maximum: 15,
 } as const;
 
 function getLearnerSessionEstimate(creditAmount: number) {
   return {
-    minimum: (creditAmount * LEARNER_SESSIONS_PER_100_CREDITS.minimum) / 100,
-    maximum: (creditAmount * LEARNER_SESSIONS_PER_100_CREDITS.maximum) / 100,
+    minimum: (creditAmount * LEARNER_SESSIONS_PER_1000_CREDITS.minimum) / 1000,
+    maximum: (creditAmount * LEARNER_SESSIONS_PER_1000_CREDITS.maximum) / 1000,
   };
 }
 
@@ -340,11 +340,8 @@ export function GlobalBillingPricing() {
           >
             {globalProducts ? (
               <div
-                className='grid gap-5 px-1'
-                style={{
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
-                }}
+                className='grid grid-cols-1 gap-3 px-1 sm:grid-cols-2 xl:grid-cols-4'
+                data-testid='global-plan-grid'
               >
                 {PLAN_TIERS.map(tierSpec => (
                   <PlanCard
@@ -581,11 +578,14 @@ function PlanCard({
 
   return (
     <Card
-      className='relative flex h-full flex-col overflow-hidden rounded-xl border-border shadow-sm'
+      className='relative flex h-full flex-col overflow-hidden rounded-xl border-border shadow-sm sm:row-span-7 sm:grid sm:grid-rows-subgrid sm:gap-y-0'
       data-testid={`global-plan-${tierSpec.tier}`}
     >
-      <CardHeader className='space-y-4 p-6 pb-4'>
-        <div className='flex min-h-7 items-center justify-between gap-3'>
+      <CardHeader className='space-y-4 p-6 pb-4 sm:contents'>
+        <div
+          className='flex min-h-7 items-center justify-between gap-3 sm:px-6 sm:pt-6'
+          data-testid={`global-plan-${tierSpec.tier}-title`}
+        >
           <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <h3 className='text-xl font-semibold text-foreground'>
               {planName}
@@ -603,7 +603,10 @@ function PlanCard({
             </Badge>
           ) : null}
         </div>
-        <div>
+        <div
+          className='sm:px-6'
+          data-testid={`global-plan-${tierSpec.tier}-price`}
+        >
           <div className='flex items-end gap-1 text-foreground'>
             {cycle === 'annual' && annualProduct ? (
               <span className='pb-1 text-sm text-muted-foreground'>
@@ -646,7 +649,10 @@ function PlanCard({
           )}
         </div>
 
-        <div className='rounded-lg border border-primary/10 bg-primary/5 p-3 text-foreground'>
+        <div
+          className='rounded-lg border border-primary/10 bg-primary/5 p-3 text-foreground sm:mx-6 sm:mb-4 sm:mt-4'
+          data-testid={`global-plan-${tierSpec.tier}-credits`}
+        >
           <p className='text-xs font-medium text-muted-foreground'>
             {t('module.billing.globalPricing.creditsLabel')}
           </p>
@@ -668,7 +674,10 @@ function PlanCard({
         </div>
       </CardHeader>
 
-      <CardFooter className='px-6 pb-5 pt-0'>
+      <CardFooter
+        className='px-6 pb-5 pt-0'
+        data-testid={`global-plan-${tierSpec.tier}-action`}
+      >
         {monthlyOnly ? (
           <Button
             variant='outline'
@@ -695,8 +704,11 @@ function PlanCard({
         )}
       </CardFooter>
 
-      <CardContent className='flex-1 divide-y divide-border border-t border-border px-0 pb-0'>
-        <div className='px-6 py-4'>
+      <CardContent className='flex flex-1 flex-col px-0 pb-0 pt-0 sm:contents'>
+        <div
+          className='border-t border-border px-6 py-4'
+          data-testid={`global-plan-${tierSpec.tier}-audience`}
+        >
           <p className='text-xs font-medium text-muted-foreground'>
             {t('module.billing.globalPricing.audienceLabel')}
           </p>
@@ -707,7 +719,10 @@ function PlanCard({
           </p>
         </div>
 
-        <div className='px-6 py-4'>
+        <div
+          className='border-t border-border px-6 py-4'
+          data-testid={`global-plan-${tierSpec.tier}-estimate`}
+        >
           <p className='text-xs font-medium text-muted-foreground'>
             {t('module.billing.globalPricing.learnerEstimateLabel')}
             <span className='ml-1'>{LEARNER_ESTIMATE_MARKER}</span>
@@ -726,7 +741,10 @@ function PlanCard({
           </p>
         </div>
 
-        <div className='px-6 py-4'>
+        <div
+          className='border-t border-border px-6 py-4'
+          data-testid={`global-plan-${tierSpec.tier}-benefits`}
+        >
           <p className='text-xs font-medium text-muted-foreground'>
             {featureIncludeKey
               ? t(featureIncludeKey)

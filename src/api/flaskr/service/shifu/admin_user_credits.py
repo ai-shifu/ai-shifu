@@ -6,14 +6,13 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import datetime
-
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
 from json import JSONDecodeError
-from typing import Any, Dict, Optional, Sequence
+from typing import Any
+
 from flask import current_app
-from sqlalchemy import case, not_, or_
 from flaskr.dao import db
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
@@ -46,17 +45,14 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
+)
+from flaskr.service.billing.primitives import (
     quantize_credit_amount as _quantize_credit_amount,
+)
+from flaskr.service.billing.primitives import (
     safe_int as _safe_int,
 )
 from flaskr.service.billing.queries import load_primary_active_subscription
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_TTS,
-)
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
 )
@@ -65,6 +61,17 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.admin_course_summaries import (
+    _load_latest_courses_by_shifu_bids,
+    _merge_courses,
+)
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseCreditUsageDetailItemDTO,
     AdminOperationCourseCreditUsageItemDTO,
@@ -72,25 +79,6 @@ from flaskr.service.shifu.admin_dtos_courses import (
 from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditSummaryDTO,
-)
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    DraftShifu,
-    PublishedOutlineItem,
-    PublishedShifu,
-)
-from flaskr.service.user.models import (
-    UserInfo as UserEntity,
-)
-
-from flaskr.service.shifu.admin_course_summaries import (
-    _load_latest_courses_by_shifu_bids,
-    _merge_courses,
 )
 
 # The legacy flaskr.service.shifu.admin module bound these names from
@@ -112,18 +100,34 @@ from flaskr.service.shifu.admin_shared import (
     COURSE_CREDIT_USAGE_SCENE_PREVIEW,
     COURSE_CREDIT_USAGE_VIEW_GROUPED,
     COURSE_CREDIT_USAGE_VIEW_RAW,
-    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION,
+    OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_FILTER_TYPES,
     OPERATOR_USER_CREDIT_GRANT_SOURCES,
     OPERATOR_USER_CREDIT_TYPE_ALL,
     _format_decimal,
     _normalize_metadata_json,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from flaskr.util.datetime import now_utc
+from sqlalchemy import case, not_, or_
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
@@ -133,10 +137,8 @@ def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
 
     metadata = _normalize_metadata_json(getattr(row, "extra", None))
     generation_name = str(metadata.get("generation_name", "") or "").strip().lower()
-    if (
-        "/user_follow_ask/" in generation_name
-        or generation_name.startswith("lesson_ask/")
-        or generation_name.startswith("lesson_preview_ask/")
+    if "/user_follow_ask/" in generation_name or generation_name.startswith(
+        ("lesson_ask/", "lesson_preview_ask/")
     ):
         return COURSE_CREDIT_USAGE_MODE_ASK
 
@@ -235,8 +237,8 @@ def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
     ledger_amount: Any,
-    user_map: Dict[str, Dict[str, Any]],
-    outline_context_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, Any]],
+    outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
     usage_count: int = 1,
     usage_mode: str = "",
@@ -373,7 +375,7 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
 def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
-    outline_item_bids: Optional[Sequence[str]] = None,
+    outline_item_bids: Sequence[str] | None = None,
 ):
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
@@ -642,7 +644,7 @@ def _load_course_credit_usage_output_summary_map(
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
     ledger_amount: Any,
-    output_summary: Optional[str] = None,
+    output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
         usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
@@ -771,7 +773,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
 def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base_query = _build_operator_course_credit_usage_base_query(
         shifu_bid,
         outline_item_bids=leaf_outline_bids,
@@ -797,7 +799,7 @@ def _build_operator_course_credit_metrics(
         )
     )
     completed_credit_user_count = 0
-    completed_credit_total = Decimal("0")
+    completed_credit_total = Decimal(0)
     if completed_user_subquery is not None:
         completed_row = (
             db.session.query(
@@ -844,7 +846,7 @@ def _load_active_subscription_end_map(
     creator_bids: Sequence[str],
     *,
     as_of: datetime,
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_creator_bids = [
         str(creator_bid or "").strip() for creator_bid in creator_bids if creator_bid
     ]
@@ -884,7 +886,7 @@ def _load_active_subscription_end_map(
         )
         .all()
     )
-    best_by_creator: Dict[str, tuple] = {}
+    best_by_creator: dict[str, tuple] = {}
     for row in rows:
         sort_key = (
             row.product_sort_order if row.product_sort_order is not None else -1,
@@ -925,7 +927,7 @@ def _load_active_subscription_product_display_name_i18n_key(
     return str(getattr(product, "display_name_i18n_key", "") or "").strip()
 
 
-def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrder]:
+def _load_billing_order_map(source_bids: Sequence[str]) -> dict[str, BillingOrder]:
     normalized_source_bids = [
         str(source_bid or "").strip()
         for source_bid in source_bids
@@ -942,7 +944,7 @@ def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrde
         .order_by(BillingOrder.id.desc())
         .all()
     )
-    order_map: Dict[str, BillingOrder] = {}
+    order_map: dict[str, BillingOrder] = {}
     for row in rows:
         normalized_source_bid = str(row.bill_order_bid or "").strip()
         if normalized_source_bid and normalized_source_bid not in order_map:
@@ -965,7 +967,7 @@ def _collect_operator_user_credit_order_source_bids(
     ]
 
 
-def _resolve_operator_credit_usage_scene(metadata: Dict[str, Any]) -> int:
+def _resolve_operator_credit_usage_scene(metadata: dict[str, Any]) -> int:
     raw_usage_scene = metadata.get("usage_scene")
     try:
         return int(raw_usage_scene or 0)
@@ -981,7 +983,7 @@ def _operator_credit_int(value: Any, default: int = 0) -> int:
 def _resolve_operator_credit_display_entry_type(
     row: CreditLedgerEntry,
     *,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> str:
     usage_scene = _resolve_operator_credit_usage_scene(metadata)
     amount = Decimal(row.amount or 0)
@@ -1040,7 +1042,7 @@ def _resolve_operator_credit_display_entry_type(
 def _resolve_operator_credit_display_source_type(
     row: CreditLedgerEntry,
     *,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> str:
     source_type = _operator_credit_int(row.source_type)
     if source_type == CREDIT_SOURCE_TYPE_USAGE:
@@ -1075,7 +1077,7 @@ def _resolve_operator_credit_display_source_type(
 def _resolve_operator_credit_note_code(
     row: CreditLedgerEntry,
     *,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> str:
     note = str(metadata.get("note") or "").strip()
     if note:
@@ -1147,8 +1149,8 @@ def _resolve_operator_user_credit_grant_source_filter(value: str) -> str:
 def _build_operator_user_credit_merged_metadata(
     row: CreditLedgerEntry,
     *,
-    order_map: Optional[Dict[str, BillingOrder]] = None,
-) -> Dict[str, Any]:
+    order_map: dict[str, BillingOrder] | None = None,
+) -> dict[str, Any]:
     metadata = _normalize_metadata_json(row.metadata_json)
     normalized_source_bid = str(row.source_bid or "").strip()
     order = (order_map or {}).get(normalized_source_bid)
@@ -1185,7 +1187,7 @@ def _is_operator_user_credit_other_row(row: CreditLedgerEntry) -> bool:
 def _resolve_operator_user_credit_grant_filter_key(
     row: CreditLedgerEntry,
     *,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> str:
     source_type = _operator_credit_int(row.source_type)
     if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
@@ -1202,7 +1204,7 @@ def _resolve_operator_user_credit_grant_filter_key(
 
 def _load_operator_user_credit_summary_map(
     user_bids: Sequence[str],
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -1235,17 +1237,17 @@ def _load_operator_user_credit_summary_map(
         .all()
     )
 
-    zero = Decimal("0")
-    summary_map: Dict[str, Dict[str, Any]] = {}
+    zero = Decimal(0)
+    summary_map: dict[str, dict[str, Any]] = {}
     order_map = _load_billing_order_map(
         [str(bucket.source_bid or "").strip() for bucket in buckets]
     )
-    order_type_cache: Dict[str, Optional[int]] = {
+    order_type_cache: dict[str, int | None] = {
         bill_order_bid: int(order.order_type or 0)
         for bill_order_bid, order in order_map.items()
     }
 
-    def load_order_type(bill_order_bid: str) -> Optional[int]:
+    def load_order_type(bill_order_bid: str) -> int | None:
         normalized_bill_order_bid = str(bill_order_bid or "").strip()
         if not normalized_bill_order_bid:
             return None
@@ -1323,7 +1325,7 @@ def _load_operator_user_credit_summary_map(
 def _build_operator_user_credit_summary(
     *,
     user: UserEntity,
-    credit_summary_map: Dict[str, Dict[str, Any]],
+    credit_summary_map: dict[str, dict[str, Any]],
 ) -> AdminOperationUserCreditSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     credit_summary = credit_summary_map.get(user_bid)
@@ -1368,7 +1370,7 @@ def _resolve_operator_user_credit_usage_scene(row: BillUsageRecord) -> str:
 
 def _load_operator_user_credit_usage_context_map(
     ledger_rows: Sequence[CreditLedgerEntry],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     usage_bids = sorted(
         {
             str(row.source_bid or "").strip()
@@ -1414,7 +1416,7 @@ def _load_operator_user_credit_usage_context_map(
         if str(getattr(course, "shifu_bid", "") or "").strip()
     }
 
-    outline_context_by_course: Dict[str, Dict[str, Dict[str, str]]] = {}
+    outline_context_by_course: dict[str, dict[str, dict[str, str]]] = {}
     for shifu_bid in shifu_bids:
         source = selected_sources.get(shifu_bid)
         if not source:
@@ -1424,7 +1426,7 @@ def _load_operator_user_credit_usage_context_map(
             _load_latest_outline_items(outline_model, shifu_bid)
         )
 
-    context_map: Dict[str, Dict[str, str]] = {}
+    context_map: dict[str, dict[str, str]] = {}
     for usage_row in usage_rows:
         usage_bid = str(getattr(usage_row, "usage_bid", "") or "").strip()
         shifu_bid = str(getattr(usage_row, "shifu_bid", "") or "").strip()
@@ -1453,7 +1455,7 @@ def _load_operator_user_credit_usage_context_map(
 
 def _resolve_operator_user_credit_usage_context(
     usage_row: BillUsageRecord,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     usage_bid = str(getattr(usage_row, "usage_bid", "") or "").strip()
     shifu_bid = str(getattr(usage_row, "shifu_bid", "") or "").strip()
     outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
@@ -1553,7 +1555,7 @@ def _load_operator_user_credit_usage_segment_rows(
 
 def _load_generated_block_content_map(
     generated_block_bids: Sequence[str],
-) -> Dict[str, str]:
+) -> dict[str, str]:
     normalized_bids = sorted(
         {
             str(generated_block_bid or "").strip()
@@ -1572,7 +1574,7 @@ def _load_generated_block_content_map(
         .order_by(LearnGeneratedBlock.id.desc())
         .all()
     )
-    content_map: Dict[str, str] = {}
+    content_map: dict[str, str] = {}
     for row in rows:
         generated_block_bid = str(row.generated_block_bid or "").strip()
         if generated_block_bid and generated_block_bid not in content_map:
@@ -1584,7 +1586,7 @@ def _load_listen_segment_content_map(
     *,
     progress_record_bid: str,
     generated_block_bid: str,
-) -> Dict[int, str]:
+) -> dict[int, str]:
     normalized_progress_record_bid = str(progress_record_bid or "").strip()
     normalized_generated_block_bid = str(generated_block_bid or "").strip()
     if not normalized_progress_record_bid and not normalized_generated_block_bid:
@@ -1610,7 +1612,7 @@ def _load_listen_segment_content_map(
         LearnGeneratedElement.id.asc(),
     ).all()
 
-    content_map: Dict[int, str] = {}
+    content_map: dict[int, str] = {}
     fallback_index = 0
     for row in rows:
         content = str(row.content_text or "").strip()
@@ -1648,14 +1650,14 @@ def _allocate_usage_detail_credits(
     *,
     rows: Sequence[BillUsageRecord],
     total_consumed_credits: Decimal,
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     if not rows or total_consumed_credits <= 0:
         return {}
     total_units = sum(max(int(getattr(row, "total", 0) or 0), 0) for row in rows)
     if len(rows) == 1 or total_units <= 0:
         return {str(getattr(rows[0], "usage_bid", "") or ""): total_consumed_credits}
 
-    allocated: Dict[str, Decimal] = {}
+    allocated: dict[str, Decimal] = {}
     remaining = total_consumed_credits
     last_usage_bid = str(getattr(rows[-1], "usage_bid", "") or "")
     for row in rows[:-1]:
@@ -1673,8 +1675,8 @@ def _allocate_usage_detail_credits(
 def _resolve_usage_detail_item_content(
     row: BillUsageRecord,
     *,
-    block_content_map: Dict[str, str],
-    listen_content_map: Dict[int, str],
+    block_content_map: dict[str, str],
+    listen_content_map: dict[int, str],
     fallback_content: str,
 ) -> str:
     metadata = _normalize_metadata_json(getattr(row, "extra", None))
@@ -1694,8 +1696,8 @@ def _resolve_usage_detail_item_content(
 def _build_operator_user_credit_ledger_item(
     row: CreditLedgerEntry,
     *,
-    order_map: Optional[Dict[str, BillingOrder]] = None,
-    usage_context_map: Optional[Dict[str, Dict[str, str]]] = None,
+    order_map: dict[str, BillingOrder] | None = None,
+    usage_context_map: dict[str, dict[str, str]] | None = None,
 ) -> AdminOperationUserCreditLedgerItemDTO:
     merged_metadata = _build_operator_user_credit_merged_metadata(
         row,

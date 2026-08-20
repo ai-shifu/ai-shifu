@@ -1,11 +1,19 @@
 import { BLOCK_TYPE } from '@/c-api/studyV2';
+import type { AudioTrack } from '@/c-utils/audio-utils';
 
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
   isStreaming?: boolean;
   element_bid?: string;
+  generated_block_bid?: string;
   shouldUseTypewriter?: boolean;
+  audioUrl?: string;
+  audioTracks?: AudioTrack[];
+  audioDurationMs?: number;
+  isAudioStreaming?: boolean;
+  isAudioBackfillReady?: boolean;
+  listenAudioBackfillMode?: 'listen' | 'block';
 }
 
 interface AskAnchorLike {
@@ -42,8 +50,15 @@ export const areAskMessageListsEqual = (
       item.type === nextItem?.type &&
       item.content === nextItem?.content &&
       item.element_bid === nextItem?.element_bid &&
+      item.generated_block_bid === nextItem?.generated_block_bid &&
       item.isStreaming === nextItem?.isStreaming &&
-      item.shouldUseTypewriter === nextItem?.shouldUseTypewriter
+      item.shouldUseTypewriter === nextItem?.shouldUseTypewriter &&
+      item.audioUrl === nextItem?.audioUrl &&
+      item.audioTracks === nextItem?.audioTracks &&
+      item.audioDurationMs === nextItem?.audioDurationMs &&
+      item.isAudioStreaming === nextItem?.isAudioStreaming &&
+      item.isAudioBackfillReady === nextItem?.isAudioBackfillReady &&
+      item.listenAudioBackfillMode === nextItem?.listenAudioBackfillMode
     );
   });
 };

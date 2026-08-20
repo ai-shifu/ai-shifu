@@ -1,35 +1,32 @@
-from markdown_flow import MarkdownFlow
-from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.shifu.models import DraftOutlineItem
-from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
-from flaskr.service.common import raise_error
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.service.shifu.dtos import MdflowDTOParseResult
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from datetime import timedelta
 from typing import TypedDict
 
+from flask import Flask
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db, retry_on_deadlock
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.common import raise_error
+from flaskr.service.profile.profile_manage import (
+    add_profile_item_quick_internal,
+    get_profile_item_definition_list,
+)
+from flaskr.service.shifu.dtos import MdflowDTOParseResult
+from flaskr.service.shifu.models import DraftOutlineItem
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.shifu_history_manager import (
-    save_outline_history,
     get_shifu_draft_meta,
     get_shifu_draft_revision,
     iter_outline_item_versions_desc,
     mask_contact_identifier,
-)
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    add_profile_item_quick_internal,
+    save_outline_history,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import timedelta
-
 from flaskr.util.datetime import now_utc
+from markdown_flow import MarkdownFlow
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
-    """
-    Get shifu mdflow
-    """
+    """Get shifu mdflow."""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -67,8 +64,7 @@ def cleanup_outline_history_versions(
     keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
     keep_days: int = LESSON_HISTORY_MAX_DAYS,
 ) -> None:
-    """
-    Keep outline version history bounded:
+    """Keep outline version history bounded:
     - trim to around `keep_versions` latest non-deleted versions
     - trim to around `keep_days` days of non-deleted versions
     To keep outline-level revision stable for metadata-only updates, this
@@ -149,9 +145,7 @@ def save_shifu_mdflow(
     content: str,
     base_revision: int | None = None,
 ) -> DraftSaveResponse:
-    """
-    Save shifu mdflow
-    """
+    """Save shifu mdflow."""
     content = content or ""
     with app.app_context():
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
@@ -269,11 +263,9 @@ def save_shifu_mdflow(
 
 
 def parse_shifu_mdflow(
-    app: Flask, shifu_bid: str, outline_bid: str, data: str = None
+    app: Flask, shifu_bid: str, outline_bid: str, data: str | None = None
 ) -> MdflowDTOParseResult:
-    """
-    Parse shifu mdflow
-    """
+    """Parse shifu mdflow."""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -318,8 +310,7 @@ def get_shifu_mdflow_history(
     outline_bid: str,
     limit: int = 100,
 ) -> dict:
-    """
-    Get lesson content history for a specific outline.
+    """Get lesson content history for a specific outline.
     Only keep versions where markdown content actually changed.
     """
     with app.app_context():
@@ -393,9 +384,7 @@ def get_shifu_mdflow_history_version_detail(
     outline_bid: str,
     version_id: int,
 ) -> dict:
-    """
-    Get lesson content detail for a specific history version.
-    """
+    """Get lesson content detail for a specific history version."""
     with app.app_context():
         version = DraftOutlineItem.query.filter(
             DraftOutlineItem.id == version_id,
@@ -423,7 +412,7 @@ def get_shifu_mdflow_history_version_detail(
                     else ""
                 )
                 user_name = (
-                    (user.nickname if user.nickname else "")
+                    (user.nickname or "")
                     or masked_identifier
                     or version.updated_user_bid
                 )
@@ -445,9 +434,7 @@ def restore_shifu_mdflow_history_version(
     version_id: int,
     base_revision: int | None = None,
 ) -> dict:
-    """
-    Restore lesson content to the selected historical version.
-    """
+    """Restore lesson content to the selected historical version."""
     with app.app_context():
         target_version = (
             DraftOutlineItem.query.filter(
