@@ -43,9 +43,19 @@ plan's progress update for that rule.
   and all repository pre-commit hooks passed.
 - [ ] Merge or retarget D407 PR #2573 after its predecessors without combining
   it with the D405 rule unit.
-- [ ] Remove the global D405 exception by fixing ordinary docstrings and
-  retaining only the narrow exceptions required by Swagger or immutable
-  migration history.
+- [x] 2026-08-20 22:16 CST: Opened ready D405 PR
+  [#2574](https://github.com/ai-shifu/ai-shifu/pull/2574) from
+  `sunner/ruff-d405` to the D407 branch. One ordinary finding was fixed; the
+  Swagger finding became an inline suppression and one applied migration got
+  an exact-file exception. The focused profile and Swagger tests plus all
+  repository pre-commit hooks passed.
+- [x] 2026-08-20 22:16 CST: Re-ran the stable `ALL` census on the D405 tip. It
+  reports 31,224 findings and no remaining D405/D406/D407 findings outside the
+  documented narrow exceptions.
+- [ ] Merge or retarget D405 PR #2574 after its predecessors without combining
+  it with the next rule unit.
+- [ ] Remove the redundant UP040 global ignore. It has zero findings under
+  both the configured Python 3.11 target and an explicit Python 3.12 target.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -123,6 +133,13 @@ The D407 stage removes one more global ignore and adds D407 to that same inline
 exception because its automatic dashed underline would also invalidate the
 Swagger YAML. `ruff check . --select D407` reports no unsuppressed findings,
 the inherited 10-test schema suite passes on the D407 tip, and the same full
+repository gates pass.
+
+The D405 stage removes the last global Swagger-docstring ignore. Of its three
+findings, the ordinary profile `NOTE:` heading is fixed, the Swagger YAML stays
+covered by the schema regression test and an inline D405 code, and the applied
+no-op migration remains untouched behind an exact-file D405 exception. The
+profile suite passes 15 tests, the Swagger suite passes 10 tests, and the full
 repository gates pass.
 
 ## Context and Orientation
