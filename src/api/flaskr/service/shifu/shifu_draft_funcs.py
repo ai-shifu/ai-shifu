@@ -13,21 +13,18 @@ from time import perf_counter
 from typing import Any
 
 from flask import Flask
+from flaskr.dao import db
 from flaskr.i18n import _
-from flaskr.util.datetime import now_utc
-
-from ...dao import db
-from ...service.config import get_config
-from ...util import generate_id
-from ..check_risk.funcs import check_text_with_risk_control
-from ..common.dtos import PageNationDTO
-from ..common.models import raise_error, raise_error_with_args
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.common.dtos import PageNationDTO
+from flaskr.service.common.models import raise_error, raise_error_with_args
+from flaskr.service.config import get_config
 
 # Deprecation-window shim: the ask-provider constants moved to their canonical
 # home in flaskr/service/learn/ask_provider_adapters/consts.py. They are
 # re-exported here so existing importers keep working; import from the new
 # location in new code.
-from ..learn.ask_provider_adapters.consts import (  # noqa: F401
+from flaskr.service.learn.ask_provider_adapters.consts import (  # noqa: F401
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_DIFY,
@@ -39,7 +36,10 @@ from ..learn.ask_provider_adapters.consts import (  # noqa: F401
     SUPPORTED_ASK_PROVIDER_MODES,
     SUPPORTED_ASK_PROVIDERS,
 )
-from ..tts.validation import validate_tts_settings_strict
+from flaskr.service.tts.validation import validate_tts_settings_strict
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+
 from .consts import (
     ASK_MODE_DEFAULT,
     ASK_MODE_DISABLE,

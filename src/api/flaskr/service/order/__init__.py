@@ -5,7 +5,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-from ..common.dicts import register_dict
+from flaskr.service.common.dicts import register_dict
+
 from .consts import *  # noqa: F403
 
 register_dict("order_status", "订单状态", ORDER_STATUS_TYPES)  # noqa: F405

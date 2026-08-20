@@ -2,6 +2,7 @@ import hashlib
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -10,7 +11,6 @@ from flaskr.util.uuid import generate_id
 from markdown_flow import MarkdownFlow
 from sqlalchemy import func, inspect, text
 
-from ...dao import db
 from .dtos import (
     DEFAULT_COLOR_SETTINGS,
     ColorSetting,

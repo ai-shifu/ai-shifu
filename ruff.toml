@@ -33,7 +33,6 @@
 #   callbacks, fixtures and test doubles.
 # - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
 #   inventing one (or downgrading the comment) would hide real pending work.
-# - N815: camelCase DTO attributes encode serialized JSON field names.
 
 # Matches the Python pinned by src/api/Dockerfile and the CI workflows.
 target-version = "py311"
@@ -63,6 +62,11 @@ select = [
     "YTT",     # sys.version checks that break on two-digit versions
     "EXE",     # shebang vs executable-bit consistency
     "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
+    # T20 bans `print`/`pprint` in shipped code, where logging is the contract.
+    # Developer scripts, the inventory tooling and the test suites are console
+    # programs by design and are exempt below; the few remaining backend calls
+    # are CLI or debug output and say so inline.
+    "T20",     # print / pprint in shipped code
     "T1",      # leftover debugger calls
     "ERA001",  # commented-out code
 
@@ -88,6 +92,7 @@ select = [
     "TRY400",  # logging.error inside except that should be logging.exception
     "TRY401",  # exception object interpolated into a logging.exception message
     "TRY300",  # return at the end of a try body that belongs in `else`
+    "TRY301",  # raise inside a try body that the same block then catches
     "TRY004",  # type check raising something other than TypeError
 
     # --- Pylint subsets ---------------------------------------------------
@@ -114,12 +119,20 @@ select = [
     "A001",    # local variable shadowing a builtin
     "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
-    # pep8-naming is partial: N815 stays off (see the header above).
     "N801",    # class name that is not CapWords
     "N806",    # local variable that is not lowercase
     "N802",    # function name that is not lowercase
     "N803",    # argument name that is not lowercase
     "N813",    # CamelCase imported under a lowercase alias
+    # TID252 bans reaching into a parent package with `from ..x import y`, which
+    # hides which package a name really comes from; sibling-local `from .x`
+    # imports stay allowed. The boundary-checker fixture below must keep its
+    # parent-relative imports, since detecting them is what it tests.
+    "TID252",  # relative import from a parent module
+    # N815 flags mixedCase class attributes. The two DTO modules whose fields
+    # ARE the serialized JSON keys the frontend reads are exempt below, so the
+    # rule still catches accidental camelCase everywhere else.
+    "N815",    # mixedCase variable in class scope
     "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
     # S101 bans `assert` in shipped code (python -O strips it, so an assert is
@@ -128,6 +141,8 @@ select = [
     "S101",    # assert used outside tests
     "S104",    # binding a socket to all interfaces
     "S107",    # hardcoded password as a function default
+    "S105",    # string literal that looks like a hardcoded password
+    "S106",    # hardcoded password passed as an argument
     "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
     # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
     # best-effort block reads better as `contextlib.suppress(...)`, which the
@@ -234,7 +249,9 @@ ignore = [
 # Developer tooling (repo scripts, backend scripts, test harnesses) also shells
 # out to `git`, `node` and `python` with statically built argument lists, so the
 # subprocess audit rules only add noise there.
-"src/api/tests/**" = ["S101", "S603", "S607"]
+# Test suites are also full of literal fake passwords, tokens and secret keys
+# for fixtures and negative cases, which is what S105/S106 flag.
+"src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607", "T20"]
 # These suites bind SQLAlchemy model classes and session factories to local
 # names, where the CapWords spelling is the point.
 "src/api/tests/service/shifu/test_archive.py" = ["N806"]
@@ -253,5 +270,15 @@ ignore = [
 "src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
-"scripts/**" = ["S603", "S607"]
-"src/api/scripts/**" = ["S603", "S607"]
+# Every field in these two DTOs is serialized verbatim into an API response and
+# read by the frontend under that exact key, so the camelCase spelling is the
+# wire contract, not a naming slip.
+"src/api/flaskr/service/billing/dtos.py" = ["N815"]
+"src/api/flaskr/service/common/dtos.py" = ["N815"]
+# Developer scripts and the backend inventory/harness tooling are console
+# programs: printing to stdout is their interface.
+"scripts/**" = ["S603", "S607", "T20"]
+# This fixture exists so check_architecture_boundaries.py can prove it resolves
+# parent-relative imports; rewriting them would delete the test case.
+"scripts/testdata/architecture_boundaries/**" = ["TID252"]
+"src/api/scripts/**" = ["S603", "S607", "T20"]

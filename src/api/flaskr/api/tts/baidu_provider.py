@@ -28,7 +28,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Baidu TTS API endpoints
 BAIDU_TTS_API_URL = "https://tsn.baidu.com/text2audio"
-BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
+BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"  # noqa: S105 - endpoint URL
 
 # Baidu audio format mapping
 BAIDU_AUDIO_FORMATS = {
@@ -909,11 +909,11 @@ class BaiduTTSProvider(BaseTTSProvider):
             # Error response (JSON)
             try:
                 result = response.json()
-                error_code = result.get("err_no", "unknown")
-                error_msg = result.get("err_msg", "Unknown error")
-                raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
             except ValueError as e:
                 raise ValueError(f"Baidu TTS API error: {response.text[:200]}") from e
+            error_code = result.get("err_no", "unknown")
+            error_msg = result.get("err_msg", "Unknown error")
+            raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
 
         except requests.RequestException as e:
             logger.exception("Baidu TTS request failed")

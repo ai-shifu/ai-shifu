@@ -1934,7 +1934,7 @@ class EnhancedConfig:
 
     def debug_print(self) -> None:
         """Print all configuration values (excluding secrets) for debugging."""
-        print("\n=== Configuration Values ===")
+        print("\n=== Configuration Values ===")  # noqa: T201
         groups = {}
         for var_name, env_var in self.env_vars.items():
             if env_var.group not in groups:
@@ -1943,10 +1943,10 @@ class EnhancedConfig:
             display_value = "[REDACTED]" if env_var.secret and value else str(value)
             groups[env_var.group].append(f"  {var_name}: {display_value}")
         for group, items in sorted(groups.items()):
-            print(f"\n[{group.upper()}]")
+            print(f"\n[{group.upper()}]")  # noqa: T201
             for item in sorted(items):
-                print(item)
-        print("\n" + "=" * 30 + "\n")
+                print(item)  # noqa: T201
+        print("\n" + "=" * 30 + "\n")  # noqa: T201
 
     def export_env_example(self) -> str:
         """Export full environment variable definitions as .env.example format."""
