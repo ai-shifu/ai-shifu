@@ -7,10 +7,8 @@ from __future__ import annotations
 
 import re
 import sys
-from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import current_app
 from flaskr.dao import db
@@ -181,6 +179,10 @@ from flaskr.service.shifu.admin_shared import (  # noqa: E402, F401
     COURSE_RATING_LIST_MAX_PAGE_SIZE,
     _normalize_identifier,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+    from decimal import Decimal
 
 COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
 

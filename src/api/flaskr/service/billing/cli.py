@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 from flask import current_app
@@ -122,6 +121,9 @@ from .wallets import (
     repair_renewal_state_drift,
     restore_wrongly_expired_credit_pack_buckets,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _PRODUCT_TYPE_LABELS = {
     "custom": BILLING_PRODUCT_TYPE_CUSTOM,

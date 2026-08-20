@@ -5,11 +5,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
@@ -49,6 +47,10 @@ from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from markdown_flow import MarkdownFlow
 from sqlalchemy import and_, case, literal, not_
 from sqlalchemy.orm import defer
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+    from decimal import Decimal
 
 
 def _format_average_score(value: Decimal | None) -> str:

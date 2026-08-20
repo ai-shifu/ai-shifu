@@ -18,8 +18,8 @@ builder, driven by :class:`TableSpec` flags:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
@@ -31,6 +31,9 @@ from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu, ShifuUserArchive
 from flaskr.service.user.models import UserInfo
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ALLOWED_AGGREGATE_FUNCTIONS: frozenset[str] = frozenset(
     {"count", "count_distinct", "sum", "avg", "min", "max"}

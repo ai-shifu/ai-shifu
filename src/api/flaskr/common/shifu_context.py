@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import contextlib
 import threading
-from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _context_local = threading.local()
 

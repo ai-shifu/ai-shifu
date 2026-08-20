@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -26,6 +26,9 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 def _clear_tables() -> None:
