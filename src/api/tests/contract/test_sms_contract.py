@@ -11,7 +11,7 @@ def test_send_sms_ali_builds_request_for_generic_template(monkeypatch):
     captured = {}
 
     class FakeClient:
-        def __init__(self, config):
+        def __init__(self, config) -> None:
             captured["config"] = config
 
         def send_sms_with_options(self, request, runtime):
@@ -54,7 +54,7 @@ def test_send_sms_code_ali_builds_request(monkeypatch):
     captured = {}
 
     class FakeClient:
-        def __init__(self, config):
+        def __init__(self, config) -> None:
             captured["config"] = config
 
         def send_sms_with_options(self, request, runtime):
@@ -110,7 +110,7 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch):
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class DummyError(Exception):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__("boom")
             self.message = "boom"
             self.data = {"Recommend": "retry"}
@@ -118,7 +118,7 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch):
     captured = {}
 
     class FakeClient:
-        def __init__(self, config):
+        def __init__(self, config) -> None:
             captured["config"] = config
 
         def send_sms_with_options(self, request, runtime):
@@ -148,7 +148,7 @@ def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(monkeypatch)
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
-        def __init__(self, _config):
+        def __init__(self, _config) -> None:
             pass
 
         def send_sms_with_options(self, request, runtime):
@@ -194,7 +194,7 @@ def test_send_sms_ali_logs_recipient_throttle_as_warning(
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
-        def __init__(self, _config):
+        def __init__(self, _config) -> None:
             pass
 
         def send_sms_with_options(self, request, runtime):
@@ -239,7 +239,7 @@ def test_send_sms_ali_logs_illegal_recipient_number_as_warning(monkeypatch, capl
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
-        def __init__(self, _config):
+        def __init__(self, _config) -> None:
             pass
 
         def send_sms_with_options(self, request, runtime):

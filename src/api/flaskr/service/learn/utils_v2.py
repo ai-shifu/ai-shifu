@@ -36,7 +36,7 @@ class FollowUpInfo:
         model_args,
         ask_mode,
         ask_provider_config=None,
-    ):
+    ) -> None:
         self.ask_model = ask_model
         self.ask_prompt = ask_prompt
         self.ask_history_count = ask_history_count
@@ -45,7 +45,7 @@ class FollowUpInfo:
         self.ask_mode = ask_mode
         self.ask_provider_config = ask_provider_config or {}
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "ask_model": self.ask_model,
             "ask_prompt": self.ask_prompt,

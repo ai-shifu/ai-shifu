@@ -20,7 +20,7 @@ class _StreamTTSFinalizeJob:
         *,
         event_queue: queue.Queue,
         thread: threading.Thread,
-    ):
+    ) -> None:
         self.event_queue = event_queue
         self.thread = thread
         self.done = False
@@ -29,7 +29,7 @@ class _StreamTTSFinalizeJob:
 class StreamTTSFinalizeDrainer:
     """Finalize switched-out text TTS without blocking mdflow visual chunks."""
 
-    def __init__(self, run_context: Any, *, log_prefix: str):
+    def __init__(self, run_context: Any, *, log_prefix: str) -> None:
         self._run_context = run_context
         self._app = run_context.app
         self._log_prefix = log_prefix

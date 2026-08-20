@@ -82,7 +82,7 @@ pytestmark = pytest.mark.no_mock_llm
 
 
 class DummySpan:
-    def __init__(self, trace_id="trace-1", span_id="span-1"):
+    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
         self.generation_args = None
         self.end_args = None
         self.updated = None
@@ -101,7 +101,7 @@ class DummySpan:
 
 
 class FakeResponse:
-    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None):
+    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None) -> None:
         self.id = chunk_id
         delta = SimpleNamespace(content=content)
         self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
@@ -109,7 +109,7 @@ class FakeResponse:
 
 
 class FakeUsage:
-    def __init__(self, prompt_tokens, completion_tokens, total_tokens):
+    def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens

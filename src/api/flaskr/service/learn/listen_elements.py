@@ -62,7 +62,7 @@ class ListenElementRunAdapter(
         outline_bid: str,
         user_bid: str,
         run_session_bid: str | None = None,
-    ):
+    ) -> None:
         self.app = app
         self.shifu_bid = shifu_bid
         self.outline_bid = outline_bid

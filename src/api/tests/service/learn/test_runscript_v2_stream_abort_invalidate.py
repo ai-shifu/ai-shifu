@@ -24,7 +24,7 @@ from sqlalchemy.exc import OperationalError, ResourceClosedError
 
 
 class _FakeSession:
-    def __init__(self):
+    def __init__(self) -> None:
         self.rollbacks = 0
         self.commits = 0
         self.invalidations = 0
@@ -48,7 +48,7 @@ class _StubRunContext:
 
     script: ClassVar[list] = []
 
-    def __init__(self, **_kwargs):
+    def __init__(self, **_kwargs) -> None:
         self._steps = iter([True, False])
 
     def set_input(self, *_args, **_kwargs):
@@ -192,7 +192,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     class _TwoRoundContext(_StubRunContext):
         # Two has_next rounds so the stop_event check at the loop boundary
         # fires between them.
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             super().__init__(**kwargs)
             # Each loop round consumes TWO steps: the while condition and the
             # has_next() call inside the log line.

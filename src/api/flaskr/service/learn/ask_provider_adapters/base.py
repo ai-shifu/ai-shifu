@@ -35,7 +35,7 @@ class AskProviderError(Exception):
     description safe to surface in the UI; the raw message stays for logs.
     """
 
-    def __init__(self, message: str = "", user_message: str | None = None):
+    def __init__(self, message: str = "", user_message: str | None = None) -> None:
         super().__init__(message)
         self.user_message = user_message
 

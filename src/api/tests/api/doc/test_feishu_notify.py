@@ -3,7 +3,7 @@ from flaskr.api.doc import feishu
 
 
 class _Logger:
-    def __init__(self):
+    def __init__(self) -> None:
         self.infos = []
         self.warnings = []
         self.exceptions = []
@@ -19,12 +19,14 @@ class _Logger:
 
 
 class _App:
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = _Logger()
 
 
 class _Response:
-    def __init__(self, status_code=200, text="", json_value=None, json_exc=None):
+    def __init__(
+        self, status_code=200, text="", json_value=None, json_exc=None
+    ) -> None:
         self.status_code = status_code
         self.text = text
         self._json_value = json_value

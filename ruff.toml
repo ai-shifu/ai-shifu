@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
+# - ANN (except ANN204/ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -158,7 +158,12 @@ select = [
     # enough to keep enforced, and a staticmethod is where a missing return
     # type hides the most, since there is no `self` to infer from. ANN206
     # covers the classmethod counterpart, mostly alternative constructors and
-    # frozen-clock `now()` doubles.
+    # frozen-clock `now()` doubles. ANN204 is the same bet for special methods:
+    # `__init__`/`__exit__`/`__json__` and friends have a fixed contract, so the
+    # return type is never a judgement call and writing it down keeps the
+    # serialization dunders (`__json__` returning a dict vs an enum value's str)
+    # readable at a glance.
+    "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
     # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below

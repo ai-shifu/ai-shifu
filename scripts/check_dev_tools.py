@@ -66,7 +66,7 @@ COOK_WEB_PRETTIER = ROOT / "src" / "cook-web" / "node_modules" / ".bin" / "prett
 class Check:
     """A single tool/state check and the command that fixes it."""
 
-    def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True):
+    def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True) -> None:
         self.name = name
         self.ok = ok
         self.fix = fix

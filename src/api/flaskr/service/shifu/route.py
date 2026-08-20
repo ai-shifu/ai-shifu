@@ -33,6 +33,7 @@ import json
 import re
 import tempfile
 import uuid
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -169,11 +170,11 @@ class ShifuTokenValidation:
         self,
         permission: ShifuPermission = ShifuPermission.VIEW,
         is_creator: bool = False,
-    ):
+    ) -> None:
         self.permission = permission
         self.is_creator = is_creator
 
-    def __call__(self, f):
+    def __call__(self, f) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
             token = request.cookies.get("token", None)

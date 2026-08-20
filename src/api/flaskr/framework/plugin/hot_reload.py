@@ -7,7 +7,7 @@ from watchdog.observers import Observer
 
 
 class PluginHotReloader:
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask) -> None:
         self.app = app
         self.plugin_dir = "flaskr/plugins"  # plugin dir
         self.watched_files = {}
@@ -115,7 +115,7 @@ class PluginHotReloader:
 
 
 class PluginFileHandler(FileSystemEventHandler):
-    def __init__(self, reloader: PluginHotReloader):
+    def __init__(self, reloader: PluginHotReloader) -> None:
         self.reloader = reloader
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads

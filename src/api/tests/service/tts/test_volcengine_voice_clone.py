@@ -27,7 +27,7 @@ def _patch_config(monkeypatch, config=None):
 
 
 class _FakeResponse:
-    def __init__(self, payload, status_code=200):
+    def __init__(self, payload, status_code=200) -> None:
         self._payload = payload
         self.status_code = status_code
         self.text = ""

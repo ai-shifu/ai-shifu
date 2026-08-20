@@ -9,7 +9,7 @@ from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 
 
 class _Response:
-    def __init__(self, payload, text):
+    def __init__(self, payload, text) -> None:
         self.headers = {"Content-Type": "application/json"}
         self.status_code = 200
         self._payload = payload

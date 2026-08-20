@@ -55,7 +55,7 @@ class UserConversion(db.Model):
         conversion_status,
         conversion_uuid="",
         conversion_third_platform="",
-    ):
+    ) -> None:
         self.user_id = user_id
         self.conversion_id = conversion_id
         self.conversion_source = conversion_source

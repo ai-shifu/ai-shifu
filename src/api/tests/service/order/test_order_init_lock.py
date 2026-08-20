@@ -2,7 +2,7 @@ import flaskr.service.order.funs as order_funs
 
 
 class DummyLock:
-    def __init__(self):
+    def __init__(self) -> None:
         self.acquired = 0
         self.released = 0
 
@@ -15,7 +15,7 @@ class DummyLock:
 
 
 class DummyRedis:
-    def __init__(self):
+    def __init__(self) -> None:
         self.last_key = None
         self.last_timeout = None
         self.last_blocking_timeout = None
@@ -29,7 +29,7 @@ class DummyRedis:
 
 
 class DummyApp:
-    def __init__(self, prefix="ai-shifu"):
+    def __init__(self, prefix="ai-shifu") -> None:
         self.config = {"REDIS_KEY_PREFIX": prefix}
 
 

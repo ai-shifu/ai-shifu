@@ -111,7 +111,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
             pass
 
     class _FakeConnection:
-        def __init__(self):
+        def __init__(self) -> None:
             self.invalidated = 0
 
         def execute(self, *_args, **_kwargs):
@@ -121,7 +121,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
             self.invalidated += 1
 
     class _FakeSession:
-        def __init__(self, connection):
+        def __init__(self, connection) -> None:
             self._connection = connection
 
         def connection(self):
