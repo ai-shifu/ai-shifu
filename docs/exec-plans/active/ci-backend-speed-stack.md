@@ -46,6 +46,8 @@ that branch.
   hashes.
 - [x] 2026-08-21 06:44 CST: Verified the cold PR run passed and saved testmon
   state under the exact Python 3.11.16, requirements hash, and head SHA.
+- [x] 2026-08-21 06:47 CST: Verified the next PR run restored the exact-parent
+  cache, kept testmon's environment valid, and selected no unchanged tests.
 
 ## Surprises & Discoveries
 
@@ -128,9 +130,10 @@ The independent follow-up pins Python 3.11.16 and records the CI-only package
 versions in `src/api/requirements-ci.txt`. Its testmon cache namespace includes
 the exact Python version and hashes both requirement files. The cold PR run
 32425122383 passed in 6m36s, ran 3001 tests with 16 skipped in 293.91s, and saved
-testmon state under head SHA `6a8cdac2`. This evidence update is the next commit
-on the same pull request; its Backend Tests run is the live proof that testmon
-restores the exact-parent state without reporting an environment change.
+testmon state under head SHA `6a8cdac2`. Warm run 32425738750 then restored that
+exact-parent cache, reported `environment: default` with zero changed files,
+collected no unchanged tests in 0.27s, and completed the job in 1m22s. The run
+saved the advanced testmon state under head SHA `28667caf`.
 
 ## Context and Orientation
 
