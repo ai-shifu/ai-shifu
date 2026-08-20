@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from flask import Flask
-from flaskr.service.config import get_config
+from flaskr.service.common.stripe_client import get_stripe_client_options
 
 from .consts import (
     BILLING_INTERVAL_DAY,
@@ -56,10 +56,11 @@ class ProviderPriceSnapshot:
     active: bool
     livemode: bool
     currency: str
-    unit_amount: int
+    unit_amount: int | None
     price_type: str
     recurring_interval: str
     recurring_interval_count: int
+    recurring_usage_type: str
     metadata: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -99,31 +100,8 @@ class StripeCatalogReadAdapter:
 
     provider = "stripe"
 
-    def _ensure_client(self, app: Flask):
-        try:
-            import stripe  # type: ignore[import-untyped]
-        except ImportError as exc:  # pragma: no cover - surfaced during runtime
-            app.logger.exception("Stripe SDK is not installed")
-            raise ProviderCatalogReadError(
-                "stripe_sdk_missing",
-                "Stripe SDK is required for catalog reads",
-            ) from exc
-        return stripe
-
     def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
-        stripe = self._ensure_client(app)
-        secret_key = get_config("STRIPE_SECRET_KEY")
-        if not secret_key:
-            raise ProviderCatalogReadError(
-                "stripe_secret_missing",
-                "Stripe secret key is not configured",
-            )
-
-        request_options: dict[str, Any] = {"api_key": secret_key}
-        api_version = get_config("STRIPE_API_VERSION")
-        if api_version:
-            request_options["stripe_version"] = api_version
-        return stripe, request_options
+        return get_stripe_client_options(app)
 
     def retrieve_mapping_snapshot(
         self,
@@ -153,7 +131,7 @@ class StripeCatalogReadAdapter:
             raise ProviderCatalogReadError(
                 "stripe_catalog_retrieve_failed",
                 _build_safe_stripe_error_message(exc),
-            ) from exc
+            ) from None
 
         return ProviderCatalogSnapshot(
             account=_normalize_stripe_account(account),
@@ -241,19 +219,36 @@ def validate_provider_price_mapping(
         str(product.currency or "").strip().lower(),
         snapshot.price.currency,
     )
-    _append_mismatch(
-        errors,
-        "unit_amount_mismatch",
-        "Stripe price amount does not match the local product",
-        str(int(product.price_amount or 0)),
-        str(snapshot.price.unit_amount),
-    )
+    if snapshot.price.unit_amount is None:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="provider_price_unit_amount_missing",
+                message="Stripe price must have a fixed unit amount",
+            )
+        )
+    else:
+        _append_mismatch(
+            errors,
+            "unit_amount_mismatch",
+            "Stripe price amount does not match the local product",
+            str(int(product.price_amount or 0)),
+            str(snapshot.price.unit_amount),
+        )
 
     product_type = int(product.product_type or 0)
     if product_type == BILLING_PRODUCT_TYPE_PLAN:
         _validate_plan_price(product, snapshot.price, errors)
     elif product_type == BILLING_PRODUCT_TYPE_TOPUP:
         _validate_topup_price(product, snapshot.price, errors)
+    else:
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="unsupported_product_type",
+                message="Only plan and topup products can bind provider prices",
+                expected=f"{BILLING_PRODUCT_TYPE_PLAN},{BILLING_PRODUCT_TYPE_TOPUP}",
+                actual=str(product_type),
+            )
+        )
 
     _validate_metadata_warning(
         warnings,
@@ -301,6 +296,15 @@ def _validate_plan_price(
             )
         )
         return
+    if price.recurring_usage_type != "licensed":
+        errors.append(
+            ProviderCatalogValidationIssue(
+                code="plan_requires_licensed_recurring_price",
+                message="Plan products must bind a licensed recurring Stripe price",
+                expected="licensed",
+                actual=price.recurring_usage_type,
+            )
+        )
 
     expected_interval = _STRIPE_INTERVAL_BY_BILLING_INTERVAL.get(
         int(product.billing_interval or BILLING_INTERVAL_NONE),
@@ -411,6 +415,7 @@ def _normalize_stripe_product(payload: dict[str, Any]) -> ProviderProductSnapsho
 
 def _normalize_stripe_price(payload: dict[str, Any]) -> ProviderPriceSnapshot:
     recurring = _to_plain_dict(payload.get("recurring") or {})
+    raw_unit_amount = payload.get("unit_amount")
     return ProviderPriceSnapshot(
         provider="stripe",
         price_id=str(payload.get("id") or "").strip(),
@@ -418,10 +423,11 @@ def _normalize_stripe_price(payload: dict[str, Any]) -> ProviderPriceSnapshot:
         active=bool(payload.get("active")),
         livemode=bool(payload.get("livemode")),
         currency=str(payload.get("currency") or "").strip().lower(),
-        unit_amount=int(payload.get("unit_amount") or 0),
+        unit_amount=int(raw_unit_amount) if raw_unit_amount is not None else None,
         price_type=str(payload.get("type") or "").strip(),
         recurring_interval=str(recurring.get("interval") or "").strip(),
         recurring_interval_count=int(recurring.get("interval_count") or 0),
+        recurring_usage_type=str(recurring.get("usage_type") or "").strip(),
         metadata=_normalize_metadata(payload.get("metadata")),
         raw=payload,
     )

@@ -7,6 +7,7 @@ from flaskr.service.billing.consts import (
     BILLING_MODE_ONE_TIME,
     BILLING_MODE_RECURRING,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_TYPE_GRANT,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
 )
@@ -17,6 +18,7 @@ from flaskr.service.billing.provider_catalog import (
     StripeCatalogReadAdapter,
     validate_provider_price_mapping,
 )
+from flaskr.service.common.stripe_client import build_stripe_request_options
 from flaskr.service.config import config_overrides
 
 
@@ -62,7 +64,11 @@ class _FakeStripe:
                 "currency": "usd",
                 "unit_amount": 5900,
                 "type": "recurring",
-                "recurring": {"interval": "month", "interval_count": 1},
+                "recurring": {
+                    "interval": "month",
+                    "interval_count": 1,
+                    "usage_type": "licensed",
+                },
                 "metadata": {"product_bid": "bill-product-growth-month"},
             }
         )
@@ -83,8 +89,8 @@ class _FakeStripeAdapter(StripeCatalogReadAdapter):
     def __init__(self, stripe):
         self.stripe = stripe
 
-    def _ensure_client(self, app):
-        return self.stripe
+    def _client_options(self, app):
+        return self.stripe, build_stripe_request_options()
 
 
 def _plan_product(**overrides) -> BillingProduct:
@@ -129,10 +135,12 @@ def _snapshot(
     product_active: bool = True,
     price_active: bool = True,
     livemode: bool = False,
+    unit_amount_missing: bool = False,
     product_id: str = "prod_growth",
     price_product_id: str = "prod_growth",
     price_id: str = "price_growth_month",
     account_id: str = "acct_test",
+    recurring_usage_type: str = "licensed",
     product_metadata: dict | None = None,
     price_metadata: dict | None = None,
 ) -> ProviderCatalogSnapshot:
@@ -152,11 +160,12 @@ def _snapshot(
         "active": price_active,
         "livemode": livemode,
         "currency": currency,
-        "unit_amount": unit_amount,
+        "unit_amount": None if unit_amount_missing else unit_amount,
         "type": price_type,
         "recurring": {
             "interval": recurring_interval,
             "interval_count": recurring_interval_count,
+            "usage_type": recurring_usage_type,
         }
         if price_type == "recurring"
         else None,
@@ -205,6 +214,9 @@ def test_stripe_catalog_adapter_retrieves_and_normalizes_sdk_objects(app) -> Non
     assert snapshot.price.price_type == "recurring"
     assert snapshot.price.recurring_interval == "month"
     assert fake.Account.calls[0]["kwargs"]["api_key"] == "sk_test_secret"
+    assert fake.Account.calls[0]["kwargs"]["stripe_version"] == "2024-06-20"
+    assert fake.Product.calls[0]["kwargs"]["stripe_version"] == "2024-06-20"
+    assert fake.Price.calls[0]["kwargs"]["stripe_version"] == "2024-06-20"
     assert fake.Product.calls[0]["args"] == ("prod_growth",)
     assert fake.Price.calls[0]["args"] == ("price_growth_month",)
 
@@ -221,6 +233,7 @@ def test_stripe_catalog_adapter_wraps_retrieve_errors_without_secret(app) -> Non
         )
 
     assert exc_info.value.code == "stripe_catalog_retrieve_failed"
+    assert exc_info.value.__cause__ is None
     assert "sk_test_should_not_leak" not in str(exc_info.value)
 
 
@@ -263,7 +276,12 @@ def test_topup_provider_price_mapping_accepts_matching_one_time_price() -> None:
         ({"price_active": False}, "provider_price_inactive"),
         ({"currency": "eur"}, "currency_mismatch"),
         ({"unit_amount": 6900}, "unit_amount_mismatch"),
+        ({"unit_amount_missing": True}, "provider_price_unit_amount_missing"),
         ({"price_type": "one_time"}, "plan_requires_recurring_price"),
+        (
+            {"recurring_usage_type": "metered"},
+            "plan_requires_licensed_recurring_price",
+        ),
         ({"recurring_interval": "year"}, "billing_interval_mismatch"),
         ({"recurring_interval_count": 12}, "billing_interval_count_mismatch"),
     ],
@@ -276,6 +294,40 @@ def test_plan_provider_price_mapping_rejects_strong_mismatches(
 
     assert result.valid is False
     assert expected_error in {issue.code for issue in result.errors}
+
+
+def test_provider_price_mapping_rejects_missing_unit_amount_even_for_zero_price() -> (
+    None
+):
+    result = _validate(
+        _plan_product(price_amount=0),
+        _snapshot(unit_amount_missing=True),
+    )
+
+    assert result.valid is False
+    assert "provider_price_unit_amount_missing" in {
+        issue.code for issue in result.errors
+    }
+
+
+def test_provider_price_mapping_preserves_actual_zero_unit_amount() -> None:
+    result = _validate(
+        _plan_product(price_amount=0),
+        _snapshot(unit_amount=0),
+    )
+
+    assert result.valid is True
+    assert result.errors == []
+
+
+def test_provider_price_mapping_rejects_unsupported_product_type() -> None:
+    result = _validate(
+        _plan_product(product_type=BILLING_PRODUCT_TYPE_GRANT),
+        _snapshot(),
+    )
+
+    assert result.valid is False
+    assert "unsupported_product_type" in {issue.code for issue in result.errors}
 
 
 def test_topup_provider_price_mapping_rejects_recurring_price() -> None:
