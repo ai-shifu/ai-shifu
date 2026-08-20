@@ -11,6 +11,7 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def get_dicts():
         """Get all dictionaries.
+
         ---
         tags:
           - dict
@@ -21,6 +22,7 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def get_models():
         """Get all models.
+
         ---
         tags:
           - dict

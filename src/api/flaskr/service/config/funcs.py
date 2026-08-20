@@ -56,6 +56,7 @@ def _normalize_updated_by(value: str) -> str:
 
 def _get_fernet_key(app: Flask) -> bytes:
     """Generate Fernet key from SECRET_KEY.
+
     Fernet requires a 32-byte key, so we hash SECRET_KEY with SHA256.
     """
     with app.app_context():

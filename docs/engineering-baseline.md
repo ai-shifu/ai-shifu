@@ -367,6 +367,13 @@ cannot express exactly, pre-format only that field with `format(value, "spec")`
 and keep the rest of the message parameterized. Do not hide an f-string in a
 temporary variable merely to silence the rule.
 
+For `D205`, put the complete summary on the first physical docstring line,
+then use exactly one blank line before details, sections, or embedded protocol
+content. Do not wrap the summary across source lines; line length is formatter
+owned. In Flasgger route docstrings, keep the `---` YAML separator after that
+blank line and run the Swagger-docstring parser regression test rather than
+suppressing the rule or reindenting the specification.
+
 Adopt or remove exceptions one rule unit at a time. A rule unit is normally
 one Ruff code; combine codes only when they report the same construct and have
 the same fix and exception boundary. Base each rule PR on the preceding rule

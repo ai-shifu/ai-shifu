@@ -71,9 +71,7 @@ def test_does_not_retry_non_retryable_operational_error():
 
 
 def test_rolls_back_session_on_every_caught_error(monkeypatch):
-    """Session must be rolled back on each catch, including retries and the
-    final failed attempt, so the broken session is not reused later.
-    """
+    """Session must be rolled back on each catch, including retries and the final failed attempt, so the broken session is not reused later."""
     fake_db = MagicMock()
     monkeypatch.setattr(dao, "db", fake_db)
 

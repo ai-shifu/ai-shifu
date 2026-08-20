@@ -27,9 +27,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 
 @pytest.fixture(autouse=True)
 def _isolate_side_effects(monkeypatch):
-    """Drop the external risk check and history machinery: these tests only
-    exercise position allocation and publishability.
-    """
+    """Drop the external risk check and history machinery: these tests only exercise position allocation and publishability."""
     monkeypatch.setattr(
         shifu_outline_funcs,
         "check_text_with_risk_control",

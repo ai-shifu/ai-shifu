@@ -129,12 +129,11 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
 
 
 def test_probe_timeout_waits_for_in_flight_data(sock_pair):
-    """A timed probe must catch data that arrives DURING the wait window:
-    the zero-timeout probe misses an owed response still in flight, which is
-    exactly how a just-interrupted exchange poisons the pool. A generous
-    test window (far larger than any CI scheduler delay) keeps this
-    deterministic; the early-return assertion proves the probe wakes on
-    arrival rather than sleeping out the timeout.
+    """A timed probe must catch data that arrives DURING the wait window: the zero-timeout probe misses an owed response still in flight, which is exactly how a just-interrupted exchange poisons the pool.
+
+    A generous test window (far larger than any CI scheduler delay) keeps this
+    deterministic; the early-return assertion proves the probe wakes on arrival rather than
+    sleeping out the timeout.
     """
     import threading
     import time as time_module
