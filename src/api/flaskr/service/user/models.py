@@ -56,6 +56,7 @@ class UserConversion(db.Model):
         conversion_uuid="",
         conversion_third_platform="",
     ) -> None:
+        """Store a user conversion record."""
         self.user_id = user_id
         self.conversion_id = conversion_id
         self.conversion_source = conversion_source
