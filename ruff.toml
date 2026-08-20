@@ -228,9 +228,10 @@ ignore = [
     "D213",    # summary on the second line -- conflicts with D212
     # D405: route docstrings carry the flasgger/Swagger spec after a `---` line,
     # and this rule reads YAML keys such as `parameters:` as numpydoc section
-    # headers. Its fix capitalizes the key, turning the embedded spec into
-    # invalid YAML. D406 / D407 are enforced; their one Swagger conflict is
-    # justified inline and contract-tested.
+    # headers. Its fix capitalizes the key into valid YAML under `Parameters`,
+    # so Flasgger loses the lowercase OpenAPI `parameters` field. D406 / D407
+    # are enforced; their one Swagger conflict is justified inline and
+    # contract-tested.
     "D405",
     # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
     # breaks anything that resolves annotations at runtime, which for this repo
