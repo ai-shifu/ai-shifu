@@ -5,12 +5,15 @@ import json
 import os
 import threading
 from collections import defaultdict
-from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
 from flaskr.common.config import get_config
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 TRANSLATIONS_DEFAULT_NAME = "i18n"
 

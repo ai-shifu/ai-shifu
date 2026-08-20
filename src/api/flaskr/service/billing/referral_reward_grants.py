@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -46,6 +45,9 @@ from .wallets import (
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 REFERRAL_REWARD_GRANT_TYPE = "referral_reward"
 REFERRAL_REWARD_SCENE = "referral"

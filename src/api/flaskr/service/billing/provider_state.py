@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from flask import Flask
@@ -52,6 +51,8 @@ from .subscriptions import (
 from .value_objects import JsonObjectMap
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from .models import BillingOrder, BillingSubscription
 
 _STRIPE_SUCCESS_EVENT_TYPES = {

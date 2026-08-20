@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.service.config import get_config
@@ -63,6 +62,9 @@ from .primitives import normalize_bid as _normalize_bid
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 try:  # pragma: no cover - exercised indirectly when Celery is installed
     from celery import shared_task

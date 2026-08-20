@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -59,6 +58,9 @@ from .serializers import (
     serialize_admin_campaign_detail,
     serialize_admin_campaign_product_option,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 @dataclass(slots=True, frozen=True)
