@@ -403,6 +403,54 @@ def test_password_login_waits_for_redis_before_clearing_failures(
     assert recovered_body["code"] == 0
 
 
+def test_password_reset_clears_identifier_failure_limit(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Restore password access immediately after verified credential recovery."""
+    phone = "15500002225"
+    old_password = "Abcd1234"
+    new_password = "Efgh5678"
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": old_password},
+        headers={"Token": user_token.token},
+    )
+    for wrong_password in ("wrong-one", "wrong-two"):
+        _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": phone, "password": wrong_password},
+        )
+
+    reset, reset_body = _post_json(
+        test_client,
+        "/api/user/reset_password",
+        {"identifier": phone, "code": "9999", "new_password": new_password},
+    )
+    assert reset.status_code == _HTTP_OK
+    assert reset_body["code"] == 0
+
+    login, login_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": new_password},
+    )
+    assert login.status_code == _HTTP_OK
+    assert login_body["code"] == 0
+
+
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
