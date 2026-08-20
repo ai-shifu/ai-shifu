@@ -240,8 +240,10 @@ earliest unmerged branch first, then replay successors in order.
 ## Interfaces and Dependencies
 
 - Ruff is pinned at 0.16.3 in `lefthook.yml`,
-  `.github/workflows/lint.yml`, and `docs/engineering-baseline.md`. Upgrade work
-  is separate because changing the rule inventory while shrinking policy would
+  `.github/workflows/lint.yml`, `docs/engineering-baseline.md`, and
+  `scripts/check_dev_tools.py`. The doctor verifies the binary on `PATH`, so a
+  Ruff upgrade must update all four locations together. Upgrade work is
+  separate because changing the rule inventory while shrinking policy would
   make the census non-reproducible.
 - `ruff.toml` is a shared contract for local hooks and CI. A rule is not adopted
   until both paths use the same checked-in configuration.

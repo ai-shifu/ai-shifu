@@ -42,6 +42,7 @@ else:
         "npm install -g @evilmartians/lefthook  # (or use your package manager)"
     )
 PIP_INSTALL = "pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0"
+RUFF_VERSION = "0.16.3"
 NPM_INSTALL = "cd src/cook-web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
 NODE_INSTALL = "install Node.js (see INSTALL_MANUAL.md for the supported version)"
@@ -115,6 +116,24 @@ def _lefthook_hook_installed() -> bool:
         return False
 
 
+def _ruff_version_matches() -> bool:
+    """Report whether the Ruff binary on PATH matches the repository pin."""
+    ruff = shutil.which("ruff")
+    if ruff is None:
+        return False
+    try:
+        result = subprocess.run(
+            [ruff, "--version"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return False
+    return result.stdout.strip() == f"ruff {RUFF_VERSION}"
+
+
 def collect_checks() -> tuple[list[Check], list[Check]]:
     """Return (core_checks, frontend_checks)."""
     lefthook_present = shutil.which("lefthook") is not None
@@ -128,7 +147,7 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
             lefthook_present and _lefthook_hook_installed(),
             LEFTHOOK_INSTALL,
         ),
-        Check("ruff", shutil.which("ruff") is not None, PIP_INSTALL),
+        Check(f"ruff {RUFF_VERSION}", _ruff_version_matches(), PIP_INSTALL),
         Check("cz (commitizen)", shutil.which("cz") is not None, PIP_INSTALL),
     ]
     core.extend(
