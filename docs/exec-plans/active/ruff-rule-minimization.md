@@ -20,7 +20,9 @@ plan's progress update for that rule.
 - [x] 2026-08-20 21:13 CST: Fast-forwarded a clean detached worktree to
   `origin/main` at `8bced2e70` and confirmed Ruff 0.16.3 is installed.
 - [x] 2026-08-20 21:13 CST: Confirmed the configured baseline passes
-  `ruff check .` and all 1,013 Python files pass `ruff format --check .`.
+  `ruff check .` and all 799 Python files pass `ruff format --check .`; the
+  formatter reported this total directly for `.py`, `.pyi`, and `.ipynb`
+  inputs at `8bced2e70`.
 - [x] 2026-08-20 21:13 CST: Measured the stable `ALL`-rule gap and recorded the
   pull-request, testing, and exception policy in repository guidance.
 - [x] 2026-08-20 21:25 CST: Generated the Cursor/Copilot mirrors and knowledge
@@ -262,10 +264,14 @@ The overall goal is accepted when:
 
 ## Idempotence and Recovery
 
-All census and validation commands are read-only and safe to rerun. Ruff fixes
-must not be run repository-wide without first limiting the rule and reviewing
-the proposed diff. If a formatter or hook rewrites unrelated files, restore
-only that generated churn and preserve user-owned changes.
+Census commands and checks that explicitly use check-only modes are read-only
+and safe to rerun. Tests can change external state, and
+`lefthook run pre-commit --all-files` runs formatters and fixers that can rewrite
+the worktree; safeguard unrelated changes and review the resulting diff before
+running either. Ruff fixes must not be run repository-wide without first
+limiting the rule and reviewing the proposed diff. If a formatter or hook
+rewrites unrelated files, restore only that generated churn and preserve
+user-owned changes.
 
 Each stack branch is independently recoverable. If a rule PR is rejected,
 retarget its successor to the last accepted predecessor and rebase or cherry-
@@ -276,8 +282,11 @@ earliest unmerged branch first, then replay successors in order.
 ## Interfaces and Dependencies
 
 - Ruff is pinned at 0.16.3 in `lefthook.yml`,
-  `.github/workflows/lint.yml`, and `docs/engineering-baseline.md`. Upgrade work
-  is separate because changing the rule inventory while shrinking policy would
+  `.github/workflows/lint.yml`, `docs/engineering-baseline.md`, and
+  `scripts/check_dev_tools.py`, with the contributor install command mirrored
+  in `INSTALL_MANUAL.md`. The doctor verifies the binary on `PATH`, so a Ruff
+  upgrade must update all five locations together. Upgrade work is
+  separate because changing the rule inventory while shrinking policy would
   make the census non-reproducible.
 - `ruff.toml` is a shared contract for local hooks and CI. A rule is not adopted
   until both paths use the same checked-in configuration.

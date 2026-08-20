@@ -569,8 +569,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("captcha_code")
         return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
 
-    # Flasgger parses `parameters:` below as a YAML key; the D405-D407
-    # docstring fixes would rewrite it and invalidate the published API
+    # Flasgger parses `parameters:` below as a YAML key. D405 would capitalize
+    # the key and remove the OpenAPI field, D406 would remove its colon, and
+    # D407 would insert a dashed underline; each fix breaks the published API
     # specification.
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
