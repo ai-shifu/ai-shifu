@@ -79,10 +79,10 @@ def _validate(provider: str, model: str, voice_id: str):
 
 
 def test_volcengine_registered_clone_keeps_teacher_selected_model(app):
-    """A registered cloned voice validates under the teacher's normal model (e.g.
+    """A registered cloned voice validates under the teacher's normal model.
 
-    seed-tts-2.0); the clone resource id is inferred inside the provider, never selected as
-    a model.
+    For example, seed-tts-2.0 remains the model; the clone resource id is inferred inside the
+    provider and is never selected as a model.
     """
     _prepare_tables(app)
     _seed_ready_clone(app, provider="volcengine", voice_id="S_xxxxxxxxxx")
