@@ -135,35 +135,24 @@ select = [
     "N815",    # mixedCase variable in class scope
     "N818",    # exception class name without an Error suffix
     "TD002",   # TODO without an author
-    # S101 bans `assert` in shipped code (python -O strips it, so an assert is
-    # not a runtime guard). Test suites and script self-tests are exempt via
-    # per-file-ignores below.
-    "S101",    # assert used outside tests
-    "S104",    # binding a socket to all interfaces
-    "S107",    # hardcoded password as a function default
-    "S105",    # string literal that looks like a hardcoded password
-    "S106",    # hardcoded password passed as an argument
-    "S108",    # hardcoded /tmp path instead of tempfile.gettempdir()
-    # S110/S112 flag `except Exception: pass` / `continue`. A deliberate
-    # best-effort block reads better as `contextlib.suppress(...)`, which the
-    # repo already uses; a narrower `except OSError:` is not flagged either.
-    "S110",    # try-except-pass that swallows every exception
-    "S112",    # try-except-continue that swallows every exception
-    "S113",    # requests call without a timeout
-    "S310",    # urlopen without an audited URL scheme
-    "S311",    # `random` where a cryptographic generator is required
-    "S324",    # hashlib md5/sha1 without usedforsecurity=False
-    # S603/S605/S607 flag every subprocess and shell invocation. Application
-    # code justifies each one inline; developer tooling is exempt through
-    # per-file-ignores below.
-    "S603",    # subprocess call with unvalidated input
-    "S605",    # process started with a shell
-    "S607",    # process started with a partial executable path
-    # S608 flags every SQL string built by interpolation. Values always use
-    # bound parameters; the remaining sites interpolate table or column names,
-    # which bound parameters cannot carry, and justify it inline. Applied
-    # Alembic revisions must not be edited, so they are exempt below.
-    "S608",    # SQL query built by string interpolation
+    # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
+    # this repo already satisfied is a security audit with zero current
+    # violations -- eval/exec, pickle and other unsafe deserializers,
+    # `shell=True`, disabled TLS verification, weak ciphers, XML parsers,
+    # Jinja autoescape -- so the group only guards against new ones. The
+    # members that do fire are documented individually:
+    # - S101: `assert` outside tests (python -O strips it, so it is not a
+    #   runtime guard); test suites and script self-tests are exempt below.
+    # - S110/S112: `except Exception: pass` / `continue`. A deliberate
+    #   best-effort block reads better as `contextlib.suppress(...)`, which the
+    #   repo already uses; a narrower `except OSError:` is not flagged either.
+    # - S603/S605/S607: every subprocess and shell invocation. Application code
+    #   justifies each one inline; developer tooling is exempt below.
+    # - S608: every SQL string built by interpolation. Values always use bound
+    #   parameters; the remaining sites interpolate table or column names, which
+    #   bound parameters cannot carry, and justify it inline. Applied Alembic
+    #   revisions must not be edited, so they are exempt below.
+    "S",
 
     # --- Type annotations -------------------------------------------------
     # flake8-annotations is otherwise off (see the header): annotating every
