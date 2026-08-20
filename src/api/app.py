@@ -120,10 +120,15 @@ def create_app() -> Flask:
     flask_app = register_route(flask_app)
     # init swagger
     if flask_app.config.get("SWAGGER_ENABLED", False):
-        from flaskr.common import swagger_config
+        from flaskr.common import sanitize_swagger_docstring, swagger_config
 
         flask_app.logger.info("swagger init ...")
-        Swagger(flask_app, config=swagger_config, merge=True)
+        Swagger(
+            flask_app,
+            config=swagger_config,
+            sanitizer=sanitize_swagger_docstring,
+            merge=True,
+        )
 
     # enable hot reload
     if flask_app.config.get("ENV") == "development":
