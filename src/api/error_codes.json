@@ -22,6 +22,7 @@
   "server.profile.learnerProfileOptimizationTimedOut": 1025,
   "server.profile.learnerProfileOptimizationEmptyResponse": 1026,
   "server.profile.learnerProfileOptimizationModerationFailed": 1027,
+  "server.user.passwordLoginRateLimited": 1028,
 
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,
