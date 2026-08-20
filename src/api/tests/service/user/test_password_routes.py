@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import jwt
 from flaskr.service.user import phone_flow
 from flaskr.service.user.auth.providers import password as password_provider
+from redis.exceptions import RedisError
 
 if TYPE_CHECKING:
     import pytest
@@ -315,6 +316,28 @@ def test_password_login_blocks_when_failure_counter_lock_is_busy(
     assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
     lock_factory.assert_called_once()
     busy_lock.release.assert_not_called()
+
+
+def test_password_login_blocks_when_failure_counter_lock_errors(
+    test_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fail closed when Redis errors after returning a lock object."""
+    failing_lock = MagicMock()
+    failing_lock.acquire.side_effect = RedisError("redis unavailable")
+    monkeypatch.setattr(
+        password_provider.cache, "lock", MagicMock(return_value=failing_lock)
+    )
+
+    blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "redis-error@example.com", "password": "wrong-password"},
+    )
+
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+    failing_lock.release.assert_not_called()
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
