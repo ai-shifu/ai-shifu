@@ -2,6 +2,7 @@ import re
 
 from flask import Flask
 from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -13,8 +14,6 @@ from flaskr.service.shifu.shifu_draft_funcs import normalize_ask_provider_config
 from flaskr.service.shifu.shifu_struct_manager import HistoryItem, get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util.uuid import generate_id
-
-from ...service.profile.funcs import get_user_profiles
 
 
 class FollowUpInfo:

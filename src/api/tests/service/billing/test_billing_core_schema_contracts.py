@@ -7,6 +7,7 @@ from flaskr.service.billing.models import (
     BillingCampaignProduct,
     BillingOrder,
     BillingProduct,
+    BillingProductProviderPrice,
     BillingSubscription,
 )
 
@@ -19,6 +20,7 @@ def test_billing_core_models_define_catalog_subscription_order_tables() -> None:
     order_table = BillingOrder.__table__
     campaign_table = BillingCampaign.__table__
     campaign_product_table = BillingCampaignProduct.__table__
+    provider_price_table = BillingProductProviderPrice.__table__
 
     assert BillingProduct.__tablename__ == "bill_products"
     assert "product_bid" in product_table.c
@@ -42,6 +44,12 @@ def test_billing_core_models_define_catalog_subscription_order_tables() -> None:
     assert BillingCampaignProduct.__tablename__ == "bill_campaign_products"
     assert "campaign_bid" in campaign_product_table.c
     assert "product_bid" in campaign_product_table.c
+    assert BillingProductProviderPrice.__tablename__ == "bill_product_provider_prices"
+    assert "provider_price_bid" in provider_price_table.c
+    assert "provider_product_id" in provider_price_table.c
+    assert "provider_price_id" in provider_price_table.c
+    assert "provider_price_live_scope" in provider_price_table.c
+    assert "active_scope" in provider_price_table.c
     assert "creator_bid" in order_table.c
     assert "provider_reference_id" in order_table.c
     assert "subscription_bid" in order_table.c
@@ -90,3 +98,24 @@ def test_billing_campaign_migrations_define_campaign_tables_and_rule_columns() -
     assert '"discount_percent"' in product_rule_source
     assert '"campaign_price_amount"' in product_rule_source
     assert '"bonus_credit_amount"' in product_rule_source
+
+
+def test_billing_product_provider_price_migration_defines_mapping_table() -> None:
+    source = (
+        _API_ROOT
+        / "migrations/versions/c7b9e1a2d4f6_add_billing_product_provider_prices.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'op.create_table(\n        "bill_product_provider_prices",' in source
+    assert '"provider_price_bid"' in source
+    assert '"product_bid"' in source
+    assert '"provider_product_id"' in source
+    assert '"provider_price_id"' in source
+    assert '"provider_price_live_scope"' in source
+    assert '"active_scope"' in source
+    assert "sa.Computed(" in source
+    assert "uq_bill_product_provider_prices_provider_price" in source
+    assert "uq_bill_product_provider_prices_active_scope" in source
+    assert "ix_bill_product_provider_prices_product_status" in source
+    assert "ix_bill_product_provider_prices_provider_product" in source
+    assert "op.bulk_insert(" not in source

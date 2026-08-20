@@ -33,9 +33,10 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
 NLS_META_ENDPOINT = "https://nls-meta.cn-shanghai.aliyuncs.com/"
-NLS_CREATE_TOKEN_ACTION = "CreateToken"
-NLS_CREATE_TOKEN_VERSION = "2019-02-28"
-NLS_CREATE_TOKEN_REGION_ID = "cn-shanghai"
+# The token-issuing API coordinates below name the RPC, not a credential.
+NLS_CREATE_TOKEN_ACTION = "CreateToken"  # noqa: S105
+NLS_CREATE_TOKEN_VERSION = "2019-02-28"  # noqa: S105
+NLS_CREATE_TOKEN_REGION_ID = "cn-shanghai"  # noqa: S105
 
 # Refresh slightly early to avoid edge cases around clock skew.
 _DEFAULT_REFRESH_LEEWAY_SECONDS = 60

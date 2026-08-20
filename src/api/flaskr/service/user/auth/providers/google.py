@@ -38,7 +38,7 @@ from flaskr.service.user.utils import (
 )
 
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"  # noqa: S105 - endpoint URL
 USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 # Lifetime (in seconds) for Google OAuth state.
 # Used for stateless signed state tokens (no Redis required).
