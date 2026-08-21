@@ -135,7 +135,7 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
         "Connection": "keep-alive",
     }
 
-    # The endpoint is a fixed https URL built from configuration.
+    # The endpoint is a fixed HTTPS URL.
     req = Request(  # noqa: S310
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )

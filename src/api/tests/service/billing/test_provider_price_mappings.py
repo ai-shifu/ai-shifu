@@ -31,6 +31,7 @@ from flaskr.service.billing.provider_price_mappings import (
     upsert_provider_price_mapping,
     validate_provider_price_mapping_by_bid,
 )
+from flaskr.util.datetime import now_utc
 
 
 class _FakeStripeCatalogAdapter(StripeCatalogReadAdapter):
@@ -169,6 +170,54 @@ def test_provider_price_mapping_upsert_is_idempotent(app) -> None:
             ).count()
             == 1
         )
+
+
+@pytest.mark.parametrize(
+    "stale_status",
+    [
+        BILLING_PROVIDER_PRICE_STATUS_INVALID,
+        BILLING_PROVIDER_PRICE_STATUS_RETIRED,
+    ],
+)
+def test_provider_price_mapping_rebind_resets_inactive_lifecycle_state(
+    app,
+    stale_status: int,
+) -> None:
+    product_bid = f"bill-product-mapping-rebind-{stale_status}"
+    with app.app_context():
+        db.session.add(_product(product_bid))
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id=f"price_rebind_{stale_status}",
+        )
+        stale_time = now_utc()
+        mapping.status = stale_status
+        mapping.validated_at = stale_time
+        mapping.activated_at = stale_time
+        mapping.retired_at = stale_time
+        mapping.validation_error = "stale validation result"
+        db.session.commit()
+
+        rebound, created = upsert_provider_price_mapping(
+            product_bid=product_bid,
+            provider_account_id="acct_test",
+            provider_product_id="prod_growth_updated",
+            provider_price_id=f"price_rebind_{stale_status}",
+            livemode=False,
+            metadata={"source": "rebound"},
+        )
+        db.session.commit()
+
+        assert created is False
+        assert rebound.provider_price_bid == mapping.provider_price_bid
+        assert rebound.status == BILLING_PROVIDER_PRICE_STATUS_DRAFT
+        assert rebound.validated_at is None
+        assert rebound.activated_at is None
+        assert rebound.retired_at is None
+        assert rebound.validation_error == ""
+        assert rebound.provider_product_id == "prod_growth_updated"
+        assert rebound.metadata_json == {"source": "rebound"}
 
 
 def test_provider_price_activation_retires_existing_active_mapping(app) -> None:

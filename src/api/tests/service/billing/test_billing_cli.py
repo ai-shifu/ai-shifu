@@ -2071,9 +2071,12 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
     provider_price_bid = first_payload["mapping"]["provider_price_bid"]
 
     assert first_payload["created"] is True
+    assert first_payload["mapping"]["metadata"] == {"operator": "qa"}
     assert second_payload["created"] is False
     assert second_payload["mapping"]["provider_price_bid"] == provider_price_bid
+    assert second_payload["mapping"]["metadata"] == {"operator": "qa"}
     assert list_payload["count"] == 1
+    assert list_payload["items"][0]["metadata"] == {"operator": "qa"}
     assert "sk_test" not in list_result.output
 
     inspect_result = runner.invoke(
@@ -2099,7 +2102,11 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
 
     assert inspect_result.exit_code == 0
     assert retire_result.exit_code == 0
+    assert json.loads(inspect_result.output)["mapping"]["metadata"] == {
+        "operator": "qa"
+    }
     assert json.loads(retire_result.output)["mapping"]["status_label"] == "retired"
+    assert json.loads(retire_result.output)["mapping"]["metadata"] == {"operator": "qa"}
 
     with billing_cli_db_app.app_context():
         mapping = BillingProductProviderPrice.query.filter_by(

@@ -19,7 +19,7 @@ from .consts import (
     BILLING_PROVIDER_PRICE_STATUS_RETIRED,
 )
 from .models import BillingProduct, BillingProductProviderPrice
-from .primitives import normalize_bid, normalize_json_value
+from .primitives import normalize_bid, normalize_json_object
 from .provider_catalog import (
     ProviderCatalogReadError,
     ProviderCatalogSnapshot,
@@ -53,6 +53,7 @@ def serialize_provider_price_mapping(
 ) -> dict[str, Any] | None:
     if mapping is None:
         return None
+    metadata = normalize_json_object(mapping.metadata_json or {})
     return {
         "provider_price_bid": mapping.provider_price_bid,
         "product_bid": mapping.product_bid,
@@ -74,7 +75,7 @@ def serialize_provider_price_mapping(
         "activated_at": to_utc_iso(mapping.activated_at),
         "retired_at": to_utc_iso(mapping.retired_at),
         "validation_error": mapping.validation_error or "",
-        "metadata": normalize_json_value(mapping.metadata_json or {}),
+        "metadata": metadata.to_metadata_json(),
     }
 
 
@@ -195,6 +196,15 @@ def upsert_provider_price_mapping(
             "Active provider price mappings cannot be rebound; retire them first",
             {"provider_price_bid": row.provider_price_bid},
         )
+    elif int(row.status or 0) in {
+        BILLING_PROVIDER_PRICE_STATUS_INVALID,
+        BILLING_PROVIDER_PRICE_STATUS_RETIRED,
+    }:
+        row.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
+        row.validated_at = None
+        row.activated_at = None
+        row.retired_at = None
+        row.validation_error = ""
 
     row.product_bid = product.product_bid
     row.provider = normalized_provider
