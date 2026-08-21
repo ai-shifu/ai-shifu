@@ -136,7 +136,7 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
     }
 
     # The endpoint is a fixed HTTPS URL.
-    req = Request(
+    req = Request(  # noqa: S310
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )
     try:
