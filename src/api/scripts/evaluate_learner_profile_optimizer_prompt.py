@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,13 @@ DISABLED_CODEX_FEATURES = (
 
 class EvaluationError(RuntimeError):
     """Raised when the local runner or model output cannot be evaluated."""
+
+
+def _codex_executable(*, missing_message: str) -> str:
+    executable = shutil.which("codex")
+    if executable is None:
+        raise EvaluationError(missing_message)
+    return str(Path(executable).resolve())
 
 
 def _build_user_message(learner_profile: str) -> str:
@@ -144,7 +152,7 @@ def _run_codex(
     ) as temporary_dir:
         output_path = Path(temporary_dir) / "last-message.txt"
         command = [
-            "codex",
+            _codex_executable(missing_message="codex CLI is not installed"),
             "exec",
             "--model",
             model,
@@ -208,7 +216,12 @@ def _run_codex(
 def _codex_version() -> str:
     try:
         completed = subprocess.run(
-            ["codex", "--version"],
+            [
+                _codex_executable(
+                    missing_message="could not determine the codex CLI version",
+                ),
+                "--version",
+            ],
             check=False,
             capture_output=True,
             text=True,

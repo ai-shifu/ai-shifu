@@ -76,9 +76,13 @@ class Check:
 
 def _hooks_dir() -> Path | None:
     """Return the directory git uses for hooks, honoring core.hooksPath."""
+    git_executable = shutil.which("git")
+    if git_executable is None:
+        return None
+    git_executable = str(Path(git_executable).resolve())
     try:
         configured = subprocess.run(
-            ["git", "config", "--get", "core.hooksPath"],
+            [git_executable, "config", "--get", "core.hooksPath"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -90,7 +94,7 @@ def _hooks_dir() -> Path | None:
             return path if path.is_absolute() else (ROOT / path)
 
         resolved = subprocess.run(
-            ["git", "rev-parse", "--git-path", "hooks"],
+            [git_executable, "rev-parse", "--git-path", "hooks"],
             cwd=ROOT,
             capture_output=True,
             text=True,

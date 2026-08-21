@@ -162,7 +162,8 @@ select = [
     #   best-effort block reads better as `contextlib.suppress(...)`, which the
     #   repo already uses; a narrower `except OSError:` is not flagged either.
     # - S603/S605/S607: every subprocess and shell invocation. Application code
-    #   justifies each one inline; developer tooling is exempt below.
+    #   justifies each one inline; developer tooling resolves executables but
+    #   retains the broader S603 argument audit below.
     # - S608: every SQL string built by interpolation. Values always use bound
     #   parameters; the remaining sites interpolate table or column names, which
     #   bound parameters cannot carry, and justify it inline. Applied Alembic
@@ -277,9 +278,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
 # Developer scripts and the backend inventory/harness tooling are console
-# programs: printing to stdout is their interface.
-"scripts/**" = ["S603", "S607", "T20"]
+# programs: printing to stdout is their interface. They resolve executable
+# paths explicitly, while the broader S603 argument audit remains separate.
+"scripts/**" = ["S603", "T20"]
 # This fixture exists so check_architecture_boundaries.py can prove it resolves
 # parent-relative imports; rewriting them would delete the test case.
 "scripts/testdata/architecture_boundaries/**" = ["TID252"]
-"src/api/scripts/**" = ["S603", "S607", "T20"]
+"src/api/scripts/**" = ["S603", "T20"]

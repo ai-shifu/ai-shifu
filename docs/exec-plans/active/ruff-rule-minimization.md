@@ -402,20 +402,28 @@ plan's progress update for that rule.
   `sunner/ruff-s607`, stacked on S101. Isolated test-tree scans with and without
   inline suppressions report zero findings, so the inherited test-tree S607
   exception is redundant rather than a hidden test contract.
-- [x] 2026-08-21 06:55 CST: Audited the retained boundaries before removing the
-  test exception: repository maintenance scripts have five findings, the
-  backend evaluation scripts have one, and the Windows application entrypoint
-  has one explained inline `tzutil` exception. Those contributor and platform
-  contracts remain unchanged.
-- [x] 2026-08-21 06:55 CST: Removed S607 only from the test-tree exception and
-  documented that application and test subprocess calls use an absolute or
-  resolved executable, while controlled maintenance scripts retain their
-  explicit tree-level boundary.
-- [x] 2026-08-21 06:57 CST: Configured S607 and isolated test-tree scans pass;
-  all 18 remaining per-file ignore patterns still match real files. The stable
-  `ALL` census remains exactly 28,202 findings across 28 rules because the
-  removed test exception hid no live finding. No runtime source changed, so no
-  behavior test is applicable to this policy-only stage.
+- [x] 2026-08-21 08:02 CST: Expanded the existing S607 unit after a semantic
+  audit found more shrinkage was safe. Ruff reported five repository-script
+  calls and one backend evaluator call, while the evaluator's main variable
+  command also started partial `codex` without being reported. The Windows
+  application entrypoint remains one explained inline `tzutil` exception
+  because that platform command name is the contract.
+- [x] 2026-08-21 08:02 CST: Resolved Git and Codex through `shutil.which(...)`,
+  converted the results to absolute paths, preserved each script's existing
+  missing-tool behavior, and removed S607 from both script-tree exceptions.
+  Four executable repository tests cover both Git queries, all three inventory
+  commands, and missing Git; four backend tests cover both Codex call paths and
+  both missing-Codex errors.
+- [x] 2026-08-21 08:02 CST: Configured S607 passes, and an audit that ignores
+  inline suppressions reports only the documented Windows `tzutil` call. All
+  18 remaining per-file ignore patterns still match real files, and the stable
+  `ALL` census remains exactly 28,202 findings across 28 rules without debt
+  transfer.
+- [x] 2026-08-21 08:03 CST: Focused executable tests pass 4 repository and 4
+  backend cases. Collaboration and knowledge generators, translations,
+  repository harness, architecture boundaries, development-tool validation,
+  repository Ruff and format, and every pre-commit hook pass on the expanded
+  S607 tip.
 - [x] 2026-08-21 06:57 CST: Collaboration and knowledge generators, repository
   Ruff and format, translation checks, repository harness, architecture
   boundaries, development-tool validation, and every repository pre-commit
@@ -543,11 +551,11 @@ plan's progress update for that rule.
   validate, not durable breadcrumbs for files that no longer exist.
 - The test-tree exception grouped S607 with rules that have thousands of real
   fixture findings, but isolated scans showed no partial executable path in any
-  backend test, even when inline suppressions were ignored. The six live S607
-  findings belong to executable maintenance scripts, while the only application
-  call is the explained Windows `tzutil` entrypoint. A broad rule list must be
-  audited code by code; a valid path pattern does not prove every listed code is
-  still necessary.
+  backend test, even when inline suppressions were ignored. Six literal script
+  findings and one variable-built Codex command could all use resolved absolute
+  paths; only the explained Windows `tzutil` entrypoint remains. A broad rule
+  list must be audited code by code, and a clean lint result for a variable
+  command does not replace semantic subprocess review.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -600,6 +608,10 @@ plan's progress update for that rule.
   remove false positives from another still-ignored rule. Record that census
   effect explicitly, but do not treat the second rule as adopted until its own
   independent rule PR removes its exception and passes its acceptance suite.
+- 2026-08-21: S607 applies to contributor tooling as well as runtime code.
+  Resolve external commands once per operation, make the result absolute, keep
+  the existing missing-tool contract, and inspect variable-built subprocess
+  commands that Ruff cannot identify before retaining a directory exception.
 
 ## Outcomes & Retrospective
 
@@ -770,15 +782,15 @@ assertions in tests and self-tests, use explicit exceptions for production
 guards, and delete obsolete exact-file exceptions instead of preserving them
 as historical commentary.
 
-The S607 stage removes only the test-tree exception after isolated scans prove
-that no backend test starts a process through a partial executable path, even
-when inline suppressions are ignored. Five repository-maintenance findings,
-one backend evaluation-script finding, and the explained Windows `tzutil`
-entrypoint remain inside their existing script or inline boundaries. Configured
-S607, repository Ruff, format, harness, and every pre-commit hook pass; the
-stable census remains 28,202 findings across 28 rules. Future application and
-test code now resolves executables explicitly, while contributor scripts may
-continue to rely on the controlled development `PATH` boundary.
+The S607 stage removes the test-tree and both script-tree exceptions. Five
+repository-maintenance findings, one backend evaluator finding, and one
+variable-built Codex command now resolve absolute executable paths while
+preserving their existing missing-tool behavior. Four repository tests and
+four backend tests cover the Git and Codex success and failure contracts; the
+explained Windows `tzutil` platform entrypoint is the only inline exception.
+Configured S607, repository Ruff, format, and harness pass, and the stable
+census remains 28,202 findings across 28 rules. Future runtime, test, and
+contributor code now follows the same executable-resolution contract.
 
 ## Context and Orientation
 

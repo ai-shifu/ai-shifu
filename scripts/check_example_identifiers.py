@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -368,9 +369,24 @@ def find_violations_in_text(path: str, text: str) -> list[IdentifierViolation]:
     return violations
 
 
+def _git_executable() -> str:
+    executable = shutil.which("git")
+    if executable is None:
+        message = "git executable not found on PATH"
+        raise FileNotFoundError(message)
+    return str(Path(executable).resolve())
+
+
 def _repository_relative_paths() -> list[str]:
     result = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        [
+            _git_executable(),
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -384,7 +400,7 @@ def _repository_relative_paths() -> list[str]:
 
 def _index_entries() -> list[tuple[str, str]]:
     result = subprocess.run(
-        ["git", "ls-files", "--stage", "-z"],
+        [_git_executable(), "ls-files", "--stage", "-z"],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -411,7 +427,7 @@ def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
     if not unique_object_ids:
         return {}
     result = subprocess.run(
-        ["git", "cat-file", "--batch"],
+        [_git_executable(), "cat-file", "--batch"],
         cwd=ROOT,
         check=True,
         input="".join(f"{object_id}\n" for object_id in unique_object_ids).encode(),
