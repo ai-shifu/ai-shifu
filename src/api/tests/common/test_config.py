@@ -79,12 +79,12 @@ class TestConfigInitialization:
         # Clear global instance
         import flaskr.common.config as config_module
 
-        config_module.__INSTANCE__ = None
+        config_module.Config._instance = None
 
         config = Config(parent_config, app)
 
         # Check global instance is set
-        assert config == config_module.__INSTANCE__
+        assert config == config_module.Config._instance
 
 
 class TestConfigGetItem:
@@ -417,8 +417,8 @@ class TestGetConfigFunction:
         # Clear global instance
         import flaskr.common.config as config_module
 
-        original_instance = config_module.__INSTANCE__
-        config_module.__INSTANCE__ = None
+        original_instance = config_module.Config._instance
+        config_module.Config._instance = None
 
         try:
             # Test with a known ENV_VAR key - should get from environment or default
@@ -441,7 +441,7 @@ class TestGetConfigFunction:
             assert value == ""  # Default value from ENV_VARS
         finally:
             # Restore original instance
-            config_module.__INSTANCE__ = original_instance
+            config_module.Config._instance = original_instance
 
 
 class TestConfigIntegrationWithFlask:

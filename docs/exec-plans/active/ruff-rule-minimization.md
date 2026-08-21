@@ -61,11 +61,33 @@ plan's progress update for that rule.
   `sunner/ruff-up040` to the D405 branch. The redundant ignore was removed;
   UP040 has zero findings under the configured Python 3.11 target and remains
   target-gated until the repository's minimum runtime reaches Python 3.12.
-- [ ] Merge or retarget UP040 PR #2575 after its predecessors without combining
+- [x] Merge or retarget UP040 PR #2575 after its predecessors without combining
   it with the next rule unit.
-- [ ] Remove the target-gated UP047 global ignore. It has zero findings under
-  the configured Python 3.11 target and one explicit Python 3.12 finding that
-  should surface in the future runtime-upgrade PR instead of staying hidden.
+- [x] 2026-08-20 22:28 CST: Opened ready UP047 PR
+  [#2576](https://github.com/ai-shifu/ai-shifu/pull/2576) from
+  `sunner/ruff-up047` to the UP040 branch. The target-gated ignore was removed;
+  the Python 3.11 check is clean, the one Python 3.12 migration site is audited,
+  the 48-test learner-profile suite passes, and all repository pre-commit hooks
+  passed.
+- [ ] Merge or retarget UP047 PR #2576 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-20 22:36 CST: Opened ready UP046 PR
+  [#2577](https://github.com/ai-shifu/ai-shifu/pull/2577) from
+  `sunner/ruff-up046` to the UP047 branch. The last target-gated PEP 695 ignore
+  was removed; the Python 3.11 check is clean, both Python 3.12 migration sites
+  are audited, 674 focused billing/history tests pass with 10 skips, and all
+  repository pre-commit hooks passed.
+- [ ] Merge or retarget UP046 PR #2577 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-20 23:16 CST: Opened ready PLW0603 PR
+  [#2579](https://github.com/ai-shifu/ai-shifu/pull/2579) from
+  `sunner/ruff-plw0603` to the UP046 branch. All 25 findings across 13
+  state-writing sites were replaced with stable extensions, typed state
+  owners, or explicit accessors; no PLW0603 suppression remains. The full
+  backend suite passes 3,008 tests with 17 skips, and all repository
+  pre-commit hooks pass.
+- [ ] Merge or retarget PLW0603 PR #2579 after its predecessors without
+  combining it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -94,6 +116,10 @@ plan's progress update for that rule.
   `/api/user/send_sms_code` Flasgger YAML docstring. Rewriting it as a NumPy
   docstring section would corrupt the API specification, so the correct end
   state is global enforcement plus a narrow, explained suppression.
+- PLW0603's full-suite verification exposed a pre-existing test class that
+  permanently replaced `dao.init_redis` during collection. Fixture-scoped
+  injection now owns that test double, so collecting an unrelated test can no
+  longer alter the production DAO module for the rest of the process.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -158,6 +184,26 @@ repository's Python 3.11 target. It must not be forced with a Python 3.12 target
 in local hooks or CI because Ruff's suggested PEP 695 syntax does not parse on
 the supported runtime. The rule will activate naturally when the repository's
 minimum runtime moves to Python 3.12.
+
+The UP047 stage removes another preemptive exception without introducing Python
+3.12-only syntax. UP047 is clean under the configured Python 3.11 target; an
+explicit Python 3.12 audit records the single generic-function migration in the
+learner-profile retry helper. Its 48-test service suite and the full repository
+gates pass.
+
+The UP046 stage removes the final preemptive PEP 695 exception without adding
+Python 3.12-only syntax. UP046 is clean under the configured Python 3.11 target;
+an explicit Python 3.12 audit records the `PageWindow` and `HistoryItem` class
+migrations. The billing suite passes 673 tests with 10 skips, the focused shifu
+history test passes, and the full repository gates pass.
+
+The PLW0603 stage removes the global ignore and every Python `global` statement
+without adding inline or per-file exceptions. Stable Flask extensions keep
+imported identities intact; replaceable process state now has explicit owners
+for app, config, Redis, plugins, Celery, Langfuse, analytics, Ping++, and TTS;
+verification codes read the current app instead of cross-app caches. Focused
+lifecycle suites and the full backend suite pass 3,008 tests with 17 skips, and
+the repository-wide pre-commit gate passes.
 
 ## Context and Orientation
 

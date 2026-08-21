@@ -32,10 +32,6 @@ from sqlalchemy.orm.exc import FlushError
 
 logger = logging.getLogger(__name__)
 
-# create a global db object
-db = None
-redis_client = None
-
 # Session scope tokens must never repeat. Flask-SQLAlchemy's stock scope
 # function keys the scoped-session registry on id(app_ctx) - a CPython memory
 # address that is recycled as soon as a context is garbage collected. With
@@ -61,6 +57,38 @@ def _unique_app_ctx_scope() -> int:
         token = next(_app_ctx_scope_counter)
         ctx.__dict__["_dao_session_scope_token"] = token
     return token
+
+
+# Flask extensions are stable module objects; initialization binds them to an app
+# without rebinding every model's imported ``db`` reference.
+db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
+
+
+class _RedisState:
+    """Own the optional process-local Redis client."""
+
+    def __init__(self) -> None:
+        self.client: Redis | None = None
+
+
+_redis_state = _RedisState()
+
+
+def get_redis_client() -> Redis | None:
+    """Return the configured Redis client, if Redis is enabled."""
+    return _redis_state.client
+
+
+def set_redis_client(client: Redis | None) -> None:
+    """Replace the Redis client through its single lifecycle owner."""
+    _redis_state.client = client
+
+
+def __getattr__(name: str) -> Redis | None:
+    """Expose the owned Redis client to plugins using the legacy import name."""
+    if name == "redis_client":
+        return get_redis_client()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
@@ -522,7 +550,6 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
 
 
 def init_db(app: Flask):
-    global db
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -583,8 +610,6 @@ def init_db(app: Flask):
 
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
-    if db is None:
-        db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
     db.init_app(app)
 
     # Global last-resort guard: any interrupted path not covered by an
@@ -642,8 +667,6 @@ def init_db(app: Flask):
 
 
 def init_redis(app: Flask):
-    global redis_client
-
     host = app.config.get("REDIS_HOST")
     port = app.config.get("REDIS_PORT")
 
@@ -651,7 +674,7 @@ def init_redis(app: Flask):
         app.logger.warning(
             "Redis not configured: REDIS_HOST or REDIS_PORT is None - running without Redis"
         )
-        redis_client = None
+        set_redis_client(None)
         return
 
     app.logger.info(
@@ -665,18 +688,22 @@ def init_redis(app: Flask):
         app.config.get("REDIS_PASSWORD") is not None
         and app.config["REDIS_PASSWORD"] != ""
     ):
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
-            password=app.config["REDIS_PASSWORD"],
-            username=app.config.get("REDIS_USER", None),
+        set_redis_client(
+            Redis(
+                host=host,
+                port=port,
+                db=app.config["REDIS_DB"],
+                password=app.config["REDIS_PASSWORD"],
+                username=app.config.get("REDIS_USER", None),
+            )
         )
     else:
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
+        set_redis_client(
+            Redis(
+                host=host,
+                port=port,
+                db=app.config["REDIS_DB"],
+            )
         )
     app.logger.info("init redis done")
 
@@ -684,6 +711,10 @@ def init_redis(app: Flask):
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
         app.logger.info(f"run_with_redis start {key}")
+        redis_client = get_redis_client()
+        if redis_client is None:
+            app.logger.info(f"run_with_redis skipped without Redis {key}")
+            return None
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
             app.logger.info(f"run_with_redis get lock {key}")

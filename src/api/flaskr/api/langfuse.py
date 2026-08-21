@@ -4,6 +4,7 @@ import json
 import os
 import re
 import uuid
+from dataclasses import dataclass, field
 from typing import Any
 
 from flask import Flask, request
@@ -62,11 +63,16 @@ class MockClient:
         return method
 
 
-langfuse_client = MockClient()
+@dataclass(slots=True)
+class _LangfuseState:
+    client: Any = field(default_factory=MockClient)
+
+
+_langfuse_state = _LangfuseState()
 
 
 def get_langfuse_client():
-    return langfuse_client
+    return _langfuse_state.client
 
 
 def get_request_id() -> str:
@@ -134,7 +140,6 @@ PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
 
 
 def init_langfuse(app: Flask):
-    global langfuse_client
     if os.environ.get(PRELOAD_MASTER_ENV):
         # Running inside the gunicorn preload master. Creating a real client
         # here starts the Langfuse/OTel BatchProcessor worker thread in the
@@ -145,7 +150,7 @@ def init_langfuse(app: Flask):
         # unrelated in-flight DB exchanges. post_fork clears the flag and
         # calls init_langfuse again to build the real client per worker.
         app.logger.info("Deferring Langfuse init out of the preload master")
-        langfuse_client = MockClient()
+        _langfuse_state.client = MockClient()
         return
     app.logger.info("Initializing Langfuse client")
     if (
@@ -153,14 +158,14 @@ def init_langfuse(app: Flask):
         and app.config.get("LANGFUSE_SECRET_KEY")
         and app.config.get("LANGFUSE_HOST")
     ):
-        langfuse_client = Langfuse(
+        _langfuse_state.client = Langfuse(
             public_key=app.config["LANGFUSE_PUBLIC_KEY"],
             secret_key=app.config["LANGFUSE_SECRET_KEY"],
             host=app.config["LANGFUSE_HOST"],
         )
     else:
         app.logger.warning("Langfuse configuration not found, using MockLangfuse")
-        langfuse_client = MockClient()
+        _langfuse_state.client = MockClient()
 
 
 def _has_langfuse_value(value: Any) -> bool:

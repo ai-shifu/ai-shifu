@@ -5,10 +5,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/frontend-tests.yml"
-      - "src/cook-web/**"
-      - "src/i18n/**"
   workflow_dispatch:
 
 permissions:
