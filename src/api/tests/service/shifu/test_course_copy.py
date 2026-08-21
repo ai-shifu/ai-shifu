@@ -739,7 +739,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
         )
         db.session.commit()
 
-    def _reject_risk(*args, **kwargs):
+    def _reject_risk(*args: object, **kwargs):
         _ = (args, kwargs)
         raise_error("server.check.checkRiskControlReject")
 

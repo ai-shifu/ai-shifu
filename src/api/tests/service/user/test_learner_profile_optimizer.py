@@ -60,7 +60,7 @@ def _snapshot_profile_state(user_bid: str) -> tuple:
 
 
 def _successful_llm(raw_output: str, captured: dict):
-    def invoke(*args, **kwargs):
+    def invoke(*args: object, **kwargs):
         captured["call_count"] = captured.get("call_count", 0) + 1
         captured["args"] = args
         captured["kwargs"] = kwargs
@@ -311,7 +311,7 @@ def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
     invoked = False
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: False)
 
-    def unexpected_invoke(*_args, **_kwargs):
+    def unexpected_invoke(*_args: object, **_kwargs):
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -385,7 +385,7 @@ def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setitem(app.config, "DEFAULT_LLM_MODEL", "")
 
-    def unexpected_invoke(*_args, **_kwargs):
+    def unexpected_invoke(*_args: object, **_kwargs):
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -450,7 +450,7 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(app, monkeypatc
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def timeout_invoke(*_args, **_kwargs):
+    def timeout_invoke(*_args: object, **_kwargs):
         message = "provider timeout"
         raise TimeoutError(message)
         yield  # pragma: no cover
@@ -480,7 +480,7 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
     user_bid = "profile-optimize-wrapped-timeout"
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def timeout_invoke(*_args, **_kwargs):
+    def timeout_invoke(*_args: object, **_kwargs):
         try:
             # The wrapped-timeout shape is exactly what this test asserts.
             message = "provider timeout"
@@ -521,7 +521,7 @@ def test_optimize_reports_runtime_failure_reason_without_changing_state(
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def failed_invoke(*_args, **_kwargs):
+    def failed_invoke(*_args: object, **_kwargs):
         raise provider_error
         yield  # pragma: no cover
 
@@ -550,11 +550,11 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
 ):
     invoked = False
 
-    def failed_moderation(*_args):
+    def failed_moderation(*_args: object):
         message = "moderation unavailable"
         raise RuntimeError(message)
 
-    def unexpected_invoke(*_args, **_kwargs):
+    def unexpected_invoke(*_args: object, **_kwargs):
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -580,7 +580,7 @@ def test_optimize_rejects_invalid_input_before_moderation(
 ):
     moderated = False
 
-    def unexpected_moderation(*_args):
+    def unexpected_moderation(*_args: object):
         nonlocal moderated
         moderated = True
         return True

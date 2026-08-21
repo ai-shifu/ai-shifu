@@ -1220,7 +1220,7 @@ class TestBillingRoutes:
         with app.app_context():
             order_select_count = 0
 
-            def _count_order_selects(_conn, _cursor, statement, *_args):
+            def _count_order_selects(_conn, _cursor, statement, *_args: object):
                 nonlocal order_select_count
                 if "bill_orders" in statement.lower():
                     order_select_count += 1
@@ -1689,7 +1689,7 @@ class TestBillingRoutes:
 
         order_select_count = 0
 
-        def _count_order_selects(_conn, _cursor, statement, *_args):
+        def _count_order_selects(_conn, _cursor, statement, *_args: object):
             nonlocal order_select_count
             if "bill_orders" in statement.lower():
                 order_select_count += 1

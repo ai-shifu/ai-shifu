@@ -1410,7 +1410,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
@@ -1420,10 +1420,10 @@ def test_listen_run_persists_content_block_before_element_rows(app):
                     )
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):
@@ -1603,7 +1603,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                 self.formatted_elements = formatted_elements
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
@@ -1613,10 +1613,10 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                     )
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):

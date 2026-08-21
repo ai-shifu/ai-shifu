@@ -11,7 +11,7 @@ class _FakeRedis:
     def get(self, key):
         return self.values.get(key)
 
-    def delete(self, *keys):
+    def delete(self, *keys: str):
         self.deleted.extend(keys)
         return len(keys)
 
@@ -186,13 +186,13 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
     from tests.common.fixtures.fake_redis import FakeRedis
 
     class _FakeSMTP:
-        def __init__(self, *_args, **_kwargs) -> None:
+        def __init__(self, *_args: object, **_kwargs) -> None:
             self.sent_to = None
 
         def starttls(self):
             return None
 
-        def login(self, *_args):
+        def login(self, *_args: object):
             return None
 
         def sendmail(self, _sender, recipient, _message):

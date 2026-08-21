@@ -55,14 +55,14 @@ class _TestPluginManager:
     def register_extension(self, target_func_name, func):
         self.extension_functions.setdefault(target_func_name, []).append(func)
 
-    def execute_extensions(self, _func_name, result, *args, **kwargs):
+    def execute_extensions(self, _func_name, result, *args: object, **kwargs):
         _ = (args, kwargs)
         return result
 
     def register_extensible_generic(self, func_name, func):
         self.extensible_generic_functions.setdefault(func_name, []).append(func)
 
-    def execute_extensible_generic(self, _func_name, *args, **kwargs):
+    def execute_extensible_generic(self, _func_name, *args: object, **kwargs):
         _ = (args, kwargs)
 
 

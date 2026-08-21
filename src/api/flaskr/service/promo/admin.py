@@ -272,7 +272,7 @@ def _build_user_keyword_query(keyword: str):
     )
 
 
-def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
+def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields: object):
     normalized = str(keyword or "").strip().lower()
     if not normalized:
         return query

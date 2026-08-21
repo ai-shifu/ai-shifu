@@ -65,7 +65,7 @@ class _NullContext:
     def __enter__(self) -> None:
         return None
 
-    def __exit__(self, *_exc) -> bool | None:
+    def __exit__(self, *_exc: object) -> bool | None:
         return False
 
 

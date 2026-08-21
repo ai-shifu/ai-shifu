@@ -37,7 +37,7 @@ class CacheProvider(Protocol):
         px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-        *args,
+        *args: object,
         **kwargs,
     ):
         raise NotImplementedError
@@ -95,7 +95,7 @@ class _DynamicRedisCacheProvider:
         px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-        *args,
+        *args: object,
         **kwargs,
     ):
         if ex is None and args:
@@ -211,7 +211,7 @@ class InMemoryCacheProvider:
         px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-        *args,
+        *args: object,
         **kwargs,
     ):
         _ = kwargs
@@ -292,7 +292,7 @@ class FallbackCacheProvider:
         self._primary = primary
         self._fallback = fallback
 
-    def _call(self, method: str, *args, **kwargs):
+    def _call(self, method: str, *args: object, **kwargs):
         primary_fn = getattr(self._primary, method)
         fallback_fn = getattr(self._fallback, method)
         try:
@@ -317,7 +317,7 @@ class FallbackCacheProvider:
         px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-        *args,
+        *args: object,
         **kwargs,
     ):
         return self._call(

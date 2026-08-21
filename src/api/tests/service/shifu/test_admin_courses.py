@@ -1608,11 +1608,11 @@ class FakeLatestQuery:
         self.grouped_by = []
         self.subquery_value = FakeLatestSubquery()
 
-    def filter(self, *conditions):
+    def filter(self, *conditions: object):
         self.filters.extend(conditions)
         return self
 
-    def group_by(self, *columns):
+    def group_by(self, *columns: object):
         self.grouped_by.extend(columns)
         return self
 
@@ -1639,19 +1639,19 @@ class FakeOuterQuery:
         self.options_calls = []
         self.with_entities_calls = []
 
-    def filter(self, *conditions):
+    def filter(self, *conditions: object):
         self.filters.extend(conditions)
         return self
 
-    def options(self, *options):
+    def options(self, *options: object):
         self.options_calls.extend(options)
         return self
 
-    def order_by(self, *ordering):
+    def order_by(self, *ordering: object):
         self.ordering.extend(ordering)
         return self
 
-    def with_entities(self, *columns):
+    def with_entities(self, *columns: object):
         self.with_entities_calls.append(columns)
         return self
 

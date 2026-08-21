@@ -249,14 +249,14 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             last_context = None
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "md content", 0)]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):
@@ -369,7 +369,7 @@ class LearnRecordLoadTests(unittest.TestCase):
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "first content", 0),
@@ -381,10 +381,10 @@ class LearnRecordLoadTests(unittest.TestCase):
                     ),
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):
@@ -517,14 +517,14 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):
@@ -644,17 +644,17 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):
@@ -767,17 +767,17 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs):
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
             def get_all_blocks(self):

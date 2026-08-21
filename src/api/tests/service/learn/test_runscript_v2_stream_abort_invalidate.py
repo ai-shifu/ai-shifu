@@ -51,7 +51,7 @@ class _StubRunContext:
     def __init__(self, **_kwargs) -> None:
         self._steps = iter([True, False])
 
-    def set_input(self, *_args, **_kwargs):
+    def set_input(self, *_args: object, **_kwargs):
         pass
 
     def has_next(self):

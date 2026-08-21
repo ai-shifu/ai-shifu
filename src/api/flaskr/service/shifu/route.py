@@ -177,7 +177,7 @@ class ShifuTokenValidation:
 
     def __call__(self, f) -> Callable:
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        def decorated_function(*args: object, **kwargs):
             token = request.cookies.get("token", None)
             if not token:
                 token = request.args.get("token", None)

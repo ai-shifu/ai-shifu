@@ -176,7 +176,7 @@ def _setup_handle_input_ask_test_doubles(
 
         call_counter = {"index": 0}
 
-        def _fake_init_generated_block(*_args, **_kwargs):
+        def _fake_init_generated_block(*_args: object, **_kwargs):
             call_counter["index"] += 1
             return types.SimpleNamespace(
                 generated_block_bid=f"gb-{call_counter['index']}",

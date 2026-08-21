@@ -124,7 +124,7 @@ def test_migrate_table_logs_formatted_batch_progress(caplog):
     async def table_count(_table_name):
         return 20
 
-    async def process_batch(*_args):
+    async def process_batch(*_args: object):
         return {"synced": 5, "errors": 0, "error_messages": []}
 
     task._table_exists_async = table_exists

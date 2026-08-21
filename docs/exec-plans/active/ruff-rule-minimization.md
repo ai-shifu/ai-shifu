@@ -678,6 +678,25 @@ plan's progress update for that rule.
   new boundary violations, pinned development-tool validation confirms Ruff
   0.16.3 and the full hook toolchain, and every repository pre-commit hook
   passes on all files.
+- [x] 2026-08-21 12:45 CST: Audited the next low-count candidates. PLR0911's
+  72 findings are production guard and mapping functions where a six-return
+  limit would replace readable early exits with accumulator state. FBT002's 98
+  findings include Redis-compatible protocols, DTO constructors, and stable
+  public signatures. Both remain deferred rather than trading lint count for
+  less readable control flow or narrower call contracts.
+- [x] 2026-08-21 12:48 CST: Selected ANN002 as the next behaviorally safe rule.
+  Its 215 findings span 82 files: 26 production forwarding boundaries and 189
+  test helpers. Annotated every variadic positional element without changing a
+  callable signature; heterogeneous wrappers use `object`, avoiding ANN401
+  debt instead of introducing `Any`.
+- [x] 2026-08-21 12:55 CST: Enabled ANN002 with no suppression. All 64 touched
+  test files pass 977 tests with five existing skips, followed by the complete
+  backend at 3,032 tests passed with 17 skips and 733 existing warnings. The
+  stable census falls exactly 215 from 27,206 to 26,991 and the isolated census
+  falls from 38,595 to 38,380; no other rule count changes.
+- [x] 2026-08-21 12:57 CST: Passed the repository harness, architecture boundary
+  ratchet, pinned Ruff 0.16.3 developer-tool check, and the complete lefthook
+  pre-commit suite across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1133,6 +1152,15 @@ pass with 15 existing environment skips, followed by the complete backend at
 3,032 tests passed with 17 skips. The stable census falls by 569 from 27,775 to
 27,206 and the isolated census falls from 39,164 to 38,595, with no rule
 gaining debt.
+
+The ANN002 stage annotates all 215 variadic positional parameters across 82
+files without changing any call contract. Known cache-key fakes use `str` for
+each key; intentionally heterogeneous decorators, plugin hooks, logging
+adapters, cache compatibility shims, and test doubles use `object` instead of
+transferring debt to ANN401 with `Any`. All 977 tests in the 64 touched test
+files pass with five skips, followed by the full 3,032-test backend suite. Both
+stable and isolated censuses fall exactly 215, to 26,991 and 38,380
+respectively, with no other rule count changing.
 
 ## Context and Orientation
 

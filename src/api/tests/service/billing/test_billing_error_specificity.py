@@ -31,7 +31,7 @@ class _UnavailableLock:
 
 
 class _LockFactory:
-    def lock(self, *_args, **_kwargs):
+    def lock(self, *_args: object, **_kwargs):
         return _UnavailableLock()
 
 

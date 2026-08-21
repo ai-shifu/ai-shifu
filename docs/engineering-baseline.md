@@ -395,6 +395,14 @@ behind a test-tree exception. Delete unreferenced debug helpers instead of
 preserving a lint boundary for them. A developer-script tree may retain T20 only
 when stdout is the scripts' user-facing interface.
 
+For `ANN002`, annotate the type of each variadic positional element after the
+star: `*names: str` means every supplied item is a string, not that `names` is a
+`tuple[str, ...]`. Prefer the narrow homogeneous type the function actually
+uses. For decorators, plugin hooks, logging adapters, fakes, and other
+intentionally heterogeneous forwarding boundaries, use `*args: object`; do not
+introduce `Any` merely to satisfy ANN002, and do not change positional or
+keyword compatibility while adding the annotation.
+
 For the `ARG` family, first remove an unused function, method, or lambda
 parameter when the callable and all callers are repository-owned. Preserve the
 exact parameter name when a base class, provider protocol, framework callback,

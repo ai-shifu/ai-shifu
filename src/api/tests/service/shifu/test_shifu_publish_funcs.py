@@ -20,7 +20,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args, **kwargs):
+    def get_model_info(*args: object, **kwargs):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -222,7 +222,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
-    def _raise_shutdown(*_a, **_k):
+    def _raise_shutdown(*_a: object, **_k):
         message = (
             "litellm.MidStreamFallbackError: APIConnectionError: OpenAIException - "
             "cannot schedule new futures after shutdown"
@@ -250,7 +250,7 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch):
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
-    def _raise_other(*_a, **_k):
+    def _raise_other(*_a: object, **_k):
         message = "boom"
         raise ValueError(message)
 
@@ -275,7 +275,7 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     original_load_existing_outline_items = module.load_existing_outline_items
     outline_load_calls = []
 
-    def _record_outline_load(*args, **kwargs):
+    def _record_outline_load(*args: object, **kwargs):
         outline_load_calls.append((args, kwargs))
         return original_load_existing_outline_items(*args, **kwargs)
 
