@@ -9,7 +9,6 @@ import unittest
 from unittest.mock import MagicMock, call, patch
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 
 
 def _install_litellm_stub() -> None:
@@ -82,25 +81,10 @@ def _install_openai_responses_stub() -> None:
 _install_litellm_stub()
 _install_openai_responses_stub()
 
-# Ensure minimal SQLAlchemy bindings exist so model classes can be defined.
-from flaskr import dao
-
-if dao.db is None:
-    _test_app = Flask("test-context-v2")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
-
 import itertools
 
 import pytest
+from flaskr import dao
 from flaskr.service.learn import context_v2 as context_v2_module
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import (

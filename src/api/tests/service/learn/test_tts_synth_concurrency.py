@@ -1,3 +1,4 @@
+from flaskr import dao
 from flaskr.service.learn import learn_funcs
 from flaskr.service.learn.learn_funcs import (
     _TTS_SLOT_ACQUIRED,
@@ -44,7 +45,7 @@ class ExplodingRedis:
 
 def test_tts_synth_semaphore_caps_at_limit_and_releases(app, monkeypatch):
     fake = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 2
 
     assert learn_funcs._tts_synth_sem_acquire(app, "u1", "o1") == _TTS_SLOT_ACQUIRED
@@ -61,7 +62,7 @@ def test_tts_synth_semaphore_caps_at_limit_and_releases(app, monkeypatch):
 
 
 def test_tts_synth_semaphore_bypasses_without_redis(app, monkeypatch):
-    monkeypatch.setattr("flaskr.dao.redis_client", None, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", None)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
     # Redis unavailable -> bypass (never blocks synthesis, no cap enforced)
@@ -71,7 +72,7 @@ def test_tts_synth_semaphore_bypasses_without_redis(app, monkeypatch):
 
 def test_tts_synth_semaphore_bypasses_on_redis_error(app, monkeypatch):
     boom = ExplodingRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", boom, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", boom)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
     assert learn_funcs._tts_synth_sem_acquire(app, "u", "o") == _TTS_SLOT_BYPASS
@@ -80,7 +81,7 @@ def test_tts_synth_semaphore_bypasses_on_redis_error(app, monkeypatch):
 
 def test_tts_synth_semaphore_disabled_when_zero(app, monkeypatch):
     fake = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 0
 
     assert learn_funcs._tts_synth_sem_acquire(app, "u", "o") == _TTS_SLOT_BYPASS
@@ -90,7 +91,7 @@ def test_tts_synth_semaphore_disabled_when_zero(app, monkeypatch):
 
 def test_tts_synth_semaphore_ignores_incomplete_key(app, monkeypatch):
     fake = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
     # Missing user/outline -> bypass, no counter created
@@ -101,7 +102,7 @@ def test_tts_synth_semaphore_ignores_incomplete_key(app, monkeypatch):
 
 def test_yield_tts_synthesis_sheds_request_when_full(app, monkeypatch):
     fake = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
     body_calls = {"n": 0}
@@ -132,7 +133,7 @@ def test_yield_tts_synthesis_sheds_request_when_full(app, monkeypatch):
 
 def test_yield_tts_synthesis_runs_and_releases_slot(app, monkeypatch):
     fake = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
     def _body():
@@ -161,7 +162,7 @@ def test_yield_tts_synthesis_bypass_does_not_release(app, monkeypatch):
     # release, otherwise it would decrement a slot that was never reserved and
     # could steal another request's slot.
     boom = ExplodingRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", boom, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", boom)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
     def _body():

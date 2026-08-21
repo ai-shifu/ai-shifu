@@ -73,30 +73,40 @@ from flaskr.util.uuid import generate_id
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
-# Global thread pool for TTS synthesis, created lazily per process. A
+
+# Process-local thread pool for TTS synthesis, created lazily. A
 # module-level instance would be created during the gunicorn master's
 # preload import and inherited by every forked worker; its gevent-patched
 # internals then carry wakeup links bound to the parent's hub, which can
 # crash in AbstractLinkable._notify_links and silently interrupt unrelated
 # greenlets (observed as DB protocol desync). The pid guard hands each
 # process its own executor.
-_tts_executor: ThreadPoolExecutor | None = None
-_tts_executor_pid: int | None = None
+@dataclass(slots=True)
+class _TTSExecutorState:
+    executor: ThreadPoolExecutor | None = None
+    pid: int | None = None
+
+
+_tts_executor_state = _TTSExecutorState()
 
 
 def _get_tts_executor() -> ThreadPoolExecutor:
-    global _tts_executor, _tts_executor_pid
     current_pid = os.getpid()
     # Rebuild only when there is no executor or the recorded pid is STALE.
     # An executor with no recorded pid was injected directly (tests patch
-    # `_tts_executor` with a mock) and must be honored as-is; production
-    # code always records the pid alongside the instance it creates.
-    if _tts_executor is None or (
-        _tts_executor_pid is not None and _tts_executor_pid != current_pid
+    # `_tts_executor_state.executor` with a mock) and must be honored as-is;
+    # production code always records the pid alongside the instance it creates.
+    if _tts_executor_state.executor is None or (
+        _tts_executor_state.pid is not None and _tts_executor_state.pid != current_pid
     ):
-        _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
-        _tts_executor_pid = current_pid
-    return _tts_executor
+        _tts_executor_state.executor = ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="tts_"
+        )
+        _tts_executor_state.pid = current_pid
+    executor = _tts_executor_state.executor
+    if executor is None:  # pragma: no cover - guarded by the branch above
+        raise RuntimeError("TTS executor initialization failed")
+    return executor
 
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
