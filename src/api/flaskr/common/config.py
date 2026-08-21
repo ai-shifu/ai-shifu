@@ -2114,9 +2114,7 @@ class Config(FlaskConfig):
 
     _instance: Config | None = None
 
-    def __init__(
-        self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
-    ) -> None:
+    def __init__(self, parent: FlaskConfig, app: Flask) -> None:
         """Bind parent and environment config, then populate Redis prefixes."""
         self.parent = parent
         self.app = app

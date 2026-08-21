@@ -51,6 +51,7 @@ class _FakeStripeCatalogAdapter(StripeCatalogReadAdapter):
         provider_product_id: str,
         provider_price_id: str,
     ) -> ProviderCatalogSnapshot:
+        _ = app
         self.calls.append(
             {
                 "provider_product_id": provider_product_id,

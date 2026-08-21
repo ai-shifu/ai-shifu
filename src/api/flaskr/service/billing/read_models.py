@@ -655,7 +655,6 @@ def build_billing_overview(
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         trial_offer = _resolve_new_creator_trial_offer(
-            app,
             normalized_creator_bid,
             trigger="billing_overview",
         )

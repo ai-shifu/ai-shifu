@@ -214,6 +214,12 @@ plan's progress update for that rule.
   boundary.
 - [ ] Merge or retarget S101 PR #2632 after N803 without combining it with the
   next rule unit.
+- [x] 2026-08-22: Rebuilt the ARG002 stage on `sunner/ruff-arg002`, stacked on
+  S101. Removed repository-owned unused method parameters and explicitly
+  consumed externally owned protocol, fixture, and test-double compatibility
+  values without renaming keyword contracts.
+- [ ] Merge or retarget ARG002 PR #2633 after S101 without combining it with the
+  next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

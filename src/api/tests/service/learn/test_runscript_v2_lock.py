@@ -37,6 +37,7 @@ class FakeLock:
         self.release_calls = 0
 
     def acquire(self, blocking=True):
+        _ = blocking
         self.acquire_calls += 1
         if self._acquire_results:
             return self._acquire_results.pop(0)

@@ -18,6 +18,7 @@ class DummyStripeRefundProvider:
         self._result = result
 
     def refund_payment(self, *, request, app):  # pylint: disable=unused-argument
+        _ = (request, app)
         return self._result
 
 

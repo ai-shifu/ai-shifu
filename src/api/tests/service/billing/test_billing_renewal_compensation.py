@@ -53,6 +53,7 @@ def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
 
     class FakeStripeProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert reference_type == "subscription"
             assert provider_reference == sync_state["subscription"]["id"]
             return PaymentNotificationResult(

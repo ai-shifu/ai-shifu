@@ -14,6 +14,7 @@ class FakeRedisLock:
         self._held = False
 
     def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
+        _ = (blocking, blocking_timeout)
         if self._locks.get(self._key, False):
             return False
         self._locks[self._key] = True
@@ -83,6 +84,7 @@ class FakeRedis:
         *args,
         **kwargs,
     ):
+        _ = kwargs
         if ex is None and args:
             ex = args[0]
         if nx and self.get(key) is not None:
@@ -137,6 +139,7 @@ class FakeRedis:
         timeout: int | None = None,
         blocking_timeout: int | None = None,
     ):
+        _ = (timeout, blocking_timeout)
         return FakeRedisLock(self._locks, key)
 
     def ping(self):

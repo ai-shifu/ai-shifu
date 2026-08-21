@@ -2241,7 +2241,7 @@ class RunScriptContextV2:
             self._current_attend, is_ask=self._input_type == "ask"
         )
         if run_script_info is None:
-            yield from self._phase_completion_when_script_missing(app)
+            yield from self._phase_completion_when_script_missing()
             return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
@@ -2335,7 +2335,7 @@ class RunScriptContextV2:
         return True
 
     def _phase_completion_when_script_missing(
-        self, app: Flask
+        self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Completion tail for a step whose run-script info resolved to None."""
         self.app.logger.warning("run script is none")
@@ -2562,7 +2562,7 @@ class RunScriptContextV2:
         if handled:
             return True
         handled = yield from self._phase_validate_input_and_advance(
-            app, state, generated_block, parsed_interaction, user_input_param
+            app, state, generated_block, user_input_param
         )
         return handled
 
@@ -2948,7 +2948,6 @@ class RunScriptContextV2:
         app: Flask,
         state: _RunStepState,
         generated_block: LearnGeneratedBlock,
-        parsed_interaction: dict,
         user_input_param: dict,
     ) -> Generator[RunMarkdownFlowDTO, None, bool]:
         """Validate the interaction input, save variables, advance the cursor.
