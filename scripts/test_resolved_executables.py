@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import subprocess
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import call, patch
 
@@ -57,6 +58,27 @@ class ResolvedExecutablesTest(unittest.TestCase):
 
         assert hooks_dir is None
         run.assert_not_called()
+
+    def test_dev_tools_resolves_ruff_before_version_check(self) -> None:
+        """Use an absolute Ruff path for the version subprocess."""
+        with (
+            patch("check_dev_tools.shutil.which", return_value="tools/ruff"),
+            patch("check_dev_tools.subprocess.run") as run,
+        ):
+            run.return_value = SimpleNamespace(
+                stdout=f"ruff {check_dev_tools.RUFF_VERSION}\n"
+            )
+
+            matches = vars(check_dev_tools)["_ruff_version_matches"]()
+
+        assert matches is True
+        run.assert_called_once_with(
+            [str(Path("tools/ruff").resolve()), "--version"],
+            cwd=check_dev_tools.ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
     def test_identifier_scans_use_resolved_git(self) -> None:
         """Pass the resolved Git path to every repository inventory command."""
