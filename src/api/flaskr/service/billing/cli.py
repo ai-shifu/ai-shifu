@@ -64,6 +64,10 @@ from .consts import (
     BILLING_PRODUCT_TYPE_GRANT,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+    BILLING_PROVIDER_PRICE_STATUS_INVALID,
+    BILLING_PROVIDER_PRICE_STATUS_RETIRED,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -102,6 +106,17 @@ from .notifications import (
     stage_subscription_purchase_sms_for_paid_order,
 )
 from .primitives import coerce_datetime
+from .provider_price_mappings import (
+    ProviderPriceMappingError,
+    activate_provider_price_mapping,
+    get_active_provider_price_mapping,
+    get_provider_price_mapping,
+    list_provider_price_mappings,
+    retire_provider_price_mapping,
+    serialize_provider_price_mapping,
+    upsert_provider_price_mapping,
+    validate_provider_price_mapping_by_bid,
+)
 from .queries import (
     calculate_self_managed_billing_cycle_end,
     load_primary_active_subscription,
@@ -152,6 +167,13 @@ _ALLOCATION_INTERVAL_LABELS = {
 _PRODUCT_STATUS_LABELS = {
     "active": BILLING_PRODUCT_STATUS_ACTIVE,
     "inactive": BILLING_PRODUCT_STATUS_INACTIVE,
+}
+
+_PROVIDER_PRICE_STATUS_LABELS = {
+    "active": BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    "draft": BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+    "invalid": BILLING_PROVIDER_PRICE_STATUS_INVALID,
+    "retired": BILLING_PROVIDER_PRICE_STATUS_RETIRED,
 }
 
 _DEFAULT_CLI_OPERATOR_USER_BID = "billing-cli"
@@ -498,6 +520,156 @@ def register_billing_commands(console) -> None:
             metadata_json=metadata_json,
         )
         _echo_payload(payload)
+
+    @billing_group.group(name="provider-price")
+    def provider_price_group() -> None:
+        """Manage billing product provider price mappings."""
+
+    @provider_price_group.command(name="bind")
+    @click.option("--product-bid", required=True, help="Bill product bid.")
+    @click.option(
+        "--provider-account-id",
+        required=True,
+        help="Stripe account identifier.",
+    )
+    @click.option(
+        "--provider-product-id",
+        required=True,
+        help="Stripe product identifier.",
+    )
+    @click.option(
+        "--provider-price-id",
+        required=True,
+        help="Stripe price identifier.",
+    )
+    @click.option(
+        "--livemode/--testmode",
+        default=False,
+        show_default=True,
+        help="Whether the Stripe objects are live-mode objects.",
+    )
+    @click.option(
+        "--metadata-json",
+        default="",
+        help="Optional provider mapping metadata JSON object.",
+    )
+    @with_appcontext
+    def provider_price_bind_command(
+        product_bid: str,
+        provider_account_id: str,
+        provider_product_id: str,
+        provider_price_id: str,
+        livemode: bool,
+        metadata_json: str,
+    ) -> None:
+        """Create or update a draft Stripe price mapping."""
+        payload = bind_provider_price_mapping(
+            product_bid=product_bid,
+            provider_account_id=provider_account_id,
+            provider_product_id=provider_product_id,
+            provider_price_id=provider_price_id,
+            livemode=livemode,
+            metadata_json=metadata_json,
+        )
+        _echo_payload(payload)
+
+    @provider_price_group.command(name="activate")
+    @click.option(
+        "--provider-price-bid",
+        required=True,
+        help="Provider price mapping bid.",
+    )
+    @with_appcontext
+    def provider_price_activate_command(provider_price_bid: str) -> None:
+        """Validate and activate a Stripe price mapping."""
+        payload = activate_cli_provider_price_mapping(provider_price_bid)
+        _echo_payload(payload)
+        if payload["status"] == "invalid":
+            raise click.exceptions.Exit(1)
+
+    @provider_price_group.command(name="retire")
+    @click.option(
+        "--provider-price-bid",
+        required=True,
+        help="Provider price mapping bid.",
+    )
+    @with_appcontext
+    def provider_price_retire_command(provider_price_bid: str) -> None:
+        """Retire a Stripe price mapping."""
+        _echo_payload(retire_cli_provider_price_mapping(provider_price_bid))
+
+    @provider_price_group.command(name="validate")
+    @click.option(
+        "--provider-price-bid",
+        required=True,
+        help="Provider price mapping bid.",
+    )
+    @with_appcontext
+    def provider_price_validate_command(provider_price_bid: str) -> None:
+        """Validate a Stripe price mapping without activating it."""
+        payload = validate_cli_provider_price_mapping(provider_price_bid)
+        _echo_payload(payload)
+        if payload["status"] == "invalid":
+            raise click.exceptions.Exit(1)
+
+    @provider_price_group.command(name="list")
+    @click.option("--product-bid", default="", help="Optional bill product bid.")
+    @click.option(
+        "--provider-account-id",
+        default="",
+        help="Optional Stripe account identifier.",
+    )
+    @click.option(
+        "--status",
+        "status_label",
+        default="",
+        type=click.Choice(
+            ["", *sorted(_PROVIDER_PRICE_STATUS_LABELS.keys())],
+            case_sensitive=False,
+        ),
+        help="Optional provider price mapping status label.",
+    )
+    @click.option(
+        "--mode",
+        default="all",
+        show_default=True,
+        type=click.Choice(["all", "test", "live"], case_sensitive=False),
+        help="Filter by Stripe mode.",
+    )
+    @with_appcontext
+    def provider_price_list_command(
+        product_bid: str,
+        provider_account_id: str,
+        status_label: str,
+        mode: str,
+    ) -> None:
+        """List Stripe price mappings."""
+        normalized_mode = str(mode or "all").strip().lower()
+        _echo_payload(
+            list_cli_provider_price_mappings(
+                product_bid=product_bid,
+                provider_account_id=provider_account_id,
+                status_label=status_label,
+                livemode=(
+                    True
+                    if normalized_mode == "live"
+                    else False
+                    if normalized_mode == "test"
+                    else None
+                ),
+            )
+        )
+
+    @provider_price_group.command(name="inspect")
+    @click.option(
+        "--provider-price-bid",
+        required=True,
+        help="Provider price mapping bid.",
+    )
+    @with_appcontext
+    def provider_price_inspect_command(provider_price_bid: str) -> None:
+        """Inspect one Stripe price mapping."""
+        _echo_payload(inspect_cli_provider_price_mapping(provider_price_bid))
 
     @billing_group.command(name="grant-plan")
     @click.option(
@@ -1791,6 +1963,137 @@ def upsert_billing_product(
         "product_bid": payload["product_bid"],
         "product_code": payload["product_code"],
     }
+
+
+def bind_provider_price_mapping(
+    *,
+    product_bid: str,
+    provider_account_id: str,
+    provider_product_id: str,
+    provider_price_id: str,
+    livemode: bool,
+    metadata_json: str,
+) -> dict[str, Any]:
+    try:
+        with unit_of_work():
+            mapping, created = upsert_provider_price_mapping(
+                product_bid=product_bid,
+                provider_account_id=provider_account_id,
+                provider_product_id=provider_product_id,
+                provider_price_id=provider_price_id,
+                livemode=livemode,
+                metadata=_parse_optional_json_object(
+                    metadata_json,
+                    option_name="metadata-json",
+                ),
+            )
+            payload = {
+                "status": "bound",
+                "created": created,
+                "mapping": serialize_provider_price_mapping(mapping),
+            }
+    except ProviderPriceMappingError as exc:
+        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
+    return payload
+
+
+def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    try:
+        with unit_of_work():
+            summary = activate_provider_price_mapping(provider_price_bid)
+            payload = {
+                "status": "activated" if summary.valid else "invalid",
+                "validation": _provider_price_validation_payload(summary),
+            }
+    except ProviderPriceMappingError as exc:
+        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
+    return payload
+
+
+def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    try:
+        with unit_of_work():
+            mapping = retire_provider_price_mapping(provider_price_bid)
+            payload = {
+                "status": "retired",
+                "mapping": serialize_provider_price_mapping(mapping),
+            }
+    except ProviderPriceMappingError as exc:
+        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
+    return payload
+
+
+def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    try:
+        with unit_of_work():
+            summary = validate_provider_price_mapping_by_bid(provider_price_bid)
+            payload = {
+                "status": "valid" if summary.valid else "invalid",
+                "validation": _provider_price_validation_payload(summary),
+            }
+    except ProviderPriceMappingError as exc:
+        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
+    return payload
+
+
+def list_cli_provider_price_mappings(
+    *,
+    product_bid: str,
+    provider_account_id: str,
+    status_label: str,
+    livemode: bool | None,
+) -> dict[str, Any]:
+    normalized_status = str(status_label or "").strip().lower()
+    rows = list_provider_price_mappings(
+        product_bid=product_bid,
+        provider_account_id=provider_account_id,
+        livemode=livemode,
+        status=(
+            _PROVIDER_PRICE_STATUS_LABELS[normalized_status]
+            if normalized_status
+            else None
+        ),
+    )
+    return {
+        "status": "listed",
+        "count": len(rows),
+        "items": [serialize_provider_price_mapping(row) for row in rows],
+    }
+
+
+def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    try:
+        mapping = get_provider_price_mapping(provider_price_bid)
+        active_mapping = get_active_provider_price_mapping(
+            product_bid=mapping.product_bid,
+            provider=mapping.provider,
+            provider_account_id=mapping.provider_account_id,
+            livemode=bool(mapping.livemode),
+        )
+    except ProviderPriceMappingError as exc:
+        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
+    return {
+        "status": "inspected",
+        "mapping": serialize_provider_price_mapping(mapping),
+        "active_mapping": serialize_provider_price_mapping(active_mapping),
+    }
+
+
+def _provider_price_validation_payload(summary) -> dict[str, Any]:
+    return {
+        "valid": summary.valid,
+        "errors": summary.errors,
+        "warnings": summary.warnings,
+        "mapping": summary.mapping,
+    }
+
+
+def _format_provider_price_mapping_error(exc: ProviderPriceMappingError) -> str:
+    return json.dumps(
+        {"code": exc.code, "message": exc.message},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
 
 
 @contextmanager
