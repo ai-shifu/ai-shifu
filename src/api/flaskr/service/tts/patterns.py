@@ -88,7 +88,7 @@ FIXED_MARKER_TAIL = re.compile(r"^[\s!=]*$")
 # ---------------------------------------------------------------------------
 # Streaming TTS
 # ---------------------------------------------------------------------------
-SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
+SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 # ---------------------------------------------------------------------------
 # HTML tag extraction helpers

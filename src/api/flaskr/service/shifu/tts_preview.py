@@ -61,7 +61,7 @@ def build_tts_preview_response(
     emotion = ""
     text = payload.get(
         "text",
-        "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",
+        "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     )
 
     validated = validate_tts_settings_strict(

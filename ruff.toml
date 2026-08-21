@@ -214,10 +214,9 @@ select = [
     "UP",
 
     # --- Ruff-native rules ------------------------------------------------
-    # RUF001 (ambiguous unicode in a string) is ignored below.
-    # RUF100 is enforced, so a `# noqa` may only name a rule this file
-    # selects: reasons for exceptions to non-selected rules (BLE001,
-    # DTZ001, SLF001) are written as plain comments instead.
+    # RUF100 is enforced, so a `# noqa` may only name a rule this file selects:
+    # reasons for exceptions to non-selected rules (BLE001, DTZ001, SLF001)
+    # are written as plain comments instead.
     "RUF",
 ]
 ignore = [
@@ -231,10 +230,6 @@ ignore = [
     "D213",    # summary on the second line -- conflicts with D212
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
-    # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
-    # revisions and boundary-check fixtures that are loaded by path rather
-    # than imported.
-    "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
 ]
 
 [lint.flake8-type-checking]
@@ -244,6 +239,13 @@ ignore = [
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [lint.per-file-ignores]
+# Tests intentionally freeze user text, provider payloads, protocol samples,
+# and malformed-input regressions verbatim. RUF001 would make those fixtures
+# less faithful, so it remains enforced in production code but not test files.
+"**/tests/**" = ["RUF001"]
+"**/test_*.py" = ["RUF001"]
+"**/*_test.py" = ["RUF001"]
+"**/conftest.py" = ["RUF001"]
 # `assert` is the point of a test, and both scripts below are test code: one is
 # a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
 # Developer tooling (repo scripts, backend scripts, test harnesses) also shells

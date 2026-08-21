@@ -548,7 +548,7 @@ def _append_subscription_user_count_line(msgs: list[str]) -> None:
         .distinct()
         .count()
     )
-    msgs.append(f"订阅用户数：{subscription_user_count}")
+    msgs.append(f"订阅用户数：{subscription_user_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 
 def _build_billing_paid_feishu_message(
@@ -570,24 +570,24 @@ def _build_billing_paid_feishu_message(
     )
 
     msgs = [
-        "手机号：{}".format(getattr(aggregate, "mobile", "")),
-        "昵称：{}".format(getattr(aggregate, "name", "")),
-        f"{product_label}：{product_name}",
-        f"实付金额：{amount_text}",
-        f"订单来源：{_resolve_feishu_channel_label(order)}",
-        f"渠道：{_resolve_user_conversion_source(order.creator_bid)}",
+        "手机号：{}".format(getattr(aggregate, "mobile", "")),  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        "昵称：{}".format(getattr(aggregate, "name", "")),  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"{product_label}：{product_name}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"实付金额：{amount_text}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"订单来源：{_resolve_feishu_channel_label(order)}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"渠道：{_resolve_user_conversion_source(order.creator_bid)}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         f"{order_type_label}-{product_name}-{amount_text}",
     ]
     if product is not None:
-        msgs.append(f"积分数量：{_format_credit_amount(product.credit_amount)}")
+        msgs.append(f"积分数量：{_format_credit_amount(product.credit_amount)}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     paid_at_text = format_with_app_timezone(
         app,
         order.paid_at,
         "%Y-%m-%d %H:%M:%S",
     )
     if paid_at_text:
-        msgs.append(f"支付时间：{paid_at_text}")
-    msgs.append(f"订单号：{order.bill_order_bid}")
+        msgs.append(f"支付时间：{paid_at_text}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"订单号：{order.bill_order_bid}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     _append_subscription_user_count_line(msgs)
     return title, msgs
 

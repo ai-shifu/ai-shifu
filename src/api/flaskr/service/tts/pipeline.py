@@ -74,7 +74,7 @@ _AV_LATEX_BLOCK = AV_LATEX_BLOCK
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
-_DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
+_DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 _AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "template"}
 

@@ -210,34 +210,34 @@ def send_order_feishu(app: Flask, record_id: str):
     }
     title = "购买课程通知"
     msgs = []
-    msgs.append(f"手机号：{aggregate.mobile}")
-    msgs.append(f"昵称：{aggregate.name}")
-    msgs.append(f"课程名称：{shifu_info.title}")
-    msgs.append(f"实付金额：{order_info.price}")
+    msgs.append(f"手机号：{aggregate.mobile}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"昵称：{aggregate.name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"课程名称：{shifu_info.title}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"实付金额：{order_info.price}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     channel = getattr(order_info, "payment_channel", "") or ""
     source_label = channel_labels.get(channel, channel or "未知")
-    msgs.append(f"订单来源：{source_label}")
+    msgs.append(f"订单来源：{source_label}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
     ).first()
     channel = ""
     if user_convertion:
         channel = user_convertion.conversion_source
-    msgs.append(f"渠道：{channel}")
+    msgs.append(f"渠道：{channel}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     for item in order_info.price_item:
         msgs.append(f"{item.name}-{item.price_name}-{item.price}")
         if item.is_discount:
-            msgs.append(f"优惠码：{item.discount_code}")
+            msgs.append(f"优惠码：{item.discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_count = UserEntity.query.filter(
         UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
     ).count()
-    msgs.append(f"总付费用户数：{user_count}")
+    msgs.append(f"总付费用户数：{user_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_reg_count = UserEntity.query.filter(
         UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
     ).count()
-    msgs.append(f"总注册用户数：{user_reg_count}")
+    msgs.append(f"总注册用户数：{user_reg_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
-    msgs.append(f"总访客数：{user_total_count}")
+    msgs.append(f"总访客数：{user_total_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     send_notify(app, title, msgs)
 
 
@@ -250,10 +250,10 @@ def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
     )
     title = "取消课程授权通知"
     msgs = [
-        f"用户标识：{user_identify}",
-        f"课程名称：{shifu_info.title if shifu_info else order.shifu_bid}",
-        f"订单号：{order_bid}",
-        "来源：Open API",
+        f"用户标识：{user_identify}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"课程名称：{shifu_info.title if shifu_info else order.shifu_bid}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"订单号：{order_bid}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        "来源：Open API",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     ]
     send_notify(app, title, msgs)
 

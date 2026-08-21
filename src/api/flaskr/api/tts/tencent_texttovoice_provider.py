@@ -73,7 +73,7 @@ _LARGE_MODEL_SAMPLE_RATE = 24000
 # cap at 140 to keep a safety margin below the documented limit.
 _SEGMENT_WEIGHT_LIMIT = 140.0
 _NON_CJK_CHAR_WEIGHT = 0.3
-_TERMINAL_PUNCTUATION = "。！？!?；;\n"
+_TERMINAL_PUNCTUATION = "。！？!?；;\n"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 
 def _texttovoice_voice(
