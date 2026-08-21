@@ -1,5 +1,4 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
-import { LIKE_STATUS } from '@/c-api/studyV2';
 import {
   buildVisiblePreviewItems,
   shouldEnablePreviewTypewriter,
@@ -30,7 +29,6 @@ describe('previewTypewriterGate', () => {
         generated_block_bid: 'text-1-feedback',
         parent_element_bid: 'text-1',
         parent_block_bid: 'text-1',
-        like_status: LIKE_STATUS.NONE,
         type: ChatContentItemType.LIKE_STATUS,
       },
       buildContentItem({
@@ -83,7 +81,6 @@ describe('previewTypewriterGate', () => {
         generated_block_bid: 'html-1-feedback',
         parent_element_bid: 'html-1',
         parent_block_bid: 'html-1',
-        like_status: LIKE_STATUS.NONE,
         type: ChatContentItemType.LIKE_STATUS,
       },
       buildContentItem({

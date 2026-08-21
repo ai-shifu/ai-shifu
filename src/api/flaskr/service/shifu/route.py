@@ -1165,7 +1165,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     @ShifuTokenValidation(ShifuPermission.EDIT)
     @with_shifu_context()
     def update_chapter_order_api(shifu_bid: str):
-        """Update chapter order reset the chapter order to the order of the chapter ids.
+        """Update chapter order.
+
+        Reset the chapter order to the order of the chapter IDs.
 
         ---
         tags:

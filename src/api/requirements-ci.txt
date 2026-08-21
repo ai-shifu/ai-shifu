@@ -1,0 +1,5 @@
+# Keep testmon's recorded package environment stable across CI runs.
+-r requirements.txt
+coverage==7.15.4
+pip==26.2.1
+pytest-testmon==2.2.0
