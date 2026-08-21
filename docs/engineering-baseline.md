@@ -373,7 +373,6 @@ content. Do not wrap the summary across source lines; line length is formatter
 owned. In Flasgger route docstrings, keep the `---` YAML separator after that
 blank line and run the Swagger-docstring parser regression test rather than
 suppressing the rule or reindenting the specification.
-
 Adopt or remove exceptions one rule unit at a time. A rule unit is normally
 one Ruff code; combine codes only when they report the same construct and have
 the same fix and exception boundary. Base each rule PR on the preceding rule

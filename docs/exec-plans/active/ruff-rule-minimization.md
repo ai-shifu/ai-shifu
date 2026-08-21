@@ -260,7 +260,6 @@ three pre-existing invalid specifications. The focused suite passes 11 tests,
 the full backend suite passes 3,010 tests with 17 skips, and the repository-wide
 pre-commit gate passes. Future agents now have an explicit D205 and Flasgger
 repair contract in the engineering baseline.
-
 ## Context and Orientation
 
 Start with these files:
