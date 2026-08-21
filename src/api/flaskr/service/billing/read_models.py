@@ -25,7 +25,12 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import (
+    NAIVE_DATETIME_MAX,
+    NAIVE_DATETIME_MIN,
+    now_utc,
+    parse_naive_utc,
+)
 from sqlalchemy import case, or_, select
 
 from .bucket_categories import (
@@ -198,7 +203,7 @@ def _parse_stat_date(value: str) -> datetime.date | None:
     if not normalized_value:
         return None
     try:
-        return datetime.strptime(normalized_value, "%Y-%m-%d").date()
+        return parse_naive_utc(normalized_value, "%Y-%m-%d").date()
     except ValueError:
         return None
 
@@ -753,8 +758,8 @@ def _wallet_bucket_view_sort_key(
     return (
         resolve_credit_bucket_priority(allocation_view.runtime_bucket_category),
         row.effective_to is None,
-        row.effective_to or datetime.max,
-        row.created_at or datetime.min,
+        row.effective_to or NAIVE_DATETIME_MAX,
+        row.created_at or NAIVE_DATETIME_MIN,
         int(row.id or 0),
     )
 

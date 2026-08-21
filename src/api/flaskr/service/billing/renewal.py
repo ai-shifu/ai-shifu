@@ -9,7 +9,7 @@ from typing import Any
 from flask import Flask
 from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 
 from .checkout import sync_billing_order
 from .consts import (
@@ -757,8 +757,8 @@ def _load_primary_paid_renewal_order_for_cycle(
             else 1,
             0 if _is_preorder_order(row) else 1,
             1 if _is_paid_referral_invitation_renewal(row) else 0,
-            row.paid_at or row.created_at or datetime.min,
-            row.created_at or datetime.min,
+            row.paid_at or row.created_at or NAIVE_DATETIME_MIN,
+            row.created_at or NAIVE_DATETIME_MIN,
             row.id,
         )
     )

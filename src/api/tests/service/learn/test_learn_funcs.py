@@ -4,7 +4,6 @@ import unittest
 import unittest.mock
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 
 # Provide a lightweight Redis stub if the dependency is missing in the test env.
 try:
@@ -19,21 +18,6 @@ except ImportError:  # pragma: no cover - optional dependency
     sys.modules["redis"] = redis_stub
 
 from flaskr import dao
-
-# Ensure SQLAlchemy is available for model declarations.
-if dao.db is None:
-    _test_app = Flask("test-learn-funcs")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
-
 from flaskr.service.learn.const import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.learn.context_v2 import (
     BlockType as MarkdownFlowBlockType,

@@ -11,7 +11,7 @@ from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.dtos import resolve_demo_course_for_language
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, parse_naive_utc
 from sqlalchemy.exc import IntegrityError
 
 ONBOARDING_VERSION = "v1"
@@ -71,7 +71,7 @@ def _parse_rollout_threshold(value: Any) -> datetime | None:
             continue
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(text, fmt)
+            return parse_naive_utc(text, fmt)
         except ValueError:
             continue
     return None

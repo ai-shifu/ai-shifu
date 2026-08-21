@@ -400,7 +400,7 @@ def _summary_row_to_dict(summary_row: Any) -> dict[str, Any]:
             "unique_wallets": 0,
             "time_range": [None, None],
         }
-    mapping = summary_row._mapping  # noqa: SLF001 — SQLAlchemy public-ish API
+    mapping = summary_row._mapping  # SQLAlchemy public-ish API
     total_records = int(mapping.get("total_records") or 0)
     total_credits = _coerce_value(mapping.get("total_credits") or 0)
     unique_users = int(mapping.get("unique_users") or 0)

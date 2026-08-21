@@ -479,9 +479,9 @@ def create_default_outlines_for_new_shifu(
         normalized_chapter_name,
         UNIT_TYPE_GUEST,
         None,
-        False,
-        now_time,
-        chapter_bid,
+        is_hidden=False,
+        now_time=now_time,
+        outline_bid=chapter_bid,
         persist_history=False,
     )
     lesson = __insert_outline_locked(
@@ -492,9 +492,9 @@ def create_default_outlines_for_new_shifu(
         normalized_lesson_name,
         UNIT_TYPE_GUEST,
         None,
-        False,
-        now_time,
-        lesson_bid,
+        is_hidden=False,
+        now_time=now_time,
+        outline_bid=lesson_bid,
         persist_history=False,
     )
     outline_items = load_existing_outline_items(shifu_id)

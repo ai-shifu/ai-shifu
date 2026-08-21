@@ -212,7 +212,7 @@ def _best_effort_password_login_user(app: Flask):
 
     try:
         return validate_user(app, str(token))
-    except Exception:  # noqa: BLE001 - stale login tokens must not block recovery
+    except Exception:  # stale login tokens must not block recovery
         return None
 
 
@@ -569,6 +569,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("captcha_code")
         return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
 
+    # Flasgger parses `parameters:` below as a YAML key. D405 would capitalize
+    # the key and remove the OpenAPI field, D406 would remove its colon, and
+    # D407 would insert a dashed underline; each fix breaks the published API
+    # specification.
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -617,7 +621,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             400:
                 description: parameter error
 
-        """
+        """  # noqa: D405, D406, D407
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         _apply_request_language(payload)

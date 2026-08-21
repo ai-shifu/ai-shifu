@@ -12,7 +12,7 @@ from flaskr.service.tts.tts_handler import upload_audio_to_oss
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 def _make_storage_app(monkeypatch, tmp_path, provider: str) -> Flask:

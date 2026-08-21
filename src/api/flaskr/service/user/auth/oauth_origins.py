@@ -78,7 +78,7 @@ def is_allowed_oauth_origin(app: Flask, origin: Any) -> bool:
 
     try:
         return _resolve_creator_bid_by_host(app, host) is not None
-    except Exception:  # noqa: BLE001 - a lookup failure must never allow an origin
+    except Exception:  # a lookup failure must never allow an origin
         return False
 
 

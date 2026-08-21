@@ -87,6 +87,7 @@ from flaskr.service.order.payment_providers import (
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
 from flaskr.util.datetime import now_utc, to_utc_iso
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
@@ -187,7 +188,7 @@ def self_managed_cycle_end_after_boundary(
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 def add_active_subscription(

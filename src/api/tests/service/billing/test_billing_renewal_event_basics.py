@@ -40,6 +40,7 @@ from flaskr.service.billing.subscriptions import (
     sync_subscription_lifecycle_events,
 )
 from flaskr.util.datetime import now_utc
+
 from tests.service.billing.renewal_execution_test_helpers import (
     create_credit_bucket,
     create_credit_wallet,

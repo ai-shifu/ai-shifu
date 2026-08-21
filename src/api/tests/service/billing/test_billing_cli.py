@@ -49,6 +49,7 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

@@ -187,7 +187,9 @@ def send_order_feishu(app: Flask, record_id: str):
             order_info.user_id,
         )
         return
-    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order_info.course_id, False)
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(
+        app, order_info.course_id, preview_mode=False
+    )
     if not shifu_info:
         return
 
@@ -236,7 +238,9 @@ def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
     order: Order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         return
-    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order.shifu_bid, False)
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(
+        app, order.shifu_bid, preview_mode=False
+    )
     title = "取消课程授权通知"
     msgs = [
         f"用户标识：{user_identify}",
@@ -372,7 +376,7 @@ def init_buy_record(
 ):
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)
-    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, preview_mode=False)
     app.logger.info(f"shifu_info: {shifu_info}")
     if not shifu_info:
         raise_error("server.shifu.courseNotFound")
@@ -448,8 +452,8 @@ def init_buy_record(
                 _("server.order.payItemProduct"),
                 _("server.order.payItemBasePrice"),
                 buy_record.payable_price,
-                False,
-                None,
+                is_discount=False,
+                discount_code=None,
             )
         )
         if campaign_applications:
@@ -458,8 +462,8 @@ def init_buy_record(
                     _("server.order.payItemPromotion"),
                     campaign_application.promo_name,
                     campaign_application.discount_amount,
-                    True,
-                    None,
+                    is_discount=True,
+                    discount_code=None,
                 )
                 for campaign_application in campaign_applications
             )
@@ -534,7 +538,9 @@ def generate_charge(
         creator_bid = get_shifu_creator_bid(app, buy_record.shifu_bid) or ""
         set_shifu_context(buy_record.shifu_bid, creator_bid)
         buy_record.creator_bid = creator_bid
-        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
+        shifu_info: LearnShifuInfoDTO = get_shifu_info(
+            app, buy_record.shifu_bid, preview_mode=False
+        )
         if not shifu_info:
             raise_error("server.shifu.shifuNotFound")
         app.logger.info(f"buy record found:{buy_record}")
@@ -2034,8 +2040,8 @@ def _supplement_promo_discount_items(
                 _("server.order.payItemPromotion"),
                 promo_name,
                 item_discount,
-                True,
-                None,
+                is_discount=True,
+                discount_code=None,
             )
         )
         current_discount_value += item_discount
@@ -2061,8 +2067,8 @@ def calculate_discount_value(
                     _("server.order.payItemPromotion"),
                     campaign_application.promo_name,
                     campaign_application.discount_amount,
-                    True,
-                    None,
+                    is_discount=True,
+                    discount_code=None,
                 )
             )
     if discount_records is not None and len(discount_records) > 0:
@@ -2083,8 +2089,8 @@ def calculate_discount_value(
                         _("server.order.payItemCoupon"),
                         _resolve_coupon_display_name(discount),
                         discount.value,
-                        True,
-                        discount.code,
+                        is_discount=True,
+                        discount_code=discount.code,
                     )
                 )
     discount_value = min(discount_value, price)
@@ -2104,13 +2110,13 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     _("server.order.payItemProduct"),
                     _("server.order.payItemBasePrice"),
                     buy_record.payable_price,
-                    False,
-                    None,
+                    is_discount=False,
+                    discount_code=None,
                 )
             )
             if buy_record.payable_price > 0:
                 campaign_applications = query_promo_campaign_applications(
-                    app, record_id, False
+                    app, record_id, recalc_discount=False
                 )
                 discount_records = CouponUsageModel.query.filter(
                     CouponUsageModel.order_bid == record_id

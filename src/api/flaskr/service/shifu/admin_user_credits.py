@@ -126,7 +126,7 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import case, not_, or_
 
 
@@ -891,7 +891,7 @@ def _load_active_subscription_end_map(
         sort_key = (
             row.product_sort_order if row.product_sort_order is not None else -1,
             row.current_period_end_at,
-            row.created_at or datetime.min,
+            row.created_at or NAIVE_DATETIME_MIN,
             row.id,
         )
         current = best_by_creator.get(row.creator_bid)

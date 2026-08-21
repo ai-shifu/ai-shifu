@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 
 ## Completed
 

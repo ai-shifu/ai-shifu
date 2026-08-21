@@ -63,7 +63,7 @@ from flaskr.service.promo.models import (
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, parse_naive_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import and_, case, func, not_, or_
 
@@ -111,7 +111,7 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
         raise_param_error(field_name)
     # Date-only filters fill the day bounds (UTC wall-clock day).
     try:
-        date_only = datetime.strptime(normalized, "%Y-%m-%d")
+        date_only = parse_naive_utc(normalized, "%Y-%m-%d")
     except ValueError:
         date_only = None
     if date_only is not None:
@@ -128,7 +128,7 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
     except ValueError:
         for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
             try:
-                parsed = datetime.strptime(candidate, fmt)
+                parsed = parse_naive_utc(candidate, fmt)
                 break
             except ValueError:
                 continue

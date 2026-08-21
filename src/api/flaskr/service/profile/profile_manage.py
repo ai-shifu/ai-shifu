@@ -259,7 +259,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 legacy_scope,
                 _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
                 legacy_item["profile_id"],
-                False,
+                is_hidden=False,
             )
 
         profile_id = generate_id(app)
@@ -343,7 +343,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             legacy_scope,
             _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
             profile_id,
-            False,
+            is_hidden=False,
         )
 
     existing = (

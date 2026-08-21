@@ -4,7 +4,7 @@ from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.learn.ask_provider_adapters import AskProviderError
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 
-_PREVIEW_TOKEN = "preview-token"  # noqa: S105 - stub session token, `validate_user` is mocked
+_PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocked
 
 
 class _FakeObservation:

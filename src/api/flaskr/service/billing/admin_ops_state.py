@@ -51,9 +51,9 @@ def update_admin_billing_config_status(
 @contextmanager
 def _admin_ops_lock(key: str) -> Iterator[None]:
     try:
-        from flaskr import dao
+        from flaskr.dao import get_redis_client
 
-        redis = getattr(dao, "redis_client", None)
+        redis = get_redis_client()
         lock = (
             None
             if redis is None

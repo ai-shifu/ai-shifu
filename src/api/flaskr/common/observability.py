@@ -53,7 +53,7 @@ def init_observability(app: Flask) -> Flask:
     health_path = app.config.get(
         "INTERNAL_OBSERVABILITY_HEALTH_PATH", "/internal/observability/health"
     )
-    traces_enabled = _bool_config(app, "OBSERVABILITY_TRACES_ENABLED", False)
+    traces_enabled = _bool_config(app, "OBSERVABILITY_TRACES_ENABLED", default=False)
     sample_rate = _float_config(app, "OTEL_TRACE_SAMPLE_RATE", 1.0)
 
     if traces_enabled:

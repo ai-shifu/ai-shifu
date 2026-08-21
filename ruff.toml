@@ -59,6 +59,11 @@ select = [
     "ICN",     # import naming conventions
     "INT",     # gettext calls with f-strings
     "SLOT",    # subclasses of str/tuple/namedtuple without __slots__
+    # INP001 requires an __init__.py next to importable modules, so a package
+    # is never an implicit namespace package. Files loaded by path rather than
+    # imported (entrypoints, operator scripts, Alembic revisions, fixtures)
+    # are exempt below.
+    "INP",     # implicit namespace packages
     "YTT",     # sys.version checks that break on two-digit versions
     "EXE",     # shebang vs executable-bit consistency
     "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
@@ -71,12 +76,15 @@ select = [
     "ERA001",  # commented-out code
 
     # --- Datetime / UTC contract -----------------------------------------
-    # Partial on purpose. The repo's UTC contract (AGENTS.md) stores naive-UTC
-    # datetimes and provides `now_utc()` as the sanctioned naive "now", so the
-    # rules demanding tz-aware values everywhere (DTZ001/DTZ007/DTZ901) fight
-    # the convention and are ignored below. What stays enabled are the calls
-    # whose result depends on the process time zone (now()/today()/utcnow()/
-    # fromtimestamp() without tz) -- exactly the drifts the contract forbids.
+    # Almost complete. The repo's UTC contract (AGENTS.md) stores naive-UTC
+    # datetimes, so the sanctioned naive constructors are centralized in
+    # `flaskr/util/datetime.py` -- `now_utc()` for "now", `parse_naive_utc()`
+    # for inbound strings, `NAIVE_DATETIME_MIN/MAX` for sort sentinels -- and
+    # everything else is enforced: the calls whose result depends on the
+    # process time zone (now()/today()/utcnow()/fromtimestamp() without tz)
+    # plus DTZ007/DTZ901, which now only pass through that one module. DTZ001
+    # stays ignored below: naive `datetime(...)` literals are the storage
+    # format itself.
     "DTZ",
 
     # --- Logging ----------------------------------------------------------
@@ -98,7 +106,7 @@ select = [
     # --- Pylint subsets ---------------------------------------------------
     "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
     "PLC",     # pylint conventions (PLC0415 ignored below)
-    "PLW",     # pylint warnings (PLW0603 ignored below)
+    "PLW",     # pylint warnings
     # PLR is partial: the complexity/magic-value members have thousands of
     # violations, so only the mechanical ones are listed.
     "PLR01",   # comparison with itself / of two constants
@@ -166,6 +174,16 @@ select = [
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+
+    # --- Boolean arguments ------------------------------------------------
+    # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
+    # signatures of stable service helpers and DTO constructors, which is a
+    # separate project. FBT003 only asks the caller to name the flag, so
+    # `get_shifu_info(app, bid, preview_mode=False)` says which of the two
+    # code paths it takes. Third-party APIs that only accept the flag
+    # positionally (SQLAlchemy, the MySQL DBAPI `ping`, `socket.setblocking`,
+    # `monkeypatch.setitem`) carry an inline noqa.
+    "FBT003",  # boolean positional value in a call
     # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below
     # (they would push third-party imports behind TYPE_CHECKING, where runtime
     # annotation resolution then fails); the rest have no violations and catch
@@ -181,15 +199,19 @@ select = [
     "D",
 
     # --- Modernization ----------------------------------------------------
-    # UP040/UP046/UP047 (PEP 695 type parameters) are ignored below.
+    # UP040/UP046/UP047 remain selected through the UP prefix but stay dormant
+    # while the repository supports Python 3.11; Ruff will activate them with
+    # Python 3.12.
     # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
     # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
     # of their public surface and carry a file-level `# ruff: noqa: UP035`.
     "UP",
 
     # --- Ruff-native rules ------------------------------------------------
-    # RUF001 (ambiguous unicode in a string) and RUF100 are ignored
-    # below.
+    # RUF001 (ambiguous unicode in a string) is ignored below.
+    # RUF100 is enforced, so a `# noqa` may only name a rule this file
+    # selects: reasons for exceptions to non-selected rules (BLE001,
+    # DTZ001, SLF001) are written as plain comments instead.
     "RUF",
 ]
 ignore = [
@@ -206,39 +228,18 @@ ignore = [
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D205",    # summary wrapped over two lines -- 260 prose rewrites, deferred
     "D213",    # summary on the second line -- conflicts with D212
-    # D405 / D406 / D407: route docstrings carry the flasgger/Swagger spec
-    # after a `---` line, and these rules read YAML keys such as `parameters:`
-    # as numpydoc section headers. Their fixes strip the colon and insert a
-    # dashed underline, turning the embedded spec into invalid YAML.
-    "D405",
-    "D406",
-    "D407",
     # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
     # breaks anything that resolves annotations at runtime, which for this repo
     # means the SQLAlchemy mappers and pydantic models (~230 hits).
     "TC002",
     "TC003",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
-    "DTZ007",  # naive strptime() -- naive UTC is the house convention
-    "DTZ901",  # datetime.min/max -- naive UTC is the house convention
     "G004",    # f-string logging -- house style, and rewriting it is churn
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
-    "PLW0603", # global statement -- used by module-level singletons/caches
+    # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
+    # revisions and boundary-check fixtures that are loaded by path rather
+    # than imported.
     "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
-    # RUF100: with a partial select list, ruff reports deliberate `# noqa:
-    # BLE001 / DTZ001 / SLF001` markers as unused simply because those
-    # rules are off here, so enforcing it would delete documentation of
-    # intentional exceptions. Stale directives are pruned by hand instead.
-    "RUF100",
-    # UP040 / UP046 / UP047: PEP 695 type-parameter syntax (`type`, `class T`,
-    # `def T`). target-version is py311, which currently suppresses them; if
-    # the target later moves to py312+, ruff would start reporting them and
-    # `ruff check --fix` would leave their unsafe fixes unapplied, so CI would
-    # fail. The rewrite can also change TypeVar variance. Defer until the
-    # runtime is Python 3.12+.
-    "UP040",
-    "UP046",
-    "UP047",
 ]
 
 [lint.per-file-ignores]
@@ -250,6 +251,22 @@ ignore = [
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
 "src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607", "T20"]
+# `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
+# by path and never imported, so making `src/api` a package would only shadow
+# the top-level `flaskr` import path. `src/api/scripts` is a real package
+# instead (`tests/scripts` imports from it), so INP001 stays enforced there.
+"src/api/app.py" = ["INP001"]
+"src/api/celery_app.py" = ["INP001"]
+"src/api/gunicorn.conf.py" = ["INP001"]
+# Alembic loads `env.py` and every revision by file path, and packaging them
+# would break `alembic` revision discovery.
+"src/api/migrations/**" = ["INP001"]
+# This applied no-op revision keeps a legacy `NOTE:` section in its module
+# docstring. Migration history is immutable, so D405 is scoped to this file.
+"src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
+# These trees are input fixtures for check_architecture_boundaries.py, not
+# importable code.
+"scripts/testdata/**" = ["INP001"]
 # These suites bind SQLAlchemy model classes and session factories to local
 # names, where the CapWords spelling is the point.
 "src/api/tests/service/shifu/test_archive.py" = ["N806"]

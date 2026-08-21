@@ -39,6 +39,7 @@ from flaskr.service.billing.read_models import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

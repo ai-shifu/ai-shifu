@@ -38,9 +38,8 @@ if not _test_db_uri:
     _test_db_path = _test_db_dir / "test.db"
     _test_db_uri = f"sqlite:///{_test_db_path}"
 
-from flask_sqlalchemy import SQLAlchemy
 from flaskr import dao
-from flaskr.framework.plugin import plugin_manager as plugin_manager_module
+from flaskr.framework.plugin.plugin_manager import set_plugin_manager
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.ext.compiler import compiles
 
@@ -64,7 +63,7 @@ class _TestPluginManager:
         return None
 
 
-plugin_manager_module.plugin_manager = _TestPluginManager()
+set_plugin_manager(_TestPluginManager())
 
 
 @compiles(LONGTEXT, "sqlite")
@@ -76,9 +75,6 @@ def _compile_longtext_sqlite(_type, _compiler, **_kw):
 def _compile_bigint_sqlite(_type, _compiler, **_kw):
     return "INTEGER"
 
-
-if dao.db is None:
-    dao.db = SQLAlchemy()
 
 import contextlib
 
@@ -179,7 +175,7 @@ def mock_redis_client(monkeypatch, request):
     # test_funcs.py uses its own `@patch` decorators for fine-grained Redis control.
     if "service/config/test_funcs.py" in request.node.nodeid:
         return fake_redis
-    monkeypatch.setattr(dao, "redis_client", fake_redis, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
     module_paths = [
         "flaskr.service.user.phone_flow",
@@ -241,11 +237,12 @@ def isolate_env_for_non_app_tests(request):
     # reflects per-test env changes.
     from flaskr.common import config as config_module
 
+    original_config_instance = config_module.Config._instance
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
     with contextlib.suppress(Exception):
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
+        if config_module.Config._instance is not None:
+            config_module.Config._instance.enhanced._cache.clear()
     yield
     for key, value in original.items():
         if value is None:
@@ -256,5 +253,6 @@ def isolate_env_for_non_app_tests(request):
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
     with contextlib.suppress(Exception):
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
+        if config_module.Config._instance is not None:
+            config_module.Config._instance.enhanced._cache.clear()
+    config_module.Config._instance = original_config_instance

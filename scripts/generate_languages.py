@@ -37,7 +37,7 @@ def main() -> int:
     if LOCALES_FILE.exists():
         try:
             locales_meta = read_json(LOCALES_FILE)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"Failed to parse {LOCALES_FILE}: {exc}")
             return 1
     else:

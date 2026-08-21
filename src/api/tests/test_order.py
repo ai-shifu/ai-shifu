@@ -31,7 +31,7 @@ def test_init_buy_record_creates_order(app, monkeypatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("100.00")),
+        lambda _app, _bid, preview_mode: SimpleNamespace(price=Decimal("100.00")),
     )
     monkeypatch.setattr(
         order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
@@ -60,7 +60,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeyp
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("100.00")),
+        lambda _app, _bid, preview_mode: SimpleNamespace(price=Decimal("100.00")),
     )
 
     promo_application = SimpleNamespace(
@@ -75,7 +75,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeyp
             return []
         return [promo_application]
 
-    def fake_query_promo_campaign_applications(_app, _order_id, _recalc_discount):
+    def fake_query_promo_campaign_applications(_app, _order_id, recalc_discount):
         if apply_calls["count"] >= 2:
             return [promo_application]
         return []
@@ -118,7 +118,7 @@ def test_init_buy_record_reactivates_voided_promo_redemption(app, monkeypatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("500.00")),
+        lambda _app, _bid, preview_mode: SimpleNamespace(price=Decimal("500.00")),
     )
 
     now = now_utc()
@@ -186,7 +186,7 @@ def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("500.00")),
+        lambda _app, _bid, preview_mode: SimpleNamespace(price=Decimal("500.00")),
     )
 
     now = now_utc()
@@ -279,7 +279,7 @@ def test_init_buy_record_refresh_keeps_existing_coupon_discount(app, monkeypatch
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("500.00")),
+        lambda _app, _bid, preview_mode: SimpleNamespace(price=Decimal("500.00")),
     )
 
     promo_application = SimpleNamespace(
@@ -295,7 +295,7 @@ def test_init_buy_record_refresh_keeps_existing_coupon_discount(app, monkeypatch
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, _recalc_discount: [promo_application],
+        lambda _app, _order_id, recalc_discount: [promo_application],
     )
 
     with app.app_context():

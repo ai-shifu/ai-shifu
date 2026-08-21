@@ -19,6 +19,7 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.util.datetime import now_utc
+
 from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_event,
     create_renewal_subscription,

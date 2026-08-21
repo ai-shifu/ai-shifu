@@ -45,6 +45,7 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
+from flaskr.util.datetime import NAIVE_DATETIME_MIN
 
 
 def _load_course_related_user_bids(
@@ -434,10 +435,10 @@ def get_operator_course_users(
             items_with_sort_keys.append(
                 (
                     (
-                        last_learning_at or datetime.min,
-                        joined_at or datetime.min,
-                        last_login_at or datetime.min,
-                        getattr(user, "created_at", None) or datetime.min,
+                        last_learning_at or NAIVE_DATETIME_MIN,
+                        joined_at or NAIVE_DATETIME_MIN,
+                        last_login_at or NAIVE_DATETIME_MIN,
+                        getattr(user, "created_at", None) or NAIVE_DATETIME_MIN,
                         user_bid,
                     ),
                     dto,

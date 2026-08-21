@@ -9,7 +9,7 @@ from typing import Protocol
 
 from flask import Flask
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 
 from .bucket_categories import resolve_credit_bucket_priority
 from .consts import (
@@ -85,7 +85,7 @@ def _normalize_utc_datetime(value: datetime) -> datetime:
 
 def _datetime_sort_value(value: datetime | None) -> datetime:
     if value is None:
-        return datetime.min
+        return NAIVE_DATETIME_MIN
     return _normalize_utc_datetime(value)
 
 

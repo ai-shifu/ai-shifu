@@ -58,7 +58,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import and_, case, literal, not_, or_
 from sqlalchemy.orm import defer
 
@@ -1320,13 +1320,13 @@ def _list_operator_courses_legacy(
         merged_courses = [
             course
             for course in merged_courses
-            if (resolve_updated_at(course) or datetime.min) >= updated_start_time
+            if (resolve_updated_at(course) or NAIVE_DATETIME_MIN) >= updated_start_time
         ]
     if updated_end_time:
         merged_courses = [
             course
             for course in merged_courses
-            if (resolve_updated_at(course) or datetime.min) <= updated_end_time
+            if (resolve_updated_at(course) or NAIVE_DATETIME_MIN) <= updated_end_time
         ]
     if quick_filter:
         if quick_filter == COURSE_QUICK_FILTER_DRAFT:
@@ -1377,8 +1377,8 @@ def _list_operator_courses_legacy(
     merged_courses = sorted(
         merged_courses,
         key=lambda item: (
-            resolve_updated_at(item) or datetime.min,
-            item.created_at or datetime.min,
+            resolve_updated_at(item) or NAIVE_DATETIME_MIN,
+            item.created_at or NAIVE_DATETIME_MIN,
             item.shifu_bid or "",
         ),
         reverse=True,
