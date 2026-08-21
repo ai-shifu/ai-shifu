@@ -611,6 +611,7 @@ def backfill_learn_generated_elements_for_progress(
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> MdflowElementBackfillStats:
+    """Backfill learn generated elements for progress."""
     progress_record = _load_progress_record(progress_record_bid)
     try:
         stats = _process_progress_record(
@@ -639,6 +640,7 @@ def backfill_learn_generated_elements_batch(
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> MdflowElementBackfillBatchStats:
+    """Backfill learn generated elements batch."""
     batch_stats = MdflowElementBackfillBatchStats(dry_run=dry_run)
     progress_records = _load_progress_records(
         progress_record_bids=progress_record_bids,

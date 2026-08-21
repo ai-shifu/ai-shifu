@@ -160,6 +160,7 @@ def build_texttovoice_tc3_headers(
     secret_key: str,
     timestamp: int | None = None,
 ) -> dict[str, str]:
+    """Build texttovoice TC3 headers."""
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
         request_timestamp,

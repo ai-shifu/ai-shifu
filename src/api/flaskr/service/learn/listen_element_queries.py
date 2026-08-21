@@ -36,6 +36,7 @@ def find_follow_up_element_rows(
     progress_record_bid: str,
     anchor_element_bid: str,
 ) -> list[LearnGeneratedElement]:
+    """Find follow up element rows."""
     if not progress_record_bid or not anchor_element_bid:
         return []
     rows = (

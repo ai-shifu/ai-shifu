@@ -33,6 +33,7 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 def create_streaming_tts_processor(**kwargs: object):
+    """Create streaming TTS processor."""
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     return StreamingTTSProcessor(**kwargs)

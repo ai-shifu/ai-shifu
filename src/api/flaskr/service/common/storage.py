@@ -83,11 +83,13 @@ def _normalize_object_key(object_key: str) -> str:
 
 
 def get_local_storage_root() -> Path:
+    """Return local storage root."""
     root = (get_config("LOCAL_STORAGE_ROOT") or "storage").strip()
     return Path(root)
 
 
 def get_local_storage_path(profile: str, object_key: str) -> Path:
+    """Return local storage path."""
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 
@@ -103,6 +105,7 @@ def get_local_storage_path(profile: str, object_key: str) -> Path:
 
 
 def build_local_storage_url(profile: str, object_key: str) -> str:
+    """Build local storage URL."""
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 
@@ -189,6 +192,7 @@ def upload_to_storage(
     profile: str = OSS_PROFILE_DEFAULT,
     warm_up: bool = True,
 ) -> StorageUploadResult:
+    """Upload to storage."""
     resolved_profile = _normalize_profile(profile)
     resolved_provider = _resolve_provider(resolved_profile)
 
@@ -215,6 +219,7 @@ def read_storage_bytes(
     profile: str = OSS_PROFILE_DEFAULT,
     bucket_name: str = "",
 ) -> bytes:
+    """Read storage bytes."""
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 

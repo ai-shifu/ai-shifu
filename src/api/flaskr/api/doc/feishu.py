@@ -12,6 +12,7 @@ from flaskr.service.config import get_config
 
 
 def send_notify(app: Flask, title, msgs):
+    """Send a document-platform notification to Feishu."""
     url = get_config("FEISHU_NOTIFY_URL", None)
     if not url:
         app.logger.warning("feishu notify url not found")

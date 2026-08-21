@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 def get_speakable_text_elements(
     elements: Iterable[ElementDTO] | None,
 ) -> list[ElementDTO]:
+    """Return speakable text elements."""
     return [
         element
         for element in (elements or [])

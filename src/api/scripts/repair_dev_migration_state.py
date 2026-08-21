@@ -22,6 +22,7 @@ TARGET_INDEX = "ix_profile_item_is_hidden"
 
 
 def main() -> int:
+    """Repair local development migration state."""
     app = create_app()
     with app.app_context():
         bind = db.session.get_bind()

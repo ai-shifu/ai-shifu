@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
+_ICU_VAR_BEFORE_COMMA = re.compile(r"\{\s*([A-Za-z_][\w]*)\s*,")
+_ICU_SIMPLE_VAR = re.compile(r"\{\s*([A-Za-z_][\w]*)\s*\}")
 
 
 class TranslationError(Exception):
@@ -21,6 +23,7 @@ class TranslationError(Exception):
 
 
 def iter_locale_dirs() -> Iterable[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
         message = f"Shared translation directory not found: {I18N_DIR}"
         raise TranslationError(message)
@@ -31,6 +34,7 @@ def iter_locale_dirs() -> Iterable[Path]:
 
 
 def load_json(path: Path) -> dict:
+    """Load JSON."""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -69,6 +73,7 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
 
 
 def validate_locale_files(locale_dirs: Iterable[Path]):
+    """Validate key parity and ICU placeholders across every locale."""
     files_per_locale: dict[str, dict[str, Path]] = {}
     flattened_per_locale: dict[str, dict[str, dict[str, str]]] = {}
 
@@ -126,14 +131,11 @@ def validate_locale_files(locale_dirs: Iterable[Path]):
                 )
 
     # ICU placeholders consistency across locales for each key
-    var_before_comma = re.compile(r"\{\s*([A-Za-z_][\w]*)\s*,")
-    simple_var = re.compile(r"\{\s*([A-Za-z_][\w]*)\s*\}")
-
     def extract_placeholders(text: str) -> set[str]:
         if not isinstance(text, str):
             return set()
-        names = set(var_before_comma.findall(text))
-        names.update(simple_var.findall(text))
+        names = set(_ICU_VAR_BEFORE_COMMA.findall(text))
+        names.update(_ICU_SIMPLE_VAR.findall(text))
         return names
 
     for namespace in sorted(reference_files):
@@ -170,6 +172,7 @@ def _require_locale_dirs() -> list[Path]:
 
 
 def main() -> int:
+    """Validate every shared locale and report translation contract drift."""
     try:
         validate_locale_files(_require_locale_dirs())
     except TranslationError as error:

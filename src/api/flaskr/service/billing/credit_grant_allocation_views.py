@@ -297,6 +297,7 @@ def resolve_credit_asset_kind(
 
 
 def resolve_credit_grant_state(ledger: CreditLedgerEntry) -> CreditGrantState:
+    """Resolve credit grant state."""
     if int(ledger.entry_type or 0) != CREDIT_LEDGER_ENTRY_TYPE_GRANT:
         return "not_grant"
 

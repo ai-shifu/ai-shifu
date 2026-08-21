@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 
 def get_app_timezone(app: Flask, tz_name: str | None = None) -> ZoneInfo:
+    """Return app timezone."""
     fallback_tz_name = app.config.get("TZ", "UTC")
     candidate_tz_name = (tz_name or fallback_tz_name or "UTC").strip()
     try:
@@ -92,6 +93,7 @@ def serialize_with_app_timezone(
     dt: datetime | str | bytes | bytearray | None,
     tz_name: str | None = None,
 ) -> str | None:
+    """Serialize with app timezone."""
     dt = _coerce_datetime(app, dt)
     if dt is None:
         return None
@@ -108,6 +110,7 @@ def format_with_app_timezone(
     fmt: str,
     tz_name: str | None = None,
 ) -> str | None:
+    """Format with app timezone."""
     dt = _coerce_datetime(app, dt)
     if dt is None:
         return None

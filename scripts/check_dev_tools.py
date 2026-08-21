@@ -191,6 +191,7 @@ def _fix_lines(missing: list[Check]) -> list[str]:
 
 
 def main() -> int:
+    """Verify lefthook and every required developer tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--strict",

@@ -423,6 +423,7 @@ def get_final_elements_for_generated_block(
     shifu_bid: str = "",
     include_non_navigable: bool = False,
 ) -> list[ElementDTO]:
+    """Return final elements for generated block."""
     if not generated_block_bid:
         return []
 
@@ -710,6 +711,7 @@ def get_listen_element_record(
         ..., LegacyLearnRecord
     ] = build_legacy_record_for_progress,
 ) -> LearnElementRecordDTO:
+    """Return listen element record."""
     _ = app
     progress_records = (
         LearnProgressRecord.query.filter(

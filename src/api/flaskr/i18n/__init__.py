@@ -248,6 +248,7 @@ def _load_python_translations(app: Flask, translations_dir: Path):
 
 
 def load_translations(app: Flask, translations_dir=None):
+    """Load translations."""
     if translations_dir:
         base_path = Path(translations_dir)
         _load_json_translations(app, base_path)
@@ -268,6 +269,7 @@ def load_translations(app: Flask, translations_dir=None):
 
 
 def translate_for_language(text: str, language: str | None = None):
+    """Translate for language."""
     language = language or getattr(_thread_local, "language", "en-US")
     translations = _translations.get(language) or {}
     default_translations = _translations.get("en-US", {})
@@ -289,15 +291,18 @@ def get_current_language():
 
 
 def set_language(language):
+    """Set language."""
     _thread_local.language = language
 
 
 def clear_language():
+    """Clear language."""
     if hasattr(_thread_local, "language"):
         delattr(_thread_local, "language")
 
 
 def get_i18n_list():
+    """Return i18n list."""
     return list(_translations.keys())
 
 

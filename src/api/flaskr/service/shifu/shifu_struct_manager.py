@@ -93,6 +93,7 @@ def get_shifu_struct(
 def get_shifu_outline_tree(
     app: Flask, shifu_bid: str, is_preview: bool = False
 ) -> ShifuInfoDto:
+    """Return shifu outline tree."""
     with app.app_context():
         app.logger.info("get_shifu_outline_tree:%s", shifu_bid)
         struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)

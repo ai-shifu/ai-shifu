@@ -49,6 +49,7 @@ def sanitize_swagger_docstring(text: str) -> str:
 
 
 def parse_comments(cls):
+    """Extract field descriptions from a DTO's source comments."""
     source = inspect.getsource(cls)
     tree = ast.parse(source)
     comments = {}
@@ -83,6 +84,7 @@ def parse_comments(cls):
 
 
 def get_field_schema(typ, description: str = ""):
+    """Build the Swagger schema for an annotated DTO field."""
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
@@ -136,6 +138,7 @@ def get_field_schema(typ, description: str = ""):
 
 
 def register_schema_to_swagger(cls):
+    """Register schema to swagger."""
     if swagger_config["components"]["schemas"].get(cls.__name__, None):
         return swagger_config["components"]["schemas"].get(cls.__name__)
 

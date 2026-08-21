@@ -411,6 +411,7 @@ def handle_billing_alipay_webhook(
     app: Flask,
     payload: dict[str, Any],
 ) -> BillingWebhookResult:
+    """Handle billing alipay webhook."""
     provider = get_payment_provider("alipay")
     try:
         notification = provider.handle_notification(payload=payload, app=app)
@@ -426,6 +427,7 @@ def handle_billing_wechatpay_webhook(
     raw_body: bytes,
     headers: dict[str, str],
 ) -> BillingWebhookResult:
+    """Handle billing wechatpay webhook."""
     provider = get_payment_provider("wechatpay")
     try:
         notification = provider.verify_webhook(
@@ -444,6 +446,7 @@ def apply_billing_native_notification(
     provider: str,
     notification: PaymentNotificationResult,
 ) -> BillingWebhookResult:
+    """Apply billing native notification."""
     normalized_provider = _normalize_bid(provider)
     event_type = str(notification.status or "")
     provider_attempt_id = _normalize_bid(notification.order_bid)

@@ -53,6 +53,7 @@ def load_course_activity_map(
     *,
     include_published_outline: bool = True,
 ) -> dict[str, dict[str, Any]]:
+    """Load course activity map."""
     activity_map: dict[str, dict[str, Any]] = {}
     shifu_bids: set[str] = set()
 

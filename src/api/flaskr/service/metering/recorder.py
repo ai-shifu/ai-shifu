@@ -132,6 +132,7 @@ def record_llm_usage(
     error_message: str = "",
     extra: dict[str, Any] | None = None,
 ) -> str:
+    """Record LLM usage."""
     usage_bid = generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(
@@ -230,6 +231,7 @@ def record_tts_usage(
     extra: dict[str, Any] | None = None,
     enqueue_settlement: bool = True,
 ) -> str:
+    """Record TTS usage."""
     resolved_usage_bid = usage_bid or generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(

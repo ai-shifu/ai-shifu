@@ -61,6 +61,7 @@ from flaskr.service.billing.referral_reward_grants import (
 
 
 def is_billing_enabled(*, default: bool = False) -> bool:
+    """Return whether billing enabled."""
     try:
         return billing_primitives.is_billing_enabled(default=default)
     except TypeError:
@@ -68,14 +69,17 @@ def is_billing_enabled(*, default: bool = False) -> bool:
 
 
 def quantize_credit_amount(value, *, precision: int | None = None):
+    """Quantize credit amount."""
     return billing_primitives.quantize_credit_amount(value, precision=precision)
 
 
 def credit_decimal_to_number(value, *, precision: int | None = None):
+    """Convert a credit Decimal to an API-safe number."""
     return billing_primitives.credit_decimal_to_number(value, precision=precision)
 
 
 def to_decimal(value):
+    """Convert a value to the billing Decimal representation."""
     return billing_primitives.to_decimal(value)
 
 

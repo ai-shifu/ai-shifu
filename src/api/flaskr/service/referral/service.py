@@ -94,6 +94,7 @@ class ReferralPostAuthResult:
 
 
 def hash_referral_context(value: object) -> str:
+    """Hash referral context."""
     normalized = str(value or "").strip()
     if not normalized:
         return ""
@@ -106,6 +107,7 @@ def extract_referral_post_auth_fields(
     client_ip: object = "",
     user_agent: object = "",
 ) -> dict[str, str]:
+    """Extract referral post auth fields."""
     return {
         "invite_code": str(payload.get("invite_code") or "").strip(),
         "referral_session_id": str(payload.get("referral_session_id") or "").strip(),
@@ -161,6 +163,7 @@ def _campaign_runtime_enabled(campaign: ReferralCampaign, *, now: datetime) -> b
 
 
 def load_active_campaign(*, now: datetime | None = None) -> ReferralCampaign | None:
+    """Load active campaign."""
     resolved_now = now or now_utc()
     candidates = (
         ReferralCampaign.query.filter(
@@ -189,6 +192,7 @@ def load_campaign_by_bid(
     *,
     now: datetime | None = None,
 ) -> ReferralCampaign | None:
+    """Load campaign by BID."""
     campaign = (
         ReferralCampaign.query.filter(
             ReferralCampaign.deleted == 0,
@@ -210,6 +214,7 @@ def select_reward_rule(
     trigger_event: str = REFERRAL_TRIGGER_INVITED_REGISTRATION,
     now: datetime | None = None,
 ) -> ReferralCampaignRewardRule | None:
+    """Select reward rule."""
     resolved_now = now or now_utc()
     candidates = (
         ReferralCampaignRewardRule.query.filter(
@@ -356,6 +361,7 @@ def _normalize_origin(value: str) -> str:
 
 
 def mask_identifier_snapshot(value: str) -> str:
+    """Mask identifier snapshot."""
     raw_value = str(value or "").strip()
     if not raw_value:
         return ""
@@ -394,6 +400,7 @@ def _mask_reward_queue_mobile_snapshots(
 
 
 def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileDTO:
+    """Build invite profile."""
     with _with_app_context(app):
         normalized_inviter = str(inviter_user_bid or "").strip()
         if not normalized_inviter:
@@ -455,6 +462,7 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
 
 
 def build_invite_preview(app: Flask, *, invite_code: str) -> InvitePreviewDTO:
+    """Build invite preview."""
     with _with_app_context(app):
         normalized_code = str(invite_code or "").strip().upper()
         if not normalized_code:
@@ -500,6 +508,7 @@ def _load_invite_code(invite_code: str) -> ReferralInviteCode | None:
 
 
 def record_invite_event(app: Flask, payload: InviteEventInput) -> InviteEventResult:
+    """Record invite event."""
     with _with_app_context(app):
         event_type = str(payload.event_type or "").strip()
         if event_type not in REFERRAL_INVITE_EVENT_TYPES:
@@ -623,6 +632,7 @@ def grant_referral_plan_reward(
     *,
     reward: ReferralInviteReward,
 ) -> dict[str, Any]:
+    """Grant referral plan reward."""
     request = ReferralPlanRewardRequest(
         reward_bid=reward.reward_bid,
         inviter_user_bid=reward.inviter_user_bid,
@@ -768,6 +778,7 @@ def process_referral_post_auth(
     app: Flask,
     context: Any,
 ) -> ReferralPostAuthResult:
+    """Process referral post auth."""
     with _with_app_context(app):
         if not context.created_new_user:
             return ReferralPostAuthResult()

@@ -36,10 +36,12 @@ _ACTIVE_PREORDER_ORDER_STATUSES = {BILLING_ORDER_STATUS_PAID}
 
 
 def normalize_checkout_action(value: Any) -> str:
+    """Normalize checkout action."""
     return str(value or CHECKOUT_ACTION_UPGRADE_IMMEDIATE).strip().lower()
 
 
 def resolve_plan_tier(product: BillingProduct | None) -> int | None:
+    """Resolve plan tier."""
     if product is None:
         return None
     metadata = product.metadata_json if isinstance(product.metadata_json, dict) else {}
@@ -55,6 +57,7 @@ def resolve_plan_tier(product: BillingProduct | None) -> int | None:
 
 
 def is_preorder_order(order: BillingOrder | None) -> bool:
+    """Return whether preorder order."""
     if order is None:
         return False
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
@@ -62,6 +65,7 @@ def is_preorder_order(order: BillingOrder | None) -> bool:
 
 
 def preorder_state(order: BillingOrder | None) -> str:
+    """Return preorder state."""
     if not is_preorder_order(order):
         return ""
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
@@ -69,6 +73,7 @@ def preorder_state(order: BillingOrder | None) -> str:
 
 
 def is_active_preorder_order(order: BillingOrder | None) -> bool:
+    """Return whether active preorder order."""
     return (
         is_preorder_order(order)
         and preorder_state(order) in _ACTIVE_PREORDER_STATES
@@ -77,6 +82,7 @@ def is_active_preorder_order(order: BillingOrder | None) -> bool:
 
 
 def load_active_preorder_order(subscription_bid: str) -> BillingOrder | None:
+    """Load active preorder order."""
     normalized_subscription_bid = _normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
@@ -106,6 +112,7 @@ def build_preorder_order_metadata(
     cycle_end_at: datetime,
     checkout_started: bool = True,
 ) -> dict[str, Any]:
+    """Build preorder order metadata."""
     return _normalize_json_object(
         {
             "checkout_type": PREORDER_CHECKOUT_TYPE,
@@ -131,6 +138,7 @@ def mark_subscription_preorder_pending(
     subscription: BillingSubscription,
     order: BillingOrder,
 ) -> None:
+    """Mark subscription preorder pending."""
     metadata = (
         dict(subscription.metadata_json)
         if isinstance(subscription.metadata_json, dict)
@@ -151,6 +159,7 @@ def mark_subscription_preorder_pending(
 
 
 def clear_subscription_preorder_metadata(subscription: BillingSubscription) -> None:
+    """Clear subscription preorder metadata."""
     metadata = (
         dict(subscription.metadata_json)
         if isinstance(subscription.metadata_json, dict)
@@ -171,6 +180,7 @@ def mark_preorder_absorbed_by_upgrade(
     upgrade_order_bid: str,
     absorbed_at: datetime | None = None,
 ) -> None:
+    """Mark preorder absorbed by upgrade."""
     now = absorbed_at or now_utc()
     metadata = (
         dict(preorder_order.metadata_json)
@@ -191,6 +201,7 @@ def mark_preorder_absorbed_by_upgrade(
 
 
 def mark_preorder_effective_applied(order: BillingOrder) -> None:
+    """Mark preorder effective applied."""
     if not is_preorder_order(order):
         return
     metadata = (

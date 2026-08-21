@@ -88,6 +88,7 @@ def build_legacy_record_for_progress(
     skip_empty_content: bool = False,
     stats: Any | None = None,
 ) -> LegacyLearnRecord:
+    """Build legacy record for progress."""
     filters = [
         LearnGeneratedBlock.progress_record_bid == progress_record.progress_record_bid,
         LearnGeneratedBlock.deleted == 0,

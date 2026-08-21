@@ -1506,6 +1506,7 @@ def build_dashboard_entry(
     page_size: int = 20,
     timezone_name: str | None = None,
 ) -> DashboardEntryDTO:
+    """Build dashboard entry."""
     _ = timezone_name
 
     def _parse_optional_date(raw: str | None) -> date | None:
@@ -2052,6 +2053,7 @@ def build_dashboard_course_follow_ups(
     end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpListDTO:
+    """Build dashboard course follow ups."""
     _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2277,6 +2279,7 @@ def build_dashboard_course_follow_up_detail(
     *,
     timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpDetailDTO:
+    """Build dashboard course follow up detail."""
     _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2399,6 +2402,7 @@ def build_dashboard_course_ratings(
     end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseRatingListDTO:
+    """Build dashboard course ratings."""
     _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -2611,6 +2615,7 @@ def build_dashboard_course_learners(
     last_learning_end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseDetailLearnersDTO:
+    """Build dashboard course learners."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2644,6 +2649,7 @@ def build_dashboard_course_detail(
     *,
     timezone_name: str | None = None,
 ) -> DashboardCourseDetailDTO:
+    """Build dashboard course detail."""
     _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()

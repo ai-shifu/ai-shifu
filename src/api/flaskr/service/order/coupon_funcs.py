@@ -114,6 +114,7 @@ def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) ->
 def send_feishu_coupon_code(
     app: Flask, user_id, discount_code, discount_name, discount_value
 ):
+    """Send feishu coupon code."""
     with app.app_context():
         user_info = load_user_aggregate(user_id)
         title = "优惠码通知"

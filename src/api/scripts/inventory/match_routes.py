@@ -38,6 +38,7 @@ GREP_EXECUTABLE = str(Path(_grep_executable).resolve())
 
 
 def norm(path):
+    """Normalize a route path into comparable segments."""
     path = path.split("?")[0].rstrip("/")
     segs = []
     for s in path.split("/"):
@@ -51,6 +52,7 @@ def norm(path):
 
 
 def grep_paths(root):
+    """Return source paths reported by the route search."""
     if not Path(root).is_dir():
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
@@ -123,6 +125,7 @@ with Path(BACKEND_ROUTES).open(encoding="utf-8") as backend_routes:
 
 
 def match(be_segs, fe_segs):
+    """Return whether backend and consumer route segments match."""
     if len(be_segs) != len(fe_segs):
         return False
     return all(

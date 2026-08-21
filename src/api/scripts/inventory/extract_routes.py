@@ -44,6 +44,7 @@ results = []
 
 
 def literal(node, env):
+    """Resolve an AST expression to its route-path text."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.Name):
@@ -76,6 +77,7 @@ def config_get_default(node):
 
 
 def collect_routes(scope_body, env, rel):
+    """Collect routes."""
     for node in scope_body:
         if (
             isinstance(node, ast.Assign)

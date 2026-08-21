@@ -193,6 +193,7 @@ def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
 
 
 def get_operator_user_overview(app: Flask) -> AdminOperationUserOverviewDTO:
+    """Return operator user overview."""
     with app.app_context():
         return _build_operator_user_overview()
 
@@ -203,6 +204,7 @@ def list_operator_users(
     page_size: int,
     filters: dict | None = None,
 ) -> AdminOperationUserListDTO:
+    """Return operator users."""
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = min(
@@ -401,6 +403,7 @@ def get_operator_user_detail(
     app: Flask,
     user_bid: str,
 ) -> AdminOperationUserSummaryDTO:
+    """Return operator user detail."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         user = load_operator_user_or_raise(normalized_user_bid)

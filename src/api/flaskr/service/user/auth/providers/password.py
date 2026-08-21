@@ -187,6 +187,7 @@ def clear_password_login_identifier_failures(
     *,
     identifier: str,
 ) -> None:
+    """Clear password login identifier failures."""
     try:
         _shared_counter_cache(app).delete(_counter_key(app, "identifier", identifier))
     except (RedisError, RuntimeError):

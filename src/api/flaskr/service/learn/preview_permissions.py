@@ -110,6 +110,7 @@ def _load_demo_shifu_bids() -> set[str]:
 
 
 def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
+    """Return whether builtin demo shifu."""
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         return False

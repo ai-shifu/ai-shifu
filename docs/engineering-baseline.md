@@ -546,6 +546,22 @@ duplicate docstring makes failures harder to scan without adding information.
 Search for method-docstring introspection before bulk adoption and verify AST
 equality after removing only the new method docstrings.
 
+For `D103`, production and contributor-tool public functions document the
+result, side effect, data boundary, route group, or command-line workflow they
+own. Prefer verbs that expose the contract: `Return` or `Yield` for queries,
+`Serialize` for wire payloads, `Register` for Flask and plugin surfaces, and
+`Run` for executable tooling. A concise expansion of a precise function name is
+enough when it names the observable object or side effect; add the destination,
+source, or protocol boundary when the name alone is ambiguous. Do not add
+opaque filler that only says an operation is performed. Test functions remain
+exempt because a behavior-focused `test_*` name is their contract;
+deliberately minimal architecture fixtures follow the same rule. Applied
+Alembic revisions are immutable and retain their conventional `upgrade` /
+`downgrade` hooks without retroactive docstrings. Because function docstrings
+are runtime data, search for `__doc__` and inspection consumers, prove
+executable AST equality after removing only the new function docstrings, and
+run focused Swagger and CLI regressions when those surfaces are touched.
+
 For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
 adding `noqa`, or turning the same promise into an untracked prose comment.
 Complete the work when it is part of the current change. When it genuinely

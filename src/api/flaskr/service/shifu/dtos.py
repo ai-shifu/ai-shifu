@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
 ) -> dict[str, Any]:
+    """Resolve demo course for language."""
     from flaskr.service.shifu.demo_courses import (
         resolve_demo_course_for_language as _resolve_demo_course_for_language,
     )

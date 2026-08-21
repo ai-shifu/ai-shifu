@@ -99,6 +99,7 @@ REQUIRED_WORKFLOWS = (
 
 
 def check_ordered_headings(path: Path, text: str, errors: list[str]) -> None:
+    """Check ordered headings."""
     positions: list[int] = []
     for heading in REQUIRED_HEADINGS:
         marker = f"## {heading}"
@@ -112,6 +113,7 @@ def check_ordered_headings(path: Path, text: str, errors: list[str]) -> None:
 
 
 def check_generated_ai_docs(errors: list[str]) -> None:
+    """Check generated AI docs."""
     expected_docs = build_documents()
     for path, expected in sorted(expected_docs.items()):
         if not path.exists():
@@ -141,6 +143,7 @@ def check_generated_ai_docs(errors: list[str]) -> None:
 
 
 def check_generated_knowledge_docs(errors: list[str]) -> None:
+    """Check generated knowledge docs."""
     expected_docs = build_knowledge_docs()
     for path, expected in sorted(expected_docs.items()):
         if not path.exists():
@@ -154,6 +157,7 @@ def check_generated_knowledge_docs(errors: list[str]) -> None:
 
 
 def check_manual_agents(errors: list[str]) -> None:
+    """Check manual agents."""
     for path, markers in MANUAL_AGENTS.items():
         if not path.exists():
             errors.append(f"Missing manual AGENTS file: {path}")
@@ -170,6 +174,7 @@ def check_manual_agents(errors: list[str]) -> None:
 
 
 def check_manual_rules(errors: list[str]) -> None:
+    """Check manual rules."""
     for path, markers in MANUAL_RULES.items():
         if not path.exists():
             errors.append(f"Missing manual Claude rule: {path}")
@@ -185,6 +190,7 @@ def check_manual_rules(errors: list[str]) -> None:
 
 
 def check_root_docs(errors: list[str]) -> None:
+    """Check root docs."""
     errors.extend(
         f"Missing required root knowledge doc: {path}"
         for path in REQUIRED_ROOT_DOCS
@@ -228,6 +234,7 @@ def check_root_docs(errors: list[str]) -> None:
 
 
 def check_frontmatter_docs(errors: list[str]) -> None:
+    """Check frontmatter docs."""
     for category in ("design-docs", "product-specs"):
         for path in sorted((DOCS_ROOT / category).glob("*.md")):
             if path.name == "index.md":
@@ -241,10 +248,12 @@ def check_frontmatter_docs(errors: list[str]) -> None:
 
 
 def check_example_identifiers(errors: list[str]) -> None:
+    """Check example identifiers."""
     errors.extend(str(violation) for violation in find_identifier_violations())
 
 
 def main() -> int:
+    """Validate collaboration guidance and generated repository knowledge."""
     errors: list[str] = []
     check_generated_ai_docs(errors)
     check_generated_knowledge_docs(errors)

@@ -301,6 +301,7 @@ def get_operator_course_users(
     page_size: int,
     filters: dict | None = None,
 ) -> PageNationDTO:
+    """Return operator course users."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

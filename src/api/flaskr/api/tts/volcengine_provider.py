@@ -182,6 +182,7 @@ _VOLCENGINE_CLONED_SPEAKER_RE = re.compile(r"^S_[A-Za-z0-9_-]{4,64}$")
 
 
 def is_volcengine_cloned_speaker_id(voice_id: str) -> bool:
+    """Return whether volcengine cloned speaker ID."""
     return bool(_VOLCENGINE_CLONED_SPEAKER_RE.match((voice_id or "").strip()))
 
 

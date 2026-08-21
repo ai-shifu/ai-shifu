@@ -136,6 +136,7 @@ def load_referral_reward_summary(
     creator_bid: str,
     as_of: datetime | None = None,
 ) -> ReferralRewardSummary:
+    """Load referral reward summary."""
     with app.app_context():
         scan_at = as_of or now_utc()
         buckets = _load_active_referral_reward_buckets(

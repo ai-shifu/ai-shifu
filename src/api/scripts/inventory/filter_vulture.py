@@ -24,6 +24,7 @@ file_cache = {}
 
 
 def get_lines(path):
+    """Return cached source lines for one inventory path."""
     if path not in file_cache:
         try:
             with (Path(ROOT) / path).open(encoding="utf-8") as f:

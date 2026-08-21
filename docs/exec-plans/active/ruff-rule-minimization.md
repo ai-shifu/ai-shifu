@@ -731,6 +731,31 @@ plan's progress update for that rule.
 - [x] 2026-08-21 13:59 CST: Passed the repository harness, architecture boundary
   ratchet, pinned Ruff 0.16.3 developer-tool check, and the complete lefthook
   pre-commit suite across all files.
+- [x] 2026-08-21 14:12 CST: Ready PR #2613 passed every GitHub check, including
+  the 3,032-test backend job and runtime harness. Selected D103 as the next
+  behaviorally safe rule after classifying all 2,843 findings.
+- [x] 2026-08-21 14:44 CST: Removed the global D103 ignore and documented 735
+  production and contributor-tool functions across 187 Python files. Retained
+  narrow exceptions for 1,998 backend test functions, one unittest script
+  function, five architecture-fixture functions, and 104 immutable Alembic
+  hooks. A reversible AST audit proves the 735 docstrings are the only changes
+  in 185 files; in the other two, it also reconstructs the exact hoisted ICU
+  regex assignments and removed no-op `_sys_pay` guard before matching the
+  parent AST. All 46 Swagger YAML docstrings in touched files are byte-for-byte
+  unchanged.
+- [x] 2026-08-21 14:44 CST: D103 and configured Ruff are clean. Two docstrings
+  initially crossed PLR0915's statement threshold; hoisting the translation
+  validator's compiled ICU patterns and deleting the empty `_sys_pay` branch
+  restore PLR0915 to the parent's 128 findings. The stable census falls exactly
+  2,843 from 25,806 to 22,963; the isolated census falls by the 735 documented
+  functions from 37,728 to 36,993 and retains the 2,108 intrinsic exceptions.
+  Translation validation, four representative CLI help contracts, and 11
+  focused Swagger and legacy-learn-record tests pass.
+- [x] 2026-08-21 14:49 CST: The full backend suite passes 3,032 tests with 17
+  skips and 733 existing warnings. Regenerated collaboration mirrors and
+  repository knowledge, then passed the repository harness, architecture
+  boundary ratchet, pinned Ruff 0.16.3 developer-tool check, and every
+  repository pre-commit hook across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1220,6 +1245,19 @@ docstring does not transfer debt to PLR0915; all 31 adapter tests and the full
 D102 loses all 806 configured findings and the Coze cleanup also removes one
 PLR0912 finding. The isolated census falls by 274 to 37,728 and exposes exactly
 the 533 intentional test-method D102 findings.
+
+The D103 stage removes the global undocumented-public-function ignore while
+preserving three semantic boundaries: behavior-named tests, deliberately
+minimal architecture fixtures, and immutable Alembic history. The remaining
+735 production and contributor-tool functions across 187 files document their
+result, side effect, data boundary, route group, or command-line workflow. A
+reversible AST audit proves the additions are documentation-only in 185 files
+and reconstructs the two equivalent PLR0915 cleanups in the others; all 46
+touched Swagger YAML docstrings remain unchanged. The stable census falls by
+2,843 to 22,963, while the isolated census falls by 735 to 36,993 and exposes
+exactly the 2,108 intentional D103 findings. Translation and representative CLI
+contracts, 11 focused Swagger and legacy-record tests, the full 3,032-test
+backend suite, and every repository pre-commit hook pass.
 
 ## Context and Orientation
 

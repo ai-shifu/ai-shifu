@@ -545,6 +545,7 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
 
 
 def init_db(app: Flask):
+    """Initialize database."""
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -663,6 +664,7 @@ def init_db(app: Flask):
 
 
 def init_redis(app: Flask):
+    """Initialize Redis."""
     host = app.config.get("REDIS_HOST")
     port = app.config.get("REDIS_PORT")
 
@@ -705,6 +707,7 @@ def init_redis(app: Flask):
 
 
 def run_with_redis(app, key, timeout: int, func, args):
+    """Run with Redis."""
     with app.app_context():
         app.logger.info("run_with_redis start %s", key)
         redis_client = get_redis_client()

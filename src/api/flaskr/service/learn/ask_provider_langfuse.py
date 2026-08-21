@@ -34,6 +34,7 @@ def _is_sensitive_provider_config_key(key: str) -> bool:
 
 
 def sanitize_provider_config_for_langfuse(value: Any, key: str | None = None) -> Any:
+    """Redact provider secrets before recording configuration in Langfuse."""
     if key and _is_sensitive_provider_config_key(key):
         return "[REDACTED]"
     if isinstance(value, dict):
@@ -90,6 +91,7 @@ def stream_provider_with_langfuse(
     messages: list[dict[str, Any]],
     provider_config: dict[str, Any],
 ) -> Generator[Any, None, None]:
+    """Stream provider with langfuse."""
     generation_input = _build_provider_generation_input(
         user_query=user_query,
         messages=messages,

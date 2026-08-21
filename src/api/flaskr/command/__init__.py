@@ -33,6 +33,8 @@ def setup_migration_logging():
 
 
 def enable_commands(app: Flask):
+    """Register the application's command-line commands."""
+
     @app.cli.group()
     def console():
         """AI Shifu Console management commands."""

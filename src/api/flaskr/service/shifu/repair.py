@@ -292,6 +292,7 @@ def repair_shifu_outline_structure(
     shifu_bids: list[str] | None = None,
     dry_run: bool = False,
 ) -> OutlineStructureRepairResult:
+    """Repair shifu outline structure."""
     if not dry_run and not user_bid:
         message = "user_bid is required when dry_run is False"
         raise ValueError(message)

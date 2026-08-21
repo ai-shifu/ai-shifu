@@ -66,6 +66,7 @@ class AnalysisResult:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the SSE segmentation check."""
     parser = argparse.ArgumentParser(
         description="Check SSE segmentation against exported generate blocks."
     )
@@ -225,6 +226,7 @@ def _preview(text: str, width: int = 160) -> str:
 
 
 def main() -> int:
+    """Check captured SSE streams for segmentation regressions."""
     args = parse_args()
     input_path = Path(args.input)
     if not input_path.exists():

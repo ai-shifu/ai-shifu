@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 
 def coerce_operator_datetime(value: Any) -> datetime | None:
+    """Coerce operator datetime."""
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -46,6 +47,7 @@ def coerce_operator_datetime(value: Any) -> datetime | None:
 
 
 def format_operator_datetime(value: Any) -> str:
+    """Format operator datetime."""
     normalized_value = coerce_operator_datetime(value)
     if not normalized_value:
         return ""
@@ -58,6 +60,7 @@ def format_operator_datetime(value: Any) -> str:
 
 
 def load_operator_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
+    """Load operator user map."""
     if not user_bids:
         return {}
 

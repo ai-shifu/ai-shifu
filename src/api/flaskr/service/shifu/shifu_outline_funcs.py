@@ -116,6 +116,7 @@ def load_existing_outline_items(
 def build_outline_tree_from_items(
     app, outline_items: list[DraftOutlineItem]
 ) -> list[ShifuOutlineTreeNode]:
+    """Build outline tree from items."""
     sorted_items = sorted(outline_items, key=lambda x: (len(x.position), x.position))
     outline_tree = []
 
@@ -524,6 +525,7 @@ def create_default_outlines_for_new_shifu(
 def build_outline_history_tree_from_outlines(
     outlines: list[DraftOutlineItem],
 ) -> list[HistoryItem]:
+    """Build outline history tree from outlines."""
     outline_children_map: dict[str, list[DraftOutlineItem]] = {}
     for outline in outlines:
         parent_bid = str(outline.parent_bid or "").strip()

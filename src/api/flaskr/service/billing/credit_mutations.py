@@ -34,6 +34,7 @@ class CreditMutationResult:
 
 
 def reserved_grant_state(grant_entry: CreditLedgerEntry) -> str:
+    """Return reserved grant state."""
     metadata = normalize_json_object(grant_entry.metadata_json)
     return str(metadata.get("bucket_credit_state") or "").strip().lower()
 

@@ -387,6 +387,7 @@ def build_tencent_sse_payload(
     audio_settings: AudioSettings,
     model: str | None = None,
 ) -> dict[str, Any]:
+    """Build tencent SSE payload."""
     voice_id = _normalize_tencent_voice_id(
         getattr(voice_settings, "voice_id", "") or TENCENT_DEFAULT_VOICE_ID
     )
@@ -423,6 +424,7 @@ def build_tencent_sse_payload(
 
 
 def encode_tencent_sse_payload(payload: dict[str, Any]) -> str:
+    """Encode tencent SSE payload."""
     return json.dumps(
         payload,
         ensure_ascii=False,
@@ -446,6 +448,7 @@ def build_tencent_tc3_headers(
     secret_key: str,
     timestamp: int | None = None,
 ) -> dict[str, str]:
+    """Build tencent TC3 headers."""
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
         request_timestamp,
@@ -507,6 +510,7 @@ def _contains_cjk(text: str) -> bool:
 
 
 def ensure_tencent_terminal_punctuation(text: str) -> str:
+    """Ensure tencent terminal punctuation."""
     normalized = str(text or "").strip()
     if not normalized:
         return normalized
@@ -827,6 +831,7 @@ def normalize_tencent_subtitle_cues(
     position: int = 0,
     source_text: str = "",
 ) -> list[dict[str, Any]]:
+    """Normalize tencent subtitle cues."""
     cues: list[dict[str, Any]] = []
     seen_cue_keys: set[tuple[str, int, int, int | None, int | None]] = set()
     for raw_item in list(subtitles or []):
@@ -1070,6 +1075,7 @@ def parse_tencent_sse_message(
     *,
     request_text: str,
 ) -> TencentSSEStreamChunk | None:
+    """Parse tencent SSE message."""
     message = _unwrap_tencent_sse_payload(payload)
     error_payload = _get_first_present(message, "Error", "error")
     message_type = str(

@@ -984,6 +984,7 @@ def get_operator_course_credit_usages(
     page_size: int,
     filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageListDTO:
+    """Return operator course credit usages."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -1309,6 +1310,7 @@ def get_operator_course_credit_usage_details(
     page_size: int,
     filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageDetailListDTO:
+    """Return operator course credit usage details."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

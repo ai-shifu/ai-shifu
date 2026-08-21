@@ -56,6 +56,8 @@ def _extract_params():
 
 
 def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the open API routes on the Flask application."""
+
     @app.route(path_prefix + "/order/query", methods=["POST"])
     @bypass_token_validation
     @require_api_key

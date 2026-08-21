@@ -19,6 +19,7 @@ CJK = re.compile(r"[\u4E00-\u9FFF]")
 
 
 def main() -> int:
+    """Reject hardcoded Chinese user-facing text in backend source."""
     if not BACKEND.exists():
         return 0
 

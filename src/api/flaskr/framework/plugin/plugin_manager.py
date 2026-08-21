@@ -117,12 +117,14 @@ def set_plugin_manager(manager: PluginManager | None) -> None:
 
 
 def enable_plugin_manager(app: Flask):
+    """Enable plugin manager."""
     app.logger.info("enable_plugin_manager")
     set_plugin_manager(PluginManager(app))
     return app
 
 
 def disable_plugin_manager(app: Flask):
+    """Disable plugin manager."""
     app.logger.info("disable_plugin_manager")
     manager = get_plugin_manager()
     if manager:
@@ -133,6 +135,8 @@ def disable_plugin_manager(app: Flask):
 
 # extensible decorator
 def extension(target_func_name):
+    """Decorate a function with registered extension callbacks."""
+
     def decorator(func):
         manager = get_plugin_manager()
         if manager is None:
@@ -145,6 +149,8 @@ def extension(target_func_name):
 
 
 def extensible_generic_register(func_name):
+    """Register a generic extension point."""
+
     def decorator(func):
         manager = get_plugin_manager()
         if manager is None:
@@ -158,6 +164,8 @@ def extensible_generic_register(func_name):
 
 # extensible decorator
 def extensible(func):
+    """Decorate a function as an extension point."""
+
     @wraps(func)
     def wrapper(*args: object, **kwargs: object):
         result = func(*args, **kwargs)
@@ -171,6 +179,7 @@ def extensible(func):
 
 # extensible_generic decorator
 def extensible_generic(func):
+    """Decorate a generic function as an extension point."""
     try:
         from flask import current_app, has_app_context
 

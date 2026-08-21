@@ -16,6 +16,7 @@ LOCALES_FILE = I18N_DIR / "locales.json"
 
 
 def collect_json_files(dir_path: Path) -> list[Path]:
+    """Collect JSON files."""
     files: list[Path] = []
     for entry in sorted(dir_path.rglob("*.json")):
         # Ignore hidden files/dirs
@@ -26,10 +27,12 @@ def collect_json_files(dir_path: Path) -> list[Path]:
 
 
 def read_json(path: Path):
+    """Read JSON."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def main() -> int:
+    """Regenerate the shared language catalog from locale files."""
     if not I18N_DIR.exists():
         print(f"Shared i18n directory not found: {I18N_DIR}")
         return 1

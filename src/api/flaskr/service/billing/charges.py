@@ -186,6 +186,7 @@ def build_usage_metric_charges(
     *,
     settlement_at: datetime,
 ) -> list[UsageMetricCharge]:
+    """Build usage metric charges."""
     usage_type = int(usage.usage_type or 0)
     if usage_type == BILL_USAGE_TYPE_LLM:
         return [
@@ -276,6 +277,7 @@ def build_metric_charge(
     rate_cache: dict[tuple[int, str, str, int, int, datetime], CreditUsageRate | None]
     | None = None,
 ) -> UsageMetricCharge | None:
+    """Build metric charge."""
     if raw_amount <= 0:
         return None
     rate = _load_usage_rate_cached(
@@ -313,6 +315,7 @@ def load_usage_rate(
     billing_metric: int,
     settlement_at: datetime,
 ) -> CreditUsageRate | None:
+    """Load usage rate."""
     provider = str(usage.provider or "").strip()
     model = str(usage.model or "").strip()
     model_candidates = [model] if model else [""]
@@ -390,6 +393,7 @@ def resolve_credit_multiplier_label(
     rate_cache: dict[tuple[int, str, str, int, int, datetime], CreditUsageRate | None]
     | None = None,
 ) -> str | None:
+    """Resolve credit multiplier label."""
     metrics = billing_metrics or _USAGE_TYPE_RATE_METRICS.get(int(usage_type or 0), ())
     if not metrics:
         return None
@@ -447,6 +451,7 @@ def round_usage_units(
     unit_size: int,
     rounding_mode: int,
 ) -> Decimal:
+    """Round usage units."""
     normalized_unit_size = max(int(unit_size or 1), 1)
     quotient = Decimal(str(raw_amount)) / Decimal(str(normalized_unit_size))
     if rounding_mode == CREDIT_ROUNDING_MODE_FLOOR:
@@ -462,6 +467,7 @@ def build_usage_entry_metadata(
     charges: list[UsageMetricCharge],
     bucket_breakdown: list[UsageBucketBreakdownItem] | None = None,
 ) -> UsageEntryMetadata:
+    """Build usage entry metadata."""
     return UsageEntryMetadata(
         usage_bid=usage.usage_bid,
         usage_record_id=int(usage.id or 0),

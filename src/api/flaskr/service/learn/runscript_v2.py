@@ -534,6 +534,7 @@ def run_script_inner(
 
 
 def fmt(o):
+    """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime):
         return to_utc_iso(o)
     return o.__json__()
@@ -694,6 +695,7 @@ def run_script(
     shifu_context_snapshot: dict[str, Any] | None = None,
     language: str | None = None,
 ) -> Generator[str, None, None]:
+    """Run script."""
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
     lock_retry_count = 5
@@ -1076,6 +1078,7 @@ def get_run_status(
     outline_bid: str,
     user_bid: str,
 ) -> RunStatusDTO:
+    """Return run status."""
     _ = shifu_bid
     started_at = _get_run_script_started_at(app, user_bid, outline_bid)
     if started_at is None:

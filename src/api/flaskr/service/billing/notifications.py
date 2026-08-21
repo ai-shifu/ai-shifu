@@ -117,6 +117,7 @@ def _supports_subscription_purchase_sms(order: BillingOrder | None) -> bool:
 
 
 def load_creator_mobile_snapshot(creator_bid: str) -> str:
+    """Load creator mobile snapshot."""
     aggregate = load_user_aggregate(_normalize_bid(creator_bid))
     return _normalize_bid(getattr(aggregate, "mobile", ""))
 

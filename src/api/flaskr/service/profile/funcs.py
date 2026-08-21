@@ -138,6 +138,7 @@ def check_text_content(
     user_id: str,
     user_input: str,
 ):
+    """Check text content."""
     check_id = generate_id(app)
     res = check_text(app, check_id, user_input, user_id)
     add_risk_control_result(
@@ -155,6 +156,7 @@ def check_text_content(
 
 
 def get_profile_labels():
+    """Return profile labels."""
     return {
         "sys_user_nickname": {
             "label": _("server.profile.nickname"),
@@ -209,6 +211,7 @@ def get_profile_labels():
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:
+    """Persist user profiles."""
     profile_labels = get_profile_labels()
     app.logger.info("save user profiles:%s", profiles)
     aggregate = _ensure_user_aggregate(user_id)
@@ -492,6 +495,7 @@ def update_user_profile_with_lable(
     update_all: bool = False,
     course_id: str | None = None,
 ):
+    """Update user profile with lable."""
     app.logger.info("update user profile with lable:%s", course_id)
     profile_labels = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):

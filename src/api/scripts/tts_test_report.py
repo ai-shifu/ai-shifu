@@ -307,6 +307,7 @@ def _render_markdown(rows: list[ReportRow], *, output_path: str) -> str:
 
 
 def main():
+    """Generate the TTS comparison report from captured audio."""
     parser = argparse.ArgumentParser(description="Generate TTS provider HTML report")
     parser.add_argument(
         "--output",

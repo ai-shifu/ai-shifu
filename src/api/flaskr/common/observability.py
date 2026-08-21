@@ -48,6 +48,7 @@ def _float_config(app: Flask, key: str, default: float) -> float:
 
 
 def init_observability(app: Flask) -> Flask:
+    """Register metrics, health checks, and request tracing."""
     if getattr(app, "_ai_shifu_observability_initialized", False):
         return app
 
@@ -171,6 +172,7 @@ def record_credit_notification_event(
     status: str = "",
     count: int = 1,
 ) -> None:
+    """Record credit notification event."""
     try:
         CREDIT_NOTIFICATION_EVENTS.labels(
             str(event or "unknown"),
@@ -206,6 +208,7 @@ def _record_request_metrics(status_code: int) -> float:
 
 
 def current_trace_ids() -> tuple[str, str]:
+    """Return the active request and observation trace IDs."""
     span = trace.get_current_span()
     if span is None:
         return "-", "-"
@@ -216,6 +219,7 @@ def current_trace_ids() -> tuple[str, str]:
 
 
 def set_thread_local_trace_ids() -> tuple[str, str]:
+    """Set thread local trace IDs."""
     trace_id, span_id = current_trace_ids()
     thread_local.trace_id = trace_id
     thread_local.span_id = span_id

@@ -2,6 +2,7 @@
 
 
 def register_route(app):
+    """Register every API route group on the Flask application."""
     from flaskr.service.referral.routes import register_referral_routes
 
     from .callback import register_callback_handler

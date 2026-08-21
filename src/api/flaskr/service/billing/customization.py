@@ -160,6 +160,7 @@ class ProviderCredentialContext:
 
 
 def is_creator_customization_enabled() -> bool:
+    """Return whether creator customization enabled."""
     return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", default=False))
 
 
@@ -169,6 +170,7 @@ def build_creator_customization(
     *,
     force_enabled: bool = False,
 ) -> dict[str, Any]:
+    """Build creator customization."""
     creator_bid = normalize_bid(creator_bid)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
@@ -195,6 +197,7 @@ def build_admin_creator_customization_draft(
     creator_bid: str = "",
     creator_mobile: str = "",
 ) -> dict[str, Any]:
+    """Build admin creator customization draft."""
     owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
@@ -219,6 +222,7 @@ def save_admin_creator_customization_draft(
     creator_mobile: str = "",
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Persist admin creator customization draft."""
     owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
@@ -250,6 +254,7 @@ def clear_admin_creator_customization_draft(
     creator_bid: str = "",
     creator_mobile: str = "",
 ) -> None:
+    """Clear admin creator customization draft."""
     if not normalize_bid(creator_bid) and not str(creator_mobile or "").strip():
         return
     owner_bid, draft_key = _admin_draft_storage_identity(
@@ -275,6 +280,7 @@ def upload_admin_creator_draft_logo(
     file: FileStorage,
     target: str = "wide",
 ) -> str:
+    """Upload admin creator draft logo."""
     owner_bid = _admin_draft_owner_bid(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
@@ -299,6 +305,7 @@ def build_customization_capabilities(
     *,
     force_enabled: bool = False,
 ) -> dict[str, bool]:
+    """Build customization capabilities."""
     enabled = force_enabled or is_creator_customization_enabled()
     return {
         "branding": enabled and bool(entitlement.branding_enabled),
@@ -348,6 +355,7 @@ def save_creator_branding(
     *,
     allow_when_customization_disabled: bool = False,
 ) -> dict[str, str]:
+    """Persist creator branding."""
     creator_bid = normalize_bid(creator_bid)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
@@ -418,6 +426,7 @@ def save_creator_integration(
     *,
     allow_when_customization_disabled: bool = False,
 ) -> dict[str, Any]:
+    """Persist creator integration."""
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
@@ -467,6 +476,7 @@ def save_creator_integration(
 def verify_creator_integration(
     app: Flask, creator_bid: str, provider: str, integration_bid: str = ""
 ) -> dict[str, Any]:
+    """Verify creator integration."""
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
@@ -515,6 +525,7 @@ def verify_creator_integration(
 def disable_creator_integration(
     app: Flask, creator_bid: str, provider: str
 ) -> dict[str, Any]:
+    """Disable creator integration."""
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
@@ -538,6 +549,7 @@ def disable_creator_integration(
 
 
 def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
+    """Resolve creator branding."""
     funcs = _saas_funcs(required=False)
     if funcs is None:
         return _resolve_entitlement_branding(creator_bid)
@@ -581,6 +593,7 @@ def _resolve_entitlement_branding(creator_bid: str) -> dict[str, str]:
 
 
 def resolve_creator_public_integrations(creator_bid: str) -> dict[str, dict[str, Any]]:
+    """Resolve creator public integrations."""
     result = {}
     for provider in INTEGRATION_PROVIDERS:
         record = _load_active_record(creator_bid, provider)
@@ -597,6 +610,7 @@ def resolve_provider_credential_context(
     integration_bid: str = "",
     callback_token: str = "",
 ) -> ProviderCredentialContext | None:
+    """Resolve provider credential context."""
     with app.app_context():
         if callback_token:
             integration_bid = _verify_callback_token(app, callback_token)
@@ -655,6 +669,7 @@ def _has_any_active_payment_integration(creator_bid: str) -> bool:
 def build_provider_config_overrides(
     context: ProviderCredentialContext,
 ) -> dict[str, Any]:
+    """Build provider config overrides."""
     mapping = _PROVIDER_CONFIG_KEYS[context.provider]
     values: dict[str, Any] = {}
     for section, source in (

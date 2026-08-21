@@ -51,6 +51,7 @@ def build_tts_preview_response(
     request_user_id: str = "",
     request_user_is_creator: bool = False,
 ) -> Response:
+    """Build TTS preview response."""
     app = current_app._get_current_object()
     payload = json_data or {}
     provider_name = (payload.get("provider") or "").strip().lower()

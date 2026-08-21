@@ -26,10 +26,13 @@ COOK_WEB_DIR = ROOT / "src" / "cook-web"
 
 
 def load_json(path: Path):
+    """Load JSON."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def flatten_translation(data, namespace: str) -> dict[str, str]:
+    """Flatten translation."""
+
     def _flatten(obj, prefix: str, acc: dict[str, str]):
         if isinstance(obj, dict):
             flat_section = obj.get("__flat__")
@@ -102,6 +105,7 @@ def collect_defined_keys() -> tuple[dict[str, Path], set[str]]:
 
 
 def load_metadata_namespaces() -> set[str]:
+    """Load metadata namespaces."""
     meta_path = I18N_DIR / "locales.json"
     if not meta_path.exists():
         return set()
@@ -123,6 +127,7 @@ BACKEND_PATTERNS = [
 
 
 def collect_frontend_keys() -> set[str]:
+    """Collect frontend keys."""
     used: set[str] = set()
     extensions = {".ts", ".tsx", ".js", ".jsx"}
     if not COOK_WEB_DIR.exists():
@@ -141,6 +146,7 @@ def collect_frontend_keys() -> set[str]:
 
 
 def collect_backend_keys() -> set[str]:
+    """Collect backend keys."""
     used: set[str] = set()
     for path in BACKEND_DIR.rglob("*.py"):
         try:
@@ -154,6 +160,7 @@ def collect_backend_keys() -> set[str]:
 
 
 def set_nested(obj: dict, segments: list[str], value: str) -> None:
+    """Set nested."""
     cur = obj
     for seg in segments[:-1]:
         if not isinstance(cur.get(seg), dict):
@@ -166,6 +173,7 @@ def set_nested(obj: dict, segments: list[str], value: str) -> None:
 
 def prune_unused(obj: dict, valid: set[str], prefix: str) -> dict:
     # Remove keys whose full path (prefix.path) not in valid
+    """Prune unused."""
     if not isinstance(obj, dict):
         return obj
     out: dict = {}
@@ -185,6 +193,7 @@ def prune_unused(obj: dict, valid: set[str], prefix: str) -> dict:
 
 
 def main() -> int:
+    """Synchronize translation keys across shared locales."""
     parser = argparse.ArgumentParser(
         description="Update shared i18n JSON based on usage across api and cook-web."
     )

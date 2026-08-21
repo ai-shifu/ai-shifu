@@ -990,8 +990,10 @@ def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
 
 
 def archive_shifu(app, user_id: str, shifu_id: str):
+    """Archive shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=True)
 
 
 def unarchive_shifu(app, user_id: str, shifu_id: str):
+    """Restore shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=False)

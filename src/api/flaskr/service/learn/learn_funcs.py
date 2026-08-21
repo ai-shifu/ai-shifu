@@ -249,6 +249,7 @@ def _has_next_outline_item(
 
 
 def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifuInfoDTO:
+    """Return shifu info."""
     with app.app_context():
         model = DraftShifu if preview_mode else PublishedShifu
         shifu = (
@@ -276,6 +277,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
 def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
+    """Return outline item tree."""
     with app.app_context():
         outline_type_map = {
             UNIT_TYPE_VALUE_TRIAL: OutlineType.TRIAL,
@@ -469,6 +471,7 @@ def get_outline_item_tree(
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
 ) -> LegacyLearnRecord:
+    """Rebuild the learner's legacy record from persisted progress."""
     with app.app_context():
         is_paid = preview_mode
         if not is_paid:
@@ -515,8 +518,6 @@ def get_learn_record(
                     and len(parsed_interaction.get("buttons")) > 0
                 ):
                     for button in parsed_interaction.get("buttons"):
-                        if button.get("value") == "_sys_pay":
-                            pass
                         if button.get("value") == "_sys_login" and bool(
                             request.user.mobile
                         ):
@@ -641,6 +642,7 @@ def get_learn_record(
 def reset_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
 ) -> bool:
+    """Reset learn record."""
     with app.app_context():
         progress_records = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
@@ -659,6 +661,7 @@ def reset_learn_record(
 def handle_reaction(
     app: Flask, shifu_bid: str, user_bid: str, generated_block_bid: str, action: str
 ) -> bool:
+    """Persist a learner's reaction to one generated block."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
@@ -688,6 +691,7 @@ def get_generated_content(
     user_bid: str,
     preview_mode: bool,
 ) -> GeneratedInfoDTO:
+    """Return generated content."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
@@ -1569,6 +1573,7 @@ def stream_generated_block_audio(
     preview_mode: bool,
     listen: bool = False,
 ):
+    """Stream generated block audio."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
@@ -1959,6 +1964,7 @@ def stream_preview_tts_audio(
     text: str,
     preview_mode: bool,
 ):
+    """Stream preview TTS audio."""
     with app.app_context():
         provider, tts_model, voice_settings, audio_settings = (
             _resolve_shifu_tts_settings(

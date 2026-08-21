@@ -235,10 +235,6 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    # D1xx (except D100, D101, D102, D104, D105 and D107, which are enforced):
-    # ~2.9k undocumented functions. Writing them is a codebase project, not a
-    # lint config change.
-    "D103",    # undocumented public function
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D213",    # summary on the second line -- conflicts with D212
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
@@ -256,9 +252,11 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
 # Developer tooling resolves executable paths for S607 and audits each S603
 # argument boundary at its call.
-# Test suites are also full of literal fake passwords, tokens and secret keys
-# for fixtures and negative cases, which is what S105/S106 flag.
-"src/api/tests/**" = ["D102", "S101", "S105", "S106"]
+# Test names are the behavior contract for public test functions and methods;
+# duplicate docstrings make failure output harder to scan. Test suites are also
+# full of literal fake passwords, tokens and secret keys for fixtures and
+# negative cases, which is what S105/S106 flag.
+"src/api/tests/**" = ["D102", "D103", "S101", "S105", "S106"]
 # `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
 # by path and never imported, so making `src/api` a package would only shadow
 # the top-level `flaskr` import path. `src/api/scripts` is a real package
@@ -267,15 +265,16 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "src/api/celery_app.py" = ["INP001"]
 "src/api/gunicorn.conf.py" = ["INP001"]
 # Alembic loads `env.py` and every revision by file path, and packaging them
-# would break `alembic` revision discovery.
-"src/api/migrations/**" = ["INP001"]
+# would break `alembic` revision discovery. Applied migration history is also
+# immutable, so its standard `upgrade` / `downgrade` hooks retain D103.
+"src/api/migrations/**" = ["D103", "INP001"]
 # This applied no-op revision keeps a legacy `NOTE:` section in its module
 # docstring. Migration history is immutable, so D405 is scoped to this file.
 "src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
 # These trees are input fixtures for check_architecture_boundaries.py, not
-# importable code.
-"scripts/testdata/**" = ["INP001"]
-"scripts/test_*.py" = ["D102", "S101"]
+# importable code. Their deliberately minimal functions model boundary inputs.
+"scripts/testdata/**" = ["D103", "INP001"]
+"scripts/test_*.py" = ["D102", "D103", "S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
 # These applied Alembic revisions are immutable history: their backfill
 # statements interpolate table names and cannot be rewritten after deployment.
