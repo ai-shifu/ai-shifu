@@ -303,7 +303,7 @@ class StripeProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
-        """Synchronize local state from a provider reference."""
+        """Retrieve and normalize Stripe state for local state application."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type in {"checkout_session", "session", "payment"}:
             session = self.retrieve_checkout_session(
