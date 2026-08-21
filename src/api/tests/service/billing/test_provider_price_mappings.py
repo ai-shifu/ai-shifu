@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
-from flask import Flask
 from flaskr.dao import db
+
+if TYPE_CHECKING:
+    from flask import Flask
 from flaskr.service.billing.consts import (
     BILLING_INTERVAL_MONTH,
     BILLING_MODE_RECURRING,
