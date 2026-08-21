@@ -451,6 +451,54 @@ def test_password_reset_clears_identifier_failure_limit(
     assert login_body["code"] == 0
 
 
+def test_first_password_clears_identifier_failure_limit(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Restore password access after verified first-time password setup."""
+    phone = "15500002226"
+    password = "Abcd1234"
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IP_FAILURE_LIMIT",
+        _TEST_IP_FAILURE_LIMIT,
+    )
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+
+    for wrong_password in ("wrong-one", "wrong-two"):
+        _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": phone, "password": wrong_password},
+        )
+
+    created, created_body = _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": password},
+        headers={"Token": user_token.token},
+    )
+    assert created.status_code == _HTTP_OK
+    assert created_body["code"] == 0
+
+    login, login_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert login.status_code == _HTTP_OK
+    assert login_body["code"] == 0
+
+
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
