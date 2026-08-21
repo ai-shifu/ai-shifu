@@ -462,7 +462,6 @@ four findings to 29,964 across 33 rules without transferring debt. Future
 agents are directed to complete security work, prove rollout exit conditions,
 or move genuinely future work into the owning ExecPlan or issue rather than
 hiding it through comment wording or lint suppression.
-
 ## Context and Orientation
 
 Start with these files:

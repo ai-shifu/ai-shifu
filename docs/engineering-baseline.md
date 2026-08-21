@@ -408,7 +408,6 @@ leave only a present-tense invariant or compatibility reason beside the code.
 Security gaps and rollout checkpoints require behavior-specific evidence:
 implement the missing guard, or prove the compatibility exit condition and
 delete the expired branch. A lint-only wording change is not resolution.
-
 For `TC002` and `TC003`, move a third-party or standard-library import into an
 `if TYPE_CHECKING:` block only after confirming every use is an annotation that
 Python does not need to resolve at runtime. Postponed annotations are the
