@@ -43,7 +43,7 @@ def _patch_config_store(monkeypatch):
 def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
     redis = _TrackingRedis()
     store = _patch_config_store(monkeypatch)
-    monkeypatch.setattr(dao._redis_state, "client", redis)
+    monkeypatch.setattr(dao, "redis_client", redis, raising=False)
 
     admin_ops_state.update_admin_billing_config_status(
         app,

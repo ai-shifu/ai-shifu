@@ -64,9 +64,9 @@ def _admission_key(app: Flask, *, user_id: str) -> str:
 
 
 def _redis_client():
-    from flaskr.dao import get_redis_client
+    from flaskr.dao import redis_client
 
-    return get_redis_client()
+    return redis_client
 
 
 def _acquire_redis_admission(*, key: str, token: str) -> _AdmissionLease | None:

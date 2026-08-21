@@ -196,9 +196,8 @@ def _get_ask_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
 def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
     """Try to acquire an ask semaphore slot. Returns True if slot acquired."""
     try:
-        from flaskr.dao import get_redis_client
+        from flaskr.dao import redis_client
 
-        redis_client = get_redis_client()
         if redis_client is None:
             return True  # fail open when Redis is unavailable
         result = redis_client.eval(
@@ -222,9 +221,8 @@ def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
 def _ask_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
     """Release an ask semaphore slot."""
     try:
-        from flaskr.dao import get_redis_client
+        from flaskr.dao import redis_client
 
-        redis_client = get_redis_client()
         if redis_client is None:
             return
         redis_client.eval(
