@@ -2760,5 +2760,39 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
         assert all("?[" not in m["content"] for m in transformed)
 
 
+class TraceSessionBindingTests(unittest.TestCase):
+    """Cover the langfuse session id binding of a runtime step."""
+
+    def _context(self, trace):
+        ctx = _make_context()
+        ctx.app = MagicMock()
+        ctx._trace = trace
+        ctx._trace_id = "f" * 32
+        ctx._trace_args = {"user_id": "user-1", "metadata": {"scene": "lesson_runtime"}}
+        ctx._trace_root_span = None
+        ctx._current_attend = MagicMock(progress_record_bid="progress-1")
+        ctx._outline_item_info = MagicMock(bid="outline-1", shifu_bid="shifu-1")
+        return ctx
+
+    def test_binding_pushes_the_session_id_to_langfuse_immediately(self):
+        # The SDK carries trace attributes on every observation, so a session id
+        # that only reaches langfuse at finalize time would be missing from all
+        # observations of the step.
+        trace = _FakeLangfuseTrace()
+        ctx = self._context(trace)
+
+        ctx._bind_trace_session()
+
+        assert ctx._trace_args["session_id"] == "progress-1"
+        assert trace.updated == {"session_id": "progress-1"}
+
+    def test_binding_without_a_trace_does_not_raise(self):
+        ctx = self._context(None)
+
+        ctx._bind_trace_session()
+
+        assert ctx._trace_args["session_id"] == "progress-1"
+
+
 if __name__ == "__main__":
     unittest.main()

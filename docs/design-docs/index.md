@@ -21,7 +21,7 @@ Implementation and architecture decisions that shape repository behavior live he
 - [Creator Brand Domain And Payments](../design-docs/creator-brand-domain-payments.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-07-12` | Canonical: `true`
 - [Langfuse Trace Association](../design-docs/langfuse-trace-association.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-08-17` | Canonical: `true`
 - [MiniMax Voice Cloning](../design-docs/minimax-voice-cloning.md)
   - Status: `proposed` | Owner: `shared` | Last reviewed: `2026-06-18` | Canonical: `true`
 - [Primary Surface Rules Completion](../design-docs/primary-surface-rules.md)

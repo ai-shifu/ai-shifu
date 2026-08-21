@@ -22,6 +22,7 @@ from flaskr.api.langfuse import (
     get_request_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
+    update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.common.cache_provider import cache as cache_provider
@@ -2282,6 +2283,14 @@ class RunScriptContextV2:
             self._trace_root_span = None
         self._trace_args.setdefault("metadata", {})
         self._trace_args["session_id"] = self._current_attend.progress_record_bid
+        # The SDK replicates trace attributes onto every observation instead of
+        # keeping a mutable trace record, and only observations started after an
+        # attribute is bound carry it. Push the session id now so the spans and
+        # generations of this step are attributed to the session; leaving it to
+        # the finalize update would reach the root observation only.
+        trace = getattr(self, "_trace", None)
+        if trace is not None:
+            update_langfuse_trace(trace, session_id=self._trace_args["session_id"])
         self.app.logger.info(
             "langfuse runtime trace session bound | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
             self._trace_id,
