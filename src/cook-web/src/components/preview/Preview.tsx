@@ -24,11 +24,13 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const { currentNode, currentShifu, actions } = useShifu();
   const currentUser = useUserStore(state => state.userInfo);
   const currentUserId = currentUser?.user_bid || currentUser?.user_id || '';
-  const isCourseOwner = Boolean(
-    currentShifu?.created_user_bid &&
-    currentUserId &&
-    currentShifu.created_user_bid === currentUserId,
-  );
+  const isCourseOwner = currentUser
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentUserId &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
   const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
     previewMode: true,
     isCurrentUserCourseOwner: isCourseOwner,
@@ -38,14 +40,17 @@ const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugBlockedByCredits =
-    isCourseOwner && billingEnabled && billingOverview?.debug_allowed === false;
+    isCourseOwner === true &&
+    billingEnabled &&
+    billingOverview?.debug_allowed === false;
   const debugAllowed =
-    !isCourseOwner ||
-    !billingEnabled ||
-    billingOverview?.debug_allowed === true;
+    isCourseOwner !== null &&
+    (!isCourseOwner ||
+      !billingEnabled ||
+      billingOverview?.debug_allowed === true);
 
   const handleStartPreview = async () => {
-    if (loading) {
+    if (loading || creditInsufficientAudience === null) {
       return;
     }
     if (debugBlockedByCredits) {

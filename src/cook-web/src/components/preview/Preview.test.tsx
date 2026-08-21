@@ -22,10 +22,11 @@ const mockCurrentShifu = {
   readonly: false,
   created_user_bid: 'user-1',
 };
-const mockUserInfo = {
+const ownerUserInfo = {
   user_bid: 'user-1',
   user_id: 'user-1',
 };
+let mockUserInfo: typeof ownerUserInfo | null = ownerUserInfo;
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -45,13 +46,16 @@ jest.mock('@/lib/creditInsufficientToast', () => ({
     isCurrentUserCourseOwner,
   }: {
     previewMode: boolean;
-    isCurrentUserCourseOwner: boolean;
-  }) =>
-    previewMode
-      ? isCurrentUserCourseOwner
-        ? 'teacher'
-        : 'teacher-collaborator'
-      : 'learner',
+    isCurrentUserCourseOwner: boolean | null;
+  }) => {
+    if (!previewMode) {
+      return 'learner';
+    }
+    if (isCurrentUserCourseOwner === null) {
+      return null;
+    }
+    return isCurrentUserCourseOwner ? 'teacher' : 'teacher-collaborator';
+  },
   showCreditInsufficientToast: jest.fn(),
 }));
 
@@ -70,7 +74,7 @@ jest.mock('@/store', () => ({
     },
   }),
   useUserStore: (
-    selector: (state: { userInfo: typeof mockUserInfo }) => unknown,
+    selector: (state: { userInfo: typeof ownerUserInfo | null }) => unknown,
   ) => selector({ userInfo: mockUserInfo }),
 }));
 
@@ -94,8 +98,7 @@ describe('PreviewSettingsModal', () => {
     (showCreditInsufficientToast as jest.Mock).mockReset();
     mockCurrentNode.depth = 1;
     mockCurrentShifu.created_user_bid = 'user-1';
-    mockUserInfo.user_bid = 'user-1';
-    mockUserInfo.user_id = 'user-1';
+    mockUserInfo = ownerUserInfo;
   });
 
   it('shows a permanent purchase toast when billing softlimit blocks debug', async () => {
@@ -136,6 +139,30 @@ describe('PreviewSettingsModal', () => {
         name: /module.preview.previewAll/,
       }),
     ).toBeDisabled();
+  });
+
+  it('keeps preview disabled until the current user profile resolves', async () => {
+    mockUserInfo = null;
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        debug_allowed: true,
+      },
+    });
+
+    render(<PreviewSettingsModal />);
+
+    const previewButton = screen.getByRole('button', {
+      name: /module.preview.previewAll/,
+    });
+    expect(previewButton).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(previewButton);
+    });
+
+    expect(mockSaveMdflow).not.toHaveBeenCalled();
+    expect(api.previewShifu).not.toHaveBeenCalled();
+    expect(showCreditInsufficientToast).not.toHaveBeenCalled();
   });
 
   it('starts preview when debug is allowed', async () => {
