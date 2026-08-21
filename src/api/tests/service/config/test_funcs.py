@@ -60,7 +60,7 @@ def disable_explicit_env_override(monkeypatch):
     """Default test posture: config helpers should read/write DB-backed values."""
     monkeypatch.setattr(
         "flaskr.service.config.funcs.has_explicit_env_override",
-        lambda key: False,
+        lambda _key: False,
     )
 
 
@@ -189,7 +189,7 @@ def build_runtime_branding():
         "build_google_oauth_callback_url",
         lambda: "https://app.example.com/login/google-callback",
     )
-    monkeypatch.setattr(config_route, "get_config", lambda key, default="": default)
+    monkeypatch.setattr(config_route, "get_config", lambda _key, default="": default)
     monkeypatch.setattr(config_route, "is_billing_enabled", lambda: True)
 
     runtime_billing_context = RuntimeBillingContextDTO(
@@ -214,15 +214,28 @@ def build_runtime_branding():
             creator_bid="creator-plugin",
         ),
     )
+
+    def build_runtime_context(
+        flask_app: object,
+        creator_bid: str,
+        request_host: str,
+    ) -> object:
+        del flask_app, creator_bid, request_host
+        return runtime_billing_context
+
+    def build_default_runtime_context(creator_bid: str, request_host: str) -> object:
+        del creator_bid, request_host
+        return runtime_billing_context
+
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda flask_app, creator_bid, request_host: runtime_billing_context,
+        build_runtime_context,
     )
     monkeypatch.setattr(
         config_route,
         "build_default_runtime_billing_context",
-        lambda creator_bid, request_host: runtime_billing_context,
+        build_default_runtime_context,
     )
 
     config_route.register_config_handler(app, "/api")

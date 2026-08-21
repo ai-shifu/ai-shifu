@@ -541,7 +541,7 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
         )
@@ -676,7 +676,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
-            lambda *args, **kwargs: LegacyLearnRecord(
+            lambda *_args, **_kwargs: LegacyLearnRecord(
                 records=[
                     LegacyGeneratedBlockRecord(
                         "generated-block-first",
@@ -697,7 +697,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
         )
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
         )
@@ -1049,7 +1049,7 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
         )
@@ -1282,11 +1282,11 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
-            lambda *args, **kwargs: LegacyLearnRecord(records=[]),
+            lambda *_args, **_kwargs: LegacyLearnRecord(records=[]),
         )
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted rows should satisfy the record query without legacy fallback"
             ),
         )
@@ -1353,7 +1353,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=outline_bid,
             shifu_bid=shifu_bid,
@@ -1374,22 +1374,23 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, current_outline_bid: progress, ctx
+            lambda _self, _current_outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, current_outline_bid: LLMSettings(
+            lambda _self, _current_outline_bid: LLMSettings(
                 model="fake",
                 temperature=0.0,
             ),
             ctx,
         )
         ctx.get_system_prompt = types.MethodType(
-            lambda self, current_outline_bid: None,
+            lambda _self, _current_outline_bid: None,
             ctx,
         )
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=attend.block_position,
@@ -1456,16 +1457,16 @@ def test_listen_run_persists_content_block_before_element_rows(app):
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_user_profiles",
-                lambda *args, **kwargs: {},
+                lambda *_args, **_kwargs: {},
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
-                lambda *args, **kwargs: [],
+                lambda *_args, **_kwargs: [],
             )
             monkeypatch.setattr(
                 RunScriptContextV2,
                 "_should_stream_tts",
-                lambda self: False,
+                lambda _self: False,
             )
             streamed = list(adapter.process(ctx.run_inner(app)))
 
@@ -1538,7 +1539,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=outline_bid,
             shifu_bid=shifu_bid,
@@ -1559,22 +1560,23 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, current_outline_bid: progress, ctx
+            lambda _self, _current_outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, current_outline_bid: LLMSettings(
+            lambda _self, _current_outline_bid: LLMSettings(
                 model="fake",
                 temperature=0.0,
             ),
             ctx,
         )
         ctx.get_system_prompt = types.MethodType(
-            lambda self, current_outline_bid: None,
+            lambda _self, _current_outline_bid: None,
             ctx,
         )
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=attend.block_position,
@@ -1582,7 +1584,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             ),
             ctx,
         )
-        ctx._should_stream_tts = types.MethodType(lambda self: True, ctx)
+        ctx._should_stream_tts = types.MethodType(lambda _self: True, ctx)
 
         class DummyBlock:
             def __init__(self, block_type, content, index) -> None:
@@ -1724,11 +1726,11 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_user_profiles",
-                lambda *args, **kwargs: {},
+                lambda *_args, **_kwargs: {},
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
-                lambda *args, **kwargs: [],
+                lambda *_args, **_kwargs: [],
             )
             monkeypatch.setitem(app.config, "STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.005)
             streamed = list(adapter.process(ctx.run_inner(app)))
@@ -1849,7 +1851,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
         )
         ctx._current_attend = progress
         ctx._emit_feedback_before_exception_gate = types.MethodType(
-            lambda self: iter(()),
+            lambda _self: iter(()),
             ctx,
         )
 

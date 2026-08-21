@@ -37,9 +37,14 @@ def test_record_tts_usage_persists_supplied_output_without_provider_mapping(
         "flaskr.service.metering.recorder.generate_id",
         lambda _app: "usage-tts-explicit-output",
     )
+
+    def resolve_billable(app: object, *, context: object, usage_scene: int) -> int:
+        del app, context, usage_scene
+        return 1
+
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._resolve_billable",
-        lambda _app, *, context, usage_scene: 1,
+        resolve_billable,
     )
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._persist_usage_record",

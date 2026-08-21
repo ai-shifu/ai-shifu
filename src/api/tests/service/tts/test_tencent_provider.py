@@ -140,7 +140,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch):
     )
 
     _patch_tencent_config(monkeypatch, tencent_provider)
-    monkeypatch.setattr(tts_api, "get_config", lambda key, default=None: "")
+    monkeypatch.setattr(tts_api, "get_config", lambda _key, _default=None: "")
     tts_api._provider_instances.clear()
 
     provider = tencent_provider.TencentTTSProvider()
@@ -320,15 +320,25 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
         )
 
     monkeypatch.setattr(tencent_provider.requests, "post", fake_post)
+
+    def concat_audio(segments: list[bytes], output_format: str = "mp3") -> bytes:
+        del output_format
+        return b"".join(segments)
+
     monkeypatch.setattr(
         tencent_provider,
         "concat_audio_best_effort",
-        lambda segments, output_format="mp3": b"".join(segments),
+        concat_audio,
     )
+
+    def export_pcm(audio_data: bytes, sample_rate: int) -> bytes:
+        del sample_rate
+        return audio_data
+
     monkeypatch.setattr(
         tencent_provider,
         "_export_tencent_pcm_to_mp3",
-        lambda audio_data, sample_rate: audio_data,
+        export_pcm,
     )
     monkeypatch.setattr(
         tencent_provider,

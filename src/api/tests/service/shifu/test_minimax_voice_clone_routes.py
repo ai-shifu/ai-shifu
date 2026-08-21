@@ -189,13 +189,18 @@ def test_minimax_voice_clone_submit_creates_queued_voice(
         "flaskr.service.billing.primitives.is_billing_enabled",
         lambda: True,
     )
+
+    def enqueue_clone(app: object, *, voice_bid: str) -> bool:
+        del app, voice_bid
+        return True
+
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
-        lambda _app, *, voice_bid: True,
+        enqueue_clone,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
-        lambda app, **kwargs: SimpleNamespace(
+        lambda _app, **kwargs: SimpleNamespace(
             resource_bid=f"res-{kwargs['resource_kind']}",
             url=f"/resource/{kwargs['resource_kind']}",
             object_key=f"key/{kwargs['resource_kind']}",

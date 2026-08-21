@@ -48,7 +48,7 @@ def test_usage_split_and_bucket_expiry_keep_wallet_bucket_and_ledger_consistent(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-consistency-1",
+        lambda _app, _usage: "creator-consistency-1",
     )
 
     with billing_wallet_lifecycle_app.app_context():

@@ -49,7 +49,7 @@ def _verified_custom_domain(monkeypatch):
     monkeypatch.setattr(
         oauth_origins,
         "_resolve_creator_bid_by_host",
-        lambda app, host: "creator-1" if host == CUSTOM_DOMAIN else None,
+        lambda _app, host: "creator-1" if host == CUSTOM_DOMAIN else None,
     )
 
 
@@ -73,7 +73,7 @@ class TestIsAllowedOAuthOrigin:
     def test_unverified_custom_domain_is_refused(self, app, monkeypatch) -> None:
         # Not yet verified, or entitlement revoked -> no hand-back.
         monkeypatch.setattr(
-            oauth_origins, "_resolve_creator_bid_by_host", lambda app, host: None
+            oauth_origins, "_resolve_creator_bid_by_host", lambda _app, _host: None
         )
         assert oauth_origins.is_allowed_oauth_origin(app, CUSTOM_ORIGIN) is False
 
@@ -175,7 +175,7 @@ class TestResolveStateReturnOrigin:
         # State was minted while the domain was valid; it no longer is.
         state = _encode_state(app, {"origin": CUSTOM_ORIGIN})
         monkeypatch.setattr(
-            oauth_origins, "_resolve_creator_bid_by_host", lambda app, host: None
+            oauth_origins, "_resolve_creator_bid_by_host", lambda _app, _host: None
         )
         assert resolve_state_return_origin(app, state) == ""
 

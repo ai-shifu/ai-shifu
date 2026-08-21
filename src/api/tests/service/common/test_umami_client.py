@@ -212,7 +212,7 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
     monkeypatch.setattr(
         umami_client,
         "_fetch_distinct_ids_for_event",
-        lambda **kwargs: 7,
+        lambda **_kwargs: 7,
     )
 
     with app.app_context():
@@ -258,7 +258,7 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
     monkeypatch.setattr(
         umami_client,
         "_fetch_distinct_ids_for_event",
-        lambda **kwargs: (_ for _ in ()).throw(
+        lambda **_kwargs: (_ for _ in ()).throw(
             requests.RequestException("umami unavailable")
         ),
     )
@@ -311,7 +311,7 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     monkeypatch.setattr(
         umami_client,
         "_read_cached_int",
-        lambda cache_key: next(read_values),
+        lambda _cache_key: next(read_values),
     )
     monkeypatch.setattr(umami_client.time, "sleep", sleep_calls.append)
 
@@ -392,7 +392,7 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch
     monkeypatch.setattr(
         umami_client.requests,
         "post",
-        lambda *args, **kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: SimpleNamespace(
             status_code=200,
             raise_for_status=lambda: None,
             json=lambda: {"token": "fresh-token"},

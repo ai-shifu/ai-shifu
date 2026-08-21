@@ -29,7 +29,6 @@
 #   patterns here (moderation, logging, notification side channels).
 # - C901 / PLR09xx: complexity and argument-count budgets that the existing
 #   service and route modules exceed by design.
-# - ARG005: unused lambda arguments are pervasive in callbacks and test doubles.
 # - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
 #   inventing one (or downgrading the comment) would hide real pending work.
 
@@ -126,14 +125,12 @@ select = [
     # --- Paths, suppressions, shadowing, security -------------------------
     "PTH",     # os.path calls that should use pathlib
     "PGH",     # blanket noqa / type: ignore, invalid suppressions
-    # Remove unused function and method parameters when the repository owns the
-    # complete signature. When a framework, protocol, fixture or test double
-    # owns it, preserve keyword names and explicitly consume compatibility-only
-    # values in signature order.
-    "ARG001",  # unused function argument
-    "ARG002",  # unused method argument
-    "ARG003",  # unused classmethod argument
-    "ARG004",  # unused staticmethod argument
+    # Remove unused callable parameters when the repository owns the complete
+    # signature. Preserve framework, protocol, fixture, and test-double keyword
+    # names and consume them explicitly. Promote fixed keyword-compatible
+    # lambdas to named functions; use **_kwargs only for intentionally open,
+    # ignored keyword sets instead of renaming parameters callers still use.
+    "ARG",     # flake8-unused-arguments
     "A001",    # local variable shadowing a builtin
     "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin

@@ -378,7 +378,7 @@ def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch):
     monkeypatch.setattr(
         recorder_module,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
     class _Interrupt(BaseException):

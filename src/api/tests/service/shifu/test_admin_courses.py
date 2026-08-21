@@ -664,7 +664,7 @@ def test_list_operator_courses_filters_by_course_status():
         ),
     ):
         creator_mock.return_value = None
-        latest_mock.side_effect = lambda model, **kwargs: (
+        latest_mock.side_effect = lambda model, **_kwargs: (
             [draft_only_course]
             if model.__name__ == "DraftShifu"
             else [published_course]
@@ -762,7 +762,7 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
         ),
     ):
         creator_mock.return_value = None
-        latest_mock.side_effect = lambda model, **kwargs: (
+        latest_mock.side_effect = lambda model, **_kwargs: (
             [
                 recent_course,
                 paid_course,

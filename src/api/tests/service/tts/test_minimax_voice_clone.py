@@ -28,6 +28,21 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
 
 
+def _enqueue_clone(app: object, *, voice_bid: str) -> bool:
+    del app, voice_bid
+    return True
+
+
+def _normalize_audio(data: bytes, filename: str, purpose: str) -> SimpleNamespace:
+    del data, filename, purpose
+    return SimpleNamespace(
+        audio_bytes=b"WAV",
+        duration_ms=12_000,
+        extension="wav",
+        content_type="audio/wav",
+    )
+
+
 @pytest.fixture
 def minimax_clone_app(monkeypatch):
     app = Flask(__name__)
@@ -283,11 +298,11 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
     _seed_course_wallet_and_rate(minimax_clone_app)
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
-        lambda _app, *, voice_bid: True,
+        _enqueue_clone,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
-        lambda app, **kwargs: SimpleNamespace(
+        lambda _app, **kwargs: SimpleNamespace(
             resource_bid=f"res-{kwargs['resource_kind']}",
             url=f"/resource/{kwargs['resource_kind']}",
             object_key=f"key/{kwargs['resource_kind']}",
@@ -295,16 +310,11 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._delete_resource_object",
-        lambda app, resource_bid: None,
+        lambda _app, _resource_bid: None,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone.normalize_audio_blob",
-        lambda data, filename, purpose: SimpleNamespace(
-            audio_bytes=b"WAV",
-            duration_ms=12_000,
-            extension="wav",
-            content_type="audio/wav",
-        ),
+        _normalize_audio,
     )
 
     class FakeClient:
@@ -407,7 +417,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
 
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
-        lambda _app, *, voice_bid: True,
+        _enqueue_clone,
     )
     monkeypatch.setattr(
         minimax_voice_clone,
@@ -422,12 +432,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
     monkeypatch.setattr(
         minimax_voice_clone,
         "normalize_audio_blob",
-        lambda data, filename, purpose: SimpleNamespace(
-            audio_bytes=b"WAV",
-            duration_ms=12_000,
-            extension="wav",
-            content_type="audio/wav",
-        ),
+        _normalize_audio,
     )
 
     class FakeClient:
@@ -548,21 +553,17 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
     monkeypatch.setattr(
         minimax_voice_clone,
         "_load_voice_row",
-        lambda voice_bid: row,
+        lambda _voice_bid: row,
     )
     monkeypatch.setattr(
         minimax_voice_clone,
         "_read_resource_bytes",
-        lambda resource_bid: b"RAW",
+        lambda _resource_bid: b"RAW",
     )
     monkeypatch.setattr(
         minimax_voice_clone,
         "normalize_audio_blob",
-        lambda data, filename, purpose: SimpleNamespace(
-            audio_bytes=b"WAV",
-            duration_ms=12_000,
-            content_type="audio/wav",
-        ),
+        _normalize_audio,
     )
 
     def fake_store_resource_bytes(_app, **kwargs):
@@ -652,11 +653,11 @@ def test_soft_deleted_minimax_voice_id_can_be_reused(
     _seed_course_wallet_and_rate(minimax_clone_app)
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
-        lambda _app, *, voice_bid: True,
+        _enqueue_clone,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
-        lambda app, **kwargs: SimpleNamespace(
+        lambda _app, **kwargs: SimpleNamespace(
             resource_bid=f"res-{kwargs['resource_kind']}-{kwargs['filename']}",
             url=f"/resource/{kwargs['resource_kind']}",
             object_key=f"key/{kwargs['resource_kind']}",
@@ -709,11 +710,11 @@ def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
     _seed_course_wallet_and_rate(minimax_clone_app)
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
-        lambda _app, *, voice_bid: True,
+        _enqueue_clone,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
-        lambda app, **kwargs: SimpleNamespace(
+        lambda _app, **kwargs: SimpleNamespace(
             resource_bid=f"res-{kwargs['resource_kind']}",
             url=f"/resource/{kwargs['resource_kind']}",
             object_key=f"key/{kwargs['resource_kind']}",
@@ -721,7 +722,7 @@ def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone._delete_resource_object",
-        lambda app, resource_bid: None,
+        lambda _app, _resource_bid: None,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.minimax_voice_clone.normalize_audio_blob",
@@ -769,12 +770,12 @@ def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
     monkeypatch.setattr(
         minimax_voice_clone,
         "_enqueue_minimax_clone_task",
-        lambda _app, *, voice_bid: True,
+        _enqueue_clone,
     )
     monkeypatch.setattr(
         minimax_voice_clone,
         "_store_resource_bytes",
-        lambda app, **kwargs: SimpleNamespace(
+        lambda _app, **kwargs: SimpleNamespace(
             resource_bid=f"res-{kwargs['resource_kind']}",
             url=f"/resource/{kwargs['resource_kind']}",
             object_key=f"key/{kwargs['resource_kind']}",
@@ -783,7 +784,7 @@ def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
     monkeypatch.setattr(
         minimax_voice_clone,
         "_delete_resource_object",
-        lambda app, resource_bid: None,
+        lambda _app, _resource_bid: None,
     )
     monkeypatch.setattr(
         minimax_voice_clone,

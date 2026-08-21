@@ -191,7 +191,7 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",
-        lambda app, creator_bid, bill_order_bid, payload: {
+        lambda _app, creator_bid, bill_order_bid, _payload: {
             "status": "pending",
             "creator_bid": creator_bid,
             "bill_order_bid": bill_order_bid,

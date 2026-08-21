@@ -16,6 +16,10 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
     course_bid = "course-wx-pub-1"
     user_bid = "user-wx-pub-1"
 
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, bid, preview_mode
+        return SimpleNamespace(title="Course", description="Desc")
+
     with app.app_context():
         order = Order(
             order_bid=order_bid,
@@ -33,9 +37,7 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, preview_mode: SimpleNamespace(
-            title="Course", description="Desc"
-        ),
+        get_shifu_info,
     )
 
     captured = {}

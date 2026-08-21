@@ -46,12 +46,14 @@ class _Response:
 def test_send_notify_returns_metadata_for_successful_non_json_response(monkeypatch):
     app = _App()
     monkeypatch.setattr(
-        feishu, "get_config", lambda key, default=None: "https://example.test/webhook"
+        feishu,
+        "get_config",
+        lambda key, default=None: "https://example.test/webhook",  # noqa: ARG005 -- preserve get_config keyword contract
     )
     monkeypatch.setattr(
         feishu.requests,
         "post",
-        lambda *args, **kwargs: _Response(
+        lambda *_args, **_kwargs: _Response(
             status_code=200, text="ok", json_exc=ValueError("not json")
         ),
     )
@@ -65,12 +67,14 @@ def test_send_notify_returns_metadata_for_successful_non_json_response(monkeypat
 def test_send_notify_returns_none_for_non_2xx_response(monkeypatch):
     app = _App()
     monkeypatch.setattr(
-        feishu, "get_config", lambda key, default=None: "https://example.test/webhook"
+        feishu,
+        "get_config",
+        lambda key, default=None: "https://example.test/webhook",  # noqa: ARG005 -- preserve get_config keyword contract
     )
     monkeypatch.setattr(
         feishu.requests,
         "post",
-        lambda *args, **kwargs: _Response(status_code=400, text="bad request"),
+        lambda *_args, **_kwargs: _Response(status_code=400, text="bad request"),
     )
 
     result = feishu.send_notify(app, "标题", ["消息"])
@@ -82,7 +86,9 @@ def test_send_notify_returns_none_for_non_2xx_response(monkeypatch):
 def test_send_notify_returns_none_for_request_error(monkeypatch):
     app = _App()
     monkeypatch.setattr(
-        feishu, "get_config", lambda key, default=None: "https://example.test/webhook"
+        feishu,
+        "get_config",
+        lambda key, default=None: "https://example.test/webhook",  # noqa: ARG005 -- preserve get_config keyword contract
     )
 
     def _raise(*args, **kwargs):

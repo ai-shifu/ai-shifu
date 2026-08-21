@@ -226,6 +226,11 @@ plan's progress update for that rule.
   values without changing accepted signatures.
 - [ ] Merge or retarget ARG001 PR #2634 after ARG002 without combining it with
   the next rule unit.
+- [x] 2026-08-22: Rebuilt the ARG005 stage on `sunner/ruff-arg005`, stacked on
+  ARG001. Removed unused lambda arguments while preserving provider, callback,
+  and test-double keyword contracts through named helpers where required.
+- [ ] Merge or retarget ARG005 PR #2635 after ARG001 without combining it with
+  the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

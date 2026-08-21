@@ -73,7 +73,7 @@ def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch):
 
     def fake_post(*args, **kwargs):
         calls.append((args, kwargs))
-        return type("Response", (), {"raise_for_status": lambda self: None})()
+        return type("Response", (), {"raise_for_status": lambda _self: None})()
 
     monkeypatch.setattr(requests, "post", fake_post)
 
@@ -102,7 +102,7 @@ def test_feishu_log_handler_truncates_oversized_payload(monkeypatch):
     def fake_post(_url, *, json, timeout):
         captured["payload"] = json
         captured["timeout"] = timeout
-        return type("Response", (), {"raise_for_status": lambda self: None})()
+        return type("Response", (), {"raise_for_status": lambda _self: None})()
 
     monkeypatch.setattr(requests, "post", fake_post)
 

@@ -86,6 +86,15 @@ billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
 
+def _resolve_existing_target(creator_bid: str = "", creator_mobile: str = "") -> str:
+    del creator_mobile
+    return creator_bid or "creator-1"
+
+
+def _no_saas(required: object = None) -> None:
+    del required
+
+
 def _set_login_methods(monkeypatch: pytest.MonkeyPatch, methods: str) -> None:
     """Pin the login methods this deployment accepts.
 
@@ -164,7 +173,7 @@ def admin_billing_client(monkeypatch):
     monkeypatch.setattr(
         billing_routes_module,
         "clear_admin_creator_customization_draft",
-        lambda *args, **kwargs: {"status": "noop"},
+        lambda *_args, **_kwargs: {"status": "noop"},
     )
 
     register_billing_routes(app=app)
@@ -1133,10 +1142,13 @@ class TestAdminBillingRoutes:
             lambda: True,
         )
 
-        monkeypatch.setattr(
-            billing_routes_module,
-            "build_admin_creator_customization_draft",
-            lambda _app, creator_bid="", creator_mobile="": {
+        def build_draft(
+            app: object,
+            creator_bid: str = "",
+            creator_mobile: str = "",
+        ) -> dict[str, object]:
+            del app, creator_bid
+            return {
                 "creator_mobile": creator_mobile,
                 "branding_enabled": False,
                 "custom_domain_enabled": False,
@@ -1156,7 +1168,12 @@ class TestAdminBillingRoutes:
                         "wechatpay",
                     )
                 },
-            },
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "build_admin_creator_customization_draft",
+            build_draft,
         )
         monkeypatch.setattr(
             billing_routes_module,
@@ -1229,7 +1246,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "_resolve_existing_admin_billing_target_user_bid",
-            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+            _resolve_existing_target,
         )
         monkeypatch.setattr(
             billing_routes_module,
@@ -1265,7 +1282,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "_resolve_existing_admin_billing_target_user_bid",
-            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+            _resolve_existing_target,
         )
 
         def _save_branding(_app, creator_bid, payload, **kwargs):
@@ -1304,7 +1321,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_customization_module,
             "_saas_funcs",
-            lambda required=True: None,
+            _no_saas,
         )
         monkeypatch.setattr(
             billing_routes_module,
@@ -1314,7 +1331,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "_resolve_existing_admin_billing_target_user_bid",
-            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+            _resolve_existing_target,
         )
 
         with app.app_context():

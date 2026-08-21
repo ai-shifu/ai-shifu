@@ -112,7 +112,7 @@ def _mock_bcrypt_module(monkeypatch):
         sys.modules,
         "bcrypt",
         SimpleNamespace(
-            gensalt=lambda rounds=12: b"salt",
+            gensalt=lambda _rounds=12: b"salt",
             hashpw=lambda plain, salt: plain + b":" + salt,
             checkpw=lambda plain, hashed: hashed == plain + b":salt",
         ),
