@@ -1122,7 +1122,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             refreshed_user = build_user_info_from_aggregate(refreshed)
             auth_result.user = refreshed_user
             auth_result.token = UserToken(
-                userInfo=refreshed_user,
+                user_info=refreshed_user,
                 token=auth_result.token.token,
             )
         db.session.commit()

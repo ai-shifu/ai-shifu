@@ -460,7 +460,7 @@ def verify_phone_code(
         snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
     return (
-        UserToken(userInfo=user_dto, token=token),
+        UserToken(user_info=user_dto, token=token),
         created_new_user,
         {
             "course_id": normalized_course_id,

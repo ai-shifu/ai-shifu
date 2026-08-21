@@ -202,6 +202,12 @@ plan's progress update for that rule.
   Swagger contract. Both file-wide N815 exceptions are removed.
 - [ ] Merge or retarget N815 PR #2630 after RUF001 without combining it with the
   next rule unit.
+- [x] 2026-08-22: Rebuilt the N803 stage on `sunner/ruff-n803`, stacked on
+  N815. Renamed the internal `UserToken` constructor argument and its keyword
+  callers to `user_info`, while preserving the `userInfo` JSON and Swagger
+  field contract and removing the only N803 suppression.
+- [ ] Merge or retarget N803 PR #2631 after N815 without combining it with the
+  next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
