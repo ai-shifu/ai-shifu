@@ -295,6 +295,45 @@ def test_password_login_throttles_one_ip_across_identifiers(
     assert still_blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
 
 
+def test_password_login_failure_window_does_not_slide(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Expire accumulated failures from the first attempt in the window."""
+    clock = [1000.0]
+    monkeypatch.setattr(mock_redis_client, "_now", lambda: clock[0])
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT", 10)
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_IP_FAILURE_LIMIT", 10)
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        _TEST_FAILURE_WINDOW_SECONDS,
+    )
+
+    payload = {"identifier": "fixed-window@example.com", "password": "wrong"}
+    _post_json(test_client, "/api/user/login_password", payload)
+    counter_keys = [
+        key
+        for key in mock_redis_client.stored_keys()
+        if "password_login_failure:" in key
+    ]
+    assert len(counter_keys) == _PASSWORD_COUNTER_KEY_COUNT
+    assert all(
+        mock_redis_client.ttl(key) == _TEST_FAILURE_WINDOW_SECONDS
+        for key in counter_keys
+    )
+
+    clock[0] += 100
+    _post_json(test_client, "/api/user/login_password", payload)
+
+    assert all(
+        mock_redis_client.ttl(key) == _TEST_FAILURE_WINDOW_SECONDS - 100
+        for key in counter_keys
+    )
+
+
 def test_password_login_blocks_when_failure_counter_lock_is_busy(
     test_client: FlaskClient,
     monkeypatch: pytest.MonkeyPatch,
