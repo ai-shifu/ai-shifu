@@ -9,7 +9,10 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-CONFUSABLE_SOURCE = 'value = "（"\n'
+CONFUSABLE_SOURCE = '''"""Fixture module used to verify the RUF001 policy."""
+# ruff: noqa: INP001
+value = "（"
+'''
 
 
 class RuffTestFilePolicyTest(unittest.TestCase):
@@ -54,6 +57,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
         for filename in test_filenames:
             with self.subTest(filename=filename):
                 result = self.run_ruff(filename)
+                assert result.returncode == 0, result.stdout + result.stderr
                 assert "RUF001" not in result.stdout, result.stdout + result.stderr
 
     def test_production_module_still_rejects_confusable_text(self) -> None:

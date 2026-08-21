@@ -182,7 +182,7 @@ plan's progress update for that rule.
 - [x] 2026-08-21: Prepared the RUF001 stage on `sunner/ruff-ruf001`, stacked on
   EM101. The isolated audit identified 162 deliberately fullwidth punctuation
   findings across 106 Chinese-message, TTS-boundary, and regression-fixture
-  lines. The stage enables RUF001 and records 96 newly required, explained
+  lines. The stage enables RUF001 and records 43 newly required, explained
   line-level suppressions; it intentionally removes the global
   `allowed-confusables` list so RUF002 and RUF003 remain fully enforced.
   Conventional Python test modules and test configuration are exempt so they
