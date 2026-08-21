@@ -1134,8 +1134,8 @@ def test_upsert_recovers_when_cross_session_insert_wins(
     ):
         calls.append(for_update)
         if len(calls) == 1:
-            Session = sessionmaker(bind=dao.db.engine)
-            other_session = Session()
+            session_factory = sessionmaker(bind=dao.db.engine)
+            other_session = session_factory()
             try:
                 winner = BillingRenewalEvent(
                     renewal_event_bid="renewal-uow-upsert-cross-session-winner",
