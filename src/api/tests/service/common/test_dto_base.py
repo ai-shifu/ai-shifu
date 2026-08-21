@@ -145,7 +145,7 @@ def test_user_token_keeps_camel_case_wire_and_swagger_field() -> None:
         wx_openid="openid-1",
         language="zh-CN",
     )
-    token = UserToken(userInfo=user_info, token="token-1")
+    token = UserToken(user_info=user_info, token="token-1")
 
     assert token.__json__() == {"userInfo": user_info, "token": "token-1"}
     schema = swagger_config["components"]["schemas"]["UserToken"]

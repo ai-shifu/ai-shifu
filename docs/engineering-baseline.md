@@ -371,6 +371,14 @@ provider payloads, protocol samples, and malformed inputs verbatim. Do not copy
 that exemption into production paths; add new tests under a `tests/` directory
 or use the conventional `test_*.py`, `*_test.py`, or `conftest.py` filename.
 
+For `N803`, keep Python function and method arguments in snake_case even when
+the corresponding serialized field uses camelCase. Translate from the Python
+argument to the wire-facing attribute inside the DTO and update internal
+keyword callers; do not copy JSON spelling into a Python signature or add an
+ignore-name pattern. Preserve an external callback or override signature only
+when the caller truly owns the keyword contract, and explain that exception at
+the parameter.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,
