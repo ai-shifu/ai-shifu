@@ -102,6 +102,7 @@ jest.mock('@/c-api/studyV2', () => ({
       _outlineBid: string,
       _previewMode: boolean,
       _body: Record<string, unknown>,
+      _creditInsufficientAudience: string,
       onMessage: (response: any) => Promise<void> | void,
     ) => {
       activeOnMessage = onMessage;
