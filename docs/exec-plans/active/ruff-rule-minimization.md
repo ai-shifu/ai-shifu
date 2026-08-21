@@ -638,12 +638,19 @@ plan's progress update for that rule.
   COM812 by five, and ANN001 by two. The isolated census is 39,160.
 - [x] 2026-08-21 11:11 CST: Repository and architecture harnesses, generated
   collaboration and knowledge documents, pinned development-tool validation,
-  and every repository pre-commit hook pass on the final ARG001 worktree.
+  and every repository pre-commit hook pass on the pre-sync ARG001 worktree.
 - [x] 2026-08-21 11:20 CST: Merged the current S101 tip `503377596` into
   ARG002 after its follow-up executable-resolution review fixes. Nine root
   script tests and the backend route-inventory test pass; configured S603/S607,
   repository Ruff, format, pinned development-tool validation, and every
   repository pre-commit hook pass without changing the 47-file ARG002 unit.
+- [x] 2026-08-21 11:28 CST: Merged the updated ARG002 tip into ARG001. The
+  immediate-base diff remains exactly the 82-file ARG001 rule unit. Nine root
+  script tests and the backend route-inventory test pass on the combined tip,
+  followed by configured ARG001/S603/S607, repository Ruff, format, pinned
+  development-tool validation, and every pre-commit hook. Against the current
+  base, the stable census falls 216 from 27,991 to 27,775 and the isolated
+  census falls 216 from 39,380 to 39,164.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1083,8 +1090,8 @@ and behaviorally faithful test doubles keep their keyword-compatible names and
 consume compatibility-only values explicitly. All 209 ARG001 findings are
 removed without suppression, while five COM812 and two ANN001 findings also
 disappear. Every touched test module, the architecture fixture harness, and the
-full backend suite pass, and the stable census reaches 27,773 findings across
-26 rules.
+full backend suite pass. On the current predecessor, the stable census falls by
+216 from 27,991 to 27,775 findings across 26 rules.
 
 ## Context and Orientation
 
