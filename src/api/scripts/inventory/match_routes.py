@@ -30,10 +30,11 @@ SP = os.environ.get("INVENTORY_WORK_DIR", str(Path.cwd()))
 BACKEND_ROUTES = str(Path(SP) / "routes-backend.txt")
 SKILLS = os.environ.get("SKILLS_REPO", str((Path(ROOT) / ".." / "skills").resolve()))
 MINIAPP = os.environ.get("MINIAPP_REPO", "")
-GREP_EXECUTABLE = shutil.which("grep")
-if GREP_EXECUTABLE is None:
+_grep_executable = shutil.which("grep")
+if _grep_executable is None:
     message = "grep is required for route inventory"
     raise RuntimeError(message)
+GREP_EXECUTABLE = str(Path(_grep_executable).resolve())
 
 
 def norm(path):
