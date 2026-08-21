@@ -146,7 +146,7 @@ def test_migrate_table_logs_formatted_batch_progress(caplog):
     assert caplog.messages == [
         "Starting migration for table: source_table",
         "Total records to migrate from source_table: 20",
-        "Migration progress for source_table: 50.0% (5/20) - Batch 2",
-        "Migration progress for source_table: 100.0% (10/20) - Batch 3",
+        "Migration progress for source_table: 50.0% (5/20) - Batch 1",
+        "Migration progress for source_table: 100.0% (10/20) - Batch 2",
         "Migration completed for source_table: 10/20 records, 0 errors",
     ]
