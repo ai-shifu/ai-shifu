@@ -567,8 +567,9 @@ plan's progress update for that rule.
   extra diff; development-tool validation, translations, repository harness,
   architecture boundaries, configured Ruff and format, and every repository
   pre-commit hook pass on the final local ARG002 change.
-- [ ] Open a ready ARG002 PR from `sunner/ruff-arg002` to `sunner/ruff-t20`
-  after the collaboration, knowledge, harness, and repository gates pass.
+- [x] 2026-08-21 09:06 CST: Opened ready ARG002 PR #2604 from
+  `sunner/ruff-arg002` to `sunner/ruff-t20` after the collaboration,
+  knowledge, harness, and repository gates passed locally.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
