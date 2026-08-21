@@ -53,10 +53,12 @@
 
 ### 7. 认证配置 (Authentication Configuration)
 
-| 变量名                              | 用途           | 默认值    | 可选值                                                                                      |
-| ----------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
-| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`, `"google"`                                                            |
+| Variable                            | Purpose                                   | Default   | Allowed values                                                                                                                                  |
+| ----------------------------------- | ----------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOGIN_METHODS_ENABLED`             | Server runtime enabled login methods      | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"google,password"`                                    |
+| `DEFAULT_LOGIN_METHOD`              | Server runtime default login method       | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`                                                                                                  |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | Build-time fallback enabled login methods | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"phone,email"`, `"phone,google"`, `"google,password"` |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | Build-time fallback default login method  | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`; normalized and falls back to the first valid enabled login method when disabled or invalid      |
 
 ### 8. 支付配置 (Payment Configuration)
 
@@ -105,10 +107,11 @@ const wechatEnabled = environment.enableWechatCode;
 
 // Get authentication configuration
 const loginMethods = environment.loginMethodsEnabled; // ['phone', 'email']
-const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email'
+const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email' | 'google' | 'password'
 const isPhoneEnabled = loginMethods.includes('phone');
 const isEmailEnabled = loginMethods.includes('email');
 const isGoogleEnabled = loginMethods.includes('google');
+const isPasswordEnabled = loginMethods.includes('password');
 const googleRedirect = '/login/google-callback';
 
 // Get legal document URLs (from /api/config)
@@ -330,6 +333,8 @@ NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 
 # ===== Authentication Configuration =====
+LOGIN_METHODS_ENABLED=phone
+DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
 NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
@@ -362,6 +367,8 @@ NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 
 # ===== Authentication Configuration =====
+LOGIN_METHODS_ENABLED=phone
+DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
 NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
