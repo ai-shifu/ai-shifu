@@ -55,6 +55,9 @@ export default function AuthPage() {
   const runtimeDefaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
+  const runtimeConfigLoaded = useEnvStore(
+    (state: EnvStoreState) => state.runtimeConfigLoaded,
+  );
 
   useEffect(() => {
     setLogoSrc(logoWideUrl || environment.logoWideUrl || logoHorizontal);
@@ -419,7 +422,7 @@ export default function AuthPage() {
   const resolvedLogo = logoSrc || logoHorizontal;
 
   // Show loading state until translations are ready
-  if (!isI18nReady || !language) {
+  if (!runtimeConfigLoaded || !isI18nReady || !language) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
         <div className='w-full max-w-md space-y-2'>

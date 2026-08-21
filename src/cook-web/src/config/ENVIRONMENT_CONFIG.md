@@ -53,12 +53,12 @@
 
 ### 7. 认证配置 (Authentication Configuration)
 
-| 变量名                              | 用途                     | 默认值    | 可选值                                                                                                                                  |
-| ----------------------------------- | ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `LOGIN_METHODS_ENABLED`             | 服务端运行时启用登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"` 及逗号组合，例如 `"google,password"`                                                     |
-| `DEFAULT_LOGIN_METHOD`              | 服务端运行时默认登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`                                                                                          |
-| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 构建时启用的登录方式     | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"` 及逗号组合，例如 `"phone,email"`, `"phone,google"`, `"google,password"`                  |
-| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 构建时默认登录方式       | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`；值会被标准化，并在未启用或配置错误时回退到第一个有效的 `LOGIN_METHODS_ENABLED` 登录方式 |
+| Variable                            | Purpose                                   | Default   | Allowed values                                                                                                                                  |
+| ----------------------------------- | ----------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOGIN_METHODS_ENABLED`             | Server runtime enabled login methods      | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"google,password"`                                    |
+| `DEFAULT_LOGIN_METHOD`              | Server runtime default login method       | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`                                                                                                  |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | Build-time fallback enabled login methods | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"phone,email"`, `"phone,google"`, `"google,password"` |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | Build-time fallback default login method  | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`; normalized and falls back to the first valid enabled login method when disabled or invalid      |
 
 ### 8. 支付配置 (Payment Configuration)
 

@@ -56,6 +56,7 @@ const mockEnvState = {
   logoWideUrl: '',
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
+  runtimeConfigLoaded: true,
 };
 
 jest.mock('@/c-store', () => ({
@@ -199,6 +200,7 @@ describe('AuthPage', () => {
     mockEnvState.logoWideUrl = '';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
+    mockEnvState.runtimeConfigLoaded = true;
   });
 
   it('switches an authenticated browser session to a guest session on the login page', async () => {
@@ -232,6 +234,27 @@ describe('AuthPage', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(logoutMock).not.toHaveBeenCalled();
+  });
+
+  it('waits for runtime config before rendering the configured login form', async () => {
+    mockEnvState.runtimeConfigLoaded = false;
+    mockEnvState.loginMethodsEnabled = ['password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    const { rerender } = render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('password-login')).not.toBeInTheDocument();
+    });
+
+    mockEnvState.runtimeConfigLoaded = true;
+    rerender(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
   });
 
   it('renders password login when password is the only enabled method', async () => {
