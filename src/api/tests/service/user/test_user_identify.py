@@ -265,6 +265,76 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
             db.session.commit()
 
 
+def test_send_email_code_uses_requested_language_and_singular_expiry(app, monkeypatch):
+    from email import message_from_string
+    from email.header import decode_header, make_header
+
+    import flaskr.service.user.utils as user_utils
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserVerifyCode
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    class _FakeSMTP:
+        sent_message = ""
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def starttls(self):
+            return None
+
+        def login(self, *_args):
+            return None
+
+        def sendmail(self, _sender, _recipient, message):
+            type(self).sent_message = message
+
+        def quit(self):
+            return None
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
+    fixed_digits = iter("5678")
+    monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
+
+    with app.app_context():
+        app.config.update(
+            REDIS_KEY_PREFIX_MAIL_CODE="test:mail:",
+            REDIS_KEY_PREFIX_MAIL_LIMIT="test:mail-limit:",
+            MAIL_CODE_INTERVAL=60,
+            SMTP_SENDER="sender@example.com",
+            SMTP_SERVER="smtp.example.com",
+            SMTP_PORT=587,
+            SMTP_USERNAME="sender@example.com",
+            SMTP_PASSWORD="secret",
+        )
+        original_expire_time = app.config["MAIL_CODE_EXPIRE_TIME"]
+        app.config["MAIL_CODE_EXPIRE_TIME"] = 60
+        user_utils.set_language("en-US")
+        email = "french@example.com"
+        try:
+            user_utils.send_email_code(app, email, language="fr-FR")
+
+            message = message_from_string(_FakeSMTP.sent_message)
+            subject = str(make_header(decode_header(message["Subject"])))
+            assert subject == "Code de vérification AI-Shifu"
+            parts = {part.get_content_type(): part for part in message.walk()}
+            plain_body = parts["text/plain"].get_payload(decode=True).decode()
+            html_body = parts["text/html"].get_payload(decode=True).decode()
+            assert "Code de vérification : 5678" in plain_body
+            assert "Il expire dans 1 minute." in plain_body
+            assert "1 minutes" not in plain_body
+            assert "Ce code expire dans 1 minute." in html_body
+            assert "1 minutes" not in html_body
+            assert user_utils.get_current_language() == "en-US"
+        finally:
+            app.config["MAIL_CODE_EXPIRE_TIME"] = original_expire_time
+            UserVerifyCode.query.filter_by(mail=email).delete(synchronize_session=False)
+            db.session.commit()
+
+
 def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
     from flaskr.dao import db
     from flaskr.service.user import phone_flow

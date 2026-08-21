@@ -13,7 +13,7 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.i18n import _
+from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
@@ -149,19 +149,35 @@ def generate_token(app: Flask, user_id: str) -> str:
 
 
 def _format_email_verification_message(
-    code: str, expire_seconds: int
-) -> tuple[str, str]:
-    expire_minutes = max(1, int(expire_seconds) // 60)
-    text = _("server.user.emailVerificationPlainBody").format(
-        code=code, expire_minutes=expire_minutes
-    )
-    title = _("server.user.emailVerificationTitle")
-    intro = _("server.user.emailVerificationIntro")
-    expiry = _("server.user.emailVerificationExpiry").format(
-        expire_minutes=expire_minutes
-    )
-    ignore = _("server.user.emailVerificationIgnore")
-    footer = _("server.user.emailVerificationFooter")
+    code: str, expire_seconds: int, language: str | None = None
+) -> tuple[str, str, str]:
+    previous_language = get_current_language()
+    if language:
+        set_language(_normalize_language_code(language) or language)
+
+    try:
+        expire_minutes = max(1, int(expire_seconds) // 60)
+        is_one_minute = expire_minutes == 1
+        expiry_key = (
+            "server.user.emailVerificationExpirySingular"
+            if is_one_minute
+            else "server.user.emailVerificationExpiry"
+        )
+        plain_body_key = (
+            "server.user.emailVerificationPlainBodySingular"
+            if is_one_minute
+            else "server.user.emailVerificationPlainBody"
+        )
+        subject = _("server.user.emailVerificationSubject")
+        text = _(plain_body_key).format(code=code, expire_minutes=expire_minutes)
+        title = _("server.user.emailVerificationTitle")
+        intro = _("server.user.emailVerificationIntro")
+        expiry = _(expiry_key).format(expire_minutes=expire_minutes)
+        ignore = _("server.user.emailVerificationIgnore")
+        footer = _("server.user.emailVerificationFooter")
+    finally:
+        if language:
+            set_language(previous_language)
 
     html_body = f"""\
 <!doctype html>
@@ -195,7 +211,15 @@ def _format_email_verification_message(
   </body>
 </html>
 """
-    return text, html_body
+    return subject, text, html_body
+
+
+def _email_verification_translation_keys_used() -> None:
+    """Register translation keys selected dynamically above."""
+    _("server.user.emailVerificationExpiry")
+    _("server.user.emailVerificationExpirySingular")
+    _("server.user.emailVerificationPlainBody")
+    _("server.user.emailVerificationPlainBodySingular")
 
 
 # send sms code
@@ -325,7 +349,6 @@ def send_email_code(
         msg = MIMEMultipart("alternative")
         msg["From"] = app.config["SMTP_SENDER"]
         msg["To"] = email
-        msg["Subject"] = _("server.user.emailVerificationSubject")
         msg["X-Auto-Response-Suppress"] = "All"
         characters = string.digits
         random_string = "".join(secrets.choice(characters) for _ in range(4))
@@ -341,9 +364,10 @@ def send_email_code(
             email_limit_key, int(time.time()), ex=int(app.config["MAIL_CODE_INTERVAL"])
         )
 
-        plain_body, html_body = _format_email_verification_message(
-            random_string, int(app.config["MAIL_CODE_EXPIRE_TIME"])
+        subject, plain_body, html_body = _format_email_verification_message(
+            random_string, int(app.config["MAIL_CODE_EXPIRE_TIME"]), language=language
         )
+        msg["Subject"] = subject
         msg.attach(MIMEText(plain_body, "plain", "utf-8"))
         msg.attach(MIMEText(html_body, "html", "utf-8"))
 
