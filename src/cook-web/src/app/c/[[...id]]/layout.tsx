@@ -594,6 +594,14 @@ export default function ChatLayout({
             window.location.href = '/404';
             return;
           }
+          if (isDefinitiveClassroomAccessDenial(error)) {
+            debugWarn('[course-info] stop retry after access denial', {
+              courseId,
+              attempt,
+              error,
+            });
+            return;
+          }
 
           // Keep users on page for transient failures instead of forcing 404.
           if (!isRetry) {
