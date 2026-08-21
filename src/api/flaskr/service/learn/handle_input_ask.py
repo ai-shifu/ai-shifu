@@ -299,7 +299,10 @@ def handle_input_ask(
     anchor_element_bid: str = "",
     parent_observation: Any | None = None,
 ) -> Generator[str, None, None]:
-    """Handle user Q&A input Responsible for processing user questions in the shifu and returning AI tutor responses."""
+    """Handle user Q&A input.
+
+    Process user questions in the shifu and return AI tutor responses.
+    """
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(
         app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview

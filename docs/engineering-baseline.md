@@ -16,6 +16,7 @@ details behind those rules.
 | Start backend dev server | `flask run` | `cd src/api` |
 | Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/cook-web` |
 | Run backend tests | `pytest` | `cd src/api` |
+| Run frontend unit tests | `npm run test:ci` | `cd src/cook-web` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
 | Check code quality | `lefthook run pre-commit --all-files` | Root directory |
@@ -559,6 +560,8 @@ does not replace test coverage. Before committing, also run
 
 - `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
   direct pushes to `main`.
+- `frontend-tests.yml`: runs Cook Web Jest tests for frontend and shared i18n
+  changes while reporting a successful no-op check for unrelated PRs.
 - `prettier-check.yml`: checks Cook Web formatting for frontend changes.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
   boundaries, generated AI and knowledge artifacts, translation parity and

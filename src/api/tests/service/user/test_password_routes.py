@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import jwt
 from flaskr.service.user import phone_flow
-from flaskr.service.user.auth.providers import password as password_provider
+from redis.exceptions import RedisError
 
 if TYPE_CHECKING:
     import pytest
@@ -29,12 +29,19 @@ _TEST_FAILURE_WINDOW_SECONDS = 300
 _PASSWORD_COUNTER_KEY_COUNT = 2
 
 
-def _post_json(client, path: str, payload: dict, headers: dict | None = None):
+def _post_json(
+    client,
+    path: str,
+    payload: dict,
+    headers: dict | None = None,
+    environ_overrides: dict | None = None,
+):
     resp = client.post(
         path,
         data=json.dumps(payload),
         content_type="application/json",
         headers=headers or {},
+        environ_overrides=environ_overrides,
     )
     return resp, json.loads(resp.data)
 
@@ -261,6 +268,8 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "first@example.com", "password": "wrong-password"},
+        headers={"X-Forwarded-For": "203.0.113.10, 198.51.100.8"},
+        environ_overrides={"REMOTE_ADDR": "172.18.0.2"},
     )
     assert first_failure.status_code == _HTTP_OK
     assert first_body["code"] == _INVALID_CREDENTIALS_CODE
@@ -269,6 +278,8 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "second@example.com", "password": "wrong-password"},
+        headers={"X-Forwarded-For": "203.0.113.11, 198.51.100.8"},
+        environ_overrides={"REMOTE_ADDR": "172.18.0.3"},
     )
     assert blocked.status_code == _HTTP_OK
     assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
@@ -277,6 +288,8 @@ def test_password_login_throttles_one_ip_across_identifiers(
         test_client,
         "/api/user/login_password",
         {"identifier": "third@example.com", "password": "wrong-password"},
+        headers={"X-Forwarded-For": "203.0.113.12, 198.51.100.8"},
+        environ_overrides={"REMOTE_ADDR": "172.18.0.4"},
     )
     assert still_blocked.status_code == _HTTP_OK
     assert still_blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
@@ -285,12 +298,13 @@ def test_password_login_throttles_one_ip_across_identifiers(
 def test_password_login_blocks_when_failure_counter_lock_is_busy(
     test_client: FlaskClient,
     monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
 ) -> None:
     """Do not let concurrent counter updates bypass password throttling."""
     busy_lock = MagicMock()
     busy_lock.acquire.return_value = False
     lock_factory = MagicMock(return_value=busy_lock)
-    monkeypatch.setattr(password_provider.cache, "lock", lock_factory)
+    monkeypatch.setattr(mock_redis_client, "lock", lock_factory)
 
     blocked, blocked_body = _post_json(
         test_client,
@@ -302,6 +316,139 @@ def test_password_login_blocks_when_failure_counter_lock_is_busy(
     assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
     lock_factory.assert_called_once()
     busy_lock.release.assert_not_called()
+
+
+def test_password_login_blocks_when_failure_counter_lock_errors(
+    test_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Fail closed when Redis errors after returning a lock object."""
+    failing_lock = MagicMock()
+    failing_lock.acquire.side_effect = RedisError("redis unavailable")
+    monkeypatch.setattr(mock_redis_client, "lock", MagicMock(return_value=failing_lock))
+
+    blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": "redis-error@example.com", "password": "wrong-password"},
+    )
+
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+    failing_lock.release.assert_not_called()
+
+
+def test_password_login_blocks_without_a_shared_counter_backend(
+    test_client: FlaskClient,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Do not weaken throttling to process-local counters when Redis is absent."""
+    from flaskr.dao import set_redis_client
+
+    set_redis_client(None)
+    try:
+        blocked, blocked_body = _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": "no-redis@example.com", "password": "wrong-password"},
+        )
+    finally:
+        set_redis_client(mock_redis_client)
+
+    assert blocked.status_code == _HTTP_OK
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+
+def test_password_login_waits_for_redis_before_clearing_failures(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Do not report login success until the shared failure count is cleared."""
+    phone = "15500002224"
+    password = "Abcd1234"
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": password},
+        headers={"Token": user_token.token},
+    )
+
+    original_delete = mock_redis_client.delete
+    monkeypatch.setattr(
+        mock_redis_client,
+        "delete",
+        MagicMock(side_effect=RedisError("redis unavailable")),
+    )
+    _blocked, blocked_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
+
+    monkeypatch.setattr(mock_redis_client, "delete", original_delete)
+    recovered, recovered_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
+    )
+    assert recovered.status_code == _HTTP_OK
+    assert recovered_body["code"] == 0
+
+
+def test_password_reset_clears_identifier_failure_limit(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Restore password access immediately after verified credential recovery."""
+    phone = "15500002225"
+    old_password = "Abcd1234"
+    new_password = "Efgh5678"
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": old_password},
+        headers={"Token": user_token.token},
+    )
+    for wrong_password in ("wrong-one", "wrong-two"):
+        _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": phone, "password": wrong_password},
+        )
+
+    reset, reset_body = _post_json(
+        test_client,
+        "/api/user/reset_password",
+        {"identifier": phone, "code": "9999", "new_password": new_password},
+    )
+    assert reset.status_code == _HTTP_OK
+    assert reset_body["code"] == 0
+
+    login, login_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": new_password},
+    )
+    assert login.status_code == _HTTP_OK
+    assert login_body["code"] == 0
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
