@@ -587,6 +587,29 @@ plan's progress update for that rule.
   worktree, while ARG002 records the repaired S101 commit as a parent without
   changing its own worktree. Ready PR #2604 is based on S101 again and exposes
   the complete 47-file ARG002 unit.
+- [x] 2026-08-21 10:01 CST: Backend CI testmon ordering exposed a pre-existing
+  test-isolation leak after the `Config` constructor changed: a non-app config
+  test replaced the session app's process-global `Config._instance` with a
+  MagicMock, so the later onboarding golden case rendered `mock.get()` as its
+  demo-course ID. The isolated golden case passed, while app initialization,
+  the leaking config test, and the golden case in that order reproduced the
+  failure.
+- [x] 2026-08-21 10:01 CST: Made the existing non-app environment fixture also
+  restore the `Config` singleton it inherited. The exact three-test regression
+  now passes, and the ordered app, complete Config unit/integration, and JSON
+  golden suites pass all 50 tests without changing the recorded API contract.
+- [x] 2026-08-21 10:05 CST: Re-ran the full backend suite after the isolation
+  fix; all 3,032 tests pass with the same 17 environment skips and 733 existing
+  warnings. The runtime harness on the preceding code-equivalent SHA also
+  passed before the final fix commit.
+- [x] 2026-08-21 10:09 CST: Reused the captured original Config instance for
+  both cache clears instead of adding private-member accesses. The final stable
+  census falls 196 findings from 28,185 to 27,989 and the isolated census falls
+  from 39,571 to 39,375: the ARG002 unit now also removes two existing SLF001
+  findings, while ARG001 remains exactly 209.
+- [x] 2026-08-21 10:12 CST: Re-ran the full backend suite after the final
+  private-member cleanup; all 3,032 tests still pass with 17 skips and 733
+  existing warnings.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
