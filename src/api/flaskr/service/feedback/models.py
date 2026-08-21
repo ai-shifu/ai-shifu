@@ -26,6 +26,6 @@ class FeedBack(db.Model):
     )
 
     def __init__(self, user_id, feedback) -> None:
-        """Store a user feedback record."""
+        """Initialize a user feedback record."""
         self.user_id = user_id
         self.feedback = feedback
