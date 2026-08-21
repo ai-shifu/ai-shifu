@@ -19,6 +19,67 @@ export type BillingProvider =
   | 'wechatpay'
   | 'manual';
 
+export type AdminBillingProviderPriceStatus =
+  | 'draft'
+  | 'active'
+  | 'retired'
+  | 'invalid';
+
+export type AdminBillingProviderPriceProduct = {
+  product_bid: string;
+  product_code: string;
+  product_type: 'plan' | 'topup' | string;
+  display_name: string;
+  description: string;
+  currency: string;
+  price_amount: number;
+  credit_amount: number;
+  billing_interval: BillingPlanInterval | 'none' | string;
+  billing_interval_count: number;
+  plan_tier?: string | number | null;
+  sort_order: number;
+};
+
+export type AdminBillingProviderPriceMapping = {
+  provider_price_bid: string;
+  product_bid: string;
+  provider: BillingProvider | string;
+  provider_account_id: string;
+  provider_product_id: string;
+  provider_price_id: string;
+  livemode: boolean;
+  currency: string;
+  unit_amount: number;
+  billing_mode: number;
+  billing_interval: number;
+  billing_interval_count: number;
+  status: number;
+  status_label: AdminBillingProviderPriceStatus | string;
+  validated_at?: string | null;
+  activated_at?: string | null;
+  retired_at?: string | null;
+  validation_error?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type AdminBillingProviderPricesPage = {
+  products: AdminBillingProviderPriceProduct[];
+  mappings: AdminBillingProviderPriceMapping[];
+  active_by_product: Record<string, AdminBillingProviderPriceMapping>;
+  history_by_product: Record<string, AdminBillingProviderPriceMapping[]>;
+  status_options: Array<{
+    value: AdminBillingProviderPriceStatus | string;
+    code: number;
+  }>;
+};
+
+export type AdminBillingProviderPriceValidationResult = {
+  valid: boolean;
+  errors: Array<Record<string, string>>;
+  warnings: Array<Record<string, string>>;
+  mapping: AdminBillingProviderPriceMapping | null;
+};
+
 export type BillingCustomizationProvider =
   | 'wechat_oauth'
   | 'pingxx'

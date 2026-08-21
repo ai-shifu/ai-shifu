@@ -163,6 +163,105 @@
       "page": "Page {page} / {pageCount} · {total} enregistrements",
       "total": "{total} enregistrements"
     },
+    "providerPrices": {
+      "actions": {
+        "activate": "Activer",
+        "cancel": "Annuler",
+        "configure": "Configurer",
+        "create": "Ajouter un prix",
+        "retire": "Désactiver",
+        "saveDraft": "Enregistrer et lire",
+        "validate": "Contrôler"
+      },
+      "confirm": {
+        "activate": "Activer ce prix de paiement ? Les prochains paiements de ce produit l’utiliseront.",
+        "retire": "Désactiver ce prix de paiement ? Le produit n’aura temporairement plus de checkout à prix fixe."
+      },
+      "description": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et droits accordés.",
+      "dialog": {
+        "autoDetectHint": "Le système vérifie automatiquement montant, devise, période et mode. Activez le prix après validation.",
+        "description": "Copiez l’ID produit et l’ID prix depuis Stripe. Le système lira automatiquement les détails du prix.",
+        "title": "Configurer le prix de paiement"
+      },
+      "empty": "Aucune offre ou recharge disponible pour configuration.",
+      "fields": {
+        "priceId": "ID prix Stripe",
+        "product": "Produit",
+        "productId": "ID produit Stripe",
+        "productPlaceholder": "Sélectionner un produit"
+      },
+      "filters": {
+        "allProducts": "Tous les produits",
+        "product": "Produit",
+        "status": "Statut"
+      },
+      "groups": {
+        "planTier": "Niveau : {tier}",
+        "plans": "Abonnements",
+        "topups": "Packs crédits"
+      },
+      "health": {
+        "active": "Activé",
+        "draft": "Non activé",
+        "healthy": "Sain",
+        "invalid": "Échec du contrôle",
+        "missing": "Non configuré",
+        "retired": "Désactivé",
+        "warning": "À vérifier"
+      },
+      "interval": {
+        "day": "Tous les {count} jours",
+        "month": "Tous les {count} mois",
+        "oneTime": "Paiement unique",
+        "year": "Tous les {count} ans"
+      },
+      "loadError": "Impossible de charger les paramètres de prix pour le moment.",
+      "loading": "Chargement des prix...",
+      "menuTitle": "Gestion des offres",
+      "mode": {
+        "all": "Tous les modes",
+        "live": "Production",
+        "test": "Test"
+      },
+      "pageDescription": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et rapprochement.",
+      "productType": {
+        "plan": "Abonnement",
+        "topup": "Pack crédits"
+      },
+      "status": {
+        "active": "Actif",
+        "all": "Tous les statuts",
+        "draft": "Brouillon",
+        "invalid": "Invalide",
+        "retired": "Retiré"
+      },
+      "summary": {
+        "active": "Activés",
+        "invalid": "À traiter",
+        "needsAction": "À configurer",
+        "total": "Produits"
+      },
+      "table": {
+        "actions": "Actions",
+        "environment": "Mode",
+        "localPrice": "Prix affiché",
+        "product": "Produit",
+        "status": "Statut",
+        "stripePrice": "Prix paiement",
+        "validatedAt": "Dernier contrôle"
+      },
+      "title": "Gestion des offres",
+      "toast": {
+        "activateFailed": "Échec de l’activation",
+        "activateSuccess": "Prix activé",
+        "createFailed": "Échec de l’enregistrement",
+        "createSuccess": "Prix enregistré",
+        "retireFailed": "Échec de la désactivation",
+        "retireSuccess": "Prix désactivé",
+        "validateFailed": "Échec du contrôle",
+        "validateSuccess": "Contrôle du prix terminé"
+      }
+    },
     "reports": {
       "actions": {
         "viewOrders": "Voir les commandes"

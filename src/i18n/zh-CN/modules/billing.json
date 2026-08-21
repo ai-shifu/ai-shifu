@@ -163,6 +163,105 @@
       "page": "第 {page} / {pageCount} 页，共 {total} 条记录",
       "total": "共 {total} 条记录"
     },
+    "providerPrices": {
+      "actions": {
+        "activate": "启用",
+        "cancel": "取消",
+        "configure": "配置价格",
+        "create": "新增价格",
+        "retire": "停用",
+        "saveDraft": "保存并读取",
+        "validate": "校验"
+      },
+      "confirm": {
+        "activate": "确认启用这个收款价格？启用后，该商品后续支付将使用这个价格。",
+        "retire": "确认停用这个收款价格？停用后，该商品将暂时无法使用固定价格支付。"
+      },
+      "description": "管理海外套餐和积分包的收款价格，确保用户看到的价格、实际支付金额和到账权益一致。",
+      "dialog": {
+        "autoDetectHint": "系统会自动校验金额、币种、周期和当前环境；确认无误后再启用。",
+        "description": "从 Stripe 后台复制商品 ID 和价格 ID。保存后系统会自动读取价格信息。",
+        "title": "配置收款价格"
+      },
+      "empty": "暂无可配置的套餐或积分包。",
+      "fields": {
+        "priceId": "Stripe 价格 ID",
+        "product": "商品",
+        "productId": "Stripe 商品 ID",
+        "productPlaceholder": "选择商品"
+      },
+      "filters": {
+        "allProducts": "全部商品",
+        "product": "商品",
+        "status": "状态"
+      },
+      "groups": {
+        "planTier": "套餐档位：{tier}",
+        "plans": "套餐",
+        "topups": "积分包"
+      },
+      "health": {
+        "active": "已启用",
+        "draft": "待启用",
+        "healthy": "正常",
+        "invalid": "校验失败",
+        "missing": "未配置",
+        "retired": "已停用",
+        "warning": "需确认"
+      },
+      "interval": {
+        "day": "每 {count} 天",
+        "month": "每 {count} 个月",
+        "oneTime": "一次性",
+        "year": "每 {count} 年"
+      },
+      "loadError": "暂时无法加载套餐价格配置。",
+      "loading": "正在加载套餐价格...",
+      "menuTitle": "套餐管理",
+      "mode": {
+        "all": "全部模式",
+        "live": "正式",
+        "test": "测试"
+      },
+      "pageDescription": "管理海外套餐和积分包的收款价格，确保页面展示、实际支付和后续对账一致。",
+      "productType": {
+        "plan": "套餐",
+        "topup": "积分包"
+      },
+      "status": {
+        "active": "已启用",
+        "all": "全部状态",
+        "draft": "待启用",
+        "invalid": "校验失败",
+        "retired": "已停用"
+      },
+      "summary": {
+        "active": "已启用",
+        "invalid": "需处理",
+        "needsAction": "待配置",
+        "total": "可配置商品"
+      },
+      "table": {
+        "actions": "操作",
+        "environment": "环境",
+        "localPrice": "页面售价",
+        "product": "商品",
+        "status": "状态",
+        "stripePrice": "收款价格",
+        "validatedAt": "最近校验"
+      },
+      "title": "套餐管理",
+      "toast": {
+        "activateFailed": "价格启用失败",
+        "activateSuccess": "价格已启用",
+        "createFailed": "价格保存失败",
+        "createSuccess": "价格已保存",
+        "retireFailed": "价格停用失败",
+        "retireSuccess": "价格已停用",
+        "validateFailed": "价格校验失败",
+        "validateSuccess": "价格校验已完成"
+      }
+    },
     "reports": {
       "actions": {
         "viewOrders": "查看订单"

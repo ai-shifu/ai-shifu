@@ -163,6 +163,105 @@
       "page": "Page {page} / {pageCount} · {total} records",
       "total": "{total} records"
     },
+    "providerPrices": {
+      "actions": {
+        "activate": "Enable",
+        "cancel": "Cancel",
+        "configure": "Configure",
+        "create": "Add price",
+        "retire": "Disable",
+        "saveDraft": "Save and read",
+        "validate": "Check"
+      },
+      "confirm": {
+        "activate": "Enable this payment price? Future checkout for this product will use it.",
+        "retire": "Disable this payment price? The product will temporarily have no fixed-price checkout."
+      },
+      "description": "Manage payment prices for overseas plans and credit packs so displayed prices, checkout amounts, and granted benefits stay aligned.",
+      "dialog": {
+        "autoDetectHint": "The system checks amount, currency, interval, and mode automatically. Enable the price after the check passes.",
+        "description": "Copy the product ID and price ID from Stripe. The system will read the price details automatically.",
+        "title": "Configure payment price"
+      },
+      "empty": "No plans or credit packs are available for configuration.",
+      "fields": {
+        "priceId": "Stripe price ID",
+        "product": "Product",
+        "productId": "Stripe product ID",
+        "productPlaceholder": "Select a product"
+      },
+      "filters": {
+        "allProducts": "All products",
+        "product": "Product",
+        "status": "Status"
+      },
+      "groups": {
+        "planTier": "Plan tier: {tier}",
+        "plans": "Plans",
+        "topups": "Credit packs"
+      },
+      "health": {
+        "active": "Enabled",
+        "draft": "Not enabled",
+        "healthy": "Healthy",
+        "invalid": "Check failed",
+        "missing": "Not configured",
+        "retired": "Disabled",
+        "warning": "Needs review"
+      },
+      "interval": {
+        "day": "Every {count} day(s)",
+        "month": "Every {count} month(s)",
+        "oneTime": "One-time",
+        "year": "Every {count} year(s)"
+      },
+      "loadError": "Unable to load package price settings right now.",
+      "loading": "Loading package prices...",
+      "menuTitle": "Package Management",
+      "mode": {
+        "all": "All modes",
+        "live": "Live",
+        "test": "Test"
+      },
+      "pageDescription": "Manage payment prices for overseas plans and credit packs so package display, checkout, and reconciliation stay aligned.",
+      "productType": {
+        "plan": "Plan",
+        "topup": "Credit pack"
+      },
+      "status": {
+        "active": "Active",
+        "all": "All statuses",
+        "draft": "Draft",
+        "invalid": "Invalid",
+        "retired": "Retired"
+      },
+      "summary": {
+        "active": "Enabled",
+        "invalid": "Needs action",
+        "needsAction": "To configure",
+        "total": "Products"
+      },
+      "table": {
+        "actions": "Actions",
+        "environment": "Mode",
+        "localPrice": "Display price",
+        "product": "Product",
+        "status": "Status",
+        "stripePrice": "Payment price",
+        "validatedAt": "Last checked"
+      },
+      "title": "Package Management",
+      "toast": {
+        "activateFailed": "Failed to enable price",
+        "activateSuccess": "Price enabled",
+        "createFailed": "Failed to save price",
+        "createSuccess": "Price saved",
+        "retireFailed": "Failed to disable price",
+        "retireSuccess": "Price disabled",
+        "validateFailed": "Price check failed",
+        "validateSuccess": "Price check finished"
+      }
+    },
     "reports": {
       "actions": {
         "viewOrders": "View orders"

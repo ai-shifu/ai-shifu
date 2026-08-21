@@ -68,6 +68,11 @@ jest.mock('@/api', () => ({
     getAdminBillingSubscriptions: jest.fn(),
     getAdminBillingOpsState: jest.fn(),
     updateAdminBillingConfigStatus: jest.fn(),
+    getAdminBillingProviderPrices: jest.fn(),
+    createAdminBillingProviderPrice: jest.fn(),
+    validateAdminBillingProviderPrice: jest.fn(),
+    activateAdminBillingProviderPrice: jest.fn(),
+    retireAdminBillingProviderPrice: jest.fn(),
   },
 }));
 
@@ -104,6 +109,16 @@ const mockGetAdminBillingSubscriptions =
 const mockGetAdminBillingOpsState = api.getAdminBillingOpsState as jest.Mock;
 const mockUpdateAdminBillingConfigStatus =
   api.updateAdminBillingConfigStatus as jest.Mock;
+const mockGetAdminBillingProviderPrices =
+  api.getAdminBillingProviderPrices as jest.Mock;
+const mockCreateAdminBillingProviderPrice =
+  api.createAdminBillingProviderPrice as jest.Mock;
+const mockValidateAdminBillingProviderPrice =
+  api.validateAdminBillingProviderPrice as jest.Mock;
+const mockActivateAdminBillingProviderPrice =
+  api.activateAdminBillingProviderPrice as jest.Mock;
+const mockRetireAdminBillingProviderPrice =
+  api.retireAdminBillingProviderPrice as jest.Mock;
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -138,10 +153,41 @@ describe('AdminBillingOperationsConsole', () => {
     mockGetAdminBillingSubscriptions.mockReset();
     mockGetAdminBillingOpsState.mockReset();
     mockUpdateAdminBillingConfigStatus.mockReset();
+    mockGetAdminBillingProviderPrices.mockReset();
+    mockCreateAdminBillingProviderPrice.mockReset();
+    mockValidateAdminBillingProviderPrice.mockReset();
+    mockActivateAdminBillingProviderPrice.mockReset();
+    mockRetireAdminBillingProviderPrice.mockReset();
     mockGetAdminBillingOpsState.mockResolvedValue({
       config_status: {},
     });
     mockUpdateAdminBillingConfigStatus.mockResolvedValue({});
+    mockGetAdminBillingProviderPrices.mockResolvedValue({
+      products: [
+        {
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.plan.title',
+          description: 'module.billing.catalog.plan.description',
+          currency: 'CNY',
+          price_amount: 9900,
+          credit_amount: 100,
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          plan_tier: 'growth',
+          sort_order: 10,
+        },
+      ],
+      mappings: [],
+      active_by_product: {},
+      history_by_product: {},
+      status_options: [],
+    });
+    mockCreateAdminBillingProviderPrice.mockResolvedValue({});
+    mockValidateAdminBillingProviderPrice.mockResolvedValue({ valid: true });
+    mockActivateAdminBillingProviderPrice.mockResolvedValue({ valid: true });
+    mockRetireAdminBillingProviderPrice.mockResolvedValue({});
     mockGetAdminBillingCustomizationDraft.mockResolvedValue({
       creator_mobile: '',
       branding_enabled: false,

@@ -133,6 +133,21 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingCampaignProductOptions).toBe(
       'GET /admin/billing/products/options',
     );
+    expect(api.getAdminBillingProviderPrices).toBe(
+      'GET /admin/billing/provider-prices',
+    );
+    expect(api.createAdminBillingProviderPrice).toBe(
+      'POST /admin/billing/provider-prices',
+    );
+    expect(api.validateAdminBillingProviderPrice).toBe(
+      'POST /admin/billing/provider-prices/{provider_price_bid}/validate',
+    );
+    expect(api.activateAdminBillingProviderPrice).toBe(
+      'POST /admin/billing/provider-prices/{provider_price_bid}/activate',
+    );
+    expect(api.retireAdminBillingProviderPrice).toBe(
+      'POST /admin/billing/provider-prices/{provider_price_bid}/retire',
+    );
     expect(api.getAdminBillingCampaigns).toBe('GET /admin/billing/campaigns');
     expect(api.createAdminBillingCampaign).toBe(
       'POST /admin/billing/campaigns',

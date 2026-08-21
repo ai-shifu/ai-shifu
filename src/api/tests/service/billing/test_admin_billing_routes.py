@@ -28,6 +28,8 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_TYPE_PLAN,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -56,6 +58,7 @@ from flaskr.service.billing.models import (
     BillingCampaignProduct,
     BillingEntitlement,
     BillingOrder,
+    BillingProductProviderPrice,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
@@ -1566,3 +1569,124 @@ class TestAdminBillingRoutes:
 
         assert isinstance(detail, AdminBillingCampaignDetailDTO)
         assert detail.campaign.campaign_bid == "campaign-builder-1"
+
+    def test_admin_billing_provider_prices_lists_products_and_mappings(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingProductProviderPrice(
+                    provider_price_bid="provider-price-admin-active",
+                    product_bid="bill-product-plan-monthly",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_plan",
+                    provider_price_id="price_plan_month",
+                    livemode=0,
+                    currency="CNY",
+                    unit_amount=9900,
+                    billing_mode=7121,
+                    billing_interval=7132,
+                    billing_interval_count=1,
+                    status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+                    metadata_json={"source": "route-test"},
+                    deleted=0,
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.get("/api/admin/billing/provider-prices?livemode=false")
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        product_bids = {item["product_bid"] for item in payload["data"]["products"]}
+        assert "bill-product-plan-monthly" in product_bids
+        assert (
+            payload["data"]["active_by_product"]["bill-product-plan-monthly"][
+                "provider_price_id"
+            ]
+            == "price_plan_month"
+        )
+        assert (
+            payload["data"]["history_by_product"]["bill-product-plan-monthly"][0][
+                "status_label"
+            ]
+            == "active"
+        )
+
+    def test_admin_billing_provider_prices_create_draft_mapping(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.post(
+            "/api/admin/billing/provider-prices",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "provider_account_id": "acct_test",
+                "provider_product_id": "prod_plan",
+                "provider_price_id": "price_plan_month_new",
+                "livemode": False,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["created"] is True
+        assert payload["data"]["mapping"]["status_label"] == "draft"
+        assert payload["data"]["mapping"]["provider_price_id"] == "price_plan_month_new"
+
+    def test_admin_billing_provider_prices_retire_mapping(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingProductProviderPrice(
+                    provider_price_bid="provider-price-admin-retire",
+                    product_bid="bill-product-plan-monthly",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_plan",
+                    provider_price_id="price_plan_retire",
+                    livemode=0,
+                    currency="CNY",
+                    unit_amount=9900,
+                    billing_mode=7121,
+                    billing_interval=7132,
+                    billing_interval_count=1,
+                    status=BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+                    deleted=0,
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin-retire/retire"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["mapping"]["status_label"] == "retired"
+
+    def test_admin_billing_provider_prices_reject_non_operator(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.get(
+            "/api/admin/billing/provider-prices",
+            headers={"X-Operator": "0"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == ERROR_CODE["server.shifu.noPermission"]

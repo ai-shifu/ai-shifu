@@ -170,9 +170,29 @@ const MainInterface = ({
     };
   }, [currentUserId, menuReady]);
 
+  const paymentChannels = useEnvStore(
+    (state: EnvStoreState) => state.paymentChannels,
+  );
+  const showPackageManagement = useMemo(
+    () =>
+      (paymentChannels || []).some(
+        channel =>
+          String(channel || '')
+            .trim()
+            .toLowerCase() === 'stripe',
+      ),
+    [paymentChannels],
+  );
+
   const menuItems = useMemo(
-    () => buildAdminMenuItems({ t, isOperator, showReferralInvite }),
-    [isOperator, showReferralInvite, t],
+    () =>
+      buildAdminMenuItems({
+        t,
+        isOperator,
+        showReferralInvite,
+        showPackageManagement,
+      }),
+    [isOperator, showPackageManagement, showReferralInvite, t],
   );
 
   const {

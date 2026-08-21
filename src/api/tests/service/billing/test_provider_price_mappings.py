@@ -436,3 +436,48 @@ def test_active_provider_price_selection_fails_closed_for_multiple_rows() -> Non
         _select_single_active_mapping(rows, product_bid="bill-product-corrupt")
 
     assert exc_info.value.code == "multiple_active_provider_prices"
+
+
+def test_admin_provider_price_create_infers_account_and_mode_from_stripe(
+    app,
+    monkeypatch,
+) -> None:
+    from flaskr.service.billing import admin_provider_prices
+
+    product_bid = "bill-product-mapping-admin-infer"
+
+    def fake_read_snapshot(app, *, provider_product_id: str, provider_price_id: str):
+        assert provider_product_id == "prod_admin_infer"
+        assert provider_price_id == "price_admin_infer"
+        return _snapshot(
+            account_id="acct_admin_infer",
+            product_id="prod_admin_infer",
+            price_id="price_admin_infer",
+        )
+
+    monkeypatch.setattr(
+        admin_provider_prices,
+        "_read_provider_snapshot",
+        fake_read_snapshot,
+    )
+
+    with app.app_context():
+        db.session.add(_product(product_bid))
+        db.session.commit()
+
+        result = admin_provider_prices.create_admin_billing_provider_price_mapping(
+            app,
+            payload={
+                "product_bid": product_bid,
+                "provider_product_id": "prod_admin_infer",
+                "provider_price_id": "price_admin_infer",
+            },
+        )
+        db.session.commit()
+
+        mapping = result["mapping"]
+        assert result["created"] is True
+        assert mapping["provider_account_id"] == "acct_admin_infer"
+        assert mapping["livemode"] is False
+        assert mapping["provider_product_id"] == "prod_admin_infer"
+        assert mapping["provider_price_id"] == "price_admin_infer"
