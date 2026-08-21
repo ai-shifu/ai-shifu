@@ -262,7 +262,7 @@ class RUNLLMProvider(LLMProvider):
         usage_context: UsageContext,
         usage_scene: int,
     ) -> None:
-        """Configure the run-scoped LLM provider."""
+        """Bind run-scoped LLM settings, tracing, and usage dependencies."""
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace

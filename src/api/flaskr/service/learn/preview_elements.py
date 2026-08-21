@@ -27,7 +27,11 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         user_bid: str,
         run_session_bid: str | None = None,
     ) -> None:
-        """Configure in-memory preview event adaptation."""
+        """Initialize preview adaptation with in-memory element snapshots.
+
+        Reuses the parent run identity and event state, then replaces the element
+        snapshot store with a preview-only in-memory cache.
+        """
         super().__init__(
             app,
             shifu_bid=shifu_bid,

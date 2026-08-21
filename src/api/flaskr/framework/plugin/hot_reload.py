@@ -129,7 +129,11 @@ class PluginHotReloader:
 
 class PluginFileHandler(FileSystemEventHandler):
     def __init__(self, reloader: PluginHotReloader) -> None:
-        """Connect file-system events to the plugin reloader."""
+        """Bind a reloader and initialize per-file reload throttling.
+
+        Stores the reloader, starts an empty last-reload registry, and sets a
+        one-second minimum interval between reloads.
+        """
         self.reloader = reloader
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads
