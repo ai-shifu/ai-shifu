@@ -322,13 +322,14 @@ def assert_or_update_golden(fixture_name: str, normalized_text: str) -> None:
         fixture_path.write_text(normalized_text, encoding="utf-8")
         return
     if not fixture_path.exists():
-        raise AssertionError(
+        message = (
             f"Golden fixture {fixture_path} is missing. "
             "Record it with UPDATE_GOLDEN=1 pytest tests/golden/ and commit the file."
         )
+        raise AssertionError(message)
     expected = fixture_path.read_text(encoding="utf-8")
     if normalized_text != expected:
-        raise AssertionError(
+        message = (
             f"Golden fixture mismatch for {fixture_name}.\n"
             "The normalized output no longer matches the recorded contract. "
             "Review the diff below; if the change is intentional, rerun with "
@@ -336,3 +337,4 @@ def assert_or_update_golden(fixture_name: str, normalized_text: str) -> None:
             f"--- expected ({fixture_path})\n{expected}\n"
             f"+++ actual\n{normalized_text}"
         )
+        raise AssertionError(message)

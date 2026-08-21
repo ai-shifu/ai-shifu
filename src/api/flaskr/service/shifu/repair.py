@@ -235,7 +235,8 @@ def _plan_outline_structure_repair(
         for item in siblings:
             bid = item.outline_item_bid
             if bid in visited:
-                raise RuntimeError(f"Cycle detected around outline {bid}")
+                message = f"Cycle detected around outline {bid}"
+                raise RuntimeError(message)
             visited.add(bid)
             next_suffix = _next_available_suffix(
                 used_suffixes,

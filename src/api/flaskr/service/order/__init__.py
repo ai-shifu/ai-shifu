@@ -20,4 +20,5 @@ def __getattr__(name: str) -> Any:
         value = getattr(funs, name)
         globals()[name] = value
         return value
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    message = f"module '{__name__}' has no attribute '{name}'"
+    raise AttributeError(message)

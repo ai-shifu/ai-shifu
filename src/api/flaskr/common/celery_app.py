@@ -221,7 +221,8 @@ def _resolve_billing_crontab(
     )
     fallback_schedule = _parse_crontab_expression(default_expression)
     if fallback_schedule is None:  # pragma: no cover - guarded by constants above
-        raise ValueError(f"Invalid default cron expression for {config_key}")
+        message = f"Invalid default cron expression for {config_key}"
+        raise ValueError(message)
     return fallback_schedule
 
 

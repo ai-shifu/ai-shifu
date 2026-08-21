@@ -61,7 +61,8 @@ def native_snapshot_model(payment_provider: str):
     provider = str(payment_provider or "").strip().lower()
     model = _NATIVE_PAYMENT_MODELS.get(provider)
     if model is None:
-        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+        message = f"Unsupported native payment provider: {payment_provider}"
+        raise ValueError(message)
     return model
 
 
@@ -69,7 +70,8 @@ def native_snapshot_bid_attr(payment_provider: str) -> str:
     provider = str(payment_provider or "").strip().lower()
     attr = _NATIVE_PAYMENT_BID_ATTRS.get(provider)
     if attr is None:
-        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+        message = f"Unsupported native payment provider: {payment_provider}"
+        raise ValueError(message)
     return attr
 
 

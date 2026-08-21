@@ -149,7 +149,8 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     if provider_name not in _provider_instances:
         provider_cls = _PROVIDER_REGISTRY.get(provider_name)
         if not provider_cls:
-            raise ValueError(f"Unknown TTS provider: {provider_name}")
+            message = f"Unknown TTS provider: {provider_name}"
+            raise ValueError(message)
         _provider_instances[provider_name] = provider_cls()
 
     return _provider_instances[provider_name]

@@ -303,7 +303,8 @@ def list_billing_product_rows(
     for product_bid in selected_bids:
         base_row = _TEST_BILLING_PRODUCT_ROWS_BY_BID.get(product_bid)
         if base_row is None:
-            raise AssertionError(f"unknown billing product fixture: {product_bid}")
+            message = f"unknown billing product fixture: {product_bid}"
+            raise AssertionError(message)
 
         payload = deepcopy(base_row)
         if overrides_by_bid and product_bid in overrides_by_bid:

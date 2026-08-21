@@ -117,7 +117,8 @@ def collect_frontend_trans_keys(text: str) -> set[str]:
 
 def iter_locale_dirs() -> Iterable[Path]:
     if not I18N_DIR.exists():
-        raise RuntimeError(f"Translation directory not found: {I18N_DIR}")
+        message = f"Translation directory not found: {I18N_DIR}"
+        raise RuntimeError(message)
     for entry in sorted(I18N_DIR.iterdir()):
         if entry.is_dir() and not entry.name.startswith("."):
             yield entry
@@ -130,7 +131,8 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
         if isinstance(flat_section, dict):
             for key, value in flat_section.items():
                 if not isinstance(value, str):
-                    raise TypeError(f"Translation value for '{key}' must be a string")
+                    message = f"Translation value for '{key}' must be a string"
+                    raise TypeError(message)
                 composite_key = f"{namespace}.{key}" if namespace else key
                 items[composite_key] = value
         for key, value in data.items():
@@ -140,7 +142,8 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
             items.update(flatten_translation(value, next_namespace))
         return items
     if not isinstance(data, str):
-        raise TypeError(f"Translation value for '{namespace}' must be a string")
+        message = f"Translation value for '{namespace}' must be a string"
+        raise TypeError(message)
     return {namespace: data}
 
 

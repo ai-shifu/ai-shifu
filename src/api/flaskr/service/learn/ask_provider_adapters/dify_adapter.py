@@ -106,7 +106,8 @@ class DifyAskProviderAdapter:
         except requests.Timeout as exc:
             raise AskProviderTimeoutError("dify request timeout") from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"dify request failed: {exc}") from exc
+            message = f"dify request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         response = raise_for_provider_response(response, self.provider)
 
@@ -122,7 +123,8 @@ class DifyAskProviderAdapter:
             event = str(parsed.get("event") or "").strip().lower()
             if event == "error":
                 error_message = extract_text(parsed) or str(parsed)
-                raise AskProviderError(f"dify error: {error_message}")
+                message = f"dify error: {error_message}"
+                raise AskProviderError(message)
 
             text = extract_text(parsed)
             if text:

@@ -228,7 +228,8 @@ def main() -> int:
     args = parse_args()
     input_path = Path(args.input)
     if not input_path.exists():
-        raise SystemExit(f"Input file not found: {input_path}")
+        message = f"Input file not found: {input_path}"
+        raise SystemExit(message)
 
     chunk_sizes = (
         tuple(int(part.strip()) for part in args.chunk_sizes.split(",") if part.strip())

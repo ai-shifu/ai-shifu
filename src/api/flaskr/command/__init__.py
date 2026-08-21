@@ -169,7 +169,8 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             logger.exception("Migration failed")
-            raise click.ClickException(f"Migration failed: {e}") from e
+            message = f"Migration failed: {e}"
+            raise click.ClickException(message) from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -227,7 +228,8 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             logger.exception("Verification failed")
-            raise click.ClickException(f"Verification failed: {e}") from e
+            message = f"Verification failed: {e}"
+            raise click.ClickException(message) from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -311,7 +313,8 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             logger.exception("Status check failed")
-            raise click.ClickException(f"Status check failed: {e}") from e
+            message = f"Status check failed: {e}"
+            raise click.ClickException(message) from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -344,7 +347,8 @@ def enable_commands(app: Flask):
                 )
         except Exception as e:
             click.echo(click.style(f"❌ Export failed: {e}", fg="red"))
-            raise click.ClickException(f"Export failed: {e}") from e
+            message = f"Export failed: {e}"
+            raise click.ClickException(message) from e
 
     @console.command(name="import_shifu")
     @click.argument("file_path")
@@ -366,7 +370,8 @@ def enable_commands(app: Flask):
 
         """
         if not Path(file_path).exists():
-            raise click.ClickException(f"File not found: {file_path}")
+            message = f"File not found: {file_path}"
+            raise click.ClickException(message)
 
         try:
             click.echo(f"Importing shifu from {file_path}...")
@@ -405,7 +410,8 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             click.echo(click.style(f"❌ Import failed: {e}", fg="red"))
-            raise click.ClickException(f"Import failed: {e}") from e
+            message = f"Import failed: {e}"
+            raise click.ClickException(message) from e
 
     @console.command(name="update_demo_shifu")
     def update_demo_shifu_command():

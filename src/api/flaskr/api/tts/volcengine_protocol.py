@@ -286,7 +286,8 @@ class VolcengineProtocol:
 
         """
         if len(data) < 4:
-            raise ValueError(f"Frame too short: {len(data)} bytes")
+            message = f"Frame too short: {len(data)} bytes"
+            raise ValueError(message)
 
         # Parse header (4 bytes)
         byte0 = data[0]

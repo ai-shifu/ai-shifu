@@ -34,11 +34,13 @@ def parse_args() -> argparse.Namespace:
 
 def iter_locale_dirs() -> list[Path]:
     if not I18N_DIR.exists():
-        raise RuntimeError(f"Translation directory not found: {I18N_DIR}")
+        message = f"Translation directory not found: {I18N_DIR}"
+        raise RuntimeError(message)
 
     locales = [entry for entry in I18N_DIR.iterdir() if entry.is_dir()]
     if not locales:
-        raise RuntimeError(f"No locale directories present under {I18N_DIR}")
+        message = f"No locale directories present under {I18N_DIR}"
+        raise RuntimeError(message)
     return sorted(locales, key=lambda p: p.name)
 
 
@@ -59,7 +61,8 @@ def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) 
         target_path = (locale_dir / relative_path).with_suffix(".json")
         target_path.parent.mkdir(parents=True, exist_ok=True)
         if target_path.exists() and not force:
-            raise RuntimeError(f"Translation file already exists: {target_path}")
+            message = f"Translation file already exists: {target_path}"
+            raise RuntimeError(message)
         target_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -74,7 +77,8 @@ def update_locales_metadata(namespace: str) -> None:
         try:
             data = json.loads(LOCALES_FILE.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Invalid JSON in {LOCALES_FILE}: {exc}") from exc
+            message = f"Invalid JSON in {LOCALES_FILE}: {exc}"
+            raise RuntimeError(message) from exc
 
     namespaces = set(data.get("namespaces", []))
     namespaces.add(namespace)

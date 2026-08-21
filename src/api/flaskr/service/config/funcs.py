@@ -115,7 +115,8 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
             decrypted_value = fernet.decrypt(encrypted_value.encode())
             return decrypted_value.decode()
         except Exception as e:
-            raise ValueError(f"Failed to decrypt config value: {e!s}") from e
+            message = f"Failed to decrypt config value: {e!s}"
+            raise ValueError(message) from e
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:

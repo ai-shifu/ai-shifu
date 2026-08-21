@@ -38,10 +38,11 @@ class EnvVar:
     def __post_init__(self) -> None:
         """Validate EnvVar configuration after initialization."""
         if self.required and self.default is not None:
-            raise ValueError(
+            message = (
                 f"Environment variable '{self.name}' is marked as required "
                 "but has a default value. Required variables must not have defaults."
             )
+            raise ValueError(message)
 
     def validate_value(self, value: Any) -> bool:
         """Validate the environment variable value."""
@@ -67,16 +68,14 @@ class EnvVar:
             try:
                 return int(value)
             except ValueError as exc:
-                raise EnvironmentConfigError(
-                    f"Invalid integer value for {self.name}: {value}"
-                ) from exc
+                message = f"Invalid integer value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
         elif self.type is float:
             try:
                 return float(value)
             except ValueError as exc:
-                raise EnvironmentConfigError(
-                    f"Invalid float value for {self.name}: {value}"
-                ) from exc
+                message = f"Invalid float value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
         elif self.type is list:
             if isinstance(value, str):
                 return [item.strip() for item in value.split(",") if item.strip()]

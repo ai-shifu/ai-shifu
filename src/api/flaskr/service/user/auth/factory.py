@@ -29,9 +29,8 @@ def register_provider(provider_cls: type[AuthProvider]) -> None:
 
     normalized = provider_name.lower()
     if normalized in _REGISTRY:
-        raise ProviderAlreadyRegisteredError(
-            f"Provider '{provider_name}' already registered"
-        )
+        message = f"Provider '{provider_name}' already registered"
+        raise ProviderAlreadyRegisteredError(message)
 
     _REGISTRY[normalized] = provider_cls
 
@@ -41,7 +40,8 @@ def get_provider(provider_name: str) -> AuthProvider:
     normalized = provider_name.lower()
     provider_cls = _REGISTRY.get(normalized)
     if provider_cls is None:
-        raise ProviderNotFoundError(f"Provider '{provider_name}' is not registered")
+        message = f"Provider '{provider_name}' is not registered"
+        raise ProviderNotFoundError(message)
     return provider_cls()
 
 

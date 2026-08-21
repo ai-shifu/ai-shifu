@@ -509,7 +509,8 @@ def billing_write_client(monkeypatch):
             return FakeStripeProvider()
         if channel == "pingxx":
             return FakePingxxProvider()
-        raise AssertionError(f"Unexpected provider: {channel}")
+        message = f"Unexpected provider: {channel}"
+        raise AssertionError(message)
 
     monkeypatch.setitem(
         billing_write_routes_module.create_billing_order_checkout.__globals__,

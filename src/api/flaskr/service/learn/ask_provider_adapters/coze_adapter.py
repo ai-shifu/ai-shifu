@@ -53,10 +53,11 @@ class CozeAskProviderAdapter:
 
         bot_id = str(config.get("bot_id") or "").strip()
         api_path = str(config.get("api_path") or "/v3/chat").strip() or "/v3/chat"
-        if api_path.startswith("http"):
-            url = api_path
-        else:
-            url = base_url.rstrip("/") + "/" + api_path.lstrip("/")
+        url = (
+            api_path
+            if api_path.startswith("http")
+            else base_url.rstrip("/") + "/" + api_path.lstrip("/")
+        )
 
         if api_path == "/v3/chat" and not bot_id:
             raise AskProviderConfigError("coze bot_id is required")
@@ -99,7 +100,8 @@ class CozeAskProviderAdapter:
         except requests.Timeout as exc:
             raise AskProviderTimeoutError("coze request timeout") from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"coze request failed: {exc}") from exc
+            message = f"coze request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         response = raise_for_provider_response(response, self.provider)
 
@@ -116,7 +118,8 @@ class CozeAskProviderAdapter:
             event = str(parsed.get("event") or parsed.get("type") or "").lower()
             if "error" in event:
                 error_message = extract_text(parsed) or str(parsed)
-                raise AskProviderError(f"coze error: {error_message}")
+                message = f"coze error: {error_message}"
+                raise AskProviderError(message)
             if event in {"done", "message_end", "chat.completed"}:
                 continue
 

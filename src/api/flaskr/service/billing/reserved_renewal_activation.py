@@ -180,9 +180,8 @@ def sync_activated_reserved_renewal_ledger_balances(
             .first()
         )
         if grant_entry is None or _reserved_grant_state(grant_entry) != "available":
-            raise IncompleteReservedGrantActivationError(
-                f"incomplete_{target.kind}_activation:{target.order_bid}"
-            )
+            message = f"incomplete_{target.kind}_activation:{target.order_bid}"
+            raise IncompleteReservedGrantActivationError(message)
         running_balance = _quantize_credit_amount(running_balance + target.amount)
         grant_entry.balance_after = running_balance
         grant_entry.updated_at = now
@@ -339,9 +338,8 @@ def _expected_subscription_grant_amount(order: BillingOrder) -> Decimal:
 def _expected_subscription_cycle_grant_amount(order: BillingOrder) -> Decimal:
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:
-        raise IncompleteReservedGrantActivationError(
-            f"missing_subscription_product:{order.bill_order_bid}"
-        )
+        message = f"missing_subscription_product:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     return _quantize_credit_amount(_to_decimal(product.credit_amount))
 
 
@@ -362,27 +360,23 @@ def _build_reserved_activation_target(
     if kind != "subscription" and expected_amount <= 0:
         return None
     if grant_entry is None:
-        raise IncompleteReservedGrantActivationError(
-            f"missing_{kind}_ledger:{order.bill_order_bid}"
-        )
+        message = f"missing_{kind}_ledger:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
 
     state = _reserved_grant_state(grant_entry)
     if state == "available":
         return None
     if state != "reserved":
-        raise IncompleteReservedGrantActivationError(
-            f"invalid_{kind}_state:{order.bill_order_bid}:{state or 'missing'}"
-        )
+        message = f"invalid_{kind}_state:{order.bill_order_bid}:{state or 'missing'}"
+        raise IncompleteReservedGrantActivationError(message)
 
     amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
     if expected_amount > 0 and amount != expected_amount:
-        raise IncompleteReservedGrantActivationError(
-            f"{kind}_amount_mismatch:{order.bill_order_bid}"
-        )
+        message = f"{kind}_amount_mismatch:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     if amount <= 0:
-        raise IncompleteReservedGrantActivationError(
-            f"invalid_{kind}_amount:{order.bill_order_bid}"
-        )
+        message = f"invalid_{kind}_amount:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
 
     bucket = _load_reserved_activation_bucket(
         order,
@@ -390,13 +384,11 @@ def _build_reserved_activation_target(
         fallback_bucket_category=fallback_bucket_category,
     )
     if bucket is None:
-        raise IncompleteReservedGrantActivationError(
-            f"missing_{kind}_bucket:{order.bill_order_bid}"
-        )
+        message = f"missing_{kind}_bucket:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     if _quantize_credit_amount(_to_decimal(bucket.reserved_credits)) < amount:
-        raise IncompleteReservedGrantActivationError(
-            f"insufficient_{kind}_reserved:{order.bill_order_bid}"
-        )
+        message = f"insufficient_{kind}_reserved:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
 
     return ReservedActivationTarget(
         kind=kind,
@@ -418,32 +410,27 @@ def _build_reserved_completion_target(
     if kind != "subscription" and expected_amount <= 0:
         return None
     if grant_entry is None:
-        raise IncompleteReservedGrantActivationError(
-            f"missing_{kind}_ledger:{order.bill_order_bid}"
-        )
+        message = f"missing_{kind}_ledger:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     state = _reserved_grant_state(grant_entry)
     if state != "available":
-        raise IncompleteReservedGrantActivationError(
-            f"incomplete_{kind}_activation:{order.bill_order_bid}"
-        )
+        message = f"incomplete_{kind}_activation:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     amount = _quantize_credit_amount(_to_decimal(grant_entry.amount))
     if expected_amount > 0 and amount != expected_amount:
-        raise IncompleteReservedGrantActivationError(
-            f"{kind}_amount_mismatch:{order.bill_order_bid}"
-        )
+        message = f"{kind}_amount_mismatch:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     bucket = _load_reserved_activation_bucket(
         order,
         grant_entry,
         fallback_bucket_category=fallback_bucket_category,
     )
     if bucket is None:
-        raise IncompleteReservedGrantActivationError(
-            f"missing_{kind}_bucket:{order.bill_order_bid}"
-        )
+        message = f"missing_{kind}_bucket:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     if _quantize_credit_amount(_to_decimal(bucket.available_credits)) < amount:
-        raise IncompleteReservedGrantActivationError(
-            f"incomplete_{kind}_bucket:{order.bill_order_bid}"
-        )
+        message = f"incomplete_{kind}_bucket:{order.bill_order_bid}"
+        raise IncompleteReservedGrantActivationError(message)
     return ReservedActivationTarget(
         kind=kind,
         order_bid=order.bill_order_bid,
@@ -525,15 +512,13 @@ def _preflight_reserved_renewal_grants_for_cycle(
             .first()
         )
         if bucket is None:
-            raise IncompleteReservedGrantActivationError(
-                f"missing_bucket:{wallet_bucket_bid}"
-            )
+            message = f"missing_bucket:{wallet_bucket_bid}"
+            raise IncompleteReservedGrantActivationError(message)
         if _quantize_credit_amount(
             _to_decimal(bucket.reserved_credits)
         ) < _quantize_credit_amount(required_reserved):
-            raise IncompleteReservedGrantActivationError(
-                f"insufficient_reserved:{wallet_bucket_bid}"
-            )
+            message = f"insufficient_reserved:{wallet_bucket_bid}"
+            raise IncompleteReservedGrantActivationError(message)
     return tuple(targets)
 
 
@@ -585,9 +570,8 @@ def _assert_subscription_cycle_grant_amounts(
         if _quantize_credit_amount(
             subscription_amount_by_product.get(product_bid, Decimal(0))
         ) < _quantize_credit_amount(expected_amount):
-            raise IncompleteReservedGrantActivationError(
-                f"subscription_cycle_amount_mismatch:{product_bid}"
-            )
+            message = f"subscription_cycle_amount_mismatch:{product_bid}"
+            raise IncompleteReservedGrantActivationError(message)
 
 
 def _activate_reserved_subscription_grant_for_order(
