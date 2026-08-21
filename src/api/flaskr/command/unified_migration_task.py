@@ -128,7 +128,12 @@ class UnifiedMigrationTask:
         database_url: str | None = None,
         config: MigrationConfig | None = None,
     ) -> None:
-        """Configure the unified data-migration task."""
+        """Initialize database resources and mappings for a migration run.
+
+        Resolves a default database URL when needed, normalizes MySQL URLs to the
+        PyMySQL driver, and creates the SQLAlchemy engine and session factory.
+        Registers the study and coupon table mappings used by migration commands.
+        """
         if database_url is None:
             database_url = _resolve_default_database_url()
 
