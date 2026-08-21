@@ -143,9 +143,9 @@ def test_credit_detail_returns_summary_and_rows(mock_request_user, test_client, 
 def test_credit_detail_excludes_non_usage_ledger_entries(
     mock_request_user, test_client, app
 ):
-    """A ledger entry with source_type != USAGE (e.g.
+    """A non-USAGE ledger entry must never appear in the result.
 
-    subscription / topup) must never appear in the result, even if its source_bid happens to
+    Entries such as subscription or topup must be excluded even if their source_bid happens to
     match an existing bill_usage.usage_bid (which would not happen in production, but the
     filter must be defensive).
     """
