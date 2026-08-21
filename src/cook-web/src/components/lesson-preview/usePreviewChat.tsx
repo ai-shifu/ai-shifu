@@ -484,7 +484,7 @@ export const replacePreviewLoadingWithBusinessError = (
 export function usePreviewChat({
   creditInsufficientAudience,
 }: {
-  creditInsufficientAudience: CreditInsufficientAudience;
+  creditInsufficientAudience: CreditInsufficientAudience | null;
 }) {
   const { t } = useTranslation();
   const { actions } = useShifu();
@@ -809,17 +809,25 @@ export function usePreviewChat({
           ? fallbackCode
           : (errorOrMessage?.code ?? fallbackCode);
       const isCreditError = isCreditInsufficientBusinessCode(resolvedCode);
-      const displayMessage = isCreditError
-        ? getCreditInsufficientMessage(creditInsufficientAudience, resolvedCode)
-        : showPreviewErrorToast(
-            resolvedToast.message,
-            t('module.preview.llmError'),
-          );
+      let displayMessage: string;
       if (isCreditError) {
+        if (creditInsufficientAudience === null) {
+          stopPreview();
+          return;
+        }
+        displayMessage = getCreditInsufficientMessage(
+          creditInsufficientAudience,
+          resolvedCode,
+        );
         showCreditInsufficientToast({
           audience: creditInsufficientAudience,
           code: resolvedCode,
         });
+      } else {
+        displayMessage = showPreviewErrorToast(
+          resolvedToast.message,
+          t('module.preview.llmError'),
+        );
       }
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
@@ -1414,6 +1422,9 @@ export function usePreviewChat({
       systemVariableKeys,
       visual_mode = false,
     }: StartPreviewParams) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       const normalizedUserInput =
         user_input &&
         Object.values(user_input).some(value =>
@@ -1726,6 +1737,9 @@ export function usePreviewChat({
       blockBid: string,
       options?: { skipStreamCheck?: boolean; skipConfirm?: boolean },
     ) => {
+      if (creditInsufficientAudience === null) {
+        return false;
+      }
       if (!options?.skipStreamCheck && isStreamingRef.current) {
         showOutputInProgressToast();
         return false;
@@ -1830,6 +1844,7 @@ export function usePreviewChat({
       return true;
     },
     [
+      creditInsufficientAudience,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
       showOutputInProgressToast,
@@ -1843,6 +1858,9 @@ export function usePreviewChat({
 
   const onRefresh = useCallback(
     async (elementBid: string) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       if (isStreamingRef.current) {
         showOutputInProgressToast();
         return;
@@ -1898,6 +1916,7 @@ export function usePreviewChat({
       });
     },
     [
+      creditInsufficientAudience,
       resolveLatestMdflow,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
@@ -2001,7 +2020,7 @@ export function usePreviewChat({
       blockId: string;
       text: string;
     }): Promise<AudioCompleteData | null> => {
-      if (!shifuBid || !blockId) {
+      if (creditInsufficientAudience === null || !shifuBid || !blockId) {
         return null;
       }
       const previewRunId = previewRunIdRef.current;

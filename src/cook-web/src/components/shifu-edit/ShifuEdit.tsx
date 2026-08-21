@@ -198,11 +198,13 @@ const ScriptEditor = ({
     autosavePaused,
   } = useShifu();
   const currentUserId = profile?.user_bid || profile?.user_id || '';
-  const isCourseOwner = Boolean(
-    currentShifu?.created_user_bid &&
-    currentUserId &&
-    currentShifu.created_user_bid === currentUserId,
-  );
+  const isCourseOwner = profile
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentUserId &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
   const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
     previewMode: true,
     isCurrentUserCourseOwner: isCourseOwner,
@@ -1359,7 +1361,10 @@ const ScriptEditor = ({
   }, [token, baseURL]);
 
   const canPreview = Boolean(
-    currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
+    creditInsufficientAudience !== null &&
+    currentNode?.depth &&
+    currentNode.depth > 0 &&
+    currentShifu?.bid,
   );
 
   const previewToggleLabel = isPreviewPanelOpen
@@ -1871,7 +1876,7 @@ const ScriptEditor = ({
               </Button>
             </div>
           ) : null}
-          {isPreviewPanelOpen ? (
+          {isPreviewPanelOpen && creditInsufficientAudience !== null ? (
             <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
               <div className='h-full'>
                 <LessonPreview

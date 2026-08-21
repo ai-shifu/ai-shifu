@@ -143,6 +143,29 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
   });
 
+  test('does not open preview streams while ownership is unresolved', async () => {
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: null }),
+    );
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'content',
+      });
+    });
+    await expect(
+      result.current.requestAudioForBlock({
+        shifuBid: 'shifu-1',
+        blockId: 'block-1',
+        text: 'content',
+      }),
+    ).resolves.toBeNull();
+
+    expect(SSE).not.toHaveBeenCalled();
+  });
+
   test('drops stale interaction user input when continuation has no submission', () => {
     expect(
       buildInteractionContinuationPreviewParams({
