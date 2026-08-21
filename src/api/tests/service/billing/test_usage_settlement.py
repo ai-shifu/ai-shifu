@@ -307,7 +307,7 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
     )
 
     with billing_settlement_app.app_context():
-        wallet = _create_wallet("creator-1", "4.0000000000")
+        wallet = _create_wallet("creator-1", "3.0000000000")
         dao.db.session.add(wallet)
         dao.db.session.add(_create_active_subscription("creator-1"))
         dao.db.session.add_all(
@@ -318,7 +318,7 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
                     bucket_bid="bucket-free",
                     category=CREDIT_BUCKET_CATEGORY_FREE,
                     priority=10,
-                    available_credits="2.0000000000",
+                    available_credits="1.0000000000",
                 ),
                 _create_bucket(
                     creator_bid="creator-1",
@@ -387,12 +387,12 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
 
         assert payload["status"] == "settled"
         assert payload["entry_count"] == 1
-        assert payload["consumed_credits"] == 4
+        assert payload["consumed_credits"] == 3
         assert wallet.available_credits == Decimal("0E-10")
-        assert wallet.lifetime_consumed_credits == Decimal("4.0000000000")
+        assert wallet.lifetime_consumed_credits == Decimal("3.0000000000")
         assert len(entries) == 1
         assert entries[0].wallet_bucket_bid == ""
-        assert entries[0].amount == Decimal("-4.0000000000")
+        assert entries[0].amount == Decimal("-3.0000000000")
         assert entries[0].balance_after == Decimal("0E-10")
         assert [
             row["billing_metric"]
@@ -402,6 +402,9 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
             "llm_cache_tokens",
             "llm_output_tokens",
         ]
+        assert [
+            row["raw_amount"] for row in entries[0].metadata_json["metric_breakdown"]
+        ] == [200, 1000, 1000]
         assert [
             row["wallet_bucket_bid"]
             for row in entries[0].metadata_json["bucket_breakdown"]

@@ -171,13 +171,17 @@ def build_usage_metric_charges(
 ) -> list[UsageMetricCharge]:
     usage_type = int(usage.usage_type or 0)
     if usage_type == BILL_USAGE_TYPE_LLM:
+        uncached_input = max(
+            int(usage.input or 0) - int(usage.input_cache or 0),
+            0,
+        )
         return [
             charge
             for charge in (
                 build_metric_charge(
                     usage,
                     billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-                    raw_amount=int(usage.input or 0),
+                    raw_amount=uncached_input,
                     settlement_at=settlement_at,
                 ),
                 build_metric_charge(
