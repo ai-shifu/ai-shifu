@@ -251,6 +251,7 @@ def _seed_credit_ledger(*, ledger_bid: str, creator_bid: str) -> None:
 
 def _stub_send_sms(monkeypatch: pytest.MonkeyPatch, sends: list[dict]):
     def fake_send(app, mobile, *, template_code, template_params, sign_name=None):
+        _ = (app, sign_name)
         sends.append(
             {
                 "mobile": mobile,

@@ -87,7 +87,7 @@ def update_user_info(
             updates_profile["sys_user_nickname"] = name
             update_profile = True
         if language is not None:
-            if language in get_i18n_list(app):
+            if language in get_i18n_list():
                 updates["language"] = language
                 updates_profile["sys_user_language"] = language
                 update_profile = True

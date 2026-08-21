@@ -133,6 +133,7 @@ def test_init_buy_record_late_failure_persists_nothing(
     Pre-migration, ``_sync_order_campaign_pricing`` committed the new Order
     row and the promo applications before the failure point.
     """
+    _ = stub_shifu
 
     def fake_apply_promo(_app, **kwargs):
         application = PromoRedemption(
@@ -166,6 +167,7 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     stub_promo_side_sessions,
 ):
     """(b) Clean run: the timeout flip and the new order commit together."""
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
@@ -195,6 +197,7 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     A retry re-detects the timeout and re-flips atomically with the
     replacement order.
     """
+    _ = (stub_shifu, stub_promo_side_sessions)
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
@@ -222,6 +225,7 @@ def test_discount_refresh_failure_keeps_coupon_pricing_untouched(
     Pre-migration, ``_sync_order_campaign_pricing`` committed the recomputed
     ``paid_price`` (coupon applied) before order validation could fail.
     """
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     origin_bid = _seed_order()
     coupon = Coupon(
@@ -266,6 +270,7 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     stub_shifu,
 ):
     """The key migration property: self-committing at top level, joining when nested — legacy callers (coupon_funcs, admin) and migrated owners both stay correct."""
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_a, **_k: None)
     feishu_calls = []
     monkeypatch.setattr(

@@ -1180,6 +1180,7 @@ def _can_use_operator_course_sql_optimization(app: Flask) -> bool:
 def _build_operator_course_overview_legacy(
     app: Flask,
 ) -> AdminOperationCourseOverviewDTO:
+    _ = app
     draft_rows = _load_latest_shifus(
         DraftShifu,
         shifu_bid="",
@@ -1259,6 +1260,7 @@ def _list_operator_courses_legacy(
     page_size: int,
     filters: dict | None = None,
 ) -> AdminOperationCourseListDTO:
+    _ = app
     safe_page_index = max(int(page_index or 1), 1)
     safe_page_size = min(max(int(page_size or 20), 1), MAX_PAGE_SIZE)
     filters = filters or {}

@@ -79,6 +79,7 @@ def cleanup_outline_history_versions(
     content-anchor version. Therefore, actual retained rows can exceed strict
     limits by protected anchor rows.
     """
+    _ = app
     latest_version = (
         DraftOutlineItem.query.filter(
             DraftOutlineItem.shifu_bid == shifu_bid,

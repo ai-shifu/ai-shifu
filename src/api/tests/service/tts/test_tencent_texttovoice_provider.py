@@ -176,6 +176,7 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
     captured_payloads = []
 
     def _fake_post(url, data=None, headers=None, timeout=None):
+        _ = (url, headers, timeout)
         captured_payloads.append(json.loads(data.decode("utf-8")))
         return _FakeResponse(
             {

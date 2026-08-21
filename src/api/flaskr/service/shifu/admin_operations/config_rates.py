@@ -591,6 +591,7 @@ def update_operator_rate_config(
     payload: dict[str, Any],
     operator_user_bid: str,
 ) -> dict[str, Any]:
+    _ = operator_user_bid
     with app_context_scope(app), unit_of_work():
         create_only = _normalize_create_only(payload)
         usage_type = _normalize_usage_type(payload.get("usage_type"))

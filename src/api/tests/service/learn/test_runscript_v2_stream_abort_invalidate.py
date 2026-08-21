@@ -239,5 +239,5 @@ def test_discard_helper_works_on_real_scoped_session(app, caplog):
     from flaskr.service.learn.runscript_v2 import _discard_session_connection
 
     with app.app_context(), caplog.at_level(logging.WARNING):
-        _discard_session_connection(app, source="real session smoke")
+        _discard_session_connection(source="real session smoke")
     assert "invalidate failed" not in caplog.text

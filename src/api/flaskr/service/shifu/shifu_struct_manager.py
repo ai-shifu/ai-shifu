@@ -185,6 +185,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         ShifuInfoDto: Shifu dto.
 
     """
+    _ = app
     shifu_model = DraftShifu if is_preview else PublishedShifu
     shifu: DraftShifu | PublishedShifu = (
         shifu_model.query.filter(

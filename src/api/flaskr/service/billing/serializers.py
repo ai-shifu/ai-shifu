@@ -190,6 +190,7 @@ def serialize_admin_campaign(
     discount_percent: Any | None = None,
     bonus_credit_amount: Any | None = None,
 ) -> AdminBillingCampaignDTO:
+    _ = app
     now = now_utc()
     if not bool(row.enabled):
         computed_status = "inactive"
@@ -340,6 +341,7 @@ def serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
 ) -> BillingSubscriptionDTO | None:
+    _ = app
     if row is None:
         return None
     product_codes = load_product_code_map([row.product_bid])
@@ -416,6 +418,7 @@ def serialize_renewal_event(
     app: Flask,
     row: BillingRenewalEvent | None,
 ) -> BillingRenewalEventDTO | None:
+    _ = app
     if row is None:
         return None
     return BillingRenewalEventDTO(
@@ -497,6 +500,7 @@ def serialize_wallet_bucket(
     category_code: int | None = None,
     credit_asset_kind: str = "unknown",
 ) -> BillingWalletBucketDTO:
+    _ = app
     runtime_category_code = (
         resolve_wallet_bucket_runtime_category(
             row,
@@ -542,6 +546,7 @@ def serialize_ledger_entry(
     metadata: Any | None = None,
     credit_asset_kind: str = "unknown",
 ) -> BillingLedgerItemDTO:
+    _ = app
     return BillingLedgerItemDTO(
         ledger_bid=row.ledger_bid,
         wallet_bucket_bid=row.wallet_bucket_bid,
@@ -565,6 +570,7 @@ def serialize_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
 ) -> BillingDailyUsageMetricDTO:
+    _ = app
     return BillingDailyUsageMetricDTO(
         daily_usage_metric_bid=row.daily_usage_metric_bid,
         stat_date=row.stat_date,
@@ -589,6 +595,7 @@ def serialize_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
 ) -> BillingDailyLedgerSummaryDTO:
+    _ = app
     return BillingDailyLedgerSummaryDTO(
         daily_ledger_summary_bid=row.daily_ledger_summary_bid,
         stat_date=row.stat_date,
@@ -608,6 +615,7 @@ def serialize_admin_entitlement_state(
     creator: dict[str, str],
     product: BillingProduct | None,
 ) -> AdminBillingEntitlementDTO:
+    _ = app
     return AdminBillingEntitlementDTO(
         creator_bid=normalize_bid(state.creator_bid),
         creator_identify=str(creator.get("identify") or ""),
@@ -671,6 +679,7 @@ def serialize_order_summary(
     app: Flask,
     row: BillingOrder,
 ) -> BillingOrderSummaryDTO:
+    _ = app
     subscription_bid = normalize_bid(row.subscription_bid)
     payment_mode = _resolve_billing_order_payment_mode(row)
 
@@ -744,6 +753,7 @@ def serialize_operator_credit_order_grant(
     valid_from,
     valid_to,
 ) -> OperatorCreditOrderGrantDTO:
+    _ = app
     return OperatorCreditOrderGrantDTO(
         granted_credits=granted_credits,
         valid_from=valid_from,

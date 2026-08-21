@@ -86,6 +86,7 @@ def register_common_handler(app: Flask) -> Flask:
 
     @app.errorhandler(Exception)
     def handle_invalid_exception(error: Exception):
+        del error
         app.logger.error(traceback.format_exc())
         language = _extract_request_language()
         if language:
@@ -97,6 +98,7 @@ def register_common_handler(app: Flask) -> Flask:
     @app.teardown_request
     def teardown_shifu_context(exception):
         # Ensure shifu context does not leak between requests on the same worker thread
+        del exception
         clear_shifu_context()
         clear_language()
 

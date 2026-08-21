@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 def get_operator_profile_onboarding_config(app: Flask) -> dict[str, Any]:
+    _ = app
     return get_profile_onboarding_config()
 
 

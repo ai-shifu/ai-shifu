@@ -347,6 +347,7 @@ def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch)
 
     def _fake_cleanup(exc, *, source, session=None):
         # Must be called while the pushed app context is active.
+        _ = (source, session)
         events.append((type(exc).__name__, current_app._get_current_object() is app))
         return "cleaned"
 

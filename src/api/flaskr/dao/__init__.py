@@ -176,6 +176,7 @@ def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_reco
 def _reject_desynced_connection_on_checkout(
     dbapi_connection, connection_record, connection_proxy
 ):
+    _ = connection_proxy
     if _socket_has_unread_data(dbapi_connection):
         _pool_diagnostics_logger().warning(
             "Rejecting pooled DB connection with unread protocol data at "
@@ -259,6 +260,7 @@ def _statement_journal(connection) -> collections.deque:
 def _intercept_desync_before_execute(
     conn, cursor, statement, parameters, context, executemany
 ):
+    _ = (cursor, parameters, context, executemany)
     dbapi_connection = getattr(conn.connection, "dbapi_connection", None)
     if dbapi_connection is None:
         return
@@ -290,6 +292,7 @@ def _intercept_desync_before_execute(
 def _journal_statement_after_execute(
     conn, cursor, statement, parameters, context, executemany
 ):
+    _ = (parameters, context, executemany)
     with contextlib.suppress(Exception):
         _statement_journal(conn).append(
             (
@@ -623,6 +626,7 @@ def init_db(app: Flask):
             def before_cursor_execute(
                 conn, cursor, statement, parameters, context, executemany
             ):
+                _ = (conn, cursor, context, executemany)
                 stack = traceback.extract_stack()
                 project_root = str((Path(__file__).parent / "../../../").resolve())
                 caller_info = "Unknown location"

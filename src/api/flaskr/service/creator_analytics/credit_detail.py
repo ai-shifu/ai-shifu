@@ -274,7 +274,7 @@ def _parse_int(raw: Any, field_name: str, *, default: int) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _join_conditions(params: _Params):
+def _join_conditions():
     """Build the bill_usage x credit_ledger_entries ON clause.
 
     ``source_type = USAGE`` is part of the JOIN (not the WHERE) so the
@@ -344,7 +344,7 @@ def _build_detail_statement(params: _Params) -> Select:
             func.abs(cle.c.amount).label("credits"),
             cle.c.creator_bid.label("wallet_creator_bid"),
         )
-        .select_from(_join_conditions(params))
+        .select_from(_join_conditions())
         .where(and_(*_where_clauses(params)))
         .order_by(bu.c.created_at.desc())
         .limit(params.limit)
@@ -376,7 +376,7 @@ def _build_summary_statement(params: _Params) -> Select:
             func.min(bu.c.created_at).label("first_at"),
             func.max(bu.c.created_at).label("last_at"),
         )
-        .select_from(_join_conditions(params))
+        .select_from(_join_conditions())
         .where(and_(*_where_clauses(params)))
     )
 

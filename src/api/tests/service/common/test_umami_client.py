@@ -80,6 +80,7 @@ def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch):
     request_count = {"value": 0}
 
     def _fake_get(url, params=None, headers=None, timeout=None):
+        _ = (url, params, headers, timeout)
         request_count["value"] += 1
         return SimpleNamespace(
             status_code=200,
@@ -136,6 +137,7 @@ def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
     request_count = {"value": 0}
 
     def _fake_get(url, params=None, headers=None, timeout=None):
+        _ = (url, params, headers, timeout)
         request_count["value"] += 1
         message = "umami unavailable"
         raise requests.RequestException(message)

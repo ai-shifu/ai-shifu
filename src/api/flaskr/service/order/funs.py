@@ -858,6 +858,7 @@ def _generate_stripe_charge(
     order_no: str,
 ) -> BuyRecordDTO:
     """Boundary-joining helper: committed by generate_charge's unit of work."""
+    _ = course
     provider = get_payment_provider("stripe")
     resolved_mode = channel.lower() if channel else "payment_intent"
     if resolved_mode in {"checkout", "checkout_session"}:
@@ -2062,7 +2063,6 @@ def _supplement_promo_discount_items(
 
 
 def calculate_discount_value(
-    app: Flask,
     price: decimal.Decimal,
     campaign_applications: list,
     discount_records: list[CouponUsageModel],
@@ -2133,7 +2133,6 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     CouponUsageModel.order_bid == record_id
                 ).all()
                 discount_info = calculate_discount_value(
-                    app,
                     buy_record.payable_price,
                     campaign_applications,
                     discount_records,

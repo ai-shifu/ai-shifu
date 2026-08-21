@@ -137,6 +137,7 @@ def _clear_config_caches() -> None:
 
 
 def _ensure_trial_billing_enabled(app, monkeypatch) -> None:
+    _ = app
     import flaskr.service.billing.auth_hooks  # noqa: F401
 
     monkeypatch.setattr(
@@ -413,6 +414,7 @@ def test_transfer_creator_records_operator_history_entry(app):
 def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
     app, monkeypatch
 ):
+    _ = monkeypatch
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]

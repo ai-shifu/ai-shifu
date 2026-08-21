@@ -1562,6 +1562,7 @@ def test_billing_grant_plan_cli_returns_noop_for_same_active_plan_without_sms(
     runner = billing_cli_db_app.test_cli_runner()
 
     def _unexpected_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
+        _ = app
         message = f"unexpected enqueue for {bill_order_bid}"
         raise AssertionError(message)
 
@@ -1627,6 +1628,7 @@ def test_billing_grant_plan_cli_rejects_when_provider_managed_subscription_exist
     runner = billing_cli_db_app.test_cli_runner()
 
     def _unexpected_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
+        _ = app
         message = f"unexpected enqueue for {bill_order_bid}"
         raise AssertionError(message)
 

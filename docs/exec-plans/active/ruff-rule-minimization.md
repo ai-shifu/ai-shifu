@@ -615,6 +615,30 @@ plan's progress update for that rule.
   ARG002 unit. Four root subprocess-boundary tests and the backend route-
   inventory test pass; configured S603/S607/T20, repository Ruff, format,
   development-tool validation, and every repository pre-commit hook also pass.
+- [x] 2026-08-21 10:49 CST: Audited the next low-count candidates. PLR0911 has
+  72 findings but requires control-flow redesign; FBT002 has 98 findings but
+  changes stable call contracts. Selected ARG001's 209 function-argument
+  findings because it extends the signature-ownership policy proven by ARG002
+  and leaves ARG005 as the only unenforced `ARG` member.
+- [x] 2026-08-21 11:00 CST: Prepared ARG001 across 156 functions in 76 files.
+  Removed narrow repository-owned parameters from architecture, i18n, billing,
+  analytics, learning, and inventory helpers and their callers; preserved
+  framework callbacks, migration hooks, provider adapters, fixtures, and test
+  doubles with signature-ordered explicit consumption. No suppression or
+  per-file exception was added.
+- [x] 2026-08-21 11:06 CST: The 613 tests from every touched test module pass
+  with 11 existing environment skips, after a focused 304-test contract set
+  passed with 10 skips and the architecture-boundary fixture harness passed.
+  A failing order regression exposed and fixed `_ = app` shadowing the imported
+  translation helper `_()`; the durable guidance now calls out this trap.
+- [x] 2026-08-21 11:09 CST: The full backend suite passes all 3,032 tests with
+  17 skips and 733 existing warnings. Configured ARG001, repository Ruff,
+  format, and collaboration/knowledge generators pass. The stable `ALL` census
+  falls by 216 from 27,989 to 27,773 across 26 rules: ARG001 falls by 209,
+  COM812 by five, and ANN001 by two. The isolated census is 39,160.
+- [x] 2026-08-21 11:11 CST: Repository and architecture harnesses, generated
+  collaboration and knowledge documents, pinned development-tool validation,
+  and every repository pre-commit hook pass on the final ARG001 worktree.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -760,6 +784,11 @@ plan's progress update for that rule.
   the trial DTO's `app` also exposed the resolver's now-unused function
   parameter; deleting that dependent argument kept ARG001 exactly at 209
   instead of shifting debt to the next rule.
+- ARG001 exposed a Python-specific compatibility-consumption trap: assigning
+  `_ = app` inside a function that also calls the imported translation helper
+  `_()` turns `_` into a local Flask object and fails only at runtime. Removing
+  the owned parameter (or using `del value` for a fixed external signature)
+  preserves both the callback contract and translation behavior.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -820,12 +849,13 @@ plan's progress update for that rule.
   messages and longer diagnostic summaries in pytest report sections. Retain a
   directory exception only for developer scripts whose stdout is the product;
   do not use one for a mixed test tree.
-- 2026-08-21: For ARG002, delete parameters only when the method and callers
-  own the complete signature. Protocol, provider, framework, fixture, and test
-  double signatures keep their keyword-compatible parameter names and consume
-  compatibility-only values explicitly in signature order. Do not trade a
-  method finding for a broken keyword call, renamed pytest fixture, or broad
-  suppression.
+- 2026-08-21: For ARG001 and ARG002, delete parameters only when the callable
+  and callers own the complete signature. Protocol, provider, framework,
+  fixture, and test-double signatures keep their keyword-compatible parameter
+  names and consume compatibility-only values explicitly in signature order.
+  A fixture parameter can own setup even when the test body never reads it.
+  Do not trade an argument finding for a broken keyword call, renamed pytest
+  fixture, or broad suppression.
 
 ## Outcomes & Retrospective
 
@@ -1040,6 +1070,16 @@ baseline. The test-isolation follow-up also removes two existing SLF001
 findings while keeping Config constructor tests from replacing the session
 app singleton. Future agents now
 distinguish an owned method signature from one imposed by an external contract.
+
+The ARG001 stage extends that same ownership rule to functions. Eighteen
+repository-owned parameters disappear from 17 narrow helpers and all callers;
+framework callbacks, Alembic and SQLAlchemy hooks, provider adapters, fixtures,
+and behaviorally faithful test doubles keep their keyword-compatible names and
+consume compatibility-only values explicitly. All 209 ARG001 findings are
+removed without suppression, while five COM812 and two ANN001 findings also
+disappear. Every touched test module, the architecture fixture harness, and the
+full backend suite pass, and the stable census reaches 27,773 findings across
+26 rules.
 
 ## Context and Orientation
 

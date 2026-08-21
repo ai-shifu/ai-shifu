@@ -78,6 +78,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeyp
         return [promo_application]
 
     def fake_query_promo_campaign_applications(_app, _order_id, recalc_discount):
+        _ = recalc_discount
         if apply_calls["count"] >= 2:
             return [promo_application]
         return []

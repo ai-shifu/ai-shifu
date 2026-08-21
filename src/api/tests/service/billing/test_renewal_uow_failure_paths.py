@@ -438,6 +438,7 @@ def test_subscription_lifecycle_cancel_skips_processing_events(
     renewal_uow_app: Flask,
 ) -> None:
     """Lifecycle sync must not cancel a worker that already claimed an event."""
+    _ = renewal_uow_app
     subscription = _seed_subscription("sub-uow-cancel-processing")
     pending = _seed_event(
         "renewal-uow-cancel-pending",
@@ -524,6 +525,7 @@ def test_processing_event_release_does_not_overwrite_canceled_event(
     renewal_uow_app: Flask,
 ) -> None:
     """A stale defer path cannot release a terminal event back to pending."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-stale-release")
     event = _seed_event(
         "renewal-uow-stale-release",
@@ -565,6 +567,7 @@ def test_processing_event_completion_does_not_overwrite_canceled_event(
     renewal_uow_app: Flask,
 ) -> None:
     """A stale worker cannot mark an event succeeded after another transition."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-stale-complete")
     event = _seed_event(
         "renewal-uow-stale-complete",
@@ -606,6 +609,7 @@ def test_processing_event_failure_does_not_overwrite_succeeded_event(
     renewal_uow_app: Flask,
 ) -> None:
     """A stale failure path cannot move a terminal event back to failed."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-stale-fail")
     event = _seed_event(
         "renewal-uow-stale-fail",
@@ -766,6 +770,7 @@ def test_old_claim_cannot_complete_new_processing_attempt(
     renewal_uow_app: Flask,
 ) -> None:
     """Attempt-count CAS prevents an old worker from finishing a new claim."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-claim-generation")
     event = _seed_event(
         "renewal-uow-claim-generation",
@@ -812,6 +817,7 @@ def test_lost_claim_rolls_back_business_side_effects(
     renewal_uow_app: Flask,
 ) -> None:
     """Callers must not commit business writes when terminal CAS loses."""
+    _ = renewal_uow_app
     subscription = _seed_subscription("sub-uow-lost-claim-rollback")
     event = _seed_event(
         "renewal-uow-lost-claim-rollback",

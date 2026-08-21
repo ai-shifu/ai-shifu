@@ -740,6 +740,7 @@ def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
     # Operator-facing strings (response dicts and persisted metadata) are always
     # UTC ISO 8601 with a 'Z' suffix; naive values are treated as UTC to match
     # the repo-wide stored-time contract. ``app`` is kept for signature stability.
+    _ = app
     if not value:
         return ""
     if value.tzinfo is None:

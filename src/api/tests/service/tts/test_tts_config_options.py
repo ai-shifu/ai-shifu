@@ -127,6 +127,7 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
     captured = []
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        _ = settlement_at
         captured.append((usage.usage_type, usage.provider, usage.model, billing_metric))
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
@@ -163,6 +164,7 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
     from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        _ = settlement_at
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
             and billing_metric == BILLING_METRIC_TTS_OUTPUT_CHARS
@@ -194,7 +196,7 @@ def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
     import flaskr.api.tts as tts_api
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        return None  # no curated TTS rate
+        _ = (usage, billing_metric, settlement_at)  # no curated TTS rate
 
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.216"))
     monkeypatch.setattr(
@@ -213,6 +215,7 @@ def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch):
     import flaskr.api.tts as tts_api
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        _ = (usage, billing_metric, settlement_at)
         return _FakeRate("8", 10000, "tencent", "")
 
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config(""))
@@ -328,6 +331,7 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
     captured = {}
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        _ = (usage, billing_metric)
         captured["settlement_at"] = settlement_at
 
     monkeypatch.setattr(

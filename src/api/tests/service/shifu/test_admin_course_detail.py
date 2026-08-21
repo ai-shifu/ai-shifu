@@ -1729,6 +1729,7 @@ def test_admin_operation_course_detail_route_rejects_missing_course(
     test_client,
     monkeypatch,
 ):
+    _ = app
     _mock_operator(monkeypatch)
 
     response = test_client.get(

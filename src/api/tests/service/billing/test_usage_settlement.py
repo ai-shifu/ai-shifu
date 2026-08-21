@@ -1624,6 +1624,7 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch
     monkeypatch.setattr(charges, "now_utc", lambda: utc_sentinel)
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        _ = (usage, billing_metric)
         captured.append(settlement_at)
 
     monkeypatch.setattr(charges, "load_usage_rate", fake_load_usage_rate)

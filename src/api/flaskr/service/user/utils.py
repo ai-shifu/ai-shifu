@@ -233,6 +233,7 @@ def send_sms_code(
 def send_email_code(
     app: Flask, email: str, ip: str | None = None, language: str | None = None
 ):
+    del language
     with app.app_context():
         email = str(email or "").strip().lower()
         if not email:
@@ -350,6 +351,7 @@ def ensure_creator_demo_permissions_and_first_lesson(
     The function name is kept for compatibility. First lesson draft creation
     is handled by course creation flows.
     """
+    del language
     creator_granted_now = mark_creator_role_if_needed(user_id)
     ensure_demo_course_permissions(app, user_id)
     return creator_granted_now

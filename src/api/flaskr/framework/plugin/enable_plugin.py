@@ -97,6 +97,7 @@ def enable_plugins(app: Flask):
         """Generate plugin model filter function."""
 
         def include_object(db_object, name, type_, reflected, compare_to):
+            _ = (name, reflected, compare_to)
             if type_ == "table":
                 return db_object.__module__.startswith(f"flaskr.plugins.{plugin_name}")
             return True

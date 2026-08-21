@@ -497,6 +497,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
     captured = {}
 
     def fake_completion(model, *args, **kwargs):
+        _ = args
         captured["model"] = model
         captured["kwargs"] = kwargs
         return iter([FakeResponse("chunk-1", content="ok", finish_reason="stop")])
@@ -1249,6 +1250,7 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
     captured_kwargs = {}
 
     def fake_completion(*args, **kwargs):
+        _ = args
         captured_kwargs["kwargs"] = kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 
@@ -1371,6 +1373,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, ap
         __module__ = "litellm.exceptions"
 
     def fake_completion(*args, **kwargs):
+        _ = (args, kwargs)
         yield FakeResponse("chunk-1", content="你好")
         message = "The model is repeating the same chunk = ！ ！ ."
         raise RepeatedChunkError(message)
@@ -1407,6 +1410,7 @@ def test_chat_llm_streams(monkeypatch, app):
     captured_usage = {}
 
     def fake_completion(*args, **kwargs):
+        _ = args
         captured_kwargs["kwargs"] = kwargs
         chunks = [
             FakeResponse("chunk-1", content="Hi "),
