@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_MANUAL,
@@ -25,6 +24,9 @@ from flaskr.service.billing.consts import (
     BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS,
 )
 from flaskr.service.billing.models import BillingProduct
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
     {

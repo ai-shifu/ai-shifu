@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
@@ -45,6 +44,9 @@ from .wallets import (
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 _ZERO = Decimal(0)
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60

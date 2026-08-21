@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 
 from flaskr.service.learn.learn_dtos import (
     ElementChangeType,
@@ -20,6 +20,9 @@ from flaskr.service.learn.listen_element_types import (
     _element_type_code,
     _new_element_bid,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class ListenElementRunSidecarMixin:

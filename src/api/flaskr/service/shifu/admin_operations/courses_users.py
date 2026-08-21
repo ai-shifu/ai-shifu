@@ -5,10 +5,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
@@ -46,6 +44,10 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from flaskr.util.datetime import NAIVE_DATETIME_MIN
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
 
 
 def _load_course_related_user_bids(

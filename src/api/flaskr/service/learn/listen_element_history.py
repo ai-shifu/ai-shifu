@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.service.learn.learn_dtos import (
@@ -33,6 +32,9 @@ from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudi
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import and_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _load_interaction_user_input_by_block_bid(

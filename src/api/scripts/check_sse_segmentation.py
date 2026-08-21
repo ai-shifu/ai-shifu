@@ -20,7 +20,6 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -29,8 +28,13 @@ os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
+from typing import TYPE_CHECKING
+
 from flaskr.service.tts import streaming_tts as streaming_tts_module
 from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
 VISUAL_LEAK_PATTERN = re.compile(
