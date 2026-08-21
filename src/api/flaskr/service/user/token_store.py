@@ -75,7 +75,11 @@ class TokenStoreProvider:
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
     ) -> TokenLookupResult | None:
-        """Validate a token, refresh its expiry, and return its user lookup result."""
+        """Validate a token and return its user lookup result.
+
+        Cache hits renew only the cache TTL. Database hits extend the persisted expiry
+        and repopulate the cache.
+        """
         if not token or not expected_user_id:
             return None
 
