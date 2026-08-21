@@ -50,7 +50,7 @@ class RiskControlResult(db.Model):
         is_pass,
         check_strategy,
     ) -> None:
-        """Store a persisted risk-control decision."""
+        """Initialize a risk-control record from the provider decision."""
         self.chat_id = chat_id
         self.user_id = user_id
         self.text = text
