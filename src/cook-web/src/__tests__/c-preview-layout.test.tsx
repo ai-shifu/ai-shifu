@@ -353,6 +353,42 @@ describe('C preview layout', () => {
     });
   });
 
+  test.each([401, 403])(
+    'does not retry terminal course access status %s',
+    async status => {
+      jest.useFakeTimers();
+      act(() => {
+        useEnvStore.setState({
+          runtimeConfigLoaded: true,
+          courseId: `course-access-${status}`,
+        });
+      });
+      mockedGetCourseInfo.mockRejectedValue({
+        isCourseNotFound: false,
+        status,
+        message: 'Access denied',
+      });
+
+      render(
+        <ChatLayout>
+          <div>{contentLabel}</div>
+        </ChatLayout>,
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(mockedGetCourseInfo).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(60000);
+        await Promise.resolve();
+      });
+      expect(mockedGetCourseInfo).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test('retries transient course info errors until ownership resolves', async () => {
     jest.useFakeTimers();
     window.location.href = 'http://localhost:3000/c/123';
