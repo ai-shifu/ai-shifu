@@ -199,10 +199,9 @@ select = [
     "D",
 
     # --- Modernization ----------------------------------------------------
-    # UP046 (PEP 695 generic classes) is ignored below. UP047 is selected but
-    # target-gated until Python 3.12.
-    # UP040 is enforced by an explicit Python 3.12 hook and CI check because
-    # the repository-wide Python 3.11 target would otherwise leave it dormant.
+    # UP046 (PEP 695 generic classes) is ignored below. UP040 and UP047 remain
+    # selected through the UP prefix but stay dormant while the repository
+    # supports Python 3.11; Ruff will activate them with Python 3.12.
     # UP035 is satisfied except in the two `admin` / `admin_operations.courses`
     # compatibility shims, which re-export `typing.Dict` / `typing.Set` as part
     # of their public surface and carry a file-level `# ruff: noqa: UP035`.
