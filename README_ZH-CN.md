@@ -42,7 +42,7 @@ AI师傅面向老师、讲师、培训与教育团队，提供“可扩展的一
 
 请先确认你的机器已经安装好[Docker](https://docs.docker.com/get-docker/)和[Docker Compose](https://docs.docker.com/compose/install/)。
 
-### 一键快速启动（Docker，无需修改）
+### 一键快速启动（Docker，最少配置）
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -51,7 +51,10 @@ cd ai-shifu/docker
 # 直接使用 Docker 模板配置
 cp .env.example.full .env
 
-# 唯一需要改动的内容：在 .env 中填写至少一个大模型 API Key
+# 生成部署专用的认证密钥（必填）
+python3 -c "from pathlib import Path; import secrets; p=Path('.env'); p.write_text(p.read_text().replace('SECRET_KEY=\"\"', f'SECRET_KEY=\"{secrets.token_urlsafe(32)}\"', 1))"
+
+# 在 .env 中填写至少一个大模型 API Key
 # 例如：OPENAI_API_KEY=sk-xxx 或 ERNIE_API_KEY=xxx
 
 # 启动全部服务
@@ -73,11 +76,14 @@ cd ai-shifu/docker
 # 复制完整模板（已包含 Docker 默认值）
 cp .env.example.full .env
 
-# 按需修改 .env（快速启动仅需填写 LLM Key）：
+# 生成部署专用的认证密钥（必填）
+python3 -c "from pathlib import Path; import secrets; p=Path('.env'); p.write_text(p.read_text().replace('SECRET_KEY=\"\"', f'SECRET_KEY=\"{secrets.token_urlsafe(32)}\"', 1))"
+
+# 按需修改 .env：
 # - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
 # - REDIS_HOST：可选；如需 Redis 缓存/锁可配置外部 Redis（留空则禁用）
-# - SECRET_KEY：示例值，仅用于演示；生产环境请替换（生成：python -c "import secrets; print(secrets.token_urlsafe(32))"）
+# - SECRET_KEY：必填；上面的命令会生成高强度随机值
 # - UNIVERSAL_VERIFICATION_CODE：测试验证码（生产环境请清空/禁用）
 
 docker compose -f docker-compose.latest.yml up -d  # 若需固定版本可改用 docker-compose.yml
@@ -92,6 +98,8 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
 cp .env.example.full .env
+# 生成部署专用的认证密钥（必填）
+python3 -c "from pathlib import Path; import secrets; p=Path('.env'); p.write_text(p.read_text().replace('SECRET_KEY=\"\"', f'SECRET_KEY=\"{secrets.token_urlsafe(32)}\"', 1))"
 # 在 .env 中填入至少一个大模型 API Key
 
 ./dev_in_docker.sh

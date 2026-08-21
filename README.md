@@ -41,7 +41,7 @@ Developed by the AI-Shifu Team and the Research Center of Intelligent Software E
 
 Make sure your machine has installed [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 
-### Quick Start (Docker, zero config)
+### Quick Start (Docker, minimal configuration)
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -50,7 +50,10 @@ cd ai-shifu/docker
 # Use Docker-ready defaults (matches bundled MySQL service; Redis is optional)
 cp .env.example.full .env
 
-# Only required change: edit .env and set at least one LLM API key
+# Generate the required deployment-specific authentication secret
+python3 -c "from pathlib import Path; import secrets; p=Path('.env'); p.write_text(p.read_text().replace('SECRET_KEY=\"\"', f'SECRET_KEY=\"{secrets.token_urlsafe(32)}\"', 1))"
+
+# Edit .env and set at least one LLM API key
 # (e.g., OPENAI_API_KEY=sk-..., ERNIE_API_KEY=..., etc.)
 
 # Start all services
@@ -72,11 +75,14 @@ cd ai-shifu/docker
 # Copy the full template (contains defaults for Docker usage)
 cp .env.example.full .env
 
-# Edit .env and customize as needed (only mandatory change is an LLM key):
+# Generate the required deployment-specific authentication secret
+python3 -c "from pathlib import Path; import secrets; p=Path('.env'); p.write_text(p.read_text().replace('SECRET_KEY=\"\"', f'SECRET_KEY=\"{secrets.token_urlsafe(32)}\"', 1))"
+
+# Edit .env and customize as needed:
 # - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
-# - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
+# - SECRET_KEY: Required; the command above generates a strong random value
 # - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
 # - Any other optional integrations
 
@@ -91,6 +97,8 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
 cp .env.example.full .env
+# Generate the required deployment-specific authentication secret
+python3 -c "from pathlib import Path; import secrets; p=Path('.env'); p.write_text(p.read_text().replace('SECRET_KEY=\"\"', f'SECRET_KEY=\"{secrets.token_urlsafe(32)}\"', 1))"
 # Edit .env and set your preferred LLM API key(s)
 
 ./dev_in_docker.sh
