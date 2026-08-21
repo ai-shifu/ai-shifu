@@ -693,7 +693,7 @@ def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog
 
     caplog.set_level(logging.INFO)
     monkeypatch.setattr(phone_flow, "redis", _FakeRedis())
-    app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    monkeypatch.setattr(phone_flow, "FIX_CHECK_CODE", "9999")
     monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(
         phone_flow,
@@ -741,7 +741,7 @@ def test_email_sign_in_transfers_cleared_state_without_course_id(app, monkeypatc
     from flaskr.service.user import email_flow
 
     monkeypatch.setattr(email_flow, "redis", _FakeRedis())
-    app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    monkeypatch.setattr(email_flow, "FIX_CHECK_CODE", "9999")
     monkeypatch.setattr(email_flow, "init_first_course", lambda *_args: False)
     with app.app_context():
         email = f"{uuid.uuid4().hex[:12]}@example.com"
@@ -776,7 +776,7 @@ def test_legacy_profile_migration_preserves_target_nickname(
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
     monkeypatch.setattr(flow, "redis", _FakeRedis())
-    app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    monkeypatch.setattr(flow, "FIX_CHECK_CODE", "9999")
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
     monkeypatch.setattr(
@@ -839,7 +839,7 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
     monkeypatch.setattr(flow, "redis", _FakeRedis())
-    app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    monkeypatch.setattr(flow, "FIX_CHECK_CODE", "9999")
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
     monkeypatch.setattr(

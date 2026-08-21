@@ -45,7 +45,13 @@ from flaskr.service.user.utils import (
 from flaskr.util.datetime import now_utc
 from sqlalchemy import text
 
+FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
+
+
+def configure_fix_check_code(value: str | None) -> None:
+    global FIX_CHECK_CODE
+    FIX_CHECK_CODE = value
 
 
 def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> bool | None:
@@ -273,7 +279,8 @@ def verify_phone_code(
         update_user_profile_with_lable,
     )
 
-    fixed_check_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    if FIX_CHECK_CODE is None:
+        configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
 
     raw_phone = (phone or "").strip()
     normalized_phone = normalize_phone_identifier(raw_phone)
@@ -284,7 +291,7 @@ def verify_phone_code(
         lookup_phones.append(raw_phone)
     phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
     code_keys = [phone_code_prefix + lookup_phone for lookup_phone in lookup_phones]
-    if code != fixed_check_code:
+    if code != FIX_CHECK_CODE:
         cached = None
         cached_phone = normalized_phone
         for code_key, lookup_phone in zip(code_keys, lookup_phones, strict=False):

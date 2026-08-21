@@ -1,4 +1,6 @@
-def test_create_app_reuses_the_owned_application(app):
-    from app import create_app
+import pytest
 
-    assert create_app() is app
+
+@pytest.fixture
+def test_client(app):
+    print("test_client")

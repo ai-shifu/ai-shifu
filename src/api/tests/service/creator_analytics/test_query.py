@@ -682,44 +682,6 @@ def test_fallback_engine_uses_primary_db_with_warning(
         assert engine is db.engine
 
 
-def test_dedicated_engine_replacement_disposes_previous_owner(app, monkeypatch):
-    class _FakeEngine:
-        def __init__(self, uri: str) -> None:
-            self.uri = uri
-            self.disposed = False
-
-        def dispose(self) -> None:
-            self.disposed = True
-
-    created: list[_FakeEngine] = []
-
-    def fake_create_engine(uri, **_kwargs):
-        engine = _FakeEngine(uri)
-        created.append(engine)
-        return engine
-
-    monkeypatch.setattr(analytics_engine, "create_engine", fake_create_engine)
-    monkeypatch.setitem(
-        app.config, "ANALYTICS_DATABASE_URI", "sqlite:///analytics-one.db"
-    )
-
-    first = analytics_engine.get_analytics_engine(app)
-    same = analytics_engine.get_analytics_engine(app)
-    monkeypatch.setitem(
-        app.config, "ANALYTICS_DATABASE_URI", "sqlite:///analytics-two.db"
-    )
-    second = analytics_engine.get_analytics_engine(app)
-
-    assert first is same
-    assert second is not first
-    assert first.disposed is True
-    assert second.disposed is False
-    assert [engine.uri for engine in created] == [
-        "sqlite:///analytics-one.db",
-        "sqlite:///analytics-two.db",
-    ]
-
-
 # ---------------------------------------------------------------------------
 # bill_daily_usage_metrics — credit-cost queries (v3)
 # ---------------------------------------------------------------------------

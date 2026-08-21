@@ -8,14 +8,10 @@ from alembic.config import Config
 from flask import Flask
 from flask.cli import with_appcontext
 
-from .plugin_manager import get_plugin_manager
+from .plugin_manager import plugin_manager
 
 
 def enable_plugins(app: Flask):
-    plugin_manager = get_plugin_manager()
-    if plugin_manager is None:
-        raise RuntimeError("Plugin manager is not enabled")
-
     @app.cli.group()
     def plugin():
         """Plugin management commands."""

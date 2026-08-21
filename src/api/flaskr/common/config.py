@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import logging
 import os
@@ -2091,24 +2089,25 @@ class EnhancedConfig:
         return "\n".join(lines)
 
 
+# Global instance
+__INSTANCE__ = None
 __ENHANCED_CONFIG__ = EnhancedConfig(ENV_VARS)
 
 
 class Config(FlaskConfig):
     """Flask configuration wrapper with enhanced environment variable support."""
 
-    _instance: Config | None = None
-
     def __init__(
         self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
     ) -> None:
+        global __INSTANCE__
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__
         # Reset shared cache per initialization to avoid cross-app contamination
         self.enhanced._cache.clear()
         self.enhanced._validated = False
-        Config._instance = self
+        __INSTANCE__ = self
         # Validate environment on initialization
         try:
             self.enhanced.validate_environment(allow_conversion_errors=True)
@@ -2250,7 +2249,7 @@ def get_config(key: str, default: Any = None) -> Any:
         Configuration value or default
 
     """
-    if Config._instance is None:
+    if __INSTANCE__ is None:
         # Before initialization, try to get from environment directly
         # This is needed for module-level calls like timezone setup
         if key in ENV_VARS:
@@ -2261,7 +2260,7 @@ def get_config(key: str, default: Any = None) -> Any:
             return value
         # For unknown keys, check environment directly
         return os.environ.get(key, default)
-    return Config._instance.get(key, default)
+    return __INSTANCE__.get(key, default)
 
 
 def has_explicit_env_override(key: str) -> bool:

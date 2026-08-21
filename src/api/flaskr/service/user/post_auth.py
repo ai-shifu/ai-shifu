@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from flask import Flask
-from flaskr.framework.plugin.plugin_manager import get_plugin_manager
+from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 
 
 @dataclass(slots=True, frozen=True)
@@ -25,7 +25,7 @@ class PostAuthContext:
 
 def run_post_auth_extensions(app: Flask, context: PostAuthContext) -> PostAuthContext:
     """Execute registered post-auth handlers without blocking login success."""
-    manager = get_plugin_manager()
+    manager = plugin_manager_module.plugin_manager
     if manager is None:
         return context
 

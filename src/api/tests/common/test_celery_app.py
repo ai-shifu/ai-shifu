@@ -325,7 +325,7 @@ def test_get_celery_app_loads_flask_app_from_app_factory(
         "app",
         types.SimpleNamespace(create_app=lambda: fake_flask_app),
     )
-    monkeypatch.setattr(celery_app_module._celery_state, "app", None)
+    monkeypatch.setattr(celery_app_module, "__CELERY_APP__", None)
 
     celery_app = celery_app_module.get_celery_app()
 

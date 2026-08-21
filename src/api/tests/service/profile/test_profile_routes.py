@@ -1,28 +1,27 @@
+import os
 from types import SimpleNamespace
 
 import flaskr.service.config.funcs as config_funcs
 import pytest
+from flaskr import dao
 
 _dummy_lock = SimpleNamespace(
     acquire=lambda *args, **kwargs: False, release=lambda *args, **kwargs: None
 )
 
 
-@pytest.fixture(autouse=True)
-def _stub_profile_config_cache(monkeypatch):
-    monkeypatch.setattr(
-        config_funcs,
-        "redis",
-        SimpleNamespace(
-            get=lambda _key: None,
-            set=lambda *args, **kwargs: None,
-            lock=lambda *args, **kwargs: _dummy_lock,
-        ),
-    )
-
-
 @pytest.mark.usefixtures("app")
 class TestProfileRoutes:
+    # Avoid real Redis in app init
+    os.environ["REDIS_HOST"] = ""
+    os.environ["REDIS_PORT"] = ""
+    dao.init_redis = lambda _app: None  # type: ignore[assignment]
+    config_funcs.redis = SimpleNamespace(
+        get=lambda _key: None,
+        set=lambda *args, **kwargs: None,
+        lock=lambda *args, **kwargs: _dummy_lock,
+    )
+
     def _mock_request_user(self, monkeypatch):
         dummy_user = SimpleNamespace(user_id="test-user", language="en-US")
         monkeypatch.setattr(

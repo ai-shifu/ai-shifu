@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import os
-from dataclasses import dataclass
 from typing import Any
 
 from celery import Celery, Task
@@ -23,13 +22,7 @@ _DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
 _DEFAULT_BILLING_DAILY_USAGE_METRICS_CRON = "15 1 * * *"
 _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
 
-
-@dataclass(slots=True)
-class _CeleryState:
-    app: Celery | None = None
-
-
-_celery_state = _CeleryState()
+__CELERY_APP__: Celery | None = None
 
 
 def dispose_inherited_db_pools(flask_app: Flask) -> None:
@@ -93,9 +86,10 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
 
 def get_celery_app(flask_app: Flask | None = None) -> Celery:
     """Return a cached Celery app or create one on demand."""
-    if _celery_state.app is None or flask_app is not None:
-        _celery_state.app = create_celery_app(flask_app=flask_app)
-    return _celery_state.app
+    global __CELERY_APP__
+    if __CELERY_APP__ is None or flask_app is not None:
+        __CELERY_APP__ = create_celery_app(flask_app=flask_app)
+    return __CELERY_APP__
 
 
 def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
