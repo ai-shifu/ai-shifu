@@ -59,8 +59,8 @@ plan's progress update for that rule.
 - [x] 2026-08-20 22:22 CST: Opened ready UP040 PR
   [#2575](https://github.com/ai-shifu/ai-shifu/pull/2575) from
   `sunner/ruff-up040` to the D405 branch. The redundant ignore was removed;
-  UP040 has zero findings under both the configured Python 3.11 target and the
-  explicit Python 3.12 hook and CI gate that keep the target-gated rule active.
+  UP040 has zero findings under the configured Python 3.11 target and remains
+  target-gated until the repository's minimum runtime reaches Python 3.12.
 - [ ] Merge or retarget UP040 PR #2575 after its predecessors without combining
   it with the next rule unit.
 - [ ] Remove the target-gated UP047 global ignore. It has zero findings under
@@ -153,11 +153,11 @@ profile suite passes 15 tests, the Swagger suite passes 10 tests, and the full
 repository gates pass.
 
 The UP040 stage removes a preemptive exception with no implementation changes.
-UP040 remains selected through the `UP` prefix and reports no findings under
-either Python 3.11 or Python 3.12. The local hook and CI run the latter check
-explicitly so future type aliases cannot bypass the rule while the repository's
-minimum runtime remains Python 3.11. Rule-specific checks for both targets and
-the full repository gates pass.
+UP040 remains selected through the `UP` prefix but is dormant under the
+repository's Python 3.11 target. It must not be forced with a Python 3.12 target
+in local hooks or CI because Ruff's suggested PEP 695 syntax does not parse on
+the supported runtime. The rule will activate naturally when the repository's
+minimum runtime moves to Python 3.12.
 
 ## Context and Orientation
 
