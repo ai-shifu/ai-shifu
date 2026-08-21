@@ -258,8 +258,9 @@ def get_outline_tree_dto(
 
 
 def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto]:
-    """Get outline tree build outline tree from outline items.
+    """Get the current draft outline tree.
 
+    Build the tree from the stored outline items.
     usage:
     1. get outline tree
     2. return outline tree
