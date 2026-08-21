@@ -4,7 +4,7 @@ import {
 } from './mockRunStreamFixture';
 
 const setPageSearch = (search: string) => {
-  window.history.pushState({}, '', `/${search}`);
+  window.location.search = search;
 };
 
 describe('mock run stream fixture mode', () => {
