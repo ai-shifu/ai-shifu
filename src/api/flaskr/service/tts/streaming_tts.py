@@ -289,6 +289,11 @@ class StreamingTTSProcessor:
         av_contract: dict[str, Any] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ) -> None:
+        """Initialize configuration and buffered synthesis state for one TTS block.
+
+        Binds block, voice, provider, and usage context, then creates output buffers,
+        ordered segment queues, aggregate counters, and synchronization state.
+        """
         self.app = app
         self.generated_block_bid = generated_block_bid
         self.outline_bid = outline_bid
@@ -2111,6 +2116,11 @@ class AVStreamingTTSProcessor:
         usage_scene: int = BILL_USAGE_SCENE_PROD,
         element_index_offset: int = 0,
     ) -> None:
+        """Initialize AV segmentation configuration and pending-stream state.
+
+        Binds block, voice, provider, and usage settings, then resets raw-text,
+        element-index, processor, and boundary-tracking state.
+        """
         self.app = app
         self.generated_block_bid = generated_block_bid
         self.outline_bid = outline_bid

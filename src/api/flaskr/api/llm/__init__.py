@@ -951,6 +951,7 @@ if not any_litellm_enabled:
 
 class LLMStreamaUsage:
     def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
+        """Record token counts for an LLM stream."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens
@@ -960,6 +961,7 @@ class LLMStreamResponse:
     def __init__(
         self, response_id, is_end, is_truncated, result, finish_reason, usage
     ) -> None:
+        """Build an LLM stream-chunk response."""
         self.id = response_id
 
         self.is_end = is_end

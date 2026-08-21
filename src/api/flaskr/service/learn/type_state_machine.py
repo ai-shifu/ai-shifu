@@ -58,6 +58,7 @@ class TypeStateMachine:
     """
 
     def __init__(self) -> None:
+        """Set the content-block type state machine to ``IDLE``."""
         self._state = TypeState.IDLE
 
     @property

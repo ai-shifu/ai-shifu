@@ -7,6 +7,7 @@ from .hot_reload import PluginHotReloader
 
 class PluginManager:
     def __init__(self, app: Flask) -> None:
+        """Initialize empty plugin registries and lifecycle state for the app."""
         app.logger.info("PluginManager init")
         self.app = app
         self.extension_functions = {}

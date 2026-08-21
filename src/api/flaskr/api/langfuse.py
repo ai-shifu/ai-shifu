@@ -54,7 +54,7 @@ _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 
 class MockClient:
     def __init__(self, *args, **kwargs) -> None:
-        pass
+        """Initialize the no-op Langfuse client."""
 
     def __getattr__(self, name) -> Any:
         def method(*args, **kwargs):
@@ -301,6 +301,7 @@ class LangfuseObservationHandle:
     """v2-style facade over a Langfuse SDK v3 span or generation."""
 
     def __init__(self, delegate: Any, trace_id: str = "") -> None:
+        """Wrap a Langfuse observation and its trace identity."""
         self._delegate = delegate
         delegate_trace_id = getattr(delegate, "trace_id", "")
         self.trace_id = trace_id or (

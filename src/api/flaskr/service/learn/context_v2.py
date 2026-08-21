@@ -215,6 +215,7 @@ class RunScriptInfo:
         block_position: int,
         mdflow: str,
     ) -> None:
+        """Capture the current run-script position and MarkdownFlow source."""
         self.attend = attend
         self.outline_bid = outline_bid
         self.block_position = block_position
@@ -261,6 +262,7 @@ class RUNLLMProvider(LLMProvider):
         usage_context: UsageContext,
         usage_scene: int,
     ) -> None:
+        """Bind run-scoped LLM settings, tracing, and usage dependencies."""
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
@@ -411,6 +413,12 @@ class MdflowContextV2:
         visual_mode: bool = True,
         output_language: str | None = None,
     ) -> None:
+        """Create MarkdownFlow with prompts and optional output-language handling.
+
+        Initializes MarkdownFlow with the document, provider, and configured prompts.
+        When learner-language output is enabled, resolves and applies the requested
+        or fallback language.
+        """
         self._mdflow = MarkdownFlow(
             document=document,
             llm_provider=llm_provider,
@@ -792,6 +800,7 @@ class RunScriptPreviewContextV2:
     """MarkdownFlow preview using context v2 logic with optional Redis caching."""
 
     def __init__(self, app: Flask) -> None:
+        """Bind the preview execution context to the Flask app."""
         self.app = app
 
     def stream_preview(
@@ -1580,6 +1589,7 @@ class RunScriptContextV2:
         listen: bool = False,
         stop_event: threading.Event | None = None,
     ) -> None:
+        """Select runtime models, locate the outline, and create its root trace."""
         self._last_position = -1
         self.app = app
         self._struct = struct

@@ -8,6 +8,12 @@ from watchdog.observers import Observer
 
 class PluginHotReloader:
     def __init__(self, app: Flask) -> None:
+        """Initialize plugin reloader state without starting file watching.
+
+        Stores the Flask app and plugin directory, creates an empty watched-file
+        registry, and instantiates an unscheduled observer. Call ``start()`` to
+        schedule the directory and begin watching.
+        """
         self.app = app
         self.plugin_dir = "flaskr/plugins"  # plugin dir
         self.watched_files = {}
@@ -123,6 +129,11 @@ class PluginHotReloader:
 
 class PluginFileHandler(FileSystemEventHandler):
     def __init__(self, reloader: PluginHotReloader) -> None:
+        """Bind a reloader and initialize per-file reload throttling.
+
+        Stores the reloader, starts an empty last-reload registry, and sets a
+        one-second minimum interval between reloads.
+        """
         self.reloader = reloader
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads

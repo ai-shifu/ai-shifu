@@ -111,6 +111,7 @@ pytestmark = pytest.mark.no_mock_llm
 
 class DummySpan:
     def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
+        """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
         self.end_args = None
         self.trace_id = trace_id
@@ -136,6 +137,7 @@ class FakeResponse:
         usage=None,
         reasoning_content=None,
     ) -> None:
+        """Capture streamed content, finish state, reasoning, and usage."""
         self.id = chunk_id
         delta = SimpleNamespace(
             content=content,
@@ -147,6 +149,7 @@ class FakeResponse:
 
 class FakeModelsResponse:
     def __init__(self, payload) -> None:
+        """Capture the payload returned by the fake models endpoint."""
         self.payload = payload
 
     def raise_for_status(self):

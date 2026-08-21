@@ -14,6 +14,7 @@ class FakeRedis:
     """
 
     def __init__(self) -> None:
+        """Initialize semaphore counters keyed by synthesis slot."""
         self.counters: dict[str, int] = {}
 
     def eval(self, _script, _numkeys, *args):
@@ -36,6 +37,7 @@ class ExplodingRedis:
     """Redis stub whose .eval always raises, to exercise the fail-open path."""
 
     def __init__(self) -> None:
+        """Reset the count of intentionally failing Redis calls."""
         self.calls = 0
 
     def eval(self, *_args, **_kwargs):

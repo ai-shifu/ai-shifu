@@ -94,6 +94,7 @@ class ProviderCatalogReadError(RuntimeError):
     """Raised when a provider catalog object cannot be retrieved."""
 
     def __init__(self, code: str, message: str) -> None:
+        """Store the catalog-read message and provider error code."""
         super().__init__(message)
         self.code = code
 

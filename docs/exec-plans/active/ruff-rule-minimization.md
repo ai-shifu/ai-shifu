@@ -110,6 +110,17 @@ plan's progress update for that rule.
   reports 30,901 findings across 40 rules and no D205 findings.
 - [ ] Merge or retarget D205 PR #2581 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-20 16:45 UTC: Opened ready D107 PR
+  [#2582](https://github.com/ai-shifu/ai-shifu/pull/2582) from
+  `sunner/ruff-d107` to the D205 branch. All 123 findings across 57 Python
+  files now document the state, payload, dependency, or setup established by
+  each constructor. A semantic AST audit found no behavior change after
+  normalizing docstrings and one no-op `pass`; 166 focused tests, the full
+  backend suite, and all pre-commit hooks pass.
+- [x] 2026-08-20 16:45 UTC: Re-ran the stable `ALL` census on the D107 tip. It
+  reports 30,778 findings across 39 rules and no D107 findings.
+- [ ] Merge or retarget D107 PR #2582 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -156,6 +167,15 @@ plan's progress update for that rule.
   learner-route specifications contain invalid YAML; the new parser test
   freezes their exact identities without changing them in this rule PR, while
   rejecting any additional unparseable specification.
+- D203 and D213 are necessary explicit conflict exceptions rather than clean
+  rules. Selected alone, they report 293 and 656 findings respectively;
+  selected with D211 or D212, Ruff emits an incompatibility warning and ignores
+  D203 or D213. Removing the explicit ignores would shrink the file only by
+  making every normal run noisy and relying on implicit conflict resolution.
+- Adding the final D107 docstring to the no-op Langfuse client made its old
+  `pass` statement redundant under the already-selected PIE790 rule. Removing
+  that no-op preserves the configured baseline and runtime behavior; it does
+  not adopt a second rule unit.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -273,6 +293,16 @@ addition to the D205 parser contract; the full backend suite passes 3,010 tests
 with 17 skips, and the repository-wide pre-commit gate passes. Future agents
 now have an explicit D205 and Flasgger repair contract in the engineering
 baseline.
+
+The D107 stage removes the global missing-constructor-docstring exception and
+adds responsibility-focused documentation to all 123 affected constructors in
+57 files. No runtime path reads `__init__.__doc__`; a semantic AST audit proves
+the sources are otherwise identical after constructor docstrings and the one
+redundant no-op `pass` are normalized. The focused constructor and test-double
+suites pass 166 tests with one skip, the full backend suite passes 3,010 tests
+with 17 skips, and the repository-wide pre-commit gate passes. The engineering
+baseline tells future agents to document the payload, state, dependency, setup,
+or real side effects instead of copying a signature or adding generic filler.
 
 ## Context and Orientation
 

@@ -238,6 +238,12 @@ class TencentTTSError(ValueError):
         request_id: str = "",
         message_id: str = "",
     ) -> None:
+        """Normalize provider error details and retain request metadata.
+
+        Builds the exception message from the error code and normalized provider
+        message, appending request and message IDs when supplied. Retains the code
+        and IDs for callers.
+        """
         safe_message = str(message or "provider error").strip()
         detail = f"Tencent TTS error {code}: {safe_message}"
         if request_id:

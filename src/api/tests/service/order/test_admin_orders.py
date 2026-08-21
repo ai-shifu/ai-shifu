@@ -33,6 +33,7 @@ from sqlalchemy.sql import column
 
 class DummyOrder:
     def __init__(self) -> None:
+        """Initialize the fixed order fields used by admin DTO tests."""
         self.order_bid = "order-1"
         self.shifu_bid = "shifu-1"
         self.user_bid = "user-1"
@@ -47,6 +48,7 @@ class DummyOrder:
 
 class DummyShifu:
     def __init__(self) -> None:
+        """Expose the fixed course title used by admin order tests."""
         self.title = "Demo Course"
 
 

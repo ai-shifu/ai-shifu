@@ -56,6 +56,7 @@ class DummyCourse:
         llm: str = "",
         llm_system_prompt: str = "",
     ) -> None:
+        """Capture course metadata and derived prompt-presence state."""
         self.shifu_bid = shifu_bid
         self.title = title
         self.price = price
@@ -1545,6 +1546,7 @@ class FakeColumn:
     __hash__ = None
 
     def __init__(self, name: str) -> None:
+        """Capture the column name used to build query expressions."""
         self.name = name
 
     def __eq__(self, other) -> tuple:
@@ -1571,6 +1573,7 @@ class FakeColumn:
 
 class FakeMaxExpression:
     def __init__(self, column: FakeColumn) -> None:
+        """Capture the column wrapped by the maximum expression."""
         self.column = column
 
     def label(self, alias: str):
@@ -1579,11 +1582,13 @@ class FakeMaxExpression:
 
 class FakeLatestSubquery:
     def __init__(self) -> None:
+        """Expose the labeled maximum ID column used by the outer query."""
         self.c = type("Columns", (), {"max_id": "latest-max-id"})()
 
 
 class FakeLatestQuery:
     def __init__(self) -> None:
+        """Collect filters and grouping while exposing a fixed subquery."""
         self.filters = []
         self.grouped_by = []
         self.subquery_value = FakeLatestSubquery()
@@ -1602,11 +1607,13 @@ class FakeLatestQuery:
 
 class FakeIdQuery:
     def __init__(self, target) -> None:
+        """Capture the target requested by an ID-only query."""
         self.target = target
 
 
 class FakeOuterQuery:
     def __init__(self, result) -> None:
+        """Collect query operations and expose the configured result rows."""
         self.filters = []
         self.ordering = []
         self.result = result
@@ -1637,6 +1644,7 @@ class FakeSession:
     def __init__(
         self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
     ) -> None:
+        """Route query targets and record generated ID queries."""
         self.latest_query = latest_query
         self.outer_query = outer_query
         self.id_queries = []
@@ -1661,6 +1669,7 @@ class FakeDB:
     def __init__(
         self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
     ) -> None:
+        """Expose a configured fake session and SQL function namespace."""
         self.session = FakeSession(latest_query, outer_query)
         self.func = FakeFunc()
 

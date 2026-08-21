@@ -36,6 +36,7 @@ class AskProviderError(Exception):
     """
 
     def __init__(self, message: str = "", user_message: str | None = None) -> None:
+        """Store the raw provider error and optional UI-safe message."""
         super().__init__(message)
         self.user_message = user_message
 

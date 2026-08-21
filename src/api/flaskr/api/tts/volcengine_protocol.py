@@ -116,6 +116,7 @@ class VolcengineProtocol:
     HEADER_SIZE = 0b0001  # 4 bytes (multiplied by 4)
 
     def __init__(self) -> None:
+        """Reset connection and session identifiers for a new exchange."""
         self.connection_id: str | None = None
         self.session_id: str | None = None
 

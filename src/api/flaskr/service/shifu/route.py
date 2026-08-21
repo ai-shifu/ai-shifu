@@ -169,6 +169,7 @@ class ShifuTokenValidation:
         permission: ShifuPermission = ShifuPermission.VIEW,
         is_creator: bool = False,
     ) -> None:
+        """Store the required permission and creator-only validation mode."""
         self.permission = permission
         self.is_creator = is_creator
 

@@ -13,6 +13,7 @@ class FakeLLMResponse:
         finish_reason: str = "stop",
         usage=None,
     ) -> None:
+        """Capture streamed content, completion metadata, and usage for tests."""
         self.id = chunk_id
         self.is_end = is_end
         self.is_truncated = is_truncated

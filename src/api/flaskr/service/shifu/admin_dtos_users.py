@@ -199,6 +199,7 @@ class AdminOperationUserListDTO(BaseModel):
         total: int,
         data: list[AdminOperationUserSummaryDTO],
     ) -> None:
+        """Build the admin operation user list payload."""
         safe_page_size = int(page_size or 0)
         super().__init__(
             page=page,

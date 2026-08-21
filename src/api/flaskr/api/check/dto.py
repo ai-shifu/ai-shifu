@@ -19,6 +19,7 @@ class CheckResultDTO:
         provider: str,
         raw_data: dict,
     ) -> None:
+        """Build a moderation check-result payload."""
         self.check_result = check_result
         self.risk_labels = risk_labels
         self.risk_label_ids = risk_label_ids
