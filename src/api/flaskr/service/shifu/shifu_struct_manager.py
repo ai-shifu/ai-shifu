@@ -38,7 +38,7 @@ class ShifuOutlineItemDto(BaseModel):
     shifu_bid: str
     children: list["ShifuOutlineItemDto"]
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.model_dump_json(exclude_none=True)
 
 
@@ -54,7 +54,7 @@ class ShifuInfoDto(BaseModel):
     default_listen_mode_enabled: bool = False
     use_learner_language: bool = False
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.model_dump_json(exclude_none=True)
 
 
@@ -70,7 +70,7 @@ def get_shifu_struct(
         HistoryItem: Shifu struct.
     """
     with app.app_context():
-        app.logger.info(f"get_shifu_struct:{shifu_bid},{is_preview}")
+        app.logger.info("get_shifu_struct:%s,%s", shifu_bid, is_preview)
         model = LogDraftStruct if is_preview else LogPublishedStruct
         shifu_struct = (
             model.query.filter(
@@ -90,7 +90,7 @@ def get_shifu_outline_tree(
     app: Flask, shifu_bid: str, is_preview: bool = False
 ) -> ShifuInfoDto:
     with app.app_context():
-        app.logger.info(f"get_shifu_outline_tree:{shifu_bid}")
+        app.logger.info("get_shifu_outline_tree:%s", shifu_bid)
         struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)
         if is_preview:
             shifu_model = DraftShifu
@@ -122,7 +122,7 @@ def get_shifu_outline_tree(
         outline_items = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_item_ids),
         ).all()
-        app.logger.info(f"outline_items: len={len(outline_items)}")
+        app.logger.info("outline_items: len=%s", len(outline_items))
         outline_items_map = {i.id: i for i in outline_items}
 
         shifu_info = ShifuInfoDto(
@@ -144,7 +144,7 @@ def get_shifu_outline_tree(
                     outline_items_map.get(item.id)
                 )
                 if not outline_item:
-                    app.logger.error(f"outline_item not found: {item.id}")
+                    app.logger.error("outline_item not found: %s", item.id)
 
                 if outline_item and outline_item.hidden == 0:
                     outline_item_dto = ShifuOutlineItemDto(
@@ -166,7 +166,7 @@ def get_shifu_outline_tree(
 
         outline_items = [recurse_outline_item(i) for i in struct.children]
         shifu_info.outline_items = [i for i in outline_items if i]
-        app.logger.info(f"shifu_info: {shifu_info.__json__()}")
+        app.logger.info("shifu_info: %s", shifu_info.__json__())
         return shifu_info
 
 
@@ -217,7 +217,7 @@ def get_outline_item_dto(
     Returns:
         ShifuOutlineItemDto: Outline item dto.
     """
-    app.logger.info(f"get_outline_item_dto: {outline_item_bid},{is_preview}")
+    app.logger.info("get_outline_item_dto: %s,%s", outline_item_bid, is_preview)
 
     outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
     outline_item: DraftOutlineItem | PublishedOutlineItem = (

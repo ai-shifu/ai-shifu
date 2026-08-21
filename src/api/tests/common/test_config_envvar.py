@@ -142,8 +142,8 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type("random") is False
 
         # Already boolean
-        assert env_var.convert_type(True) is True
-        assert env_var.convert_type(False) is False
+        assert env_var.convert_type(value=True) is True
+        assert env_var.convert_type(value=False) is False
 
         # Empty/None returns default
         assert env_var.convert_type("") is False

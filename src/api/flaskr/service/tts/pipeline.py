@@ -563,8 +563,9 @@ def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
                 current = unit
                 continue
             # Unit itself is too long; hard-split.
-            for i in range(0, len(unit), max_chars):
-                segments.append(unit[i : i + max_chars])
+            segments.extend(
+                unit[i : i + max_chars] for i in range(0, len(unit), max_chars)
+            )
             current = ""
             continue
 
@@ -576,8 +577,9 @@ def _split_text_by_max_chars(units: Sequence[str], max_chars: int) -> list[str]:
             if len(unit) <= max_chars:
                 current = unit
             else:
-                for i in range(0, len(unit), max_chars):
-                    segments.append(unit[i : i + max_chars])
+                segments.extend(
+                    unit[i : i + max_chars] for i in range(0, len(unit), max_chars)
+                )
                 current = ""
 
     if current:

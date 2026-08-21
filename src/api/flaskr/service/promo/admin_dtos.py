@@ -46,7 +46,7 @@ class _DTOBase(BaseModel):
             return None
         return value
 
-    def __json__(self):
+    def __json__(self) -> dict:
         if hasattr(self, "model_dump"):
             return self.model_dump()
         return self.dict()

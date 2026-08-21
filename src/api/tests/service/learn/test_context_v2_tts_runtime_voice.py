@@ -1,21 +1,6 @@
 from types import SimpleNamespace
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flaskr import dao
-
-if dao.db is None:
-    _test_app = Flask("test-context-v2-tts-runtime-voice-bootstrap")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
 
 
 def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatch):
@@ -41,7 +26,7 @@ def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatc
     captured_kwargs = {}
 
     class FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             captured_kwargs.update(kwargs)
 
     monkeypatch.setattr(

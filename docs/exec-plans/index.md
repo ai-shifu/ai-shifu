@@ -11,6 +11,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Backend Inventory 2026-07 (Phase 1)](./active/backend-inventory-2026-07.md)
 - [Backend Overhaul Master Plan: Inventory and Optimization](./active/backend-overhaul-master.md)
 - [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
+- [Speed Up Backend Pull Request Feedback](./active/ci-backend-speed-stack.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./active/creator-dashboard-course-ratings.md)
@@ -24,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 
 ## Completed
 

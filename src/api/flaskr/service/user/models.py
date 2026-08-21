@@ -1,3 +1,4 @@
+from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     TIMESTAMP,
@@ -12,7 +13,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import BIGINT
 
-from ...dao import db
 from .consts import CREDENTIAL_STATE_UNVERIFIED, USER_STATE_UNREGISTERED
 
 
@@ -55,7 +55,7 @@ class UserConversion(db.Model):
         conversion_status,
         conversion_uuid="",
         conversion_third_platform="",
-    ):
+    ) -> None:
         self.user_id = user_id
         self.conversion_id = conversion_id
         self.conversion_source = conversion_source

@@ -11,6 +11,7 @@ from flaskr.service.billing.models import BillingOrder, BillingProduct
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -60,11 +61,9 @@ def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
 def _clear_config_caches() -> None:
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    try:
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
-    except Exception:
-        pass
+    with contextlib.suppress(Exception):
+        if config_module.Config._instance is not None:
+            config_module.Config._instance.enhanced._cache.clear()
 
 
 def _allow_email_login(monkeypatch) -> None:

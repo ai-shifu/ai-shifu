@@ -1,8 +1,10 @@
 import ast
+import contextlib
 import json
 import os
 import re
 import uuid
+from dataclasses import dataclass, field
 from typing import Any
 
 from flask import Flask, request
@@ -51,21 +53,26 @@ _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 
 
 class MockClient:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         pass
 
-    def __getattr__(self, name):
+    def __getattr__(self, name) -> Any:
         def method(*args, **kwargs):
             return self
 
         return method
 
 
-langfuse_client = MockClient()
+@dataclass(slots=True)
+class _LangfuseState:
+    client: Any = field(default_factory=MockClient)
+
+
+_langfuse_state = _LangfuseState()
 
 
 def get_langfuse_client():
-    return langfuse_client
+    return _langfuse_state.client
 
 
 def get_request_id() -> str:
@@ -133,7 +140,6 @@ PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
 
 
 def init_langfuse(app: Flask):
-    global langfuse_client
     if os.environ.get(PRELOAD_MASTER_ENV):
         # Running inside the gunicorn preload master. Creating a real client
         # here starts the Langfuse/OTel BatchProcessor worker thread in the
@@ -144,7 +150,7 @@ def init_langfuse(app: Flask):
         # unrelated in-flight DB exchanges. post_fork clears the flag and
         # calls init_langfuse again to build the real client per worker.
         app.logger.info("Deferring Langfuse init out of the preload master")
-        langfuse_client = MockClient()
+        _langfuse_state.client = MockClient()
         return
     app.logger.info("Initializing Langfuse client")
     if (
@@ -152,14 +158,14 @@ def init_langfuse(app: Flask):
         and app.config.get("LANGFUSE_SECRET_KEY")
         and app.config.get("LANGFUSE_HOST")
     ):
-        langfuse_client = Langfuse(
+        _langfuse_state.client = Langfuse(
             public_key=app.config["LANGFUSE_PUBLIC_KEY"],
             secret_key=app.config["LANGFUSE_SECRET_KEY"],
             host=app.config["LANGFUSE_HOST"],
         )
     else:
         app.logger.warning("Langfuse configuration not found, using MockLangfuse")
-        langfuse_client = MockClient()
+        _langfuse_state.client = MockClient()
 
 
 def _has_langfuse_value(value: Any) -> bool:
@@ -185,10 +191,8 @@ def _parse_langfuse_text_value(value: str) -> Any:
     stripped = value.strip()
     if not _looks_like_structured_text(stripped):
         return value
-    try:
+    with contextlib.suppress(Exception):
         return json.loads(stripped)
-    except Exception:
-        pass
     try:
         return ast.literal_eval(stripped)
     except Exception:
@@ -296,7 +300,7 @@ def _map_observation_kwargs(
 class LangfuseObservationHandle:
     """v2-style facade over a Langfuse SDK v3 span or generation."""
 
-    def __init__(self, delegate: Any, trace_id: str = ""):
+    def __init__(self, delegate: Any, trace_id: str = "") -> None:
         self._delegate = delegate
         delegate_trace_id = getattr(delegate, "trace_id", "")
         self.trace_id = trace_id or (

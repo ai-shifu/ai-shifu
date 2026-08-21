@@ -9,7 +9,6 @@ import unittest
 from unittest.mock import MagicMock, call, patch
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 
 
 def _install_litellm_stub() -> None:
@@ -82,25 +81,10 @@ def _install_openai_responses_stub() -> None:
 _install_litellm_stub()
 _install_openai_responses_stub()
 
-# Ensure minimal SQLAlchemy bindings exist so model classes can be defined.
-from flaskr import dao
-
-if dao.db is None:
-    _test_app = Flask("test-context-v2")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
-
 import itertools
 
 import pytest
+from flaskr import dao
 from flaskr.service.learn import context_v2 as context_v2_module
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.context_v2 import (
@@ -158,7 +142,7 @@ def _make_context() -> RunScriptContextV2:
 
 
 class _FakeLangfuseSpan:
-    def __init__(self):
+    def __init__(self) -> None:
         self.updated = {}
         self.end_kwargs = {}
 
@@ -170,7 +154,7 @@ class _FakeLangfuseSpan:
 
 
 class _FakeLangfuseTrace:
-    def __init__(self):
+    def __init__(self) -> None:
         self.updated = {}
 
     def update(self, **kwargs):
@@ -460,7 +444,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             def in_(self, _values):
                 return self
 
-            def __eq__(self, _other):
+            def __eq__(self, _other) -> "_Column":
                 return self
 
         class _OutlineModel:
@@ -477,7 +461,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 return [("outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 pass
 
             def get_all_blocks(self):
@@ -539,7 +523,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         attend = types.SimpleNamespace(outline_item_bid="outline-1", block_position=0)
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 pass
 
             def get_all_blocks(self):
@@ -753,16 +737,16 @@ class StreamTtsGateTests(unittest.TestCase):
         remove_calls: list[str] = []
 
         class ClosableStream:
-            def __init__(self):
+            def __init__(self) -> None:
                 self.close_calls = 0
                 self._yielded_first = False
                 self.second_next_started = threading.Event()
                 self.release_second = threading.Event()
 
-            def __iter__(self):
+            def __iter__(self) -> "ClosableStream":
                 return self
 
-            def __next__(self):
+            def __next__(self) -> str:
                 if not self._yielded_first:
                     self._yielded_first = True
                     return "chunk-1"
@@ -1056,7 +1040,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
         class _FakeProcessor:
             next_element_index = 5
 
-            def __init__(self):
+            def __init__(self) -> None:
                 self.finalize_calls = []
 
             def finalize(self, *, commit=True):
@@ -1093,7 +1077,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
         class _FakeProcessor:
             next_element_index = 9
 
-            def __init__(self):
+            def __init__(self) -> None:
                 self.finalize_calls = 0
 
             def finalize(self, *, commit=True):
@@ -1126,7 +1110,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
 class MdflowContextCompatibilityTests(unittest.TestCase):
     def test_init_ignores_visual_mode_when_api_missing(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.args = args
                 self.kwargs = kwargs
 
@@ -1140,7 +1124,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_calls_visual_mode_when_api_exists(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.visual_mode = None
 
             def set_visual_mode(self, visual_mode):
@@ -1156,7 +1140,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_uses_explicit_output_language_when_enabled(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 self.output_language = None
 
             def set_output_language(self, language):
@@ -1805,7 +1789,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         captured = {}
 
         class _FakePreviewContextStore:
-            def __init__(self, *_args, **_kwargs):
+            def __init__(self, *_args, **_kwargs) -> None:
                 pass
 
             def get_context(self, *_args, **_kwargs):
@@ -1815,7 +1799,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 return None
 
         class _FakePreviewMdflowContext:
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs) -> None:
                 _ = args, kwargs
 
             @staticmethod
@@ -1844,7 +1828,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 )
 
         class _FakePreviewAdapter:
-            def __init__(self, *_args, **_kwargs):
+            def __init__(self, *_args, **_kwargs) -> None:
                 pass
 
             def process(self, events):
@@ -2144,7 +2128,7 @@ class PreviewElementizationTests(unittest.TestCase):
 
 
 class _InMemoryCache:
-    def __init__(self):
+    def __init__(self) -> None:
         self.store: dict[str, str] = {}
 
     def get(self, key: str):

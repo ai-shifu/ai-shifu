@@ -37,7 +37,7 @@ from flaskr.service.promo.models import (
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, parse_naive_utc
 
 
 @pytest.fixture(autouse=True)
@@ -1924,8 +1924,8 @@ def test_admin_promotions_campaign_route_rejects_overlap_with_legacy_enabled_cam
                 description="Legacy overlap campaign",
                 apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
                 status=0,
-                start_at=datetime.strptime("2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
-                end_at=datetime.strptime("2026-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
+                start_at=parse_naive_utc("2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
+                end_at=parse_naive_utc("2026-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"),
                 discount_type=COUPON_TYPE_FIXED,
                 value=Decimal(10),
                 channel="app",
@@ -2296,12 +2296,10 @@ def test_admin_promotions_coupon_update_allows_changing_only_end_time(
     with app.app_context():
         coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
         assert coupon is not None
-        assert coupon.start == datetime.strptime(
+        assert coupon.start == parse_naive_utc(
             "2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"
         )
-        assert coupon.end == datetime.strptime(
-            "2026-05-30 23:59:00", "%Y-%m-%d %H:%M:%S"
-        )
+        assert coupon.end == parse_naive_utc("2026-05-30 23:59:00", "%Y-%m-%d %H:%M:%S")
 
 
 def test_admin_promotions_coupon_update_ignores_empty_start_time(
@@ -2356,12 +2354,10 @@ def test_admin_promotions_coupon_update_ignores_empty_start_time(
     with app.app_context():
         coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
         assert coupon is not None
-        assert coupon.start == datetime.strptime(
+        assert coupon.start == parse_naive_utc(
             "2026-04-24 10:00:00", "%Y-%m-%d %H:%M:%S"
         )
-        assert coupon.end == datetime.strptime(
-            "2026-05-30 23:59:00", "%Y-%m-%d %H:%M:%S"
-        )
+        assert coupon.end == parse_naive_utc("2026-05-30 23:59:00", "%Y-%m-%d %H:%M:%S")
 
 
 def test_admin_promotions_coupon_status_rejects_enabling_expired_coupon(
@@ -2560,10 +2556,10 @@ def test_admin_promotions_campaign_update_allows_changing_only_start_time(
             PromoCampaign.promo_bid == promo_bid
         ).first()
         assert campaign is not None
-        assert campaign.start_at == datetime.strptime(
+        assert campaign.start_at == parse_naive_utc(
             "2099-04-25 10:30:00", "%Y-%m-%d %H:%M:%S"
         )
-        assert campaign.end_at == datetime.strptime(
+        assert campaign.end_at == parse_naive_utc(
             "2099-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"
         )
 
@@ -2620,10 +2616,10 @@ def test_admin_promotions_campaign_update_ignores_null_end_time(
             PromoCampaign.promo_bid == promo_bid
         ).first()
         assert campaign is not None
-        assert campaign.start_at == datetime.strptime(
+        assert campaign.start_at == parse_naive_utc(
             "2099-04-25 10:30:00", "%Y-%m-%d %H:%M:%S"
         )
-        assert campaign.end_at == datetime.strptime(
+        assert campaign.end_at == parse_naive_utc(
             "2099-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"
         )
 

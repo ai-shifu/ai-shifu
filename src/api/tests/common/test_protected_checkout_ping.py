@@ -15,7 +15,7 @@ from sqlalchemy.exc import DisconnectionError
 
 
 class _FakeRecord:
-    def __init__(self):
+    def __init__(self) -> None:
         self.invalidated_with = []
 
     def invalidate(self, e=None):

@@ -27,7 +27,7 @@ def _make_context() -> RunScriptContextV2:
 class _RecordingEmitter:
     """Stand-in emitter recording every delegated call."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.calls = []
 
     def render_outline_updates(self, outline_updates, new_chapter=False):

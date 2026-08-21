@@ -55,7 +55,7 @@ class DummyCourse:
         updated_at: datetime,
         llm: str = "",
         llm_system_prompt: str = "",
-    ):
+    ) -> None:
         self.shifu_bid = shifu_bid
         self.title = title
         self.price = price
@@ -1544,16 +1544,16 @@ def test_merge_courses_checks_published_visibility_once():
 class FakeColumn:
     __hash__ = None
 
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> tuple:
         return ("eq", self.name, other)
 
-    def __ge__(self, other):
+    def __ge__(self, other) -> tuple:
         return ("ge", self.name, other)
 
-    def __le__(self, other):
+    def __le__(self, other) -> tuple:
         return ("le", self.name, other)
 
     def ilike(self, value: str):
@@ -1570,7 +1570,7 @@ class FakeColumn:
 
 
 class FakeMaxExpression:
-    def __init__(self, column: FakeColumn):
+    def __init__(self, column: FakeColumn) -> None:
         self.column = column
 
     def label(self, alias: str):
@@ -1578,12 +1578,12 @@ class FakeMaxExpression:
 
 
 class FakeLatestSubquery:
-    def __init__(self):
+    def __init__(self) -> None:
         self.c = type("Columns", (), {"max_id": "latest-max-id"})()
 
 
 class FakeLatestQuery:
-    def __init__(self):
+    def __init__(self) -> None:
         self.filters = []
         self.grouped_by = []
         self.subquery_value = FakeLatestSubquery()
@@ -1601,12 +1601,12 @@ class FakeLatestQuery:
 
 
 class FakeIdQuery:
-    def __init__(self, target):
+    def __init__(self, target) -> None:
         self.target = target
 
 
 class FakeOuterQuery:
-    def __init__(self, result):
+    def __init__(self, result) -> None:
         self.filters = []
         self.ordering = []
         self.result = result
@@ -1634,7 +1634,9 @@ class FakeOuterQuery:
 
 
 class FakeSession:
-    def __init__(self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery):
+    def __init__(
+        self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
+    ) -> None:
         self.latest_query = latest_query
         self.outer_query = outer_query
         self.id_queries = []
@@ -1656,7 +1658,9 @@ class FakeFunc:
 
 
 class FakeDB:
-    def __init__(self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery):
+    def __init__(
+        self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
+    ) -> None:
         self.session = FakeSession(latest_query, outer_query)
         self.func = FakeFunc()
 

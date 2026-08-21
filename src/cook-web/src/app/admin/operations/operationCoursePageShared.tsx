@@ -3,7 +3,11 @@ import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import type { AdminOperationCourseOverview } from './operation-course-types';
-import { isValidEmail } from '@/lib/validators';
+import {
+  CONTACT_PHONE_PATTERN,
+  isValidContactIdentifier,
+  normalizeContactIdentifier,
+} from '@/lib/contact-identifier';
 
 export type CourseFilters = {
   course_query: string;
@@ -57,7 +61,7 @@ export type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 export const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 export const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
-export const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
+export const TRANSFER_PHONE_PATTERN = CONTACT_PHONE_PATTERN;
 export const EMPTY_STATE_LABEL = '--';
 export const EMPTY_COURSE_OVERVIEW: AdminOperationCourseOverview = {
   total_course_count: 0,
@@ -122,26 +126,9 @@ export const buildCopyCourseName = (
   return `${normalizedCourseName.slice(0, TITLE_MAX_LENGTH - suffix.length)}${suffix}`;
 };
 
-export const normalizeTransferIdentifier = (
-  contactType: TransferContactType,
-  value: string,
-): string => {
-  const trimmed = value.trim();
-  return contactType === 'email' ? trimmed.toLowerCase() : trimmed;
-};
+export const normalizeTransferIdentifier = normalizeContactIdentifier;
 
-export const isValidTransferIdentifier = (
-  contactType: TransferContactType,
-  value: string,
-): boolean => {
-  if (!value) {
-    return false;
-  }
-  if (contactType === 'email') {
-    return isValidEmail(value);
-  }
-  return TRANSFER_PHONE_PATTERN.test(value);
-};
+export const isValidTransferIdentifier = isValidContactIdentifier;
 
 export const renderTooltipText = (text?: string, className?: string) => {
   return (

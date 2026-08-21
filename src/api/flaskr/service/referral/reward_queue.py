@@ -12,6 +12,7 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWalletBucket,
 )
+from flaskr.util.datetime import NAIVE_DATETIME_MAX
 
 from .consts import (
     REFERRAL_REWARD_STATUS_CANCELED,
@@ -267,8 +268,8 @@ def build_referral_reward_queue(
             ledger,
         )
         return (
-            effective_at or datetime.max,
-            reward.created_at or datetime.max,
+            effective_at or NAIVE_DATETIME_MAX,
+            reward.created_at or NAIVE_DATETIME_MAX,
             int(reward.id or 0),
         )
 

@@ -115,7 +115,7 @@ class VolcengineProtocol:
     PROTOCOL_VERSION = 0b0001
     HEADER_SIZE = 0b0001  # 4 bytes (multiplied by 4)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.connection_id: str | None = None
         self.session_id: str | None = None
 
@@ -323,7 +323,7 @@ class VolcengineProtocol:
                 try:
                     event = Event(event_value)
                 except ValueError:
-                    logger.warning(f"Unknown event code: {event_value}")
+                    logger.warning("Unknown event code: %s", event_value)
                     event = None
                 offset += 4
 

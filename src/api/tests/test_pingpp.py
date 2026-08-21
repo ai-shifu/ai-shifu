@@ -5,7 +5,7 @@ def test_init_pingxx_uses_provider(app, monkeypatch):
     from flaskr.service.order import pingxx_order
 
     class FakeProvider:
-        def __init__(self):
+        def __init__(self) -> None:
             self.called = False
 
         def ensure_client(self, _app):

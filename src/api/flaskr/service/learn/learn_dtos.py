@@ -14,7 +14,7 @@ class LearnStatus(Enum):
     COMPLETED = "completed"
     LOCKED = "locked"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -24,7 +24,7 @@ class OutlineType(Enum):
     TRIAL = "trial"
     GUEST = "guest"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -43,7 +43,7 @@ class GeneratedType(Enum):
     # Internal ask event (listen adapter only, not exposed to non-listen consumers)
     ASK = "ask"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -70,7 +70,7 @@ class ElementType(Enum):
     _PICTURE = "picture"
     _VIDEO = "video"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -79,7 +79,7 @@ class ElementChangeType(Enum):
     RENDER = "render"
     DIFF = "diff"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -89,7 +89,7 @@ class LikeStatus(Enum):
     DISLIKE = "dislike"
     NONE = "none"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -101,7 +101,7 @@ class BlockType(Enum):
     ASK = "ask"
     ANSWER = "answer"
 
-    def __json__(self):
+    def __json__(self) -> str:
         return self.value
 
 
@@ -114,10 +114,10 @@ class VariableUpdateDTO(BaseModel):
         self,
         variable_name: str,
         variable_value: str,
-    ):
+    ) -> None:
         super().__init__(variable_name=variable_name, variable_value=variable_value)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "variable_name": self.variable_name,
             "variable_value": self.variable_value,
@@ -139,7 +139,7 @@ class OutlineItemUpdateDTO(BaseModel):
         title: str,
         status: LearnStatus,
         has_children: bool,
-    ):
+    ) -> None:
         super().__init__(
             outline_bid=outline_bid,
             title=title,
@@ -147,7 +147,7 @@ class OutlineItemUpdateDTO(BaseModel):
             has_children=has_children,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "outline_bid": self.outline_bid,
             "title": self.title,
@@ -164,9 +164,9 @@ class LearnShifuInfoDTO(BaseModel):
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
     price: str = Field(..., description="shifu price", required=False)
-    tts_enabled: bool = Field(False, description="tts enabled", required=False)
+    tts_enabled: bool = Field(default=False, description="tts enabled", required=False)
     default_listen_mode_enabled: bool = Field(
-        False,
+        default=False,
         description="Default learner mode to listen when TTS is enabled",
         required=False,
     )
@@ -181,7 +181,7 @@ class LearnShifuInfoDTO(BaseModel):
         price: str,
         tts_enabled: bool = False,
         default_listen_mode_enabled: bool = False,
-    ):
+    ) -> None:
         super().__init__(
             bid=bid,
             title=title,
@@ -193,7 +193,7 @@ class LearnShifuInfoDTO(BaseModel):
             default_listen_mode_enabled=default_listen_mode_enabled,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "title": self.title,
@@ -226,7 +226,7 @@ class LearnBannerInfoDTO(BaseModel):
         pop_up_content: str,
         pop_up_confirm_text: str,
         pop_up_cancel_text: str,
-    ):
+    ) -> None:
         super().__init__(
             title=title,
             pop_up_title=pop_up_title,
@@ -235,7 +235,7 @@ class LearnBannerInfoDTO(BaseModel):
             pop_up_cancel_text=pop_up_cancel_text,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "title": self.title,
             "pop_up_title": self.pop_up_title,
@@ -272,7 +272,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         is_paid: bool,
         children: list[LearnOutlineItemInfoDTO],
         has_content_update_for_current_user: bool = False,
-    ):
+    ) -> None:
         super().__init__(
             bid=bid,
             position=position,
@@ -284,7 +284,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             has_content_update_for_current_user=has_content_update_for_current_user,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "bid": self.bid,
             "position": self.position,
@@ -310,13 +310,13 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
         self,
         banner_info: LearnBannerInfoDTO | None,
         outline_items: list[LearnOutlineItemInfoDTO],
-    ):
+    ) -> None:
         super().__init__(
             banner_info=banner_info,
             outline_items=outline_items,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "banner_info": None
             if self.banner_info is None
@@ -365,7 +365,7 @@ class AudioSegmentDTO(BaseModel):
         stream_element_type: str | None = None,
         av_contract: dict[str, Any] | None = None,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             position=position,
             stream_element_number=stream_element_number,
@@ -378,7 +378,7 @@ class AudioSegmentDTO(BaseModel):
             subtitle_cues=subtitle_cues or [],
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "position": self.position,
             "segment_index": self.segment_index,
@@ -433,7 +433,7 @@ class AudioCompleteDTO(BaseModel):
         stream_element_type: str | None = None,
         av_contract: dict[str, Any] | None = None,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             position=position,
             stream_element_number=stream_element_number,
@@ -445,7 +445,7 @@ class AudioCompleteDTO(BaseModel):
             subtitle_cues=subtitle_cues or [],
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "position": self.position,
             "audio_url": self.audio_url,
@@ -468,10 +468,10 @@ class ElementVisualDTO(BaseModel):
     visual_type: str = Field(..., description="Visual payload type", required=False)
     content: str = Field(..., description="Visual payload content", required=False)
 
-    def __init__(self, visual_type: str, content: str):
+    def __init__(self, visual_type: str, content: str) -> None:
         super().__init__(visual_type=visual_type, content=content)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {"visual_type": self.visual_type, "content": self.content}
 
 
@@ -494,7 +494,7 @@ class SubtitleCueDTO(BaseModel):
         end_ms: int,
         segment_index: int,
         position: int = 0,
-    ):
+    ) -> None:
         super().__init__(
             text=text or "",
             start_ms=int(start_ms or 0),
@@ -503,7 +503,7 @@ class SubtitleCueDTO(BaseModel):
             position=int(position or 0),
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "text": self.text or "",
             "start_ms": int(self.start_ms or 0),
@@ -534,7 +534,7 @@ class ElementAudioDTO(BaseModel):
         duration_ms: int,
         position: int = 0,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             position=position,
             audio_url=audio_url,
@@ -543,7 +543,7 @@ class ElementAudioDTO(BaseModel):
             subtitle_cues=subtitle_cues or [],
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "position": int(self.position or 0),
             "audio_url": self.audio_url,
@@ -592,7 +592,7 @@ class ElementPayloadDTO(BaseModel):
         user_input: str | None = None,
         diff_payload: list[dict[str, Any]] | None = None,
         asks: list[dict[str, Any]] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             audio=audio,
             previous_visuals=previous_visuals or [],
@@ -603,7 +603,7 @@ class ElementPayloadDTO(BaseModel):
             asks=asks,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "audio": self.audio.__json__() if self.audio is not None else None,
             "previous_visuals": [
@@ -719,7 +719,7 @@ class ElementDTO(BaseModel):
             item["is_final"] = True
         return segments
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "event_type": self.event_type,
             "element_bid": self.element_bid,
@@ -761,7 +761,7 @@ class AudioBackfillReadyDTO(BaseModel):
         description="Persisted final element identifiers in this generated block",
     )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "generated_block_bid": self.generated_block_bid,
             "element_bids": self.element_bids,
@@ -793,7 +793,7 @@ class RunElementSSEMessageDTO(BaseModel):
         | AudioBackfillReadyDTO
     ) = Field(..., description="Run event content")
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "type": self.type,
             "event_type": self.event_type,
@@ -844,7 +844,7 @@ class RunMarkdownFlowDTO(BaseModel):
         | AudioSegmentDTO
         | AudioCompleteDTO,
         anchor_element_bid: str = "",
-    ):
+    ) -> None:
         super().__init__(
             outline_bid=outline_bid,
             generated_block_bid=generated_block_bid,
@@ -876,7 +876,7 @@ class RunMarkdownFlowDTO(BaseModel):
     def get_mdflow_stream_parts(self) -> list[tuple[str, str, int]]:
         return list(self._mdflow_stream_parts)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "outline_bid": self.outline_bid,
             "generated_block_bid": self.generated_block_bid,
@@ -950,14 +950,14 @@ class LearnElementRecordDTO(BaseModel):
         elements: list[ElementDTO] | None = None,
         events: list[RunElementSSEMessageDTO] | None = None,
         last_progress_updated_at: str | None = None,
-    ):
+    ) -> None:
         super().__init__(
             elements=elements or [],
             events=events,
             last_progress_updated_at=last_progress_updated_at,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         ret = {
             "elements": [
                 item.__json__() if isinstance(item, BaseModel) else item
@@ -983,10 +983,10 @@ class RunStatusDTO(BaseModel):
         self,
         is_running: bool,
         running_time: int,
-    ):
+    ) -> None:
         super().__init__(is_running=is_running, running_time=running_time)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "is_running": self.is_running,
             "running_time": self.running_time,
@@ -1006,14 +1006,14 @@ class GeneratedInfoDTO(BaseModel):
         position: int,
         outline_name: str,
         is_trial_lesson: bool,
-    ):
+    ) -> None:
         super().__init__(
             position=position,
             outline_name=outline_name,
             is_trial_lesson=is_trial_lesson,
         )
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "position": self.position,
             "outline_name": self.outline_name,

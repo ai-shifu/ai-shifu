@@ -17,7 +17,7 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import BillingProduct
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.datetime import now_utc, parse_naive_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
 
@@ -353,7 +353,7 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         return None
     for datetime_format in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
         try:
-            return datetime.strptime(normalized, datetime_format)
+            return parse_naive_utc(normalized, datetime_format)
         except ValueError:
             continue
     try:

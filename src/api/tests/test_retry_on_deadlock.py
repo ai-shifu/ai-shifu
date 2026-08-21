@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 
 
 class _FakeOrigError(Exception):
-    def __init__(self, errno, message):
+    def __init__(self, errno, message) -> None:
         super().__init__(errno, message)
         self.args = (errno, message)
 

@@ -1,16 +1,17 @@
 import io
+from typing import ClassVar
 
 import pytest
 from flaskr.service.tts import audio_utils
 
 
 class _FakeSegment:
-    append_crossfades: list[int] = []
+    append_crossfades: ClassVar[list[int]] = []
 
-    def __init__(self, duration_ms: int):
+    def __init__(self, duration_ms: int) -> None:
         self.duration_ms = duration_ms
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.duration_ms
 
     def append(self, other, crossfade=100):
@@ -27,7 +28,7 @@ class _FakeSegment:
             )
         return _FakeSegment(self.duration_ms + len(other) - crossfade)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> "_FakeSegment":
         if isinstance(key, slice):
             start = int(key.start or 0)
             stop = int(key.stop if key.stop is not None else self.duration_ms)
@@ -56,7 +57,7 @@ class _PartiallyBrokenAudioSegment:
 
 
 class _RecordingAudioSegment:
-    from_file_formats: list[str] = []
+    from_file_formats: ClassVar[list[str]] = []
 
     @staticmethod
     def from_file(segment_io: io.BytesIO, format="mp3") -> "_FakeSegment":  # noqa: A002 - mirrors the pydub API

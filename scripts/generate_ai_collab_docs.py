@@ -1513,8 +1513,7 @@ def render_cursor_rule(
         f"description: {description}",
         "globs:",
     ]
-    for glob in globs:
-        lines.append(f"  - {glob}")
+    lines.extend(f"  - {glob}" for glob in globs)
     lines.extend(
         [
             f"alwaysApply: {'true' if always_apply else 'false'}",
@@ -1611,6 +1610,10 @@ def build_documents() -> dict[Path, str]:
                 "`AGENTS.md#git-commit-message-requirements`; keep "
                 "agent-specific rule files from duplicating the detailed "
                 "commit-message policy.",
+                "Treat Ruff findings as code or contract signals: fix code with "
+                "focused tests first, use only narrow coded suppressions for "
+                "intentional constructs, and change global Ruff policy only in "
+                "a dedicated rule PR tracked by the active Ruff ExecPlan.",
                 "Keep generated knowledge artifacts in sync by running "
                 "`python scripts/build_repo_knowledge_index.py` after docs "
                 "structure or metadata changes.",
@@ -1797,6 +1800,10 @@ def build_documents() -> dict[Path, str]:
                 "`AGENTS.md#git-commit-message-requirements`; keep "
                 "agent-specific rule files from duplicating the detailed "
                 "commit-message policy.",
+                "Treat Ruff findings as code or contract signals: fix code with "
+                "focused tests first, use only narrow coded suppressions for "
+                "intentional constructs, and change global Ruff policy only in "
+                "a dedicated rule PR tracked by the active Ruff ExecPlan.",
                 "Regenerate repository knowledge indexes with "
                 "`python scripts/build_repo_knowledge_index.py` after moving docs "
                 "or changing required metadata.",

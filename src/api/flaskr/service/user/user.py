@@ -7,8 +7,12 @@ import uuid
 from urllib.parse import urlsplit
 
 from flask import Flask
+from flaskr.api.wechat import get_wechat_access_token
 from flaskr.common.shifu_context import get_shifu_creator_bid as get_context_creator_bid
+from flaskr.dao import db
 from flaskr.service.billing.api import resolve_creator_public_integrations
+from flaskr.service.common.dtos import USER_STATE_UNREGISTERED, UserToken
+from flaskr.service.common.models import raise_error
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_DEFAULT,
     create_oss_bucket,
@@ -22,12 +26,8 @@ from flaskr.service.common.storage import (
     get_local_storage_path,
     upload_to_storage,
 )
+from flaskr.service.user.models import UserConversion
 
-from ...api.wechat import get_wechat_access_token
-from ...dao import db
-from ...service.common.dtos import USER_STATE_UNREGISTERED, UserToken
-from ...service.user.models import UserConversion
-from ..common.models import raise_error
 from .repository import (
     build_user_info_from_aggregate,
     create_user_entity,
@@ -162,7 +162,7 @@ def generate_temp_user(
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
-    app.logger.info(f"update_user_open_id user_id: {user_id} wx_code: {wx_code}")
+    app.logger.info("update_user_open_id user_id: %s wx_code: %s", user_id, wx_code)
     with app.app_context():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:

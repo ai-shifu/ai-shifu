@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from flaskr.util.uuid import generate_id
 
 from .bucket_categories import (
@@ -62,7 +62,6 @@ from .cycle_transitions import (
 from .cycle_transitions import (
     resolve_order_effective_to as _resolve_order_effective_to,
 )
-from .dtos import BillingSubscriptionDTO
 from .models import (
     BillingOrder,
     BillingProduct,
@@ -158,6 +157,9 @@ from .wallets import (
     resolve_bucket_source_type_for_category,
     sync_credit_bucket_status,
 )
+
+if TYPE_CHECKING:
+    from .dtos import BillingSubscriptionDTO
 
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
@@ -342,9 +344,9 @@ def _load_topup_expiry_subscription_for_bucket(
         product_sort_order = int(product.sort_order) if product is not None else -1
         return (
             product_sort_order,
-            row.current_period_start_at or datetime.min,
-            row.current_period_end_at or datetime.min,
-            row.created_at or datetime.min,
+            row.current_period_start_at or NAIVE_DATETIME_MIN,
+            row.current_period_end_at or NAIVE_DATETIME_MIN,
+            row.created_at or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         )
 

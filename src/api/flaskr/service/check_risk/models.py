@@ -1,3 +1,4 @@
+from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     TIMESTAMP,
@@ -7,8 +8,6 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-
-from ...dao import db
 
 
 class RiskControlResult(db.Model):
@@ -48,7 +47,7 @@ class RiskControlResult(db.Model):
         check_resp,
         is_pass,
         check_strategy,
-    ):
+    ) -> None:
         self.chat_id = chat_id
         self.user_id = user_id
         self.text = text

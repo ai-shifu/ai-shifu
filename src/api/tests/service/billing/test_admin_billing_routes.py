@@ -10,6 +10,7 @@ import flaskr.service.billing.customization as billing_customization_module
 import flaskr.service.billing.queries as billing_queries_module
 import flaskr.service.billing.serializers as billing_serializers_module
 import flaskr.service.billing.wallets as billing_wallets_module
+import flaskr.service.common.contact_identifiers as contact_identifiers_module
 import pytest
 from flask import Flask, jsonify, request
 from flaskr import dao
@@ -70,8 +71,9 @@ from flaskr.service.billing.read_models import (
     build_admin_billing_focus_teachers_page,
 )
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.user.models import UserInfo
+from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
@@ -80,6 +82,22 @@ from tests.service.billing.route_loader import (
 
 billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
+
+
+def _set_login_methods(monkeypatch: pytest.MonkeyPatch, methods: str) -> None:
+    """Pin the login methods this deployment accepts.
+
+    Billing admin flows infer whether a course owner is addressed by phone or by
+    email from LOGIN_METHODS_ENABLED, so tests patch the lookup directly rather
+    than fighting the config cache.
+    """
+    monkeypatch.setattr(
+        contact_identifiers_module,
+        "get_config",
+        lambda key, default=None: (
+            methods if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
 
 
 def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -930,6 +948,138 @@ class TestAdminBillingRoutes:
             # The console chains branding/domain calls right after the first
             # grant, so the response must expose the resolved creator_bid.
             assert payload["data"]["creator_bid"] == entity.user_bid
+
+    def test_admin_billing_entitlement_grant_accepts_creator_email_on_email_login(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        """Overseas deployments identify a course owner by email, not by phone."""
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+        _set_login_methods(monkeypatch, "google")
+
+        response = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "  Teacher@Example.COM ",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": True,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["branding_enabled"] is True
+        assert payload["data"]["custom_payment_enabled"] is True
+
+        with app.app_context():
+            entity = (
+                UserInfo.query.filter(UserInfo.user_identify == "teacher@example.com")
+                .order_by(UserInfo.id.asc())
+                .first()
+            )
+            assert entity is not None
+            assert entity.is_creator == 1
+            assert entity.state == 1102
+            assert payload["data"]["creator_bid"] == entity.user_bid
+
+            credential = AuthCredential.query.filter(
+                AuthCredential.user_bid == entity.user_bid,
+                AuthCredential.deleted == 0,
+            ).one()
+            assert credential.provider_name == "email"
+            assert credential.subject_format == "email"
+            assert credential.identifier == "teacher@example.com"
+
+    def test_admin_billing_entitlement_grant_reuses_existing_email_account(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        _set_login_methods(monkeypatch, "google")
+
+        first = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "teacher@example.com",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+            },
+        ).get_json(force=True)
+        # A different casing must resolve to the same account, not a new one.
+        second = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "TEACHER@example.com",
+                "branding_enabled": True,
+                "custom_domain_enabled": True,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+            },
+        ).get_json(force=True)
+
+        assert first["code"] == 0
+        assert second["code"] == 0
+        assert second["data"]["creator_bid"] == first["data"]["creator_bid"]
+        assert second["data"]["custom_domain_enabled"] is True
+
+    def test_admin_billing_entitlement_grant_rejects_email_on_phone_login(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        """China stays phone-only: an email must not silently create an account."""
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+        _set_login_methods(monkeypatch, "phone")
+
+        response = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "teacher@example.com",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] != 0
+        with app.app_context():
+            assert (
+                UserInfo.query.filter(
+                    UserInfo.user_identify == "teacher@example.com"
+                ).count()
+                == 0
+            )
+
+    def test_admin_billing_entitlement_grant_rejects_invalid_email(
+        self,
+        admin_billing_client,
+        monkeypatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        _set_login_methods(monkeypatch, "google")
+
+        response = client.post(
+            "/api/admin/billing/entitlements/grants",
+            json={
+                "creator_mobile": "not-an-email",
+                "branding_enabled": True,
+                "custom_domain_enabled": False,
+                "custom_wechat_enabled": False,
+                "custom_payment_enabled": False,
+            },
+        )
+
+        assert response.get_json(force=True)["code"] != 0
 
     def test_admin_billing_entitlements_can_filter_independent_configs(
         self,

@@ -70,6 +70,7 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.service.user.utils import ensure_demo_course_permissions
+from flaskr.util.datetime import parse_naive_utc
 from sqlalchemy import case
 
 ORDER_STATUS_KEY_MAP = {
@@ -208,7 +209,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
         return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
         try:
-            parsed = datetime.strptime(normalized, fmt)
+            parsed = parse_naive_utc(normalized, fmt)
             if fmt == "%Y-%m-%d":
                 if is_end:
                     parsed = parsed.replace(hour=23, minute=59, second=59)
@@ -528,7 +529,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
             DraftShifu.title.like(like_value),
         )
         .yield_per(200)
-        .enable_eagerloads(False)
+        .enable_eagerloads(False)  # noqa: FBT003 -- SQLAlchemy takes the flag positionally
     ):
         shifu_bid = str(row.shifu_bid or "").strip()
         if shifu_bid:
@@ -540,7 +541,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
             PublishedShifu.title.like(like_value),
         )
         .yield_per(200)
-        .enable_eagerloads(False)
+        .enable_eagerloads(False)  # noqa: FBT003 -- SQLAlchemy takes the flag positionally
     ):
         shifu_bid = str(row.shifu_bid or "").strip()
         if shifu_bid:
@@ -606,7 +607,7 @@ def _apply_order_source_filter(query, order_source: str):
             )
         )
 
-    return query.filter(db.literal(False))
+    return query.filter(db.literal(False))  # noqa: FBT003 -- SQL literal value
 
 
 def _build_order_item(
@@ -1092,21 +1093,20 @@ def _load_order_activities(order_bid: str) -> list[OrderAdminActivityDTO]:
         PromoRedemption.order_bid == order_bid,
         PromoRedemption.deleted == 0,
     ).all()
-    activities: list[OrderAdminActivityDTO] = []
-    for record in records:
-        activities.append(
-            OrderAdminActivityDTO(
-                active_id=record.promo_bid,
-                active_name=record.promo_name,
-                price=_format_decimal(record.discount_amount),
-                status=record.status,
-                status_key=ACTIVE_STATUS_KEY_MAP.get(
-                    record.status, "module.order.activeStatus.unknown"
-                ),
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            )
+    activities: list[OrderAdminActivityDTO] = [
+        OrderAdminActivityDTO(
+            active_id=record.promo_bid,
+            active_name=record.promo_name,
+            price=_format_decimal(record.discount_amount),
+            status=record.status,
+            status_key=ACTIVE_STATUS_KEY_MAP.get(
+                record.status, "module.order.activeStatus.unknown"
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
+        for record in records
+    ]
     return activities
 
 
@@ -1116,26 +1116,25 @@ def _load_order_coupons(order_bid: str) -> list[OrderAdminCouponDTO]:
         CouponUsage.order_bid == order_bid,
         CouponUsage.deleted == 0,
     ).all()
-    coupons: list[OrderAdminCouponDTO] = []
-    for record in records:
-        coupons.append(
-            OrderAdminCouponDTO(
-                coupon_bid=record.coupon_bid,
-                code=record.code,
-                name=record.name,
-                discount_type=record.discount_type,
-                discount_type_key=COUPON_TYPE_KEY_MAP.get(
-                    record.discount_type, "module.order.couponType.unknown"
-                ),
-                value=_format_decimal(record.value),
-                status=record.status,
-                status_key=COUPON_STATUS_KEY_MAP.get(
-                    record.status, "module.order.couponStatus.unknown"
-                ),
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            )
+    coupons: list[OrderAdminCouponDTO] = [
+        OrderAdminCouponDTO(
+            coupon_bid=record.coupon_bid,
+            code=record.code,
+            name=record.name,
+            discount_type=record.discount_type,
+            discount_type_key=COUPON_TYPE_KEY_MAP.get(
+                record.discount_type, "module.order.couponType.unknown"
+            ),
+            value=_format_decimal(record.value),
+            status=record.status,
+            status_key=COUPON_STATUS_KEY_MAP.get(
+                record.status, "module.order.couponStatus.unknown"
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
+        for record in records
+    ]
     return coupons
 
 

@@ -1,7 +1,7 @@
 class BasePlugin:
     name: str = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = self.__class__.__name__
         self.migration_dir = None  # plugin migration dir
 

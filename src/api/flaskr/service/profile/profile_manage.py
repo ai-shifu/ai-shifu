@@ -2,6 +2,7 @@ import hashlib
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -10,7 +11,6 @@ from flaskr.util.uuid import generate_id
 from markdown_flow import MarkdownFlow
 from sqlalchemy import func, inspect, text
 
-from ...dao import db
 from .dtos import (
     DEFAULT_COLOR_SETTINGS,
     ColorSetting,
@@ -107,14 +107,13 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
     """Determine custom profile keys that are not referenced in any outline content."""
     definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
     used_variables = _collect_used_variables(app, shifu_bid)
-    unused_keys: list[str] = []
-    for definition in definitions:
-        if (
-            definition.profile_scope == CONST_PROFILE_SCOPE_USER
-            and definition.profile_key
-            and definition.profile_key not in used_variables
-        ):
-            unused_keys.append(definition.profile_key)
+    unused_keys: list[str] = [
+        definition.profile_key
+        for definition in definitions
+        if definition.profile_scope == CONST_PROFILE_SCOPE_USER
+        and definition.profile_key
+        and definition.profile_key not in used_variables
+    ]
     return unused_keys
 
 
@@ -260,7 +259,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 legacy_scope,
                 _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
                 legacy_item["profile_id"],
-                False,
+                is_hidden=False,
             )
 
         profile_id = generate_id(app)
@@ -344,7 +343,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             legacy_scope,
             _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
             profile_id,
-            False,
+            is_hidden=False,
         )
 
     existing = (

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from flaskr.dao import db
+from flaskr.util.datetime import NAIVE_DATETIME_MIN
 from sqlalchemy import and_, or_
 
 from .models import DraftOutlineItem, DraftShifu, PublishedOutlineItem, PublishedShifu
@@ -21,11 +22,11 @@ def _record_course_activity(
     if not shifu_bid:
         return
     current = activity_map.get(shifu_bid)
-    candidate_time = updated_at or datetime.min
+    candidate_time = updated_at or NAIVE_DATETIME_MIN
     current_time = (
         current.get("updated_at")
         if current and current.get("updated_at")
-        else datetime.min
+        else NAIVE_DATETIME_MIN
     )
     should_replace = current is None or candidate_time > current_time
     if (

@@ -1,8 +1,7 @@
+from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import TIMESTAMP, Column, Integer, String
 from sqlalchemy.dialects.mysql import BIGINT
-
-from ...dao import db
 
 
 class Resource(db.Model):

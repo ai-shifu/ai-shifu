@@ -93,7 +93,7 @@ def test_admin_import_activation_allows_owner(monkeypatch, test_client, app):
 
     monkeypatch.setattr(
         "flaskr.route.order.get_shifu_info",
-        lambda _app, _shifu_bid, _preview: SimpleNamespace(price=Decimal(0)),
+        lambda _app, _shifu_bid, preview_mode: SimpleNamespace(price=Decimal(0)),
         raising=False,
     )
     monkeypatch.setattr(

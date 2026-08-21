@@ -3,7 +3,7 @@ from flaskr.service.tts import rpm_gate
 
 
 class _FakeRedisLock:
-    def __init__(self):
+    def __init__(self) -> None:
         self.released = False
 
     def acquire(self, blocking=True, blocking_timeout=None):
@@ -15,7 +15,7 @@ class _FakeRedisLock:
 
 
 class _FakeRedis:
-    def __init__(self):
+    def __init__(self) -> None:
         self.values = {}
         self.locks = []
 

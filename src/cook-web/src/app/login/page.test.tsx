@@ -4,7 +4,7 @@ import AuthPage from './page';
 
 const replaceMock = jest.fn();
 const logoutMock = jest.fn(() => Promise.resolve());
-const searchParamsMock = {
+const mockSearchParams = {
   get: jest.fn(() => null),
 };
 
@@ -19,7 +19,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: replaceMock,
   }),
-  useSearchParams: () => searchParamsMock,
+  useSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('next/image', () => ({

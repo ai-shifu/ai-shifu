@@ -68,7 +68,7 @@ class AuthResult(_BaseDTO):
         None, description="Persisted credential record when available"
     )
     is_new_user: bool = Field(
-        False, description="Indicates whether the auth flow created a new user"
+        default=False, description="Indicates whether the auth flow created a new user"
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Provider-specific auxiliary data"

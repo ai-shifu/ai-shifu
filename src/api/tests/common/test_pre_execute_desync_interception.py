@@ -8,6 +8,7 @@ statement via the per-connection journal.
 """
 
 import socket
+from typing import ClassVar
 
 import pytest
 from flaskr import dao
@@ -41,7 +42,7 @@ def test_pre_execute_probe_blocks_desynced_connection():
 
         class _FakeConn:
             connection = _FakeFairy()
-            info = {}
+            info: ClassVar[dict[str, object]] = {}
             invalidated_count = 0
 
             def invalidate(self):
@@ -50,14 +51,16 @@ def test_pre_execute_probe_blocks_desynced_connection():
         conn = _FakeConn()
 
         # Clean socket: probe passes.
-        dao._intercept_desync_before_execute(conn, None, "SELECT 1", None, None, False)
+        dao._intercept_desync_before_execute(
+            conn, None, "SELECT 1", None, None, executemany=False
+        )
 
         # An unread response appears (interrupted previous exchange): the
         # next execute must be refused and the connection invalidated.
         right.sendall(b"\x07\x00\x00\x01\x00stale")
         with pytest.raises(DisconnectionError):
             dao._intercept_desync_before_execute(
-                conn, None, "SELECT id FROM t", None, None, False
+                conn, None, "SELECT id FROM t", None, None, executemany=False
             )
         assert _FakeConn.invalidated_count == 1
     finally:

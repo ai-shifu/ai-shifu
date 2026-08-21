@@ -9,14 +9,14 @@ Date: 2025-08-07
 from decimal import Decimal
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 from sqlalchemy.orm import load_only
 
-from ...dao import db
-from ...util import generate_id
-from ..common.models import raise_error, raise_param_error
 from .consts import (
     UNIT_TYPE_GUEST,
     UNIT_TYPE_TRIAL,
@@ -149,8 +149,9 @@ def build_outline_tree_from_items(
             # before its own children are processed; they will still attach to
             # it normally.
             app.logger.warning(
-                f"Parent node not found for position: {position}, "
-                f"attaching orphan '{node.outline_id}' at root level"
+                "Parent node not found for position: %s, attaching orphan '%s' at root level",
+                position,
+                node.outline_id,
             )
             outline_tree.append(node)
 
@@ -200,7 +201,7 @@ def assert_outline_items_publishable(
     collisions = {pos: bids for pos, bids in positions.items() if len(bids) > 1}
     if collisions:
         app.logger.error(
-            f"Outline position collisions for shifu {shifu_bid}: {collisions}"
+            "Outline position collisions for shifu %s: %s", shifu_bid, collisions
         )
         raise_error("server.shifu.outlineStructureBroken")
 
@@ -261,7 +262,7 @@ def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto
     Returns:
         list[SimpleOutlineDto]: Outline tree.
     """
-    app.logger.info(f"get outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}")
+    app.logger.info("get outline tree, user_id: %s, shifu_bid: %s", user_id, shifu_bid)
     with app.app_context():
         outline_tree = build_outline_tree(app, shifu_bid, include_content=False)
         return get_outline_tree_dto(outline_tree)
@@ -479,9 +480,9 @@ def create_default_outlines_for_new_shifu(
         normalized_chapter_name,
         UNIT_TYPE_GUEST,
         None,
-        False,
-        now_time,
-        chapter_bid,
+        is_hidden=False,
+        now_time=now_time,
+        outline_bid=chapter_bid,
         persist_history=False,
     )
     lesson = __insert_outline_locked(
@@ -492,9 +493,9 @@ def create_default_outlines_for_new_shifu(
         normalized_lesson_name,
         UNIT_TYPE_GUEST,
         None,
-        False,
-        now_time,
-        lesson_bid,
+        is_hidden=False,
+        now_time=now_time,
+        outline_bid=lesson_bid,
         persist_history=False,
     )
     outline_items = load_existing_outline_items(shifu_id)
@@ -655,7 +656,7 @@ def reorder_outline_tree(
     """
     with app.app_context():
         app.logger.info(
-            f"reorder outline tree, user_id: {user_id}, shifu_id: {shifu_id}"
+            "reorder outline tree, user_id: %s, shifu_id: %s", user_id, shifu_id
         )
         now_time = now_utc()
         __lock_shifu_for_outline_write(shifu_id)
@@ -795,7 +796,7 @@ def modify_unit(
         OutlineDto: Outline dto.
     """
     with app.app_context():
-        app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
+        app.logger.info("modify unit: %s, name: %s", unit_id, unit_name)
         now_time = now_utc()
         # find existing unit
         existing_unit = (

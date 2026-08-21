@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -29,7 +31,7 @@ class EnvVar:
     group: str = "general"
     depends_on: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate EnvVar configuration after initialization."""
         if self.required and self.default is not None:
             raise ValueError(
@@ -906,6 +908,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="auth",
     ),
+    "GOOGLE_OAUTH_REDIRECT_URI": EnvVar(
+        name="GOOGLE_OAUTH_REDIRECT_URI",
+        default="",
+        description=(
+            "Shared Google OAuth callback URL for every domain this deployment "
+            "serves. Google does not accept wildcards in a client's authorized "
+            "redirect URIs, so pinning one callback here keeps white-label "
+            "domains from each needing their own entry; the browser is handed "
+            "back to the domain it started from afterwards. Leave empty to "
+            "derive the callback from the requested origin."
+        ),
+        group="auth",
+    ),
     "GOOGLE_OAUTH_TOKEN_ENDPOINT": EnvVar(
         name="GOOGLE_OAUTH_TOKEN_ENDPOINT",
         default="https://oauth2.googleapis.com/token",
@@ -1775,7 +1790,7 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: dict[str, EnvVar]):
+    def __init__(self, env_vars: dict[str, EnvVar]) -> None:
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
@@ -1871,9 +1886,12 @@ class EnhancedConfig:
                     # Log warning about type conversion failure
                     logger = logging.getLogger(__name__)
                     logger.warning(
-                        f"Failed to convert environment variable '{key}' with value '{value}' "
-                        f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {e!s}"
+                        "Failed to convert environment variable '%s' with value '%s' to type %s. Using default value '%s'. Error: %s",
+                        key,
+                        value,
+                        env_var.type.__name__,
+                        env_var.default,
+                        e,
                     )
                     value = env_var.default
             # Apply interpolation
@@ -1937,7 +1955,7 @@ class EnhancedConfig:
 
     def debug_print(self) -> None:
         """Print all configuration values (excluding secrets) for debugging."""
-        print("\n=== Configuration Values ===")
+        print("\n=== Configuration Values ===")  # noqa: T201
         groups = {}
         for var_name, env_var in self.env_vars.items():
             if env_var.group not in groups:
@@ -1946,10 +1964,10 @@ class EnhancedConfig:
             display_value = "[REDACTED]" if env_var.secret and value else str(value)
             groups[env_var.group].append(f"  {var_name}: {display_value}")
         for group, items in sorted(groups.items()):
-            print(f"\n[{group.upper()}]")
+            print(f"\n[{group.upper()}]")  # noqa: T201
             for item in sorted(items):
-                print(item)
-        print("\n" + "=" * 30 + "\n")
+                print(item)  # noqa: T201
+        print("\n" + "=" * 30 + "\n")  # noqa: T201
 
     def export_env_example(self) -> str:
         """Export full environment variable definitions as .env.example format."""
@@ -2079,23 +2097,24 @@ class EnhancedConfig:
         return "\n".join(lines)
 
 
-# Global instance
-__INSTANCE__ = None
 __ENHANCED_CONFIG__ = EnhancedConfig(ENV_VARS)
 
 
 class Config(FlaskConfig):
     """Flask configuration wrapper with enhanced environment variable support."""
 
-    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict | None = None):
-        global __INSTANCE__
+    _instance: Config | None = None
+
+    def __init__(
+        self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
+    ) -> None:
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__
         # Reset shared cache per initialization to avoid cross-app contamination
         self.enhanced._cache.clear()
         self.enhanced._validated = False
-        __INSTANCE__ = self
+        Config._instance = self
         # Validate environment on initialization
         try:
             self.enhanced.validate_environment(allow_conversion_errors=True)
@@ -2177,9 +2196,8 @@ class Config(FlaskConfig):
         env_value = os.environ.get(key)
         if env_value is not None:
             self.app.logger.warning(
-                f"Configuration key '{key}' not defined in ENV_VARS registry. "
-                f"Falling back to environment variable value. "
-                f"Consider adding this to ENV_VARS in config.py for proper type conversion and validation."
+                "Configuration key '%s' not defined in ENV_VARS registry. Falling back to environment variable value. Consider adding this to ENV_VARS in config.py for proper type conversion and validation.",
+                key,
             )
             return env_value
 
@@ -2237,7 +2255,7 @@ def get_config(key: str, default: Any = None) -> Any:
         Configuration value or default
 
     """
-    if __INSTANCE__ is None:
+    if Config._instance is None:
         # Before initialization, try to get from environment directly
         # This is needed for module-level calls like timezone setup
         if key in ENV_VARS:
@@ -2248,7 +2266,7 @@ def get_config(key: str, default: Any = None) -> Any:
             return value
         # For unknown keys, check environment directly
         return os.environ.get(key, default)
-    return __INSTANCE__.get(key, default)
+    return Config._instance.get(key, default)
 
 
 def has_explicit_env_override(key: str) -> bool:

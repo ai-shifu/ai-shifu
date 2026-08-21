@@ -25,7 +25,7 @@ target dialect is MySQL — under SQLite (tests) the hint would not parse.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Column,
@@ -37,7 +37,8 @@ from sqlalchemy import (
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
 
-from .dsl import Aggregate, Filter, OrderBy, QueryDSL
+if TYPE_CHECKING:
+    from .dsl import Aggregate, Filter, OrderBy, QueryDSL
 
 
 def build_statement(
@@ -53,11 +54,10 @@ def build_statement(
     """
     table = dsl.spec.model.__table__
 
-    select_items: list[ColumnElement[Any]] = []
-    for col_name in dsl.select:
-        select_items.append(table.c[col_name].label(col_name))
-    for agg in dsl.aggregates:
-        select_items.append(_compile_aggregate(table, agg))
+    select_items: list[ColumnElement[Any]] = [
+        table.c[col_name].label(col_name) for col_name in dsl.select
+    ]
+    select_items.extend(_compile_aggregate(table, agg) for agg in dsl.aggregates)
 
     stmt = select(*select_items).select_from(table)
 

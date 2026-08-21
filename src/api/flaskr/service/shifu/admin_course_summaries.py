@@ -45,7 +45,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from markdown_flow import MarkdownFlow
 from sqlalchemy import and_, case, literal, not_
 from sqlalchemy.orm import defer
@@ -823,17 +823,16 @@ def _build_outline_history_tree(
     def _build(parent_bid: str) -> list[HistoryItem]:
         children = outline_children_map.get(parent_bid, [])
         children.sort(key=lambda item: (item.position or "", item.id))
-        history_items: list[HistoryItem] = []
-        for child in children:
-            history_items.append(
-                HistoryItem(
-                    bid=str(child.outline_item_bid or "").strip(),
-                    id=int(child.id),
-                    type="outline",
-                    children=_build(str(child.outline_item_bid or "").strip()),
-                    child_count=_count_blocks(child.content or ""),
-                )
+        history_items: list[HistoryItem] = [
+            HistoryItem(
+                bid=str(child.outline_item_bid or "").strip(),
+                id=int(child.id),
+                type="outline",
+                children=_build(str(child.outline_item_bid or "").strip()),
+                child_count=_count_blocks(child.content or ""),
             )
+            for child in children
+        ]
         return history_items
 
     return _build("")
@@ -862,8 +861,8 @@ def _merge_courses(
         sorted(
             course_map.values(),
             key=lambda item: (
-                item.updated_at or datetime.min,
-                item.created_at or datetime.min,
+                item.updated_at or NAIVE_DATETIME_MIN,
+                item.created_at or NAIVE_DATETIME_MIN,
                 item.shifu_bid or "",
             ),
             reverse=True,

@@ -2,7 +2,7 @@ from flaskr.service.profile.funcs import _get_latest_variable_value
 
 
 class _DummyValue:
-    def __init__(self, *, key: str, shifu_bid: str, variable_bid: str):
+    def __init__(self, *, key: str, shifu_bid: str, variable_bid: str) -> None:
         self.key = key
         self.shifu_bid = shifu_bid
         self.variable_bid = variable_bid

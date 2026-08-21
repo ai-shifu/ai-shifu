@@ -1,8 +1,8 @@
 from flask import Flask
 
 from flaskr.api.llm import get_current_models
+from flaskr.service.common.dicts import get_all_dicts
 
-from ..service.common.dicts import get_all_dicts
 from .common import bypass_token_validation, make_common_response
 
 

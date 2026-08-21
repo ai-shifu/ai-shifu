@@ -13,7 +13,7 @@ from flaskr.common.cache_provider import cache
 from flaskr.common.config import get_config
 
 UMAMI_CLOUD_API_BASE_URL = "https://api.umami.is/v1"
-UMAMI_ACCESS_TOKEN_CACHE_SUFFIX = "analytics:umami:access-token"
+UMAMI_ACCESS_TOKEN_CACHE_SUFFIX = "analytics:umami:access-token"  # noqa: S105 - cache key suffix
 UMAMI_COURSE_VISIT_CACHE_PREFIX = "analytics:umami:course-visits:30d"
 UMAMI_METRICS_PAGE_SIZE = 500
 COURSE_VISIT_EVENT_PREFIX = "course_visit_"

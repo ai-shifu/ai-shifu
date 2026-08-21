@@ -1011,14 +1011,12 @@ def _read_resource_bytes(resource_bid: str) -> bytes:
 
     resource = Resource.query.filter(Resource.resource_id == normalized).first()
     if resource is not None and resource.oss_name:
-        try:
+        with contextlib.suppress(Exception):
             return read_storage_bytes(
                 profile=OSS_PROFILE_COURSES,
                 object_key=resource.oss_name,
                 bucket_name=resource.oss_bucket or "",
             )
-        except Exception:
-            pass
     raise ValueError("source audio is no longer available")
 
 

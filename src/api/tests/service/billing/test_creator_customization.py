@@ -1,6 +1,8 @@
+import hashlib
 from importlib import import_module
 from io import BytesIO
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from cryptography.fernet import Fernet
@@ -12,6 +14,7 @@ from flaskr.service.billing.entitlements import (
     resolve_creator_entitlement_state,
 )
 from flaskr.service.billing.models import BillingEntitlement
+from flaskr.service.common import contact_identifiers
 from flaskr.service.common.models import AppError
 from flaskr.service.user import user as user_service
 from flaskr.util.datetime import now_utc
@@ -216,6 +219,76 @@ def test_admin_creator_customization_draft_mobile_identity_fits_saas_storage(app
         assert saved["note"] == "mobile draft"
         assert loaded["note"] == "mobile draft"
         assert rows
+        assert all(len(row.user_bid) <= 36 for row in rows)
+
+
+def test_admin_draft_storage_identity_folds_email_case_only(monkeypatch):
+    """Email drafts key on the lowercased address; phone keys stay byte-identical."""
+    monkeypatch.setattr(
+        contact_identifiers,
+        "get_config",
+        lambda key, default=None: (
+            "google" if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
+    upper = customization._admin_draft_storage_identity(
+        creator_mobile="Teacher@Example.com"
+    )
+    lower = customization._admin_draft_storage_identity(
+        creator_mobile=" teacher@example.com "
+    )
+    assert upper == lower
+    assert len(upper[0]) <= 36
+
+    monkeypatch.setattr(
+        contact_identifiers,
+        "get_config",
+        lambda key, default=None: (
+            "phone" if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
+    phone_identity = customization._admin_draft_storage_identity(
+        creator_mobile="13800138000"
+    )
+    expected_digest = hashlib.sha256(b"13800138000").hexdigest()[:36]
+    assert phone_identity[0] == expected_digest
+
+    with pytest.raises(AppError):
+        customization._admin_draft_storage_identity(creator_mobile="   ")
+
+
+def test_admin_creator_customization_draft_email_identity_is_case_insensitive(
+    app, monkeypatch
+):
+    """An overseas draft must reload no matter how the operator typed the email."""
+    _require_saas_config_plugin()
+    app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+    monkeypatch.setattr(
+        contact_identifiers,
+        "get_config",
+        lambda key, default=None: (
+            "google" if key == "LOGIN_METHODS_ENABLED" else default
+        ),
+    )
+
+    with app.app_context():
+        customization.save_admin_creator_customization_draft(
+            app,
+            creator_mobile="Teacher@Example.com",
+            payload={"note": "email draft"},
+        )
+        loaded = customization.build_admin_creator_customization_draft(
+            app,
+            creator_mobile="teacher@example.com",
+        )
+        model = customization._saas_model()
+        rows = model.query.filter(
+            model.key == f"{customization.ADMIN_DRAFT_KEY}.MOBILE",
+            model.deleted == 0,
+        ).all()
+
+        assert loaded["note"] == "email draft"
+        assert len(rows) == 1
         assert all(len(row.user_bid) <= 36 for row in rows)
 
 
@@ -618,7 +691,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
     """
 
     class _ExplodingModule:
-        def __getattr__(self, name):
+        def __getattr__(self, name) -> Any:
             raise AssertionError(
                 "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
             )
@@ -631,7 +704,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
     monkeypatch.setattr(customization, "import_module", fake_import)
 
     with app.app_context():
-        monkeypatch.setitem(app.config, "SAAS_PLUGIN_ENABLED", False)
+        monkeypatch.setitem(app.config, "SAAS_PLUGIN_ENABLED", False)  # noqa: FBT003
         grant_creator_manual_entitlement(
             app,
             "creator-disabled-plugin",

@@ -1,3 +1,5 @@
+from typing import Self
+
 import pytest
 
 
@@ -64,10 +66,10 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch):
     captured = {}
 
     class _Resp:
-        def __enter__(self):
+        def __enter__(self) -> Self:
             return self
 
-        def __exit__(self, exc_type, exc, tb):
+        def __exit__(self, exc_type, exc, tb) -> bool | None:
             captured["closed"] = True
 
         def read(self):

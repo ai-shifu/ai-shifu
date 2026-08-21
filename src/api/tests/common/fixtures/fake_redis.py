@@ -3,7 +3,7 @@ from typing import Any
 
 
 class FakeRedisLock:
-    def __init__(self, locks: dict[str, bool], key: str):
+    def __init__(self, locks: dict[str, bool], key: str) -> None:
         self._locks = locks
         self._key = key
         self._held = False
@@ -22,7 +22,7 @@ class FakeRedisLock:
 
 
 class FakeRedis:
-    def __init__(self):
+    def __init__(self) -> None:
         self._store: dict[str, Any] = {}
         self._expires: dict[str, float] = {}
         self._locks: dict[str, bool] = {}

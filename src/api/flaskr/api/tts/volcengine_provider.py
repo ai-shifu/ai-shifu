@@ -323,7 +323,7 @@ VOLCENGINE_EMOTIONS = [
 class VolcengineTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine bidirectional WebSocket API."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._protocol = VolcengineProtocol()
         self._lock = threading.Lock()
 
@@ -512,7 +512,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                     frame = protocol.decode_frame(message)
 
                     if frame.event == Event.CONNECTION_STARTED:
-                        logger.debug(f"Connection started: {frame.connection_id}")
+                        logger.debug("Connection started: %s", frame.connection_id)
                         connection_established.set()
 
                     elif frame.event == Event.CONNECTION_FAILED:
@@ -522,16 +522,16 @@ class VolcengineTTSProvider(BaseTTSProvider):
                         session_finished.set()
 
                     elif frame.event == Event.SESSION_STARTED:
-                        logger.debug(f"Session started: {frame.session_id}")
+                        logger.debug("Session started: %s", frame.session_id)
                         session_started.set()
 
                     elif frame.event == Event.SESSION_FINISHED:
-                        logger.debug(f"Session finished: {frame.session_id}")
+                        logger.debug("Session finished: %s", frame.session_id)
                         # Extract usage info if available
                         if isinstance(frame.payload, dict):
                             usage = frame.payload.get("usage", {})
                             if usage:
-                                logger.info(f"TTS usage: {usage}")
+                                logger.info("TTS usage: %s", usage)
                         session_finished.set()
 
                     elif frame.event == Event.SESSION_FAILED:
@@ -545,14 +545,14 @@ class VolcengineTTSProvider(BaseTTSProvider):
                         if frame.payload and isinstance(frame.payload, bytes):
                             audio_chunks.append(frame.payload)
                             logger.debug(
-                                f"Received audio chunk: {len(frame.payload)} bytes"
+                                "Received audio chunk: %s bytes", len(frame.payload)
                             )
 
                     elif frame.event == Event.TTS_SENTENCE_START:
-                        logger.debug(f"Sentence start: {frame.payload}")
+                        logger.debug("Sentence start: %s", frame.payload)
 
                     elif frame.event == Event.TTS_SENTENCE_END:
-                        logger.debug(f"Sentence end: {frame.payload}")
+                        logger.debug("Sentence end: %s", frame.payload)
                         # Extract duration if available
                         if isinstance(frame.payload, dict):
                             duration = frame.payload.get("res_params", {}).get(
@@ -567,7 +567,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                             )
 
                     elif frame.event == Event.TTS_SUBTITLE:
-                        logger.debug(f"Subtitle: {frame.payload}")
+                        logger.debug("Subtitle: %s", frame.payload)
                         subtitle_cues.extend(
                             _extract_volcengine_subtitle_cues(
                                 frame.payload,
@@ -590,13 +590,13 @@ class VolcengineTTSProvider(BaseTTSProvider):
         def on_error(ws, error):
             nonlocal error_message
             error_message = str(error)
-            logger.error(f"WebSocket error: {error}")
+            logger.error("WebSocket error: %s", error)
             connection_established.set()
             session_started.set()
             session_finished.set()
 
         def on_close(ws, close_status_code, close_msg):
-            logger.debug(f"WebSocket closed: {close_status_code} - {close_msg}")
+            logger.debug("WebSocket closed: %s - %s", close_status_code, close_msg)
             connection_established.set()
             session_finished.set()
 
@@ -633,7 +633,9 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 raise ValueError(error_message)
 
             # Send StartSession
-            logger.debug(f"Sending StartSession with speaker={voice_settings.voice_id}")
+            logger.debug(
+                "Sending StartSession with speaker=%s", voice_settings.voice_id
+            )
             start_session_frame = protocol.encode_start_session(
                 session_id=session_id,
                 speaker=voice_settings.voice_id,
@@ -658,7 +660,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 raise ValueError(error_message)
 
             # Send TaskRequest with text
-            logger.debug(f"Sending TaskRequest with text length={len(text)}")
+            logger.debug("Sending TaskRequest with text length=%s", len(text))
             task_request_frame = protocol.encode_task_request(session_id, text)
             ws.send(task_request_frame, opcode=websocket.ABNF.OPCODE_BINARY)
 
@@ -713,8 +715,10 @@ class VolcengineTTSProvider(BaseTTSProvider):
             )
 
         logger.info(
-            f"Volcengine TTS synthesis completed: duration={total_duration_ms}ms, "
-            f"size={len(audio_data)} bytes, chunks={len(audio_chunks)}"
+            "Volcengine TTS synthesis completed: duration=%sms, size=%s bytes, chunks=%s",
+            total_duration_ms,
+            len(audio_data),
+            len(audio_chunks),
         )
 
         return TTSResult(

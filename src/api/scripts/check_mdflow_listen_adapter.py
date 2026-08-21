@@ -35,13 +35,9 @@ os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flaskr import dao
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.ext.compiler import compiles
-
-if dao.db is None:
-    dao.db = SQLAlchemy()
 
 
 @compiles(LONGTEXT, "sqlite")
@@ -228,12 +224,14 @@ def _format_stream_parts(
     parts: list[tuple[str, str, int]] = []
 
     for chunk in _iter_chunks(content, chunk_sizes):
-        for item in formatter.process(chunk):
-            parts.append(
-                (str(item.content or ""), str(item.type or ""), int(item.number))
-            )
-    for item in formatter.flush():
-        parts.append((str(item.content or ""), str(item.type or ""), int(item.number)))
+        parts.extend(
+            (str(item.content or ""), str(item.type or ""), int(item.number))
+            for item in formatter.process(chunk)
+        )
+    parts.extend(
+        (str(item.content or ""), str(item.type or ""), int(item.number))
+        for item in formatter.flush()
+    )
     return parts
 
 

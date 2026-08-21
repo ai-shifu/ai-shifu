@@ -3,6 +3,13 @@ from datetime import UTC, datetime
 import pytz
 from flask import Flask
 
+# Sentinels for ordering and comparing the naive UTC timestamps stored in the
+# database, used where a nullable column takes part in a sort key or a range
+# check. They are naive on purpose: an aware sentinel raises `TypeError` as
+# soon as it meets a stored value.
+NAIVE_DATETIME_MIN = datetime.min  # noqa: DTZ901
+NAIVE_DATETIME_MAX = datetime.max  # noqa: DTZ901
+
 
 def now_utc() -> datetime:
     """Return the current UTC time as a naive datetime.
@@ -13,6 +20,18 @@ def now_utc() -> datetime:
     from ``timezone.utc`` so it does not depend on the process ``TZ`` setting.
     """
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def parse_naive_utc(value: str, fmt: str) -> datetime:
+    """Parse a timestamp string as UTC and return it as a naive datetime.
+
+    The inbound counterpart of ``now_utc()``: API filters, CLI arguments and
+    admin payloads carry no offset, and the stored timestamps they are compared
+    with are naive UTC, so the parsed value has to stay naive as well.
+    Propagates ``ValueError`` from ``datetime.strptime`` when the value does
+    not match the format.
+    """
+    return datetime.strptime(value, fmt)  # noqa: DTZ007
 
 
 def to_utc_iso(value: datetime | None) -> str | None:

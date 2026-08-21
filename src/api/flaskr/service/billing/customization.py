@@ -17,6 +17,11 @@ from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
+from flaskr.service.common.contact_identifiers import (
+    CONTACT_TYPE_EMAIL,
+    normalize_contact_identifier,
+    resolve_contact_type,
+)
 from flaskr.service.common.models import AppError, raise_error, raise_param_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import upload_to_storage
@@ -151,7 +156,7 @@ class ProviderCredentialContext:
 
 
 def is_creator_customization_enabled() -> bool:
-    return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", False))
+    return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", default=False))
 
 
 def build_creator_customization(
@@ -419,8 +424,12 @@ def save_creator_integration(
             else entitlement.custom_payment_enabled,
             allow_when_customization_disabled=allow_when_customization_disabled,
         )
-        public_config = _normalize_config(provider, payload.get("public_config"), False)
-        secret_config = _normalize_config(provider, payload.get("secret_config"), True)
+        public_config = _normalize_config(
+            provider, payload.get("public_config"), secret=False
+        )
+        secret_config = _normalize_config(
+            provider, payload.get("secret_config"), secret=True
+        )
         previous_record = _load_latest_record_or_active(app, creator_bid, provider)
         if previous_record:
             previous_secret_config = dict(previous_record.get("secret_config") or {})
@@ -1323,18 +1332,31 @@ def _to_bool(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _admin_draft_contact_digest(creator_mobile: str) -> str:
+    """Digest the contact identifier an unsaved draft is keyed by.
+
+    Emails are lowercased first so a draft stored as ``A@x.com`` is still found
+    when the dialog is reopened with ``a@x.com``. Phone numbers keep their raw
+    trimmed form so drafts written before email support remain reachable.
+    """
+    normalized_creator_contact = str(creator_mobile or "").strip()
+    if not normalized_creator_contact:
+        raise_param_error("creator_mobile")
+    contact_type = resolve_contact_type(normalized_creator_contact)
+    if contact_type == CONTACT_TYPE_EMAIL:
+        normalized_creator_contact = normalize_contact_identifier(
+            normalized_creator_contact, contact_type
+        )
+    return hashlib.sha256(normalized_creator_contact.encode("utf-8")).hexdigest()
+
+
 def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -> str:
     normalized_creator_bid = normalize_bid(creator_bid)
     if normalized_creator_bid:
         return f"billing-admin-draft:creator:{normalized_creator_bid}"
 
-    normalized_creator_mobile = str(creator_mobile or "").strip()
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    mobile_digest = hashlib.sha256(
-        normalized_creator_mobile.encode("utf-8")
-    ).hexdigest()
-    return f"billing-admin-draft:mobile:{mobile_digest}"
+    contact_digest = _admin_draft_contact_digest(creator_mobile)
+    return f"billing-admin-draft:mobile:{contact_digest}"
 
 
 def _admin_draft_storage_identity(
@@ -1344,13 +1366,8 @@ def _admin_draft_storage_identity(
     if normalized_creator_bid:
         return normalized_creator_bid, f"{ADMIN_DRAFT_KEY}.CREATOR"
 
-    normalized_creator_mobile = str(creator_mobile or "").strip()
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    mobile_digest = hashlib.sha256(
-        normalized_creator_mobile.encode("utf-8")
-    ).hexdigest()
-    return mobile_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
+    contact_digest = _admin_draft_contact_digest(creator_mobile)
+    return contact_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
 
 
 def _empty_admin_creator_customization_draft(
@@ -1439,10 +1456,10 @@ def _normalize_admin_creator_customization_draft(
             if isinstance(provider_payload, dict):
                 normalized_integrations[provider] = {
                     "public_config": _normalize_config(
-                        provider, provider_payload.get("public_config"), False
+                        provider, provider_payload.get("public_config"), secret=False
                     ),
                     "secret_config": _normalize_config(
-                        provider, provider_payload.get("secret_config"), True
+                        provider, provider_payload.get("secret_config"), secret=True
                     ),
                 }
             else:

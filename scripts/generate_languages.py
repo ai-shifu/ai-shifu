@@ -37,7 +37,7 @@ def main() -> int:
     if LOCALES_FILE.exists():
         try:
             locales_meta = read_json(LOCALES_FILE)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"Failed to parse {LOCALES_FILE}: {exc}")
             return 1
     else:
@@ -68,7 +68,7 @@ def main() -> int:
         for file_path in collect_json_files(code_dir):
             try:
                 data = read_json(file_path)
-            except Exception:
+            except (OSError, ValueError):
                 continue
             declared = data.get("__namespace__")
             if isinstance(declared, str) and declared:

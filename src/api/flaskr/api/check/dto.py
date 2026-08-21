@@ -18,14 +18,14 @@ class CheckResultDTO:
         risk_label_ids: list[int],
         provider: str,
         raw_data: dict,
-    ):
+    ) -> None:
         self.check_result = check_result
         self.risk_labels = risk_labels
         self.risk_label_ids = risk_label_ids
         self.provider = provider
         self.raw_data = raw_data
 
-    def __to_dict__(self):
+    def __to_dict__(self) -> dict:
         return {
             "check_result": self.check_result,
             "risk_labels": self.risk_labels,
@@ -33,5 +33,5 @@ class CheckResultDTO:
             "provider": self.provider,
         }
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return self.__to_dict__()

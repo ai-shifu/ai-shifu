@@ -1255,7 +1255,7 @@ class AliyunTTSProvider(BaseTTSProvider):
         # Check text length (300 characters limit)
         if len(text) > 300:
             logger.warning(
-                f"Text exceeds Aliyun limit ({len(text)} > 300 chars), truncating"
+                "Text exceeds Aliyun limit (%s > 300 chars), truncating", len(text)
             )
             text = text[:300]
 
@@ -1323,9 +1323,12 @@ class AliyunTTSProvider(BaseTTSProvider):
             headers["X-NLS-Token"] = token
 
         logger.debug(
-            f"Calling Aliyun TTS API: voice={voice_settings.voice_id}, "
-            f"speed={aliyun_speed}, pitch={aliyun_pitch}, vol={aliyun_volume}, "
-            f"text_len={len(text)}"
+            "Calling Aliyun TTS API: voice=%s, speed=%s, pitch=%s, vol=%s, text_len=%s",
+            voice_settings.voice_id,
+            aliyun_speed,
+            aliyun_pitch,
+            aliyun_volume,
+            len(text),
         )
 
         try:
@@ -1348,7 +1351,7 @@ class AliyunTTSProvider(BaseTTSProvider):
                 # Get request ID from header
                 request_id = response.headers.get("X-NLS-RequestId", "")
                 if request_id:
-                    logger.debug(f"Aliyun TTS request ID: {request_id}")
+                    logger.debug("Aliyun TTS request ID: %s", request_id)
 
                 # Estimate duration based on audio size
                 # For MP3 at 128kbps: ~16KB/s
@@ -1356,8 +1359,9 @@ class AliyunTTSProvider(BaseTTSProvider):
                 duration_ms = len(audio_data) // bytes_per_ms if bytes_per_ms > 0 else 0
 
                 logger.info(
-                    f"Aliyun TTS synthesis completed: "
-                    f"size={len(audio_data)} bytes, duration~={duration_ms}ms"
+                    "Aliyun TTS synthesis completed: size=%s bytes, duration~=%sms",
+                    len(audio_data),
+                    duration_ms,
                 )
 
                 return TTSResult(
@@ -1371,16 +1375,14 @@ class AliyunTTSProvider(BaseTTSProvider):
             # Error response (JSON)
             try:
                 result = response.json()
-                status = result.get("status", "unknown")
-                message = result.get("message", "Unknown error")
-                task_id = result.get("task_id", "")
-                raise ValueError(
-                    f"Aliyun TTS API error {status}: {message} (task_id: {task_id})"
-                )
             except ValueError as e:
-                if "Aliyun TTS API error" in str(e):
-                    raise
                 raise ValueError(f"Aliyun TTS API error: {response.text[:200]}") from e
+            status = result.get("status", "unknown")
+            message = result.get("message", "Unknown error")
+            task_id = result.get("task_id", "")
+            raise ValueError(
+                f"Aliyun TTS API error {status}: {message} (task_id: {task_id})"
+            )
 
         except requests.RequestException as e:
             logger.exception("Aliyun TTS request failed")
