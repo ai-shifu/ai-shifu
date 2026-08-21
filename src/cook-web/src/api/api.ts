@@ -25,6 +25,7 @@ const api = {
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
+  googleOauthCallbackOrigin: 'GET /user/oauth/google/callback-origin',
   ensureAdminCreator: 'POST /user/ensure_admin_creator',
   getCreatorOnboardingStatus: 'GET /user/onboarding/status',
   completeCreatorOnboarding: 'POST /user/onboarding/complete',

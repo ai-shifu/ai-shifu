@@ -304,7 +304,7 @@ class TestMultiEnvironmentSupport:
         # Clear instance for new environment
         import flaskr.common.config as config_module
 
-        config_module.__INSTANCE__ = None
+        config_module.Config._instance = None
 
         # Switch to production environment
         for key, value in PRODUCTION_ENV_CONFIG.items():
@@ -369,8 +369,8 @@ class TestBackwardCompatibility:
         # Clear global instance to test uninitialized state
         import flaskr.common.config as config_module
 
-        original_instance = config_module.__INSTANCE__
-        config_module.__INSTANCE__ = None
+        original_instance = config_module.Config._instance
+        config_module.Config._instance = None
 
         try:
             # Test with a known ENV_VAR key - should get from environment or default
@@ -392,7 +392,7 @@ class TestBackwardCompatibility:
             value = get_config("REDIS_HOST")
             assert value == ""  # Default value from ENV_VARS
         finally:
-            config_module.__INSTANCE__ = original_instance
+            config_module.Config._instance = original_instance
 
     def test_required_means_no_default(self):
         """Test that required=True prevents having defaults."""

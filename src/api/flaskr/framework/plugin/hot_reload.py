@@ -7,7 +7,7 @@ from watchdog.observers import Observer
 
 
 class PluginHotReloader:
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask) -> None:
         self.app = app
         self.plugin_dir = "flaskr/plugins"  # plugin dir
         self.watched_files = {}
@@ -39,9 +39,9 @@ class PluginHotReloader:
             # 3. register plugin
             self._register_plugin(module)
 
-            self.app.logger.info(f"Hot reload plugin success: {plugin_path}")
+            self.app.logger.info("Hot reload plugin success: %s", plugin_path)
         except Exception:
-            self.app.logger.exception(f"Hot reload plugin failed: {plugin_path}")
+            self.app.logger.exception("Hot reload plugin failed: %s", plugin_path)
 
     def _unload_plugin(self, plugin_path: str):
         """Unload a plugin and clean up its resources.
@@ -60,7 +60,14 @@ class PluginHotReloader:
         try:
             import sys
 
-            from .plugin_manager import plugin_manager
+            from .plugin_manager import get_plugin_manager
+
+            plugin_manager = get_plugin_manager()
+            if plugin_manager is None:
+                self.app.logger.warning(
+                    "Plugin unload skipped because the plugin manager is not enabled"
+                )
+                return
 
             # Convert path to module name
             module_name = plugin_path.replace("/", ".").replace(".py", "")
@@ -80,10 +87,10 @@ class PluginHotReloader:
                 # Remove module from sys.modules
                 del sys.modules[module_name]
 
-            self.app.logger.info(f"Plugin unloaded: {module_name}")
+            self.app.logger.info("Plugin unloaded: %s", module_name)
 
         except Exception:
-            self.app.logger.exception(f"Failed to unload plugin {plugin_path}")
+            self.app.logger.exception("Failed to unload plugin %s", plugin_path)
 
     def _register_plugin(self, module):
         """Register a newly loaded plugin.
@@ -108,14 +115,14 @@ class PluginHotReloader:
                 if hasattr(plugin, "on_reload"):
                     plugin.on_reload()
 
-            self.app.logger.info(f"Plugin registered: {module.__name__}")
+            self.app.logger.info("Plugin registered: %s", module.__name__)
 
         except Exception:
-            self.app.logger.exception(f"Failed to register plugin {module.__name__}")
+            self.app.logger.exception("Failed to register plugin %s", module.__name__)
 
 
 class PluginFileHandler(FileSystemEventHandler):
-    def __init__(self, reloader: PluginHotReloader):
+    def __init__(self, reloader: PluginHotReloader) -> None:
         self.reloader = reloader
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads

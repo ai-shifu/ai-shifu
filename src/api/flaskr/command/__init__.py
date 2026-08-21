@@ -11,9 +11,10 @@ from flask import Flask
 from sqlalchemy import create_engine, text
 from werkzeug.datastructures import FileStorage
 
-from ..service.billing.cli import register_billing_commands
-from ..service.shifu.cli import register_shifu_commands
-from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+from flaskr.service.billing.cli import register_billing_commands
+from flaskr.service.shifu.cli import register_shifu_commands
+from flaskr.service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+
 from .import_user import import_user
 from .unified_migration_task import MigrationConfig, UnifiedMigrationTask
 from .update_shifu_demo import update_demo_shifu
@@ -184,7 +185,7 @@ def enable_commands(app: Flask):
 
         try:
             # Get database URL from Flask config
-            from ..common.config import get_config
+            from flaskr.common.config import get_config
 
             config = get_config()
             database_url = config.SQLALCHEMY_DATABASE_URI
@@ -239,7 +240,7 @@ def enable_commands(app: Flask):
 
         try:
             # Get database URL from Flask config
-            from ..common.config import get_config
+            from flaskr.common.config import get_config
 
             config = get_config()
             database_url = config.SQLALCHEMY_DATABASE_URI

@@ -127,7 +127,7 @@ class UnifiedMigrationTask:
         self,
         database_url: str | None = None,
         config: MigrationConfig | None = None,
-    ):
+    ) -> None:
         if database_url is None:
             database_url = _resolve_default_database_url()
 
@@ -178,7 +178,9 @@ class UnifiedMigrationTask:
             },
         }
 
-        logger.info(f"Initialized unified migration task with database: {database_url}")
+        logger.info(
+            "Initialized unified migration task with database: %s", database_url
+        )
 
     async def migrate_all_tables(self) -> dict[str, MigrationResult]:
         """Migrate all configured tables asynchronously."""
@@ -199,7 +201,7 @@ class UnifiedMigrationTask:
         for i, (source_table, _) in enumerate(self.table_mappings.items()):
             result = migration_results[i]
             if isinstance(result, Exception):
-                logger.error(f"Migration failed for {source_table}: {result}")
+                logger.error("Migration failed for %s: %s", source_table, result)
                 results[source_table] = MigrationResult(
                     table_name=source_table,
                     total_records=0,
@@ -218,7 +220,7 @@ class UnifiedMigrationTask:
         self, source_table: str, table_config: dict
     ) -> MigrationResult:
         """Migrate a single table asynchronously."""
-        logger.info(f"Starting migration for table: {source_table}")
+        logger.info("Starting migration for table: %s", source_table)
         start_time = now_utc()
 
         target_table = table_config["target"]
@@ -228,7 +230,7 @@ class UnifiedMigrationTask:
 
         # Check if tables exist
         if not await self._table_exists_async(source_table):
-            logger.warning(f"Source table {source_table} does not exist, skipping...")
+            logger.warning("Source table %s does not exist, skipping...", source_table)
             return MigrationResult(
                 table_name=source_table,
                 total_records=0,
@@ -240,7 +242,7 @@ class UnifiedMigrationTask:
             )
 
         if not await self._table_exists_async(target_table):
-            logger.warning(f"Target table {target_table} does not exist, skipping...")
+            logger.warning("Target table %s does not exist, skipping...", target_table)
             return MigrationResult(
                 table_name=source_table,
                 total_records=0,
@@ -253,7 +255,7 @@ class UnifiedMigrationTask:
 
         # Get total record count
         total_count = await self._get_table_count_async(source_table)
-        logger.info(f"Total records to migrate from {source_table}: {total_count}")
+        logger.info("Total records to migrate from %s: %s", source_table, total_count)
 
         # Process in batches
         synced_count = 0
@@ -280,11 +282,16 @@ class UnifiedMigrationTask:
                 # Log progress with more detail
                 progress = min(100, (offset / total_count) * 100)
                 logger.info(
-                    f"Migration progress for {source_table}: {progress:.1f}% ({synced_count}/{total_count}) - Batch {offset // self.config.batch_size + 1}"
+                    "Migration progress for %s: %s%% (%s/%s) - Batch %s",
+                    source_table,
+                    format(progress, ".1f"),
+                    synced_count,
+                    total_count,
+                    offset // self.config.batch_size,
                 )
 
                 # Also print for visibility during flask db upgrade
-                print(
+                print(  # noqa: T201
                     f"[MIGRATION] {source_table}: {progress:.1f}% ({synced_count}/{total_count})"
                 )
                 import sys
@@ -293,7 +300,7 @@ class UnifiedMigrationTask:
 
             except Exception as e:
                 logger.exception(
-                    f"Batch processing failed for {source_table} at offset {offset}"
+                    "Batch processing failed for %s at offset %s", source_table, offset
                 )
                 errors.append(f"Batch error at offset {offset}: {e!s}")
                 error_count += self.config.batch_size
@@ -312,7 +319,8 @@ class UnifiedMigrationTask:
 
         completion_message = f"Migration completed for {source_table}: {synced_count}/{total_count} records, {error_count} errors"
         logger.info(completion_message)
-        print(f"[MIGRATION] ✅ {completion_message}")
+        # Printed so progress stays visible during `flask db upgrade`.
+        print(f"[MIGRATION] ✅ {completion_message}")  # noqa: T201
         import sys
 
         sys.stdout.flush()
@@ -389,7 +397,9 @@ class UnifiedMigrationTask:
                     "batch_size": self.config.batch_size,
                 }
                 logger.info(
-                    f"Running incremental migration for {source_table} starting from ID {last_synced_id + 1}"
+                    "Running incremental migration for %s starting from ID %s",
+                    source_table,
+                    last_synced_id + 1,
                 )
             else:
                 # Full migration - use OFFSET-based pagination
@@ -402,7 +412,9 @@ class UnifiedMigrationTask:
                 )
                 params = {"batch_size": self.config.batch_size, "offset": offset}
                 logger.info(
-                    f"Running full migration for {source_table} batch at offset {offset}"
+                    "Running full migration for %s batch at offset %s",
+                    source_table,
+                    offset,
                 )
 
             records = session.execute(query, params).fetchall()
@@ -545,11 +557,15 @@ class UnifiedMigrationTask:
 
                 status = "✓ PASSED" if result.is_consistent else "✗ FAILED"
                 logger.info(
-                    f"Consistency check {status} for {source_table}: {old_count} -> {new_count}"
+                    "Consistency check %s for %s: %s -> %s",
+                    status,
+                    source_table,
+                    old_count,
+                    new_count,
                 )
 
             except Exception as e:
-                logger.exception(f"Consistency check failed for {source_table}")
+                logger.exception("Consistency check failed for %s", source_table)
                 results[source_table] = ConsistencyCheckResult(
                     table_pair=f"{source_table} -> {target_table}",
                     old_count=0,
@@ -742,7 +758,7 @@ class UnifiedMigrationTask:
                 text("SHOW TABLES LIKE :table_name"), {"table_name": table_name}
             ).fetchone()
         except Exception:
-            logger.exception(f"Error checking table existence {table_name}")
+            logger.exception("Error checking table existence %s", table_name)
             return False
         else:
             return result is not None
@@ -762,7 +778,7 @@ class UnifiedMigrationTask:
         try:
             count = session.execute(text(query)).scalar()
         except Exception:
-            logger.exception(f"Error getting table count for {table_name}")
+            logger.exception("Error getting table count for %s", table_name)
             return 0
         else:
             return count or 0
@@ -788,7 +804,7 @@ class UnifiedMigrationTask:
             return result > 0  # noqa: TRY300
         except Exception:
             logger.exception(
-                f"Error checking column existence {table_name}.{column_name}"
+                "Error checking column existence %s.%s", table_name, column_name
             )
             return False
 
@@ -813,7 +829,7 @@ class UnifiedMigrationTask:
         try:
             count = session.execute(text(query)).scalar()
         except Exception:
-            logger.exception(f"Error getting table count for {table_name}")
+            logger.exception("Error getting table count for %s", table_name)
             return 0
         else:
             return count or 0
@@ -842,7 +858,7 @@ class UnifiedMigrationTask:
 
             return result[0] if result else datetime(2020, 1, 1)
         except Exception as e:
-            logger.warning(f"Error getting sync time: {e}")
+            logger.warning("Error getting sync time: %s", e)
             return datetime(2020, 1, 1)
 
     def _get_last_synced_id_with_session(self, session, sync_type: str) -> int:
@@ -859,7 +875,7 @@ class UnifiedMigrationTask:
 
             return result[0] if result and result[0] else 0
         except Exception as e:
-            logger.warning(f"Error getting last synced ID: {e}")
+            logger.warning("Error getting last synced ID: %s", e)
             return 0
 
     def _update_sync_time(self, sync_type: str, sync_time: datetime):
@@ -885,7 +901,7 @@ class UnifiedMigrationTask:
             )
             session.commit()
         except Exception as e:
-            logger.warning(f"Error updating sync time: {e}")
+            logger.warning("Error updating sync time: %s", e)
 
     def _update_last_synced_id_with_session(
         self, session, sync_type: str, last_synced_id: int
@@ -902,7 +918,7 @@ class UnifiedMigrationTask:
             )
             session.commit()
         except Exception as e:
-            logger.warning(f"Error updating last synced ID: {e}")
+            logger.warning("Error updating last synced ID: %s", e)
 
     def _ensure_sync_log_table(self):
         """Ensure sync log table exists."""
@@ -960,7 +976,7 @@ class UnifiedMigrationTask:
                         "Added last_synced_id column to migration_sync_log table"
                     )
             except Exception as e:
-                logger.warning(f"Error checking/adding last_synced_id column: {e}")
+                logger.warning("Error checking/adding last_synced_id column: %s", e)
 
             session.commit()
         except Exception:
@@ -1097,9 +1113,9 @@ async def main():
                         handle.write(report)
 
                 await asyncio.to_thread(_write_report)
-                logger.info(f"Report saved to: {args.output_file}")
+                logger.info("Report saved to: %s", args.output_file)
             else:
-                print(report)
+                print(report)  # noqa: T201 - CLI report on stdout
 
         elif args.action == "verify":
             logger.info("Starting data consistency verification...")
@@ -1107,7 +1123,7 @@ async def main():
 
             for result in consistency_results.values():
                 status = "PASSED" if result.is_consistent else "FAILED"
-                print(f"{status}: {result.table_pair}")
+                print(f"{status}: {result.table_pair}")  # noqa: T201 - CLI output
                 if not result.is_consistent:
                     sys.exit(1)
 
@@ -1118,7 +1134,7 @@ async def main():
             report = migration_task.generate_migration_report(
                 migration_results, consistency_results
             )
-            print(report)
+            print(report)  # noqa: T201 - CLI report on stdout
 
     finally:
         migration_task.close()

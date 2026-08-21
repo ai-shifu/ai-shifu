@@ -101,7 +101,7 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
 
 
 class _FakeRate:
-    def __init__(self, credits_per_unit, unit_size, provider, model):
+    def __init__(self, credits_per_unit, unit_size, provider, model) -> None:
         self.credits_per_unit = credits_per_unit
         self.unit_size = unit_size
         self.provider = provider

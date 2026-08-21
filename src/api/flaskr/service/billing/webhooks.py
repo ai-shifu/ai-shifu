@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -127,7 +128,7 @@ class BillingWebhookResult:
     def __getitem__(self, key: str) -> Any:
         return self.to_response_dict()[key]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         yield self.to_response_dict()
         yield self.status_code
 

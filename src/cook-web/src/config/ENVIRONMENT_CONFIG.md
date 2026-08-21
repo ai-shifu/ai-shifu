@@ -53,10 +53,12 @@
 
 ### 7. 认证配置 (Authentication Configuration)
 
-| 变量名                              | 用途           | 默认值    | 可选值                                                                                      |
-| ----------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
-| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`, `"google"`                                                            |
+| Variable                            | Purpose                                   | Default   | Allowed values                                                                                                                                  |
+| ----------------------------------- | ----------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOGIN_METHODS_ENABLED`             | Server runtime enabled login methods      | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"google,password"`                                    |
+| `DEFAULT_LOGIN_METHOD`              | Server runtime default login method       | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`                                                                                                  |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | Build-time fallback enabled login methods | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"phone,email"`, `"phone,google"`, `"google,password"` |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | Build-time fallback default login method  | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`; normalized and falls back to the first valid enabled login method when disabled or invalid      |
 
 ### 8. 支付配置 (Payment Configuration)
 
@@ -80,9 +82,9 @@
 | `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 | `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 
-**注意**: 这些配置由后端 `/api/config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际配置均通过后端接口获取。
+**注意**: 这些配置由后端 `/api/runtime-config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际运行时配置均通过后端接口获取。
 
-- 前端不再读取除 `NEXT_PUBLIC_API_BASE_URL` 以外的 `NEXT_PUBLIC_*` 变量；这些值统一在后端环境/DB 中配置，并通过 `/api/runtime-config` 返回，避免前后端重复设置。
+- The frontend only reads `NEXT_PUBLIC_API_BASE_URL` and the build-time authentication fallbacks `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` / `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD` directly; other runtime values are configured in the backend environment or DB and returned through `/api/runtime-config` to avoid duplicate frontend/backend settings.
 - billing 总开关由后端 `BILL_ENABLED` 决定，并通过 `/api/runtime-config` 下发给前端入口和请求层。
 - billing 积分展示精度由后端 `BILL_CREDIT_PRECISION` 决定，并通过 `/api/runtime-config` 下发给前端格式化逻辑。
 
@@ -105,13 +107,14 @@ const wechatEnabled = environment.enableWechatCode;
 
 // Get authentication configuration
 const loginMethods = environment.loginMethodsEnabled; // ['phone', 'email']
-const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email'
+const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email' | 'google' | 'password'
 const isPhoneEnabled = loginMethods.includes('phone');
 const isEmailEnabled = loginMethods.includes('email');
 const isGoogleEnabled = loginMethods.includes('google');
+const isPasswordEnabled = loginMethods.includes('password');
 const googleRedirect = '/login/google-callback';
 
-// Get legal document URLs (from /api/config)
+// Get legal document URLs (from /api/runtime-config)
 const legalUrls = environment.legalUrls;
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
@@ -330,6 +333,8 @@ NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 
 # ===== Authentication Configuration =====
+LOGIN_METHODS_ENABLED=phone
+DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
 NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
@@ -362,6 +367,8 @@ NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 
 # ===== Authentication Configuration =====
+LOGIN_METHODS_ENABLED=phone
+DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
 NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx

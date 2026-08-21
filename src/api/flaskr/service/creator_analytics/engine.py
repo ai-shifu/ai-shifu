@@ -13,6 +13,7 @@ plain ``{"columns": [...], "rows": [...]}`` dict suitable for the HTTP layer.
 from __future__ import annotations
 
 import threading
+from dataclasses import dataclass, field
 from typing import Any
 
 from flask import Flask
@@ -21,10 +22,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Result
 from sqlalchemy.sql import Select
 
-_FALLBACK_WARNED = False
-_lock = threading.Lock()
-_engine: Engine | None = None
-_engine_uri: str | None = None
+
+@dataclass(slots=True)
+class _AnalyticsEngineState:
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    engine: Engine | None = None
+    uri: str | None = None
+    fallback_warned: bool = False
+
+
+_engine_state = _AnalyticsEngineState()
 
 
 def get_analytics_engine(app: Flask) -> Engine:
@@ -34,30 +41,35 @@ def get_analytics_engine(app: Flask) -> Engine:
     cached for the process lifetime. When the URI is empty the primary
     Flask-SQLAlchemy engine is reused and a one-shot warning is emitted.
     """
-    global _engine, _engine_uri, _FALLBACK_WARNED
-
     uri = (app.config.get("ANALYTICS_DATABASE_URI") or "").strip()
 
     if not uri:
-        if not _FALLBACK_WARNED:
-            app.logger.warning(
-                "creator-analytics is falling back to the primary database; "
-                "set ANALYTICS_DATABASE_URI to a read-only replica in production."
-            )
-            _FALLBACK_WARNED = True
+        with _engine_state.lock:
+            if not _engine_state.fallback_warned:
+                app.logger.warning(
+                    "creator-analytics is falling back to the primary database; "
+                    "set ANALYTICS_DATABASE_URI to a read-only replica in production."
+                )
+                _engine_state.fallback_warned = True
         return db.engine
 
-    with _lock:
-        if _engine is None or _engine_uri != uri:
+    with _engine_state.lock:
+        if _engine_state.engine is None or _engine_state.uri != uri:
             pool_size = _coerce_int(app, "ANALYTICS_DATABASE_POOL_SIZE", 5)
-            _engine = create_engine(
+            previous_engine = _engine_state.engine
+            _engine_state.engine = create_engine(
                 uri,
                 pool_size=pool_size,
                 pool_pre_ping=True,
                 future=True,
             )
-            _engine_uri = uri
-        return _engine
+            _engine_state.uri = uri
+            if previous_engine is not None:
+                previous_engine.dispose()
+        engine = _engine_state.engine
+        if engine is None:  # pragma: no cover - guarded by the branch above
+            raise RuntimeError("Analytics engine initialization failed")
+        return engine
 
 
 def run_query(app: Flask, stmt: Select) -> dict[str, Any]:
@@ -72,13 +84,12 @@ def run_query(app: Flask, stmt: Select) -> dict[str, Any]:
 
 def reset_for_tests() -> None:
     """Clear the cached engine — used by the test suite between cases."""
-    global _engine, _engine_uri, _FALLBACK_WARNED
-    with _lock:
-        if _engine is not None:
-            _engine.dispose()
-        _engine = None
-        _engine_uri = None
-        _FALLBACK_WARNED = False
+    with _engine_state.lock:
+        if _engine_state.engine is not None:
+            _engine_state.engine.dispose()
+        _engine_state.engine = None
+        _engine_state.uri = None
+        _engine_state.fallback_warned = False
 
 
 def _coerce_int(app: Flask, key: str, default: int) -> int:

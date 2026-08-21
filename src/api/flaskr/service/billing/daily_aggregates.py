@@ -11,7 +11,7 @@ from typing import Any
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, parse_naive_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import select
 
@@ -607,7 +607,7 @@ def _resolve_stat_window(
 ) -> tuple[datetime, datetime, str]:
     anchor = now or now_utc()
     normalized_stat_date = str(stat_date or "").strip() or anchor.strftime("%Y-%m-%d")
-    day_start = datetime.strptime(normalized_stat_date, "%Y-%m-%d")
+    day_start = parse_naive_utc(normalized_stat_date, "%Y-%m-%d")
     day_end = day_start + timedelta(days=1)
     if finalize:
         return day_start, day_end, normalized_stat_date
@@ -629,8 +629,8 @@ def _resolve_stat_date_range(
     end_value = (
         normalized_date_to or normalized_date_from or anchor.strftime("%Y-%m-%d")
     )
-    start_date = datetime.strptime(start_value, "%Y-%m-%d")
-    end_date = datetime.strptime(end_value, "%Y-%m-%d")
+    start_date = parse_naive_utc(start_value, "%Y-%m-%d")
+    end_date = parse_naive_utc(end_value, "%Y-%m-%d")
     if end_date < start_date:
         raise ValueError("date_to must be greater than or equal to date_from")
     return start_date, end_date

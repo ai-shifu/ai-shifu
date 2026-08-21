@@ -33,6 +33,7 @@ from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
 from flaskr.service.common.models import AppError
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,

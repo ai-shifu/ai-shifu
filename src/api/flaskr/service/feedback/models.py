@@ -1,3 +1,4 @@
+from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     TIMESTAMP,
@@ -5,8 +6,6 @@ from sqlalchemy import (
     String,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-
-from ...dao import db
 
 
 class FeedBack(db.Model):
@@ -26,6 +25,6 @@ class FeedBack(db.Model):
         comment="Update time",
     )
 
-    def __init__(self, user_id, feedback):
+    def __init__(self, user_id, feedback) -> None:
         self.user_id = user_id
         self.feedback = feedback

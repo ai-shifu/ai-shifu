@@ -5,7 +5,7 @@ import pytest
 
 
 class _FakeResponse:
-    def __init__(self, lines=None, *, status_error=None, json_payload=None):
+    def __init__(self, lines=None, *, status_error=None, json_payload=None) -> None:
         self._lines = lines or []
         self._status_error = status_error
         self._json_payload = json_payload or {}

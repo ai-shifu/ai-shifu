@@ -15,13 +15,13 @@ from urllib.parse import urlparse
 import requests
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
+from flaskr.dao import db
+from flaskr.service.common.models import raise_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, get_image_content_type
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config import get_config
+from flaskr.service.resource.models import Resource
 
-from ...dao import db
-from ...service.resource.models import Resource
-from ..common.models import raise_error
 from .models import AiCourseAuth, FavoriteScenario
 from .utils import get_shifu_creator_bid
 
@@ -193,13 +193,13 @@ def upload_url(app, user_id: str, url: str) -> str:
                 "Connection": "keep-alive",
             }
 
-            app.logger.info(f"Downloading image from URL: {clean_url}")
+            app.logger.info("Downloading image from URL: %s", clean_url)
             response = requests.get(clean_url, headers=headers, timeout=10)
             response.raise_for_status()
 
             content_type = response.headers.get("Content-Type", "")
             if not content_type.startswith("image/"):
-                app.logger.error(f"Invalid content type: {content_type}")
+                app.logger.error("Invalid content type: %s", content_type)
                 raise_error("server.file.fileTypeNotSupport")
 
             file_content = BytesIO(response.content)
@@ -239,10 +239,10 @@ def upload_url(app, user_id: str, url: str) -> str:
             db.session.commit()
 
         except requests.RequestException:
-            app.logger.exception(f"Failed to download image from URL: {url}")
+            app.logger.exception("Failed to download image from URL: %s", url)
             raise_error("server.file.fileDownloadFailed")
         except Exception:
-            app.logger.exception(f"Failed to upload image to OSS: {url}")
+            app.logger.exception("Failed to upload image to OSS: %s", url)
             raise_error("server.file.fileUploadFailed")
         else:
             return result.url
@@ -377,7 +377,7 @@ def get_video_info(app, user_id: str, url: str) -> dict:
                 raise_error("server.file.videoUnsupportedVideoSite")
 
         except requests.RequestException:
-            app.logger.exception(f"Failed to fetch video info from {url}")
+            app.logger.exception("Failed to fetch video info from %s", url)
             raise_error("server.file.videoNetworkError")
         except KeyError:
             app.logger.exception("Missing expected field in API response")

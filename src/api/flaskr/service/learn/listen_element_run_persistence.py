@@ -97,7 +97,7 @@ def _describe_desynced_connection(result, connection) -> str:
                 parts.append(f"socket_pending_header_hex={pending[:5].hex()}")
             else:
                 parts.append("socket_pending=none")
-        except Exception as probe_error:  # noqa: BLE001 - forensics only
+        except Exception as probe_error:  # forensics only
             parts.append(f"socket_probe_error={probe_error!r}")
     return " ".join(parts)
 

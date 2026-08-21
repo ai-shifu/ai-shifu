@@ -7,6 +7,9 @@ from flaskr.api.check import (
     CHECK_RESULT_REJECT,
     check_text,
 )
+from flaskr.dao import db
+from flaskr.i18n import _
+from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
@@ -21,9 +24,6 @@ from flaskr.service.user.repository import (
 )
 from flaskr.util.uuid import generate_id
 
-from ...dao import db
-from ...i18n import _
-from ..check_risk.funcs import add_risk_control_result
 from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from .models import VariableValue
 
@@ -277,7 +277,7 @@ def save_user_profiles(
 def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """Get user profiles for Mdflow run.
 
-    NOTE:
+    Note:
     - Some profile keys ("labels") are stored globally with ``shifu_bid=''``.
     - Other profile keys are stored per-course with ``shifu_bid=course_id``.
 
@@ -371,7 +371,7 @@ def get_user_profile_labels(
     Returns:
         list: User profile labels.
     """
-    app.logger.info(f"get user profile labels:{course_id}")
+    app.logger.info("get user profile labels:%s", course_id)
     candidate_shifus = [course_id or ""]
     if course_id:
         candidate_shifus.append("")
@@ -454,7 +454,7 @@ def get_user_profile_labels(
                     shifu_bid="",
                 )
         else:
-            app.logger.info(f"profile_item not found:{profile_key}")
+            app.logger.info("profile_item not found:%s", profile_key)
         if user_value is None and user_values:
             user_value = _get_latest_variable_value(
                 user_values,
@@ -487,7 +487,7 @@ def update_user_profile_with_lable(
     update_all: bool = False,
     course_id: str | None = None,
 ):
-    app.logger.info(f"update user profile with lable:{course_id}")
+    app.logger.info("update user profile with lable:%s", course_id)
     profile_labels = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []

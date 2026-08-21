@@ -4,6 +4,7 @@ import base64
 import json
 import re
 import threading
+from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -22,9 +23,17 @@ from .base import (
     SubscriptionUpdateResult,
 )
 
-_PINGPP_CLIENT: Any | None = None
-_PINGPP_IMPORT_ERROR: Exception | None = None
 _PINGPP_CONFIG_LOCK = threading.RLock()
+
+
+@dataclass(slots=True)
+class _PingppClientState:
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    client: Any | None = None
+    import_error: Exception | None = None
+
+
+_pingpp_client_state = _PingppClientState()
 
 
 def _serialized_pingpp_config(func):
@@ -37,20 +46,20 @@ def _serialized_pingpp_config(func):
 
 
 def _get_pingpp_client() -> Any:
-    global _PINGPP_CLIENT, _PINGPP_IMPORT_ERROR
-    if _PINGPP_CLIENT is not None:
-        return _PINGPP_CLIENT
-    if _PINGPP_IMPORT_ERROR is not None:
-        raise _PINGPP_IMPORT_ERROR
-    try:
-        import pingpp  # type: ignore[import-untyped]
+    with _pingpp_client_state.lock:
+        if _pingpp_client_state.client is not None:
+            return _pingpp_client_state.client
+        if _pingpp_client_state.import_error is not None:
+            raise _pingpp_client_state.import_error
+        try:
+            import pingpp  # type: ignore[import-untyped]
 
-        _PINGPP_CLIENT = pingpp
-    except Exception as exc:  # pragma: no cover
-        _PINGPP_IMPORT_ERROR = exc
-        raise
-    else:
-        return pingpp
+            _pingpp_client_state.client = pingpp
+        except Exception as exc:  # pragma: no cover
+            _pingpp_client_state.import_error = exc
+            raise
+        else:
+            return pingpp
 
 
 class PingxxProvider(PaymentProvider):

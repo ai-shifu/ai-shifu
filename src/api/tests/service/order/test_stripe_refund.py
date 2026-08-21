@@ -9,7 +9,7 @@ from flaskr.service.order.payment_providers.base import PaymentRefundResult
 
 
 class DummyStripeRefundProvider:
-    def __init__(self, result: PaymentRefundResult):
+    def __init__(self, result: PaymentRefundResult) -> None:
         self._result = result
 
     def refund_payment(self, *, request, app):  # pylint: disable=unused-argument

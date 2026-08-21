@@ -237,7 +237,7 @@ class TencentTTSError(ValueError):
         message: str = "",
         request_id: str = "",
         message_id: str = "",
-    ):
+    ) -> None:
         safe_message = str(message or "provider error").strip()
         detail = f"Tencent TTS error {code}: {safe_message}"
         if request_id:

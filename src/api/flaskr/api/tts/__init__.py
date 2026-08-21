@@ -52,7 +52,7 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYP
 from flaskr.util.datetime import now_utc
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
-TTS_DEFAULT_MODEL_TOKEN = "default"
+TTS_DEFAULT_MODEL_TOKEN = "default"  # noqa: S105 - placeholder model id, not a secret
 
 # Provider registry (ordered by default selection priority)
 _PROVIDER_REGISTRY = {

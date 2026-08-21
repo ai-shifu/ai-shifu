@@ -196,8 +196,9 @@ def _get_ask_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
 def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
     """Try to acquire an ask semaphore slot. Returns True if slot acquired."""
     try:
-        from flaskr.dao import redis_client
+        from flaskr.dao import get_redis_client
 
+        redis_client = get_redis_client()
         if redis_client is None:
             return True  # fail open when Redis is unavailable
         result = redis_client.eval(
@@ -221,8 +222,9 @@ def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
 def _ask_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
     """Release an ask semaphore slot."""
     try:
-        from flaskr.dao import redis_client
+        from flaskr.dao import get_redis_client
 
+        redis_client = get_redis_client()
         if redis_client is None:
             return
         redis_client.eval(
@@ -366,7 +368,7 @@ def run_script_inner(
                 lesson_info = None
             else:
                 lesson_info = outline_item_info
-                app.logger.info(f"lesson_info: {lesson_info.__json__()}")
+                app.logger.info("lesson_info: %s", lesson_info.__json__())
 
             if shifu_info.price > 0:
                 success_buy_record = (
@@ -474,7 +476,7 @@ def run_script_inner(
                 ready_element_bids_by_block_bid.clear()
             while run_script_context.has_next():
                 app.logger.warning(
-                    f"run_script_context.has_next(): {run_script_context.has_next()}"
+                    "run_script_context.has_next(): %s", run_script_context.has_next()
                 )
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")

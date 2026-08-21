@@ -32,10 +32,6 @@ from sqlalchemy.orm.exc import FlushError
 
 logger = logging.getLogger(__name__)
 
-# create a global db object
-db = None
-redis_client = None
-
 # Session scope tokens must never repeat. Flask-SQLAlchemy's stock scope
 # function keys the scoped-session registry on id(app_ctx) - a CPython memory
 # address that is recycled as soon as a context is garbage collected. With
@@ -61,6 +57,38 @@ def _unique_app_ctx_scope() -> int:
         token = next(_app_ctx_scope_counter)
         ctx.__dict__["_dao_session_scope_token"] = token
     return token
+
+
+# Flask extensions are stable module objects; initialization binds them to an app
+# without rebinding every model's imported ``db`` reference.
+db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
+
+
+class _RedisState:
+    """Own the optional process-local Redis client."""
+
+    def __init__(self) -> None:
+        self.client: Redis | None = None
+
+
+_redis_state = _RedisState()
+
+
+def get_redis_client() -> Redis | None:
+    """Return the configured Redis client, if Redis is enabled."""
+    return _redis_state.client
+
+
+def set_redis_client(client: Redis | None) -> None:
+    """Replace the Redis client through its single lifecycle owner."""
+    _redis_state.client = client
+
+
+def __getattr__(name: str) -> Redis | None:
+    """Expose the owned Redis client to plugins using the legacy import name."""
+    if name == "redis_client":
+        return get_redis_client()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
@@ -107,7 +135,7 @@ def _server_thread_id(dbapi_connection):
     """Best-effort MySQL server-side connection id for log correlation."""
     try:
         return dbapi_connection.thread_id()
-    except Exception:  # noqa: BLE001 - diagnostics only
+    except Exception:  # diagnostics only
         return None
 
 
@@ -125,7 +153,7 @@ def _pool_diagnostics_logger():
         # Resolved inside the try: attribute access on current_app raises
         # outside an application context.
         return current_app.logger  # noqa: TRY300
-    except Exception:  # noqa: BLE001 - outside app context
+    except Exception:  # outside app context
         return logger
 
 
@@ -179,7 +207,8 @@ def _reject_desynced_connection_on_checkout(
         _mark_checkout_boundary(connection_record)
         return
     try:
-        ping(False)
+        # MySQL's DBAPI ping() takes `reconnect` positionally.
+        ping(False)  # noqa: FBT003
     except BaseException as ping_exc:
         connection_record.invalidate(
             e=ping_exc if isinstance(ping_exc, Exception) else None
@@ -377,7 +406,7 @@ def invalidate_session(*, source: str, session=None) -> bool:
         if not hasattr(target, "invalidate") and callable(target):
             target = target()
         target.invalidate()
-    except Exception:  # noqa: BLE001 - termination cleanup must not raise
+    except Exception:  # termination cleanup must not raise
         _pool_diagnostics_logger().warning(
             "%s: session invalidate failed", source, exc_info=True
         )
@@ -406,7 +435,7 @@ def cleanup_session_after(
         return "noop"
     try:
         target.rollback()
-    except Exception:  # noqa: BLE001 - escalate, never raise from cleanup
+    except Exception:  # escalate, never raise from cleanup
         _pool_diagnostics_logger().warning(
             "%s: rollback failed; escalating to session invalidate",
             source,
@@ -434,7 +463,7 @@ def release_session_classified(*, source: str) -> None:
         invalidate_session(source=source)
     try:
         db.session.remove()
-    except Exception:  # noqa: BLE001 - cleanup must not mask the original
+    except Exception:  # cleanup must not mask the original
         _pool_diagnostics_logger().warning(
             "%s db session cleanup failed", source, exc_info=True
         )
@@ -462,7 +491,7 @@ def _rollback_quietly() -> bool:
         )
         invalidate_session(source="retry_on_deadlock rollback failure")
         return False
-    except Exception as rollback_exc:  # noqa: BLE001 - best-effort cleanup
+    except Exception as rollback_exc:  # best-effort cleanup
         # Environmental failures (e.g. no app context in unit tests) keep the
         # legacy tolerant behavior: log and let the retry loop proceed.
         logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)
@@ -521,7 +550,6 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
 
 
 def init_db(app: Flask):
-    global db
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -582,8 +610,6 @@ def init_db(app: Flask):
 
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
-    if db is None:
-        db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
     db.init_app(app)
 
     # Global last-resort guard: any interrupted path not covered by an
@@ -633,7 +659,7 @@ def init_db(app: Flask):
                 else:
                     raw_sql = formatted_sql
 
-                app.logger.info(f"\nLocation: {caller_info}\n{raw_sql}\n")
+                app.logger.info("\nLocation: %s\n%s\n", caller_info, raw_sql)
 
         # Set the event listener in the application context
         with app.app_context():
@@ -641,8 +667,6 @@ def init_db(app: Flask):
 
 
 def init_redis(app: Flask):
-    global redis_client
-
     host = app.config.get("REDIS_HOST")
     port = app.config.get("REDIS_PORT")
 
@@ -650,7 +674,7 @@ def init_redis(app: Flask):
         app.logger.warning(
             "Redis not configured: REDIS_HOST or REDIS_PORT is None - running without Redis"
         )
-        redis_client = None
+        set_redis_client(None)
         return
 
     app.logger.info(
@@ -664,33 +688,41 @@ def init_redis(app: Flask):
         app.config.get("REDIS_PASSWORD") is not None
         and app.config["REDIS_PASSWORD"] != ""
     ):
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
-            password=app.config["REDIS_PASSWORD"],
-            username=app.config.get("REDIS_USER", None),
+        set_redis_client(
+            Redis(
+                host=host,
+                port=port,
+                db=app.config["REDIS_DB"],
+                password=app.config["REDIS_PASSWORD"],
+                username=app.config.get("REDIS_USER", None),
+            )
         )
     else:
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
+        set_redis_client(
+            Redis(
+                host=host,
+                port=port,
+                db=app.config["REDIS_DB"],
+            )
         )
     app.logger.info("init redis done")
 
 
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
-        app.logger.info(f"run_with_redis start {key}")
+        app.logger.info("run_with_redis start %s", key)
+        redis_client = get_redis_client()
+        if redis_client is None:
+            app.logger.info("run_with_redis skipped without Redis %s", key)
+            return None
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
-            app.logger.info(f"run_with_redis get lock {key}")
+            app.logger.info("run_with_redis get lock %s", key)
             try:
                 return func(*args)
             finally:
                 with contextlib.suppress(Exception):
                     lock.release()
         else:
-            app.logger.info(f"run_with_redis get lock failed {key}")
+            app.logger.info("run_with_redis get lock failed %s", key)
             return None

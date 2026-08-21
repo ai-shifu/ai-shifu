@@ -80,6 +80,7 @@ from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import UserInfo as UserEntity
 from sqlalchemy import event
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,

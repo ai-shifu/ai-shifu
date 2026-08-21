@@ -42,6 +42,7 @@ from flaskr.service.billing.referral_plan_rewards import (
 )
 from flaskr.service.billing.renewal import run_billing_renewal_event
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

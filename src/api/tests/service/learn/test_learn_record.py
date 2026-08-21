@@ -2,23 +2,7 @@ import types
 import unittest
 
 from flask import Flask, request
-from flask_sqlalchemy import SQLAlchemy
 from flaskr import dao
-
-if dao.db is None:
-    _test_app = Flask("test-learn-record")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_BINDS={
-            "ai_shifu_saas": "sqlite:///:memory:",
-            "ai_shifu_admin": "sqlite:///:memory:",
-        },
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
 from flaskr.i18n import _
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import BlockType
@@ -147,7 +131,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -184,7 +168,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -204,7 +188,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert result.records == []
@@ -220,7 +204,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 1
@@ -238,7 +222,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -257,7 +241,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -276,7 +260,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -300,7 +284,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2
@@ -329,7 +313,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
         assert len(result.records) == 2

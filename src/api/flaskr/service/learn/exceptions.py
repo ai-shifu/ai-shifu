@@ -3,7 +3,7 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 class PaidError(AppError):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "server.order.courseNotPaid",
             ERROR_CODE.get(
@@ -14,7 +14,7 @@ class PaidError(AppError):
 
 
 class BreakError(AppError):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "server.order.courseNotPaid",
             ERROR_CODE.get(

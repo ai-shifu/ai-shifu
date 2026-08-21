@@ -1,9 +1,27 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import AuthPage from './page';
 
 const replaceMock = jest.fn();
 const logoutMock = jest.fn(() => Promise.resolve());
+const mockSearchParams = {
+  get: jest.fn(() => null),
+};
+const mockPasswordLogin = jest.fn(
+  ({
+    forceEmailIdentifier,
+    supportEmailIdentifier,
+  }: {
+    forceEmailIdentifier?: boolean;
+    supportEmailIdentifier?: boolean;
+  }) => (
+    <div
+      data-testid='password-login'
+      data-force-email-identifier={String(Boolean(forceEmailIdentifier))}
+      data-support-email-identifier={String(Boolean(supportEmailIdentifier))}
+    />
+  ),
+);
 
 const mockUserState = {
   userInfo: null as { language?: string } | null,
@@ -16,9 +34,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: replaceMock,
   }),
-  useSearchParams: () => ({
-    get: jest.fn(() => null),
-  }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('next/image', () => ({
@@ -40,6 +56,7 @@ const mockEnvState = {
   logoWideUrl: '',
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
+  runtimeConfigLoaded: true,
 };
 
 jest.mock('@/c-store', () => ({
@@ -93,7 +110,10 @@ jest.mock('@/components/auth/GoogleLoginButton', () => ({
 }));
 
 jest.mock('@/components/auth/PasswordLogin', () => ({
-  PasswordLogin: () => <div data-testid='password-login' />,
+  PasswordLogin: (props: {
+    forceEmailIdentifier?: boolean;
+    supportEmailIdentifier?: boolean;
+  }) => mockPasswordLogin(props),
 }));
 
 jest.mock('@/components/language-select', () => ({
@@ -116,10 +136,33 @@ jest.mock('@/hooks/useGoogleAuth', () => ({
 }));
 
 jest.mock('@/components/ui/Tabs', () => ({
-  Tabs: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  TabsContent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  Tabs: ({
+    children,
+    value,
+  }: {
+    children?: React.ReactNode;
+    value?: string;
+  }) => (
+    <div>
+      {React.Children.map(children, child =>
+        React.isValidElement(child)
+          ? React.cloneElement(
+              child as React.ReactElement<{ activeValue?: string }>,
+              { activeValue: value },
+            )
+          : child,
+      )}
+    </div>
   ),
+  TabsContent: ({
+    children,
+    value,
+    activeValue,
+  }: {
+    children?: React.ReactNode;
+    value?: string;
+    activeValue?: string;
+  }) => (value === activeValue ? <div>{children}</div> : null),
   TabsList: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -150,9 +193,14 @@ jest.mock('@/components/ui/Card', () => ({
 describe('AuthPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPasswordLogin.mockClear();
     mockUserState.userInfo = null;
     mockUserState.isLoggedIn = false;
     mockUserState.isInitialized = true;
+    mockEnvState.logoWideUrl = '';
+    mockEnvState.loginMethodsEnabled = ['phone'];
+    mockEnvState.defaultLoginMethod = 'phone';
+    mockEnvState.runtimeConfigLoaded = true;
   });
 
   it('switches an authenticated browser session to a guest session on the login page', async () => {
@@ -186,5 +234,76 @@ describe('AuthPage', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(logoutMock).not.toHaveBeenCalled();
+  });
+
+  it('waits for runtime config before rendering the configured login form', async () => {
+    mockEnvState.runtimeConfigLoaded = false;
+    mockEnvState.loginMethodsEnabled = ['password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    const { rerender } = render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('password-login')).not.toBeInTheDocument();
+    });
+
+    mockEnvState.runtimeConfigLoaded = true;
+    rerender(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
+  });
+
+  it('renders password login when password is the only enabled method', async () => {
+    mockEnvState.loginMethodsEnabled = ['password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-force-email-identifier',
+      'false',
+    );
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-support-email-identifier',
+      'false',
+    );
+  });
+
+  it('uses password as the default when multiple methods are enabled', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('phone-login')).not.toBeInTheDocument();
+  });
+
+  it('uses email-only password login when Google and password are enabled without phone', async () => {
+    mockEnvState.loginMethodsEnabled = ['google', 'password'];
+    mockEnvState.defaultLoginMethod = 'password';
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-login')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-force-email-identifier',
+      'true',
+    );
+    expect(screen.getByTestId('password-login')).toHaveAttribute(
+      'data-support-email-identifier',
+      'true',
+    );
   });
 });

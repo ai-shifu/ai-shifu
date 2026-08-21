@@ -24,7 +24,7 @@ class TokenStoreProvider:
       as an accelerator for token lookups and sliding expiration.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache = cache
 
     def _cache_key(self, app: Flask, token: str) -> str:

@@ -11,7 +11,9 @@ from flask import Flask, has_app_context
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
+from flaskr.dao import db
 from flaskr.i18n import _
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
@@ -24,8 +26,6 @@ from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
-from ...dao import db
-from ..common.models import raise_error, raise_param_error
 from .models import UserVerifyCode
 
 
@@ -310,11 +310,11 @@ def send_email_code(
             server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
             server.quit()
 
-            app.logger.info(f"Verification code sent to {email}")
+            app.logger.info("Verification code sent to %s", email)
             user_verify_code.verify_code_send = 1
             db.session.commit()
         except Exception:
-            app.logger.exception(f"Failed to send verification code to {email}")
+            app.logger.exception("Failed to send verification code to %s", email)
             raise_error("server.user.emailSendFailed")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 

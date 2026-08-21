@@ -362,7 +362,7 @@ def _verify_minimax_voice_id(voice_id: str) -> None:
             provider_name="minimax",
             model=OPERATOR_VOICE_VERIFY_MODEL,
         )
-    except Exception as exc:  # noqa: BLE001 - surface the real reason to the operator
+    except Exception as exc:  # surface the real reason to the operator
         raise_param_error(f"voice_id verification failed: {exc}")
 
 

@@ -35,13 +35,9 @@ os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flaskr import dao
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.ext.compiler import compiles
-
-if dao.db is None:
-    dao.db = SQLAlchemy()
 
 
 @compiles(LONGTEXT, "sqlite")

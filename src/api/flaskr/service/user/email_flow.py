@@ -32,13 +32,6 @@ from flaskr.service.user.repository import (
 from flaskr.service.user.utils import generate_token
 from flaskr.util.datetime import now_utc
 
-FIX_CHECK_CODE = None
-
-
-def configure_fix_check_code(value: str | None) -> None:
-    global FIX_CHECK_CODE
-    FIX_CHECK_CODE = value
-
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     if value is None:
@@ -95,14 +88,13 @@ def verify_email_code(
         update_user_profile_with_lable,
     )
 
-    if FIX_CHECK_CODE is None:
-        configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
+    fixed_check_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
 
     email_key = (email or "").strip()
     code_key = (
         get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
     )
-    if code != FIX_CHECK_CODE:
+    if code != fixed_check_code:
         cached = redis.get(code_key)
         if cached is not None:
             cached_str = (
@@ -150,7 +142,11 @@ def verify_email_code(
                     include_nickname=include_legacy_nickname,
                 )
                 update_user_profile_with_lable(
-                    app, target_aggregate.user_bid, new_profiles, False, course_id
+                    app,
+                    target_aggregate.user_bid,
+                    new_profiles,
+                    update_all=False,
+                    course_id=course_id,
                 )
             if origin_aggregate and course_id is not None:
                 migrate_user_study_record(

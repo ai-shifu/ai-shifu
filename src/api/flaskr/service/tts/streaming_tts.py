@@ -73,30 +73,40 @@ from flaskr.util.uuid import generate_id
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
-# Global thread pool for TTS synthesis, created lazily per process. A
+
+# Process-local thread pool for TTS synthesis, created lazily. A
 # module-level instance would be created during the gunicorn master's
 # preload import and inherited by every forked worker; its gevent-patched
 # internals then carry wakeup links bound to the parent's hub, which can
 # crash in AbstractLinkable._notify_links and silently interrupt unrelated
 # greenlets (observed as DB protocol desync). The pid guard hands each
 # process its own executor.
-_tts_executor: ThreadPoolExecutor | None = None
-_tts_executor_pid: int | None = None
+@dataclass(slots=True)
+class _TTSExecutorState:
+    executor: ThreadPoolExecutor | None = None
+    pid: int | None = None
+
+
+_tts_executor_state = _TTSExecutorState()
 
 
 def _get_tts_executor() -> ThreadPoolExecutor:
-    global _tts_executor, _tts_executor_pid
     current_pid = os.getpid()
     # Rebuild only when there is no executor or the recorded pid is STALE.
     # An executor with no recorded pid was injected directly (tests patch
-    # `_tts_executor` with a mock) and must be honored as-is; production
-    # code always records the pid alongside the instance it creates.
-    if _tts_executor is None or (
-        _tts_executor_pid is not None and _tts_executor_pid != current_pid
+    # `_tts_executor_state.executor` with a mock) and must be honored as-is;
+    # production code always records the pid alongside the instance it creates.
+    if _tts_executor_state.executor is None or (
+        _tts_executor_state.pid is not None and _tts_executor_state.pid != current_pid
     ):
-        _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
-        _tts_executor_pid = current_pid
-    return _tts_executor
+        _tts_executor_state.executor = ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="tts_"
+        )
+        _tts_executor_state.pid = current_pid
+    executor = _tts_executor_state.executor
+    if executor is None:  # pragma: no cover - guarded by the branch above
+        raise RuntimeError("TTS executor initialization failed")
+    return executor
 
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
@@ -278,7 +288,7 @@ class StreamingTTSProcessor:
         stream_element_type: str | None = None,
         av_contract: dict[str, Any] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
-    ):
+    ) -> None:
         self.app = app
         self.generated_block_bid = generated_block_bid
         self.outline_bid = outline_bid
@@ -346,7 +356,8 @@ class StreamingTTSProcessor:
         self._enabled = is_tts_configured(tts_provider)
         if not self._enabled:
             logger.warning(
-                f"TTS is not configured for provider '{tts_provider or '(unset)'}', streaming TTS disabled"
+                "TTS is not configured for provider '%s', streaming TTS disabled",
+                tts_provider or "(unset)",
             )
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -465,7 +476,10 @@ class StreamingTTSProcessor:
         segment = TTSSegment(index=segment_index, text=text)
 
         logger.debug(
-            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
+            "Submitting TTS task %s: %s chars, provider=%s",
+            segment_index,
+            len(text),
+            self.tts_provider or "(unset)",
         )
 
         future = _get_tts_executor().submit(
@@ -499,7 +513,7 @@ class StreamingTTSProcessor:
             return
 
         logger.debug(
-            f"Submitting remaining text in segments: {len(remaining_text)} chars"
+            "Submitting remaining text in segments: %s chars", len(remaining_text)
         )
 
         cursor = 0
@@ -509,8 +523,9 @@ class StreamingTTSProcessor:
             if segment_text and len(segment_text) >= 2:
                 self._submit_tts_task(segment_text)
                 logger.debug(
-                    f"Submitted finalize segment: {len(segment_text)} chars, "
-                    f"remaining: {len(remaining_text) - split_pos} chars"
+                    "Submitted finalize segment: %s chars, remaining: %s chars",
+                    len(segment_text),
+                    len(remaining_text) - split_pos,
                 )
             cursor = split_pos
 
@@ -519,7 +534,7 @@ class StreamingTTSProcessor:
             if tail_text and len(tail_text) >= 2:
                 self._submit_tts_task(tail_text)
                 logger.debug(
-                    f"Submitted finalize trailing fragment: {len(tail_text)} chars"
+                    "Submitted finalize trailing fragment: %s chars", len(tail_text)
                 )
 
     def _synthesize_text_with_retry(
@@ -661,8 +676,10 @@ class StreamingTTSProcessor:
                     )
 
                 logger.debug(
-                    f"TTS segment {segment.index} synthesized: "
-                    f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
+                    "TTS segment %s synthesized: text_len=%s, duration=%sms",
+                    segment.index,
+                    len(segment.text),
+                    segment.duration_ms,
                 )
             except TTSRpmQueueTimeoutError as e:
                 self._enabled = False
@@ -722,8 +739,9 @@ class StreamingTTSProcessor:
                             provider_subtitle_cues
                         )
                     logger.debug(
-                        f"TTS stored segment {segment.index} for concatenation, "
-                        f"total stored: {len(self._all_audio_data)}"
+                        "TTS stored segment %s for concatenation, total stored: %s",
+                        segment.index,
+                        len(self._all_audio_data),
                     )
 
             if segment.audio_data and not segment.error:
@@ -1982,11 +2000,12 @@ class StreamingTTSProcessor:
             cleaned_text_length = 0
 
         logger.debug(
-            f"TTS finalize called: enabled={self._enabled}, "
-            f"buffer_len={len(self._buffer)}, "
-            f"segment_index={self._segment_index}, "
-            f"pending_futures={len(self._pending_futures)}, "
-            f"all_audio_data={len(self._all_audio_data)}"
+            "TTS finalize called: enabled=%s, buffer_len=%s, segment_index=%s, pending_futures=%s, all_audio_data=%s",
+            self._enabled,
+            len(self._buffer),
+            self._segment_index,
+            len(self._pending_futures),
+            len(self._all_audio_data),
         )
         has_existing_work = bool(
             self._pending_futures or self._completed_segments or self._all_audio_data
@@ -2040,15 +2059,16 @@ class StreamingTTSProcessor:
         with self._lock:
             all_segments = list(self._all_audio_data)
             logger.debug(
-                f"TTS finalize: _all_audio_data has {len(self._all_audio_data)} segments"
+                "TTS finalize: _all_audio_data has %s segments",
+                len(self._all_audio_data),
             )
 
         if not all_segments:
             logger.warning(
-                f"No audio segments to concatenate. "
-                f"segment_index={self._segment_index}, "
-                f"next_yield_index={self._next_yield_index}, "
-                f"completed_segments keys={list(self._completed_segments.keys())}"
+                "No audio segments to concatenate. segment_index=%s, next_yield_index=%s, completed_segments keys=%s",
+                self._segment_index,
+                self._next_yield_index,
+                list(self._completed_segments.keys()),
             )
             return
 
@@ -2090,7 +2110,7 @@ class AVStreamingTTSProcessor:
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
         element_index_offset: int = 0,
-    ):
+    ) -> None:
         self.app = app
         self.generated_block_bid = generated_block_bid
         self.outline_bid = outline_bid
