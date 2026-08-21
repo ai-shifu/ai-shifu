@@ -72,12 +72,15 @@ const i18nMock = {
   changeLanguage: jest.fn(),
 };
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: i18nMock,
-  }),
-}));
+jest.mock('react-i18next', () => {
+  const t = (key: string) => key;
+  return {
+    useTranslation: () => ({
+      t,
+      i18n: i18nMock,
+    }),
+  };
+});
 
 describe('C preview layout', () => {
   const originalHref = window.location.href;
@@ -85,8 +88,21 @@ describe('C preview layout', () => {
     typeof getCourseInfo
   >;
   const contentLabel = 'content';
+  const buildCourseInfo = (isOwner: boolean) => ({
+    course_desc: 'Description',
+    course_id: 'course-transient',
+    course_keywords: ['test'],
+    course_name: 'Course',
+    course_price: '0',
+    course_teacher_avatar: '',
+    course_avatar: '',
+    course_tts_enabled: true,
+    default_listen_mode_enabled: false,
+    course_is_owner: isOwner,
+  });
 
   afterEach(() => {
+    jest.useRealTimers();
     mockSearchParamsValue = '';
     window.location.href = originalHref;
     mockedGetCourseInfo.mockReset();
@@ -272,7 +288,8 @@ describe('C preview layout', () => {
     });
   });
 
-  test('does not redirect to /404 for transient course info errors', async () => {
+  test('retries transient course info errors until ownership resolves', async () => {
+    jest.useFakeTimers();
     window.location.href = 'http://localhost:3000/c/123';
     act(() => {
       useEnvStore.setState({
@@ -280,11 +297,13 @@ describe('C preview layout', () => {
         courseId: 'course-transient',
       });
     });
-    mockedGetCourseInfo.mockRejectedValue({
-      isCourseNotFound: false,
-      code: 500,
-      message: 'Temporary failure',
-    });
+    mockedGetCourseInfo
+      .mockRejectedValueOnce({
+        isCourseNotFound: false,
+        code: 500,
+        message: 'Temporary failure',
+      })
+      .mockResolvedValueOnce(buildCourseInfo(true));
 
     render(
       <ChatLayout>
@@ -292,9 +311,24 @@ describe('C preview layout', () => {
       </ChatLayout>,
     );
 
-    await waitFor(() => {
-      expect(mockedGetCourseInfo).toHaveBeenCalled();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
     });
+    expect(mockedGetCourseInfo).toHaveBeenCalledTimes(1);
+    expect(useCourseStore.getState().isCurrentUserCourseOwner).toBeNull();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockedGetCourseInfo).toHaveBeenCalledTimes(2);
+    expect(useCourseStore.getState().isCurrentUserCourseOwner).toBe(true);
     expect(window.location.href).toContain('/c/123');
     expect(window.location.href).not.toContain('/404');
   });

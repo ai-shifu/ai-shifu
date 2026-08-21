@@ -41,6 +41,8 @@ import {
 } from './Components/learningModeUrl';
 
 const CLASSROOM_ACCESS_DENIAL_STATUSES = new Set([401, 403, 404]);
+const COURSE_INFO_RETRY_BASE_DELAY_MS = 1000;
+const COURSE_INFO_RETRY_MAX_DELAY_MS = 10000;
 const classroomAccessRequestByCourseId = new Map<
   string,
   Promise<boolean | null>
@@ -484,25 +486,39 @@ export default function ChatLayout({
 
   useEffect(() => {
     let canceled = false;
+    let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const fetchCourseInfo = async () => {
+    const fetchCourseInfo = async (attempt = 0) => {
       if (!envDataInitialized) return;
       if (courseId) {
-        updateIsCurrentUserCourseOwner(null);
+        const isRetry = attempt > 0;
+        if (!isRetry) {
+          updateIsCurrentUserCourseOwner(null);
+          updateCourseSettings(null, {
+            ttsEnabled: null,
+            defaultListenModeEnabled: null,
+          });
+        }
         debugInfo('[course-info] request start', {
           courseId,
           previewMode: isPreviewMode,
+          attempt,
           path:
             typeof window !== 'undefined'
               ? `${window.location.pathname}${window.location.search}`
               : '',
         });
-        updateCourseSettings(null, {
-          ttsEnabled: null,
-          defaultListenModeEnabled: null,
-        });
         try {
-          const resp = await getCourseInfo(courseId, isPreviewMode);
+          const resp = await getCourseInfo(
+            courseId,
+            isPreviewMode,
+            isRetry
+              ? {
+                  skipErrorToast: true,
+                  trackErrors: false,
+                }
+              : undefined,
+          );
           if (canceled) {
             return;
           }
@@ -580,29 +596,42 @@ export default function ChatLayout({
           }
 
           // Keep users on page for transient failures instead of forcing 404.
-          tracking('learner_course_info_non_404_error', {
-            shifu_bid: courseId,
-            preview_mode: isPreviewMode,
-            reason: 'transient_or_unknown_error',
-            path: window.location.pathname,
-            error_code:
-              (error as { code?: number | string })?.code?.toString?.() || '',
-            http_status:
-              (error as { status?: number | string })?.status?.toString?.() ||
-              '',
-            error_type:
-              (error as { status?: number | string })?.status ||
-              (error as { code?: number | string })?.code
-                ? 'http_error'
-                : 'unknown_error',
-            is_wechat:
-              typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
-            has_token: Boolean(useUserStore.getState().getToken()),
-          });
+          if (!isRetry) {
+            tracking('learner_course_info_non_404_error', {
+              shifu_bid: courseId,
+              preview_mode: isPreviewMode,
+              reason: 'transient_or_unknown_error',
+              path: window.location.pathname,
+              error_code:
+                (error as { code?: number | string })?.code?.toString?.() || '',
+              http_status:
+                (error as { status?: number | string })?.status?.toString?.() ||
+                '',
+              error_type:
+                (error as { status?: number | string })?.status ||
+                (error as { code?: number | string })?.code
+                  ? 'http_error'
+                  : 'unknown_error',
+              is_wechat:
+                typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
+              has_token: Boolean(useUserStore.getState().getToken()),
+            });
+          }
           debugWarn('[course-info] skip 404 redirect for non-notfound error', {
             courseId,
+            attempt,
             error,
           });
+          const retryDelay = Math.min(
+            COURSE_INFO_RETRY_BASE_DELAY_MS * 2 ** Math.min(attempt, 4),
+            COURSE_INFO_RETRY_MAX_DELAY_MS,
+          );
+          retryTimeoutId = setTimeout(() => {
+            retryTimeoutId = null;
+            if (!canceled) {
+              void fetchCourseInfo(attempt + 1);
+            }
+          }, retryDelay);
           // TODO(lesson-mobile-404): sequence OAuth/checkWxcode/user init and course-info
           // requests to eliminate race windows on weak mobile networks.
         }
@@ -611,6 +640,9 @@ export default function ChatLayout({
     fetchCourseInfo();
     return () => {
       canceled = true;
+      if (retryTimeoutId !== null) {
+        clearTimeout(retryTimeoutId);
+      }
     };
   }, [
     courseId,
