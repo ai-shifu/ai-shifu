@@ -60,6 +60,9 @@ class JsonObjectMap(MutableMapping[str, Any]):
     def copy(self) -> JsonObjectMap:
         return JsonObjectMap(values=dict(self.values))
 
+    def __json__(self) -> dict[str, Any]:
+        return self.to_metadata_json()
+
     def to_metadata_json(self) -> dict[str, Any]:
         return {
             str(key): _serialize_json_value(value) for key, value in self.values.items()
