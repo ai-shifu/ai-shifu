@@ -38,6 +38,11 @@ import {
   AI_SERVICE_ERROR_TOAST_KEY,
   resolveAiServiceErrorToast,
 } from '@/lib/aiServiceError';
+import {
+  isCreditInsufficientBusinessCode,
+  resolveCourseCreditInsufficientAudience,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -75,6 +80,13 @@ export default function AskBlock({
   );
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
+  const isCurrentUserCourseOwner = useCourseStore(
+    state => state.isCurrentUserCourseOwner,
+  );
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: preview_mode,
+    isCurrentUserCourseOwner,
+  });
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
   const setAskList = useAskStateStore(state => state.setAskList);
@@ -217,6 +229,9 @@ export default function AskBlock({
 
   const handleSendCustomQuestion = useCallback(async () => {
     const question = inputValue.trim();
+    if (creditInsufficientAudience === null) {
+      return;
+    }
     if (isStreamingRef.current) {
       showOutputInProgressToast();
       return;
@@ -300,6 +315,7 @@ export default function AskBlock({
         reload_element_bid: element_bid,
         listen: false,
       },
+      creditInsufficientAudience,
       async response => {
         try {
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
@@ -318,23 +334,36 @@ export default function AskBlock({
 
             const backendMessage =
               typeof response.content === 'string' ? response.content : '';
-            const displayErrorToast = resolveAiServiceErrorToast({
-              message: backendMessage,
-              fallbackMessage: t('module.chat.outputInProgress'),
-              includeUnknown: true,
-            });
-            if (displayErrorToast.isAiServiceUnavailable) {
-              toastOnce({
-                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
-                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
-                title: displayErrorToast.message,
-                variant: 'destructive',
-                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+            const businessCode =
+              typeof response.code === 'number'
+                ? response.code
+                : typeof response.content?.code === 'number'
+                  ? response.content.code
+                  : undefined;
+            if (isCreditInsufficientBusinessCode(businessCode)) {
+              showCreditInsufficientToast({
+                audience: creditInsufficientAudience,
+                code: businessCode,
               });
             } else {
-              toast({
-                title: displayErrorToast.message,
+              const displayErrorToast = resolveAiServiceErrorToast({
+                message: backendMessage,
+                fallbackMessage: t('module.chat.outputInProgress'),
+                includeUnknown: true,
               });
+              if (displayErrorToast.isAiServiceUnavailable) {
+                toastOnce({
+                  dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                  dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                  title: displayErrorToast.message,
+                  variant: 'destructive',
+                  duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+                });
+              } else {
+                toast({
+                  title: displayErrorToast.message,
+                });
+              }
             }
 
             sseRef.current?.close();
@@ -418,6 +447,7 @@ export default function AskBlock({
     shifu_bid,
     outline_bid,
     preview_mode,
+    creditInsufficientAudience,
     element_bid,
     inputValue,
     dismissAskInputFocus,

@@ -7,6 +7,7 @@ import request, {
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
+import type { CreditInsufficientAudience } from '@/lib/creditInsufficientToast';
 import {
   getMockRunFixtureMode,
   MockRunStreamFixtureSource,
@@ -245,6 +246,7 @@ export interface StreamGeneratedBlockAudioParams {
   generated_block_bid: string;
   preview_mode?: boolean;
   listen?: boolean;
+  creditInsufficientAudience: CreditInsufficientAudience;
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
@@ -285,6 +287,7 @@ export const getRunMessage = (
     listen?: boolean;
     [key: string]: any;
   },
+  creditInsufficientAudience: CreditInsufficientAudience,
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
 ) => {
@@ -394,6 +397,7 @@ export const getRunMessage = (
       requestToken: token || '',
       requestId: traceHeaders.requestId,
       harnessRunId: traceHeaders.harnessRunId,
+      creditInsufficientAudience,
     },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
@@ -410,6 +414,7 @@ const createSseSource = (
   payload: Record<string, unknown>,
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
+  creditInsufficientAudience: CreditInsufficientAudience = 'learner',
 ) => {
   const token = useUserStore.getState().getToken();
   const traceHeaders = buildTraceHeaders({
@@ -450,6 +455,7 @@ const createSseSource = (
       requestToken: token || '',
       requestId: traceHeaders.requestId,
       harnessRunId: traceHeaders.harnessRunId,
+      creditInsufficientAudience,
     },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
@@ -466,12 +472,19 @@ export const streamGeneratedBlockAudio = ({
   generated_block_bid,
   preview_mode = false,
   listen = false,
+  creditInsufficientAudience,
   onMessage,
   onError,
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}&listen=${listen}`;
-  return createSseSource(url, {}, onMessage, onError);
+  return createSseSource(
+    url,
+    {},
+    onMessage,
+    onError,
+    creditInsufficientAudience,
+  );
 };
 
 /**

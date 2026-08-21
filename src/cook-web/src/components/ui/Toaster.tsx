@@ -1,5 +1,8 @@
 'use client';
 
+import * as React from 'react';
+import { usePathname } from 'next/navigation';
+
 import { useToast } from '@/hooks/useToast';
 import {
   Toast,
@@ -11,11 +14,34 @@ import {
 } from '@/components/ui/Toast';
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const pathname = usePathname();
+  const previousPathnameRef = React.useRef(pathname);
+  const { toasts, dismiss } = useToast();
+
+  React.useEffect(() => {
+    if (previousPathnameRef.current === pathname) {
+      return;
+    }
+
+    previousPathnameRef.current = pathname;
+    toasts.forEach(currentToast => {
+      if (currentToast.dismissOnNavigation) {
+        dismiss(currentToast.id);
+      }
+    });
+  }, [dismiss, pathname, toasts]);
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function ({
+        id,
+        title,
+        description,
+        action,
+        dismissOnNavigation,
+        ...props
+      }) {
+        void dismissOnNavigation;
         return (
           <Toast
             key={id}

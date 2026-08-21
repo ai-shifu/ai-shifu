@@ -80,6 +80,12 @@ import {
 } from '@/lib/aiServiceError';
 import { debugWarn } from '@/c-utils/debugConsole';
 import {
+  getCreditInsufficientMessage,
+  isCreditInsufficientBusinessCode,
+  resolveCourseCreditInsufficientAudience,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
+import {
   buildElementContentItem as buildChatElementContentItem,
   isAskOrAnswerElementType,
   normalizeCanonicalChatContentList,
@@ -100,8 +106,6 @@ const RUN_STREAM_IDLE_TIMEOUT_MS = 15000;
 const MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS = 60000;
 const TTS_BACKFILL_IDLE_TIMEOUT_MS = 120000;
 const STREAM_TIMEOUT_ITEM_BID_PREFIX = 'stream-timeout-error';
-const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
-
 export { ChatContentItemType };
 export type { ChatContentItem };
 
@@ -258,14 +262,20 @@ function useChatLogicHook({
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const [hasRunFailed, setHasRunFailed] = useState(false);
-  const { updateResetedLessonId, resetedLessonId } = useCourseStore(
-    useShallow(state => ({
-      resetedLessonId: state.resetedLessonId,
-      updateResetedLessonId: state.updateResetedLessonId,
-    })),
-  );
+  const { updateResetedLessonId, resetedLessonId, isCurrentUserCourseOwner } =
+    useCourseStore(
+      useShallow(state => ({
+        resetedLessonId: state.resetedLessonId,
+        updateResetedLessonId: state.updateResetedLessonId,
+        isCurrentUserCourseOwner: state.isCurrentUserCourseOwner,
+      })),
+    );
 
   const effectivePreviewMode = previewMode ?? false;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: effectivePreviewMode,
+    isCurrentUserCourseOwner,
+  });
   const lessonRunContentCacheKey = useMemo(
     () =>
       buildLessonRunContentCacheKey({
@@ -1402,6 +1412,9 @@ function useChatLogicHook({
    */
   const run = useCallback(
     (sseParams: SSEParams) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
       clearRunStreamTimeout();
@@ -1508,6 +1521,7 @@ function useChatLogicHook({
         outlineBid,
         effectivePreviewMode,
         { ...sseParams, listen: listenRequestEnabled },
+        creditInsufficientAudience,
         async response => {
           if (
             sseRef.current !== source ||
@@ -1538,36 +1552,52 @@ function useChatLogicHook({
                   : typeof rawContent?.code === 'number'
                     ? rawContent.code
                     : undefined;
-              const resolvedErrorToast = resolveLearnerErrorToast({
-                message: errorContent,
-                fallbackMessage: t('module.chat.requestFailed'),
-              });
-              const displayErrorToast = resolveAiServiceErrorToast({
-                message: resolvedErrorToast.message,
-                fallbackMessage: t('module.chat.requestFailed'),
-                includeUnknown: true,
-              });
-
-              if (displayErrorToast.isAiServiceUnavailable) {
-                toastOnce({
-                  dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
-                  dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
-                  title: displayErrorToast.message,
-                  variant: resolvedErrorToast.variant,
-                  duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+              const isCreditError =
+                isCreditInsufficientBusinessCode(businessCode);
+              if (isCreditError && businessCode !== undefined) {
+                showCreditInsufficientToast({
+                  audience: creditInsufficientAudience,
+                  code: businessCode,
                 });
               } else {
-                toast({
-                  title: displayErrorToast.message,
-                  variant: resolvedErrorToast.variant,
+                const resolvedErrorToast = resolveLearnerErrorToast({
+                  message: errorContent,
+                  fallbackMessage: t('module.chat.requestFailed'),
                 });
+                const displayErrorToast = resolveAiServiceErrorToast({
+                  message: resolvedErrorToast.message,
+                  fallbackMessage: t('module.chat.requestFailed'),
+                  includeUnknown: true,
+                });
+
+                if (displayErrorToast.isAiServiceUnavailable) {
+                  toastOnce({
+                    dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
+                    dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
+                    title: displayErrorToast.message,
+                    variant: resolvedErrorToast.variant,
+                    duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
+                  });
+                } else {
+                  toast({
+                    title: displayErrorToast.message,
+                    variant: resolvedErrorToast.variant,
+                  });
+                }
               }
               if (
                 effectivePreviewMode &&
-                businessCode === CREDIT_INSUFFICIENT_ERROR_CODE &&
+                isCreditError &&
+                businessCode !== undefined &&
                 errorContent
               ) {
-                appendRunBusinessError(errorContent, businessCode);
+                appendRunBusinessError(
+                  getCreditInsufficientMessage(
+                    creditInsufficientAudience,
+                    businessCode,
+                  ),
+                  businessCode,
+                );
               }
               return;
             }
@@ -2111,36 +2141,16 @@ function useChatLogicHook({
           )?.detail;
           if (
             effectivePreviewMode &&
-            businessError?.code === CREDIT_INSUFFICIENT_ERROR_CODE &&
+            isCreditInsufficientBusinessCode(businessError?.code) &&
             businessError?.message?.trim()
           ) {
-            const resolvedErrorToast = resolveLearnerErrorToast({
-              message: businessError.message.trim(),
-              fallbackMessage: t('module.chat.requestFailed'),
-            });
-            const displayErrorToast = resolveAiServiceErrorToast({
-              message: resolvedErrorToast.message,
-              fallbackMessage: t('module.chat.requestFailed'),
-              includeUnknown: true,
-            });
-            if (displayErrorToast.isAiServiceUnavailable) {
-              toastOnce({
-                dedupeKey: AI_SERVICE_ERROR_TOAST_KEY,
-                dedupeWindowMs: AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
-                title: displayErrorToast.message,
-                variant: resolvedErrorToast.variant,
-                duration: AI_SERVICE_ERROR_TOAST_DURATION_MS,
-              });
-            } else {
-              toast({
-                title: displayErrorToast.message,
-                variant: resolvedErrorToast.variant,
-              });
-            }
             cleanupRunStreamState();
             setHasRunFailed(true);
             appendRunBusinessError(
-              businessError.message.trim(),
+              getCreditInsufficientMessage(
+                creditInsufficientAudience,
+                businessError.code,
+              ),
               businessError.code,
             );
             return;
@@ -2175,6 +2185,7 @@ function useChatLogicHook({
       buildContentItem,
       chapterId,
       chapterUpdate,
+      creditInsufficientAudience,
       effectivePreviewMode,
       isListenMode,
       listenRequestEnabled,
@@ -2360,6 +2371,9 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
+    if (creditInsufficientAudience === null) {
+      return;
+    }
     const refreshSerial = ++refreshDataSerialRef.current;
     const isCurrentRefresh = () =>
       refreshSerial === refreshDataSerialRef.current;
@@ -2483,6 +2497,7 @@ function useChatLogicHook({
     }
   }, [
     chapterId,
+    creditInsufficientAudience,
     getLessonFeedbackDefaults,
     isLessonFeedbackContent,
     lessonHasContentUpdate,
@@ -2559,12 +2574,16 @@ function useChatLogicHook({
 
   useEffect(() => {
     sseRef.current?.close();
-    if (!lessonId || resetedLessonId === lessonId) {
+    if (
+      !lessonId ||
+      resetedLessonId === lessonId ||
+      creditInsufficientAudience === null
+    ) {
       return;
     }
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId, resetedLessonId]);
+  }, [creditInsufficientAudience, lessonId, resetedLessonId]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
@@ -2759,6 +2778,9 @@ function useChatLogicHook({
       blockBid: string,
       options?: { skipConfirm?: boolean },
     ) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       // Re-selecting an earlier interaction needs to bypass the streaming
       // guard and pop the regenerate-confirm dialog. Compute the flag
       // up front so the streaming / running-check branches below can
@@ -2970,6 +2992,7 @@ function useChatLogicHook({
       });
     },
     [
+      creditInsufficientAudience,
       dismissLessonFeedbackPopup,
       getLessonFeedbackDefaults,
       getNextLessonId,
@@ -3226,6 +3249,9 @@ function useChatLogicHook({
       if (!elementBid) {
         return undefined;
       }
+      if (creditInsufficientAudience === null) {
+        return null;
+      }
 
       const {
         elementBid: targetElementBid,
@@ -3438,6 +3464,7 @@ function useChatLogicHook({
           generated_block_bid: sourceBlockBid,
           preview_mode: effectivePreviewMode,
           listen: effectiveListenRequestEnabled,
+          creditInsufficientAudience,
           onMessage: response => {
             resetIdleTimer();
 
@@ -3528,6 +3555,7 @@ function useChatLogicHook({
     [
       allowTtsStreaming,
       closeTtsStream,
+      creditInsufficientAudience,
       effectivePreviewMode,
       listenRequestEnabled,
       matchItemBid,

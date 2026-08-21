@@ -36,6 +36,7 @@ import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { resolveCourseCreditInsufficientAudience } from '@/lib/creditInsufficientToast';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
@@ -196,6 +197,18 @@ const ScriptEditor = ({
     hasDraftConflict,
     autosavePaused,
   } = useShifu();
+  const currentUserId = profile?.user_bid || profile?.user_id || '';
+  const isCourseOwner = profile
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentUserId &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
 
   const {
     items: previewItems,
@@ -211,7 +224,7 @@ const ScriptEditor = ({
     variables: previewVariables,
     requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
-  } = usePreviewChat();
+  } = usePreviewChat({ creditInsufficientAudience });
   const editorScopeKey = useMemo(
     () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
     [currentNode?.bid, currentShifu?.bid],
@@ -263,10 +276,6 @@ const ScriptEditor = ({
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
-  const currentUserId = useMemo(() => {
-    if (!profile) return '';
-    return profile.user_bid || profile.user_id || '';
-  }, [profile]);
   const isHistoryPage = initialViewMode === 'history';
   const editorOnboardingTriggerSource = useMemo(() => {
     const source =
@@ -288,11 +297,6 @@ const ScriptEditor = ({
       window.clearTimeout(timeoutId);
     };
   }, [currentShifu?.bid, isHistoryPage]);
-  const isCourseOwner = Boolean(
-    currentShifu?.created_user_bid &&
-    currentUserId &&
-    currentShifu.created_user_bid === currentUserId,
-  );
   const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
     useCreatorOnboardingStatus(Boolean(currentUserId));
   const courseEditorSceneStatus =
@@ -1357,7 +1361,10 @@ const ScriptEditor = ({
   }, [token, baseURL]);
 
   const canPreview = Boolean(
-    currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
+    creditInsufficientAudience !== null &&
+    currentNode?.depth &&
+    currentNode.depth > 0 &&
+    currentShifu?.bid,
   );
 
   const previewToggleLabel = isPreviewPanelOpen
@@ -1869,13 +1876,14 @@ const ScriptEditor = ({
               </Button>
             </div>
           ) : null}
-          {isPreviewPanelOpen ? (
+          {isPreviewPanelOpen && creditInsufficientAudience !== null ? (
             <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
               <div className='h-full'>
                 <LessonPreview
                   loading={previewLoading}
                   errorMessage={previewError || undefined}
                   items={previewItems}
+                  creditInsufficientAudience={creditInsufficientAudience}
                   variables={mergedPreviewVariables}
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}

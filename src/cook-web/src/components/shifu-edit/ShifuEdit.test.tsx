@@ -15,6 +15,7 @@ const historyLinkText = 'history';
 const mockMarkdownFlowEditor = jest.fn();
 const mockLessonPreview = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockUsePreviewChat = jest.fn();
 
 jest.mock('next/dynamic', () => () => {
   const MockMarkdownFlowEditor = (props: Record<string, unknown>) => {
@@ -221,21 +222,24 @@ jest.mock('@/hooks/useOnboarding', () => ({
   }),
 }));
 jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
-  usePreviewChat: () => ({
-    items: [],
-    isLoading: false,
-    error: null,
-    startPreview: jest.fn(),
-    stopPreview: jest.fn(),
-    resetPreview: jest.fn(),
-    onRefresh: jest.fn(),
-    onSend: jest.fn(),
-    persistVariables: jest.fn(),
-    onVariableChange: jest.fn(),
-    variables: {},
-    requestAudioForBlock: jest.fn(),
-    reGenerateConfirm: jest.fn(),
-  }),
+  usePreviewChat: (options: unknown) => {
+    mockUsePreviewChat(options);
+    return {
+      items: [],
+      isLoading: false,
+      error: null,
+      startPreview: jest.fn(),
+      stopPreview: jest.fn(),
+      resetPreview: jest.fn(),
+      onRefresh: jest.fn(),
+      onSend: jest.fn(),
+      persistVariables: jest.fn(),
+      onVariableChange: jest.fn(),
+      variables: {},
+      requestAudioForBlock: jest.fn(),
+      reGenerateConfirm: jest.fn(),
+    };
+  },
 }));
 jest.mock('@/i18n', () => ({
   __esModule: true,
@@ -309,6 +313,7 @@ const mockShifuState = {
     bid: 'shifu-1',
     readonly: false,
     name: 'Course',
+    created_user_bid: 'user-1',
   },
   currentNode: {
     bid: 'chapter-1',
@@ -324,7 +329,16 @@ const mockShifuState = {
   autosavePaused: false,
 };
 
-const mockUserStoreState = {
+const mockUserStoreState: {
+  userInfo: {
+    user_bid: 'user-1';
+    user_id: 'user-1';
+    language: 'zh-CN';
+  } | null;
+  isInitialized: boolean;
+  isGuest: boolean;
+  getToken: () => string;
+} = {
   userInfo: {
     user_bid: 'user-1',
     user_id: 'user-1',
@@ -366,6 +380,7 @@ describe('ShifuEdit draft conflict checks', () => {
     mockMarkdownFlowEditor.mockReset();
     mockLessonPreview.mockReset();
     mockTrackEvent.mockReset();
+    mockUsePreviewChat.mockReset();
     mockLoadDraftMeta.mockReset();
     mockLoadModels.mockReset();
     mockLoadChapters.mockReset();
@@ -388,6 +403,7 @@ describe('ShifuEdit draft conflict checks', () => {
       bid: 'shifu-1',
       readonly: false,
       name: 'Course',
+      created_user_bid: 'user-1',
     };
     mockShifuState.currentNode = {
       bid: 'chapter-1',
@@ -402,6 +418,11 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.hasDraftConflict = false;
     mockShifuState.autosavePaused = false;
     mockShifuState.mdflow = '';
+    mockUserStoreState.userInfo = {
+      user_bid: 'user-1',
+      user_id: 'user-1',
+      language: 'zh-CN',
+    };
   });
 
   afterEach(() => {
@@ -420,6 +441,41 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLoadDraftMeta).not.toHaveBeenCalled();
     });
+  });
+
+  test('passes the owner credit audience into lesson preview', () => {
+    render(<ScriptEditor id='shifu-1' />);
+
+    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      creditInsufficientAudience: 'teacher',
+    });
+  });
+
+  test('passes the collaborator credit audience for another owner course', () => {
+    mockShifuState.currentShifu = {
+      ...mockShifuState.currentShifu,
+      created_user_bid: 'course-owner-2',
+    };
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      creditInsufficientAudience: 'teacher-collaborator',
+    });
+  });
+
+  test('keeps lesson preview disabled while the user profile is unresolved', () => {
+    setLessonNode();
+    mockUserStoreState.userInfo = null;
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      creditInsufficientAudience: null,
+    });
+    expect(
+      screen.getByText('module.shifu.previewArea.action').closest('button'),
+    ).toBeDisabled();
   });
 
   test('defaults editor onboarding trigger source for direct editor entry', () => {
@@ -457,6 +513,7 @@ describe('ShifuEdit draft conflict checks', () => {
       bid: 'shifu-1',
       readonly: true,
       name: 'Course',
+      created_user_bid: 'user-1',
     };
     mockLoadDraftMeta.mockResolvedValue({
       revision: 3,

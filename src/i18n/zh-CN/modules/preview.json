@@ -1,7 +1,6 @@
 {
   "__namespace__": "module.preview",
   "aiDebugUnavailable": "调试暂时不可用，请稍后重试；如持续失败，请检查模型配置",
-  "debugDisabledBySoftLimit": "积分余额已低于提醒阈值，暂不能预览调试。",
   "invalidParams": "预览参数不完整，请刷新后重试。",
   "llmError": "LLM 调用错误",
   "missingApiBaseUrl": "当前环境配置异常，请稍后重试。",
