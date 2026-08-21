@@ -110,7 +110,7 @@ class FeishuLogHandler(logging.Handler):
         self._delivering = threading.local()
 
     def _build_message_text(self, log_entry: str) -> str:
-        text = f"师傅出错啦！\n{log_entry}\n"
+        text = f"师傅出错啦！\n{log_entry}\n"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         if len(text) <= self.MAX_TEXT_LENGTH:
             return text
         omitted = len(text) - self.MAX_TEXT_LENGTH

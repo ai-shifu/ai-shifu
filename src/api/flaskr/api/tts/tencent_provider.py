@@ -154,7 +154,7 @@ TENCENT_SSE_REQUEST_CODEC = "pcm"
 TENCENT_ENABLE_SUBTITLE = True
 TENCENT_MAX_SESSION_CHARS = 255
 
-_TERMINAL_PUNCTUATION = set(".!?;。！？；")
+_TERMINAL_PUNCTUATION = set(".!?;。！？；")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 TENCENT_EMOTIONS = [
     {

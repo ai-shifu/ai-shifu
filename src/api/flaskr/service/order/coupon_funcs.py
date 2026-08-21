@@ -123,18 +123,18 @@ def send_feishu_coupon_code(
                 "feishu coupon notify skipped: user aggregate missing for %s", user_id
             )
             return
-        msgs.append(f"手机号：{user_info.mobile}")
-        msgs.append(f"昵称：{user_info.name}")
-        msgs.append(f"优惠码：{discount_code}")
-        msgs.append(f"优惠名称：{discount_name}")
-        msgs.append(f"优惠额度：{discount_value}")
+        msgs.append(f"手机号：{user_info.mobile}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"昵称：{user_info.name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"优惠码：{discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"优惠名称：{discount_name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"优惠额度：{discount_value}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         user_convertion = UserConversion.query.filter(
             UserConversion.user_id == user_id
         ).first()
         channel = ""
         if user_convertion:
             channel = user_convertion.conversion_source
-        msgs.append(f"渠道：{channel}")
+        msgs.append(f"渠道：{channel}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         send_notify(app, title, msgs)
 
 

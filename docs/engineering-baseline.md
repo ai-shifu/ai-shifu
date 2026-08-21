@@ -358,6 +358,19 @@ configuration quieter. For a finding in new or changed code:
    fundamentally conflicts with the rule. Do not weaken `select` or `ignore`
    to make an unrelated PR pass.
 
+For `RUF001`, retain intentional fullwidth Chinese punctuation (`，`, `：`,
+`！`, `？`, and `；`) in Chinese prose, notification formatting, TTS boundary
+patterns, and regression fixtures. Suppress each audited source line with
+`# noqa: RUF001` and an English reason; do not add characters to
+`allowed-confusables`, because that option also weakens the distinct RUF002 and
+RUF003 checks. Treat every other confusable as suspicious and replace it with
+the intended code point unless an exact external protocol or regression fixture
+requires it. Python test modules and test
+configuration files are exempt from RUF001 because they must preserve user text,
+provider payloads, protocol samples, and malformed inputs verbatim. Do not copy
+that exemption into production paths; add new tests under a `tests/` directory
+or use the conventional `test_*.py`, `*_test.py`, or `conftest.py` filename.
+
 For `G004`, keep log message construction lazy: pass a constant message and
 its values as positional logging arguments, preserving the message text,
 argument order, and log level. Use `%s` for normal or `!s` interpolation,

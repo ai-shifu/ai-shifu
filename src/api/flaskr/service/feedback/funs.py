@@ -17,17 +17,17 @@ def submit_feedback(app: Flask, user_id: str, feedback: str, mail: str):
                 app,
                 "有用户提交反馈,注意跟进",
                 [
-                    f"用户ID：{user_id}",
-                    f"用户昵称：{user.name}",
-                    f"用户手机：{user.mobile}",
-                    f"用户反馈：{feedback}",
+                    f"用户ID：{user_id}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+                    f"用户昵称：{user.name}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+                    f"用户手机：{user.mobile}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+                    f"用户反馈：{feedback}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
                 ],
             )
         else:
             send_notify(
                 app,
                 "有用户提交登录反馈,注意跟进",
-                [f"E-mail：{mail}", f"反馈：{feedback}"],
+                [f"E-mail：{mail}", f"反馈：{feedback}"],  # noqa: RUF001 - intentional fullwidth Chinese punctuation
             )
         db.session.add(feedback_item)
         db.session.commit()

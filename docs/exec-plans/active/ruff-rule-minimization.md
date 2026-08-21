@@ -179,6 +179,22 @@ plan's progress update for that rule.
   preserving exception type, message, context, and all billing error contracts.
 - [ ] Merge or retarget EM101 PR #2628 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21: Prepared the RUF001 stage on `sunner/ruff-ruf001`, stacked on
+  EM101. The isolated audit identified 162 deliberately fullwidth punctuation
+  findings across 106 Chinese-message, TTS-boundary, and regression-fixture
+  lines. The stage enables RUF001 and records 43 newly required, explained
+  line-level suppressions; it intentionally removes the global
+  `allowed-confusables` list so RUF002 and RUF003 remain fully enforced.
+  Conventional Python test modules and test configuration are exempt so they
+  can preserve user text, provider payloads, protocol samples, and malformed
+  inputs verbatim without weakening production enforcement.
+- [x] 2026-08-22 CST: Addressed the remaining PR #2629 review by removing the
+  test-only `--select RUF001` override from the RUF001 policy test. The test now
+  exercises `ruff.toml` as CI does: test paths must omit RUF001 while a production
+  path must report it, so moving RUF001 back to a global ignore would fail the
+  regression. The focused test and `ruff check .` pass.
+- [ ] Merge or retarget RUF001 PR #2629 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -248,11 +264,15 @@ plan's progress update for that rule.
   annotations, while SQLAlchemy model classes used for executable query
   construction stayed available at runtime. The exact import-movement audit
   makes that boundary explicit.
-- RUF001 is not the next safe exception-removal stage: its 162 findings are
-  deliberate full-width Chinese punctuation in customer messages, TTS boundary
-  patterns, and tests that freeze those language semantics. Replacing them with
-  ASCII punctuation would change product and speech behavior merely to shorten
-  configuration.
+- The isolated RUF001 audit reported 162 occurrences on 106 source lines. They
+  are deliberate fullwidth Chinese punctuation in customer messages, TTS
+  boundary patterns, and regression fixtures. Replacing them with ASCII
+  punctuation would change product and speech behavior merely to shorten
+  configuration. The correct production exception is an explained
+  `# noqa: RUF001` on each audited line, not `allowed-confusables`, which would
+  also relax RUF002 and RUF003. Test modules and test configuration are exempt
+  because they must preserve user text, provider payloads, protocol samples,
+  and malformed inputs verbatim.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent

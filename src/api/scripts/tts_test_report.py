@@ -49,7 +49,7 @@ ZH_TEXT = """在辅导过几十家企业、上万人用 AI 提升业绩、效率
 
 在实现这个目标的过程中，我慢慢发现，用好 AI 的前提是用户需要知道如何调教 AI，发挥 AI 的长处，弥补 AI 的短处。调教好了，可以一句话就让 AI 帮你完成繁琐的工作。
 
-这门课就是专门讲如何调教 AI 的，帮你成为 AI 的主人。而且，调教的思路非常符合人的直觉，最核心的只需要理解三件事："""
+这门课就是专门讲如何调教 AI 的，帮你成为 AI 的主人。而且，调教的思路非常符合人的直觉，最核心的只需要理解三件事："""  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 
 EN_TEXT = """I appreciate your insight in disagreeing with all three misconceptions! Your critical thinking shows real promise. Given your current understanding, this course might offer limited comprehensive help, but there could be some valuable insights in specific areas. Feel free to decide whether to continue based on your needs.
