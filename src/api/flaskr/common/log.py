@@ -46,6 +46,7 @@ class RequestFormatter(logging.Formatter):
 
     def formatTime(self, record, datefmt=None):  # noqa: N802 - logging.Formatter hook name
         # create time zone info
+        """Format a log timestamp in the fixed Asia/Shanghai timezone."""
         bj_time = pytz.timezone("Asia/Shanghai")
         # convert record.created (a float timestamp) to beijing time
         ct = datetime.fromtimestamp(record.created, bj_time)
@@ -59,6 +60,7 @@ class RequestFormatter(logging.Formatter):
         return s
 
     def format(self, record):
+        """Format a log record with request context."""
         try:
             request_id = getattr(thread_local, "request_id", "No_Request_ID")
             if request_id == "No_Request_ID":
@@ -127,6 +129,7 @@ class FeishuLogHandler(logging.Handler):
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
     def emit(self, record):
+        """Deliver a formatted error record to Feishu."""
         if getattr(self._delivering, "active", False):
             return
         self._delivering.active = True

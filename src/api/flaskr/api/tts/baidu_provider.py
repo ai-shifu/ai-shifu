@@ -728,6 +728,7 @@ class BaiduTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "baidu"
 
     def _get_credentials(self) -> tuple:

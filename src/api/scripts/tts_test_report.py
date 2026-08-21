@@ -79,6 +79,7 @@ class ReportRow:
     error: str = ""
 
     def to_html_audio(self) -> str:
+        """Render this report row as an HTML audio control."""
         if not self.audio_url:
             return ""
         url = html.escape(self.audio_url, quote=True)

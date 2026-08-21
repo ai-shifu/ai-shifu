@@ -127,6 +127,7 @@ class StripeCatalogReadAdapter:
         provider_product_id: str,
         provider_price_id: str,
     ) -> ProviderCatalogSnapshot:
+        """Read the current Stripe catalog mapping."""
         stripe, request_options = self._client_options(app)
         normalized_product_id = normalize_bid(provider_product_id)
         normalized_price_id = normalize_bid(provider_price_id)

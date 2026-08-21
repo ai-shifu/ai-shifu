@@ -49,6 +49,7 @@ class ReferralPlanRewardResult:
     reused_existing_reward: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "inviter_user_bid": self.inviter_user_bid,
             "product_bid": self.product_bid,

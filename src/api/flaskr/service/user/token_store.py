@@ -40,6 +40,7 @@ class TokenStoreProvider:
         return f"{prefix}{token}"
 
     def save(self, app: Flask, *, user_id: str, token: str, ttl_seconds: int) -> None:
+        """Persist the current token value."""
         if not user_id or not token:
             return
 
@@ -74,6 +75,7 @@ class TokenStoreProvider:
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
     ) -> TokenLookupResult | None:
+        """Validate a token, refresh its expiry, and return its user lookup result."""
         if not token or not expected_user_id:
             return None
 

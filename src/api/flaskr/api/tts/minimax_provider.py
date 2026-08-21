@@ -316,6 +316,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "MiniMax"
 
     def is_configured(self) -> bool:

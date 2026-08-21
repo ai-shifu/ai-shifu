@@ -33,6 +33,7 @@ class ParamRange:
     default: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "min": self.min,
             "max": self.max,
@@ -57,6 +58,7 @@ class ProviderConfig:
     supports_voice_cloning: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         data = {
             "name": self.name,
             "label": self.label,

@@ -525,6 +525,7 @@ class ListenElementRunPersistenceMixin:
         generated_block_bid: str = "",
         is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
+        """Build a non-persisted message element."""
         seq = self._next_seq()
         emitted_event_type = (
             GeneratedType.DONE.value

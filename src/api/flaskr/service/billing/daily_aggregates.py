@@ -51,6 +51,7 @@ class DailyAggregateJobResult:
     reason: str | None = None
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         payload = {
             "status": self.status,
             "stat_date": self.stat_date,
@@ -89,6 +90,7 @@ class RebuildDailyAggregatesResult:
     ledger_days: list[DailyAggregateJobResult] = field(default_factory=list)
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         ledger_processed_days = [
             item for item in self.ledger_days if item.status != "skipped"
         ]

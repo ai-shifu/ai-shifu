@@ -13,9 +13,11 @@ class CacheLock(Protocol):
     """Define the locking operations required by cache providers."""
 
     def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
+        """Acquire this cache lock."""
         raise NotImplementedError
 
     def release(self) -> None:
+        """Release this cache lock."""
         raise NotImplementedError
 
 
@@ -24,9 +26,11 @@ class CacheProvider(Protocol):
     """Define the cache operations used by application services."""
 
     def get(self, key: str):
+        """Return the stored value for a key."""
         raise NotImplementedError
 
     def getex(self, key: str, ex: int | None = None, px: int | None = None):
+        """Return a cached value and refresh expiration only when a TTL is supplied."""
         raise NotImplementedError
 
     def set(
@@ -40,18 +44,23 @@ class CacheProvider(Protocol):
         *args: object,
         **kwargs: object,
     ):
+        """Store a value under a cache key."""
         raise NotImplementedError
 
     def setex(self, key: str, time_in_seconds: int, value: Any):
+        """Store a cached value with an expiration."""
         raise NotImplementedError
 
     def delete(self, *keys: str) -> int:
+        """Delete values for the supplied keys."""
         raise NotImplementedError
 
     def incr(self, key: str, amount: int = 1):
+        """Increment the integer stored under a cache key."""
         raise NotImplementedError
 
     def ttl(self, key: str) -> int:
+        """Return the remaining lifetime of a cache key."""
         raise NotImplementedError
 
     def lock(
@@ -60,6 +69,7 @@ class CacheProvider(Protocol):
         timeout: int | None = None,
         blocking_timeout: int | None = None,
     ):
+        """Create a lock for the supplied key."""
         raise NotImplementedError
 
 
@@ -186,12 +196,14 @@ class InMemoryCacheProvider:
             self._store.pop(key, None)
 
     def get(self, key: str):
+        """Return the stored value for a key."""
         with self._mu:
             self._purge_if_expired(key)
             entry = self._store.get(key)
             return entry.value if entry is not None else None
 
     def getex(self, key: str, ex: int | None = None, px: int | None = None):
+        """Return a cached value and update its expiration."""
         with self._mu:
             self._purge_if_expired(key)
             entry = self._store.get(key)
@@ -214,6 +226,7 @@ class InMemoryCacheProvider:
         *args: object,
         **kwargs: object,
     ):
+        """Store a value under a cache key."""
         _ = kwargs
         with self._mu:
             self._purge_if_expired(key)
@@ -234,9 +247,11 @@ class InMemoryCacheProvider:
             return True
 
     def setex(self, key: str, time_in_seconds: int, value: Any):
+        """Store a cached value with an expiration."""
         return self.set(key, value, ex=time_in_seconds)
 
     def delete(self, *keys: str) -> int:
+        """Delete values for the supplied keys."""
         deleted = 0
         with self._mu:
             for key in keys:
@@ -247,6 +262,7 @@ class InMemoryCacheProvider:
         return deleted
 
     def incr(self, key: str, amount: int = 1):
+        """Increment the integer stored under a cache key."""
         with self._mu:
             self._purge_if_expired(key)
             entry = self._store.get(key)
@@ -259,6 +275,7 @@ class InMemoryCacheProvider:
             return new_value
 
     def ttl(self, key: str) -> int:
+        """Return the remaining lifetime of a cache key."""
         with self._mu:
             self._purge_if_expired(key)
             entry = self._store.get(key)
@@ -275,6 +292,7 @@ class InMemoryCacheProvider:
         timeout: int | None = None,
         blocking_timeout: int | None = None,
     ):
+        """Create a process-local fallback lock for the supplied key."""
         _ = (timeout, blocking_timeout)
         with self._mu:
             lock = self._locks.get(key)
@@ -304,9 +322,11 @@ class FallbackCacheProvider:
             return fallback_fn(*args, **kwargs)
 
     def get(self, key: str):
+        """Return the stored value for a key."""
         return self._call("get", key)
 
     def getex(self, key: str, ex: int | None = None, px: int | None = None):
+        """Return a cached value and update its expiration."""
         return self._call("getex", key, ex=ex, px=px)
 
     def set(
@@ -320,6 +340,7 @@ class FallbackCacheProvider:
         *args: object,
         **kwargs: object,
     ):
+        """Store a value under a cache key."""
         return self._call(
             "set",
             key,
@@ -333,15 +354,19 @@ class FallbackCacheProvider:
         )
 
     def setex(self, key: str, time_in_seconds: int, value: Any):
+        """Store a cached value with an expiration."""
         return self._call("setex", key, time_in_seconds, value)
 
     def delete(self, *keys: str) -> int:
+        """Delete values for the supplied keys."""
         return int(self._call("delete", *keys))
 
     def incr(self, key: str, amount: int = 1):
+        """Increment the integer stored under a cache key."""
         return self._call("incr", key, amount)
 
     def ttl(self, key: str) -> int:
+        """Return the remaining lifetime of a cache key."""
         return int(self._call("ttl", key))
 
     def lock(
@@ -350,6 +375,7 @@ class FallbackCacheProvider:
         timeout: int | None = None,
         blocking_timeout: int | None = None,
     ):
+        """Create a distributed lock for the supplied key."""
         return self._call(
             "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
         )

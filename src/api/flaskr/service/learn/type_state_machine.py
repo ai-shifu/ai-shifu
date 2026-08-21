@@ -65,10 +65,12 @@ class TypeStateMachine:
 
     @property
     def state(self) -> TypeState:
+        """Return the current parser state."""
         return self._state
 
     @property
     def is_terminated(self) -> bool:
+        """Return whether the type state machine has terminated."""
         return self._state is TypeState.TERMINATED
 
     def feed(self, trigger: TypeInput, *, is_new: bool = True) -> str:

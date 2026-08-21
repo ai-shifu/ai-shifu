@@ -65,7 +65,9 @@ class ExpireBucketBalanceForTransition(Protocol):
         bucket: CreditWalletBucket,
         order: BillingOrder,
         transition_at: datetime,
-    ) -> Decimal: ...
+    ) -> Decimal:
+        """Expire bucket balance for the current transition."""
+        ...
 
 
 class IncompleteReservedGrantActivationError(RuntimeError):

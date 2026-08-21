@@ -91,6 +91,7 @@ class UsageMetricBreakdownItem:
     consumed_credits: Decimal
 
     def to_metadata_json(self) -> dict[str, Any]:
+        """Serialize this value as JSON-compatible metadata."""
         return {
             "billing_metric": self.billing_metric,
             "billing_metric_code": int(self.billing_metric_code),
@@ -112,6 +113,7 @@ class UsageBucketMetricBreakdownItem:
     consumed_credits: Decimal
 
     def to_metadata_json(self) -> dict[str, Any]:
+        """Serialize this value as JSON-compatible metadata."""
         return {
             "billing_metric": self.billing_metric,
             "billing_metric_code": int(self.billing_metric_code),
@@ -133,6 +135,7 @@ class UsageBucketBreakdownItem:
     metric_breakdown: list[UsageBucketMetricBreakdownItem] = field(default_factory=list)
 
     def to_metadata_json(self) -> dict[str, Any]:
+        """Serialize this value as JSON-compatible metadata."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "bucket_category": self.bucket_category,
@@ -161,6 +164,7 @@ class UsageEntryMetadata:
     bucket_breakdown: list[UsageBucketBreakdownItem] = field(default_factory=list)
 
     def to_metadata_json(self) -> dict[str, Any]:
+        """Serialize this value as JSON-compatible metadata."""
         return {
             "usage_bid": self.usage_bid,
             "usage_record_id": self.usage_record_id,

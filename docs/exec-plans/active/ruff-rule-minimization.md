@@ -242,6 +242,12 @@ plan's progress update for that rule.
   preserving all accepted keyword options and forwarding behavior.
 - [ ] Merge or retarget ANN003 PR #2637 after ANN002 without combining it with
   the next rule unit.
+- [x] 2026-08-22: Rebuilt the D102 stage on `sunner/ruff-d102`, stacked on
+  ANN003. Documented public production and tool methods by observable contract,
+  kept behavior-focused tests exempt, and retained only behavior-preserving
+  complexity adjustments required by the documentation pass.
+- [ ] Merge or retarget D102 PR #2638 after ANN003 without combining it with the
+  next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

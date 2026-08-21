@@ -2195,10 +2195,12 @@ class AVStreamingTTSProcessor:
 
     @property
     def next_element_index(self) -> int:
+        """Return the next element index for AV output."""
         return int(self._next_element_index or self.element_index_offset)
 
     @property
     def has_pending_visual_boundary(self) -> bool:
+        """Return whether an unfinished visual boundary remains."""
         return bool(self._skip_mode)
 
     def _refresh_next_element_index_from_contract(self):
@@ -2235,6 +2237,7 @@ class AVStreamingTTSProcessor:
         return _find_next_av_boundary(raw, include_partial_md_image=True)
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Process the next streaming content chunk."""
         if not chunk:
             yield from self.drain_ready_segments()
             return
@@ -2303,6 +2306,7 @@ class AVStreamingTTSProcessor:
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         # Ignore any trailing non-speakable content if we are mid-boundary.
+        """Finalize pending streaming TTS output."""
         if self._skip_mode:
             self._raw_buffer = ""
             self._skip_mode = None

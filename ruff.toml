@@ -228,10 +228,9 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    # D1xx (except D100, D101, D104, D105 and D107, which are enforced): ~3.7k
-    # undocumented methods and functions. Writing them is a codebase project,
-    # not a lint config change.
-    "D102",    # undocumented public method
+    # D1xx (except D100, D101, D102, D104, D105 and D107, which are enforced):
+    # ~2.9k undocumented functions. Writing them is a codebase project, not a
+    # lint config change.
     "D103",    # undocumented public function
     "D203",    # blank line before a class docstring -- conflicts with D211
     "D213",    # summary on the second line -- conflicts with D212
@@ -260,7 +259,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # subprocess audit rules only add noise there.
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
-"src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607", "T20"]
+"src/api/tests/**" = ["D102", "S101", "S105", "S106", "S603", "S607", "T20"]
 # `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
 # by path and never imported, so making `src/api` a package would only shadow
 # the top-level `flaskr` import path. `src/api/scripts` is a real package
@@ -277,7 +276,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # These trees are input fixtures for check_architecture_boundaries.py, not
 # importable code.
 "scripts/testdata/**" = ["INP001"]
-"scripts/test_*.py" = ["S101"]
+"scripts/test_*.py" = ["D102", "S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
 # These applied Alembic revisions are immutable history: their backfill
 # statements interpolate table names and cannot be rewritten after deployment.

@@ -129,6 +129,7 @@ class GetBijiKnowledgeAskProviderAdapter:
         provider_config: dict[str, Any],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         del app, user_id, messages
 
         config = provider_config.get("config") or {}

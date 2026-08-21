@@ -106,6 +106,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "volcengine_http"
 
     def _get_credentials(self) -> tuple[str, str, str]:
@@ -122,6 +123,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return app_id, token, cluster
 
     def is_configured(self) -> bool:
+        """Return whether this provider has usable credentials."""
         app_id, token, cluster = self._get_credentials()
         return bool(app_id and token and cluster)
 
@@ -142,6 +144,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
+        """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
             sample_rate=get_config("VOLCENGINE_TTS_SAMPLE_RATE") or 24000,
@@ -181,6 +184,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
+        """Synthesize speech with this provider."""
         if not text or not text.strip():
             exception_message = "Text cannot be empty"
             raise ValueError(exception_message)

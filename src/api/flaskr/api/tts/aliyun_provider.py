@@ -1177,6 +1177,7 @@ class AliyunTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "aliyun"
 
     def _get_settings(self) -> tuple:

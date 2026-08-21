@@ -117,6 +117,7 @@ class BillingWebhookResult:
     order_no: str | None = None
 
     def to_response_dict(self) -> dict[str, Any]:
+        """Serialize this result for an API response."""
         payload = {
             "status": self.status,
             "event_type": self.event_type,

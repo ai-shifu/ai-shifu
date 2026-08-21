@@ -32,6 +32,7 @@ class EmailAuthProvider(AuthProvider):
     def send_challenge(
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
+        """Send an authentication challenge to the user."""
         response = send_email_code(
             app,
             request.identifier,
@@ -49,6 +50,7 @@ class EmailAuthProvider(AuthProvider):
         )
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+        """Verify the supplied authentication credential."""
         user_token, created_user, context = verify_email_code(
             app,
             request.metadata.get("user_id"),

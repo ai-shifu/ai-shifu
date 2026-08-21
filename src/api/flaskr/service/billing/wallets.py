@@ -89,6 +89,7 @@ class WalletSnapshotRecord:
     changed: bool
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "wallet_bid": self.wallet_bid,
             "creator_bid": self.creator_bid,
@@ -119,6 +120,7 @@ class WalletSnapshotRebuildResult:
     wallets: list[WalletSnapshotRecord] = field(default_factory=list)
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -146,6 +148,7 @@ class RefundReturnCreditsResult:
     ledger_bid: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -170,6 +173,7 @@ class WalletExpirationResult:
     expired_credits: int | float
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -202,6 +206,7 @@ class ExpireLedgerBucketDriftRecord:
     changed: bool
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "wallet_bid": self.wallet_bid,
@@ -234,6 +239,7 @@ class ExpireLedgerBucketDriftRepairResult:
     buckets: list[ExpireLedgerBucketDriftRecord] = field(default_factory=list)
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -271,6 +277,7 @@ class ExpiredCreditPackBucketRestoreRecord:
     ledger_bid: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "bill_order_bid": self.bill_order_bid,
             "creator_bid": self.creator_bid,
@@ -304,6 +311,7 @@ class ExpiredCreditPackBucketRestoreResult:
     buckets: list[ExpiredCreditPackBucketRestoreRecord] = field(default_factory=list)
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "bill_order_bids": list(self.bill_order_bids),
@@ -334,6 +342,7 @@ class ManualCreditGrantResult:
     metadata_json: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -364,6 +373,7 @@ class ReservedGrantRepairRecord:
     renewal_event_bids: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "creator_bid": self.creator_bid,
             "bill_order_bid": self.bill_order_bid,
@@ -409,6 +419,7 @@ class RenewalStateDriftRepairResult:
     )
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,

@@ -16,6 +16,7 @@ class BasePlugin:
         self.migration_dir = None  # plugin migration dir
 
     def on_load(self):
+        """Run plugin initialization after loading."""
         if self.migration_dir:
             self._run_migrations()
 

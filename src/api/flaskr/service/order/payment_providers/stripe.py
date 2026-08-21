@@ -36,6 +36,7 @@ class StripeProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         stripe, request_options = self._client_options(app)
         options: dict[str, Any] = request.extra or {}
         mode = (options.get("mode") or request.channel or "payment_intent").lower()
@@ -172,6 +173,7 @@ class StripeProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a recurring subscription through this provider."""
         options: dict[str, Any] = dict(request.extra or {})
         session_params = dict(options.get("session_params", {}) or {})
         session_params["mode"] = "subscription"
@@ -194,6 +196,7 @@ class StripeProvider(PaymentProvider):
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
+        """Cancel a recurring provider subscription."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
@@ -214,6 +217,7 @@ class StripeProvider(PaymentProvider):
     def resume_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
+        """Clear Stripe's scheduled cancellation for a subscription."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
@@ -234,22 +238,26 @@ class StripeProvider(PaymentProvider):
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
     ) -> dict[str, Any]:
+        """Retrieve a Stripe checkout session."""
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
+        """Retrieve a Stripe payment intent."""
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
         self, *, subscription_id: str, app: Flask
     ) -> dict[str, Any]:
+        """Retrieve a Stripe subscription."""
         stripe, request_options = self._client_options(app)
         return stripe.Subscription.retrieve(subscription_id, **request_options)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         stripe, _request_options = self._client_options(app)
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
         if not webhook_secret:
@@ -281,6 +289,7 @@ class StripeProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
+        """Apply a verified provider notification."""
         headers = dict(payload.get("headers", {}) or {})
         sig_header = payload.get("sig_header", "")
         if sig_header and "Stripe-Signature" not in headers:
@@ -294,6 +303,7 @@ class StripeProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Synchronize local state from a provider reference."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type in {"checkout_session", "session", "payment"}:
             session = self.retrieve_checkout_session(
@@ -350,6 +360,7 @@ class StripeProvider(PaymentProvider):
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
+        """Refund a payment through this provider."""
         stripe, request_options = self._client_options(app)
         params: dict[str, Any] = {}
         if request.amount is not None:
