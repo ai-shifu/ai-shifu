@@ -70,7 +70,8 @@ def parse_comments(cls):
 
                     if "#" in line:
                         comment = line.split("#", 1)[1].strip()
-                        comments[field_name] = comment
+                        if not comment.lower().startswith("noqa"):
+                            comments[field_name] = comment
                     elif item.value and isinstance(item.value, (ast.Str, ast.Constant)):
                         if isinstance(item.value, ast.Str):
                             comments[field_name] = item.value.s

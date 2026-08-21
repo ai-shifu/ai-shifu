@@ -151,6 +151,7 @@ def test_user_token_keeps_camel_case_wire_and_swagger_field() -> None:
     schema = swagger_config["components"]["schemas"]["UserToken"]
     assert list(schema["properties"]) == ["userInfo", "token"]
     assert schema["required"] == ["userInfo", "token"]
+    assert "description" not in schema["properties"]["userInfo"]
 
 
 @pytest.mark.parametrize(
