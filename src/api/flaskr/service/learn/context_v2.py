@@ -797,7 +797,7 @@ class RunScriptPreviewContextV2:
     """MarkdownFlow preview using context v2 logic with optional Redis caching."""
 
     def __init__(self, app: Flask) -> None:
-        """Initialize an isolated preview execution context."""
+        """Bind the preview execution context to the Flask app."""
         self.app = app
 
     def stream_preview(

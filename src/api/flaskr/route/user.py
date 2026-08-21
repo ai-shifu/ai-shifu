@@ -1233,6 +1233,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.add(pwd_cred)
             set_password_hash(pwd_cred, hash_password(new_password))
 
+        clear_password_login_identifier_failures(
+            app,
+            identifier=selected_identifier,
+        )
         db.session.commit()
         return make_common_response({"success": True})
 

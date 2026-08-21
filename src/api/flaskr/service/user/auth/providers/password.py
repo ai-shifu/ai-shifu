@@ -99,8 +99,10 @@ def _increment_counter(app: Flask, key: str, window_seconds: int) -> int:
         if not acquired:
             app.logger.warning("Password login failure counter lock is busy")
             raise_error("server.user.passwordLoginRateLimited")
-        next_count = _read_counter(app, key) + 1
-        shared_cache.set(key, next_count, ex=window_seconds)
+        if shared_cache.set(key, 1, ex=window_seconds, nx=True):
+            next_count = 1
+        else:
+            next_count = int(shared_cache.incr(key))
     except (RedisError, RuntimeError, TypeError, ValueError):
         app.logger.exception("Password login failure counter update failed")
         raise_error("server.user.passwordLoginRateLimited")

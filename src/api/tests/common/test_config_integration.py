@@ -221,7 +221,7 @@ class TestConfigurationExport:
 
         # Secret values should be empty in export
         lines = output.split("\n")
-        assert 'SECRET_KEY="ai-shifu"' in lines
+        assert 'SECRET_KEY=""' in lines
         assert (
             'SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"'
             in lines

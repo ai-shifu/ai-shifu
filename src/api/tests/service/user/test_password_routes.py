@@ -295,6 +295,45 @@ def test_password_login_throttles_one_ip_across_identifiers(
     assert still_blocked_body["code"] == _PASSWORD_LOGIN_RATE_LIMITED_CODE
 
 
+def test_password_login_failure_window_does_not_slide(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_redis_client: FakeRedis,
+) -> None:
+    """Expire accumulated failures from the first attempt in the window."""
+    clock = [1000.0]
+    monkeypatch.setattr(mock_redis_client, "_now", lambda: clock[0])
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT", 10)
+    monkeypatch.setitem(app.config, "PASSWORD_LOGIN_IP_FAILURE_LIMIT", 10)
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        _TEST_FAILURE_WINDOW_SECONDS,
+    )
+
+    payload = {"identifier": "fixed-window@example.com", "password": "wrong"}
+    _post_json(test_client, "/api/user/login_password", payload)
+    counter_keys = [
+        key
+        for key in mock_redis_client.stored_keys()
+        if "password_login_failure:" in key
+    ]
+    assert len(counter_keys) == _PASSWORD_COUNTER_KEY_COUNT
+    assert all(
+        mock_redis_client.ttl(key) == _TEST_FAILURE_WINDOW_SECONDS
+        for key in counter_keys
+    )
+
+    clock[0] += 100
+    _post_json(test_client, "/api/user/login_password", payload)
+
+    assert all(
+        mock_redis_client.ttl(key) == _TEST_FAILURE_WINDOW_SECONDS - 100
+        for key in counter_keys
+    )
+
+
 def test_password_login_blocks_when_failure_counter_lock_is_busy(
     test_client: FlaskClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -446,6 +485,54 @@ def test_password_reset_clears_identifier_failure_limit(
         test_client,
         "/api/user/login_password",
         {"identifier": phone, "password": new_password},
+    )
+    assert login.status_code == _HTTP_OK
+    assert login_body["code"] == 0
+
+
+def test_first_password_clears_identifier_failure_limit(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Restore password access after verified first-time password setup."""
+    phone = "15500002226"
+    password = "Abcd1234"
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IP_FAILURE_LIMIT",
+        _TEST_IP_FAILURE_LIMIT,
+    )
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+
+    for wrong_password in ("wrong-one", "wrong-two"):
+        _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": phone, "password": wrong_password},
+        )
+
+    created, created_body = _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": password},
+        headers={"Token": user_token.token},
+    )
+    assert created.status_code == _HTTP_OK
+    assert created_body["code"] == 0
+
+    login, login_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": phone, "password": password},
     )
     assert login.status_code == _HTTP_OK
     assert login_body["code"] == 0

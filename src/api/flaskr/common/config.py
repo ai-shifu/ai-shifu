@@ -833,17 +833,20 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
         required=True,
-        example="ai-shifu",
+        example="",
         description="""Secret key for JWT token signing and verification
 CRITICAL: Used to encrypt/decrypt user authentication tokens
 - Must be a strong random string (at least 32 characters recommended)
 - DO NOT change in production (will invalidate all user sessions)
 - Keep different values for dev/test/prod environments
+- The public demo value "ai-shifu" is rejected
 - Never commit to version control
 Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))" """,
         secret=True,
         group="auth",
-        validator=lambda value: bool(value and str(value).strip()),
+        validator=lambda value: bool(
+            value and str(value).strip() and str(value).strip() != "ai-shifu"
+        ),
     ),
     "TOKEN_EXPIRE_TIME": EnvVar(
         name="TOKEN_EXPIRE_TIME",
@@ -912,7 +915,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
         default=900,
         type=int,
-        description="Sliding window for failed password login counters in seconds",
+        description="Fixed window for failed password login counters in seconds",
         group="auth",
         validator=lambda value: int(value) >= 1,
     ),
@@ -1822,7 +1825,7 @@ class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
     def __init__(self, env_vars: dict[str, EnvVar]) -> None:
-        """Load and validate the declared environment variables."""
+        """Register environment declarations with an empty, unvalidated cache."""
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
@@ -2140,7 +2143,7 @@ class Config(FlaskConfig):
     def __init__(
         self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
     ) -> None:
-        """Build Flask configuration from defaults and environment variables."""
+        """Bind parent and environment config, then populate Redis prefixes."""
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__

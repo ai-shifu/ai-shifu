@@ -2,15 +2,9 @@ name: Backend Tests
 
 on:
   pull_request:
-    paths:
-      - "src/api/**"
-      - ".github/workflows/backend-tests.yml"
   push:
     branches:
       - main
-    paths:
-      - "src/api/**"
-      - ".github/workflows/backend-tests.yml"
   workflow_dispatch:
 
 permissions:
@@ -33,7 +27,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Detect backend changes
+        id: backend-changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/backend-changed-files.txt
+          if grep -Eq '^(\.github/workflows/backend-tests\.yml$|src/api/)' /tmp/backend-changed-files.txt; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Python
+        if: steps.backend-changes.outputs.run == 'true'
         uses: actions/setup-python@v6
         with:
           # testmon invalidates its database when the Python patch version
@@ -45,6 +60,7 @@ jobs:
             src/api/requirements-ci.txt
 
       - name: Resolve testmon cache lineage
+        if: steps.backend-changes.outputs.run == 'true'
         id: testmon-cache
         shell: bash
         env:
@@ -64,6 +80,7 @@ jobs:
           echo "previous-sha=$previous_sha" >> "$GITHUB_OUTPUT"
 
       - name: Restore testmon cache
+        if: steps.backend-changes.outputs.run == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -80,15 +97,17 @@ jobs:
             testmon-${{ runner.os }}-py${{ env.BACKEND_PYTHON_VERSION }}-
 
       - name: Install dependencies
+        if: steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
         run: python -m pip install -r requirements-ci.txt
 
       - name: Run contract tests
+        if: steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
         run: python -m pytest tests/contract -v --tb=short
 
       - name: Select test targets (PR only)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run == 'true'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -247,13 +266,18 @@ jobs:
                   summary.write(f"- Targets: `{targets_list}`\n")
           PY
 
+      - name: Skip backend tests (unrelated pull request)
+        if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run != 'true'
+        run: |
+          echo "Skipping backend setup and tests because this pull request has no backend changes."
+
       - name: Skip backend tests (PR control-plane only)
-        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS == '1'
+        if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run == 'true' && env.SKIP_BACKEND_TESTS == '1'
         run: |
           echo "Skipping backend tests because the PR only changed backend control-plane or tooling files."
 
       - name: Run tests (PR incremental)
-        if: github.event_name == 'pull_request' && env.SKIP_BACKEND_TESTS != '1'
+        if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run == 'true' && env.SKIP_BACKEND_TESTS != '1'
         working-directory: src/api
         run: |
           python -m pytest --testmon $TEST_TARGETS

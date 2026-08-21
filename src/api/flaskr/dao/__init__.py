@@ -84,6 +84,13 @@ def set_redis_client(client: Redis | None) -> None:
     _redis_state.client = client
 
 
+def __getattr__(name: str) -> Redis | None:
+    """Expose the owned Redis client to plugins using the legacy import name."""
+    if name == "redis_client":
+        return get_redis_client()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
     """Return True when the DBAPI connection's socket has readable bytes.
 

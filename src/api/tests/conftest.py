@@ -239,6 +239,7 @@ def isolate_env_for_non_app_tests(request):
     # reflects per-test env changes.
     from flaskr.common import config as config_module
 
+    original_config_instance = config_module.Config._instance
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
     with contextlib.suppress(Exception):
@@ -256,3 +257,4 @@ def isolate_env_for_non_app_tests(request):
     with contextlib.suppress(Exception):
         if config_module.Config._instance is not None:
             config_module.Config._instance.enhanced._cache.clear()
+    config_module.Config._instance = original_config_instance
