@@ -60,7 +60,7 @@ class CacheProvider(Protocol):
         raise NotImplementedError
 
     def ttl(self, key: str) -> int:
-        """Return the remaining lifetime of a cache key."""
+        """Return TTL seconds, -2 for missing keys, or -1 when no expiry exists."""
         raise NotImplementedError
 
     def lock(
