@@ -35,7 +35,7 @@ _ACTIVE_PREORDER_STATES = {PREORDER_STATE_PENDING_EFFECTIVE}
 _ACTIVE_PREORDER_ORDER_STATUSES = {BILLING_ORDER_STATUS_PAID}
 
 
-def normalize_checkout_action(value: Any) -> str:
+def normalize_checkout_action(value: object) -> str:
     """Normalize checkout action."""
     return str(value or CHECKOUT_ACTION_UPGRADE_IMMEDIATE).strip().lower()
 

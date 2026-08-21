@@ -69,7 +69,7 @@ class ListenElementRunStreamMixin:
     """Provide streaming operations for listen-mode element runs."""
 
     @staticmethod
-    def _normalize_live_audio_position(position: Any) -> int:
+    def _normalize_live_audio_position(position: object) -> int:
         try:
             return max(int(position or 0), 0)
         except (TypeError, ValueError):
@@ -335,7 +335,7 @@ class ListenElementRunStreamMixin:
         state: BlockState,
         *,
         position: int,
-        stream_element_number: Any = None,
+        stream_element_number: object = None,
         stream_element_type: str | None = None,
     ) -> str | None:
         existing_target = state.audio_target_element_bid_by_position.get(position)

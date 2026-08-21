@@ -4,7 +4,6 @@ import hashlib
 from importlib import import_module
 from io import BytesIO
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 from cryptography.fernet import Fernet
@@ -696,7 +695,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch) -> None
     """A deployment can ship the plugin package without configuring its database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points at an unreachable host, so customization reads must not touch it."""
 
     class _ExplodingModule:
-        def __getattr__(self, name) -> Any:
+        def __getattr__(self, name) -> object:
             message = "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
             raise AssertionError(message)
 

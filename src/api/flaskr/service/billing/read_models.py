@@ -1184,7 +1184,7 @@ def _is_independent_entitlement_row(row) -> bool:
     )
 
 
-def _payload_bool(value: Any) -> bool:
+def _payload_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     normalized = str(value or "").strip().lower()
@@ -1215,8 +1215,8 @@ def build_operator_credit_orders_page(
     status: str = "",
     has_available_credits: bool = False,
     payment_provider: str = "",
-    start_time: Any = "",
-    end_time: Any = "",
+    start_time: object = "",
+    end_time: object = "",
 ) -> OperatorCreditOrdersPageDTO:
     """Return paginated operator-facing creator credit orders."""
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)

@@ -277,7 +277,7 @@ def _looks_like_subtitle_item(value: dict[str, Any]) -> bool:
     )
 
 
-def _collect_subtitle_items(value: Any) -> list[dict[str, Any]]:
+def _collect_subtitle_items(value: object) -> list[dict[str, Any]]:
     if isinstance(value, list):
         return [item for item in value if isinstance(item, dict)]
     if isinstance(value, dict):

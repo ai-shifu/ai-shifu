@@ -604,6 +604,19 @@ and type-import scaffolding. Applied Alembic revisions are immutable, including
 private migration helpers; keep only the exact migration-history exception and
 annotate every new or otherwise mutable private callable.
 
+For `ANN401`, do not let `Any` erase a function boundary's type contract.
+Prefer the concrete protocol, DTO, model, scalar, or collection type that the
+callable actually accepts or returns. At a genuinely heterogeneous JSON, SDK,
+ORM, decorator, compatibility, or test-double boundary, annotate the unknown
+value as `object` (or `object | None` when absence is distinct) and narrow it
+with the existing parser, validator, protocol check, or `isinstance` branch
+before using type-specific operations. This is intentionally stricter than
+`Any`: it makes the uncertainty visible to each consumer. Do not hide `Any`
+behind an alias, combine a known type with `Any` (the union still means
+`Any`), or use an unchecked cast merely to satisfy Ruff. Preserve applied
+Alembic history with an exact-file exception; all mutable function annotations
+must follow the typed-boundary contract.
+
 For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
 adding `noqa`, or turning the same promise into an untracked prose comment.
 Complete the work when it is part of the current change. When it genuinely

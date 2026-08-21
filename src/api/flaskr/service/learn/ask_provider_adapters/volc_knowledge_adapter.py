@@ -47,7 +47,7 @@ def _normalize_query(params: dict[str, Any] | None) -> str:
     return "&".join(encoded_parts)
 
 
-def _normalize_header_value(value: Any) -> str:
+def _normalize_header_value(value: object) -> str:
     return " ".join(str(value).strip().split())
 
 
@@ -113,7 +113,7 @@ def _build_volc_signature_headers(
     }
 
 
-def _to_positive_int(value: Any, default: int) -> int:
+def _to_positive_int(value: object, default: int) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -124,7 +124,7 @@ def _to_positive_int(value: Any, default: int) -> int:
 
 
 def _normalize_pre_processing(
-    config_value: Any, user_query: str
+    config_value: object, user_query: str
 ) -> dict[str, Any] | None:
     if not isinstance(config_value, dict):
         return None
@@ -150,11 +150,11 @@ def _normalize_pre_processing(
     return pre_processing
 
 
-def _collect_text_chunks(payload: Any) -> list[str]:
+def _collect_text_chunks(payload: object) -> list[str]:
     chunks: list[str] = []
     seen: set[str] = set()
 
-    def _append(value: Any) -> None:
+    def _append(value: object) -> None:
         text = extract_text(value)
         if text and text not in seen:
             seen.add(text)

@@ -86,7 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def json_safe(value: Any) -> Any:
+def json_safe(value: object) -> object:
     """Convert a probe value to a JSON-compatible scalar."""
     if isinstance(value, datetime):
         return value.isoformat()
@@ -95,12 +95,12 @@ def json_safe(value: Any) -> Any:
     return value
 
 
-def row_to_dict(row: Any) -> dict[str, Any]:
+def row_to_dict(row: object) -> dict[str, Any]:
     """Convert a database result row to a dictionary."""
     return {key: json_safe(value) for key, value in dict(row).items()}
 
 
-def table_has_columns(inspector: Any, table_name: str, columns: set[str]) -> bool:
+def table_has_columns(inspector: object, table_name: str, columns: set[str]) -> bool:
     """Return whether a database table exposes every required column."""
     if table_name not in set(inspector.get_table_names()):
         return False
@@ -140,7 +140,7 @@ def rows_probe(
     }
 
 
-def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+def execute_rows(db: object, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
     """Execute rows."""
     statement = text(sql)
     decimal_params = [
@@ -155,8 +155,8 @@ def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, An
 
 
 def probe_usage_ledger(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
@@ -218,8 +218,8 @@ def probe_usage_ledger(
 
 
 def probe_wallet_snapshot(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
@@ -357,8 +357,8 @@ def probe_wallet_snapshot(
 
 
 def probe_bucket_expiration(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
@@ -421,8 +421,8 @@ def probe_bucket_expiration(
 
 
 def probe_model_override_inventory(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
@@ -500,8 +500,8 @@ def probe_model_override_inventory(
 
 
 def probe_sms_send_failures(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
@@ -542,8 +542,8 @@ def probe_sms_send_failures(
 
 
 def probe_notification_template_sync(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,

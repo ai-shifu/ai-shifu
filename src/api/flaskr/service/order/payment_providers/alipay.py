@@ -161,7 +161,7 @@ class AlipayProvider(PaymentProvider):
         message = "Alipay refunds are not supported"
         raise RuntimeError(message)
 
-    def _ensure_client(self, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> object:
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
@@ -280,7 +280,7 @@ def _format_cny_amount(amount: int) -> str:
     return format(yuan, "f")
 
 
-def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, Any]:
+def _parse_alipay_response(raw_response: object, response_key: str) -> dict[str, Any]:
     if hasattr(raw_response, "to_dict"):
         raw_response = raw_response.to_dict()
     if isinstance(raw_response, str):

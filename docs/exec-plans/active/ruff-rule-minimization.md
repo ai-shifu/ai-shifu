@@ -839,6 +839,38 @@ plan's progress update for that rule.
   audit.
 - [x] 2026-08-21 17:00 CST: Pinned Ruff 0.16.3 development-tool validation and
   every repository pre-commit hook pass across all files.
+- [x] 2026-08-21 17:08 CST: Ready ISC004 PR
+  [#2618](https://github.com/ai-shifu/ai-shifu/pull/2618) passed every GitHub
+  check, including the 3,032-test backend job and runtime harness. Selected
+  ANN401 next because it makes the uncertainty at the recently annotated
+  function boundaries explicit without changing executable behavior.
+- [x] 2026-08-21 17:27 CST: Enabled ANN401 and replaced all 489 mutable
+  function-boundary `Any` annotations across 109 Python files. Stable
+  contracts use their existing concrete annotations; genuinely heterogeneous
+  JSON, SDK, ORM, decorator, compatibility, and test-double values now use
+  `object` or `object | None`, requiring consumers to narrow them before
+  type-specific use. No alias, cast, or suppression hides mutable `Any` debt.
+- [x] 2026-08-21 17:27 CST: Retained the one pre-existing ANN401 finding in
+  exact applied migration
+  `0a7c4d8e9f12_backfill_billing_product_plan_tier.py`, with no migration-history
+  edits. A semantic audit accounts for 437 `Any` to `object`, 40 `Any | None`
+  to `object | None`, ten `Decimal | Any` to `object`, and two
+  `Decimal | Any | None` to `object | None` rewrites; after normalizing those
+  annotations and 28 removed `typing.Any` imports, all 109 executable ASTs
+  match the ISC004 parent.
+- [x] 2026-08-21 17:27 CST: The root trace harness test and 13 focused backend
+  observability, API golden, and Redis-contract tests pass. The complete
+  backend suite passes 3,032 tests with 17 skips and 733 existing warnings.
+  Configured ANN401, repository Ruff, and format pass. The stable census falls
+  from 19,038 to 18,553 and the isolated census falls from 33,171 to 32,687:
+  all 490 parent ANN401 findings disappear from the stable view, the isolated
+  view exposes only the immutable migration helper, and formatter-owned
+  COM812 rises by five where longer `object` signatures wrap.
+- [x] 2026-08-21 17:30 CST: Regenerated all 83 collaboration documents and six
+  repository knowledge documents with no generated-file drift, then passed
+  translation validation, the repository harness, architecture boundary
+  ratchet, compile checks, pinned Ruff 0.16.3 development-tool validation, and
+  every repository pre-commit hook across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1410,6 +1442,22 @@ The complete backend suite passes 3,032 tests with 17 skips, and repository
 generation, harness, architecture, translation, compile, Ruff, and format
 checks pass. Pinned development-tool validation and every repository
 pre-commit hook also pass.
+
+The ANN401 stage removes dynamically typed function annotations from every
+mutable boundary: 489 annotations across 109 production, contributor-tool, and
+test files now use `object` or `object | None` when the incoming JSON, SDK, ORM,
+decorator, compatibility, or test-double value is genuinely heterogeneous.
+This preserves the accepted runtime values while requiring future consumers to
+narrow the unknown value before type-specific use. One exact exception protects
+an applied migration and no migration file changes. A semantic audit accounts
+for every annotation and removed `typing.Any` import, then matches all 109
+executable ASTs to the ISC004 parent. Configured ANN401 is clean; the stable
+census falls to 18,553 and the isolated census to 32,687, where only the
+immutable migration finding remains. Five formatter-conflicting COM812 findings
+appear where the longer built-in annotation wraps a signature. The directly
+affected script and backend contract tests and the complete 3,032-test backend
+suite pass. Repository generation, harness, architecture, translation,
+compile, Ruff, format, development-tool, and pre-commit gates also pass.
 
 ## Context and Orientation
 

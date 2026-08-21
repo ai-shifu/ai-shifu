@@ -24,7 +24,7 @@ def build_completed_audio_record(
     oss_object_key: str,
     duration_ms: int,
     file_size: int,
-    voice_settings: Any,
+    voice_settings: object,
     tts_model: str,
     text_length: int,
     segment_count: int,

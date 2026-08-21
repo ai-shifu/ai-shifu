@@ -204,7 +204,7 @@ class ProviderReferenceReconcileResult:
             "payment_provider": self.payment_provider,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -1751,11 +1751,11 @@ def _persist_billing_stripe_raw_snapshot(
     order: BillingOrder,
     *,
     create_if_missing: bool,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     checkout_session_id: str = "",
-    checkout_object: Any | None = None,
+    checkout_object: object | None = None,
     payment_intent_id: str = "",
-    payment_object: Any | None = None,
+    payment_object: object | None = None,
     latest_charge_id: str = "",
     receipt_url: str = "",
     payment_method: str = "",
@@ -1795,14 +1795,14 @@ def _persist_billing_pingxx_raw_snapshot(
     *,
     create_if_missing: bool,
     charge_id: str = "",
-    charge_object: Any | None = None,
+    charge_object: object | None = None,
     transaction_no: str = "",
     app_id: str = "",
     channel: str = "",
     subject: str = "",
     body: str = "",
     client_ip: str = "",
-    extra: Any | None = None,
+    extra: object | None = None,
 ) -> None:
     raw_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
         int(order.status or BILLING_ORDER_STATUS_INIT), 0
@@ -1843,10 +1843,10 @@ def _persist_billing_native_raw_snapshot(
     transaction_id: str = "",
     raw_status: str = "",
     raw_snapshot_status: int | None = None,
-    raw_request: Any | None = None,
-    raw_response: Any | None = None,
-    raw_notification: Any | None = None,
-    metadata: Any | None = None,
+    raw_request: object | None = None,
+    raw_response: object | None = None,
+    raw_notification: object | None = None,
+    metadata: object | None = None,
 ) -> None:
     resolved_raw_snapshot_status = (
         int(raw_snapshot_status)
@@ -1956,7 +1956,7 @@ def _interpolate_checkout_product_name(
     )
 
 
-def _format_checkout_credit_amount(amount: Any) -> str:
+def _format_checkout_credit_amount(amount: object) -> str:
     credit_amount = _to_decimal(amount)
     if credit_amount == credit_amount.to_integral_value():
         return str(int(credit_amount))

@@ -479,7 +479,7 @@ def _expected_plan_tier_metadata(product: BillingProduct) -> str:
     return ""
 
 
-def _product_type_label(value: Any) -> str:
+def _product_type_label(value: object) -> str:
     return BILLING_PRODUCT_TYPE_LABELS.get(int(value or 0), "")
 
 
@@ -489,11 +489,11 @@ def _expected_price_billing_interval_metadata(product: BillingProduct) -> str:
     return _billing_interval_label(product.billing_interval)
 
 
-def _billing_interval_label(value: Any) -> str:
+def _billing_interval_label(value: object) -> str:
     return BILLING_INTERVAL_LABELS.get(int(value or BILLING_INTERVAL_NONE), "")
 
 
-def _format_metadata_decimal(value: Any) -> str:
+def _format_metadata_decimal(value: object) -> str:
     try:
         normalized = to_decimal(value)
     except (InvalidOperation, ValueError):
@@ -503,7 +503,7 @@ def _format_metadata_decimal(value: Any) -> str:
     return format(normalized.normalize(), "f").rstrip("0").rstrip(".")
 
 
-def _normalize_metadata_compare_value(value: Any) -> str:
+def _normalize_metadata_compare_value(value: object) -> str:
     if isinstance(value, Decimal):
         return _format_metadata_decimal(value)
     text = str(value or "").strip()
@@ -576,7 +576,7 @@ def _normalize_stripe_price(payload: dict[str, Any]) -> ProviderPriceSnapshot:
     )
 
 
-def _normalize_stripe_reference_id(value: Any) -> str:
+def _normalize_stripe_reference_id(value: object) -> str:
     if isinstance(value, dict):
         return str(value.get("id") or "").strip()
     if hasattr(value, "to_dict"):
@@ -584,12 +584,12 @@ def _normalize_stripe_reference_id(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _normalize_metadata(value: Any) -> dict[str, Any]:
+def _normalize_metadata(value: object) -> dict[str, Any]:
     payload = _to_plain_dict(value or {})
     return payload if isinstance(payload, dict) else {}
 
 
-def _to_plain_dict(value: Any) -> dict[str, Any]:
+def _to_plain_dict(value: object) -> dict[str, Any]:
     if hasattr(value, "to_dict"):
         value = value.to_dict()
     elif hasattr(value, "to_dict_recursive"):
@@ -599,7 +599,7 @@ def _to_plain_dict(value: Any) -> dict[str, Any]:
     return {}
 
 
-def _coerce_optional_bool(value: Any) -> bool | None:
+def _coerce_optional_bool(value: object) -> bool | None:
     if value is None:
         return None
     return bool(value)

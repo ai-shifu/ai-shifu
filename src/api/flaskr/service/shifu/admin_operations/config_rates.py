@@ -75,7 +75,7 @@ def _rate_effective_now() -> datetime:
     return now_utc().replace(microsecond=0)
 
 
-def _decimal(value: Any, *, field_name: str) -> Decimal:
+def _decimal(value: object, *, field_name: str) -> Decimal:
     try:
         result = Decimal(str(value).strip())
     except (InvalidOperation, AttributeError, TypeError, ValueError):
@@ -557,7 +557,7 @@ def get_operator_rate_config(app: Flask) -> dict[str, Any]:
         }
 
 
-def _normalize_usage_type(value: Any) -> int:
+def _normalize_usage_type(value: object) -> int:
     if isinstance(value, str):
         normalized = value.strip().lower()
         if normalized in _USAGE_TYPE_CODES:
@@ -571,7 +571,7 @@ def _normalize_usage_type(value: Any) -> int:
     return numeric
 
 
-def _normalize_metric(value: Any, *, usage_type: int) -> int:
+def _normalize_metric(value: object, *, usage_type: int) -> int:
     if isinstance(value, str):
         normalized = value.strip()
         if normalized in _METRIC_CODES:

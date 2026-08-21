@@ -242,7 +242,7 @@ class TencentTTSError(ValueError):
     def __init__(
         self,
         *,
-        code: Any,
+        code: object,
         message: str = "",
         request_id: str = "",
         message_id: str = "",
@@ -260,7 +260,7 @@ class TencentTTSError(ValueError):
         self.message_id = message_id
 
 
-def _tencent_codec(value: Any = None) -> str:
+def _tencent_codec(value: object = None) -> str:
     codec = str(value or TENCENT_DEFAULT_CODEC).lower()
     if codec != TENCENT_DEFAULT_CODEC:
         logger.warning(
@@ -309,7 +309,7 @@ def _export_tencent_pcm_to_mp3(audio_data: bytes, *, sample_rate: int) -> bytes:
     return output.getvalue()
 
 
-def _coerce_app_id(app_id: Any) -> int:
+def _coerce_app_id(app_id: object) -> int:
     try:
         return int(app_id)
     except (TypeError, ValueError) as exc:
@@ -321,7 +321,7 @@ def _clamp_float(value: float, minimum: float, maximum: float) -> float:
     return min(max(float(value), minimum), maximum)
 
 
-def _tencent_flow_speed(value: Any) -> float:
+def _tencent_flow_speed(value: object) -> float:
     try:
         legacy_speed = float(value or 0)
     except (TypeError, ValueError):
@@ -333,7 +333,7 @@ def _tencent_flow_speed(value: Any) -> float:
     return round(_clamp_float(mapped, 0.5, 2.0), 2)
 
 
-def _tencent_flow_volume(value: Any) -> float:
+def _tencent_flow_volume(value: object) -> float:
     try:
         volume = float(value or 0)
     except (TypeError, ValueError):
@@ -351,7 +351,7 @@ def _tencent_voice_language(voice_id: str) -> str:
     return "zh"
 
 
-def _normalize_tencent_voice_id(voice_id: Any) -> str:
+def _normalize_tencent_voice_id(voice_id: object) -> str:
     normalized_voice_id = str(voice_id or "").strip()
     if not normalized_voice_id:
         return TENCENT_DEFAULT_VOICE_ID
@@ -366,7 +366,7 @@ def _resolve_tencent_model(model: str | None, emotion: str = "") -> str:
     return TENCENT_DEFAULT_MODEL
 
 
-def _normalize_tencent_emotion(emotion: Any) -> str:
+def _normalize_tencent_emotion(emotion: object) -> str:
     normalized = str(emotion or "").strip()
     emotion_aliases = {
         "fear": "fearful",
@@ -384,7 +384,7 @@ def _normalize_tencent_emotion(emotion: Any) -> str:
 
 def build_tencent_sse_payload(
     *,
-    app_id: Any,
+    app_id: object,
     text: str,
     voice_settings: VoiceSettings,
     audio_settings: AudioSettings,
@@ -960,14 +960,14 @@ def _group_tencent_subtitle_cues_by_sentence(
     return normalize_subtitle_cues(grouped)
 
 
-def _coerce_int(value: Any, default: int = 0) -> int:
+def _coerce_int(value: object, default: int = 0) -> int:
     try:
         return int(value)
     except (TypeError, ValueError):
         return int(default or 0)
 
 
-def _coerce_bool(value: Any) -> bool:
+def _coerce_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if value is None:
@@ -977,14 +977,14 @@ def _coerce_bool(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
-def _get_first_present(payload: dict[str, Any], *keys: str) -> Any:
+def _get_first_present(payload: dict[str, Any], *keys: str) -> object:
     for key in keys:
         if key in payload:
             return payload.get(key)
     return None
 
 
-def _is_nonzero_tencent_code(value: Any) -> bool:
+def _is_nonzero_tencent_code(value: object) -> bool:
     if value is None:
         return False
     if isinstance(value, (int, float)):
@@ -1000,7 +1000,7 @@ def _unwrap_tencent_sse_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _decode_tencent_sse_line(raw_line: Any) -> str:
+def _decode_tencent_sse_line(raw_line: object) -> str:
     if isinstance(raw_line, bytes):
         return raw_line.decode("utf-8", errors="replace").strip()
     return str(raw_line or "").strip()

@@ -33,7 +33,9 @@ def _is_sensitive_provider_config_key(key: str) -> bool:
     return normalized.endswith(("_key", "_secret", "_token", "_password"))
 
 
-def sanitize_provider_config_for_langfuse(value: Any, key: str | None = None) -> Any:
+def sanitize_provider_config_for_langfuse(
+    value: object, key: str | None = None
+) -> object:
     """Redact provider secrets before recording configuration in Langfuse."""
     if key and _is_sensitive_provider_config_key(key):
         return "[REDACTED]"
@@ -83,7 +85,7 @@ def _build_provider_generation_metadata(
 def stream_provider_with_langfuse(
     *,
     provider_stream: Iterable[Any],
-    span: Any,
+    span: object,
     app: Flask | None,
     provider_name: str,
     generation_name: str,

@@ -73,7 +73,7 @@ _DOMAIN_BINDING_STATUS_CODES_BY_LABEL = {
 }
 
 
-def normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
+def normalize_stat_date_filter(value: object, *, parameter_name: str) -> str:
     """Normalize stat date filter."""
     normalized_value = normalize_bid(value)
     if not normalized_value:
@@ -85,7 +85,7 @@ def normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
     return normalized_value
 
 
-def normalize_payment_provider_hint(value: Any) -> str:
+def normalize_payment_provider_hint(value: object) -> str:
     """Normalize payment provider hint."""
     provider = str(value or "").strip().lower()
     if not provider:
@@ -148,7 +148,7 @@ def load_latest_subscription_renewal_order(
     ).first()
 
 
-def extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def extract_order_metadata_datetime(metadata: object, key: str) -> datetime | None:
     """Extract order metadata datetime."""
     if not isinstance(metadata, dict):
         return None
@@ -162,7 +162,7 @@ def serialize_order_metadata_datetime(value: datetime | None) -> str | None:
     return value.isoformat()
 
 
-def extract_resolved_order_cycle_start_at(metadata: Any) -> datetime | None:
+def extract_resolved_order_cycle_start_at(metadata: object) -> datetime | None:
     """Extract resolved order cycle start at."""
     return extract_order_metadata_datetime(
         metadata,
@@ -170,7 +170,7 @@ def extract_resolved_order_cycle_start_at(metadata: Any) -> datetime | None:
     ) or extract_order_metadata_datetime(metadata, "renewal_cycle_start_at")
 
 
-def extract_resolved_order_cycle_end_at(metadata: Any) -> datetime | None:
+def extract_resolved_order_cycle_end_at(metadata: object) -> datetime | None:
     """Extract resolved order cycle end at."""
     return extract_order_metadata_datetime(
         metadata,

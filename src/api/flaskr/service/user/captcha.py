@@ -65,7 +65,7 @@ def _normalize_code(value: str | None) -> str:
     return str(value or "").strip().upper()
 
 
-def _decode_cache_value(value: Any) -> str | None:
+def _decode_cache_value(value: object) -> str | None:
     if value is None:
         return None
     if isinstance(value, bytes):

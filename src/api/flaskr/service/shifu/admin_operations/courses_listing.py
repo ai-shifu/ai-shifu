@@ -1055,11 +1055,11 @@ def _find_operator_course_bids_by_name(course_name: str) -> set[str]:
 
 
 def _build_operator_course_query_filter(
-    shifu_bid_column: Any,
+    shifu_bid_column: object,
     course_query: str,
     *,
     matching_course_bids: set[str] | None = None,
-) -> Any | None:
+) -> object | None:
     normalized_course_query = str(course_query or "").strip()
     if not normalized_course_query:
         return None

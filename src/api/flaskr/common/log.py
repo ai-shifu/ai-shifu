@@ -8,7 +8,6 @@ import uuid
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 import colorlog
 import pytz
@@ -36,7 +35,7 @@ class AppLoggerProxy:
         except Exception:
             return self._fallback
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Delegate attribute access to the active application logger."""
         return getattr(self._resolve(), name)
 

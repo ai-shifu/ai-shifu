@@ -66,7 +66,7 @@ def _serialize_decimal(value: Decimal | None) -> str | None:
     return str(value) if value is not None else None
 
 
-def _user_bid_or_identifier_filter(column: Any, value: str) -> Any:
+def _user_bid_or_identifier_filter(column: object, value: str) -> object:
     normalized = _normalize_text(value)
     candidates = {normalized}
     phone_normalized = normalize_phone_identifier(normalized)

@@ -78,7 +78,7 @@ def resolve_runtime_credit_bucket_category(
     bucket_category: int | None = None,
     source_type: int | None = None,
     source_bid: str = "",
-    metadata: Any | None = None,
+    metadata: object | None = None,
     load_order_type: OrderTypeLoader | None = None,
 ) -> int:
     """Resolve runtime credit bucket category."""
@@ -184,7 +184,7 @@ def load_billing_order_type_by_bid(bill_order_bid: str) -> int | None:
 
 def _resolve_refund_bucket_category(
     *,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     load_order_type: OrderTypeLoader | None = None,
 ) -> int:
     return resolve_bucket_category_from_order_type(
@@ -198,7 +198,7 @@ def _resolve_refund_bucket_category(
 def _resolve_gift_bucket_category(
     *,
     source_bid: str,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     load_order_type: OrderTypeLoader | None = None,
 ) -> int:
     normalized_source_bid = _normalize_bid(source_bid)
@@ -225,7 +225,7 @@ def _resolve_gift_bucket_category(
 
 def _resolve_origin_order_type(
     *,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     load_order_type: OrderTypeLoader | None = None,
 ) -> int | None:
     metadata_map = _normalize_json_object(metadata)
@@ -263,7 +263,7 @@ def _resolve_bucket_category_hint(metadata: dict[str, Any]) -> int | None:
     return None
 
 
-def _parse_order_type(value: Any) -> int | None:
+def _parse_order_type(value: object) -> int | None:
     if isinstance(value, bool) or value in (None, ""):
         return None
     if isinstance(value, (int, float)):
@@ -277,7 +277,7 @@ def _parse_order_type(value: Any) -> int | None:
     return _ORDER_TYPE_BY_LABEL.get(normalized_value)
 
 
-def _parse_bucket_category(value: Any) -> int | None:
+def _parse_bucket_category(value: object) -> int | None:
     if isinstance(value, bool) or value in (None, ""):
         return None
     if isinstance(value, (int, float)):

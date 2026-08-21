@@ -117,11 +117,11 @@ def read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     return payload, None
 
 
-def collect_request_ids(value: Any) -> list[str]:
+def collect_request_ids(value: object) -> list[str]:
     """Collect request IDs."""
     found: list[str] = []
 
-    def visit(node: Any) -> None:
+    def visit(node: object) -> None:
         if isinstance(node, dict):
             for key, child in node.items():
                 normalized_key = str(key).replace("_", "").replace("-", "").lower()

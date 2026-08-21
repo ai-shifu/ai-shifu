@@ -89,7 +89,7 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     }
 
 
-def _normalize_submitted_variables(raw_variables: Any) -> dict[str, str]:
+def _normalize_submitted_variables(raw_variables: object) -> dict[str, str]:
     if raw_variables is None:
         return {}
     if not isinstance(raw_variables, dict):

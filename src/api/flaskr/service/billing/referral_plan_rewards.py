@@ -204,7 +204,7 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     )
 
 
-def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def _extract_order_metadata_datetime(metadata: object, key: str) -> datetime | None:
     from .queries import extract_order_metadata_datetime
 
     return extract_order_metadata_datetime(metadata, key)

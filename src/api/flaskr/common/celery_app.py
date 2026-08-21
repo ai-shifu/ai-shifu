@@ -66,7 +66,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     resolved_flask_app = flask_app or _load_flask_app()
 
     @worker_process_init.connect(weak=False)
-    def _dispose_db_pools_after_fork(**_kwargs: Any) -> None:
+    def _dispose_db_pools_after_fork(**_kwargs: object) -> None:
         try:
             dispose_inherited_db_pools(resolved_flask_app)
         except Exception:  # pragma: no cover - never kill a booting worker
@@ -77,7 +77,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     class FlaskTask(Task):
         abstract = True
 
-        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        def __call__(self, *args: object, **kwargs: object) -> object:
             with resolved_flask_app.app_context():
                 return self.run(*args, **kwargs)
 
@@ -255,7 +255,7 @@ def _register_default_tasks() -> None:
     importlib.import_module("flaskr.service.billing.tasks")
 
 
-def _to_bool(value: Any) -> bool:
+def _to_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):

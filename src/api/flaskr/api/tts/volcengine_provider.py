@@ -45,7 +45,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
 
 
-def _timestamp_seconds_to_ms(value: Any) -> int:
+def _timestamp_seconds_to_ms(value: object) -> int:
     try:
         return max(round(float(value) * 1000), 0)
     except (TypeError, ValueError):
@@ -103,7 +103,7 @@ def _volcengine_words_to_sentence_cue(
 
 
 def _extract_volcengine_subtitle_cues(
-    payload: Any,
+    payload: object,
     *,
     segment_index: int = 0,
 ) -> list[dict[str, Any]]:

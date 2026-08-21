@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN002/ANN003/ANN201/ANN202/ANN204/ANN205/ANN206, see `select`) / SLF001 /
+# - ANN (except ANN002/ANN003/ANN201/ANN202/ANN204/ANN205/ANN206/ANN401, see `select`) / SLF001 /
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
@@ -198,6 +198,11 @@ select = [
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+    # Unknown values enter through JSON, SDK, ORM, decorator, and test-double
+    # boundaries as `object`, which forces consumers to narrow them before use.
+    # Prefer a concrete protocol, DTO, model, or collection type whenever the
+    # boundary has a stable contract; do not disguise `Any` behind an alias.
+    "ANN401",  # dynamically typed function annotations
 
     # --- Boolean arguments ------------------------------------------------
     # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
@@ -276,6 +281,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # Applied revision hooks are immutable public functions. New revisions inherit
 # Alembic's `upgrade` / `downgrade` contract instead of rewriting history.
 "src/api/migrations/versions/**" = ["ANN201"]
+# This applied backfill's value normalizer predates the typed-boundary policy.
+"src/api/migrations/versions/0a7c4d8e9f12_backfill_billing_product_plan_tier.py" = ["ANN401"]
 # This applied revision's private server-default helper is also immutable.
 "src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ANN202"]
 # This applied no-op revision keeps a legacy `NOTE:` section in its module

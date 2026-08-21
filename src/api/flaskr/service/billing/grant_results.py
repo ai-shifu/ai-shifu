@@ -41,7 +41,7 @@ class ManualCreditGrantResult:
             "metadata_json": self.metadata_json,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 

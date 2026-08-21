@@ -41,7 +41,7 @@ class FakeRedis:
     def _now(self) -> float:
         return time.time()
 
-    def _encode(self, value: Any) -> bytes:
+    def _encode(self, value: object) -> bytes:
         if isinstance(value, bytes):
             return value
         if isinstance(value, (int, float, bool)):
@@ -86,7 +86,7 @@ class FakeRedis:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -110,7 +110,7 @@ class FakeRedis:
             self._expires.pop(key, None)
         return True
 
-    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
+    def setex(self, key: str, time_in_seconds: int, value: object) -> bool:
         return self.set(key, value, ex=time_in_seconds)
 
     def delete(self, *keys: str) -> int:

@@ -147,7 +147,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _normalize_stream_number(value: Any) -> int | None:
+def _normalize_stream_number(value: object) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
@@ -155,7 +155,7 @@ def _normalize_stream_number(value: Any) -> int | None:
 
 
 def _iter_llm_result_content_parts(
-    llm_result: Any,
+    llm_result: object,
 ) -> Generator[tuple[str, str, int | None], None, None]:
     if llm_result is None:
         return
@@ -268,7 +268,7 @@ class RUNLLMProvider(LLMProvider):
         app: Flask,
         llm_settings: LLMSettings,
         trace: LangfuseTraceHandle,
-        parent_observation: Any,
+        parent_observation: object,
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
@@ -1254,7 +1254,7 @@ class RunScriptPreviewContextV2:
         generated_block_bid: str,
         content: str,
         stream_type: str,
-        stream_number: Any,
+        stream_number: object,
     ) -> RunMarkdownFlowDTO:
         event = RunMarkdownFlowDTO(
             outline_bid=outline_bid,
@@ -1714,7 +1714,7 @@ class RunScriptContextV2:
             return None
         return context_local.current_context
 
-    def append_langfuse_output(self, value: Any) -> None:
+    def append_langfuse_output(self, value: object) -> None:
         """Append output content to the active Langfuse trace."""
         if not hasattr(self, "_langfuse_output_chunks"):
             self._langfuse_output_chunks = []

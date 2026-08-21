@@ -489,7 +489,7 @@ def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
     )
 
 
-def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
+def _format_minor_currency_amount(currency: str | None, amount: object) -> str:
     try:
         major_amount = Decimal(str(amount or 0)) / Decimal(100)
     except (InvalidOperation, TypeError, ValueError):
@@ -497,7 +497,7 @@ def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
     return f"{_normalize_bid(currency) or 'CNY'} {major_amount:.2f}"
 
 
-def _format_credit_amount(amount: Any) -> str:
+def _format_credit_amount(amount: object) -> str:
     try:
         credit_amount = Decimal(str(amount or 0))
     except (InvalidOperation, TypeError, ValueError):
@@ -556,7 +556,7 @@ def _build_billing_paid_feishu_message(
     app: Flask,
     order: BillingOrder,
     *,
-    aggregate: Any,
+    aggregate: object,
     product: BillingProduct | None,
     product_name: str,
 ) -> tuple[str, list[str]]:

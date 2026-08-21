@@ -225,7 +225,7 @@ class TopupExpiryRepairResult:
             "skipped_bucket_bids": list(self.skipped_bucket_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -283,7 +283,7 @@ class SubscriptionCycleRepairResult:
             "skipped_subscription_bids": list(self.skipped_subscription_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -374,7 +374,7 @@ def _load_topup_expiry_subscription_for_bucket(
 
 def _merge_provider_metadata(
     *,
-    existing: Any,
+    existing: object,
     provider: str,
     source: str,
     event_type: str,

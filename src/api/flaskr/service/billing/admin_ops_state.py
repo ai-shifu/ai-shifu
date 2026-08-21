@@ -104,7 +104,7 @@ def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
     )
 
 
-def _load_json(value: Any) -> dict[str, Any]:
+def _load_json(value: object) -> dict[str, Any]:
     try:
         payload = json.loads(str(value or "{}"))
     except (TypeError, ValueError, json.JSONDecodeError):

@@ -189,8 +189,8 @@ def serialize_admin_campaign(
     has_custom_product_rules: bool = False,
     discount_type_code: int | None = None,
     discount_amount: int | None = None,
-    discount_percent: Any | None = None,
-    bonus_credit_amount: Any | None = None,
+    discount_percent: object | None = None,
+    bonus_credit_amount: object | None = None,
 ) -> AdminBillingCampaignDTO:
     """Serialize admin campaign."""
     _ = app
@@ -554,7 +554,7 @@ def serialize_ledger_entry(
     app: Flask,
     row: CreditLedgerEntry,
     *,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     credit_asset_kind: str = "unknown",
 ) -> BillingLedgerItemDTO:
     """Serialize ledger entry."""

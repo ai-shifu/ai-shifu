@@ -944,7 +944,7 @@ def _probe_stripe_credentials(
         raise ValueError(message) from exc
 
 
-def _parse_pem_private_key(value: Any) -> None:
+def _parse_pem_private_key(value: object) -> None:
     pem = _normalize_pem(value, "PRIVATE KEY")
     try:
         serialization.load_pem_private_key(pem, password=None)
@@ -953,7 +953,7 @@ def _parse_pem_private_key(value: Any) -> None:
         raise ValueError(message) from exc
 
 
-def _parse_pem_public_key(value: Any) -> None:
+def _parse_pem_public_key(value: object) -> None:
     pem = _normalize_pem(value, "PUBLIC KEY")
     try:
         serialization.load_pem_public_key(pem)
@@ -962,7 +962,7 @@ def _parse_pem_public_key(value: Any) -> None:
         raise ValueError(message) from exc
 
 
-def _parse_x509_certificate(value: Any) -> None:
+def _parse_x509_certificate(value: object) -> None:
     pem = _normalize_pem(value, "CERTIFICATE")
     try:
         x509.load_pem_x509_certificate(pem)
@@ -971,7 +971,7 @@ def _parse_x509_certificate(value: Any) -> None:
         raise ValueError(message) from exc
 
 
-def _normalize_pem(value: Any, label: str) -> bytes:
+def _normalize_pem(value: object, label: str) -> bytes:
     text = str(value or "").strip()
     if not text:
         message = f"{label.title()} is required"
@@ -1029,14 +1029,14 @@ def _verify_callback_token(app: Flask, token: str) -> str:
     return integration_bid
 
 
-def _normalize_provider(value: Any) -> str:
+def _normalize_provider(value: object) -> str:
     provider = normalize_bid(value).lower()
     if provider not in INTEGRATION_PROVIDERS:
         raise_param_error("provider")
     return provider
 
 
-def _normalize_config(provider: str, value: Any, secret: bool) -> dict[str, Any]:
+def _normalize_config(provider: str, value: object, secret: bool) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise_param_error("secret_config" if secret else "public_config")
     public_fields, secret_fields = _PROVIDER_FIELDS[provider]
@@ -1077,7 +1077,7 @@ def _require_capability(
         raise_error("server.shifu.noPermission")
 
 
-def _normalize_logo_url(value: Any, field: str) -> str:
+def _normalize_logo_url(value: object, field: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -1104,7 +1104,7 @@ def _normalize_logo_url(value: Any, field: str) -> str:
     return raw
 
 
-def _normalize_home_url(value: Any) -> str:
+def _normalize_home_url(value: object) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -1116,7 +1116,7 @@ def _normalize_home_url(value: Any) -> str:
     return raw
 
 
-def _normalize_home_url_lenient(value: Any) -> str:
+def _normalize_home_url_lenient(value: object) -> str:
     """Draft-side variant: drop invalid values instead of raising, so the admin draft autosave never fails on a partially typed URL."""
     try:
         return _normalize_home_url(value)
@@ -1217,7 +1217,7 @@ def _read_validated_brand_image(
     )
 
 
-def _normalize_logo_target(value: Any) -> str:
+def _normalize_logo_target(value: object) -> str:
     normalized = str(value or "wide").strip().lower()
     if normalized not in _LOGO_VARIANTS:
         raise_param_error("target")
@@ -1343,7 +1343,7 @@ def _saas_model() -> type[object]:
     ).SaasUserConfig
 
 
-def _load_json(value: Any) -> dict[str, Any]:
+def _load_json(value: object) -> dict[str, Any]:
     try:
         payload = json.loads(str(value or "{}"))
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -1355,7 +1355,7 @@ def _dump_json(value: dict[str, Any]) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
-def _to_bool(value: Any) -> bool:
+def _to_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}

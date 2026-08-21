@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 def resolve_order_effective_from(
     *,
-    order: Any,
+    order: object,
     default_effective_from: datetime,
     load_subscription_by_bid: Callable[[str], Any | None],
 ) -> datetime:
@@ -47,8 +47,8 @@ def resolve_order_effective_from(
 
 def resolve_order_effective_to(
     *,
-    order: Any,
-    product: Any,
+    order: object,
+    product: object,
     effective_from: datetime,
     load_subscription_by_bid: Callable[[str], Any | None],
     resolve_topup_effective_to: Callable[[str, datetime], datetime | None],

@@ -1360,7 +1360,7 @@ def _is_stripe_payment_successful(
 
 def _apply_native_snapshot_update(
     *,
-    snapshot: Any,
+    snapshot: object,
     provider: str,
     notification: PaymentNotificationResult,
     source: str,
@@ -1463,7 +1463,7 @@ def _inject_order_query(url: str, order_id: str) -> str:
     )
 
 
-def _stringify_payload(payload: Any) -> str:
+def _stringify_payload(payload: object) -> str:
     if not payload:
         return "{}"
     if hasattr(payload, "to_dict"):
@@ -1471,7 +1471,7 @@ def _stringify_payload(payload: Any) -> str:
     return json.dumps(payload)
 
 
-def _parse_json_payload(value: Any) -> Any:
+def _parse_json_payload(value: object) -> object:
     if not value:
         return {}
     if isinstance(value, (dict, list)):

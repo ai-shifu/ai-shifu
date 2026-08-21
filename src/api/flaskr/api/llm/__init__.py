@@ -142,7 +142,7 @@ def _log_warning(message: str) -> None:
     _log("warning", message)
 
 
-def _extract_usage_value(usage: Any, key: str) -> int:
+def _extract_usage_value(usage: object, key: str) -> int:
     if usage is None:
         return 0
     if isinstance(usage, dict):
@@ -150,7 +150,7 @@ def _extract_usage_value(usage: Any, key: str) -> int:
     return int(getattr(usage, key, 0) or 0)
 
 
-def _extract_input_cache(usage: Any) -> int:
+def _extract_input_cache(usage: object) -> int:
     if usage is None:
         return 0
     if isinstance(usage, dict):
@@ -190,15 +190,15 @@ def _attach_usage_output_text(
     return next_metadata
 
 
-def _extract_reasoning_delta(delta: Any) -> str:
+def _extract_reasoning_delta(delta: object) -> str:
     """Return provider reasoning from a normalized LiteLLM stream delta."""
 
-    def _get(value: Any, key: str) -> Any:
+    def _get(value: object, key: str) -> object:
         if isinstance(value, dict):
             return value.get(key)
         return getattr(value, key, None)
 
-    def _normalize(value: Any) -> str | None:
+    def _normalize(value: object) -> str | None:
         if isinstance(value, str) and value.strip():
             return value
         return normalize_langfuse_output_value(value)
@@ -249,7 +249,7 @@ def _build_langfuse_llm_output(
     }
 
 
-def _normalize_model_config(value: Any) -> list[str]:
+def _normalize_model_config(value: object) -> list[str]:
     if not value:
         return []
     if isinstance(value, str):

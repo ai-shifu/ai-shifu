@@ -44,11 +44,11 @@ def _serialize_decimal(value: Decimal | None) -> str | None:
     return str(value) if value is not None else None
 
 
-def _normalize_dict(value: Any) -> dict[str, Any]:
+def _normalize_dict(value: object) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _parse_metadata_datetime(value: Any) -> datetime | None:
+def _parse_metadata_datetime(value: object) -> datetime | None:
     if isinstance(value, datetime):
         return value
     normalized = _normalize_text(value)

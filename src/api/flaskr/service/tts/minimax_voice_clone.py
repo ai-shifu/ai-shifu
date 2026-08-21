@@ -1188,5 +1188,5 @@ def _normalize_required(value: str, field_name: str) -> str:
     return normalized
 
 
-def _zero() -> Any:
+def _zero() -> object:
     return quantize_credit_amount(0)

@@ -72,7 +72,7 @@ class UsageMetricCharge:
     rounded_units: Decimal
     consumed_credits: Decimal
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return an attribute value by key."""
         return getattr(self, key)
 

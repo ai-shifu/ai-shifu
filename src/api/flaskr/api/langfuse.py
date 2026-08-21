@@ -60,7 +60,7 @@ class MockClient:
     def __init__(self, *args: object, **kwargs: object) -> None:
         """Initialize the no-op Langfuse client."""
 
-    def __getattr__(self, name) -> Any:
+    def __getattr__(self, name) -> object:
         """Return a no-op callable for any Langfuse operation."""
 
         def method(*args: object, **kwargs: object) -> MockClient:
@@ -114,7 +114,7 @@ def get_request_trace_id() -> str:
     return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
-def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> str:
+def resolve_langfuse_trace_id(observation: object, trace_id: str | None = None) -> str:
     # Only accept real string trace ids. When Langfuse is disabled the client is
     # a MockClient whose __getattr__ returns a method object for any attribute
     # (including ``trace_id``); using that object as the trace id later breaks the
@@ -130,7 +130,7 @@ def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> 
 
 
 def build_langfuse_observation_link(
-    observation: Any, trace_id: str | None = None
+    observation: object, trace_id: str | None = None
 ) -> dict[str, str]:
     # Kept for logging/correlation. The handle classes drop these keys before
     # calling into SDK v3, where the span hierarchy already encodes the link.
@@ -182,7 +182,7 @@ def init_langfuse(app: Flask) -> None:
         _langfuse_state.client = MockClient()
 
 
-def _has_langfuse_value(value: Any) -> bool:
+def _has_langfuse_value(value: object) -> bool:
     if value is None:
         return False
     if isinstance(value, str):
@@ -201,7 +201,7 @@ def _looks_like_structured_text(value: str) -> bool:
     )
 
 
-def _parse_langfuse_text_value(value: str) -> Any:
+def _parse_langfuse_text_value(value: str) -> object:
     stripped = value.strip()
     if not _looks_like_structured_text(stripped):
         return value
@@ -213,7 +213,7 @@ def _parse_langfuse_text_value(value: str) -> Any:
         return value
 
 
-def normalize_langfuse_input_value(value: Any) -> str | None:
+def normalize_langfuse_input_value(value: object) -> str | None:
     """Normalize langfuse input value."""
     if value is None:
         return None
@@ -242,7 +242,7 @@ def normalize_langfuse_input_value(value: Any) -> str | None:
     return text if text.strip() else None
 
 
-def normalize_langfuse_output_value(value: Any) -> str | None:
+def normalize_langfuse_output_value(value: object) -> str | None:
     """Normalize langfuse output value."""
     if value is None:
         return None
@@ -280,7 +280,7 @@ def compact_langfuse_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if _has_langfuse_value(value)}
 
 
-def _usage_to_details(usage: Any) -> dict[str, int] | None:
+def _usage_to_details(usage: object) -> dict[str, int] | None:
     if usage is None:
         return None
     if isinstance(usage, dict):
@@ -317,7 +317,7 @@ def _map_observation_kwargs(
 class LangfuseObservationHandle:
     """v2-style facade over a Langfuse SDK v3 span or generation."""
 
-    def __init__(self, delegate: Any, trace_id: str = "") -> None:
+    def __init__(self, delegate: object, trace_id: str = "") -> None:
         """Wrap a Langfuse observation and its trace identity."""
         self._delegate = delegate
         delegate_trace_id = getattr(delegate, "trace_id", "")
@@ -393,7 +393,7 @@ class LangfuseTraceHandle(LangfuseObservationHandle):
 
 def create_trace_with_root_span(
     *,
-    client: Any,
+    client: object,
     trace_payload: dict[str, Any],
     root_span_payload: dict[str, Any],
 ) -> tuple[LangfuseTraceHandle, LangfuseObservationHandle]:
@@ -415,7 +415,7 @@ def create_trace_with_root_span(
 
 
 def update_langfuse_trace(
-    trace: Any,
+    trace: object,
     payload: dict[str, Any] | None = None,
     **kwargs: object,
 ) -> object:
@@ -427,7 +427,7 @@ def update_langfuse_trace(
 
 
 def update_langfuse_observation(
-    observation: Any,
+    observation: object,
     payload: dict[str, Any] | None = None,
     **kwargs: object,
 ) -> object:
@@ -440,8 +440,8 @@ def update_langfuse_observation(
 
 def finalize_langfuse_trace(
     *,
-    trace: Any,
-    root_span: Any | None,
+    trace: object,
+    root_span: object | None,
     trace_payload: dict[str, Any] | None = None,
     root_span_payload: dict[str, Any] | None = None,
 ) -> object:

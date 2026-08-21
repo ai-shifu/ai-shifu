@@ -64,7 +64,7 @@ def _normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _decimal_to_str(value: Any) -> str:
+def _decimal_to_str(value: object) -> str:
     if value is None:
         return "0"
     if isinstance(value, Decimal):

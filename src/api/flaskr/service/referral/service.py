@@ -777,7 +777,7 @@ def retry_pending_referral_rewards(
 
 def process_referral_post_auth(
     app: Flask,
-    context: Any,
+    context: object,
 ) -> ReferralPostAuthResult:
     """Process referral post auth."""
     with _with_app_context(app):

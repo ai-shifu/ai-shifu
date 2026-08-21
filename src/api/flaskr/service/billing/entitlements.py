@@ -63,7 +63,7 @@ class CreatorEntitlementState:
             "support_tier": self.support_tier,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized entitlement field by key."""
         if key == "feature_payload":
             return self.feature_payload.to_metadata_json()
@@ -392,7 +392,7 @@ def _apply_entitlement_payload(
 
 
 def _resolve_labeled_value(
-    value: Any,
+    value: object,
     *,
     labels: dict[int, str],
     default: str,
@@ -412,7 +412,7 @@ def _resolve_labeled_value(
         return default
 
 
-def _normalize_feature_payload(value: Any) -> JsonObjectMap:
+def _normalize_feature_payload(value: object) -> JsonObjectMap:
     if not isinstance(value, dict):
         return JsonObjectMap()
     return JsonObjectMap(values={str(key): item for key, item in value.items()})
@@ -425,7 +425,7 @@ def _coalesce_datetime(
     return value or fallback
 
 
-def _to_bool(value: Any, *, default: bool = False) -> bool:
+def _to_bool(value: object, *, default: bool = False) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):

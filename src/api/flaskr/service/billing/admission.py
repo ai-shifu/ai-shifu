@@ -51,7 +51,7 @@ class CreatorUsageAdmission:
             "priority_class": self.priority_class,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 

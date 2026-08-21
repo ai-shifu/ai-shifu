@@ -618,5 +618,5 @@ def _iter_hold_buckets(
     return []
 
 
-def _credit_to_string(value: Any) -> str:
+def _credit_to_string(value: object) -> str:
     return str(billing_primitives.quantize_credit_amount(value))

@@ -60,7 +60,7 @@ class AliyunNlsToken:
         return self.expire_time <= int(now_ts)
 
 
-def _percent_encode(value: Any) -> str:
+def _percent_encode(value: object) -> str:
     """RFC3986 percent encoding compatible with Aliyun POP signing rules."""
     if value is None:
         value = ""
@@ -110,7 +110,7 @@ def _get_lock_key() -> str:
     return f"{prefix}tts:aliyun:nls_token:lock"
 
 
-def _decode_cache_value(raw: Any) -> AliyunNlsToken | None:
+def _decode_cache_value(raw: object) -> AliyunNlsToken | None:
     if raw is None:
         return None
     if isinstance(raw, bytes):

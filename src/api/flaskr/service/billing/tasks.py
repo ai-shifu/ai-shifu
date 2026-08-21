@@ -154,7 +154,7 @@ class LowBalanceAlertTaskResult:
         }
 
 
-def _serialize_task_payload(result: Any) -> Any:
+def _serialize_task_payload(result: object) -> object:
     if isinstance(result, dict):
         return dict(result)
     if hasattr(result, "to_task_payload"):
@@ -187,7 +187,7 @@ def _load_renewal_task_config() -> dict[str, Any]:
 
 
 def _coerce_positive_int(
-    value: Any,
+    value: object,
     default: int,
     *,
     minimum: int = 0,
@@ -199,7 +199,7 @@ def _coerce_positive_int(
     return max(minimum, normalized)
 
 
-def _normalize_optional_queue(value: Any, *, enabled: Any = False) -> str:
+def _normalize_optional_queue(value: object, *, enabled: object = False) -> str:
     if not _coerce_bool(enabled):
         return ""
     return str(value or "").strip()
@@ -351,7 +351,7 @@ def _expire_pending_billing_orders(
     app,
     *,
     creator_bid: str = "",
-    expire_before: Any = None,
+    expire_before: object = None,
 ) -> dict[str, Any]:
     normalized_creator_bid = _normalize_bid(creator_bid)
     resolved_expire_before = _coerce_datetime(expire_before) or now_utc()
@@ -467,7 +467,7 @@ def replay_usage_settlement_task(
 def expire_wallet_buckets_task(
     *,
     creator_bid: str = "",
-    expire_before: Any = None,
+    expire_before: object = None,
 ) -> dict[str, Any]:
     """Scan expiring wallet buckets and write expire ledger entries."""
     app = _create_task_app()
@@ -485,7 +485,7 @@ def expire_wallet_buckets_task(
 def expire_pending_orders_task(
     *,
     creator_bid: str = "",
-    expire_before: Any = None,
+    expire_before: object = None,
 ) -> dict[str, Any]:
     """Scan expired pending package orders and sync them into terminal state."""
     app = _create_task_app()
@@ -727,7 +727,7 @@ def aggregate_daily_usage_metrics_task(
     *,
     stat_date: str = "",
     creator_bid: str = "",
-    finalize: Any = False,
+    finalize: object = False,
 ) -> dict[str, Any]:
     """Rebuild one creator/day usage aggregate slice from usage + ledger rows."""
     app = _create_task_app()
@@ -747,7 +747,7 @@ def aggregate_daily_ledger_summary_task(
     *,
     stat_date: str = "",
     creator_bid: str = "",
-    finalize: Any = False,
+    finalize: object = False,
 ) -> dict[str, Any]:
     """Rebuild one creator/day ledger summary slice from ledger entries."""
     app = _create_task_app()

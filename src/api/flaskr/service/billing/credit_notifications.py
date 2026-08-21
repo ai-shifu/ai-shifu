@@ -190,7 +190,7 @@ def _deep_merge(defaults: dict[str, Any], override: dict[str, Any]) -> dict[str,
     return merged
 
 
-def _coerce_bool(value: Any) -> bool:
+def _coerce_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
@@ -200,7 +200,7 @@ def _coerce_bool(value: Any) -> bool:
     return bool(value)
 
 
-def _coerce_positive_int(value: Any, default: int = 0) -> int:
+def _coerce_positive_int(value: object, default: int = 0) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -208,7 +208,7 @@ def _coerce_positive_int(value: Any, default: int = 0) -> int:
     return max(0, parsed)
 
 
-def _normalize_positive_int(value: Any, field_name: str) -> int:
+def _normalize_positive_int(value: object, field_name: str) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -218,7 +218,7 @@ def _normalize_positive_int(value: Any, field_name: str) -> int:
     return parsed
 
 
-def _decimal_from_policy(value: Any, default: Decimal = _ZERO) -> Decimal:
+def _decimal_from_policy(value: object, default: Decimal = _ZERO) -> Decimal:
     try:
         parsed = _quantize_credit_amount(Decimal(str(value or "0").strip()))
     except (InvalidOperation, TypeError, ValueError, ArithmeticError):
@@ -226,7 +226,7 @@ def _decimal_from_policy(value: Any, default: Decimal = _ZERO) -> Decimal:
     return parsed if parsed.is_finite() else default
 
 
-def _normalize_policy_decimal(value: Any, field_name: str) -> Decimal:
+def _normalize_policy_decimal(value: object, field_name: str) -> Decimal:
     try:
         parsed = _quantize_credit_amount(Decimal(str(value or "0").strip()))
     except (InvalidOperation, TypeError, ValueError, ArithmeticError):
@@ -236,20 +236,20 @@ def _normalize_policy_decimal(value: Any, field_name: str) -> Decimal:
     return parsed
 
 
-def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
+def _require_mapping(value: object, field_name: str) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     raise_param_error(field_name)
     return None
 
 
-def _normalize_string_list(value: Any, field_name: str) -> list[str]:
+def _normalize_string_list(value: object, field_name: str) -> list[str]:
     if not isinstance(value, list):
         raise_param_error(field_name)
     return [str(item or "").strip() for item in value if str(item or "").strip()]
 
 
-def _validate_hhmm(value: Any, field_name: str) -> str:
+def _validate_hhmm(value: object, field_name: str) -> str:
     normalized = str(value or "").strip()
     parts = normalized.split(":")
     if len(parts) != 2:
@@ -264,7 +264,7 @@ def _validate_hhmm(value: Any, field_name: str) -> str:
     return f"{hour:02d}:{minute:02d}"
 
 
-def _normalize_fixed_thresholds(value: Any, field_name: str) -> list[dict[str, str]]:
+def _normalize_fixed_thresholds(value: object, field_name: str) -> list[dict[str, str]]:
     if not isinstance(value, list):
         raise_param_error(field_name)
     thresholds: list[dict[str, str]] = []
@@ -282,7 +282,7 @@ def _normalize_fixed_thresholds(value: Any, field_name: str) -> list[dict[str, s
 
 
 def _normalize_low_balance_thresholds(
-    value: Any, field_name: str
+    value: object, field_name: str
 ) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         raise_param_error(field_name)
@@ -343,7 +343,9 @@ def _normalize_low_balance_thresholds(
     return thresholds
 
 
-def _normalize_policy_list_group(value: Any, field_name: str) -> dict[str, list[str]]:
+def _normalize_policy_list_group(
+    value: object, field_name: str
+) -> dict[str, list[str]]:
     current = _require_mapping(value, field_name)
     return {
         "creator_bids": _normalize_string_list(
@@ -654,12 +656,12 @@ def _supported_template_placeholders(notification_type: str) -> set[str]:
     return set(placeholders)
 
 
-def _extract_template_placeholders(template_content: Any) -> list[str]:
+def _extract_template_placeholders(template_content: object) -> list[str]:
     content = str(template_content or "")
     return sorted(set(_TEMPLATE_PLACEHOLDER_PATTERN.findall(content)))
 
 
-def _json_safe(value: Any) -> Any:
+def _json_safe(value: object) -> object:
     try:
         json.dumps(value, ensure_ascii=False)
     except (TypeError, ValueError):
@@ -674,12 +676,12 @@ def _aliyun_sms_credentials_configured(app: Flask) -> bool:
     )
 
 
-def _template_body_value(body: Any, field_name: str) -> str:
+def _template_body_value(body: object, field_name: str) -> str:
     return str(getattr(body, field_name, "") or "").strip()
 
 
 def _provider_template_response_payload(
-    response: Any,
+    response: object,
     *,
     requested_template_code: str,
 ) -> dict[str, Any]:
@@ -696,7 +698,7 @@ def _provider_template_response_payload(
     }
 
 
-def _template_list_body_value(item: Any, field_name: str) -> str:
+def _template_list_body_value(item: object, field_name: str) -> str:
     return str(getattr(item, field_name, "") or "").strip()
 
 
@@ -1231,7 +1233,7 @@ def build_low_balance_estimated_days_dedupe_key(
     )
 
 
-def _provider_response_payload(response: Any) -> dict[str, Any]:
+def _provider_response_payload(response: object) -> dict[str, Any]:
     body = getattr(response, "body", None)
     if body is None:
         return {}
@@ -1243,7 +1245,7 @@ def _provider_response_payload(response: Any) -> dict[str, Any]:
     }
 
 
-def _format_sms_datetime(app: Flask, value: Any) -> str:
+def _format_sms_datetime(app: Flask, value: object) -> str:
     if value is None:
         return ""
     if isinstance(value, datetime):
@@ -1272,7 +1274,7 @@ def _normalize_sms_template_params(
     return normalized
 
 
-def _amount_text(value: Any) -> str:
+def _amount_text(value: object) -> str:
     try:
         return str(_quantize_credit_amount(value))
     except Exception:
@@ -1719,7 +1721,7 @@ def stage_credit_granted_notification_for_order(
     )
 
 
-def _parse_window_days(window: Any) -> int | None:
+def _parse_window_days(window: object) -> int | None:
     normalized = str(window or "").strip().lower()
     if not normalized.endswith("d"):
         return None
@@ -2587,7 +2589,7 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
     return current_value >= start_value or current_value < end_value
 
 
-def _resolve_policy_creator_bids(items: Any) -> set[str]:
+def _resolve_policy_creator_bids(items: object) -> set[str]:
     creator_bids: set[str] = set()
     if not isinstance(items, list):
         return creator_bids
@@ -3089,7 +3091,7 @@ def requeue_credit_notification(
     return enqueue_result
 
 
-def _parse_positive_int(value: Any, default: int) -> int:
+def _parse_positive_int(value: object, default: int) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):

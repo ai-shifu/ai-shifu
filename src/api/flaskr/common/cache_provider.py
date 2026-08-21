@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -40,7 +40,7 @@ class CacheProvider(Protocol):
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -51,7 +51,7 @@ class CacheProvider(Protocol):
         """Store a value under a cache key."""
         raise NotImplementedError
 
-    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
+    def setex(self, key: str, time_in_seconds: int, value: object) -> bool:
         """Store a cached value with an expiration."""
         raise NotImplementedError
 
@@ -106,7 +106,7 @@ class _DynamicRedisCacheProvider:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -119,7 +119,7 @@ class _DynamicRedisCacheProvider:
             args = ()
         return self._client().set(key, value, ex=ex, px=px, nx=nx, xx=xx, **kwargs)
 
-    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
+    def setex(self, key: str, time_in_seconds: int, value: object) -> bool:
         return self._client().setex(key, time_in_seconds, value)
 
     def delete(self, *keys: str) -> int:
@@ -183,7 +183,7 @@ class InMemoryCacheProvider:
     def _now(self) -> float:
         return time.time()
 
-    def _encode(self, value: Any) -> bytes:
+    def _encode(self, value: object) -> bytes:
         if isinstance(value, bytes):
             return value
         if isinstance(value, (int, float, bool)):
@@ -228,7 +228,7 @@ class InMemoryCacheProvider:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -256,7 +256,7 @@ class InMemoryCacheProvider:
             )
             return True
 
-    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
+    def setex(self, key: str, time_in_seconds: int, value: object) -> bool:
         """Store a cached value with an expiration."""
         return self.set(key, value, ex=time_in_seconds)
 
@@ -344,7 +344,7 @@ class FallbackCacheProvider:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -365,7 +365,7 @@ class FallbackCacheProvider:
             **kwargs,
         )
 
-    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
+    def setex(self, key: str, time_in_seconds: int, value: object) -> bool:
         """Store a cached value with an expiration."""
         return self._call("setex", key, time_in_seconds, value)
 

@@ -93,7 +93,7 @@ class SettlementResult:
             payload["reason"] = self.reason
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -118,7 +118,7 @@ class BackfillSettlementItem:
             "requested_creator_bid": self.requested_creator_bid,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -151,7 +151,7 @@ class BackfillSettlementResult:
             "backfill": self.backfill,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

@@ -38,7 +38,7 @@ def _default_config_payload() -> dict[str, Any]:
     }
 
 
-def normalize_profile_onboarding_config_payload(payload: Any) -> dict[str, Any]:
+def normalize_profile_onboarding_config_payload(payload: object) -> dict[str, Any]:
     """Normalize profile onboarding config payload."""
     base = _default_config_payload()
     if isinstance(payload, dict):

@@ -133,7 +133,7 @@ def _resolve_course_credit_usage_scene_filter(value: str) -> str:
     return ""
 
 
-def _build_course_credit_usage_scene_filter(value: str) -> Any | None:
+def _build_course_credit_usage_scene_filter(value: str) -> object | None:
     if value == COURSE_CREDIT_USAGE_SCENE_LEARNING:
         return BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD
     if value == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
@@ -304,7 +304,7 @@ def _build_course_credit_usage_group_key(
 def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
-    ledger_amount: Any,
+    ledger_amount: object,
     user_map: dict[str, dict[str, Any]],
     outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
@@ -314,8 +314,8 @@ def _build_operator_course_credit_usage_item(
     model: str = "",
     model_label: str = "",
     model_variant_count: int = 0,
-    consumed_credits: Any = None,
-    created_at: Any = None,
+    consumed_credits: object = None,
+    created_at: object = None,
 ) -> AdminOperationCourseCreditUsageItemDTO:
     user_bid = str(getattr(usage_row, "user_bid", "") or "").strip()
     outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
@@ -372,11 +372,13 @@ def _build_operator_course_credit_usage_item(
     )
 
 
-def _build_course_credit_usage_generation_name_expr() -> Any:
+def _build_course_credit_usage_generation_name_expr() -> object:
     return db.func.lower(BillUsageRecord.extra["generation_name"].as_string())
 
 
-def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) -> Any:
+def _build_course_credit_usage_ask_filter(
+    generation_name: object | None = None,
+) -> object:
     generation_name = (
         generation_name
         if generation_name is not None
@@ -390,8 +392,8 @@ def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) ->
 
 
 def _build_course_credit_usage_learn_filter(
-    generation_name: Any | None = None,
-) -> Any:
+    generation_name: object | None = None,
+) -> object:
     generation_name = (
         generation_name
         if generation_name is not None
@@ -592,7 +594,7 @@ def _load_course_credit_usage_output_summary_map(
     if not generated_block_bids:
         return {}
 
-    def context_key(row: Any) -> tuple[str, str, str, str]:
+    def context_key(row: object) -> tuple[str, str, str, str]:
         return (
             str(getattr(row, "generated_block_bid", "") or "").strip(),
             str(getattr(row, "shifu_bid", "") or "").strip(),
@@ -715,7 +717,7 @@ def _load_course_credit_usage_output_summary_map(
 
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
-    ledger_amount: Any,
+    ledger_amount: object,
     model_label_resolver: _CourseCreditUsageModelLabelResolver,
     output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
@@ -745,7 +747,7 @@ def _build_operator_course_credit_usage_detail_item(
     )
 
 
-def _apply_course_credit_usage_filters(query: Any, filters: dict) -> Any:
+def _apply_course_credit_usage_filters(query: object, filters: dict) -> object:
     keyword = str(filters.get("keyword", "") or "").strip()
     mode_filter = _resolve_course_credit_usage_mode_filter(
         str(filters.get("mode", "") or "")
@@ -923,8 +925,8 @@ def _build_operator_course_credit_metrics(
 
 
 def _build_credit_usage_user_keyword_filter(
-    user_bid_column: Any, keyword: str
-) -> Any | None:
+    user_bid_column: object, keyword: str
+) -> object | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None

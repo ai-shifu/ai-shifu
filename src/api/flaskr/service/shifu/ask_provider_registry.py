@@ -526,7 +526,7 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
 
 
 def validate_ask_provider_specific_config(
-    provider: str, config: Any
+    provider: str, config: object
 ) -> tuple[bool, str | None]:
     """Lightweight validation against provider schema required fields."""
     registry = get_ask_provider_schema_registry()
@@ -569,7 +569,7 @@ def validate_ask_provider_specific_config(
     return True, None
 
 
-def get_effective_ask_provider_config(raw_config: Any) -> dict[str, Any]:
+def get_effective_ask_provider_config(raw_config: object) -> dict[str, Any]:
     """Normalize persisted ask provider config."""
     return normalize_ask_provider_config(raw_config)
 

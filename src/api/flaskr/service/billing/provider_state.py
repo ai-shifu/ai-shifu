@@ -509,7 +509,7 @@ def _record_subscription_provider_event(
 
 def _merge_provider_metadata(
     *,
-    existing: Any,
+    existing: object,
     provider: str,
     source: str,
     event_type: str,
@@ -531,7 +531,7 @@ def _merge_provider_metadata(
     return _normalize_json_object(metadata)
 
 
-def _extract_provider_event_time(payload: Any) -> datetime | None:
+def _extract_provider_event_time(payload: object) -> datetime | None:
     if not isinstance(payload, dict):
         return None
     for key in ("created", "time_paid", "current_period_end", "current_period_start"):

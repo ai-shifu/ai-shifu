@@ -131,7 +131,7 @@ class BillingWebhookResult:
             payload["message"] = self.message
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 

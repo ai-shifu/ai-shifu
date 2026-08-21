@@ -102,7 +102,7 @@ class WalletSnapshotRecord:
             "changed": self.changed,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -131,7 +131,7 @@ class WalletSnapshotRebuildResult:
             "wallets": [wallet.to_payload() for wallet in self.wallets],
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -158,7 +158,7 @@ class RefundReturnCreditsResult:
             "ledger_bid": self.ledger_bid,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -181,7 +181,7 @@ class WalletExpirationResult:
             "expired_credits": self.expired_credits,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -251,7 +251,7 @@ class ExpireLedgerBucketDriftRepairResult:
             "buckets": [bucket.to_payload() for bucket in self.buckets],
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -323,7 +323,7 @@ class ExpiredCreditPackBucketRestoreResult:
             "buckets": [bucket.to_payload() for bucket in self.buckets],
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -354,7 +354,7 @@ class ManualCreditGrantResult:
             "metadata_json": self.metadata_json,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -385,7 +385,7 @@ class ReservedGrantRepairRecord:
             "renewal_event_bids": list(self.renewal_event_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -446,7 +446,7 @@ class RenewalStateDriftRepairResult:
             ],
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -464,7 +464,7 @@ def _normalize_json_dict(payload: object) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _json_extract_text(column: Any, path: str) -> Any:
+def _json_extract_text(column: object, path: str) -> object:
     bind = db.session.get_bind()
     dialect_name = bind.dialect.name.lower() if bind is not None else ""
     extracted = func.json_extract(column, path)
@@ -473,7 +473,7 @@ def _json_extract_text(column: Any, path: str) -> Any:
     return extracted
 
 
-def _sql_null_if_empty_or_json_null(value: Any) -> Any:
+def _sql_null_if_empty_or_json_null(value: object) -> object:
     text = func.trim(func.coalesce(value, ""))
     return case(
         (func.lower(text) == "null", None),
@@ -618,7 +618,7 @@ def _load_overdue_reserved_paid_order_records(
     return records
 
 
-def _normalize_bucket_credit_state(value: Any) -> str:
+def _normalize_bucket_credit_state(value: object) -> str:
     state = str(value or "").strip().lower()
     return "" if state == "null" else state
 
@@ -863,10 +863,10 @@ def refresh_credit_wallet_snapshot(
 def persist_credit_wallet_snapshot(
     wallet: CreditWallet,
     *,
-    available_credits: Decimal | Any,
-    reserved_credits: Decimal | Any,
-    lifetime_granted_credits: Decimal | Any | None = None,
-    lifetime_consumed_credits: Decimal | Any | None = None,
+    available_credits: object,
+    reserved_credits: object,
+    lifetime_granted_credits: object | None = None,
+    lifetime_consumed_credits: object | None = None,
     last_settled_usage_id: int | None = None,
     updated_at: datetime | None = None,
 ) -> CreditWallet:
@@ -1485,7 +1485,7 @@ def grant_refund_return_credits(
     app: Flask,
     *,
     creator_bid: str,
-    amount: Decimal | Any,
+    amount: object,
     refund_bid: str,
     metadata: dict[str, Any] | None = None,
     effective_from: datetime | None = None,
@@ -1628,7 +1628,7 @@ def adjust_credit_wallet_balance(
     app: Flask,
     *,
     creator_bid: str,
-    amount: Decimal | Any,
+    amount: object,
     note: str = "",
     operator_user_bid: str = "",
 ) -> BillingLedgerAdjustResultDTO:
@@ -1803,7 +1803,7 @@ def grant_manual_credit_wallet_balance(
     app: Flask,
     *,
     creator_bid: str,
-    amount: Decimal | Any,
+    amount: object,
     source_bid: str = "",
     effective_from: datetime | None = None,
     effective_to: datetime | None = None,
@@ -2456,13 +2456,13 @@ def _build_expired_credit_pack_restore_record(
     creator_bid: str | None = None,
     wallet_bid: str | None = None,
     wallet_bucket_bid: str | None = None,
-    previous_available_credits: Decimal | Any = _ZERO,
-    available_credits: Decimal | Any = _ZERO,
-    previous_expired_credits: Decimal | Any = _ZERO,
-    expired_credits: Decimal | Any = _ZERO,
+    previous_available_credits: object = _ZERO,
+    available_credits: object = _ZERO,
+    previous_expired_credits: object = _ZERO,
+    expired_credits: object = _ZERO,
     previous_status: int | None = None,
     status: int | None = None,
-    restored_credits: Decimal | Any = _ZERO,
+    restored_credits: object = _ZERO,
     repair_action: str,
     repair_reason: str,
     changed: bool = False,

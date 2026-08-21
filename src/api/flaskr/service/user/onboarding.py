@@ -59,7 +59,7 @@ def _serialize_datetime(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _parse_rollout_threshold(value: Any) -> datetime | None:
+def _parse_rollout_threshold(value: object) -> datetime | None:
     text = str(value or "").strip()
     if not text:
         return None

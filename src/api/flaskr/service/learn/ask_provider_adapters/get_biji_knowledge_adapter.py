@@ -33,11 +33,11 @@ DEFAULT_TOP_K = 5
 MAX_TOP_K = 10
 
 
-def _normalize_text(value: Any) -> str:
+def _normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _top_k_value(value: Any) -> int:
+def _top_k_value(value: object) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -61,7 +61,7 @@ def _user_message_for_error(code: str, reason: str) -> str | None:
     return None
 
 
-def _raise_for_api_error(payload: Any) -> None:
+def _raise_for_api_error(payload: object) -> None:
     if not isinstance(payload, dict):
         return
     if payload.get("success") is not False:
@@ -85,7 +85,7 @@ def _raise_for_api_error(payload: Any) -> None:
     )
 
 
-def _extract_results(payload: Any) -> list[Any]:
+def _extract_results(payload: object) -> list[Any]:
     if not isinstance(payload, dict):
         return []
     data = payload.get("data")
@@ -94,7 +94,7 @@ def _extract_results(payload: Any) -> list[Any]:
     return []
 
 
-def _format_result(index: int, result: Any) -> str:
+def _format_result(index: int, result: object) -> str:
     if not isinstance(result, dict):
         content = extract_text(result) or _normalize_text(result)
         return f"{index}. {content}".strip() if content else ""

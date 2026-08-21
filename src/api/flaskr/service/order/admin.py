@@ -233,7 +233,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
     return None
 
 
-def _normalize_order_status_filter(value: Any) -> int | None:
+def _normalize_order_status_filter(value: object) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -245,7 +245,7 @@ def _normalize_order_status_filter(value: Any) -> int | None:
 
 
 def _normalize_order_datetime_filter(
-    value: Any, *, is_end: bool = False
+    value: object, *, is_end: bool = False
 ) -> datetime | None:
     if isinstance(value, datetime):
         return value

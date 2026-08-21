@@ -19,7 +19,7 @@ def _normalized_stream_audio_target_type(stream_element_type: str | None) -> str
 
 
 def _stream_element_matches_audio_target(
-    stream_state: Any,
+    stream_state: object,
     stream_element_number: int,
     stream_element_type: str | None = None,
 ) -> bool:
@@ -41,7 +41,7 @@ def _stream_element_matches_audio_target(
     )
 
 
-def _ordered_stream_audio_targets(state: Any) -> list[Any]:
+def _ordered_stream_audio_targets(state: object) -> list[Any]:
     return [
         stream_state
         for stream_state in state.stream_elements.values()
@@ -51,8 +51,8 @@ def _ordered_stream_audio_targets(state: Any) -> list[Any]:
 
 
 def _resolve_pending_audio_for_stream_element(
-    state: Any,
-    stream_state: Any,
+    state: object,
+    stream_state: object,
 ) -> tuple[ElementAudioDTO | None, list[dict[str, Any]] | None]:
     if not _stream_element_accepts_audio_target(stream_state.element_type):
         return None, None
@@ -104,7 +104,7 @@ def _resolve_pending_audio_for_stream_element(
 
 
 def _resolve_stream_audio_for_element_bid(
-    state: Any,
+    state: object,
     element_bid: str,
 ) -> tuple[ElementAudioDTO | None, list[dict[str, Any]]]:
     matched_positions = [
@@ -161,7 +161,7 @@ def _resolve_stream_audio_for_element_bid(
 
 
 def _resolve_audio_target_element_bid_for_stream_number(
-    state: Any,
+    state: object,
     stream_element_number: int,
     stream_element_type: str | None = None,
 ) -> str | None:
@@ -193,7 +193,7 @@ def _resolve_audio_target_element_bid_for_stream_number(
 
 
 def _resolve_audio_target_element_bid(
-    state: Any,
+    state: object,
     position: int,
 ) -> str | None:
     existing_target = state.audio_target_element_bid_by_position.get(position)

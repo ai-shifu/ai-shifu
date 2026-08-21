@@ -649,7 +649,7 @@ def _dedupe_campaign_product_drafts(
     return ordered
 
 
-def _coerce_discount_amount(value: Any) -> int:
+def _coerce_discount_amount(value: object) -> int:
     try:
         discount_amount = max(int(value or 0), 0)
     except (TypeError, ValueError):
@@ -659,7 +659,7 @@ def _coerce_discount_amount(value: Any) -> int:
     return discount_amount
 
 
-def _coerce_discount_percent(value: Any) -> Decimal:
+def _coerce_discount_percent(value: object) -> Decimal:
     try:
         discount_percent = to_decimal(value)
     except Exception:
@@ -669,7 +669,7 @@ def _coerce_discount_percent(value: Any) -> Decimal:
     return discount_percent.quantize(Decimal("0.01"))
 
 
-def _coerce_campaign_price_amount(value: Any) -> int:
+def _coerce_campaign_price_amount(value: object) -> int:
     try:
         campaign_price_amount = int(value or 0)
     except (TypeError, ValueError):
@@ -679,7 +679,7 @@ def _coerce_campaign_price_amount(value: Any) -> int:
     return campaign_price_amount
 
 
-def _coerce_bonus_credit_amount(value: Any) -> Decimal:
+def _coerce_bonus_credit_amount(value: object) -> Decimal:
     try:
         bonus_credit_amount = quantize_credit_amount(value)
     except Exception:
@@ -690,7 +690,7 @@ def _coerce_bonus_credit_amount(value: Any) -> Decimal:
 
 
 def _coerce_required_datetime(
-    value: Any,
+    value: object,
     *,
     required: bool,
     parameter_name: str,
@@ -701,7 +701,7 @@ def _coerce_required_datetime(
     return parsed
 
 
-def _resolve_product_type_filter(value: Any) -> int | None:
+def _resolve_product_type_filter(value: object) -> int | None:
     normalized = str(value or "").strip().lower()
     if not normalized:
         return None
@@ -715,7 +715,7 @@ def _resolve_product_type_filter(value: Any) -> int | None:
     return None
 
 
-def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
+def _resolve_benefit_type(value: object, *, required: bool) -> int | None:
     normalized = str(value or "").strip().lower()
     if not normalized:
         if required:
@@ -728,7 +728,7 @@ def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
     return None
 
 
-def _resolve_discount_type(value: Any, *, required: bool) -> int | None:
+def _resolve_discount_type(value: object, *, required: bool) -> int | None:
     normalized = str(value or "").strip().lower()
     if not normalized:
         if required:

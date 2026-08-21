@@ -69,7 +69,7 @@ class DomainVerificationResult:
             "binding": self.binding.__json__(),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -168,8 +168,8 @@ def verify_domain_binding(
     *,
     creator_bid: str = "",
     domain_binding_bid: str = "",
-    host: Any = "",
-    verification_token: Any = "",
+    host: object = "",
+    verification_token: object = "",
 ) -> DomainVerificationResult:
     """Verify one domain binding by business id or host for background tasks."""
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -206,7 +206,7 @@ def verify_domain_binding(
         )
 
 
-def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
+def resolve_creator_bid_by_host(app: Flask, host: object) -> str | None:
     """Resolve a verified creator custom domain back to creator_bid."""
     normalized_host = normalize_domain_host(host, strict=False)
     if not normalized_host:
@@ -233,7 +233,7 @@ def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
         return _normalize_bid(binding.creator_bid) or None
 
 
-def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
+def resolve_effective_custom_origin(app: Flask, creator_bid: object) -> str | None:
     """Return the creator's effective custom-domain origin for building links.
 
     A binding is effective only when it is verified and the creator still has
@@ -269,7 +269,7 @@ def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
 
 def resolve_runtime_domain_result(
     app: Flask,
-    host: Any,
+    host: object,
     *,
     creator_bid: str = "",
 ) -> RuntimeBillingDomainDTO:
@@ -333,7 +333,7 @@ def resolve_runtime_domain_result(
         )
 
 
-def normalize_domain_host(value: Any, *, strict: bool = True) -> str:
+def normalize_domain_host(value: object, *, strict: bool = True) -> str:
     """Normalize a host string into a lowercase custom-domain host."""
     raw = str(value or "").strip()
     if not raw:
@@ -372,7 +372,7 @@ def _bind_creator_domain(
     creator_bid: str,
     host: str,
     domain_binding_bid: str,
-    verification_method: Any,
+    verification_method: object,
 ) -> BillingDomainBinding:
     if not host:
         raise_param_error("host")
@@ -442,7 +442,7 @@ def _verify_creator_domain(
     creator_bid: str,
     host: str,
     domain_binding_bid: str,
-    verification_token: Any,
+    verification_token: object,
 ) -> BillingDomainBinding:
     binding = _load_creator_domain_binding(
         creator_bid=creator_bid,
@@ -630,14 +630,14 @@ def _serialize_domain_binding(
     )
 
 
-def _normalize_action(value: Any) -> str:
+def _normalize_action(value: object) -> str:
     normalized = _normalize_bid(value) or "bind"
     if normalized not in _DOMAIN_BINDING_ACTIONS:
         raise_param_error("action")
     return normalized
 
 
-def _normalize_verification_method(value: Any) -> int:
+def _normalize_verification_method(value: object) -> int:
     normalized = _normalize_bid(value)
     if not normalized:
         return BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT
@@ -673,7 +673,7 @@ def _is_invalid_host(host: str) -> bool:
     return any(_DOMAIN_LABEL_RE.fullmatch(label) is None for label in labels)
 
 
-def _as_dict(value: Any) -> JsonObjectMap:
+def _as_dict(value: object) -> JsonObjectMap:
     if isinstance(value, dict):
         return JsonObjectMap(values={str(key): item for key, item in value.items()})
     return JsonObjectMap()

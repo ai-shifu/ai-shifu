@@ -91,8 +91,8 @@ def _build_course_follow_up_base_subquery(shifu_bid: str) -> object:
 
 
 def _build_follow_up_user_keyword_filter(
-    user_bid_column: Any, keyword: str
-) -> Any | None:
+    user_bid_column: object, keyword: str
+) -> object | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None

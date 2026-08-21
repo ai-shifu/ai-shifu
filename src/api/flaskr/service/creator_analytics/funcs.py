@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 ERR_NO_PERMISSION = "server.creatorAnalytics.noPermission"
 
 
-def run_dsl(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
+def run_dsl(app: Flask, user_id: str, payload: object) -> dict[str, Any]:
     """Execute a DSL query on behalf of ``user_id``.
 
     Steps:

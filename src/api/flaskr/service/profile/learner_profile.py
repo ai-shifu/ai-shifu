@@ -92,7 +92,7 @@ def load_learner_profile_user(
     return user
 
 
-def normalize_learner_profile(raw_profile: Any) -> str:
+def normalize_learner_profile(raw_profile: object) -> str:
     """Normalize learner profile."""
     if not isinstance(raw_profile, str):
         raise_param_error("learner_profile")
@@ -102,7 +102,7 @@ def normalize_learner_profile(raw_profile: Any) -> str:
     return normalized
 
 
-def normalize_learner_profile_nickname(raw_nickname: Any) -> str:
+def normalize_learner_profile_nickname(raw_nickname: object) -> str:
     """Normalize learner profile nickname."""
     if not isinstance(raw_nickname, str):
         raise_param_error("nickname")
@@ -128,7 +128,7 @@ def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
     }
 
 
-def _identifier_variants(value: Any) -> set[str]:
+def _identifier_variants(value: object) -> set[str]:
     normalized = str(value or "").strip()
     if not normalized:
         return set()

@@ -50,7 +50,7 @@ def _parse_output_fields(raw_text: str) -> dict[str, str]:
     return fields
 
 
-def _format_workflow_item(item: Any) -> str:
+def _format_workflow_item(item: object) -> str:
     if isinstance(item, str):
         return item.strip()
 
@@ -79,7 +79,7 @@ def _format_workflow_item(item: Any) -> str:
     return title or summary or json.dumps(item, ensure_ascii=False)
 
 
-def _format_workflow_payload(payload: Any) -> str:
+def _format_workflow_payload(payload: object) -> str:
     if isinstance(payload, str):
         return payload.strip()
 

@@ -140,7 +140,7 @@ def iter_sse_payloads(response: requests.Response) -> Iterable[str]:
             yield normalized
 
 
-def extract_text(payload: Any) -> str:
+def extract_text(payload: object) -> str:
     """Extract text."""
     if isinstance(payload, str):
         return payload

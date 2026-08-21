@@ -2403,7 +2403,7 @@ def _enforce_manual_subscription_expire_event(
     db.session.add(expire_event)
 
 
-def _serialize_cli_payload(payload: Any) -> Any:
+def _serialize_cli_payload(payload: object) -> object:
     if hasattr(payload, "to_task_payload"):
         return payload.to_task_payload()
     if hasattr(payload, "to_payload"):
@@ -2415,7 +2415,7 @@ def _serialize_cli_payload(payload: Any) -> Any:
     return payload
 
 
-def _echo_payload(payload: Any) -> None:
+def _echo_payload(payload: object) -> None:
     click.echo(
         json.dumps(
             _serialize_cli_payload(payload),
@@ -2426,7 +2426,7 @@ def _echo_payload(payload: Any) -> None:
     )
 
 
-def _serialize_json_value(value: Any) -> Any:
+def _serialize_json_value(value: object) -> object:
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, Decimal):
