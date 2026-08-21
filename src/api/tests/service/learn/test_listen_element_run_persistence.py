@@ -150,7 +150,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
         monkeypatch.setattr(
             listen_element_run_persistence,
             "invalidate_session",
-            lambda *, source, session=None: invalidations.append(source) or True,
+            lambda *, source, _session=None: invalidations.append(source) or True,
         )
 
         with pytest.raises(ResourceClosedError):

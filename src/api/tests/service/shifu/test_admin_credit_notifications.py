@@ -21,12 +21,12 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     monkeypatch.setattr(
         module,
         "list_credit_notifications",
-        lambda received_app, **kwargs: calls.append(("list", kwargs)) or {"items": []},
+        lambda _received_app, **kwargs: calls.append(("list", kwargs)) or {"items": []},
     )
     monkeypatch.setattr(
         module,
         "get_credit_notification_detail",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("detail", kwargs))
             or {"notification_bid": kwargs["notification_bid"]}
         ),
@@ -34,7 +34,7 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     monkeypatch.setattr(
         module,
         "sync_credit_notification_template",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("sync", kwargs)) or {"template_code": kwargs["template_code"]}
         ),
     )
@@ -46,14 +46,14 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     monkeypatch.setattr(
         module,
         "dry_run_credit_notifications",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("dry_run", kwargs)) or {"ok": True}
         ),
     )
     monkeypatch.setattr(
         module,
         "requeue_credit_notification",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("requeue", kwargs)) or {"status": "enqueued"}
         ),
     )

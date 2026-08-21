@@ -305,7 +305,7 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-1",
+        lambda _app, _usage: "creator-1",
     )
 
     with billing_settlement_app.app_context():
@@ -422,7 +422,7 @@ def test_settle_usage_rounds_consumption_before_persisting(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-rounding",
+        lambda _app, _usage: "creator-rounding",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -487,7 +487,7 @@ def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-zero-bill",
+        lambda _app, _usage: "creator-zero-bill",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -558,7 +558,7 @@ def test_settle_tts_usage_is_idempotent(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-2",
+        lambda _app, _usage: "creator-2",
     )
 
     with billing_settlement_app.app_context():
@@ -620,7 +620,7 @@ def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-tts-char",
+        lambda _app, _usage: "creator-tts-char",
     )
 
     with billing_settlement_app.app_context():
@@ -681,7 +681,7 @@ def test_settle_usage_consumes_manual_grant_without_subscription_and_skips_topup
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-manual-settlement",
+        lambda _app, _usage: "creator-manual-settlement",
     )
 
     with billing_settlement_app.app_context():
@@ -753,7 +753,7 @@ def test_settle_usage_prefers_exact_rate_over_wildcard(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-3",
+        lambda _app, _usage: "creator-3",
     )
 
     with billing_settlement_app.app_context():
@@ -824,7 +824,7 @@ def test_settle_usage_applies_scene_specific_rate_and_records_scene_metadata(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-scene-settlement",
+        lambda _app, _usage: "creator-scene-settlement",
     )
 
     with billing_settlement_app.app_context():
@@ -902,7 +902,7 @@ def test_settle_usage_rebuilds_wallet_snapshot_from_bucket_balances(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-5",
+        lambda _app, _usage: "creator-5",
     )
 
     with billing_settlement_app.app_context():
@@ -970,7 +970,7 @@ def test_settle_usage_prefers_earliest_expiry_then_oldest_created_in_same_priori
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-6",
+        lambda _app, _usage: "creator-6",
     )
 
     with billing_settlement_app.app_context():
@@ -1060,7 +1060,7 @@ def test_settle_usage_skips_segment_and_non_billable_records(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-4",
+        lambda _app, _usage: "creator-4",
     )
 
     with billing_settlement_app.app_context():
@@ -1141,7 +1141,7 @@ def test_settle_usage_acquires_creator_scoped_lock(
 
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-lock-1",
+        lambda _app, _usage: "creator-lock-1",
     )
     dummy_cache = _DummyCacheProvider()
     monkeypatch.setattr("flaskr.service.billing.settlement.cache_provider", dummy_cache)
@@ -1213,15 +1213,17 @@ def test_settle_usage_releases_creator_lock_on_error(
     lock = _DummyLock()
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.cache_provider",
-        SimpleNamespace(lock=lambda *args, **kwargs: lock),
+        SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-lock-err",
+        lambda _app, _usage: "creator-lock-err",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.build_usage_metric_charges",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("lock-test-error")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("lock-test-error")
+        ),
     )
 
     with billing_settlement_app.app_context():
@@ -1280,7 +1282,7 @@ def test_replay_bill_usage_settlement_keeps_existing_consumption_idempotent(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-replay-1",
+        lambda _app, _usage: "creator-replay-1",
     )
 
     with billing_settlement_app.app_context():
@@ -1340,7 +1342,7 @@ def test_replay_bill_usage_settlement_rejects_creator_mismatch(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-replay-real",
+        lambda _app, _usage: "creator-replay-real",
     )
 
     with billing_settlement_app.app_context():
@@ -1375,7 +1377,7 @@ def test_backfill_bill_usage_settlement_replays_one_usage_range_safely(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-backfill-1",
+        lambda _app, _usage: "creator-backfill-1",
     )
 
     with billing_settlement_app.app_context():

@@ -33,7 +33,7 @@ def _install_litellm_stub() -> None:
     litellm_stub.register_model = register_model
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -600,11 +600,11 @@ def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch):
 def test_stream_litellm_completion_falls_back_to_litellm_limit(monkeypatch, app):
     captured = {}
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
-    monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda model: 8192)
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda _model: 8192)
     monkeypatch.setattr(
         llm.litellm,
         "completion",
-        lambda *args, **kwargs: captured.update(kwargs) or iter([]),
+        lambda *_args, **kwargs: captured.update(kwargs) or iter([]),
     )
 
     list(
@@ -640,7 +640,7 @@ def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
     monkeypatch.setattr(
         llm.litellm,
         "completion",
-        lambda *args, **kwargs: captured.update(kwargs) or iter([]),
+        lambda *_args, **kwargs: captured.update(kwargs) or iter([]),
     )
     kwargs = {}
     if requested_max_tokens is not None:
@@ -672,7 +672,7 @@ def test_stream_litellm_completion_omits_unknown_limit(monkeypatch, app):
     monkeypatch.setattr(
         llm.litellm,
         "completion",
-        lambda *args, **kwargs: captured.update(kwargs) or iter([]),
+        lambda *_args, **kwargs: captured.update(kwargs) or iter([]),
     )
 
     list(
@@ -797,7 +797,7 @@ def test_openai_params_fall_back_when_capability_metadata_is_partial(monkeypatch
     monkeypatch.setattr(
         llm.litellm,
         "get_model_info",
-        lambda *args, **kwargs: {"supports_none_reasoning_effort": False},
+        lambda *_args, **_kwargs: {"supports_none_reasoning_effort": False},
     )
 
     assert llm._reload_openai_params("gpt-5.2-custom", 0.4) == {
@@ -1330,7 +1330,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(monkeypatch, app):
         return iter([FakeResponse("chunk-1", content="ok", finish_reason="stop")])
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         llm,
         "PROVIDER_STATES",
@@ -1379,7 +1379,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, ap
         raise RepeatedChunkError(message)
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
     provider_state = llm.ProviderState(
         enabled=True,
         params={"api_key": "test-key", "api_base": "https://example.com"},
@@ -1431,7 +1431,7 @@ def test_chat_llm_streams(monkeypatch, app):
     monkeypatch.setattr(
         llm,
         "record_llm_usage",
-        lambda *args, **kwargs: captured_usage.update(kwargs),
+        lambda *_args, **kwargs: captured_usage.update(kwargs),
     )
     provider_state = llm.ProviderState(
         enabled=True,
@@ -1494,7 +1494,7 @@ def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
         )
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    monkeypatch.setattr(llm, "record_llm_usage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
     provider_state = llm.ProviderState(
         enabled=True,
         params={"api_key": "test-key", "api_base": "https://example.com"},

@@ -500,19 +500,19 @@ class TestBillingPingxxCallbacks:
     ) -> None:
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_shifu_creator_bid",
-            lambda *args, **kwargs: "creator-legacy-1",
+            lambda *_args, **_kwargs: "creator-legacy-1",
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.set_user_state",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.send_order_feishu",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.query_buy_record",
-            lambda *args, **kwargs: {},
+            lambda *_args, **_kwargs: {},
         )
 
         with billing_callback_app.app_context():
@@ -608,7 +608,7 @@ class TestBillingNativeCallbacks:
 
         monkeypatch.setattr(
             "flaskr.service.billing.webhooks.get_payment_provider",
-            lambda provider_name: FakeAlipayProvider(),
+            lambda _provider_name: FakeAlipayProvider(),
         )
 
         with billing_callback_app.app_context():
@@ -798,11 +798,11 @@ class TestBillingNativeCallbacks:
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",
-            lambda provider_name: FakeAlipayProvider(),
+            lambda _provider_name: FakeAlipayProvider(),
         )
         monkeypatch.setattr(
             "flaskr.route.callback.success_buy_record_from_native",
-            lambda *args, **kwargs: False,
+            lambda *_args, **_kwargs: False,
         )
 
         with billing_callback_app.test_client() as client:
@@ -824,23 +824,23 @@ class TestBillingNativeCallbacks:
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",
-            lambda provider_name: FakeWechatPayProvider(),
+            lambda _provider_name: FakeWechatPayProvider(),
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_shifu_creator_bid",
-            lambda *args, **kwargs: "creator-legacy-1",
+            lambda *_args, **_kwargs: "creator-legacy-1",
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.set_user_state",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.send_order_feishu",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.query_buy_record",
-            lambda *args, **kwargs: {},
+            lambda *_args, **_kwargs: {},
         )
 
         with billing_callback_app.app_context():
@@ -891,7 +891,7 @@ class TestBillingNativeCallbacks:
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",
-            lambda provider_name: FakeWechatPayProvider(),
+            lambda _provider_name: FakeWechatPayProvider(),
         )
 
         with billing_callback_app.test_client() as client:

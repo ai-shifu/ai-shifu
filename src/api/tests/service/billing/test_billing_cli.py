@@ -176,7 +176,7 @@ def test_billing_backfill_settlement_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.backfill_bill_usage_settlement",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "completed",
             "processed_count": 2,
             "backfill": True,
@@ -221,7 +221,7 @@ def test_billing_backfill_trial_plans_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.backfill_missing_creator_trial_credits",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "completed",
             "granted_count": 2,
             "kwargs": kwargs,
@@ -263,7 +263,7 @@ def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payloa
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.backfill_authoring_permission_creators",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "completed",
             "role_granted_count": 1,
             "kwargs": kwargs,
@@ -296,7 +296,7 @@ def test_billing_rebuild_wallets_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.rebuild_credit_wallet_snapshots",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "rebuilt",
             "wallet_count": 1,
             "wallets": [{"wallet_bid": "wallet-1"}],
@@ -327,7 +327,7 @@ def test_billing_rebuild_wallets_cli_apply_persists_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.rebuild_credit_wallet_snapshots",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "rebuilt",
             "wallet_count": 1,
             "wallets": [{"wallet_bid": "wallet-1"}],
@@ -369,7 +369,7 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_topup_grant_expiries",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_bucket_count": 1,
             "kwargs": kwargs,
@@ -412,7 +412,7 @@ def test_billing_restore_expired_topup_buckets_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.restore_wrongly_expired_credit_pack_buckets",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "dry_run",
             "repaired_bucket_count": 2,
             "kwargs": kwargs,
@@ -444,7 +444,7 @@ def test_billing_restore_expired_topup_buckets_cli_apply_persists_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.restore_wrongly_expired_credit_pack_buckets",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_bucket_count": 1,
             "kwargs": kwargs,
@@ -489,7 +489,7 @@ def test_billing_repair_bucket_status_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_credit_bucket_runtime_statuses",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_bucket_count": 1,
             "kwargs": kwargs,
@@ -532,7 +532,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_expire_ledger_bucket_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "dry_run",
             "bucket_count": 1,
             "kwargs": kwargs,
@@ -563,7 +563,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_expire_ledger_bucket_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "bucket_count": 1,
             "kwargs": kwargs,
@@ -608,7 +608,7 @@ def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_renewal_state_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "dry_run",
             "creator_count": 1,
             "kwargs": kwargs,
@@ -639,7 +639,7 @@ def test_billing_repair_renewal_state_drift_cli_apply_persists_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_renewal_state_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "creator_count": 10,
             "kwargs": kwargs,
@@ -685,7 +685,7 @@ def test_billing_repair_subscription_cycle_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_subscription_cycle_mismatches",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_subscription_count": 1,
             "kwargs": kwargs,
@@ -714,7 +714,7 @@ def test_billing_reconcile_order_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.reconcile_billing_provider_reference",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "paid",
             "bill_order_bid": "bill-order-cli-1",
             "kwargs": kwargs,
@@ -745,7 +745,7 @@ def test_billing_retry_renewal_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.retry_billing_renewal_event",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "applied",
             "renewal_event_bid": kwargs.get("renewal_event_bid"),
         },
@@ -773,7 +773,7 @@ def test_billing_requeue_subscription_purchase_sms_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.requeue_subscription_purchase_sms",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "enqueued",
             "bill_order_bid": kwargs.get("bill_order_bid"),
             "enqueued": True,
@@ -814,7 +814,7 @@ def test_billing_rebuild_daily_aggregates_cli_prints_helper_payload(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.rebuild_daily_aggregates",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "rebuilt",
             "day_count": 3,
             "kwargs": kwargs,
@@ -1381,7 +1381,7 @@ def test_billing_grant_plan_cli_accepts_explicit_effective_to(
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {
+        lambda _app, *, bill_order_bid: {
             "status": "enqueued",
             "bill_order_bid": bill_order_bid,
             "enqueued": True,
@@ -1454,7 +1454,7 @@ def test_billing_grant_plan_cli_upgrades_active_manual_subscription(
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {
+        lambda _app, *, bill_order_bid: {
             "status": "enqueued",
             "bill_order_bid": bill_order_bid,
             "enqueued": True,
@@ -1700,7 +1700,7 @@ def test_billing_grant_plan_cli_upgrades_active_pingxx_subscription(
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {
+        lambda _app, *, bill_order_bid: {
             "status": "enqueued",
             "bill_order_bid": bill_order_bid,
             "enqueued": True,

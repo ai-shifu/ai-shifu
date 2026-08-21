@@ -995,7 +995,7 @@ def test_custom_wechat_identifiers_are_scoped_by_app_id(app, monkeypatch):
     monkeypatch.setattr(
         user_service,
         "resolve_creator_public_integrations",
-        lambda creator_bid: {"wechat_oauth": {"app_id": "wx-owner-1"}},
+        lambda _creator_bid: {"wechat_oauth": {"app_id": "wx-owner-1"}},
     )
     try:
         assert user_service._wechat_identifiers(app, "openid-1", "unionid-1") == (
@@ -1013,7 +1013,7 @@ def test_custom_wechat_identifiers_fail_when_integration_resolution_fails(
     monkeypatch.setattr(
         user_service,
         "resolve_creator_public_integrations",
-        lambda creator_bid: (_ for _ in ()).throw(RuntimeError("resolver failed")),
+        lambda _creator_bid: (_ for _ in ()).throw(RuntimeError("resolver failed")),
     )
     try:
         with pytest.raises(RuntimeError, match="resolver failed"):
@@ -1027,7 +1027,7 @@ def test_custom_wechat_identifiers_require_custom_app_id(app, monkeypatch):
     monkeypatch.setattr(
         user_service,
         "resolve_creator_public_integrations",
-        lambda creator_bid: {"wechat_oauth": {"app_id": ""}},
+        lambda _creator_bid: {"wechat_oauth": {"app_id": ""}},
     )
     try:
         with pytest.raises(RuntimeError, match="missing app_id"):

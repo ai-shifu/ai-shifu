@@ -395,20 +395,26 @@ behind a test-tree exception. Delete unreferenced debug helpers instead of
 preserving a lint boundary for them. A developer-script tree may retain T20 only
 when stdout is the scripts' user-facing interface.
 
-For `ARG001` and `ARG002`, first remove an unused function or method parameter
-when the callable and all callers are repository-owned. Preserve the exact
-parameter name when a base class, provider protocol, framework callback,
+For the `ARG` family, first remove an unused function, method, or lambda
+parameter when the callable and all callers are repository-owned. Preserve the
+exact parameter name when a base class, provider protocol, framework callback,
 pytest fixture, or behaviorally faithful test double owns keyword
-compatibility; explicitly consume that value in the body with `_ = value` (or
-one signature-ordered tuple for several values). Do not rename a compatibility
-parameter to `_value`, because external keyword callers and pytest fixture
-injection still use its original name. A pytest fixture that appears unused in
-the test body may still establish app, database, or monkeypatch state, so keep
-and consume it unless its setup role is proved unnecessary. Do not add an
-ARG001/ARG002 suppression or a meaningless directory exception. If the same
-function calls the imported translation helper `_()`, do not assign a
-compatibility value to `_`; remove the repository-owned parameter or use a
-non-shadowing consumption such as `del value`.
+compatibility; explicitly consume that value in a named function body with
+`_ = value`, `del value`, or one signature-ordered tuple for several values.
+Only rename a lambda parameter to `_value` when every invocation is proven
+positional. When a lambda has a fixed keyword contract, promote it to a named
+local or module helper, retain the original parameter names, and consume unused
+values in the body. A test double that intentionally accepts and ignores an
+open set of optional keywords may keep a lambda with `**_kwargs`; do not use
+that broader signature when the test is meant to verify exact keyword names.
+External keyword callers and pytest fixture injection still use those original
+names. A pytest fixture that appears unused in the test body may still
+establish app, database, or monkeypatch state, so keep and consume it unless
+its setup role is proved unnecessary. Do not add an `ARG` suppression or a
+meaningless directory exception. If the same function calls the imported
+translation helper `_()`, do not assign a compatibility value to `_`; remove
+the repository-owned parameter or use a non-shadowing consumption such as
+`del value`.
 
 For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
 allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are

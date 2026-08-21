@@ -90,7 +90,7 @@ def runtime_config_client(monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
-        lambda app, shifu_bid: "creator-1" if shifu_bid == "shifu-1" else None,
+        lambda _app, shifu_bid: "creator-1" if shifu_bid == "shifu-1" else None,
     )
 
     config_route.register_config_handler(app, "/api")
@@ -230,7 +230,7 @@ def test_runtime_config_hides_creator_keys_without_matching_capability(
     monkeypatch.setattr(
         config_route,
         "resolve_creator_public_integrations",
-        lambda creator_bid: {
+        lambda _creator_bid: {
             "wechat_oauth": {"app_id": "wx-custom"},
             "stripe": {"publishable_key": "pk_creator"},
         },
@@ -456,13 +456,13 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
 def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.runtime_config.resolve_creator_entitlement_state",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("entitlement resolver must not run in default builder")
         ),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.runtime_config.resolve_runtime_domain_result",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("domain resolver must not run in default builder")
         ),
     )
@@ -515,7 +515,7 @@ def test_runtime_config_reports_disabled_billing_flag(
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("billing builder should not run when disabled")
         ),
     )
@@ -555,7 +555,7 @@ def test_runtime_config_falls_back_when_billing_context_build_fails(
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
     )
 
     response = runtime_config_client.get(

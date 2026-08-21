@@ -15,14 +15,16 @@ from sqlalchemy.exc import ResourceClosedError
 @pytest.fixture
 def invalidations(monkeypatch):
     calls = []
+
+    def release_db_session(app: object, *, source: str) -> None:
+        del app, source
+
     monkeypatch.setattr(
         learn_routes,
         "invalidate_session",
-        lambda *, source, session=None: calls.append(source) or True,
+        lambda *, source, _session=None: calls.append(source) or True,
     )
-    monkeypatch.setattr(
-        learn_routes, "_release_db_session", lambda _app, *, source: None
-    )
+    monkeypatch.setattr(learn_routes, "_release_db_session", release_db_session)
     return calls
 
 

@@ -114,7 +114,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
         provider = DummyStripeRefundProvider(result)
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_payment_provider",
-            lambda channel: provider,
+            lambda _channel: provider,
         )
 
         # refund_order_payment now joins the caller's session and commits its

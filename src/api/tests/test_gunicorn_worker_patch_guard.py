@@ -61,7 +61,7 @@ def test_observer_skips_unpatched_processes(monkeypatch):
     from flaskr.common.gevent_hub_observer import install_hub_error_observer
     from gevent import monkey
 
-    monkeypatch.setattr(monkey, "is_module_patched", lambda name: False)
+    monkeypatch.setattr(monkey, "is_module_patched", lambda _name: False)
 
     class _Logger:
         def error(self, *args, **kwargs):

@@ -54,7 +54,7 @@ def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch):
     monkeypatch.setattr(
         context_v2,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
     stop_streaming = threading.Event()
@@ -88,7 +88,7 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(app, monkeypatc
     monkeypatch.setattr(
         context_v2,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
     def short_stream():
@@ -121,7 +121,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch):
     monkeypatch.setattr(
         context_v2,
         "cleanup_session_after",
-        lambda exc, *, source, session=None: (
+        lambda exc, *, source, _session=None: (
             outcomes.append((type(exc).__name__, source)) or "invalidated"
         ),
     )

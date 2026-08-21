@@ -26,7 +26,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -372,7 +372,7 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
     )
     monkeypatch.setattr(
         "flaskr.service.learn.context_v2.RunScriptPreviewContextV2.stream_preview",
-        lambda self, **_kwargs: iter(
+        lambda _self, **_kwargs: iter(
             [
                 {
                     "type": "element",

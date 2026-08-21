@@ -60,16 +60,20 @@ def order_app():
 
 @pytest.fixture
 def stub_shifu(monkeypatch: pytest.MonkeyPatch):
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, bid, preview_mode
+        return SimpleNamespace(
+            price=Decimal("100.00"),
+            title="UOW course",
+            description="UOW failure-path course",
+        )
+
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "c1")
     monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_a, **_k: None)
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, preview_mode: SimpleNamespace(
-            price=Decimal("100.00"),
-            title="UOW course",
-            description="UOW failure-path course",
-        ),
+        get_shifu_info,
     )
 
 

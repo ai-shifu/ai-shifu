@@ -325,7 +325,7 @@ def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monke
 
         monkeypatch.setattr(
             "flaskr.service.shifu.admin.run_creator_granted_post_auth",
-            lambda *args, **kwargs: post_auth_calls.append(kwargs),
+            lambda *_args, **kwargs: post_auth_calls.append(kwargs),
         )
 
         transfer_operator_course_creator(

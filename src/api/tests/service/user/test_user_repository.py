@@ -11,12 +11,12 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
     monkeypatch.setattr(
         repo_module,
         "invalidate_session",
-        lambda *, source, session=None: events.append(("invalidate", source)) or True,
+        lambda *, source, _session=None: events.append(("invalidate", source)) or True,
     )
     monkeypatch.setattr(
         repo_module,
         "cleanup_session_after",
-        lambda exc, *, source, session=None: (
+        lambda _exc, *, source, _session=None: (
             events.append(("cleanup", source)) or "rolled_back"
         ),
     )

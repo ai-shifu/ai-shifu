@@ -107,7 +107,7 @@ def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch):
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
     calls = {"n": 0}
 
@@ -130,7 +130,7 @@ def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch):
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
     class _BrokenSession:

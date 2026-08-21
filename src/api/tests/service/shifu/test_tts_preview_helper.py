@@ -18,6 +18,16 @@ class _FakeAudioSettings:
     sample_rate: int = 24000
 
 
+def _split_hello_world(text: str, provider_name: str = "") -> list[str]:
+    del text, provider_name
+    return ["hello", "world"]
+
+
+def _split_hello(text: str, provider_name: str = "") -> list[str]:
+    del text, provider_name
+    return ["hello"]
+
+
 def test_build_tts_preview_response_records_debug_usage_and_summary(
     monkeypatch,
 ) -> None:
@@ -59,7 +69,7 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.split_text_for_tts",
-        lambda _text, provider_name="": ["hello", "world"],
+        _split_hello_world,
         raising=False,
     )
     monkeypatch.setattr(
@@ -182,7 +192,7 @@ def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> No
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.split_text_for_tts",
-        lambda _text, provider_name="": ["hello"],
+        _split_hello,
         raising=False,
     )
     monkeypatch.setattr(
@@ -313,7 +323,7 @@ def _stub_preview_pipeline(monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.split_text_for_tts",
-        lambda _text, provider_name="": ["hello", "world"],
+        _split_hello_world,
         raising=False,
     )
     monkeypatch.setattr(
@@ -351,7 +361,7 @@ def test_preview_stream_close_invalidates_session(monkeypatch) -> None:
     invalidations: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
         raising=False,
     )
 

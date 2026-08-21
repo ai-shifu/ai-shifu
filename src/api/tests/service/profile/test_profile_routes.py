@@ -6,7 +6,8 @@ import flaskr.service.config.funcs as config_funcs
 import pytest
 
 _dummy_lock = SimpleNamespace(
-    acquire=lambda *args, **kwargs: False, release=lambda *args, **kwargs: None
+    acquire=lambda *_args, **_kwargs: False,
+    release=lambda *_args, **_kwargs: None,
 )
 
 
@@ -17,8 +18,8 @@ def _stub_profile_config_cache(monkeypatch):
         "redis",
         SimpleNamespace(
             get=lambda _key: None,
-            set=lambda *args, **kwargs: None,
-            lock=lambda *args, **kwargs: _dummy_lock,
+            set=lambda *_args, **_kwargs: None,
+            lock=lambda *_args, **_kwargs: _dummy_lock,
         ),
     )
 

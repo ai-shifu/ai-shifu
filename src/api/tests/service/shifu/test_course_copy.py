@@ -36,7 +36,7 @@ def _unique_email(label: str) -> str:
 def _stub_copy_course_risk_control(monkeypatch):
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.check_text_with_risk_control",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
     )
 
 
@@ -372,7 +372,7 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
 
         monkeypatch.setattr(
             "flaskr.service.shifu.admin.run_creator_granted_post_auth",
-            lambda *args, **kwargs: post_auth_calls.append(kwargs),
+            lambda *_args, **kwargs: post_auth_calls.append(kwargs),
         )
 
         result = copy_operator_course(

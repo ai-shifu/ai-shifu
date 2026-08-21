@@ -153,7 +153,7 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
                 "SessionResponse",
                 (),
                 {
-                    "to_dict": lambda self: {
+                    "to_dict": lambda _self: {
                         "id": "cs_1",
                         "url": "https://stripe.test/checkout",
                         "payment_intent": "",

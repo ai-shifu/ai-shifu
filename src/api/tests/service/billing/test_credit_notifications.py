@@ -360,7 +360,7 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
 
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: (
+        lambda _app, mobile, *, template_code, template_params, _sign_name=None: (
             captured.append(
                 {
                     "mobile": mobile,
@@ -428,7 +428,7 @@ def test_credit_notification_policy_blocks_creator_by_email_identifier(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda *args, **kwargs: pytest.fail("blocked notification should not send"),
+        lambda *_args, **_kwargs: pytest.fail("blocked notification should not send"),
     )
     with app.app_context():
         _seed_credit_ledger()
@@ -480,19 +480,28 @@ def test_credit_notification_delivery_normalizes_legacy_iso_expires_at(
         }
         dao.db.session.commit()
 
+    def send_sms(
+        app: object,
+        mobile: str,
+        *,
+        template_code: str,
+        template_params: dict[str, object],
+        sign_name: str | None = None,
+    ) -> SimpleNamespace:
+        del app, mobile, template_code, sign_name
+        captured.append(dict(template_params))
+        return SimpleNamespace(
+            body=SimpleNamespace(
+                code="OK",
+                message="accepted",
+                request_id="req-legacy",
+                biz_id="biz-legacy",
+            )
+        )
+
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: (
-            captured.append(dict(template_params))
-            or SimpleNamespace(
-                body=SimpleNamespace(
-                    code="OK",
-                    message="accepted",
-                    request_id="req-legacy",
-                    biz_id="biz-legacy",
-                )
-            )
-        ),
+        send_sms,
     )
 
     delivered = deliver_credit_notification(
@@ -718,7 +727,7 @@ def test_sync_credit_notification_template_persists_aliyun_template(
 
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.get_sms_template_ali",
-        lambda app, *, template_code: SimpleNamespace(
+        lambda _app, *, template_code: SimpleNamespace(
             body=SimpleNamespace(
                 code="OK",
                 message="OK",
@@ -801,9 +810,15 @@ def test_list_credit_notification_templates_syncs_provider_list(
         ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=f"test-key-{secrets.token_hex(4)}",
         ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=secrets.token_urlsafe(24),
     )
-    monkeypatch.setattr(
-        "flaskr.service.billing.credit_notifications.query_sms_template_list_ali",
-        lambda app, *, page_index, page_size: SimpleNamespace(
+
+    def query_templates(
+        app: object,
+        *,
+        page_index: int,
+        page_size: int,
+    ) -> SimpleNamespace:
+        del app, page_index, page_size
+        return SimpleNamespace(
             body=SimpleNamespace(
                 code="OK",
                 message="OK",
@@ -821,7 +836,11 @@ def test_list_credit_notification_templates_syncs_provider_list(
                     )
                 ],
             )
-        ),
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.query_sms_template_list_ali",
+        query_templates,
     )
 
     payload = list_credit_notification_templates(app)
@@ -917,15 +936,20 @@ def test_credit_notification_policy_revalidates_cached_template_with_provider(
         template_code="TPL-DELETED",
         placeholders=["credits"],
     )
-    monkeypatch.setattr(
-        "flaskr.service.billing.credit_notifications.get_sms_template_ali",
-        lambda app, *, template_code: SimpleNamespace(
+
+    def get_template(app: object, *, template_code: str) -> SimpleNamespace:
+        del app, template_code
+        return SimpleNamespace(
             body=SimpleNamespace(
                 code="isv.SMS_TEMPLATE_ILLEGAL",
                 message="template not found",
                 request_id="req-deleted",
             )
-        ),
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.get_sms_template_ali",
+        get_template,
     )
 
     with pytest.raises(AppError):
@@ -1078,7 +1102,7 @@ def test_credit_notification_skips_creator_without_mobile(
     enqueue_calls: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+        lambda _app, *, notification_bid: enqueue_calls.append(notification_bid),
     )
     with app.app_context():
         _seed_credit_ledger(
@@ -1139,7 +1163,7 @@ def test_credit_notification_skips_invalid_mobile(
     enqueue_calls: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+        lambda _app, *, notification_bid: enqueue_calls.append(notification_bid),
     )
     with app.app_context():
         _seed_credit_ledger(
@@ -1614,7 +1638,7 @@ def test_expiring_and_low_balance_scans_stage_deduped_notifications(
     _enable_policy(app)
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": "enqueued",
             "notification_bid": notification_bid,
             "enqueued": True,
@@ -1664,7 +1688,7 @@ def test_expiring_scan_merges_same_creator_buckets(
     _enable_policy(app)
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": "enqueued",
             "notification_bid": notification_bid,
             "enqueued": True,
@@ -1792,7 +1816,7 @@ def test_low_balance_estimated_days_scan_uses_daily_ledger_summary(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": "enqueued",
             "notification_bid": notification_bid,
             "enqueued": True,
@@ -1885,7 +1909,7 @@ def test_low_balance_estimated_days_uses_fallback_fixed_threshold_when_history_i
     )
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": "enqueued",
             "notification_bid": notification_bid,
             "enqueued": True,
@@ -1934,7 +1958,7 @@ def test_low_balance_estimated_days_skips_when_valid_daily_consumption_is_missin
     enqueue_calls: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+        lambda _app, *, notification_bid: enqueue_calls.append(notification_bid),
     )
 
     with app.app_context():
@@ -1974,7 +1998,7 @@ def test_low_balance_scan_skips_zero_balance_without_estimated_remaining_days(
     enqueue_calls: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+        lambda _app, *, notification_bid: enqueue_calls.append(notification_bid),
     )
 
     with app.app_context():
@@ -2016,7 +2040,7 @@ def test_low_balance_scan_skips_template_params_missing_for_mode(
     enqueue_calls: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+        lambda _app, *, notification_bid: enqueue_calls.append(notification_bid),
     )
 
     with app.app_context():
@@ -2050,7 +2074,7 @@ def test_low_balance_delivery_skips_zero_balance_without_estimated_remaining_day
     send_calls: list[dict[str, object]] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: (
+        lambda _app, mobile, *, template_code, template_params, _sign_name=None: (
             send_calls.append(
                 {
                     "mobile": mobile,
@@ -2127,7 +2151,7 @@ def test_low_balance_delivery_skips_template_params_missing_for_mode(
     send_calls: list[dict[str, object]] = []
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: (
+        lambda _app, mobile, *, template_code, template_params, _sign_name=None: (
             send_calls.append(
                 {
                     "mobile": mobile,
@@ -2201,18 +2225,20 @@ def test_failed_provider_notification_can_be_requeued(
         def apply_async(self, kwargs):
             captured_kwargs.append(dict(kwargs))
 
+    def get_celery_app(flask_app: object | None = None) -> object:
+        del flask_app
+        return SimpleNamespace(tasks={"billing.send_credit_notification": FakeTask()})
+
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+        lambda _app, _mobile, *, _template_code, _template_params, _sign_name=None: (
+            None
+        ),
     )
     monkeypatch.setitem(
         sys.modules,
         "flaskr.common.celery_app",
-        SimpleNamespace(
-            get_celery_app=lambda flask_app=None: SimpleNamespace(
-                tasks={"billing.send_credit_notification": FakeTask()}
-            )
-        ),
+        SimpleNamespace(get_celery_app=get_celery_app),
     )
 
     with app.app_context():
@@ -2251,11 +2277,13 @@ def test_requeue_keeps_failed_status_when_enqueue_fails(
     _enable_policy(app)
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+        lambda _app, _mobile, *, _template_code, _template_params, _sign_name=None: (
+            None
+        ),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": "enqueue_failed",
             "notification_bid": notification_bid,
             "enqueued": False,
@@ -2294,11 +2322,13 @@ def test_requeue_records_operator_audit_metadata(
     _enable_policy(app)
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+        lambda _app, _mobile, *, _template_code, _template_params, _sign_name=None: (
+            None
+        ),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": "enqueued",
             "notification_bid": notification_bid,
             "enqueued": True,
@@ -2379,7 +2409,7 @@ def test_send_credit_notification_task_raises_retryable_on_provider_failure(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks._deliver_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
             "notification_bid": notification_bid,
             "error_code": "provider_failed",
@@ -2401,7 +2431,7 @@ def test_send_credit_notification_task_does_not_retry_config_failure(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks._deliver_credit_notification",
-        lambda app, *, notification_bid: {
+        lambda _app, *, notification_bid: {
             "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
             "notification_bid": notification_bid,
             "error_code": "missing_template_code",

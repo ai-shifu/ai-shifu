@@ -651,6 +651,33 @@ plan's progress update for that rule.
   development-tool validation, and every pre-commit hook. Against the current
   base, the stable census falls 216 from 27,991 to 27,775 and the isolated
   census falls 216 from 39,380 to 39,164.
+- [x] 2026-08-21 12:05 CST: Audited all 565 ARG005 findings: 384 lambdas in 76
+  files, all under the backend test tree. The dominant contexts are 303
+  `monkeypatch.setattr` callbacks and 37 `types.MethodType` test doubles. A
+  mechanical underscore pass proved insufficient because production code
+  invokes many of those substitutes by keyword.
+- [x] 2026-08-21 12:18 CST: Removed every ARG005 finding without suppression.
+  Positional-only test callbacks use explicit dummy names; keyword-compatible
+  substitutes became named local or module helpers that preserve fixed
+  parameter names, while intentionally open MethodType doubles use `**_kwargs`
+  to absorb ignored options. The first affected-file run exposed 50 keyword-
+  contract failures and the second exposed 12 more; fixing those contracts made
+  all 76 touched modules pass 1,062 tests with 15 existing environment skips.
+  The Ruff selection now replaces four explicit ARG001-ARG004 entries with the
+  single `ARG` prefix.
+- [x] 2026-08-21 12:25 CST: Compared the final tree to predecessor
+  `b663a045c` in a detached baseline worktree. No other rule gains debt: the
+  stable `ALL` census falls by 569 from 27,775 to 27,206 and the isolated
+  census falls by the same amount from 39,164 to 38,595. ARG005 contributes
+  565 removals and the signature rewrites also remove four COM812 findings.
+- [x] 2026-08-21 12:31 CST: The final full backend suite passes all 3,032 tests
+  with 17 existing environment skips and 733 existing warnings. Configured
+  Ruff passes, both collaboration and knowledge generators reproduce their
+  committed output, and repository format is clean.
+- [x] 2026-08-21 12:34 CST: Repository and architecture harnesses pass with no
+  new boundary violations, pinned development-tool validation confirms Ruff
+  0.16.3 and the full hook toolchain, and every repository pre-commit hook
+  passes on all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -861,13 +888,16 @@ plan's progress update for that rule.
   messages and longer diagnostic summaries in pytest report sections. Retain a
   directory exception only for developer scripts whose stdout is the product;
   do not use one for a mixed test tree.
-- 2026-08-21: For ARG001 and ARG002, delete parameters only when the callable
-  and callers own the complete signature. Protocol, provider, framework,
-  fixture, and test-double signatures keep their keyword-compatible parameter
-  names and consume compatibility-only values explicitly in signature order.
-  A fixture parameter can own setup even when the test body never reads it.
-  Do not trade an argument finding for a broken keyword call, renamed pytest
-  fixture, or broad suppression.
+- 2026-08-21: For the ARG family, delete parameters only when the callable and
+  callers own the complete signature. Protocol, provider, framework, fixture,
+  and test-double signatures keep their keyword-compatible parameter names and
+  consume compatibility-only values explicitly in signature order. Rename a
+  lambda parameter to an underscore dummy only after proving all calls are
+  positional. Otherwise promote a fixed keyword contract to a named helper;
+  reserve `**_kwargs` for test doubles that deliberately accept an open set of
+  ignored options. A fixture parameter can own setup even when the test body
+  never reads it. Do not trade an argument finding for a broken keyword call,
+  renamed pytest fixture, or broad suppression.
 
 ## Outcomes & Retrospective
 
@@ -1092,6 +1122,17 @@ removed without suppression, while five COM812 and two ANN001 findings also
 disappear. Every touched test module, the architecture fixture harness, and the
 full backend suite pass. On the current predecessor, the stable census falls by
 216 from 27,991 to 27,775 findings across 26 rules.
+
+The ARG005 stage completes the unused-argument family and collapses four
+explicit ARG001-ARG004 selectors to the single `ARG` prefix. All 565 findings
+across 384 lambdas in 76 backend test files are removed without suppression.
+Affected-file tests exposed 62 real keyword-call regressions from the initial
+mechanical rename, so fixed keyword contracts now use typed named helpers and
+intentionally open MethodType doubles use `**_kwargs`. All 1,062 affected tests
+pass with 15 existing environment skips, followed by the complete backend at
+3,032 tests passed with 17 skips. The stable census falls by 569 from 27,775 to
+27,206 and the isolated census falls from 39,164 to 38,595, with no rule
+gaining debt.
 
 ## Context and Orientation
 

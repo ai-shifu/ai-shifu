@@ -53,7 +53,7 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
     monkeypatch.setattr(
         tts_api,
         "_resolve_credit_multiplier_label",
-        lambda provider, model: "2x" if provider == "minimax" else None,
+        lambda provider, _model: "2x" if provider == "minimax" else None,
     )
     monkeypatch.setenv(
         "TTS_ALLOWED_MODELS",
@@ -390,7 +390,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
         tts_api, "_PROVIDER_PRIORITY", ("volcengine", "tencent_texttovoice")
     )
     monkeypatch.setattr(
-        tts_api, "_resolve_credit_multiplier_label", lambda provider, model: None
+        tts_api, "_resolve_credit_multiplier_label", lambda _provider, _model: None
     )
     monkeypatch.setenv(
         "TTS_ALLOWED_MODELS",
@@ -435,7 +435,7 @@ def _patch_two_provider_registry(monkeypatch, tts_api):
     )
     monkeypatch.setattr(tts_api, "_PROVIDER_PRIORITY", ("minimax", "baidu"))
     monkeypatch.setattr(
-        tts_api, "_resolve_credit_multiplier_label", lambda provider, model: None
+        tts_api, "_resolve_credit_multiplier_label", lambda _provider, _model: None
     )
 
 

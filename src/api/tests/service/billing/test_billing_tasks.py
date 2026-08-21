@@ -142,7 +142,7 @@ def test_settle_usage_task_normalizes_empty_creator_bid(
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
-        lambda app, *, usage_bid="": {"status": "noop", "usage_bid": usage_bid},
+        lambda _app, *, usage_bid="": {"status": "noop", "usage_bid": usage_bid},
     )
 
     payload = settle_usage_task(creator_bid="  ", usage_bid="usage-task-2")
@@ -520,7 +520,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-concurrent-1",
+        lambda _app, _usage: "creator-concurrent-1",
     )
     dummy_cache = _ThreadLockCacheProvider()
     monkeypatch.setattr("flaskr.service.billing.settlement.cache_provider", dummy_cache)
@@ -1178,7 +1178,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 0,
                 "batch_size": 5,
@@ -1215,7 +1215,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 1,
                 "batch_size": 2,
@@ -1376,7 +1376,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 1,
                 "batch_size": 5,
@@ -1470,7 +1470,7 @@ def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 1,
                 "batch_size": 5,
@@ -1534,7 +1534,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
-        lambda app, *, usage_bid="": {
+        lambda _app, *, usage_bid="": {
             "status": "settled",
             "usage_bid": usage_bid,
             "creator_bid": "creator-json-1",
@@ -1542,7 +1542,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.expire_credit_wallet_buckets",
-        lambda app, *, creator_bid="", expire_before=None: {
+        lambda _app, *, creator_bid="", expire_before=None: {
             "status": "expired",
             "creator_bid": creator_bid,
             "expire_before": expire_before.isoformat() if expire_before else None,
@@ -1550,7 +1550,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks._run_reconcile_provider_reference",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "paid",
             "bill_order_bid": kwargs.get("bill_order_bid"),
         },
@@ -1582,7 +1582,7 @@ def test_run_renewal_event_task_delegates_to_renewal_runner(
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.run_billing_renewal_event",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "applied",
             "renewal_event_bid": kwargs["renewal_event_bid"],
             "event_status": "succeeded",
@@ -1659,7 +1659,7 @@ def test_retry_failed_renewal_task_delegates_to_renewal_helper_without_reference
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.retry_billing_renewal_event",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "paid",
             "bill_order_bid": "bill-order-task-retry-auto",
             "renewal_event_bid": kwargs["renewal_event_bid"],

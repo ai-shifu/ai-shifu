@@ -198,7 +198,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -218,15 +218,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
@@ -318,7 +319,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -339,15 +340,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=attend.block_position,
@@ -468,7 +470,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -488,15 +490,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
@@ -594,7 +597,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -614,15 +617,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
@@ -716,7 +720,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -736,15 +740,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,

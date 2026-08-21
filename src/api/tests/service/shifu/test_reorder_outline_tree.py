@@ -19,13 +19,13 @@ def _stub_reorder_side_effects(monkeypatch):
     monkeypatch.setattr(
         shifu_outline_funcs,
         "cleanup_outline_history_versions",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
     monkeypatch.setattr(
         shifu_outline_funcs,
         "save_outline_tree_history",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
 

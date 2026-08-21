@@ -27,7 +27,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -175,7 +175,7 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     monkeypatch.setattr(
         langfuse_module.Langfuse,
         "create_trace_id",
-        lambda seed=None: "a" * 32,
+        lambda _seed=None: "a" * 32,
         raising=False,
     )
     monkeypatch.setattr(
@@ -271,7 +271,7 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch):
 def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     from flaskr.service.shifu import shifu_publish_funcs as module
 
-    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *args: None)
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)
     original_load_existing_outline_items = module.load_existing_outline_items
     outline_load_calls = []
 

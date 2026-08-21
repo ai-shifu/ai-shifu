@@ -605,8 +605,8 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception():
     app = Flask(__name__)
     info_calls = []
     error_calls = []
-    app.logger.info = lambda *args, **kwargs: info_calls.append(args)
-    app.logger.error = lambda *args, **kwargs: error_calls.append(args)
+    app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
 
     runscript_v2._log_run_script_stream_error(
         app, AppError("outline unit does not exist", status_code=1001)
@@ -621,8 +621,8 @@ def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
     app = Flask(__name__)
     info_calls = []
     error_calls = []
-    app.logger.info = lambda *args, **kwargs: info_calls.append(args)
-    app.logger.error = lambda *args, **kwargs: error_calls.append(args)
+    app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
 
     runscript_v2._log_run_script_stream_error(app, RuntimeError("boom"))
 
