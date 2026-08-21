@@ -8,7 +8,12 @@ from watchdog.observers import Observer
 
 class PluginHotReloader:
     def __init__(self, app: Flask) -> None:
-        """Configure plugin file watching for the Flask app."""
+        """Initialize plugin reloader state without starting file watching.
+
+        Stores the Flask app and plugin directory, creates an empty watched-file
+        registry, and instantiates an unscheduled observer. Call ``start()`` to
+        schedule the directory and begin watching.
+        """
         self.app = app
         self.plugin_dir = "flaskr/plugins"  # plugin dir
         self.watched_files = {}
