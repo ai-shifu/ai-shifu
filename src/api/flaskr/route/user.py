@@ -37,6 +37,9 @@ from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequ
 from flaskr.service.user.auth.providers.google import (
     resolve_state_return_origin,
 )
+from flaskr.service.user.auth.providers.password import (
+    clear_password_login_identifier_failures,
+)
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
@@ -174,6 +177,13 @@ def _resolve_runtime_language(user, payload: dict | None = None) -> str:
 def _request_client_ip() -> str:
     if "X-Forwarded-For" in request.headers:
         return request.headers["X-Forwarded-For"].split(",")[0].strip()
+    return str(request.remote_addr or "").strip()
+
+
+def _request_proxy_verified_client_ip() -> str:
+    """Return the address appended by the trusted edge proxy."""
+    if "X-Forwarded-For" in request.headers:
+        return request.headers["X-Forwarded-For"].split(",")[-1].strip()
     return str(request.remote_addr or "").strip()
 
 
@@ -577,8 +587,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("captcha_code")
         return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
 
-    # Flasgger parses `parameters:` below as a YAML key; the D405-D407
-    # docstring fixes would rewrite it and invalidate the published API
+    # Flasgger parses `parameters:` below as a YAML key. D405 would capitalize
+    # the key and remove the OpenAPI field, D406 would remove its colon, and
+    # D407 would insert a dashed underline; each fix breaks the published API
     # specification.
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
@@ -1105,7 +1116,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         vr = VerificationRequest(
             identifier=identifier,
             code=password,
-            metadata={"remote_addr": request.remote_addr or ""},
+            metadata={"remote_addr": _request_proxy_verified_client_ip()},
         )
         auth_result = provider.verify(app, vr)
         current_user = _best_effort_password_login_user(app)
@@ -1324,6 +1335,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.add(pwd_cred)
             set_password_hash(pwd_cred, hash_password(new_password))
 
+        clear_password_login_identifier_failures(
+            app,
+            identifier=normalized_identifier,
+        )
         db.session.commit()
         return make_common_response({"success": True})
 
