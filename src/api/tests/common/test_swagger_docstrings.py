@@ -30,6 +30,12 @@ def _swagger_docstrings():
                 yield path.relative_to(API_ROOT), node.name, docstring
 
 
+def test_swagger_sanitizer_omits_framing_newlines():
+    assert sanitize_swagger_docstring("\nReset the chapter order.\n\n") == (
+        "Reset the chapter order."
+    )
+
+
 def test_all_swagger_docstrings_keep_valid_yaml_after_summary():
     discovered = []
     unparseable = set()
