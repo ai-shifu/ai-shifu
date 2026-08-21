@@ -438,8 +438,8 @@ plan's progress update for that rule.
 - [x] 2026-08-21 07:01 CST: Opened ready S607 PR
   [#2599](https://github.com/ai-shifu/ai-shifu/pull/2599) from
   `sunner/ruff-s607` to the S101 branch after all local gates passed.
-- [ ] Merge or retarget S607 PR #2599 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-08-21 09:21 CST: Merged S607 PR #2599 into S101 after its
+  predecessor without changing the independently reviewed S607 rule unit.
 - [x] 2026-08-21 07:07 CST: Prepared the S603 stage on
   `sunner/ruff-s603`, stacked on S607. Removing the test-tree exception exposes
   exactly two calls: the fresh-MySQL migration smoke test and the pinned
@@ -516,8 +516,8 @@ plan's progress update for that rule.
   knowledge generators produced no extra diff; translations, repository
   harness, architecture boundaries, development-tool validation, repository
   Ruff and format, and every pre-commit hook pass on the final local S603 tip.
-- [ ] Merge or retarget S603 PR #2601 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-08-21 09:21 CST: Merged S603 PR #2601 into S101 after S607 without
+  changing the independently reviewed S603 rule unit.
 - [x] 2026-08-21 08:33 CST: Prepared the T20 stage on `sunner/ruff-t20`,
   stacked on S603. Auditing all 18 per-file patterns found that every entry
   still hides a real finding; the backend test-tree T20 boundary is the
@@ -544,6 +544,9 @@ plan's progress update for that rule.
 - [x] 2026-08-21 08:42 CST: Opened ready T20 PR #2602 from
   `sunner/ruff-t20` to `sunner/ruff-s603` after the targeted, full-backend,
   harness, and repository gates passed locally.
+- [x] 2026-08-21 09:21 CST: Merged T20 PR #2602 into S101 after S603. The
+  resulting merge commit exposed that the S101 branch pointer already included
+  ARG002, so the predecessor temporarily contained the next rule unit.
 - [x] 2026-08-21 09:02 CST: Prepared the ARG002 stage on
   `sunner/ruff-arg002`, stacked on T20. The current census exposed 191 unused
   method arguments: 25 in runtime code and 166 in test fixtures or doubles,
@@ -579,6 +582,11 @@ plan's progress update for that rule.
 - [x] 2026-08-21 09:17 CST: Re-ran the full backend suite on the combined
   predecessor/ARG002 tip; all 3,032 tests pass with the same 17 environment
   skips and 733 existing warnings.
+- [x] 2026-08-21 09:37 CST: Restored the stack boundary with ordinary commits:
+  S101 now reverts only the accidental ARG002 merge and has exactly the T20
+  worktree, while ARG002 records the repaired S101 commit as a parent without
+  changing its own worktree. Ready PR #2604 is based on S101 again and exposes
+  the complete 47-file ARG002 unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
