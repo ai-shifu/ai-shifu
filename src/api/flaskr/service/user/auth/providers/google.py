@@ -228,7 +228,7 @@ class GoogleAuthProvider(AuthProvider):
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
-        """Exchange and verify the Google OAuth callback."""
+        """Verify the callback, resolve account state, and issue a login token."""
         if not request.code or not request.state:
             current_app.logger.warning(
                 "Google OAuth callback missing code or state: has_code=%s, has_state=%s",
