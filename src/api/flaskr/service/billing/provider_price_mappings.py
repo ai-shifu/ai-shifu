@@ -37,6 +37,7 @@ class ProviderPriceMappingError(RuntimeError):
     details: dict[str, Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
+        """Return the validation error message."""
         return self.message
 
 
