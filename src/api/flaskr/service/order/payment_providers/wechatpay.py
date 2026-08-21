@@ -51,7 +51,7 @@ class WechatPayProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        """Create a recurring subscription through this provider."""
+        """Create a one-time payment for a subscription request."""
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
