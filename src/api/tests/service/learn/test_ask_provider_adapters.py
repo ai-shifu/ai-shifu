@@ -34,7 +34,7 @@ class _FakeResponse:
         self._json_data = json_data
         self._json_error = json_error
 
-    def iter_lines(self, decode_unicode: bool = True) -> Iterator[object]:
+    def iter_lines(self, *, decode_unicode: bool = True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 

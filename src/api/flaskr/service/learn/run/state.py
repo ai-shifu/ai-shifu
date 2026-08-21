@@ -161,7 +161,7 @@ class RunStateResolver:
             outline_item_info = runtime.get_outline_item_dto_with_mdflow(
                 self.app,
                 outline_bid,
-                self._preview_mode,
+                is_preview=self._preview_mode,
                 outline_item_id=int(self._current_outline_item.id or 0),
             )
             block_count = len(
@@ -378,7 +378,7 @@ class RunStateResolver:
         return None
 
     def get_run_script_info(
-        self, attend: LearnProgressRecord, is_ask: bool = False
+        self, attend: LearnProgressRecord, *, is_ask: bool = False
     ) -> "RunScriptInfo":
         """Return run-script state for an outline item."""
         ctx = self._context
@@ -388,7 +388,7 @@ class RunStateResolver:
         outline_item_info = runtime.get_outline_item_dto_with_mdflow(
             self.app,
             outline_item_id,
-            self._preview_mode,
+            is_preview=self._preview_mode,
             outline_item_id=outline_row_id,
         )
 
@@ -420,7 +420,7 @@ class RunStateResolver:
         outline_item_info = runtime.get_outline_item_dto_with_mdflow(
             self.app,
             generate_block.outline_item_bid,
-            self._preview_mode,
+            is_preview=self._preview_mode,
             outline_item_id=outline_row_id,
         )
         attend: LearnProgressRecord = LearnProgressRecord.query.filter(

@@ -212,6 +212,7 @@ class LearnShifuInfoDTO(BaseModel):
         keywords: list[str],
         avatar: str,
         price: str,
+        *,
         tts_enabled: bool = False,
         default_listen_mode_enabled: bool = False,
     ) -> None:
@@ -312,6 +313,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         type: OutlineType,  # noqa: A002 - serialized DTO field name
         is_paid: bool,
         children: list[LearnOutlineItemInfoDTO],
+        *,
         has_content_update_for_current_user: bool = False,
     ) -> None:
         """Build a learner-facing outline item payload."""
@@ -406,6 +408,7 @@ class AudioSegmentDTO(BaseModel):
         segment_index: int,
         audio_data: str,
         duration_ms: int = 0,
+        *,
         is_final: bool = False,
         position: int = 0,
         stream_element_number: int | None = None,

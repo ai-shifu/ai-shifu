@@ -22,7 +22,7 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 
 
 class _UnavailableLock:
-    def acquire(self, blocking: bool = True) -> bool:
+    def acquire(self, *, blocking: bool = True) -> bool:
         assert blocking is True
         return False
 

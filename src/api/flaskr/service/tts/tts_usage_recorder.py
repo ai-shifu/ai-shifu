@@ -115,6 +115,7 @@ def record_tts_aggregated_usage(
     segment_count: int,
     voice_settings: VoiceSettings,
     audio_settings: AudioSettings,
+    *,
     is_stream: bool = True,
     total_usage_characters: int = 0,
 ) -> None:

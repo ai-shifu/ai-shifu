@@ -318,7 +318,7 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
 
     class BusyLock:
         def acquire(
-            self, blocking: bool = True, blocking_timeout: object | None = None
+            self, *, blocking: bool = True, blocking_timeout: object | None = None
         ) -> bool:
             _ = (blocking, blocking_timeout)
             return False
@@ -376,7 +376,7 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(
 
     class BusyLock:
         def acquire(
-            self, blocking: bool = True, blocking_timeout: object | None = None
+            self, *, blocking: bool = True, blocking_timeout: object | None = None
         ) -> bool:
             _ = (blocking, blocking_timeout)
             return False

@@ -890,7 +890,7 @@ plan's progress update for that rule.
   of all 342 files to the ANN401 parent. Configured ANN001, repository Ruff,
   and format pass.
 - [x] 2026-08-21 18:04 CST: The stable census falls from 18,553 to 14,213 and
-  the isolated census falls from 32,687 to 28,353. Configured ANN001 falls from
+  the isolated census falls from 32,687 to 28,372. Configured ANN001 falls from
   4,656 findings to zero; the isolated view retains only the six immutable
   migration parameters. Formatter-owned COM812 rises by 295 as longer
   signatures wrap, and correctly annotating 21 boolean defaults exposes the
@@ -902,6 +902,38 @@ plan's progress update for that rule.
   ratchet, compile checks, the semantic AST audit, pinned Ruff 0.16.3
   development-tool validation, configured Ruff and format, and every
   repository pre-commit hook across all files.
+- [x] 2026-08-21 18:25 CST: Ready ANN001 PR
+  [#2620](https://github.com/ai-shifu/ai-shifu/pull/2620) passed every GitHub
+  check, including the 3,032-test backend job and runtime harness. Selected
+  FBT002 next because naming optional boolean behavior removes ambiguity while
+  preserving every default and function body.
+- [x] 2026-08-21 18:39 CST: Enabled FBT002 and moved 145 parameters in 74
+  repository-owned functions behind an explicit keyword-only boundary,
+  including all 88 boolean-default parameters. Rewrote 16 positional call
+  arguments to name the same parameter and expression. Ten `nx`/`xx`
+  parameters across five Redis-compatible `set` signatures retain exact
+  inline exceptions because moving them after `*args` would reinterpret the
+  external positional protocol. A semantic audit reconstructs all original
+  signatures and call binding, then matches every executable AST to the ANN001
+  parent.
+- [x] 2026-08-21 18:51 CST: The 178 directly changed tests and 260
+  creator-analytics fixture consumers pass. The first full-suite run exposed
+  three positional-only test lambdas behind five failures; replacing them with
+  keyword-compatible named doubles makes their seven focused tests pass. The
+  complete backend then passes 3,032 tests with 17 skips and 733 existing
+  warnings.
+- [x] 2026-08-21 18:51 CST: A detached parent comparison corrects the ANN001
+  isolated total above from the earlier arithmetic snapshot and measures the
+  FBT002 unit directly. Stable findings fall from 14,213 to 14,025 and isolated
+  findings from 28,372 to 28,184, both by 188: FBT002 falls by all 98 findings,
+  the same keyword-only boundaries remove 88 FBT001 and eight PLR0917 findings,
+  and formatter-conflicting COM812 rises by six.
+- [x] 2026-08-21 18:54 CST: Regenerated all collaboration and knowledge
+  documents with no output drift, then passed translation validation, the
+  repository harness, architecture boundary ratchet, compile checks, the
+  semantic signature-and-call audit, configured Ruff and format, pinned Ruff
+  0.16.3 development-tool validation, and every repository pre-commit hook
+  across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1499,10 +1531,24 @@ without evidence. Two exact exceptions preserve six parameters in applied
 Alembic history, and no migration file changes. A semantic audit removes only
 the new annotations and matches every executable AST to the ANN401 parent.
 Configured ANN001 is clean; the stable census falls to 14,213 and the isolated
-census to 28,353, where only the immutable migration parameters remain.
+census to 28,372, where only the immutable migration parameters remain.
 Formatter-conflicting COM812 rises by 295 where annotations wrap signatures,
 and FBT001 rises by 21 because explicit `bool` defaults now reveal existing
 boolean positional parameters. The complete 3,032-test backend suite passes.
+
+The FBT002 stage makes optional boolean behavior explicit at call sites. It
+moves 145 parameters in 74 repository-owned functions behind keyword-only
+boundaries, including all 88 boolean-default parameters, and names the same
+parameter for 16 previously positional call arguments. Three test lambdas
+become named doubles so they preserve the new `is_preview` keyword contract.
+Ten `nx` and `xx` parameters remain narrow inline exceptions across five
+Redis-compatible `set(..., nx=False, xx=False, *args)` signatures, where
+reordering around `*args` would change the external positional protocol. A
+reversible signature-and-call audit matches the executable behavior to the
+ANN001 parent. Configured FBT002 is clean; both censuses fall by 188, to 14,025
+stable and 28,184 isolated findings, as the same change removes 88 FBT001 and
+eight PLR0917 findings while formatter-conflicting COM812 rises by six. The
+directly affected tests and the complete 3,032-test backend suite pass.
 
 ## Context and Orientation
 

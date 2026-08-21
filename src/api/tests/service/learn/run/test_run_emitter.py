@@ -32,7 +32,7 @@ class _RecordingEmitter:
         self.calls = []
 
     def render_outline_updates(
-        self, outline_updates: object, new_chapter: bool = False
+        self, outline_updates: object, *, new_chapter: bool = False
     ) -> Iterator[str]:
         self.calls.append(("render_outline_updates", outline_updates, new_chapter))
         yield "outline-event"

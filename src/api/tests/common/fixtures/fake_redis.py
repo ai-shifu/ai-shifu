@@ -14,7 +14,7 @@ class FakeRedisLock:
         self._held = False
 
     def acquire(
-        self, blocking: bool = True, blocking_timeout: int | None = None
+        self, *, blocking: bool = True, blocking_timeout: int | None = None
     ) -> bool:
         _ = (blocking, blocking_timeout)
         if self._locks.get(self._key, False):
@@ -89,8 +89,8 @@ class FakeRedis:
         value: object,
         ex: int | None = None,
         px: int | None = None,
-        nx: bool = False,
-        xx: bool = False,
+        nx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
+        xx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
         *args: object,
         **kwargs: object,
     ) -> bool:

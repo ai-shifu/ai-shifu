@@ -298,6 +298,7 @@ def handle_input_ask(
     outline_item_info: ShifuOutlineItemDto,
     trace_args: dict,
     trace: LangfuseTraceHandle,
+    *,
     is_preview: bool = False,
     last_position: int = -1,
     anchor_element_bid: str = "",
@@ -309,7 +310,11 @@ def handle_input_ask(
     """
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(
-        app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
+        app,
+        outline_item_info.shifu_bid,
+        outline_item_info.bid,
+        attend_id,
+        is_preview=is_preview,
     )
 
     usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD

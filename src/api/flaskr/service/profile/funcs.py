@@ -492,6 +492,7 @@ def update_user_profile_with_lable(
     app: Flask,
     user_id: str,
     profiles: list,
+    *,
     update_all: bool = False,
     course_id: str | None = None,
 ) -> bool:

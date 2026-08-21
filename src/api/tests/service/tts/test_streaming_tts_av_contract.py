@@ -47,7 +47,7 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(
                 ),
             )
 
-        def finalize(self, commit: bool = True) -> Iterator[RunMarkdownFlowDTO]:
+        def finalize(self, *, commit: bool = True) -> Iterator[RunMarkdownFlowDTO]:
             _ = commit
             yield RunMarkdownFlowDTO(
                 outline_bid=self.outline_bid,
@@ -113,7 +113,7 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             return
             yield
@@ -171,7 +171,7 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             return
             yield
@@ -229,7 +229,7 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             text = "".join(self._parts).strip()
             if text:
@@ -299,7 +299,9 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[RunMarkdownFlowDTO | None]:
+        def finalize(
+            self, *, commit: bool = True
+        ) -> Iterator[RunMarkdownFlowDTO | None]:
             _ = commit
             # Simulate provider behavior: very short text produces no audio completion.
             if len((self._buffer or "").strip()) < 2:
@@ -378,7 +380,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(
                 ),
             )
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             return
             yield
@@ -426,7 +428,7 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             return
             yield
@@ -487,7 +489,7 @@ def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             return
             yield

@@ -73,7 +73,7 @@ class HistoryItem(BaseModel, Generic[T]):
 
 
 def _get_latest_draft_log(
-    shifu_bid: str, for_update: bool = False
+    shifu_bid: str, *, for_update: bool = False
 ) -> LogDraftStruct | None:
     query = LogDraftStruct.query.filter_by(
         shifu_bid=shifu_bid,

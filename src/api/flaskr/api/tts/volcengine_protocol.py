@@ -153,6 +153,7 @@ class VolcengineProtocol:
         volume: float = 1.0,
         emotion: str = "",
         model: str = "",
+        *,
         enable_timestamp: bool = False,
         enable_subtitle: bool = False,
     ) -> bytes:

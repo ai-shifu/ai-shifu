@@ -18,7 +18,7 @@ def _get_models() -> "tuple[type[DraftShifu], type[DraftOutlineItem]]":
 
 
 def _mock_user(
-    monkeypatch: object, user_id: str, is_creator: bool = True
+    monkeypatch: object, user_id: str, *, is_creator: bool = True
 ) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,

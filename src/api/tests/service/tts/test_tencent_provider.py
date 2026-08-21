@@ -20,7 +20,7 @@ class _FakeSSEStreamingResponse:
     def raise_for_status(self) -> None:
         return None
 
-    def iter_lines(self, decode_unicode: bool = True) -> Iterator[object]:
+    def iter_lines(self, *, decode_unicode: bool = True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 

@@ -158,6 +158,7 @@ def send_sms_code(
     phone: str,
     ip: str | None = None,
     captcha_ticket: str | None = None,
+    *,
     require_captcha: bool = True,
 ) -> dict[str, object]:
     """Send SMS code."""

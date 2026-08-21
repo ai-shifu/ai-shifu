@@ -204,7 +204,7 @@ def _format_cents(value: int | None) -> str:
         return "0"
 
 
-def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
+def _parse_datetime(value: str, *, is_end: bool = False) -> datetime | None:
     """Parse date/time string with multiple formats; auto fill day bounds."""
     if not value:
         return None
@@ -666,6 +666,7 @@ def import_activation_order(
     course_id: str,
     user_nick_name: str | None = None,
     contact_type: str = "phone",
+    *,
     allow_empty_nickname: bool = False,
     payment_channel: str = "manual",
 ) -> dict[str, str]:

@@ -461,7 +461,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._second_attempted = second_attempted
 
         def acquire(
-            self, blocking: bool = True, blocking_timeout: object | None = None
+            self, *, blocking: bool = True, blocking_timeout: object | None = None
         ) -> object:
             self._events.append(
                 {
@@ -1055,7 +1055,7 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
         def __init__(self, key: str) -> None:
             self._key = key
 
-        def acquire(self, blocking: bool = True) -> bool:
+        def acquire(self, *, blocking: bool = True) -> bool:
             _ = blocking
             events.append(("acquire", self._key))
             return True

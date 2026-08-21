@@ -33,7 +33,7 @@ CREDIT_NOTIFICATION_EVENTS = Counter(
 )
 
 
-def _bool_config(app: Flask, key: str, default: bool = False) -> bool:
+def _bool_config(app: Flask, key: str, *, default: bool = False) -> bool:
     value = app.config.get(key, default)
     if isinstance(value, bool):
         return value

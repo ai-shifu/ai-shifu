@@ -174,6 +174,7 @@ def get_follow_up_info_v2(
     shifu_bid: str,
     outline_item_bid: str,
     attend_id: str,
+    *,
     is_preview: bool = False,
 ) -> FollowUpInfo:
     """Get follow up info.
@@ -192,7 +193,7 @@ def get_follow_up_info_v2(
 
     """
     _ = attend_id
-    struct_info = get_shifu_struct(app, shifu_bid, is_preview)
+    struct_info = get_shifu_struct(app, shifu_bid, is_preview=is_preview)
     path = find_node_with_parents(struct_info, outline_item_bid)
     if not path:
         return FollowUpInfo(

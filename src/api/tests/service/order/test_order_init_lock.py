@@ -13,7 +13,7 @@ class DummyLock:
         self.acquired = 0
         self.released = 0
 
-    def acquire(self, blocking: bool = True) -> bool:
+    def acquire(self, *, blocking: bool = True) -> bool:
         _ = blocking
         self.acquired += 1
         return True

@@ -49,6 +49,7 @@ class ProfileItemDefinition:
         profile_scope: str,
         profile_scope_str: str,
         profile_id: str,
+        *,
         is_hidden: bool = False,
     ) -> None:
         """Build a profile-field definition."""

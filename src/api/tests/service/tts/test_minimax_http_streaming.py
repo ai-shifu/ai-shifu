@@ -24,7 +24,7 @@ class _FakeResponse:
         if self._status_error:
             raise self._status_error
 
-    def iter_lines(self, decode_unicode: bool = True) -> Iterator[object]:
+    def iter_lines(self, *, decode_unicode: bool = True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 

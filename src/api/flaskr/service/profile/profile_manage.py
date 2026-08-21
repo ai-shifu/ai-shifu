@@ -99,7 +99,7 @@ def convert_variable_definition_to_profile_item_definition(
         scope,
         _(f"PROFILE.PROFILE_SCOPE_{scope}".upper()),
         definition.variable_bid,
-        bool(definition.is_hidden),
+        is_hidden=bool(definition.is_hidden),
     )
 
 

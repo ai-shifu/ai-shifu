@@ -1831,7 +1831,7 @@ class EnhancedConfig:
         self._cache: dict[str, Any] = {}
         self._validated = False
 
-    def validate_environment(self, allow_conversion_errors: bool = False) -> None:
+    def validate_environment(self, *, allow_conversion_errors: bool = False) -> None:
         """Validate all required environment variables at startup."""
         errors = []
         missing_required = []

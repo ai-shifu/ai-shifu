@@ -425,6 +425,19 @@ doubles that deliberately accept heterogeneous named options. As with ANN002,
 do not replace `object` with `Any` or narrow the accepted keyword contract just
 to satisfy the lint rule.
 
+For `FBT002`, put `*` before the first parameter with a boolean default so that
+the selected behavior must be named at every call. Parameters after that
+boundary become keyword-only too; update each positional caller by preserving
+the original expression and naming the matching parameter rather than
+reordering the signature around the flag. Test doubles and overrides follow
+the repository-owned keyword-only contract. Keep an inline exception only
+when an external positional protocol must remain exact: the current examples
+are the `nx` and `xx` slots in Redis-compatible
+`set(..., nx=False, xx=False, *args)` signatures, where moving the flags after
+`*args` would silently reinterpret existing positional calls. State that
+protocol in the inline explanation, verify call binding as well as function
+bodies, and do not add a file-wide exception for future parameters.
+
 For `ISC004`, distinguish an intentionally wrapped string from two collection
 items that accidentally lost their comma. Keep the string's exact value and
 wrap the adjacent literals in their own parentheses inside the list, tuple, or

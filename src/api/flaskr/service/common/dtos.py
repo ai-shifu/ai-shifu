@@ -45,6 +45,7 @@ class UserInfo:
         wx_openid: object,
         language: object,
         user_avatar: object | None = None,
+        *,
         is_creator: bool = False,
         is_operator: bool = False,
     ) -> None:

@@ -81,22 +81,41 @@ def _patch_run_dependencies(monkeypatch: pytest.MonkeyPatch, script: object) -> 
         "load_user_aggregate",
         lambda _bid: types.SimpleNamespace(user_id="user-1"),
     )
+
+    def _get_outline_item_dto(
+        _app: object, _bid: object, *, is_preview: bool = False
+    ) -> types.SimpleNamespace:
+        _ = is_preview
+        return types.SimpleNamespace(
+            bid="outline-1", shifu_bid="shifu-1", __json__=dict
+        )
+
+    def _get_shifu_dto(
+        _app: object, _bid: object, *, is_preview: bool = False
+    ) -> types.SimpleNamespace:
+        _ = is_preview
+        return types.SimpleNamespace(bid="shifu-1", price=0)
+
+    def _get_shifu_struct(
+        _app: object, _bid: object, *, is_preview: bool = False
+    ) -> types.SimpleNamespace:
+        _ = is_preview
+        return types.SimpleNamespace(bid="shifu-1")
+
     monkeypatch.setattr(
         runscript_v2,
         "get_outline_item_dto",
-        lambda _app, _bid, _preview_mode: types.SimpleNamespace(
-            bid="outline-1", shifu_bid="shifu-1", __json__=dict
-        ),
+        _get_outline_item_dto,
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_dto",
-        lambda _app, _bid, _preview_mode: types.SimpleNamespace(bid="shifu-1", price=0),
+        _get_shifu_dto,
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_struct",
-        lambda _app, _bid, _preview_mode: types.SimpleNamespace(bid="shifu-1"),
+        _get_shifu_struct,
     )
     _StubRunContext.script = list(script)
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", _StubRunContext)

@@ -88,6 +88,7 @@ def publish_shifu_draft(
     user_id: str,
     shifu_id: str,
     base_url: str,
+    *,
     sync_summary: bool = False,
 ) -> str:
     """Publish shifu draft will copy all draft data to published data and save history to database and run summary generation in background by default and return published shifu url.

@@ -170,6 +170,7 @@ class ShifuTokenValidation:
     def __init__(
         self,
         permission: ShifuPermission = ShifuPermission.VIEW,
+        *,
         is_creator: bool = False,
     ) -> None:
         """Configure permission checks for the decorated route."""
@@ -492,7 +493,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         )
         return make_common_response(
             get_shifu_draft_list(
-                app, user_id, page_index, page_size, is_favorite, archived
+                app,
+                user_id,
+                page_index,
+                page_size,
+                is_favorite,
+                archived=archived,
             )
         )
 
@@ -1300,7 +1306,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 name,
                 outline_type,
                 system_prompt,
-                is_hidden,
+                is_hidden=is_hidden,
             )
         )
 

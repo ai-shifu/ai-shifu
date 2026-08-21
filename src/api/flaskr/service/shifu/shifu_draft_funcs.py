@@ -134,6 +134,7 @@ def return_shifu_draft_dto(
     base_url: str,
     readonly: bool,
     archived_override: bool | None = None,
+    *,
     can_manage_archive: bool = False,
     can_publish: bool = False,
 ) -> ShifuDetailDto:
@@ -719,6 +720,7 @@ def get_shifu_draft_list(
     page_index: int,
     page_size: int,
     is_favorite: bool,
+    *,
     archived: bool = False,
     creator_only: bool = False,
 ) -> PageNationDTO:
@@ -893,6 +895,7 @@ def get_shifu_published_list(
     user_id: str,
     page_index: int,
     page_size: int,
+    *,
     creator_only: bool = True,
 ) -> PageNationDTO:
     """Get published shifu list."""

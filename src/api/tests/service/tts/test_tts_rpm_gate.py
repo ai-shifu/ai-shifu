@@ -11,7 +11,7 @@ class _FakeRedisLock:
         self.released = False
 
     def acquire(
-        self, blocking: bool = True, blocking_timeout: object | None = None
+        self, *, blocking: bool = True, blocking_timeout: object | None = None
     ) -> bool:
         _ = blocking, blocking_timeout
         return True

@@ -13,7 +13,7 @@ class CacheLock(Protocol):
     """Define the locking operations required by cache providers."""
 
     def acquire(
-        self, blocking: bool = True, blocking_timeout: int | None = None
+        self, *, blocking: bool = True, blocking_timeout: int | None = None
     ) -> bool:
         """Acquire this cache lock."""
         raise NotImplementedError
@@ -43,8 +43,8 @@ class CacheProvider(Protocol):
         value: object,
         ex: int | None = None,
         px: int | None = None,
-        nx: bool = False,
-        xx: bool = False,
+        nx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
+        xx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
         *args: object,
         **kwargs: object,
     ) -> bool:
@@ -109,8 +109,8 @@ class _DynamicRedisCacheProvider:
         value: object,
         ex: int | None = None,
         px: int | None = None,
-        nx: bool = False,
-        xx: bool = False,
+        nx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
+        xx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
         *args: object,
         **kwargs: object,
     ) -> bool:
@@ -154,7 +154,7 @@ class _InMemoryLock:
         self._held = False
 
     def acquire(
-        self, blocking: bool = True, blocking_timeout: int | None = None
+        self, *, blocking: bool = True, blocking_timeout: int | None = None
     ) -> bool:
         if not blocking:
             acquired = self._lock.acquire(blocking=False)
@@ -231,8 +231,8 @@ class InMemoryCacheProvider:
         value: object,
         ex: int | None = None,
         px: int | None = None,
-        nx: bool = False,
-        xx: bool = False,
+        nx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
+        xx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
         *args: object,
         **kwargs: object,
     ) -> bool:
@@ -347,8 +347,8 @@ class FallbackCacheProvider:
         value: object,
         ex: int | None = None,
         px: int | None = None,
-        nx: bool = False,
-        xx: bool = False,
+        nx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
+        xx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
         *args: object,
         **kwargs: object,
     ) -> bool:

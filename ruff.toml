@@ -210,13 +210,15 @@ select = [
     "ANN401",  # dynamically typed function annotations
 
     # --- Boolean arguments ------------------------------------------------
-    # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
-    # signatures of stable service helpers and DTO constructors, which is a
-    # separate project. FBT003 only asks the caller to name the flag, so
-    # `get_shifu_info(app, bid, preview_mode=False)` says which of the two
-    # code paths it takes. Third-party APIs that only accept the flag
-    # positionally (SQLAlchemy, the MySQL DBAPI `ping`, `socket.setblocking`,
-    # `monkeypatch.setitem`) carry an inline noqa.
+    # FBT001 remains a separate contract change for required boolean
+    # parameters. Boolean defaults are keyword-only so every caller names the
+    # behavior it selects. Redis-compatible `set(..., nx=False, xx=False,
+    # *args)` implementations retain exact inline FBT002 exceptions because
+    # moving those flags after `*args` would silently reinterpret positional
+    # Redis calls. Third-party APIs that only accept a flag positionally
+    # (SQLAlchemy, the MySQL DBAPI `ping`, `socket.setblocking`,
+    # `monkeypatch.setitem`) likewise carry an inline FBT003 exception.
+    "FBT002",  # boolean default positional argument in a definition
     "FBT003",  # boolean positional value in a call
     # flake8-type-checking is enabled as a whole. Annotation-only standard-
     # library and third-party imports live behind TYPE_CHECKING; the Pydantic

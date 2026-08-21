@@ -61,7 +61,7 @@ class ShifuInfoDto(BaseModel):
 
 
 def get_shifu_struct(
-    app: Flask, shifu_bid: str, is_preview: bool = False
+    app: Flask, shifu_bid: str, *, is_preview: bool = False
 ) -> HistoryItem:
     """Get shifu struct.
 
@@ -91,12 +91,12 @@ def get_shifu_struct(
 
 
 def get_shifu_outline_tree(
-    app: Flask, shifu_bid: str, is_preview: bool = False
+    app: Flask, shifu_bid: str, *, is_preview: bool = False
 ) -> ShifuInfoDto:
     """Return shifu outline tree."""
     with app.app_context():
         app.logger.info("get_shifu_outline_tree:%s", shifu_bid)
-        struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)
+        struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview=is_preview)
         if is_preview:
             shifu_model = DraftShifu
             outline_item_model = DraftOutlineItem
@@ -175,7 +175,9 @@ def get_shifu_outline_tree(
         return shifu_info
 
 
-def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> ShifuInfoDto:
+def get_shifu_dto(
+    app: Flask, shifu_bid: str, *, is_preview: bool = False
+) -> ShifuInfoDto:
     """Get shifu dto.
 
     Args:
@@ -215,7 +217,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
 
 
 def get_outline_item_dto(
-    app: Flask, outline_item_bid: str, is_preview: bool = False
+    app: Flask, outline_item_bid: str, *, is_preview: bool = False
 ) -> ShifuOutlineItemDto:
     """Get outline item dto.
 
@@ -263,6 +265,7 @@ class OutlineItemDtoWithMdflow(BaseModel):
 def get_outline_item_dto_with_mdflow(
     app: Flask,
     outline_item_bid: str,
+    *,
     is_preview: bool = False,
     outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:

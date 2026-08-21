@@ -71,7 +71,7 @@ def _isolate_creator_analytics_tables(app: object) -> Iterator[None]:
 def mock_request_user(monkeypatch: pytest.MonkeyPatch) -> Callable[[str, bool], None]:
     """Return a helper that installs a fake authenticated user."""
 
-    def _install(user_id: str = "teacher-1", is_creator: bool = True) -> None:
+    def _install(user_id: str = "teacher-1", *, is_creator: bool = True) -> None:
         dummy_user = SimpleNamespace(
             user_id=user_id,
             language="en-US",

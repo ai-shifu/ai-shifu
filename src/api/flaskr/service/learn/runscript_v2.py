@@ -329,6 +329,7 @@ def run_script_inner(
     input_type: str | None = None,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
+    *,
     listen: bool = False,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
@@ -359,14 +360,20 @@ def run_script_inner(
                 app.logger.info("lesson_id is None")
                 if not resolved_shifu_bid:
                     raise_error("server.shifu.courseNotFound")
-                shifu_info = get_shifu_dto(app, resolved_shifu_bid, preview_mode)
+                shifu_info = get_shifu_dto(
+                    app, resolved_shifu_bid, is_preview=preview_mode
+                )
                 resolved_shifu_bid = shifu_info.bid
             else:
-                outline_item_info = get_outline_item_dto(app, outline_bid, preview_mode)
+                outline_item_info = get_outline_item_dto(
+                    app, outline_bid, is_preview=preview_mode
+                )
                 resolved_shifu_bid = outline_item_info.shifu_bid
-                shifu_info = get_shifu_dto(app, resolved_shifu_bid, preview_mode)
+                shifu_info = get_shifu_dto(
+                    app, resolved_shifu_bid, is_preview=preview_mode
+                )
 
-            struct_info = get_shifu_struct(app, shifu_info.bid, preview_mode)
+            struct_info = get_shifu_struct(app, shifu_info.bid, is_preview=preview_mode)
             if not struct_info:
                 raise_error("server.shifu.shifuNotFound")
             if not outline_item_info:
@@ -690,6 +697,7 @@ def run_script(
     input_type: str | None = None,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
+    *,
     listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: dict[str, Any] | None = None,
@@ -846,7 +854,7 @@ def run_script(
             run_started_at = int(time.time())
             status_last_refreshed_at = 0.0
 
-            def _refresh_run_script_status(force: bool = False) -> None:
+            def _refresh_run_script_status(*, force: bool = False) -> None:
                 # Ask requests do not own the run-script status slot; skip tracking.
                 if is_ask:
                     return

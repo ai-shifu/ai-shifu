@@ -1375,7 +1375,7 @@ class RunScriptPreviewContextV2:
 
         for is_preview in struct_modes:
             try:
-                struct = get_shifu_struct(self.app, shifu_bid, is_preview)
+                struct = get_shifu_struct(self.app, shifu_bid, is_preview=is_preview)
             except Exception:
                 self.app.logger.debug(
                     "outline hierarchy lookup skipped a struct: "
@@ -1613,6 +1613,7 @@ class RunScriptContextV2:
         user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
+        *,
         listen: bool = False,
         stop_event: threading.Event | None = None,
     ) -> None:
@@ -2106,7 +2107,7 @@ class RunScriptContextV2:
     # event construction lives in flaskr/service/learn/run/emitter.py.
 
     def _render_outline_updates(
-        self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
+        self, outline_updates: list[OutlineItemUpdateDTO], *, new_chapter: bool = False
     ) -> Generator[str, None, None]:
         yield from self._event_emitter.render_outline_updates(
             outline_updates, new_chapter=new_chapter
@@ -2220,7 +2221,7 @@ class RunScriptContextV2:
         return self._state_resolver.get_outline_row_id(outline_item_bid)
 
     def _get_run_script_info(
-        self, attend: LearnProgressRecord, is_ask: bool = False
+        self, attend: LearnProgressRecord, *, is_ask: bool = False
     ) -> RunScriptInfo:
         return self._state_resolver.get_run_script_info(attend, is_ask=is_ask)
 
@@ -2388,8 +2389,8 @@ class RunScriptContextV2:
             self._outline_item_info,
             self._trace_args,
             self._trace,
-            self._preview_mode,
-            self._last_position,
+            is_preview=self._preview_mode,
+            last_position=self._last_position,
             anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             parent_observation=self._trace_root_span,
         )

@@ -152,7 +152,7 @@ def _simulate_observed_segments(
             return
             yield
 
-        def finalize(self, commit: bool = True) -> Iterator[None]:
+        def finalize(self, *, commit: bool = True) -> Iterator[None]:
             _ = commit
             text = "".join(self._parts).strip()
             if text:

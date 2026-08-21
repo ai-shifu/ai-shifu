@@ -142,6 +142,7 @@ def import_shifu(
     shifu_id: str | None,
     file: FileStorage,
     user_id: str,
+    *,
     commit: bool = True,
 ) -> str:
     """Import a shifu from a JSON file.

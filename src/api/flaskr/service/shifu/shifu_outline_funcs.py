@@ -321,6 +321,7 @@ def __insert_outline_locked(
     is_hidden: bool,
     now_time: object,
     outline_bid: str,
+    *,
     persist_history: bool = True,
 ) -> SimpleOutlineDto:
     """Insert one outline row, allocating its position from current siblings.
@@ -422,6 +423,7 @@ def create_outline(
     outline_name: str,
     outline_type: str = UNIT_TYPE_GUEST,
     system_prompt: str | None = None,
+    *,
     is_hidden: bool = False,
 ) -> OutlineDto:
     """Create outline.

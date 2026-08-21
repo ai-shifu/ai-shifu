@@ -29,7 +29,7 @@ from flaskr.service.config.funcs import get_config
 from .common import bypass_token_validation, make_common_response
 
 
-def _to_bool(value: object, default: bool = False) -> bool:
+def _to_bool(value: object, *, default: bool = False) -> bool:
     if isinstance(value, bool):
         return value
     if value is None:
