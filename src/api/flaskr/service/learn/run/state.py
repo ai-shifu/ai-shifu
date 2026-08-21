@@ -346,7 +346,7 @@ class RunStateResolver:
         )
 
     def get_outline_struct(self, outline_item_id: str) -> HistoryItem:
-        """Return the learner-visible outline structure."""
+        """Return the learner-visible outline structure, or None for an unknown BID."""
         q = queue.Queue()
         q.put(self._struct)
         outline_struct = None
