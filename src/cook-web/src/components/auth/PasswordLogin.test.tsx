@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { PasswordLogin } from './PasswordLogin';
 
@@ -38,7 +38,22 @@ jest.mock('@/api', () => ({
 }));
 
 jest.mock('@/components/TermsCheckbox', () => ({
-  TermsCheckbox: () => React.createElement('label', null, 'module.auth.terms'),
+  TermsCheckbox: ({
+    checked,
+    onCheckedChange,
+  }: {
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  }) => (
+    <label>
+      <input
+        type='checkbox'
+        checked={checked}
+        onChange={event => onCheckedChange(event.target.checked)}
+      />
+      module.auth.terms
+    </label>
+  ),
 }));
 
 jest.mock('@/components/auth/TermsConfirmDialog', () => ({
@@ -51,7 +66,15 @@ describe('PasswordLogin', () => {
     jest.clearAllMocks();
   });
 
-  it('validates email-only identifiers after trimming surrounding whitespace', () => {
+  it('validates email-only identifiers after trimming surrounding whitespace', async () => {
+    mockLoginPassword.mockResolvedValue({
+      code: 0,
+      data: {
+        userInfo: { user_id: 'learner' },
+        token: 'token',
+      },
+    });
+
     render(
       <PasswordLogin
         onLoginSuccess={jest.fn()}
@@ -65,11 +88,18 @@ describe('PasswordLogin', () => {
     fireEvent.change(screen.getByLabelText('module.auth.password'), {
       target: { value: 'Password1' },
     });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
 
     expect(
       screen.queryByText('module.auth.emailError'),
     ).not.toBeInTheDocument();
-    expect(screen.getByTestId('terms-confirm-dialog')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockLoginPassword).toHaveBeenCalledWith({
+        identifier: 'learner@example.com',
+        password: 'Password1',
+        language: 'en-US',
+      });
+    });
   });
 });
