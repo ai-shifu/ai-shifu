@@ -379,6 +379,12 @@ ignore-name pattern. Preserve an external callback or override signature only
 when the caller truly owns the keyword contract, and explain that exception at
 the parameter.
 
+For `S101`, use `assert` only where assertion reporting is the interface, such
+as pytest tests and executable self-test fixtures. Production validation,
+authorization, and state guards must raise explicit exceptions because Python
+removes assertions under `-O`. Delete stale exact-file exceptions when the path
+disappears or an existing test pattern already owns it.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,
