@@ -293,7 +293,7 @@ def test_scan_item_failure_is_isolated_from_neighbor_items(
 
     original_stage = credit_notifications._stage_notification_record
 
-    def staging_then_boom(app_arg, **kwargs):
+    def staging_then_boom(app_arg, **kwargs: object):
         result = original_stage(app_arg, **kwargs)
         if kwargs.get("creator_bid") == "creator-uow-2":
             message = "boom in creator-uow-2"
@@ -401,7 +401,7 @@ def test_failed_provider_marker_persists_and_stays_retryable(
     )
     notification_bid = str(staged["notification_bid"])
 
-    def crashing_send(*_args: object, **_kwargs):
+    def crashing_send(*_args: object, **_kwargs: object):
         message = "provider connection dropped"
         raise RuntimeError(message)
 

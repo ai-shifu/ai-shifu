@@ -53,7 +53,7 @@ def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch):
 
     from flaskr.api.check import ilivedata as ilivedata_module
 
-    def fake_urlopen(*_args: object, **_kwargs):
+    def fake_urlopen(*_args: object, **_kwargs: object):
         message = "timed out"
         raise TimeoutError(message)
 

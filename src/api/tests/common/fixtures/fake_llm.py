@@ -33,7 +33,10 @@ def _stream_chunks(stream: bool) -> list[str]:
     return ["mock-llm"]
 
 
-def fake_invoke_llm(*_args: object, **kwargs) -> Generator[FakeLLMResponse, None, None]:
+def fake_invoke_llm(
+    *_args: object,
+    **kwargs: object,
+) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
     chunks = _stream_chunks(stream)
     for idx, chunk in enumerate(chunks, start=1):
@@ -45,7 +48,10 @@ def fake_invoke_llm(*_args: object, **kwargs) -> Generator[FakeLLMResponse, None
         )
 
 
-def fake_chat_llm(*_args: object, **kwargs) -> Generator[FakeLLMResponse, None, None]:
+def fake_chat_llm(
+    *_args: object,
+    **kwargs: object,
+) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
     chunks = _stream_chunks(stream)
     for idx, chunk in enumerate(chunks, start=1):

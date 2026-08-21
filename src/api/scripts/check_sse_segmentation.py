@@ -141,7 +141,7 @@ def _simulate_observed_segments(
     captured_by_position: dict[int, list[str]] = {}
 
     class CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 

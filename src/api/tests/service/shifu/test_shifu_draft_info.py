@@ -212,7 +212,7 @@ def test_save_shifu_draft_info_normalizes_removed_tts_fields(app, monkeypatch):
 
     captured: dict[str, object] = {}
 
-    def _fake_validate_tts_settings_strict(**kwargs):
+    def _fake_validate_tts_settings_strict(**kwargs: object):
         captured.update(kwargs)
         return SimpleNamespace(
             provider="minimax",
@@ -293,7 +293,7 @@ def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
         legacy.tts_emotion = "happy"
         dao.db.session.commit()
 
-    def _fake_validate_tts_settings_strict(**kwargs):
+    def _fake_validate_tts_settings_strict(**kwargs: object):
         return SimpleNamespace(
             provider=kwargs["provider"],
             model=kwargs["model"],

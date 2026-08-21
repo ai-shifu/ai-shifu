@@ -42,7 +42,7 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
 
     captured = {}
 
-    def fake_generate_pingxx_charge(**kwargs):
+    def fake_generate_pingxx_charge(**kwargs: object):
         captured.update(kwargs)
         return BuyRecordDTO(
             kwargs["buy_record"].order_bid,

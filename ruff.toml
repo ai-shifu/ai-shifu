@@ -15,8 +15,8 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN002/ANN204/ANN205/ANN206, see `select`) / SLF001 / PLC0415 /
-#   PLR2004
+# - ANN (except ANN002/ANN003/ANN204/ANN205/ANN206, see `select`) / SLF001 /
+#   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -170,8 +170,8 @@ select = [
 
     # --- Type annotations -------------------------------------------------
     # flake8-annotations is otherwise off (see the header): annotating every
-    # argument and return in the repo is a separate project. Variadic positional
-    # parameters name the element type after the star; use a concrete homogeneous
+    # argument and return in the repo is a separate project. Variadic parameters
+    # name the element/value type after the stars; use a concrete homogeneous
     # type when known and `object` for intentionally heterogeneous forwarding.
     # ANN205 is small enough to keep enforced, and a staticmethod is where a
     # missing return type hides the most, since there is no `self` to infer from.
@@ -182,6 +182,7 @@ select = [
     # serialization dunders (`__json__` returning a dict vs an enum value's str)
     # readable at a glance.
     "ANN002",  # missing type for *args
+    "ANN003",  # missing type for **kwargs
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod

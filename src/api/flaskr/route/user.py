@@ -187,7 +187,7 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
 
 def optional_token_validation(f):
     @wraps(f)
-    def decorated_function(*args: object, **kwargs):
+    def decorated_function(*args: object, **kwargs: object):
         token = request.cookies.get("token", None)
         if not token:
             token = request.args.get("token", None)

@@ -141,13 +141,13 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
 
     class FakeCoupon:
         @staticmethod
-        def create(**kwargs) -> dict[str, str]:
+        def create(**kwargs: object) -> dict[str, str]:
             captured_coupon.update(kwargs)
             return {"id": "coupon-1"}
 
     class FakeSession:
         @staticmethod
-        def create(**kwargs) -> object:
+        def create(**kwargs: object) -> object:
             captured_session.update(kwargs)
             return type(
                 "SessionResponse",
@@ -220,16 +220,16 @@ def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
 
     class FakeCoupon:
         @staticmethod
-        def create(**_kwargs) -> dict[str, str]:
+        def create(**_kwargs: object) -> dict[str, str]:
             return {"id": "coupon-cleanup-1"}
 
         @staticmethod
-        def delete(coupon_id, **_kwargs) -> None:
+        def delete(coupon_id, **_kwargs: object) -> None:
             deleted.append(coupon_id)
 
     class FakeSession:
         @staticmethod
-        def create(**_kwargs) -> None:
+        def create(**_kwargs: object) -> None:
             message = "session failed"
             raise RuntimeError(message)
 

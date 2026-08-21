@@ -6,7 +6,7 @@ from functools import wraps
 # inject app to function and set inject flag
 def inject(func):
     @wraps(func)
-    def wrapper(*args: object, **kwargs):
+    def wrapper(*args: object, **kwargs: object):
         app = kwargs.get("app")
         if app:
             with app.app_context():

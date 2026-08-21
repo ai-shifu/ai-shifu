@@ -1245,7 +1245,7 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
 def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch):
     load_calls = []
 
-    def fake_load_latest_shifus(model, **kwargs):
+    def fake_load_latest_shifus(model, **kwargs: object):
         load_calls.append(("latest", model.__name__, kwargs.get("lightweight")))
         return []
 
@@ -4812,7 +4812,7 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
     app, monkeypatch
 ):
     class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs):
+        def filter(self, *_args: object, **_kwargs: object):
             message = "expected no user query when users=[] is provided"
             raise AssertionError(message)
 
@@ -4866,7 +4866,7 @@ def test_registration_source_map_skips_unknown_provider_when_supported_one_exist
 
 def test_contact_map_skips_user_query_when_users_argument_is_empty(app, monkeypatch):
     class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs):
+        def filter(self, *_args: object, **_kwargs: object):
             message = "expected no user query when users=[] is provided"
             raise AssertionError(message)
 

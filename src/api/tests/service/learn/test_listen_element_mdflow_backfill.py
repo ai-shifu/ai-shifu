@@ -13,7 +13,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs):
+    def get_model_info(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)

@@ -20,7 +20,7 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
@@ -98,7 +98,7 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatc
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
         def process_chunk(self, chunk):
@@ -154,7 +154,7 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch)
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
         def process_chunk(self, chunk):
@@ -211,7 +211,7 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
     captured_by_position: dict[int, list[str]] = {}
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
@@ -280,7 +280,7 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _LenGateStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
@@ -347,7 +347,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
@@ -408,7 +408,7 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _NoopStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
         def process_chunk(self, chunk):
@@ -421,7 +421,7 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
             return
             yield
 
-    def _fake_build_visual_segments(**kwargs):
+    def _fake_build_visual_segments(**kwargs: object):
         _ = kwargs
         seg = VisualSegment(
             segment_id="seg-1",
@@ -466,7 +466,7 @@ def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
         def process_chunk(self, chunk):

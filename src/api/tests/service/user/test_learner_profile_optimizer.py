@@ -60,7 +60,7 @@ def _snapshot_profile_state(user_bid: str) -> tuple:
 
 
 def _successful_llm(raw_output: str, captured: dict):
-    def invoke(*args: object, **kwargs):
+    def invoke(*args: object, **kwargs: object):
         captured["call_count"] = captured.get("call_count", 0) + 1
         captured["args"] = args
         captured["kwargs"] = kwargs
@@ -73,11 +73,11 @@ def _install_trace_spies(monkeypatch, captured: dict) -> None:
     trace = object()
     root_span = object()
 
-    def create_trace(**kwargs):
+    def create_trace(**kwargs: object):
         captured["trace_create"] = kwargs
         return trace, root_span
 
-    def finalize_trace(**kwargs):
+    def finalize_trace(**kwargs: object):
         captured["trace_finalize"] = kwargs
 
     monkeypatch.setattr(optimizer, "create_trace_with_root_span", create_trace)
@@ -311,7 +311,7 @@ def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
     invoked = False
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: False)
 
-    def unexpected_invoke(*_args: object, **_kwargs):
+    def unexpected_invoke(*_args: object, **_kwargs: object):
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -385,7 +385,7 @@ def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setitem(app.config, "DEFAULT_LLM_MODEL", "")
 
-    def unexpected_invoke(*_args: object, **_kwargs):
+    def unexpected_invoke(*_args: object, **_kwargs: object):
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -450,7 +450,7 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(app, monkeypatc
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def timeout_invoke(*_args: object, **_kwargs):
+    def timeout_invoke(*_args: object, **_kwargs: object):
         message = "provider timeout"
         raise TimeoutError(message)
         yield  # pragma: no cover
@@ -480,7 +480,7 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
     user_bid = "profile-optimize-wrapped-timeout"
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def timeout_invoke(*_args: object, **_kwargs):
+    def timeout_invoke(*_args: object, **_kwargs: object):
         try:
             # The wrapped-timeout shape is exactly what this test asserts.
             message = "provider timeout"
@@ -521,7 +521,7 @@ def test_optimize_reports_runtime_failure_reason_without_changing_state(
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def failed_invoke(*_args: object, **_kwargs):
+    def failed_invoke(*_args: object, **_kwargs: object):
         raise provider_error
         yield  # pragma: no cover
 
@@ -554,7 +554,7 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
         message = "moderation unavailable"
         raise RuntimeError(message)
 
-    def unexpected_invoke(*_args: object, **_kwargs):
+    def unexpected_invoke(*_args: object, **_kwargs: object):
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")

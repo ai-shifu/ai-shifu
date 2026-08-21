@@ -82,7 +82,7 @@ class FakeRedis:
         nx: bool = False,
         xx: bool = False,
         *args: object,
-        **kwargs,
+        **kwargs: object,
     ):
         _ = kwargs
         if ex is None and args:

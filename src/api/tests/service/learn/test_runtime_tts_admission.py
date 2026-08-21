@@ -19,7 +19,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs):
+    def get_model_info(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -412,7 +412,7 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
         ),
     )
 
-    def _fake_run_script(*_args: object, **kwargs):
+    def _fake_run_script(*_args: object, **kwargs: object):
         assert "runtime_admission_payload" not in kwargs
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 
@@ -444,7 +444,7 @@ def test_run_route_uses_payload_language_as_generation_snapshot(
         lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
     )
 
-    def _fake_run_script(*_args: object, **kwargs):
+    def _fake_run_script(*_args: object, **kwargs: object):
         captured.update(kwargs)
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 

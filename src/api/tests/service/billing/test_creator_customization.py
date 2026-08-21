@@ -618,7 +618,7 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkey
 
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs):
+    def fake_upload_to_storage(_app, **kwargs: object):
         uploaded.update(kwargs)
         return SimpleNamespace(
             url=f"https://courses-oss.example.com/{kwargs['object_key']}",
@@ -726,7 +726,7 @@ def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
 
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs):
+    def fake_upload_to_storage(_app, **kwargs: object):
         uploaded.update(kwargs)
         return SimpleNamespace(
             url=f"https://courses-oss.example.com/{kwargs['object_key']}",
@@ -919,7 +919,7 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monke
 def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch):
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs):
+    def fake_upload_to_storage(_app, **kwargs: object):
         content = kwargs["file_content"].read()
         uploaded["content"] = content
         return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()
@@ -956,7 +956,7 @@ def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch):
 def test_creator_brand_logo_upload_preserves_wide_retina_variant(app, monkeypatch):
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs):
+    def fake_upload_to_storage(_app, **kwargs: object):
         content = kwargs["file_content"].read()
         uploaded["content"] = content
         return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()

@@ -149,7 +149,7 @@ class FeishuLogHandler(logging.Handler):
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
     """Format request logs with terminal color metadata."""
 
-    def __init__(self, fmt, **kwargs) -> None:
+    def __init__(self, fmt, **kwargs: object) -> None:
         """Initialize the parent request and color log formatters."""
         super().__init__(fmt, **kwargs)
 
