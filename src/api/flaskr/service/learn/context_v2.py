@@ -368,7 +368,7 @@ class RUNLLMProvider(LLMProvider):
         temperature: float | None = None,
     ) -> Generator[str, None, None]:
         # Extract the last message content as the main prompt
-        """Stream the current LLM provider response."""
+        """Start a streaming LLM completion and yield its response chunks."""
         if not messages:
             message = "No messages provided"
             raise ValueError(message)
