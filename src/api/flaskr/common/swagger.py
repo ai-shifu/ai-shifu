@@ -40,9 +40,10 @@ def sanitize_swagger_docstring(text: str) -> str:
     whitespace through its sanitizer and otherwise emits ``<br/>`` as an
     operation description.
     """
-    if not text.strip():
+    stripped = text.strip()
+    if not stripped:
         return ""
-    return BR_SANITIZER(text)
+    return BR_SANITIZER(stripped)
 
 
 def parse_comments(cls):
