@@ -16,19 +16,23 @@ class _StubHub:
     def __init__(self) -> None:
         self.calls = []
 
-        def _original(context, exc_type, value, tb) -> str:
+        def _original(
+            context: object, exc_type: object, value: object, tb: object
+        ) -> str:
             self.calls.append((context, exc_type, value, tb))
             return "original-result"
 
         self.handle_error = _original
 
 
-def _fire(hub, context=None, exc=None) -> object:
+def _fire(
+    hub: object, context: object | None = None, exc: object | None = None
+) -> object:
     exc = exc if exc is not None else AssertionError("(None, <callback>)")
     return hub.handle_error(context, type(exc), exc, None)
 
 
-def test_observer_logs_and_delegates(caplog) -> None:
+def test_observer_logs_and_delegates(caplog: object) -> None:
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer")
     assert install_hub_error_observer(logger, hub=hub) is True
@@ -50,7 +54,7 @@ def test_observer_logs_and_delegates(caplog) -> None:
     assert "AssertionError" in caplog.text
 
 
-def test_observer_installs_once(caplog) -> None:
+def test_observer_installs_once(caplog: object) -> None:
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer-once")
     assert install_hub_error_observer(logger, hub=hub) is True
@@ -80,7 +84,7 @@ def test_logger_failure_never_blocks_the_original_handler() -> None:
     assert len(hub.calls) == 1
 
 
-def test_unreprable_context_is_still_logged(caplog) -> None:
+def test_unreprable_context_is_still_logged(caplog: object) -> None:
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer-badrepr")
     install_hub_error_observer(logger, hub=hub)

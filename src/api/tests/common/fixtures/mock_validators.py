@@ -3,7 +3,7 @@
 from collections.abc import Callable
 
 
-def mock_port_validator(value) -> bool:
+def mock_port_validator(value: object) -> bool:
     """Mock port validator that accepts 1-65535."""
     try:
         port = int(value)
@@ -13,7 +13,7 @@ def mock_port_validator(value) -> bool:
         return 1 <= port <= 65535
 
 
-def mock_email_validator(value) -> bool:
+def mock_email_validator(value: object) -> bool:
     """Mock email validator with simple regex."""
     import re
 
@@ -23,22 +23,22 @@ def mock_email_validator(value) -> bool:
     return bool(re.match(pattern, str(value)))
 
 
-def always_fail_validator(value) -> bool:
+def always_fail_validator(value: object) -> bool:
     """Fail validation always (test helper)."""
     _ = value
     return False
 
 
-def always_pass_validator(value) -> bool:
+def always_pass_validator(value: object) -> bool:
     """Pass validation always (test helper)."""
     _ = value
     return True
 
 
-def range_validator(min_val, max_val) -> Callable[[object], bool]:
+def range_validator(min_val: object, max_val: object) -> Callable[[object], bool]:
     """Create a range validator for numeric values."""
 
-    def validator(value) -> bool:
+    def validator(value: object) -> bool:
         try:
             num = float(value)
         except (ValueError, TypeError):
@@ -49,10 +49,12 @@ def range_validator(min_val, max_val) -> Callable[[object], bool]:
     return validator
 
 
-def string_length_validator(min_len=0, max_len=100) -> Callable[[object], bool]:
+def string_length_validator(
+    min_len: int = 0, max_len: int = 100
+) -> Callable[[object], bool]:
     """Create a string length validator."""
 
-    def validator(value) -> bool:
+    def validator(value: object) -> bool:
         if value is None:
             return False
         s = str(value)
@@ -61,13 +63,13 @@ def string_length_validator(min_len=0, max_len=100) -> Callable[[object], bool]:
     return validator
 
 
-def regex_validator(pattern) -> Callable[[object], bool]:
+def regex_validator(pattern: object) -> Callable[[object], bool]:
     """Create a regex-based validator."""
     import re
 
     compiled = re.compile(pattern)
 
-    def validator(value) -> bool:
+    def validator(value: object) -> bool:
         if value is None:
             return False
         return bool(compiled.match(str(value)))
@@ -75,7 +77,7 @@ def regex_validator(pattern) -> Callable[[object], bool]:
     return validator
 
 
-def url_validator(value) -> bool:
+def url_validator(value: object) -> bool:
     """Mock URL validator."""
     import re
 
@@ -93,11 +95,11 @@ def url_validator(value) -> bool:
     return bool(url_pattern.match(str(value)))
 
 
-def dependency_validator(depends_on_key) -> Callable[[object], bool]:
+def dependency_validator(depends_on_key: object) -> Callable[[object], bool]:
     """Create a validator that checks if another config key is set."""
     _ = depends_on_key
 
-    def validator(value) -> bool:
+    def validator(value: object) -> bool:
         # In real usage, this would check if depends_on_key is configured
         # For testing, we just check if value is not empty
         return bool(value)

@@ -12,7 +12,7 @@ from flaskr.command.unified_migration_task import (
 
 
 class _FakeResult:
-    def __init__(self, value) -> None:
+    def __init__(self, value: object) -> None:
         self._value = value
 
     def scalar(self) -> object:
@@ -25,11 +25,11 @@ class _FakeResult:
 class _FakeSession:
     """Session double that records the statements a migration step issues."""
 
-    def __init__(self, value=1) -> None:
+    def __init__(self, value: int = 1) -> None:
         self._value = value
         self.calls = []
 
-    def execute(self, statement, params=None) -> object:
+    def execute(self, statement: object, params: object | None = None) -> object:
         self.calls.append((str(statement), params))
         return _FakeResult(self._value)
 
@@ -37,21 +37,21 @@ class _FakeSession:
         pass
 
 
-def _task_with_session(session) -> object:
+def _task_with_session(session: object) -> object:
     task = UnifiedMigrationTask.__new__(UnifiedMigrationTask)
     task.SessionClass = lambda: session
     return task
 
 
 @pytest.mark.parametrize("name", ["learn_progress_records", "_bid", "Col1"])
-def test_quote_identifier_quotes_valid_names(name) -> None:
+def test_quote_identifier_quotes_valid_names(name: object) -> None:
     assert _quote_identifier(name) == f"`{name}`"
 
 
 @pytest.mark.parametrize(
     "name", ["", "1table", "users; drop table users", "user`s", "learn progress"]
 )
-def test_quote_identifier_rejects_unsafe_names(name) -> None:
+def test_quote_identifier_rejects_unsafe_names(name: object) -> None:
     with pytest.raises(ValueError, match="Unsafe SQL identifier"):
         _quote_identifier(name)
 
@@ -72,7 +72,7 @@ def test_get_table_count_quotes_the_table_name() -> None:
 @pytest.mark.parametrize(
     "table_name", ["learn_progress_records; drop table users", "learn progress"]
 )
-def test_get_table_count_rejects_unsafe_table_names(table_name) -> None:
+def test_get_table_count_rejects_unsafe_table_names(table_name: object) -> None:
     session = _FakeSession()
     task = _task_with_session(session)
 
@@ -114,14 +114,16 @@ def test_check_column_exists_binds_table_and_column() -> None:
     }
 
 
-def test_migrate_table_logs_formatted_batch_progress(caplog) -> None:
+def test_migrate_table_logs_formatted_batch_progress(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     task = UnifiedMigrationTask.__new__(UnifiedMigrationTask)
     task.config = MigrationConfig(batch_size=10)
 
-    async def table_exists(_table_name) -> bool:
+    async def table_exists(_table_name: object) -> bool:
         return True
 
-    async def table_count(_table_name) -> int:
+    async def table_count(_table_name: object) -> int:
         return 20
 
     async def process_batch(*_args: object) -> dict[str, int | list[object]]:

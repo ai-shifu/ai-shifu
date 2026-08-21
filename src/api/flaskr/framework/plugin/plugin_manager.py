@@ -35,12 +35,12 @@ class PluginManager:
             self.hot_reloader.stop()
             self.hot_reloader = None
 
-    def clear_extension(self, target_func_name) -> None:
+    def clear_extension(self, target_func_name: object) -> None:
         """Clear all registered functions for the specified extension point."""
         if target_func_name in self.extension_functions:
             del self.extension_functions[target_func_name]
 
-    def register_extension(self, target_func_name, func) -> None:
+    def register_extension(self, target_func_name: object, func: object) -> None:
         """Register an extension callback for a target function."""
         self.app.logger.info(
             "register_extension: %s -> %s", target_func_name, func.__name__
@@ -53,7 +53,7 @@ class PluginManager:
         self.extension_functions[target_func_name].append(func)
 
     def execute_extensions(
-        self, func_name, result, *args: object, **kwargs: object
+        self, func_name: object, result: object, *args: object, **kwargs: object
     ) -> object:
         """Execute callbacks registered for a target function."""
         self.app.logger.info("execute_extensions: %s", func_name)
@@ -64,7 +64,7 @@ class PluginManager:
                 result = func(result, *args, **kwargs)
         return result
 
-    def register_extensible_generic(self, func_name, func) -> None:
+    def register_extensible_generic(self, func_name: object, func: object) -> None:
         """Register a generic extensible function."""
         self.app.logger.info(
             "register_extensible_generic: %s -> %s", func_name, func.__name__
@@ -78,8 +78,8 @@ class PluginManager:
 
     def execute_extensible_generic(
         self,
-        func_name,
-        result,
+        func_name: object,
+        result: object,
         *args: object,
         **kwargs: object,
     ) -> Iterator[object]:
@@ -137,10 +137,10 @@ def disable_plugin_manager(app: Flask) -> Flask:
 
 
 # extensible decorator
-def extension(target_func_name) -> Callable[..., object]:
+def extension(target_func_name: object) -> Callable[..., object]:
     """Decorate a function with registered extension callbacks."""
 
-    def decorator(func) -> Callable[..., object]:
+    def decorator(func: object) -> Callable[..., object]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
@@ -151,10 +151,10 @@ def extension(target_func_name) -> Callable[..., object]:
     return decorator
 
 
-def extensible_generic_register(func_name) -> Callable[..., object]:
+def extensible_generic_register(func_name: object) -> Callable[..., object]:
     """Register a generic extension point."""
 
-    def decorator(func) -> Callable[..., object]:
+    def decorator(func: object) -> Callable[..., object]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
@@ -166,7 +166,7 @@ def extensible_generic_register(func_name) -> Callable[..., object]:
 
 
 # extensible decorator
-def extensible(func) -> Callable[..., object]:
+def extensible(func: object) -> Callable[..., object]:
     """Decorate a function as an extension point."""
 
     @wraps(func)
@@ -181,7 +181,7 @@ def extensible(func) -> Callable[..., object]:
 
 
 # extensible_generic decorator
-def extensible_generic(func) -> Callable[..., object]:
+def extensible_generic(func: object) -> Callable[..., object]:
     """Decorate a generic function as an extension point."""
     try:
         from flask import current_app, has_app_context

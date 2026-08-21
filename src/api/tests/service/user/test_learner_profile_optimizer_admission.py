@@ -21,7 +21,7 @@ class FakeRedis:
         self.in_flight_tokens: dict[str, str] = {}
         self.acquire_ttls: list[int] = []
 
-    def eval(self, script, numkeys, *args: object) -> int:
+    def eval(self, script: object, numkeys: object, *args: object) -> int:
         assert numkeys == 1
         key = str(args[0])
         token = str(args[1])
@@ -59,7 +59,7 @@ def reset_local_admission_state() -> Iterator[None]:
         admission._local_in_flight_state.clear()
 
 
-def _assert_admission_denied(app, *, user_id: str) -> None:
+def _assert_admission_denied(app: object, *, user_id: str) -> None:
     message = "denied admission must not enter the request body"
     with (
         pytest.raises(AppError) as raised,
@@ -72,7 +72,9 @@ def _assert_admission_denied(app, *, user_id: str) -> None:
     assert raised.value.code == 1023
 
 
-def test_admission_allows_only_one_in_flight_request_per_user(app, monkeypatch) -> None:
+def test_admission_allows_only_one_in_flight_request_per_user(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -91,7 +93,9 @@ def test_admission_allows_only_one_in_flight_request_per_user(app, monkeypatch) 
     assert fake_redis.acquire_ttls == [admission.IN_FLIGHT_TTL_SECONDS] * 3
 
 
-def test_admission_does_not_group_different_users(app, monkeypatch) -> None:
+def test_admission_does_not_group_different_users(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -102,7 +106,9 @@ def test_admission_does_not_group_different_users(app, monkeypatch) -> None:
         pass
 
 
-def test_admission_releases_slot_after_request_error(app, monkeypatch) -> Never:
+def test_admission_releases_slot_after_request_error(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> Never:
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -124,7 +130,7 @@ def test_admission_releases_slot_after_request_error(app, monkeypatch) -> Never:
 
 
 def test_expired_lease_release_cannot_remove_replacement_redis_slot(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
@@ -140,7 +146,7 @@ def test_expired_lease_release_cannot_remove_replacement_redis_slot(
 
 
 def test_configured_redis_failure_denies_request_without_logging_identity(
-    app, monkeypatch, caplog
+    app: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     sentinel_identity = "SENSITIVE_ADMISSION_IDENTITY"
     monkeypatch.setattr(dao._redis_state, "client", ExplodingRedis())
@@ -155,7 +161,9 @@ def test_configured_redis_failure_denies_request_without_logging_identity(
     assert sentinel_identity not in caplog.text
 
 
-def test_missing_redis_uses_process_local_user_slot(app, monkeypatch) -> None:
+def test_missing_redis_uses_process_local_user_slot(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(dao._redis_state, "client", None)
 
     with admission.learner_profile_optimization_admission(

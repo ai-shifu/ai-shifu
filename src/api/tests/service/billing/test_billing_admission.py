@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def billing_admission_app(monkeypatch) -> Iterator[Flask]:
+def billing_admission_app(monkeypatch: pytest.MonkeyPatch) -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -88,8 +88,8 @@ def _create_bucket(
     *,
     category: int,
     available_credits: str,
-    effective_from=None,
-    effective_to=None,
+    effective_from: object | None = None,
+    effective_to: object | None = None,
     source_type: int = 0,
     source_bid: str | None = None,
 ) -> CreditWalletBucket:
@@ -116,8 +116,8 @@ def _create_active_subscription(
     creator_bid: str,
     *,
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    current_period_start_at=None,
-    current_period_end_at=None,
+    current_period_start_at: object | None = None,
+    current_period_end_at: object | None = None,
 ) -> BillingSubscription:
     now = now_utc()
     return BillingSubscription(
@@ -288,7 +288,7 @@ def test_admit_creator_usage_rejects_missing_credits(
 
 def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
     billing_admission_app: Flask,
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with billing_admission_app.app_context():
         dao.db.session.add(

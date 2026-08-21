@@ -26,7 +26,7 @@ from .models import AiCourseAuth, FavoriteScenario
 from .utils import get_shifu_creator_bid
 
 
-def mark_favorite_shifu(app, user_id: str, shifu_id: str) -> bool:
+def mark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
     """Mark a shifu as favorite for a user.
 
     Args:
@@ -55,7 +55,7 @@ def mark_favorite_shifu(app, user_id: str, shifu_id: str) -> bool:
 
 
 # unmark favorite shifu
-def unmark_favorite_shifu(app, user_id: str, shifu_id: str) -> bool:
+def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
     """Unmark a shifu as favorite for a user.
 
     Args:
@@ -79,7 +79,7 @@ def unmark_favorite_shifu(app, user_id: str, shifu_id: str) -> bool:
 
 
 def mark_or_unmark_favorite_shifu(
-    app, user_id: str, shifu_id: str, is_favorite: bool
+    app: object, user_id: str, shifu_id: str, is_favorite: bool
 ) -> bool:
     """Mark or unmark a shifu as favorite for a user.
 
@@ -98,7 +98,7 @@ def mark_or_unmark_favorite_shifu(
     return unmark_favorite_shifu(app, user_id, shifu_id)
 
 
-def upload_file(app, user_id: str, resource_id: str, file) -> str:
+def upload_file(app: object, user_id: str, resource_id: str, file: object) -> str:
     """Upload a file to OSS.
 
     Args:
@@ -162,7 +162,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         return result.url
 
 
-def upload_url(app, user_id: str, url: str) -> str:
+def upload_url(app: object, user_id: str, url: str) -> str:
     """Upload a file from a URL to OSS.
 
     Args:
@@ -251,7 +251,7 @@ def upload_url(app, user_id: str, url: str) -> str:
 
 
 def shifu_permission_verification(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     auth_type: str,
@@ -322,7 +322,7 @@ def shifu_permission_verification(
             return False
 
 
-def get_video_info(app, user_id: str, url: str) -> dict:
+def get_video_info(app: object, user_id: str, url: str) -> dict:
     """Obtain video information from a URL.
 
     Args:

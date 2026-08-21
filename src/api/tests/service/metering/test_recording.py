@@ -41,7 +41,7 @@ def metering_app() -> Iterator[Flask]:
         dao.db.drop_all()
 
 
-def test_record_llm_usage_persists(metering_app) -> None:
+def test_record_llm_usage_persists(metering_app: Flask) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-1",
@@ -72,7 +72,7 @@ def test_record_llm_usage_persists(metering_app) -> None:
 
 
 def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
-    metering_app,
+    metering_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[str] = []
@@ -100,7 +100,7 @@ def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
     assert captured == [usage_bid]
 
 
-def test_record_tts_usage_preview_defaults_to_billable_on(metering_app) -> None:
+def test_record_tts_usage_preview_defaults_to_billable_on(metering_app: Flask) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-2",
@@ -154,7 +154,7 @@ def test_record_tts_usage_preview_defaults_to_billable_on(metering_app) -> None:
 
 
 def test_record_tts_usage_only_enqueues_root_billable_record(
-    metering_app,
+    metering_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[str] = []
@@ -206,7 +206,7 @@ def test_record_tts_usage_only_enqueues_root_billable_record(
 
 
 def test_record_debug_usage_respects_explicit_non_billable_override(
-    metering_app,
+    metering_app: Flask,
 ) -> None:
     with metering_app.app_context():
         context = UsageContext(
@@ -232,7 +232,7 @@ def test_record_debug_usage_respects_explicit_non_billable_override(
 
 
 def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
-    metering_app,
+    metering_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[str] = []
@@ -262,7 +262,7 @@ def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
 
 
 def test_record_llm_usage_marks_builtin_demo_course_non_billable(
-    metering_app,
+    metering_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[str] = []
@@ -300,7 +300,7 @@ def test_record_llm_usage_marks_builtin_demo_course_non_billable(
 
 
 def test_record_tts_usage_marks_builtin_demo_course_non_billable(
-    metering_app,
+    metering_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[str] = []
@@ -343,7 +343,7 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
 
 
 def test_persist_cleanup_targets_failed_session_inside_context(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Cleanup must run inside the pushed context (targeting the session that failed) and classify the failure: ordinary errors roll back, protocol interrupts invalidate."""
     from flask import current_app
@@ -352,7 +352,9 @@ def test_persist_cleanup_targets_failed_session_inside_context(
 
     events = []
 
-    def _fake_cleanup(exc, *, source, session=None) -> str:
+    def _fake_cleanup(
+        exc: object, *, source: object, session: object | None = None
+    ) -> str:
         # Must be called while the pushed app context is active.
         _ = (source, session)
         events.append((type(exc).__name__, current_app._get_current_object() is app))
@@ -361,7 +363,7 @@ def test_persist_cleanup_targets_failed_session_inside_context(
     monkeypatch.setattr(recorder_module, "cleanup_session_after", _fake_cleanup)
 
     class _FailingSession:
-        def add(self, _record) -> None:
+        def add(self, _record: object) -> None:
             pass
 
         def commit(self) -> Never:
@@ -378,7 +380,9 @@ def test_persist_cleanup_targets_failed_session_inside_context(
     assert events == [("ResourceClosedError", True)]
 
 
-def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch) -> None:
+def test_persist_invalidates_on_base_exception_interrupt(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.service.metering import recorder as recorder_module
 
     invalidations = []
@@ -392,7 +396,7 @@ def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch) -> No
         pass
 
     class _InterruptedSession:
-        def add(self, _record) -> None:
+        def add(self, _record: object) -> None:
             pass
 
         def commit(self) -> Never:

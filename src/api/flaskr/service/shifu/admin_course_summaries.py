@@ -112,7 +112,7 @@ class OperatorCourseListCandidate:
     has_course_prompt: bool | None = None
 
 
-def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
+def _build_operator_course_list_seed(row: object) -> OperatorCourseListSeed:
     return OperatorCourseListSeed(
         id=int(row.id),
         shifu_bid=str(row.shifu_bid or ""),
@@ -126,7 +126,7 @@ def _build_operator_course_list_seed(row) -> OperatorCourseListSeed:
     )
 
 
-def _build_operator_course_list_candidate(row) -> OperatorCourseListCandidate:
+def _build_operator_course_list_candidate(row: object) -> OperatorCourseListCandidate:
     return OperatorCourseListCandidate(
         id=int(row.id),
         shifu_bid=str(row.shifu_bid or ""),
@@ -147,9 +147,9 @@ def _build_operator_course_list_candidate(row) -> OperatorCourseListCandidate:
 
 
 def _build_operator_visible_course_filter(
-    shifu_bid_column,
-    title_column,
-    created_user_bid_column,
+    shifu_bid_column: object,
+    title_column: object,
+    created_user_bid_column: object,
 ) -> object:
     normalized_shifu_bid = db.func.trim(db.func.coalesce(shifu_bid_column, ""))
     normalized_title = db.func.trim(db.func.coalesce(title_column, ""))
@@ -172,7 +172,7 @@ def _build_operator_visible_course_filter(
 
 
 def _build_latest_operator_course_rows_query(
-    model,
+    model: object,
     *,
     shifu_bid: str,
     course_name: str,
@@ -213,7 +213,7 @@ def _build_latest_operator_course_rows_query(
 
 
 def _build_latest_operator_course_rows_subquery(
-    model,
+    model: object,
     *,
     shifu_bid: str,
     course_name: str,
@@ -399,8 +399,8 @@ def _build_operator_course_candidate_query(
 
 
 def _build_latest_outline_activity_subquery(
-    model,
-    candidate_bids_subquery,
+    model: object,
+    candidate_bids_subquery: object,
     *,
     alias_name: str,
 ) -> object:
@@ -459,9 +459,9 @@ def _build_latest_outline_activity_subquery(
 
 
 def _build_operator_course_latest_activity_subquery(
-    candidate_bids_subquery,
-    draft_visible_subquery,
-    published_visible_subquery,
+    candidate_bids_subquery: object,
+    draft_visible_subquery: object,
+    published_visible_subquery: object,
 ) -> object:
     draft_outline_activity_subquery = _build_latest_outline_activity_subquery(
         DraftOutlineItem,
@@ -533,7 +533,7 @@ def _build_operator_course_latest_activity_subquery(
 
 
 def _build_latest_shifus_query(
-    model,
+    model: object,
     *,
     shifu_bid: str,
     course_name: str,
@@ -574,7 +574,7 @@ def _build_latest_shifus_query(
 
 
 def _load_latest_shifus(
-    model,
+    model: object,
     *,
     shifu_bid: str,
     course_name: str,
@@ -621,7 +621,7 @@ def _load_latest_shifus(
 
 
 def _load_latest_shifu_seeds(
-    model,
+    model: object,
     *,
     shifu_bid: str,
     course_name: str,
@@ -659,7 +659,7 @@ def _load_latest_shifu_seeds(
     return [_build_operator_course_list_seed(row) for row in rows]
 
 
-def _attach_course_prompt_flags(model, rows) -> None:
+def _attach_course_prompt_flags(model: object, rows: object) -> None:
     course_ids = [getattr(row, "id", None) for row in rows if getattr(row, "id", None)]
     if not course_ids:
         return
@@ -692,7 +692,7 @@ def _attach_course_prompt_flags(model, rows) -> None:
 
 
 def _build_course_summary(
-    course,
+    course: object,
     user_map: dict[str, dict[str, str]],
     course_status: str,
     activity: dict[str, Any] | None = None,
@@ -705,7 +705,7 @@ def _build_course_summary(
     )
 
 
-def _is_operator_visible_course(course) -> bool:
+def _is_operator_visible_course(course: object) -> bool:
     return bool(course.shifu_bid) and not is_builtin_demo_course(
         shifu_bid=course.shifu_bid,
         title=course.title,
@@ -904,7 +904,7 @@ def _load_latest_course_versions(
 
 
 def _load_latest_courses_by_shifu_bids(
-    model,
+    model: object,
     shifu_bids: Sequence[str],
     *,
     lightweight: bool = False,

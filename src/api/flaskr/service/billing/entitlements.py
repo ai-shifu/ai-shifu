@@ -104,7 +104,7 @@ def serialize_creator_entitlements(
 
 
 def grant_creator_manual_entitlement(
-    app,
+    app: object,
     creator_bid: str,
     *,
     branding_enabled: bool | None = None,

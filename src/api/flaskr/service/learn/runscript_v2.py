@@ -422,7 +422,7 @@ def run_script_inner(
                     element_bids.append(element_bid)
 
             def _iter_run_events(
-                events,
+                events: object,
                 ready_element_bids_by_block_bid: dict[str, list[str]],
             ) -> Iterator[RunElementSSEMessageDTO]:
                 if element_adapter is None:
@@ -533,7 +533,7 @@ def run_script_inner(
     yield from _run()
 
 
-def fmt(o) -> object:
+def fmt(o: object) -> object:
     """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime):
         return to_utc_iso(o)

@@ -41,7 +41,9 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
+def billing_write_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 
@@ -49,7 +51,7 @@ class TestBillingWriteRoutesCheckout:
     """Verify billing write routes checkout behavior."""
 
     def test_subscription_checkout_rejects_when_billing_feature_disabled(
-        self, billing_write_client, monkeypatch
+        self, billing_write_client: dict[str, object], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         client = billing_write_client["client"]
 
@@ -72,11 +74,11 @@ class TestBillingWriteRoutesCheckout:
         assert billing_write_client["stripe_requests"] == []
 
     def test_subscription_checkout_uses_configured_provider_when_omitted(
-        self, billing_write_client, monkeypatch
+        self, billing_write_client: dict[str, object], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         client = billing_write_client["client"]
 
-        def fake_get_config(key, default=None) -> object:
+        def fake_get_config(key: object, default: object | None = None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "stripe"
             return default
@@ -99,7 +101,7 @@ class TestBillingWriteRoutesCheckout:
         assert payload["data"]["status"] == "pending"
 
     def test_subscription_checkout_creates_draft_subscription_and_pending_order(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -157,7 +159,7 @@ class TestBillingWriteRoutesCheckout:
         )
 
     def test_subscription_checkout_starts_new_order_when_active_status_is_stale(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -218,7 +220,7 @@ class TestBillingWriteRoutesCheckout:
             assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
 
     def test_subscription_checkout_allows_paid_plan_after_stale_active_trial(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -280,7 +282,7 @@ class TestBillingWriteRoutesCheckout:
             assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
 
     def test_subscription_checkout_supports_daily_stripe_recurring_interval(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -330,7 +332,7 @@ class TestBillingWriteRoutesCheckout:
 
     def test_stripe_subscription_campaign_uses_first_invoice_discount_not_recurring_price(
         self,
-        billing_write_client,
+        billing_write_client: dict[str, object],
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -392,7 +394,7 @@ class TestBillingWriteRoutesCheckout:
             assert order.payable_amount == 790
 
     def test_subscription_checkout_rejects_lower_tier_plan_while_active(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -442,7 +444,7 @@ class TestBillingWriteRoutesCheckout:
             assert BillingOrder.query.filter_by(creator_bid="creator-1").count() == 0
 
     def test_subscription_checkout_allows_higher_tier_plan_while_active(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -494,7 +496,7 @@ class TestBillingWriteRoutesCheckout:
             assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
     def test_subscription_checkout_rejects_lower_tier_even_with_newer_draft(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -555,7 +557,7 @@ class TestBillingWriteRoutesCheckout:
         )
 
     def test_subscription_checkout_rejects_lower_tier_against_paid_plan_when_trial_overlaps(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]

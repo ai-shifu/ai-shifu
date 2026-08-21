@@ -871,6 +871,37 @@ plan's progress update for that rule.
   translation validation, the repository harness, architecture boundary
   ratchet, compile checks, pinned Ruff 0.16.3 development-tool validation, and
   every repository pre-commit hook across all files.
+- [x] 2026-08-21 17:48 CST: Ready ANN401 PR
+  [#2619](https://github.com/ai-shifu/ai-shifu/pull/2619) passed every GitHub
+  check, including the 3,032-test backend job, runtime harness, and CodeQL
+  analysis. Audited the remaining rules and selected ANN001: although larger,
+  it is annotation-only, while every smaller 72-234-finding candidate rewrites
+  production control flow or stable public signatures.
+- [x] 2026-08-21 18:04 CST: Enabled ANN001 and annotated all 4,650 mutable
+  normal parameters across 342 Python files: 4,030 test parameters, 593
+  production parameters, and 27 contributor-tool parameters. Reused 386 local
+  fixture return contracts, 737 concrete pytest fixture types, and 275 literal
+  default types; the remaining 3,252 heterogeneous, externally injected, SDK,
+  ORM, callback, compatibility, and test-double boundaries use `object` or
+  `object | None` without introducing `Any`.
+- [x] 2026-08-21 18:04 CST: Retained six legacy parameters in exactly two
+  applied migrations and made no migration-history edits. A semantic audit
+  accounts for every added parameter annotation and matches the executable AST
+  of all 342 files to the ANN401 parent. Configured ANN001, repository Ruff,
+  and format pass.
+- [x] 2026-08-21 18:04 CST: The stable census falls from 18,553 to 14,213 and
+  the isolated census falls from 32,687 to 28,353. Configured ANN001 falls from
+  4,656 findings to zero; the isolated view retains only the six immutable
+  migration parameters. Formatter-owned COM812 rises by 295 as longer
+  signatures wrap, and correctly annotating 21 boolean defaults exposes the
+  matching FBT001 debt instead of hiding it behind `object`. The complete
+  backend suite passes 3,032 tests with 17 skips and 733 existing warnings.
+- [x] 2026-08-21 18:10 CST: Regenerated all 83 collaboration documents and six
+  repository knowledge documents with no generated-file drift, then passed
+  translation validation, the repository harness, architecture boundary
+  ratchet, compile checks, the semantic AST audit, pinned Ruff 0.16.3
+  development-tool validation, configured Ruff and format, and every
+  repository pre-commit hook across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1458,6 +1489,20 @@ appear where the longer built-in annotation wraps a signature. The directly
 affected script and backend contract tests and the complete 3,032-test backend
 suite pass. Repository generation, harness, architecture, translation,
 compile, Ruff, format, development-tool, and pre-commit gates also pass.
+
+The ANN001 stage annotates every mutable normal parameter: 4,650 additions
+across 342 production, contributor-tool, and test files. Local fixture return
+contracts, concrete pytest fixture types, and literal defaults supply 1,398
+stable types; genuinely heterogeneous or externally injected values use
+`object` or `object | None` so the accepted runtime contract is not narrowed
+without evidence. Two exact exceptions preserve six parameters in applied
+Alembic history, and no migration file changes. A semantic audit removes only
+the new annotations and matches every executable AST to the ANN401 parent.
+Configured ANN001 is clean; the stable census falls to 14,213 and the isolated
+census to 28,353, where only the immutable migration parameters remain.
+Formatter-conflicting COM812 rises by 295 where annotations wrap signatures,
+and FBT001 rises by 21 because explicit `bool` defaults now reveal existing
+boolean positional parameters. The complete 3,032-test backend suite passes.
 
 ## Context and Orientation
 

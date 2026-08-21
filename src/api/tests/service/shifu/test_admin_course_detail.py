@@ -109,7 +109,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _pin_app_timezone_to_utc(app) -> Iterator[None]:
+def _pin_app_timezone_to_utc(app: object) -> Iterator[None]:
     original_tz = app.config.get("TZ")
     app.config["TZ"] = "UTC"
     try:
@@ -122,7 +122,7 @@ def _pin_app_timezone_to_utc(app) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch) -> None:
+def _mock_bcrypt_module(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
         sys.modules,
         "bcrypt",
@@ -135,7 +135,7 @@ def _mock_bcrypt_module(monkeypatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app) -> Iterator[None]:
+def _isolate_tables(app: object) -> Iterator[None]:
     with app.app_context():
         _clear_tables()
     yield
@@ -144,7 +144,7 @@ def _isolate_tables(app) -> Iterator[None]:
 
 
 def _mock_operator(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     user_id: str = "operator-1",
     *,
     is_operator: bool = True,
@@ -162,7 +162,7 @@ def _mock_operator(
     )
 
 
-def _seed_user(app, *, user_bid: str, email: str = "", phone: str = "") -> None:
+def _seed_user(app: object, *, user_bid: str, email: str = "", phone: str = "") -> None:
     identify = email or phone or user_bid
     create_user_entity(
         user_bid=user_bid,
@@ -722,7 +722,7 @@ def _seed_credit_usage_rate(
 def _seed_outline(
     *,
     shifu_bid: str,
-    model,
+    model: object,
     outline_item_bid: str,
     title: str,
     position: str,
@@ -760,14 +760,14 @@ def _seed_outline(
     )
 
 
-def test_coerce_operator_datetime_accepts_mysql_string_values(app) -> None:
+def test_coerce_operator_datetime_accepts_mysql_string_values(app: object) -> None:
     with app.app_context():
         assert _coerce_operator_datetime("2026-05-20 16:40:51") == datetime(
             2026, 5, 20, 16, 40, 51
         )
 
 
-def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app) -> None:
+def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app: object) -> None:
     with app.app_context():
         assert _coerce_operator_datetime("2026-05-22T10:00:00+08:00") == datetime(
             2026, 5, 22, 2, 0, 0
@@ -778,9 +778,9 @@ def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app) -> None:
 
 
 def test_admin_operation_course_detail_route_returns_latest_detail(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -1087,9 +1087,9 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
 
 
 def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -1300,9 +1300,9 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
 
 
 def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surfaces_unknown_permission(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1387,9 +1387,9 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
     ],
 )
 def test_admin_operation_course_detail_routes_require_operator(
-    test_client,
-    monkeypatch,
-    path,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    path: object,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -1401,9 +1401,9 @@ def test_admin_operation_course_detail_routes_require_operator(
 
 
 def test_admin_operation_course_prompt_route_returns_course_prompt(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1436,9 +1436,9 @@ def test_admin_operation_course_prompt_route_returns_course_prompt(
 
 
 def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1482,9 +1482,9 @@ def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
 
 
 def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_course(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1548,9 +1548,9 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
 
 
 def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1613,9 +1613,9 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
 
 
 def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -1652,9 +1652,9 @@ def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
 
 
 def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline_revision(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1729,9 +1729,9 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
 
 
 def test_admin_operation_course_detail_route_rejects_missing_course(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _ = app
     _mock_operator(monkeypatch)
@@ -1747,9 +1747,9 @@ def test_admin_operation_course_detail_route_rejects_missing_course(
 
 
 def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_item(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1775,7 +1775,7 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
 
 
 def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(
-    app,
+    app: object,
 ) -> None:
     with pytest.raises(AppError) as exc_info:
         get_operator_course_detail(app, shifu_bid="   ")
@@ -1784,7 +1784,7 @@ def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(
 
 
 def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
-    app,
+    app: object,
 ) -> None:
     with pytest.raises(AppError) as exc_info:
         get_operator_course_chapter_detail(
@@ -1796,9 +1796,9 @@ def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_err
 
 
 def test_admin_operation_course_users_route_returns_course_related_users(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -1936,9 +1936,9 @@ def test_admin_operation_course_users_route_returns_course_related_users(
 
 
 def test_admin_operation_course_users_route_applies_filters(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -1995,9 +1995,9 @@ def test_admin_operation_course_users_route_applies_filters(
 
 
 def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -2068,9 +2068,9 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
 
 
 def test_admin_operation_course_detail_metrics_include_credit_usage_and_completed_average(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -2178,9 +2178,9 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
 
 
 def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_filters(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -2475,15 +2475,15 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
 
 def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     load_counts = {"llm": 0, "tts": 0}
 
-    def fake_get_current_models(_app) -> list[dict[str, str]]:
+    def fake_get_current_models(_app: object) -> list[dict[str, str]]:
         load_counts["llm"] += 1
         return [
             {"model": "gpt-known", "display_name": "GPT Known"},
@@ -2628,9 +2628,9 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
 
 
 def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -2704,11 +2704,11 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
     ],
 )
 def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
-    app,
-    test_client,
-    monkeypatch,
-    query,
-    field,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    query: object,
+    field: object,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -2734,9 +2734,9 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
 
 
 def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -2762,8 +2762,8 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
 
 
 def test_admin_operation_course_credit_usages_route_rejects_missing_course(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -2779,9 +2779,9 @@ def test_admin_operation_course_credit_usages_route_rejects_missing_course(
 
 
 def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summary(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -2876,9 +2876,9 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
 
 
 def test_admin_operation_course_credit_usage_details_route_paginates_and_filters_mode(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -2946,9 +2946,9 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
 
 
 def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_progress_separate(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
@@ -3028,9 +3028,9 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
 
 
 def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
@@ -3118,9 +3118,9 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
 
 
 def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -3408,8 +3408,8 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
 
 
 def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -3426,9 +3426,9 @@ def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
 
 
 def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -3456,9 +3456,9 @@ def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
 
 
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -3546,9 +3546,9 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
 
 
 def test_admin_operation_course_ratings_route_returns_summary_and_filters(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -3778,11 +3778,11 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
     ],
 )
 def test_admin_operation_course_ratings_route_rejects_invalid_filters(
-    app,
-    test_client,
-    monkeypatch,
-    query_string,
-    expected_param,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    query_string: object,
+    expected_param: object,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -3808,9 +3808,9 @@ def test_admin_operation_course_ratings_route_rejects_invalid_filters(
 
 
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -3943,9 +3943,9 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
 
 
 def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks_when_resolving_answer(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4066,9 +4066,9 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
 
 
 def test_admin_operation_course_follow_up_detail_route_prefers_interaction_source_content(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4152,9 +4152,9 @@ def test_admin_operation_course_follow_up_detail_route_prefers_interaction_sourc
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_from_block_content_conf(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4257,9 +4257,9 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_source(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4345,9 +4345,9 @@ def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_sour
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_source(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4446,9 +4446,9 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
 
 
 def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_progress_record(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4558,9 +4558,9 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_snapshot(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
@@ -4667,9 +4667,9 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
 
 
 def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -4744,9 +4744,9 @@ def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
 
 
 def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -4812,9 +4812,9 @@ def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
 
 
 def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to_payable_price(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -4883,9 +4883,9 @@ def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to
 
 
 def test_admin_operation_course_detail_metrics_include_successful_orders_across_channels(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
@@ -4978,10 +4978,10 @@ def test_admin_operation_course_detail_metrics_include_successful_orders_across_
     ],
 )
 def test_admin_operation_course_users_route_rejects_invalid_pagination_params(
-    test_client,
-    monkeypatch,
-    query_string,
-    expected_param,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    query_string: object,
+    expected_param: object,
 ) -> None:
     _mock_operator(monkeypatch)
 

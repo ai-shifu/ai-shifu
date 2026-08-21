@@ -43,14 +43,14 @@ class RiskControlResult(db.Model):
 
     def __init__(
         self,
-        chat_id,
-        user_id,
-        text,
-        check_vendor,
-        check_result,
-        check_resp,
-        is_pass,
-        check_strategy,
+        chat_id: object,
+        user_id: object,
+        text: object,
+        check_vendor: object,
+        check_result: object,
+        check_resp: object,
+        is_pass: object,
+        check_strategy: object,
     ) -> None:
         """Store a persisted risk-control decision."""
         self.chat_id = chat_id

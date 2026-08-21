@@ -19,7 +19,7 @@ def test_database_extension_keeps_one_shared_identity() -> None:
     assert app.extensions["sqlalchemy"] is shared_db
 
 
-def test_redis_initialization_updates_the_owned_client(monkeypatch) -> None:
+def test_redis_initialization_updates_the_owned_client(monkeypatch: object) -> None:
     app = Flask("owned-redis-client")
     app.config.update(
         REDIS_HOST="redis.internal",
@@ -50,7 +50,9 @@ def test_redis_initialization_updates_the_owned_client(monkeypatch) -> None:
     }
 
 
-def test_plugin_manager_registry_replaces_one_owned_instance(monkeypatch) -> None:
+def test_plugin_manager_registry_replaces_one_owned_instance(
+    monkeypatch: object,
+) -> None:
     first_app = Flask("first-plugin-manager")
     second_app = Flask("second-plugin-manager")
     monkeypatch.setattr(plugin_manager_module._plugin_manager_state, "manager", None)

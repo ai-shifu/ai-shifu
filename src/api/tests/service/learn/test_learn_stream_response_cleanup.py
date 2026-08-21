@@ -15,7 +15,7 @@ from sqlalchemy.exc import ResourceClosedError
 
 
 @pytest.fixture
-def invalidations(monkeypatch) -> list[str]:
+def invalidations(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     calls = []
 
     def release_db_session(app: object, *, source: str) -> None:
@@ -30,7 +30,7 @@ def invalidations(monkeypatch) -> list[str]:
     return calls
 
 
-def _iter_stream(app, helper, iter_factory) -> object:
+def _iter_stream(app: object, helper: object, iter_factory: object) -> object:
     with app.test_request_context("/"):
         response = helper(
             app,
@@ -41,7 +41,7 @@ def _iter_stream(app, helper, iter_factory) -> object:
         return response.response
 
 
-def test_sse_close_invalidates_session(app, invalidations) -> None:
+def test_sse_close_invalidates_session(app: object, invalidations: list[str]) -> None:
     def factory() -> Iterator[dict[str, str]]:
         yield {"type": "chunk"}
         yield {"type": "chunk2"}
@@ -60,7 +60,9 @@ def test_sse_close_invalidates_session(app, invalidations) -> None:
     assert invalidations == ["learn stream_sse_response close"]
 
 
-def test_sse_protocol_error_invalidates_session(app, invalidations) -> None:
+def test_sse_protocol_error_invalidates_session(
+    app: object, invalidations: list[str]
+) -> None:
     def factory() -> Iterator[dict[str, str]]:
         yield {"type": "chunk"}
         message = "desynced"
@@ -81,7 +83,9 @@ def test_sse_protocol_error_invalidates_session(app, invalidations) -> None:
     assert invalidations == ["learn stream_sse_response desync"]
 
 
-def test_sse_business_error_does_not_invalidate(app, invalidations) -> None:
+def test_sse_business_error_does_not_invalidate(
+    app: object, invalidations: list[str]
+) -> None:
     def factory() -> Iterator[dict[str, str]]:
         yield {"type": "chunk"}
         message = "business"
@@ -102,7 +106,9 @@ def test_sse_business_error_does_not_invalidate(app, invalidations) -> None:
     assert invalidations == []
 
 
-def test_passthrough_close_invalidates_session(app, invalidations) -> None:
+def test_passthrough_close_invalidates_session(
+    app: object, invalidations: list[str]
+) -> None:
     def factory() -> Iterator[str]:
         yield "data: 1\n\n"
         yield "data: 2\n\n"
@@ -121,7 +127,9 @@ def test_passthrough_close_invalidates_session(app, invalidations) -> None:
     assert invalidations == ["learn stream_passthrough_response close"]
 
 
-def test_passthrough_close_disguised_as_runtime_error(app, invalidations) -> None:
+def test_passthrough_close_disguised_as_runtime_error(
+    app: object, invalidations: list[str]
+) -> None:
     def factory() -> Iterator[str]:
         yield "data: 1\n\n"
         message = "generator ignored GeneratorExit"
@@ -142,7 +150,9 @@ def test_passthrough_close_disguised_as_runtime_error(app, invalidations) -> Non
     assert invalidations == ["learn stream_passthrough_response close"]
 
 
-def test_passthrough_normal_exhaustion_does_not_invalidate(app, invalidations) -> None:
+def test_passthrough_normal_exhaustion_does_not_invalidate(
+    app: object, invalidations: list[str]
+) -> None:
     def factory() -> Iterator[str]:
         yield "data: 1\n\n"
 

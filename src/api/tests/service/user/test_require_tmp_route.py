@@ -6,14 +6,18 @@ import json
 
 
 def test_require_tmp_passes_payload_source_to_temp_user(
-    test_client, monkeypatch
+    test_client: object, monkeypatch: object
 ) -> None:
     import flaskr.route.user as user_route
 
     calls: list[dict[str, str | None]] = []
 
     def fake_generate_temp_user(
-        app, temp_id, source, wx_code=None, language="en-US"
+        app: object,
+        temp_id: object,
+        source: object,
+        wx_code: object | None = None,
+        language: str = "en-US",
     ) -> dict[str, str | dict[str, str]]:
         _ = app
         calls.append(

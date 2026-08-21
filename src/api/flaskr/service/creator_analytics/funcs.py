@@ -93,7 +93,7 @@ def run_dsl(app: Flask, user_id: str, payload: object) -> dict[str, Any]:
     return result
 
 
-def _user_bid_candidates(filters) -> list[str]:
+def _user_bid_candidates(filters: object) -> list[str]:
     """Flatten the user_bid candidates out of the DSL filters for audit."""
     out: list[str] = []
     for f in filters:

@@ -111,7 +111,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch) -> None:
+def _mock_bcrypt_module(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
         sys.modules,
         "bcrypt",
@@ -124,7 +124,7 @@ def _mock_bcrypt_module(monkeypatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app) -> Iterator[None]:
+def _isolate_tables(app: object) -> Iterator[None]:
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillUsageRecord).delete()
@@ -171,7 +171,7 @@ def _isolate_tables(app) -> Iterator[None]:
 
 
 def _mock_operator(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     user_id: str = "operator-1",
     *,
     is_operator: bool = True,
@@ -189,7 +189,7 @@ def _mock_operator(
     )
 
 
-def _z(value) -> object:
+def _z(value: object) -> object:
     """Serialize a datetime the way flaskr.route.common.fmt does (UTC ISO 'Z')."""
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
@@ -206,7 +206,7 @@ def _build_active_window(
 
 
 def _seed_user(
-    app,
+    app: object,
     *,
     user_bid: str,
     identify: str,
@@ -253,7 +253,7 @@ def _seed_user(
 
 def _seed_course(
     *,
-    model,
+    model: object,
     shifu_bid: str,
     title: str,
     creator_user_bid: str,
@@ -650,7 +650,7 @@ def _seed_user_token(*, user_bid: str, token: str, created_at: datetime) -> User
 
 
 def test_list_operator_users_returns_paginated_summaries_with_resolved_metadata(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -708,7 +708,7 @@ def test_list_operator_users_returns_paginated_summaries_with_resolved_metadata(
 
 
 def test_list_operator_users_filters_by_identifier_status_role_and_created_time(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -757,7 +757,7 @@ def test_list_operator_users_filters_by_identifier_status_role_and_created_time(
 
 
 def test_list_operator_users_filters_creator_role_includes_operator_creators(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -801,7 +801,7 @@ def test_list_operator_users_filters_creator_role_includes_operator_creators(
     assert result.data[1].user_roles == ["creator"]
 
 
-def test_list_operator_users_filters_by_email_identifier(app) -> None:
+def test_list_operator_users_filters_by_email_identifier(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -832,7 +832,7 @@ def test_list_operator_users_filters_by_email_identifier(app) -> None:
     assert result.data[0].created_courses == []
 
 
-def test_list_operator_users_filters_by_combined_user_query(app) -> None:
+def test_list_operator_users_filters_by_combined_user_query(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -877,11 +877,11 @@ def test_list_operator_users_filters_by_combined_user_query(app) -> None:
 
 
 def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:
+        def now(cls, tz: object | None = None) -> datetime:
             return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -991,11 +991,11 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
 
 
 def test_list_operator_users_recent_windows_exclude_future_records_and_keep_microseconds(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:
+        def now(cls, tz: object | None = None) -> datetime:
             return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -1121,7 +1121,7 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
     ]
 
 
-def test_list_operator_users_caps_page_size(app) -> None:
+def test_list_operator_users_caps_page_size(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -1152,7 +1152,7 @@ def test_list_operator_users_caps_page_size(app) -> None:
     assert len(result.data) == 2
 
 
-def test_list_operator_users_returns_learning_and_created_courses(app) -> None:
+def test_list_operator_users_returns_learning_and_created_courses(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -1252,18 +1252,20 @@ def test_list_operator_users_returns_learning_and_created_courses(app) -> None:
     ]
 
 
-def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch) -> None:
+def test_user_course_count_maps_use_lightweight_course_rows(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     load_calls = []
 
-    def fake_load_latest_shifus(model, **kwargs: object) -> list[object]:
+    def fake_load_latest_shifus(model: object, **kwargs: object) -> list[object]:
         load_calls.append(("latest", model.__name__, kwargs.get("lightweight")))
         return []
 
     def fake_load_latest_courses_by_shifu_bids(
-        model,
-        shifu_bids,
+        model: object,
+        shifu_bids: object,
         *,
-        lightweight=False,
+        lightweight: bool = False,
     ) -> list[object]:
         load_calls.append(("by_bids", model.__name__, tuple(shifu_bids), lightweight))
         return []
@@ -1294,7 +1296,7 @@ def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch) ->
     ]
 
 
-def test_list_operator_users_includes_creator_credit_summaries(app) -> None:
+def test_list_operator_users_includes_creator_credit_summaries(app: object) -> None:
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
         future_start_at = active_end_at + timedelta(days=1)
@@ -1392,7 +1394,7 @@ def test_list_operator_users_includes_creator_credit_summaries(app) -> None:
     assert regular_item.has_active_subscription is False
 
 
-def test_list_operator_users_filters_by_learner_role(app) -> None:
+def test_list_operator_users_filters_by_learner_role(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -1428,7 +1430,7 @@ def test_list_operator_users_filters_by_learner_role(app) -> None:
     assert result.data[0].user_roles == ["learner"]
 
 
-def test_get_operator_user_detail_returns_full_summary(app) -> None:
+def test_get_operator_user_detail_returns_full_summary(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -1466,7 +1468,7 @@ def test_get_operator_user_detail_returns_full_summary(app) -> None:
 
 
 def test_get_operator_user_detail_returns_registration_login_payment_and_learning_data(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -1508,7 +1510,9 @@ def test_get_operator_user_detail_returns_registration_login_payment_and_learnin
     assert item.last_learning_at == datetime(2026, 4, 11, 10, 0, 0)
 
 
-def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app) -> None:
+def test_get_operator_user_credits_returns_summary_and_paginated_ledger(
+    app: object,
+) -> None:
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
         _seed_user(
@@ -1610,7 +1614,9 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app) -> 
     assert result.items[0].note_code == ""
 
 
-def test_get_operator_user_credits_hides_reserved_grants_until_available(app) -> None:
+def test_get_operator_user_credits_hides_reserved_grants_until_available(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -1709,7 +1715,7 @@ def test_get_operator_user_credits_hides_reserved_grants_until_available(app) ->
     assert activated_result.total == 2
 
 
-def test_get_operator_user_credits_handles_invalid_source_type(app) -> None:
+def test_get_operator_user_credits_handles_invalid_source_type(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -1755,7 +1761,7 @@ def test_get_operator_user_credits_handles_invalid_source_type(app) -> None:
 
 
 def test_get_operator_user_credits_uses_empty_expiry_for_long_term_balances(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -1799,7 +1805,7 @@ def test_get_operator_user_credits_uses_empty_expiry_for_long_term_balances(
 
 
 def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -1847,7 +1853,7 @@ def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(
 
 
 def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -1951,13 +1957,13 @@ def test_get_operator_user_credits_enriches_consume_rows_with_course_context(
 
 
 def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
-    app,
-    monkeypatch,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured_source_bids: list[str] = []
     original_load_billing_order_map = user_credits_module._load_billing_order_map
 
-    def capture_order_source_bids(source_bids) -> object:
+    def capture_order_source_bids(source_bids: object) -> object:
         captured_source_bids.extend(list(source_bids))
         return original_load_billing_order_map(source_bids)
 
@@ -2025,7 +2031,9 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
     assert captured_source_bids == ["order-source-1"]
 
 
-def test_get_operator_user_credits_filters_consume_grant_and_other_rows(app) -> None:
+def test_get_operator_user_credits_filters_consume_grant_and_other_rows(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -2239,7 +2247,7 @@ def test_get_operator_user_credits_filters_consume_grant_and_other_rows(app) -> 
 
 
 def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfiltered(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -2297,7 +2305,7 @@ def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfilte
 
 
 def test_get_operator_user_credits_empty_consume_filter_does_not_scan_usage_rows(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -2343,7 +2351,9 @@ def test_get_operator_user_credits_empty_consume_filter_does_not_scan_usage_rows
     assert result.items == []
 
 
-def test_get_operator_user_credit_usage_detail_returns_generated_content(app) -> None:
+def test_get_operator_user_credit_usage_detail_returns_generated_content(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -2438,7 +2448,7 @@ def test_get_operator_user_credit_usage_detail_returns_generated_content(app) ->
 
 
 def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -2518,7 +2528,9 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
     assert result.items[0].content == "Owner detail content"
 
 
-def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(app) -> None:
+def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -2638,7 +2650,7 @@ def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(app) -> 
 
 
 def test_get_operator_user_credits_excludes_topup_from_available_without_subscription(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         manual_grant_expires_at = now_utc().replace(microsecond=0) + timedelta(days=3)
@@ -2694,7 +2706,7 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
     assert result.summary.has_active_subscription is False
 
 
-def test_get_operator_user_credits_maps_manual_grant_display_codes(app) -> None:
+def test_get_operator_user_credits_maps_manual_grant_display_codes(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -2745,7 +2757,7 @@ def test_get_operator_user_credits_maps_manual_grant_display_codes(app) -> None:
 
 
 def test_get_operator_user_detail_serializes_last_learning_at_using_app_timezone(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         original_tz = app.config.get("TZ")
@@ -2777,7 +2789,7 @@ def test_get_operator_user_detail_serializes_last_learning_at_using_app_timezone
 
 
 def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         original_tz = app.config.get("TZ")
@@ -2831,7 +2843,7 @@ def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(
 
 
 def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -2903,7 +2915,9 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     assert ledger.metadata_json["note"] == "ops support"
 
 
-def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app) -> None:
+def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -2949,11 +2963,11 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app) 
 
 
 def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:
+        def now(cls, tz: object | None = None) -> datetime:
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(
@@ -3046,7 +3060,7 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
 
 
 def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         referral_reward_grants_module,
@@ -3126,7 +3140,7 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
 
 
 def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_id(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3180,7 +3194,9 @@ def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_
     assert len(ledger_entries) == 1
 
 
-def test_grant_operator_user_referral_reward_rejects_non_integer_amount(app) -> None:
+def test_grant_operator_user_referral_reward_rejects_non_integer_amount(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -3209,7 +3225,9 @@ def test_grant_operator_user_referral_reward_rejects_non_integer_amount(app) -> 
             )
 
 
-def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(app) -> None:
+def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -3241,7 +3259,7 @@ def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(app) -> No
     assert result.note == "legacy type"
 
 
-def test_grant_operator_user_credits_rejects_unknown_grant_type(app) -> None:
+def test_grant_operator_user_credits_rejects_unknown_grant_type(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -3280,7 +3298,7 @@ def test_grant_operator_user_credits_rejects_unknown_grant_type(app) -> None:
 
 
 def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3334,7 +3352,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
     assert second_result.note == "first grant"
 
 
-def test_grant_operator_user_credits_rejects_regular_user_targets(app) -> None:
+def test_grant_operator_user_credits_rejects_regular_user_targets(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -3367,7 +3385,7 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app) -> None:
     )
 
 
-def test_get_operator_user_grant_bootstrap_returns_active_plans(app) -> None:
+def test_get_operator_user_grant_bootstrap_returns_active_plans(app: object) -> None:
     with app.app_context():
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
@@ -3405,7 +3423,9 @@ def test_get_operator_user_grant_bootstrap_returns_active_plans(app) -> None:
     assert result.notification_status == "template_pending"
 
 
-def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app) -> None:
+def test_grant_operator_user_package_creates_manual_paid_order_and_summary(
+    app: object,
+) -> None:
     with app.app_context():
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
@@ -3493,7 +3513,9 @@ def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app) 
     assert ledger.metadata_json["bill_order_bid"] == result.bill_order_bid
 
 
-def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(app) -> None:
+def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(
+    app: object,
+) -> None:
     with app.app_context():
         db.session.add_all(
             build_bill_products(product_bids=["bill-product-plan-monthly"])
@@ -3537,7 +3559,9 @@ def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(app) 
     assert len(orders) == 1
 
 
-def test_grant_operator_user_package_upgrades_active_pingxx_subscription(app) -> None:
+def test_grant_operator_user_package_upgrades_active_pingxx_subscription(
+    app: object,
+) -> None:
     with app.app_context():
         db.session.add_all(
             build_bill_products(
@@ -3604,7 +3628,9 @@ def test_grant_operator_user_package_upgrades_active_pingxx_subscription(app) ->
     assert subscription.billing_provider == "pingxx"
 
 
-def test_grant_operator_user_package_rejects_active_stripe_subscription(app) -> None:
+def test_grant_operator_user_package_rejects_active_stripe_subscription(
+    app: object,
+) -> None:
     with app.app_context():
         db.session.add_all(
             build_bill_products(
@@ -3654,7 +3680,9 @@ def test_grant_operator_user_package_rejects_active_stripe_subscription(app) -> 
     )
 
 
-def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app) -> None:
+def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -3683,7 +3711,7 @@ def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app) -> N
 
 
 def test_get_operator_user_detail_counts_redeem_orders_in_total_paid_amount(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3711,7 +3739,7 @@ def test_get_operator_user_detail_counts_redeem_orders_in_total_paid_amount(
 
 
 def test_get_operator_user_detail_returns_learning_progress_for_learning_courses(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3783,7 +3811,7 @@ def test_get_operator_user_detail_returns_learning_progress_for_learning_courses
 
 
 def test_get_operator_user_detail_uses_latest_progress_state_for_completion(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3846,7 +3874,7 @@ def test_get_operator_user_detail_uses_latest_progress_state_for_completion(
 
 
 def test_get_operator_user_detail_uses_latest_outline_snapshot_for_total_lessons(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3911,7 +3939,7 @@ def test_get_operator_user_detail_uses_latest_outline_snapshot_for_total_lessons
 
 
 def test_list_operator_users_includes_shared_course_learners_in_learning_courses(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         _seed_user(
@@ -3962,7 +3990,7 @@ def test_list_operator_users_includes_shared_course_learners_in_learning_courses
 
 
 def test_admin_operation_users_route_requires_operator(
-    test_client, monkeypatch
+    test_client: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -3977,8 +4005,8 @@ def test_admin_operation_users_route_requires_operator(
 
 
 def test_admin_operation_users_overview_route_requires_operator(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -3993,9 +4021,9 @@ def test_admin_operation_users_overview_route_requires_operator(
 
 
 def test_admin_operation_users_overview_route_returns_payload(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4035,9 +4063,9 @@ def test_admin_operation_users_overview_route_returns_payload(
 
 
 def test_admin_operation_users_route_returns_filtered_payload(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4123,10 +4151,10 @@ def test_admin_operation_users_route_returns_filtered_payload(
     ],
 )
 def test_admin_operation_users_route_rejects_invalid_filter_params(
-    test_client,
-    monkeypatch,
-    query_string,
-    expected_param,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    query_string: object,
+    expected_param: object,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4142,9 +4170,9 @@ def test_admin_operation_users_route_rejects_invalid_filter_params(
 
 
 def test_admin_operation_user_detail_route_returns_payload(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4197,9 +4225,9 @@ def test_admin_operation_user_detail_route_returns_payload(
 
 
 def test_admin_operation_user_credits_route_returns_payload(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4378,8 +4406,8 @@ def test_admin_operation_user_credits_route_returns_payload(
 
 
 def test_admin_operation_user_credits_route_rejects_inverted_time_range(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4396,9 +4424,9 @@ def test_admin_operation_user_credits_route_rejects_inverted_time_range(
 
 
 def test_admin_operation_user_credit_grant_route_returns_payload(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4443,9 +4471,9 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
 
 
 def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4489,9 +4517,9 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
 
 
 def test_admin_operation_user_grant_bootstrap_route_requires_operator(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -4519,9 +4547,9 @@ def test_admin_operation_user_grant_bootstrap_route_requires_operator(
 
 
 def test_admin_operation_user_package_grant_route_returns_payload(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4564,9 +4592,9 @@ def test_admin_operation_user_package_grant_route_returns_payload(
 
 
 def test_admin_operation_user_package_grant_route_requires_operator(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -4602,9 +4630,9 @@ def test_admin_operation_user_package_grant_route_requires_operator(
 
 
 def test_admin_operation_user_credit_grant_route_requires_operator(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -4638,9 +4666,9 @@ def test_admin_operation_user_credit_grant_route_requires_operator(
 
 
 def test_admin_operation_user_detail_route_requires_operator(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -4667,9 +4695,9 @@ def test_admin_operation_user_detail_route_requires_operator(
 
 
 def test_admin_operation_user_credits_route_requires_operator(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -4696,7 +4724,7 @@ def test_admin_operation_user_credits_route_requires_operator(
     assert payload["code"] == 401
 
 
-def test_get_operator_user_detail_prefers_latest_auth_credential(app) -> None:
+def test_get_operator_user_detail_prefers_latest_auth_credential(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -4746,7 +4774,9 @@ def test_get_operator_user_detail_prefers_latest_auth_credential(app) -> None:
     assert result.email == "new@example.com"
 
 
-def test_get_operator_user_detail_ignores_newer_unverified_auth_credential(app) -> None:
+def test_get_operator_user_detail_ignores_newer_unverified_auth_credential(
+    app: object,
+) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -4829,7 +4859,7 @@ def test_get_operator_user_detail_ignores_newer_unverified_auth_credential(app) 
     assert result.email == "new@example.com"
 
 
-def test_get_operator_user_detail_normalizes_unknown_login_methods(app) -> None:
+def test_get_operator_user_detail_normalizes_unknown_login_methods(app: object) -> None:
     with app.app_context():
         _seed_user(
             app,
@@ -4849,7 +4879,7 @@ def test_get_operator_user_detail_normalizes_unknown_login_methods(app) -> None:
 
 
 def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class ForbiddenUserQuery:
         def filter(self, *_args: object, **_kwargs: object) -> Never:
@@ -4881,7 +4911,7 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
 
 
 def test_registration_source_map_skips_unknown_provider_when_supported_one_exists(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         result = admin_module._load_operator_user_registration_source_map(
@@ -4907,7 +4937,7 @@ def test_registration_source_map_skips_unknown_provider_when_supported_one_exist
 
 
 def test_contact_map_skips_user_query_when_users_argument_is_empty(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class ForbiddenUserQuery:
         def filter(self, *_args: object, **_kwargs: object) -> Never:

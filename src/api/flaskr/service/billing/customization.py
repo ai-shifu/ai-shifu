@@ -303,7 +303,7 @@ def upload_admin_creator_draft_logo(
 
 
 def build_customization_capabilities(
-    entitlement,
+    entitlement: object,
     *,
     force_enabled: bool = False,
 ) -> dict[str, bool]:
@@ -577,7 +577,7 @@ def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
     return _resolve_entitlement_branding(creator_bid)
 
 
-def _entitlement_branding_dict(entitlement) -> dict[str, Any]:
+def _entitlement_branding_dict(entitlement: object) -> dict[str, Any]:
     feature_payload = entitlement.feature_payload.to_metadata_json()
     branding_payload = feature_payload.get("branding")
     return branding_payload if isinstance(branding_payload, dict) else {}
@@ -1124,7 +1124,7 @@ def _normalize_home_url_lenient(value: object) -> str:
         return ""
 
 
-def _entitlement_home_url(entitlement_state) -> str:
+def _entitlement_home_url(entitlement_state: object) -> str:
     feature_values = entitlement_state.feature_payload.to_metadata_json()
     branding_payload = feature_values.get("branding")
     if not isinstance(branding_payload, dict):

@@ -395,6 +395,20 @@ behind a test-tree exception. Delete unreferenced debug helpers instead of
 preserving a lint boundary for them. A developer-script tree may retain T20 only
 when stdout is the scripts' user-facing interface.
 
+For `ANN001`, annotate each normal parameter with the narrowest stable contract
+the module already owns. Reuse the declared return type of a local pytest
+fixture and use pytest's concrete types for standard fixtures such as
+`pytest.MonkeyPatch` and `pytest.LogCaptureFixture`. A literal default normally
+supplies its scalar type; when `None` is the only available evidence, preserve
+that possibility as `object | None` until the surrounding parser or protocol
+provides a narrower type. Use `object` for genuinely heterogeneous callbacks,
+externally injected fixtures, compatibility shims, SDK/ORM values, and test
+doubles whose concrete implementation is intentionally outside the module.
+Do not introduce `Any`, invent a narrower accepted-input contract, or change a
+signature's positional/keyword behavior merely to satisfy the rule. Applied
+Alembic revisions keep only exact-file exceptions, while mutable code must be
+annotated and verified with executable-AST equality plus the affected tests.
+
 For `ANN002`, annotate the type of each variadic positional element after the
 star: `*names: str` means every supplied item is a string, not that `names` is a
 `tuple[str, ...]`. Prefer the narrow homogeneous type the function actually

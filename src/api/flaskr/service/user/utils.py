@@ -62,7 +62,7 @@ def _normalize_language_code(language_code: str) -> str:
     return "-".join(normalized_parts)
 
 
-def get_user_language(user) -> str:
+def get_user_language(user: object) -> str:
     """Return user language."""
     language = ""
     if hasattr(user, "user_language") and user.user_language:
@@ -396,7 +396,7 @@ def load_existing_demo_shifu_ids() -> set[str]:
     return published_bids.union(draft_bids)
 
 
-def _is_empty_auth_type(raw_auth_type) -> bool:
+def _is_empty_auth_type(raw_auth_type: object) -> bool:
     text = str(raw_auth_type or "").strip()
     if not text:
         return True

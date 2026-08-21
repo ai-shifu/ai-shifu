@@ -60,7 +60,7 @@ def _utc_epoch(value: datetime) -> int:
 
 
 @pytest.fixture
-def billing_subscription_sms_app(tmp_path) -> Iterator[Flask]:
+def billing_subscription_sms_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-subscription-sms.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -256,7 +256,7 @@ def _create_pending_topup_order(
 
 
 def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -266,7 +266,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
 
     class FakeStripeProvider:
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "subscription"
@@ -338,7 +338,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
 
 
 def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -410,7 +410,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
 
 
 def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -421,7 +421,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
 
     class FakeStripeProvider:
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "subscription"
@@ -520,7 +520,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
 
 
 def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -584,7 +584,7 @@ def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
 
 
 def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -593,7 +593,7 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
 
     class FakePingxxProvider:
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert provider_reference == "ch_billing_feishu_topup_sync_1"
@@ -671,7 +671,7 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
 
 
 def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -680,7 +680,7 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
 
     class FakePingxxProvider:
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert provider_reference == "ch_trial_upgrade_sync_pingxx_1"
@@ -777,7 +777,7 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
 
 
 def test_send_billing_paid_feishu_task_marks_sent(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -861,7 +861,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
 
 
 def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failure(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -902,7 +902,7 @@ def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failur
 
 
 def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -949,7 +949,7 @@ def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
 
 
 def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -1012,7 +1012,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
 
 
 def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app, creator_bid="creator-no-mobile", mobile=None)
@@ -1053,7 +1053,7 @@ def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(
 
 
 def test_deliver_subscription_purchase_sms_fails_when_date_is_missing(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app, creator_bid="creator-missing-date")
@@ -1093,7 +1093,7 @@ def test_deliver_subscription_purchase_sms_fails_when_date_is_missing(
 
 
 def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_failure(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -1145,7 +1145,7 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
 
 
 def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -1154,7 +1154,7 @@ def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
     captured_kwargs: list[dict[str, str]] = []
 
     class FakeTask:
-        def apply_async(self, kwargs) -> None:
+        def apply_async(self, kwargs: object) -> None:
             captured_kwargs.append(dict(kwargs))
 
     fake_celery = SimpleNamespace(tasks={SUBSCRIPTION_SMS_TASK_NAME: FakeTask()})

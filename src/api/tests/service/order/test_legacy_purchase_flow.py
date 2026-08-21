@@ -162,7 +162,7 @@ class _FakeSaasConfigFuncs:
 
     def create_versioned_saas_user_config(
         self,
-        app,
+        app: object,
         *,
         user_bid: str,
         key: str,
@@ -183,7 +183,7 @@ class _FakeSaasConfigFuncs:
         }
         self._next_id += 1
 
-    def create_or_update_saas_user_config(self, app, dto) -> None:
+    def create_or_update_saas_user_config(self, app: object, dto: object) -> None:
         del app
         self._by_user_key[(dto.user_bid, dto.key)] = dto.value
         if dto.config_bid:
@@ -200,14 +200,14 @@ class _FakeSaasConfigFuncs:
     def get_sass_config(self, user_bid: str, key: str, default: str = "") -> str:
         return self._by_user_key.get((user_bid, key), default)
 
-    def get_saas_user_config_value_by_bid(self, app, config_bid: str) -> object:
+    def get_saas_user_config_value_by_bid(self, app: object, config_bid: str) -> object:
         del app
         record = self._by_bid.get(config_bid)
         return None if record is None else record["value"]
 
     def update_saas_user_config_version(
         self,
-        app,
+        app: object,
         *,
         config_bid: str,
         value: str,
@@ -216,7 +216,9 @@ class _FakeSaasConfigFuncs:
         del app, is_encrypted
         self._by_bid[config_bid]["value"] = value
 
-    def soft_delete_saas_user_config(self, app, user_bid: str, key: str) -> None:
+    def soft_delete_saas_user_config(
+        self, app: object, user_bid: str, key: str
+    ) -> None:
         del app
         self._by_user_key.pop((user_bid, key), None)
 
@@ -288,7 +290,9 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
         def __init__(self, provider_name: str) -> None:
             self.provider_name = provider_name
 
-        def create_payment(self, *, request, app) -> PaymentCreationResult:
+        def create_payment(
+            self, *, request: object, app: object
+        ) -> PaymentCreationResult:
             del app
             if self.provider_name == "alipay":
                 assert request.channel == "alipay_qr"
@@ -499,7 +503,9 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
     stripe_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app) -> PaymentCreationResult:
+        def create_payment(
+            self, *, request: object, app: object
+        ) -> PaymentCreationResult:
             _ = app
             stripe_requests.append(
                 {

@@ -1138,7 +1138,7 @@ class RunScriptPreviewContextV2:
         result: LLMResult | Generator[LLMResult, None, None] | None,
         outline_bid: str,
         block_index: int,
-        current_block,
+        current_block: object,
         is_user_input_validation: bool,
         content_chunks: list[str],
         langfuse_output_chunks: list[str],
@@ -1190,7 +1190,7 @@ class RunScriptPreviewContextV2:
         llm_result: LLMResult | None,
         outline_bid: str,
         generated_block_bid: str,
-        current_block,
+        current_block: object,
         is_user_input_validation: bool,
     ) -> list[RunMarkdownFlowDTO]:
         content = ""
@@ -1538,7 +1538,7 @@ class RunScriptPreviewContextV2:
             .first()
         )
 
-    def _decimal_to_float(self, value) -> float | None:
+    def _decimal_to_float(self, value: object) -> float | None:
         if value is None:
             return None
         if isinstance(value, Decimal):
@@ -1834,7 +1834,7 @@ class RunScriptContextV2:
 
     def _finalize_stream_tts_processor(
         self,
-        tts_processor,
+        tts_processor: object,
         *,
         log_prefix: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -1853,7 +1853,7 @@ class RunScriptContextV2:
     def _teardown_stream_tts_state(
         self,
         *,
-        tts_processor=None,
+        tts_processor: object | None = None,
         flush_content_cache: Callable[[], Iterable[RunMarkdownFlowDTO]] | None = None,
         log_prefix: str,
         skip_emit: bool = False,
@@ -3025,7 +3025,7 @@ class RunScriptContextV2:
             return False
 
     def _phase_emit_validation_error(
-        self, app: Flask, state: _RunStepState, validate_result
+        self, app: Flask, state: _RunStepState, validate_result: object
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Stream the validation-error content and re-emit the interaction."""
         run_script_info = state.run_script_info

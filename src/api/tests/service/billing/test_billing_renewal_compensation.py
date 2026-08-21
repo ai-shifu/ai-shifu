@@ -59,7 +59,7 @@ def billing_renewal_compensation_env(
 
     class FakeStripeProvider:
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "subscription"
@@ -139,7 +139,7 @@ def _create_renewal_order(
 
 
 def test_sync_billing_order_marks_subscription_renewal_paid(
-    billing_renewal_compensation_env,
+    billing_renewal_compensation_env: dict[str, object],
 ) -> None:
     app = billing_renewal_compensation_env["app"]
     sync_state = billing_renewal_compensation_env["sync_state"]
@@ -204,7 +204,7 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
 
 
 def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
-    billing_renewal_compensation_env,
+    billing_renewal_compensation_env: dict[str, object],
 ) -> None:
     app = billing_renewal_compensation_env["app"]
     cycle_start_at = datetime(2026, 7, 1, 0, 0, 0)

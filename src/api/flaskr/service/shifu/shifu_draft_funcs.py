@@ -205,7 +205,9 @@ def return_shifu_draft_dto(
     )
 
 
-def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, bool]:
+def _get_user_archive_map(
+    app: object, user_id: str, shifu_ids: list[str]
+) -> dict[str, bool]:
     """Load per-user archive states for the given shifu ids."""
     if not shifu_ids:
         return {}
@@ -218,7 +220,7 @@ def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, 
 
 
 def create_shifu_draft(
-    app,
+    app: object,
     user_id: str,
     shifu_name: str,
     shifu_description: str,
@@ -342,7 +344,7 @@ def create_shifu_draft(
 
 
 def get_shifu_draft_info(
-    app, user_id: str, shifu_id: str, base_url: str
+    app: object, user_id: str, shifu_id: str, base_url: str
 ) -> ShifuDetailDto:
     """Get shifu draft info.
 
@@ -384,7 +386,7 @@ def get_shifu_draft_info(
 
 
 def save_shifu_draft_info(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     shifu_name: str,
@@ -712,7 +714,7 @@ def save_shifu_draft_info(
 
 
 def get_shifu_draft_list(
-    app,
+    app: object,
     user_id: str,
     page_index: int,
     page_size: int,
@@ -887,7 +889,7 @@ def get_user_created_published_shifu_bids(app: Flask, user_id: str) -> list[str]
 
 
 def get_shifu_published_list(
-    app,
+    app: object,
     user_id: str,
     page_index: int,
     page_size: int,
@@ -954,7 +956,9 @@ def get_shifu_published_list(
         return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
-def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool) -> None:
+def _set_shifu_archive_state(
+    app: object, user_id: str, shifu_id: str, archived: bool
+) -> None:
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
@@ -989,11 +993,11 @@ def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool) -
         db.session.commit()
 
 
-def archive_shifu(app, user_id: str, shifu_id: str) -> None:
+def archive_shifu(app: object, user_id: str, shifu_id: str) -> None:
     """Archive shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=True)
 
 
-def unarchive_shifu(app, user_id: str, shifu_id: str) -> None:
+def unarchive_shifu(app: object, user_id: str, shifu_id: str) -> None:
     """Restore shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=False)

@@ -36,7 +36,7 @@ def _make_row(
 
 
 def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         LearnGeneratedElement.query.delete()
@@ -80,7 +80,7 @@ def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
 
 
 def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         LearnGeneratedElement.query.delete()
@@ -108,7 +108,7 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(
 
 
 def test_find_active_element_row_ids_invalidates_desynced_connection(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class _DesyncedResult:
         def fetchall(self) -> Never:
@@ -132,7 +132,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
             self.invalidated += 1
 
     class _FakeSession:
-        def __init__(self, connection) -> None:
+        def __init__(self, connection: object) -> None:
             self._connection = connection
 
         def connection(self) -> object:
@@ -175,7 +175,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
 
 
 def test_deactivate_active_element_rows_retires_rows_without_touching_others(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         LearnGeneratedElement.query.delete()

@@ -38,7 +38,9 @@ class TestEnhancedConfigInitialization:
 class TestEnhancedConfigValidation:
     """Test environment validation functionality."""
 
-    def test_validate_environment_success(self, monkeypatch) -> None:
+    def test_validate_environment_success(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test successful environment validation."""
         # Set up environment
         for key, value in DOCKER_ENV_CONFIG.items():
@@ -49,7 +51,7 @@ class TestEnhancedConfigValidation:
 
         assert config._validated is True
 
-    def test_validate_missing_required(self, monkeypatch) -> None:
+    def test_validate_missing_required(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test validation fails when required variables are missing."""
         # Set up environment without required variables
         for key, value in MISSING_REQUIRED_ENV.items():
@@ -75,7 +77,7 @@ class TestEnhancedConfigValidation:
                 or "UNIVERSAL_VERIFICATION_CODE" in error_msg
             )
 
-    def test_validate_missing_llm_key(self, monkeypatch) -> None:
+    def test_validate_missing_llm_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test validation fails when no LLM API key is configured."""
         # Set up environment without LLM keys
         for key, value in NO_LLM_ENV.items():
@@ -90,7 +92,7 @@ class TestEnhancedConfigValidation:
         assert "At least one LLM API key must be configured" in error_msg
 
     def test_validate_creator_customization_requires_encryption_key(
-        self, monkeypatch
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test creator customization fails closed without its encryption key."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
@@ -121,7 +123,7 @@ class TestEnhancedConfigValidation:
 
         assert "CREATOR_INTEGRATION_ENCRYPTION_KEY" in str(exc_info.value)
 
-    def test_validate_invalid_values(self, monkeypatch) -> None:
+    def test_validate_invalid_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test validation fails for invalid values."""
         # Set up environment with invalid values
         for key, value in INVALID_VALUES_ENV.items():
@@ -138,7 +140,9 @@ class TestEnhancedConfigValidation:
         assert "REDIS_PORT" in error_msg  # Invalid port number
         assert "DEFAULT_LLM_TEMPERATURE" in error_msg  # Out of range
 
-    def test_validate_with_validator_exception(self, monkeypatch) -> None:
+    def test_validate_with_validator_exception(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test validation handles validator exceptions."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -166,7 +170,7 @@ class TestEnhancedConfigValidation:
 class TestEnhancedConfigGet:
     """Test get method functionality."""
 
-    def test_get_existing_variable(self, monkeypatch) -> None:
+    def test_get_existing_variable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test getting an existing environment variable."""
         monkeypatch.setenv("REDIS_HOST", "test-redis")
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
@@ -177,7 +181,7 @@ class TestEnhancedConfigGet:
 
         assert config.get("REDIS_HOST") == "test-redis"
 
-    def test_get_with_default(self, monkeypatch) -> None:
+    def test_get_with_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test getting variable with default value."""
         # Don't set REDIS_HOST in environment
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
@@ -189,7 +193,7 @@ class TestEnhancedConfigGet:
         # Should return default value
         assert config.get("REDIS_HOST") == ""
 
-    def test_get_with_type_conversion(self, monkeypatch) -> None:
+    def test_get_with_type_conversion(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test getting variable with type conversion."""
         monkeypatch.setenv("REDIS_PORT", "7000")
         monkeypatch.setenv("DEFAULT_LLM_TEMPERATURE", "0.8")
@@ -206,7 +210,7 @@ class TestEnhancedConfigGet:
         assert config.get("SWAGGER_ENABLED") is True
         assert isinstance(config.get("SWAGGER_ENABLED"), bool)
 
-    def test_get_cached_value(self, monkeypatch) -> None:
+    def test_get_cached_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that values are cached after first retrieval."""
         monkeypatch.setenv("REDIS_HOST", "test-redis")
 
@@ -231,7 +235,9 @@ class TestEnhancedConfigGet:
         # Unknown keys should return None to allow fallback in Config class
         assert config.get("UNKNOWN_KEY") is None
 
-    def test_get_empty_value_returns_default(self, monkeypatch) -> None:
+    def test_get_empty_value_returns_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that empty string returns default value."""
         monkeypatch.setenv("REDIS_HOST", "")
 
@@ -243,7 +249,9 @@ class TestEnhancedConfigGet:
 class TestEnhancedConfigDebugPrint:
     """Test debug_print method functionality."""
 
-    def test_debug_print_all_configuration(self, monkeypatch) -> None:
+    def test_debug_print_all_configuration(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test printing all configuration values."""
         for key, value in DOCKER_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
@@ -265,7 +273,7 @@ class TestEnhancedConfigDebugPrint:
             assert "REDIS" in combined.upper()
             assert "LLM" in combined.upper()
 
-    def test_debug_print_masks_secrets(self, monkeypatch) -> None:
+    def test_debug_print_masks_secrets(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that secrets are masked in debug output."""
         monkeypatch.setenv("SECRET_KEY", "super-secret-key-12345")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-real-api-key")
@@ -434,7 +442,7 @@ Line 3 of description""",
 class TestEnhancedConfigCache:
     """Test caching mechanism."""
 
-    def test_cache_stores_values(self, monkeypatch) -> None:
+    def test_cache_stores_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that cache stores retrieved values."""
         monkeypatch.setenv("REDIS_HOST", "cached-host")
 
@@ -447,7 +455,9 @@ class TestEnhancedConfigCache:
         assert len(config._cache) == 1
         assert config._cache["REDIS_HOST"] == "cached-host"
 
-    def test_cache_prevents_recomputation(self, monkeypatch) -> None:
+    def test_cache_prevents_recomputation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that cached values are not recomputed."""
         monkeypatch.setenv("REDIS_PORT", "6379")
 
@@ -468,7 +478,7 @@ class TestEnhancedConfigCache:
 
             assert value1 == value2 == 6379
 
-    def test_clear_cache(self, monkeypatch) -> None:
+    def test_clear_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test clearing the cache."""
         monkeypatch.setenv("REDIS_HOST", "test-host")
 

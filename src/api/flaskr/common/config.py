@@ -1983,7 +1983,7 @@ class EnhancedConfig:
         """Interpolate environment variables in format ${VAR_NAME}."""
         pattern = re.compile(r"\$\{([^}]+)\}")
 
-        def replacer(match) -> str:
+        def replacer(match: object) -> str:
             var_name = match.group(1)
             return os.environ.get(var_name, match.group(0))
 

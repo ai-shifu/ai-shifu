@@ -9,7 +9,7 @@ from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 
 
 class _Response:
-    def __init__(self, payload, text) -> None:
+    def __init__(self, payload: object, text: object) -> None:
         self.headers = {"Content-Type": "application/json"}
         self.status_code = 200
         self._payload = payload
@@ -23,7 +23,7 @@ class _Response:
 
 
 @pytest.fixture
-def baidu(monkeypatch) -> BaiduTTSProvider:
+def baidu(monkeypatch: pytest.MonkeyPatch) -> BaiduTTSProvider:
     monkeypatch.setattr(baidu_mod, "_get_access_token", lambda *_args: "token")
     provider = BaiduTTSProvider()
     monkeypatch.setattr(provider, "_get_credentials", lambda: ("key", "secret"))
@@ -31,14 +31,16 @@ def baidu(monkeypatch) -> BaiduTTSProvider:
 
 
 @pytest.fixture
-def aliyun(monkeypatch) -> AliyunTTSProvider:
+def aliyun(monkeypatch: pytest.MonkeyPatch) -> AliyunTTSProvider:
     monkeypatch.setattr(aliyun_mod, "get_aliyun_nls_token", lambda: "token")
     provider = AliyunTTSProvider()
     monkeypatch.setattr(provider, "_get_settings", lambda: ("appkey", "shanghai"))
     return provider
 
 
-def test_baidu_reports_the_json_error_payload(baidu, monkeypatch) -> None:
+def test_baidu_reports_the_json_error_payload(
+    baidu: BaiduTTSProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         requests,
         "post",
@@ -49,7 +51,9 @@ def test_baidu_reports_the_json_error_payload(baidu, monkeypatch) -> None:
         baidu.synthesize("hello")
 
 
-def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch) -> None:
+def test_baidu_reports_the_raw_body_when_json_is_malformed(
+    baidu: BaiduTTSProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         requests,
         "post",
@@ -60,7 +64,9 @@ def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch) -
         baidu.synthesize("hello")
 
 
-def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch) -> None:
+def test_aliyun_reports_the_json_error_payload(
+    aliyun: AliyunTTSProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         requests,
         "post",
@@ -78,7 +84,7 @@ def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch) -> None:
 
 
 def test_aliyun_reports_the_raw_body_when_json_is_malformed(
-    aliyun, monkeypatch
+    aliyun: AliyunTTSProvider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         requests,

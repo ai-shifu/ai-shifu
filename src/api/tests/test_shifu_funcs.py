@@ -5,13 +5,15 @@ from typing import Never
 from flaskr.service.shifu import shifu_publish_funcs
 
 
-def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch) -> None:
+def test_run_summary_with_error_handling_logs_and_continues(
+    app: object, monkeypatch: object
+) -> None:
     called = {"apply": False, "summary": False}
 
-    def fake_apply(_snapshot) -> None:
+    def fake_apply(_snapshot: object) -> None:
         called["apply"] = True
 
-    def fake_summary(_app, _shifu_id) -> Never:
+    def fake_summary(_app: object, _shifu_id: object) -> Never:
         called["summary"] = True
         message = "boom"
         raise RuntimeError(message)

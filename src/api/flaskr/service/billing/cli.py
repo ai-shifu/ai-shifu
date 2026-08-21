@@ -191,7 +191,7 @@ def _has_authoring_permission(raw_auth_type: object) -> bool:
 
 
 def backfill_authoring_permission_creators(
-    app,
+    app: object,
     *,
     course_bid: str = "",
     user_bid: str = "",
@@ -348,7 +348,7 @@ def backfill_authoring_permission_creators(
         }
 
 
-def register_billing_commands(console) -> None:
+def register_billing_commands(console: object) -> None:
     """Register offline billing maintenance commands under ``flask console``."""
 
     @console.group(name="billing")
@@ -2153,7 +2153,7 @@ def _build_cli_credit_grant_request_id(
 
 def _upsert_bootstrap_rows(
     *,
-    model,
+    model: object,
     key_field: str,
     rows: list[dict[str, Any]],
 ) -> dict[str, int]:
@@ -2173,7 +2173,7 @@ def _upsert_bootstrap_rows(
 
 def _upsert_bootstrap_row(
     *,
-    model,
+    model: object,
     key_field: str,
     payload: dict[str, Any],
 ) -> bool:

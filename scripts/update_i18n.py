@@ -30,10 +30,10 @@ def load_json(path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def flatten_translation(data, namespace: str) -> dict[str, str]:
+def flatten_translation(data: object, namespace: str) -> dict[str, str]:
     """Flatten translation."""
 
-    def _flatten(obj, prefix: str, acc: dict[str, str]) -> None:
+    def _flatten(obj: object, prefix: str, acc: dict[str, str]) -> None:
         if isinstance(obj, dict):
             flat_section = obj.get("__flat__")
             if isinstance(flat_section, dict):

@@ -6,15 +6,17 @@ from flask import Flask
 from flaskr.api.sms import aliyun
 
 
-def test_query_sms_template_list_caps_page_size_at_provider_limit(monkeypatch) -> None:
+def test_query_sms_template_list_caps_page_size_at_provider_limit(
+    monkeypatch: object,
+) -> None:
     captured = {}
 
     class FakeClient:
-        def __init__(self, _config) -> None:
+        def __init__(self, _config: object) -> None:
             pass
 
         def query_sms_template_list_with_options(
-            self, request, _runtime
+            self, request: object, _runtime: object
         ) -> SimpleNamespace:
             captured["page_index"] = request.page_index
             captured["page_size"] = request.page_size

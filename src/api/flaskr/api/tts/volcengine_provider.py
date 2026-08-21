@@ -508,7 +508,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         protocol = VolcengineProtocol()
 
-        def on_message(ws, message) -> None:
+        def on_message(ws: object, message: object) -> None:
             _ = ws
             nonlocal error_message, total_duration_ms
 
@@ -592,7 +592,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 session_started.set()
                 session_finished.set()
 
-        def on_error(ws, error) -> None:
+        def on_error(ws: object, error: object) -> None:
             _ = ws
             nonlocal error_message
             error_message = str(error)
@@ -601,13 +601,13 @@ class VolcengineTTSProvider(BaseTTSProvider):
             session_started.set()
             session_finished.set()
 
-        def on_close(ws, close_status_code, close_msg) -> None:
+        def on_close(ws: object, close_status_code: object, close_msg: object) -> None:
             _ = ws
             logger.debug("WebSocket closed: %s - %s", close_status_code, close_msg)
             connection_established.set()
             session_finished.set()
 
-        def on_open(ws) -> None:
+        def on_open(ws: object) -> None:
             logger.debug("WebSocket opened, sending StartConnection")
             # Send StartConnection
             ws.send(

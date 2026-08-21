@@ -58,7 +58,7 @@ def test_worker_class_detection() -> None:
     assert detect(["gunicorn", "app:app"]) is False
 
 
-def test_observer_skips_unpatched_processes(monkeypatch) -> None:
+def test_observer_skips_unpatched_processes(monkeypatch: object) -> None:
     from flaskr.common.gevent_hub_observer import install_hub_error_observer
     from gevent import monkey
 

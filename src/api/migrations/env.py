@@ -37,7 +37,13 @@ config.set_main_option("sqlalchemy.url", get_engine_url())
 target_db = current_app.extensions["migrate"].db
 
 
-def include_object(db_object, name, type_, reflected, compare_to) -> bool:
+def include_object(
+    db_object: object,
+    name: object,
+    type_: object,
+    reflected: object,
+    compare_to: object,
+) -> bool:
     """Use the simplest mode to avoid separation."""
     # the system tables
     _ = compare_to
@@ -136,7 +142,9 @@ def run_migrations_online() -> None:
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
-    def process_revision_directives(context, revision, directives) -> None:
+    def process_revision_directives(
+        context: object, revision: object, directives: object
+    ) -> None:
         _ = (context, revision)
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
@@ -178,7 +186,7 @@ def run_migrations_online() -> None:
                         # merge the related changes into the same migration
                         merge_related_changes(script)
 
-    def is_meaningful_operation(op) -> bool:
+    def is_meaningful_operation(op: object) -> bool:
         """Judge if an operation is meaningful (not meaningless type conversion)."""
         op_type = type(op).__name__
 
@@ -230,7 +238,7 @@ def run_migrations_online() -> None:
 
         return True
 
-    def filter_unnecessary_operations(script) -> None:
+    def filter_unnecessary_operations(script: object) -> None:
         """Filter out the unnecessary or duplicate operations."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
@@ -268,7 +276,7 @@ def run_migrations_online() -> None:
                 len(filtered_ops),
             )
 
-    def get_operation_signature(op) -> str:
+    def get_operation_signature(op: object) -> str:
         """Generate the unique signature of the operation to detect duplication."""
         op_type = type(op).__name__
 
@@ -296,7 +304,7 @@ def run_migrations_online() -> None:
             return f"{op_type}:{table_name}"
         return f"{op_type}:unknown"
 
-    def should_skip_operation(op) -> bool:
+    def should_skip_operation(op: object) -> bool:
         """Judge if it should skip the operation."""
         op_type = type(op).__name__
 
@@ -486,7 +494,7 @@ def run_migrations_online() -> None:
 
         return False
 
-    def merge_related_changes(script) -> None:
+    def merge_related_changes(script: object) -> None:
         """Merge the related changes into the same migration."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
@@ -579,18 +587,18 @@ def run_migrations_online() -> None:
 
     # Custom comparison functions that reduce false positives
     def compare_server_default(
-        context,
-        inspected_column,
-        metadata_column,
-        inspected_default,
-        metadata_default,
-        rendered_metadata_default,
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_default: object,
+        metadata_default: object,
+        rendered_metadata_default: object,
     ) -> bool:
         """Compare server defaults leniently to reduce false positives."""
         # Normalize how a default value is spelled
         _ = (context, inspected_column, metadata_column, metadata_default)
 
-        def normalize_default(default) -> str | None:
+        def normalize_default(default: object) -> str | None:
             if default is None:
                 return None
             default_str = str(default).strip()
@@ -613,13 +621,17 @@ def run_migrations_online() -> None:
         return norm_inspected != norm_metadata
 
     def compare_comment(
-        context, inspected_column, metadata_column, inspected_comment, metadata_comment
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_comment: object,
+        metadata_comment: object,
     ) -> bool:
         """Compare comments leniently, still reporting real comment changes."""
         # Normalize how a comment is spelled
         _ = inspected_column
 
-        def normalize_comment(comment) -> str | None:
+        def normalize_comment(comment: object) -> str | None:
             if comment is None:
                 return None
             comment_str = str(comment).strip()
@@ -659,7 +671,11 @@ def run_migrations_online() -> None:
         return False
 
     def compare_type(
-        context, inspected_column, metadata_column, inspected_type, metadata_type
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_type: object,
+        metadata_type: object,
     ) -> bool | None:
         """Compare column types leniently to reduce false positives."""
         # Treat small type differences as equal

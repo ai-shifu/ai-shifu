@@ -39,7 +39,7 @@ def _is_legacy_operator_promotion(record: object) -> bool:
     )
 
 
-def is_coupon_enabled_for_runtime(coupon) -> bool:
+def is_coupon_enabled_for_runtime(coupon: object) -> bool:
     """Return whether coupon enabled for runtime."""
     status = int(getattr(coupon, "status", 0) or 0)
     return status == COUPON_BATCH_STATUS_ACTIVE or (
@@ -47,7 +47,7 @@ def is_coupon_enabled_for_runtime(coupon) -> bool:
     )
 
 
-def is_campaign_enabled_for_runtime(campaign) -> bool:
+def is_campaign_enabled_for_runtime(campaign: object) -> bool:
     """Return whether campaign enabled for runtime."""
     status = int(getattr(campaign, "status", 0) or 0)
     return status == PROMO_CAMPAIGN_STATUS_ACTIVE or (
@@ -56,7 +56,7 @@ def is_campaign_enabled_for_runtime(campaign) -> bool:
     )
 
 
-def _blank_legacy_bid_expression(column) -> bool:
+def _blank_legacy_bid_expression(column: object) -> bool:
     normalized = func.coalesce(column, "")
     normalized = func.replace(normalized, "\t", "")
     normalized = func.replace(normalized, "\n", "")
@@ -64,7 +64,7 @@ def _blank_legacy_bid_expression(column) -> bool:
     return func.trim(normalized) == ""
 
 
-def build_coupon_enabled_expression(model_or_columns) -> ColumnElement[bool]:
+def build_coupon_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
     """Build coupon enabled expression."""
     return or_(
         model_or_columns.status == COUPON_BATCH_STATUS_ACTIVE,
@@ -76,7 +76,7 @@ def build_coupon_enabled_expression(model_or_columns) -> ColumnElement[bool]:
     )
 
 
-def build_campaign_enabled_expression(model_or_columns) -> ColumnElement[bool]:
+def build_campaign_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
     """Build campaign enabled expression."""
     return or_(
         model_or_columns.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
@@ -92,7 +92,9 @@ def _app_context_scope(app: Flask) -> AbstractContextManager[object]:
     return nullcontext() if has_app_context() else app.app_context()
 
 
-def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid) -> None:
+def timeout_coupon_code_rollback(
+    app: Flask, user_bid: object, order_bid: object
+) -> None:
     """Timeout coupon code rollback.
 
     Args:

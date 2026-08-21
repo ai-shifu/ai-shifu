@@ -38,7 +38,7 @@ def _reset_analytics_engine_singleton() -> Iterator[None]:
     analytics_engine.reset_for_tests()
 
 
-def _post(test_client, body) -> TestResponse:
+def _post(test_client: object, body: object) -> TestResponse:
     return test_client.post(ENDPOINT, json=body)
 
 
@@ -48,7 +48,7 @@ def _post(test_client, body) -> TestResponse:
 
 
 def test_progress_count_returns_expected_rows(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -81,7 +81,7 @@ def test_progress_count_returns_expected_rows(
 
 
 def test_shifu_user_archives_query_runs_without_deleted_column(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -114,7 +114,7 @@ def test_shifu_user_archives_query_runs_without_deleted_column(
 
 
 def test_user_cannot_query_a_shifu_they_do_not_own(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -138,7 +138,7 @@ def test_user_cannot_query_a_shifu_they_do_not_own(
 
 
 def test_query_results_are_scoped_to_the_requested_shifu(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Even if rows exist for another shifu, only the requested one is counted."""
     mock_request_user(user_id="teacher-1")
@@ -167,7 +167,7 @@ def test_query_results_are_scoped_to_the_requested_shifu(
 
 
 def test_unknown_table_yields_invalid_table_error(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -181,7 +181,7 @@ def test_unknown_table_yields_invalid_table_error(
 
 
 def test_unknown_column_yields_invalid_column_error(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -200,7 +200,7 @@ def test_unknown_column_yields_invalid_column_error(
 
 
 def test_select_shifu_bid_directly_is_rejected(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -218,7 +218,9 @@ def test_select_shifu_bid_directly_is_rejected(
     assert response.get_json(force=True)["code"] == 11004
 
 
-def test_like_leading_wildcard_is_rejected(mock_request_user, test_client, app) -> None:
+def test_like_leading_wildcard_is_rejected(
+    mock_request_user: object, test_client: object, app: object
+) -> None:
     mock_request_user()
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -237,7 +239,7 @@ def test_like_leading_wildcard_is_rejected(mock_request_user, test_client, app) 
 
 
 def test_limit_above_configured_max_is_rejected(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -260,7 +262,9 @@ def test_limit_above_configured_max_is_rejected(
 # ---------------------------------------------------------------------------
 
 
-def test_bill_usage_table_is_rejected(mock_request_user, test_client, app) -> None:
+def test_bill_usage_table_is_rejected(
+    mock_request_user: object, test_client: object, app: object
+) -> None:
     """`bill_usage` is removed from the whitelist; queries return 11003.
 
     Creators may only query credit consumption via `bill_daily_usage_metrics`;
@@ -289,7 +293,10 @@ def test_bill_usage_table_is_rejected(mock_request_user, test_client, app) -> No
 
 
 def test_conversation_replay_returns_ordered_qa_pairs(
-    mock_request_user, test_client, app, monkeypatch
+    mock_request_user: object,
+    test_client: object,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """End-to-end: select user_bid + generated_content for a lesson's Q&A, verify the rows come back chronologically and an audit log is emitted."""
     mock_request_user(user_id="teacher-1")
@@ -360,7 +367,7 @@ def test_conversation_replay_returns_ordered_qa_pairs(
 
 
 def test_conversation_replay_rejects_disallowed_type(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -385,7 +392,10 @@ def test_conversation_replay_rejects_disallowed_type(
 
 
 def test_user_users_lookup_returns_nicknames_for_known_user_bids(
-    mock_request_user, test_client, app, monkeypatch
+    mock_request_user: object,
+    test_client: object,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -429,7 +439,7 @@ def test_user_users_lookup_returns_nicknames_for_known_user_bids(
 
 
 def test_user_users_lookup_redacts_phone_in_nickname(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -457,7 +467,7 @@ def test_user_users_lookup_redacts_phone_in_nickname(
 
 
 def test_user_users_lookup_without_view_permission_is_rejected(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -480,7 +490,7 @@ def test_user_users_lookup_without_view_permission_is_rejected(
 
 
 def test_user_users_lookup_without_where_user_bid_is_rejected(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Cannot list every learner's nickname — must supply user_bid candidates."""
     mock_request_user()
@@ -505,7 +515,7 @@ def test_user_users_lookup_without_where_user_bid_is_rejected(
 
 
 def test_user_users_lookup_by_phone_returns_masked_user_identify(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -534,7 +544,7 @@ def test_user_users_lookup_by_phone_returns_masked_user_identify(
 
 
 def test_user_users_lookup_by_email_returns_masked_user_identify(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -564,7 +574,7 @@ def test_user_users_lookup_by_email_returns_masked_user_identify(
 
 
 def test_user_users_nickname_redacted_and_user_identify_masked_independently(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Nickname PII fully redacted; user_identify column partially masked — independent."""
     mock_request_user()
@@ -597,7 +607,7 @@ def test_user_users_nickname_redacted_and_user_identify_masked_independently(
 
 
 def test_user_users_user_identify_in_filter_rejected(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -623,7 +633,10 @@ def test_user_users_user_identify_in_filter_rejected(
 
 
 def test_user_users_lookup_by_phone_audit_log_emitted(
-    mock_request_user, test_client, app, monkeypatch
+    mock_request_user: object,
+    test_client: object,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -668,7 +681,10 @@ def test_user_users_lookup_by_phone_audit_log_emitted(
 
 
 def test_fallback_engine_uses_primary_db_with_warning(
-    mock_request_user, test_client, app, caplog
+    mock_request_user: object,
+    test_client: object,
+    app: object,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Leaving ANALYTICS_DATABASE_URI empty should fall back to the primary engine."""
     mock_request_user()
@@ -697,7 +713,9 @@ def test_fallback_engine_uses_primary_db_with_warning(
         assert engine is db.engine
 
 
-def test_dedicated_engine_replacement_disposes_previous_owner(app, monkeypatch) -> None:
+def test_dedicated_engine_replacement_disposes_previous_owner(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     class _FakeEngine:
         def __init__(self, uri: str) -> None:
             self.uri = uri
@@ -708,7 +726,7 @@ def test_dedicated_engine_replacement_disposes_previous_owner(app, monkeypatch) 
 
     created: list[_FakeEngine] = []
 
-    def fake_create_engine(uri, **_kwargs: object) -> object:
+    def fake_create_engine(uri: object, **_kwargs: object) -> object:
         engine = _FakeEngine(uri)
         created.append(engine)
         return engine
@@ -741,7 +759,7 @@ def test_dedicated_engine_replacement_disposes_previous_owner(app, monkeypatch) 
 
 
 def test_bill_daily_sum_credits_for_production_usage(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     mock_request_user()
     with app.app_context():
@@ -789,7 +807,9 @@ def test_bill_daily_sum_credits_for_production_usage(
     assert total == pytest.approx(30.0)
 
 
-def test_bill_daily_split_by_usage_type(mock_request_user, test_client, app) -> None:
+def test_bill_daily_split_by_usage_type(
+    mock_request_user: object, test_client: object, app: object
+) -> None:
     mock_request_user()
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -830,7 +850,7 @@ def test_bill_daily_split_by_usage_type(mock_request_user, test_client, app) -> 
 
 
 def test_bill_daily_creator_bid_grouping_shows_callers_own_wallet(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """The author can now group by creator_bid to confirm which wallet is being deducted for the course; shifu_bid isolation guarantees the grouping only returns the caller's own bid."""
     mock_request_user(user_id="teacher-1")
@@ -884,7 +904,7 @@ def test_bill_daily_creator_bid_grouping_shows_callers_own_wallet(
 
 
 def test_followup_count_excludes_rerolled_history(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """A learner can re-roll a follow-up question; the old block flips to status=0.
 
@@ -942,7 +962,7 @@ def test_followup_count_excludes_rerolled_history(
 
 
 def test_followup_count_per_lesson_by_outline(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Group by outline_item_bid answers "follow-up questions per lesson".
 
@@ -1010,7 +1030,7 @@ def test_followup_count_per_lesson_by_outline(
 
 
 def test_shifu_published_returns_current_title_excluding_history(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Rename scenario: the same shifu_bid has historical PublishedShifu rows (deleted=1) plus the current row (deleted=0).
 
@@ -1056,7 +1076,7 @@ def test_shifu_published_returns_current_title_excluding_history(
 
 
 def test_shifu_published_excludes_other_creators_rows(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Creator scoping excludes other creators' rows.
 
@@ -1100,7 +1120,7 @@ def test_shifu_published_excludes_other_creators_rows(
 
 
 def test_shifu_meta_aggregate_rejected_at_http_layer(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """The DSL validator must reject aggregate on metadata tables before SQL is built.
 
@@ -1125,7 +1145,7 @@ def test_shifu_meta_aggregate_rejected_at_http_layer(
 
 
 def test_shifu_meta_title_like_searches_callers_courses(
-    mock_request_user, test_client, app
+    mock_request_user: object, test_client: object, app: object
 ) -> None:
     """Title `like` with trailing-% is the canonical "find my course by name" path.
 

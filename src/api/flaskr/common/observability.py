@@ -114,7 +114,7 @@ def init_observability(app: Flask) -> Flask:
         set_thread_local_trace_ids()
 
     @app.after_request
-    def _finalize_request_observability(response) -> Response:
+    def _finalize_request_observability(response: object) -> Response:
         duration_ms = _record_request_metrics(response.status_code)
         span = getattr(g, "_ai_shifu_observability_span", None)
         if span is not None:

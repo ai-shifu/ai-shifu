@@ -32,7 +32,9 @@ def _seed_published_shifu(shifu_bid: str) -> None:
     )
 
 
-def test_ensure_demo_course_permissions_creates_view_auth(app, monkeypatch) -> None:
+def test_ensure_demo_course_permissions_creates_view_auth(
+    app: object, monkeypatch: object
+) -> None:
     demo_bid = uuid.uuid4().hex[:32]
     user_id = uuid.uuid4().hex[:32]
 
@@ -66,7 +68,7 @@ def test_ensure_demo_course_permissions_creates_view_auth(app, monkeypatch) -> N
 
 
 def test_ensure_demo_course_permissions_keeps_existing_higher_permission(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ) -> None:
     demo_bid = uuid.uuid4().hex[:32]
     user_id = uuid.uuid4().hex[:32]
@@ -111,7 +113,9 @@ def test_ensure_demo_course_permissions_keeps_existing_higher_permission(
             db.session.commit()
 
 
-def test_ensure_demo_course_permissions_fills_empty_auth_type(app, monkeypatch) -> None:
+def test_ensure_demo_course_permissions_fills_empty_auth_type(
+    app: object, monkeypatch: object
+) -> None:
     demo_bid = uuid.uuid4().hex[:32]
     user_id = uuid.uuid4().hex[:32]
 
@@ -155,7 +159,7 @@ def test_ensure_demo_course_permissions_fills_empty_auth_type(app, monkeypatch) 
 
 
 def test_ensure_demo_course_permissions_skips_missing_demo_courses(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ) -> None:
     demo_bid = uuid.uuid4().hex[:32]
     user_id = uuid.uuid4().hex[:32]
@@ -183,7 +187,7 @@ def test_ensure_demo_course_permissions_skips_missing_demo_courses(
             db.session.commit()
 
 
-def test_ensure_demo_course_permissions_uses_explicit_demo_ids(app) -> None:
+def test_ensure_demo_course_permissions_uses_explicit_demo_ids(app: object) -> None:
     demo_bid = uuid.uuid4().hex[:32]
     user_id = uuid.uuid4().hex[:32]
 
@@ -212,7 +216,7 @@ def test_ensure_demo_course_permissions_uses_explicit_demo_ids(app) -> None:
 
 
 def test_ensure_demo_course_permissions_skips_empty_explicit_demo_ids(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ) -> None:
     demo_bid = uuid.uuid4().hex[:32]
     user_id = uuid.uuid4().hex[:32]

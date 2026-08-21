@@ -31,11 +31,11 @@ def _payload(**overrides: object) -> dict[str, str | list[str] | int]:
     return base
 
 
-def _parse(payload) -> object:
+def _parse(payload: object) -> object:
     return parse_dsl(payload, limit_max=DEFAULT_LIMIT_MAX)
 
 
-def _assert_error(payload, error_name: str) -> None:
+def _assert_error(payload: object, error_name: str) -> None:
     with pytest.raises(AppError) as excinfo:
         _parse(payload)
     # Match by error code so the assertion holds regardless of whether i18n
@@ -772,7 +772,7 @@ def test_bill_daily_creator_bid_filter_rejected() -> None:
 
 
 def _shifu_meta_payload(
-    table_key="shifu_published_shifus", **overrides: object
+    table_key: str = "shifu_published_shifus", **overrides: object
 ) -> dict[str, object]:
     """Build a baseline DSL payload for shifu metadata-table tests."""
     base = {

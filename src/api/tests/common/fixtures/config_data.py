@@ -3,7 +3,7 @@
 from flaskr.common.config import EnvVar
 
 
-def port_validator(value) -> bool:
+def port_validator(value: object) -> bool:
     """Validate port number is in valid range."""
     try:
         port = int(value)
@@ -13,7 +13,7 @@ def port_validator(value) -> bool:
         return 1 <= port <= 65535
 
 
-def email_validator(value) -> bool:
+def email_validator(value: object) -> bool:
     """Validate an email address (test helper)."""
     import re
 

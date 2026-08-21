@@ -6,7 +6,9 @@ from types import SimpleNamespace
 from flaskr.api.tts import volcengine_provider
 
 
-def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch) -> None:
+def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
@@ -20,7 +22,9 @@ def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch) 
     assert resource_id == "seed-tts-2.0"
 
 
-def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch) -> None:
+def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(
+    monkeypatch: object,
+) -> None:
     monkeypatch.delenv("VOLCENGINE_TTS_APP_KEY", raising=False)
     monkeypatch.delenv("VOLCENGINE_TTS_ACCESS_KEY", raising=False)
     monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
@@ -34,7 +38,9 @@ def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch) -> No
     assert resource_id == "seed-tts-1.0"
 
 
-def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch) -> None:
+def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.delenv("ARK_ACCESS_KEY_ID", raising=False)
@@ -46,7 +52,7 @@ def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch) -> No
 
 
 def test_volcengine_ws_waits_for_session_started_before_task_request(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
@@ -62,18 +68,18 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
             captured["start_session_kwargs"] = kwargs
             return b"start_session"
 
-        def encode_task_request(self, session_id, text) -> bytes:
+        def encode_task_request(self, session_id: object, text: object) -> bytes:
             _ = (session_id, text)
             return b"task_request"
 
-        def encode_finish_session(self, session_id) -> bytes:
+        def encode_finish_session(self, session_id: object) -> bytes:
             _ = session_id
             return b"finish_session"
 
         def encode_finish_connection(self) -> bytes:
             return b"finish_connection"
 
-        def decode_frame(self, message) -> SimpleNamespace:
+        def decode_frame(self, message: object) -> SimpleNamespace:
             if message == b"connection_started":
                 return SimpleNamespace(
                     event=volcengine_provider.Event.CONNECTION_STARTED,
@@ -139,7 +145,13 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
 
     class FakeWebSocketApp:
         def __init__(
-            self, url, header, on_message, on_error, on_close, on_open
+            self,
+            url: object,
+            header: object,
+            on_message: object,
+            on_error: object,
+            on_close: object,
+            on_open: object,
         ) -> None:
             _ = (url, header, on_error)
             self.on_message = on_message
@@ -153,7 +165,7 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
             _ = kwargs
             self.on_open(self)
 
-        def send(self, frame, opcode=None) -> None:
+        def send(self, frame: object, opcode: object | None = None) -> None:
             _ = opcode
             self.sent.append(frame)
             if frame == b"start_connection":

@@ -62,7 +62,7 @@ from flaskr.service.user.repository import (
 
 
 @pytest.fixture
-def credit_notification_uow_app(tmp_path) -> Flask:
+def credit_notification_uow_app(tmp_path: object) -> Flask:
     db_path = tmp_path / "credit-notification-uow.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -92,7 +92,7 @@ def credit_notification_uow_app(tmp_path) -> Flask:
 
 
 @pytest.fixture(autouse=True)
-def _neutralize_savepoints_on_sqlite(monkeypatch) -> None:
+def _neutralize_savepoints_on_sqlite(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make begin_nested a no-op under the SQLite test engine.
 
     ``_stage_notification_record`` wraps its INSERT in
@@ -252,7 +252,12 @@ def _seed_credit_ledger(*, ledger_bid: str, creator_bid: str) -> None:
 
 def _stub_send_sms(monkeypatch: pytest.MonkeyPatch, sends: list[dict]) -> None:
     def fake_send(
-        app, mobile, *, template_code, template_params, sign_name=None
+        app: object,
+        mobile: object,
+        *,
+        template_code: object,
+        template_params: object,
+        sign_name: object | None = None,
     ) -> SimpleNamespace:
         _ = (app, sign_name)
         sends.append(
@@ -296,7 +301,7 @@ def test_scan_item_failure_is_isolated_from_neighbor_items(
 
     original_stage = credit_notifications._stage_notification_record
 
-    def staging_then_boom(app_arg, **kwargs: object) -> object:
+    def staging_then_boom(app_arg: object, **kwargs: object) -> object:
         result = original_stage(app_arg, **kwargs)
         if kwargs.get("creator_bid") == "creator-uow-2":
             message = "boom in creator-uow-2"

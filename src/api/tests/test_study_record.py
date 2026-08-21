@@ -7,7 +7,7 @@ from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT_VALUE
 
 
-def test_get_learn_record_returns_blocks(app) -> None:
+def test_get_learn_record_returns_blocks(app: object) -> None:
     with app.app_context():
         # Other test modules (e.g. the mdflow backfill tests) commit rows for
         # the same shifu-1/outline-1/user-1 bids into the shared SQLite

@@ -581,7 +581,7 @@ def _load_operator_user_last_login_map(
     }
 
 
-def _is_operator_visible_course(course) -> bool:
+def _is_operator_visible_course(course: object) -> bool:
     return bool(course.shifu_bid) and not is_builtin_demo_course(
         shifu_bid=course.shifu_bid,
         title=course.title,
@@ -663,7 +663,7 @@ def _load_operator_course_detail_source(shifu_bid: str) -> dict[str, object] | N
 
 
 def _load_latest_outline_items(
-    model, shifu_bid: str
+    model: object, shifu_bid: str
 ) -> list[DraftOutlineItem | PublishedOutlineItem]:
     latest_subquery = (
         db.session.query(db.func.max(model.id).label("max_id"))
@@ -682,7 +682,7 @@ def _load_latest_outline_items(
         .all()
     )
 
-    def _position_key(item) -> tuple[tuple[int, int | str], ...]:
+    def _position_key(item: object) -> tuple[tuple[int, int | str], ...]:
         position = str(getattr(item, "position", "") or "").strip()
         if not position:
             return ()

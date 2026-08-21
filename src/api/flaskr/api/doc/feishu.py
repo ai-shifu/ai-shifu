@@ -11,7 +11,7 @@ from flaskr.service.config import get_config
 # ref: https://open.feishu.cn/document/server-docs/docs/docs-overview
 
 
-def send_notify(app: Flask, title, msgs) -> object | None:
+def send_notify(app: Flask, title: object, msgs: object) -> object | None:
     """Send a document-platform notification to Feishu."""
     url = get_config("FEISHU_NOTIFY_URL", None)
     if not url:

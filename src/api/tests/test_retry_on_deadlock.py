@@ -10,12 +10,12 @@ from sqlalchemy.exc import OperationalError
 
 
 class _FakeOrigError(Exception):
-    def __init__(self, errno, message) -> None:
+    def __init__(self, errno: object, message: object) -> None:
         super().__init__(errno, message)
         self.args = (errno, message)
 
 
-def _operational_error(errno) -> OperationalError:
+def _operational_error(errno: object) -> OperationalError:
     return OperationalError("SELECT 1", {}, _FakeOrigError(errno, "boom"))
 
 
@@ -73,7 +73,9 @@ def test_does_not_retry_non_retryable_operational_error() -> None:
     assert calls["n"] == 1
 
 
-def test_rolls_back_session_on_every_caught_error(monkeypatch) -> None:
+def test_rolls_back_session_on_every_caught_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Session must be rolled back on each catch, including retries and the final failed attempt, so the broken session is not reused later."""
     fake_db = MagicMock()
     monkeypatch.setattr(dao, "db", fake_db)
@@ -88,7 +90,9 @@ def test_rolls_back_session_on_every_caught_error(monkeypatch) -> None:
     assert fake_db.session.rollback.call_count == 3
 
 
-def test_rolls_back_session_on_non_retryable_error(monkeypatch) -> None:
+def test_rolls_back_session_on_non_retryable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake_db = MagicMock()
     monkeypatch.setattr(dao, "db", fake_db)
 
@@ -101,7 +105,9 @@ def test_rolls_back_session_on_non_retryable_error(monkeypatch) -> None:
     assert fake_db.session.rollback.call_count == 1
 
 
-def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch) -> None:
+def test_protocol_interrupt_invalidates_and_does_not_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from flaskr import dao
 
     invalidations = []
@@ -124,7 +130,9 @@ def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch) -> None:
     assert invalidations == ["retry_on_deadlock protocol interrupt"]
 
 
-def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch) -> None:
+def test_rollback_db_failure_escalates_and_stops_retrying(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from flaskr import dao
 
     invalidations = []

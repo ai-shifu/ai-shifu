@@ -60,7 +60,7 @@ def _operational(errno: int) -> OperationalError:
         (_operational(1205), False),
     ],
 )
-def test_abnormal_termination_classification(exc, expected) -> None:
+def test_abnormal_termination_classification(exc: object, expected: object) -> None:
     assert is_abnormal_stream_termination(exc) is expected
 
 
@@ -78,7 +78,9 @@ def test_scoped_session_does_not_proxy_invalidate() -> None:
     assert not hasattr(db.session, "invalidate")
 
 
-def test_invalidate_session_works_on_real_scoped_session(app, caplog) -> None:
+def test_invalidate_session_works_on_real_scoped_session(
+    app: object, caplog: pytest.LogCaptureFixture
+) -> None:
     with app.app_context():
         db.session.execute(text("SELECT 1"))
         with caplog.at_level(logging.WARNING):
@@ -144,7 +146,9 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails() -> None:
     assert events == ["rollback", "invalidate"]
 
 
-def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch) -> Never:
+def test_teardown_hook_invalidates_before_session_removal(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> Never:
     """The global teardown guard must fire on abnormal context exits and run BEFORE Flask-SQLAlchemy's remove (reverse registration order)."""
     from flaskr import dao
 
@@ -172,7 +176,9 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch) -> N
     assert "remove" in order
 
 
-def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch) -> Never:
+def test_teardown_hook_ignores_ordinary_exceptions(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> Never:
     from flaskr import dao
 
     invalidations = []
@@ -190,7 +196,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch) -> Never:
 
 
 def test_release_session_classified_invalidates_during_propagating_interrupt(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr import dao
 
@@ -243,7 +249,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
 
 def test_release_session_classified_ignores_ordinary_exceptions(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr import dao
 

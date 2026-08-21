@@ -15,7 +15,15 @@ def init_pingxx(app: Flask) -> object:
 
 
 def create_pingxx_order(
-    app: Flask, order_no, app_id, channel, amount, client_ip, subject, body, extra=None
+    app: Flask,
+    order_no: object,
+    app_id: object,
+    channel: object,
+    amount: object,
+    client_ip: object,
+    subject: object,
+    body: object,
+    extra: object | None = None,
 ) -> object:
     """Create pingxx order."""
     app.logger.info(

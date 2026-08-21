@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def billing_daily_ledger_app(tmp_path) -> Iterator[Flask]:
+def billing_daily_ledger_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-daily-ledger.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

@@ -44,7 +44,9 @@ STREAMED_MARKER = "Hello "
 STREAMED_FULL_TEXT = "Hello golden learner."
 
 
-def _open_run_generator(app, user_bid: str, shifu, *, input_type: str) -> object:
+def _open_run_generator(
+    app: object, user_bid: str, shifu: object, *, input_type: str
+) -> object:
     from flaskr.service.learn.runscript_v2 import run_script_inner
 
     return run_script_inner(
@@ -58,7 +60,7 @@ def _open_run_generator(app, user_bid: str, shifu, *, input_type: str) -> object
     )
 
 
-def _consume_until_streaming(generator) -> list:
+def _consume_until_streaming(generator: object) -> list:
     """Advance the generator until the first streamed LLM chunk is yielded."""
     events = []
     for event in generator:
@@ -74,7 +76,7 @@ def _consume_until_streaming(generator) -> list:
 
 
 def _load_rows(
-    app, user_bid: str
+    app: object, user_bid: str
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 
@@ -110,8 +112,8 @@ def _load_rows(
 
 
 def test_mid_stream_close_discards_staged_block_and_rerun_resumes(
-    app,
-    golden_shifu,  # noqa: F811 - fixture imported from tests.golden.conftest
+    app: object,
+    golden_shifu: object,  # noqa: F811 - fixture imported from tests.golden.conftest
 ) -> None:
     user_bid = "golden-user-disconnect-0001"
     seed_golden_user(app, user_bid)
@@ -179,8 +181,8 @@ def test_mid_stream_close_discards_staged_block_and_rerun_resumes(
 
 
 def test_close_before_any_stream_leaves_no_generated_blocks(
-    app,
-    golden_shifu,  # noqa: F811 - fixture imported from tests.golden.conftest
+    app: object,
+    golden_shifu: object,  # noqa: F811 - fixture imported from tests.golden.conftest
 ) -> None:
     """Closing right after the first event discards everything staged.
 

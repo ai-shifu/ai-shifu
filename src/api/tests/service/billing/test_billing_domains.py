@@ -42,7 +42,9 @@ register_billing_routes = load_register_billing_routes()
 
 
 @pytest.fixture
-def billing_domain_client(monkeypatch) -> Iterator[dict[str, object]]:
+def billing_domain_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[dict[str, object]]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -161,7 +163,9 @@ def billing_domain_client(monkeypatch) -> Iterator[dict[str, object]]:
 class TestBillingDomains:
     """Verify billing domains behavior."""
 
-    def test_tls_probe_requires_tls_1_2_or_newer(self, monkeypatch) -> None:
+    def test_tls_probe_requires_tls_1_2_or_newer(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         context = SimpleNamespace(minimum_version=None)
 
         monkeypatch.setattr(
@@ -179,14 +183,16 @@ class TestBillingDomains:
         assert context.minimum_version == billing_domains.ssl.TLSVersion.TLSv1_2
 
     def test_domain_dns_verification_requires_txt_and_configured_cname(
-        self, monkeypatch
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         binding = BillingDomainBinding(
             host="learn.example.com",
             verification_token="verify-token",
         )
 
-        def fake_resolve(name, record_type, lifetime) -> list[SimpleNamespace]:
+        def fake_resolve(
+            name: object, record_type: object, lifetime: object
+        ) -> list[SimpleNamespace]:
             assert lifetime == 5
             if record_type == "TXT":
                 assert name == "_ai-shifu-verification.learn.example.com"
@@ -204,7 +210,7 @@ class TestBillingDomains:
         )
 
     def test_creator_domain_bindings_keep_raw_last_verified_at(
-        self, billing_domain_client
+        self, billing_domain_client: dict[str, object]
     ) -> None:
         # The browser timezone thread is gone: the DTO now holds the raw stored
         # datetime and the fmt sink emits UTC at the HTTP boundary, instead of
@@ -220,7 +226,7 @@ class TestBillingDomains:
         assert verified.last_verified_at == datetime(2026, 4, 8, 10, 0, 0)
 
     def test_rebinding_verified_domain_disables_sibling_bindings(
-        self, billing_domain_client
+        self, billing_domain_client: dict[str, object]
     ) -> None:
         app = billing_domain_client["app"]
         now = datetime(2026, 4, 8, 12, 0, 0)
@@ -261,7 +267,7 @@ class TestBillingDomains:
         assert sibling.status == BILLING_DOMAIN_BINDING_STATUS_DISABLED
 
     def test_with_shifu_context_resolves_creator_from_custom_domain_host(
-        self, billing_domain_client
+        self, billing_domain_client: dict[str, object]
     ) -> None:
         client = billing_domain_client["client"]
 
@@ -286,7 +292,7 @@ class TestBillingDomains:
         assert disabled_response.get_json(force=True)["creator_bid"] is None
 
     def test_verify_domain_binding_helper_uses_existing_binding_token(
-        self, billing_domain_client
+        self, billing_domain_client: dict[str, object]
     ) -> None:
         app = billing_domain_client["app"]
 

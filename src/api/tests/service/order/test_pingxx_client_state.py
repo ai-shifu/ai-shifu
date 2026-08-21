@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from flaskr.service.order.payment_providers import pingxx
 
 
-def test_pingxx_client_import_is_cached_by_its_state_owner(monkeypatch) -> None:
+def test_pingxx_client_import_is_cached_by_its_state_owner(monkeypatch: object) -> None:
     sentinel = SimpleNamespace()
     monkeypatch.setattr(pingxx._pingpp_client_state, "client", None)
     monkeypatch.setattr(pingxx._pingpp_client_state, "import_error", None)

@@ -23,7 +23,9 @@ from tests.common.fixtures.config_data import (
 class TestFullConfigurationFlow:
     """Test complete configuration flow from environment to Flask."""
 
-    def test_complete_initialization_flow(self, monkeypatch) -> None:
+    def test_complete_initialization_flow(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test complete initialization from environment variables to Flask app."""
         # Set up production-like environment
         for key, value in PRODUCTION_ENV_CONFIG.items():
@@ -57,7 +59,7 @@ class TestFullConfigurationFlow:
         # 4. Global function access
         assert get_config("REDIS_HOST") == "redis.production.internal"
 
-    def test_docker_environment_setup(self, monkeypatch) -> None:
+    def test_docker_environment_setup(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test configuration with Docker environment."""
         # Set up Docker environment
         for key, value in DOCKER_ENV_CONFIG.items():
@@ -79,7 +81,9 @@ class TestFullConfigurationFlow:
 class TestEnvironmentVariableInterpolation:
     """Test environment variable interpolation in configuration."""
 
-    def test_interpolation_in_config_values(self, monkeypatch) -> None:
+    def test_interpolation_in_config_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that ${VAR} patterns are interpolated."""
         # Set up base variables
         monkeypatch.setenv("DB_HOST", "test-db-host")
@@ -103,7 +107,9 @@ class TestEnvironmentVariableInterpolation:
         assert "test-user:test-pass@test-db-host" in db_uri
         assert "${" not in db_uri  # No uninterpolated variables
 
-    def test_missing_interpolation_variable(self, monkeypatch) -> None:
+    def test_missing_interpolation_variable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test behavior when interpolated variable is missing."""
         # Set value with missing variable
         monkeypatch.setenv(
@@ -124,7 +130,7 @@ class TestEnvironmentVariableInterpolation:
 class TestConfigurationValidation:
     """Test configuration validation scenarios."""
 
-    def test_missing_all_llm_keys_fails(self, monkeypatch) -> None:
+    def test_missing_all_llm_keys_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that missing all LLM API keys fails validation."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -139,7 +145,9 @@ class TestConfigurationValidation:
 
         assert "At least one LLM API key must be configured" in str(exc_info.value)
 
-    def test_at_least_one_llm_key_succeeds(self, monkeypatch) -> None:
+    def test_at_least_one_llm_key_succeeds(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that having at least one LLM key succeeds."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -173,7 +181,9 @@ class TestConfigurationValidation:
             config = Config(app.config, app)
             assert config is not None
 
-    def test_invalid_type_conversion_uses_default(self, monkeypatch) -> None:
+    def test_invalid_type_conversion_uses_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that invalid type conversion falls back to default."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -232,7 +242,7 @@ class TestConfigurationExport:
 class TestConfigurationCaching:
     """Test configuration caching behavior."""
 
-    def test_cache_improves_performance(self, monkeypatch) -> None:
+    def test_cache_improves_performance(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that caching improves performance."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -259,7 +269,7 @@ class TestConfigurationCaching:
 
             assert value1 == value2 == 6379
 
-    def test_cache_cleared_on_update(self, monkeypatch) -> None:
+    def test_cache_cleared_on_update(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that cache is cleared when values are updated."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -288,7 +298,7 @@ class TestConfigurationCaching:
 class TestMultiEnvironmentSupport:
     """Test support for multiple environments."""
 
-    def test_switch_between_environments(self, monkeypatch) -> None:
+    def test_switch_between_environments(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test switching between different environment configurations."""
         app = Flask(__name__)
         app.logger = MagicMock()
@@ -322,7 +332,7 @@ class TestMultiEnvironmentSupport:
 class TestErrorHandling:
     """Test error handling in configuration system."""
 
-    def test_detailed_error_messages(self, monkeypatch) -> None:
+    def test_detailed_error_messages(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that error messages are detailed and helpful."""
         # Missing required variables
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -340,7 +350,7 @@ class TestErrorHandling:
         # Should include descriptions
         assert "database" in error_msg.lower() or "MySQL" in error_msg
 
-    def test_validation_error_details(self, monkeypatch) -> None:
+    def test_validation_error_details(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that validation errors provide details."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -364,7 +374,7 @@ class TestErrorHandling:
 class TestBackwardCompatibility:
     """Test that backward compatibility is properly removed."""
 
-    def test_no_direct_environ_access(self, monkeypatch) -> None:
+    def test_no_direct_environ_access(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that get_config supports direct os.environ access when not initialized."""
         # Clear global instance to test uninitialized state
         import flaskr.common.config as config_module

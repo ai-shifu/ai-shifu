@@ -25,7 +25,7 @@ def test_get_user_language_supports_user_language_attribute() -> None:
     assert get_user_language(user) == "en-US"
 
 
-def test_admin_login_auto_grant_keeps_operator_unchanged(app) -> None:
+def test_admin_login_auto_grant_keeps_operator_unchanged(app: object) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():

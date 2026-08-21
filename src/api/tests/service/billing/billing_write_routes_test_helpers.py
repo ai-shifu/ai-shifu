@@ -367,7 +367,7 @@ def add_trial_subscription_state(
         dao.db.session.commit()
 
 
-def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
+def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     monkeypatch.setenv("HOST_URL", "https://billing.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -392,7 +392,9 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app) -> PaymentCreationResult:
+        def create_payment(
+            self, *, request: object, app: object
+        ) -> PaymentCreationResult:
             _ = app
             stripe_requests.append(
                 {
@@ -413,11 +415,11 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def create_subscription(self, *, request, app) -> object:
+        def create_subscription(self, *, request: object, app: object) -> object:
             return self.create_payment(request=request, app=app)
 
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "checkout_session"
@@ -442,7 +444,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
             )
 
         def cancel_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
+            self, *, subscription_bid: str, provider_subscription_id: str, app: object
         ) -> SubscriptionUpdateResult:
             _ = app
             return SubscriptionUpdateResult(
@@ -458,7 +460,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
             )
 
         def resume_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
+            self, *, subscription_bid: str, provider_subscription_id: str, app: object
         ) -> SubscriptionUpdateResult:
             _ = app
             return SubscriptionUpdateResult(
@@ -473,7 +475,9 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
                 extra={"cancel_at_period_end": False},
             )
 
-        def refund_payment(self, *, request, app) -> PaymentRefundResult:
+        def refund_payment(
+            self, *, request: object, app: object
+        ) -> PaymentRefundResult:
             _ = app
             refund_requests.append(
                 {
@@ -490,7 +494,9 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
             )
 
     class FakePingxxProvider:
-        def create_payment(self, *, request, app) -> PaymentCreationResult:
+        def create_payment(
+            self, *, request: object, app: object
+        ) -> PaymentCreationResult:
             _ = app
             pingxx_requests.append(
                 {
@@ -508,7 +514,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
             )
 
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app
+            self, *, provider_reference: str, reference_type: str, app: object
         ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "charge"

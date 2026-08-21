@@ -62,7 +62,7 @@ def _build_frontend_url(base_url: str, path: str) -> str:
 
 
 def preview_shifu_draft(
-    app, user_id: str, shifu_id: str, variables: dict, base_url: str
+    app: object, user_id: str, shifu_id: str, variables: dict, base_url: str
 ) -> str:
     """Preview shifu draft.
 
@@ -84,7 +84,7 @@ def preview_shifu_draft(
 
 
 def publish_shifu_draft(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     base_url: str,
@@ -229,7 +229,7 @@ def publish_shifu_draft(
 
 
 def _run_summary_with_error_handling(
-    app, shifu_id, shifu_context_snapshot=None
+    app: object, shifu_id: object, shifu_context_snapshot: object | None = None
 ) -> None:
     """Run shifu summary generation with error handling.
 
@@ -263,7 +263,7 @@ def _run_summary_with_error_handling(
             )
 
 
-def get_shifu_summary(app, shifu_id: str) -> None:
+def get_shifu_summary(app: object, shifu_id: str) -> None:
     """Obtain the shifu summary information.
 
     Args:
@@ -308,7 +308,7 @@ def get_shifu_summary(app, shifu_id: str) -> None:
 
 
 def _generate_ask_prompts(
-    app,
+    app: object,
     shifu_info: ShifuInfoDto,
     outline_ids: list[str],
     outline_summary_map: dict[str, dict],
@@ -361,10 +361,10 @@ def _generate_ask_prompts(
 
 
 def _generate_summaries(
-    app,
+    app: object,
     outline_tree: ShifuInfoDto,
     outline_item_map: dict[str, PublishedOutlineItem],
-    summary_prompt_template,
+    summary_prompt_template: object,
     shifu: PublishedShifu,
 ) -> dict[str, dict]:
     """Generate summaries for all sections.
@@ -436,7 +436,7 @@ def _generate_summaries(
 
 
 def _get_shifu_data(
-    app, shifu_id: str
+    app: object, shifu_id: str
 ) -> tuple[
     ShifuInfoDto,
     list[str],
@@ -482,7 +482,7 @@ def _get_shifu_data(
 
 
 def _make_ask_prompt(
-    app, ask_prompt: str, learned_text: str, unlearned_text: str
+    app: object, ask_prompt: str, learned_text: str, unlearned_text: str
 ) -> str:
     """Make ask prompt.
 
@@ -509,7 +509,13 @@ def _make_ask_prompt(
     )
 
 
-def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8) -> str:
+def _get_summary(
+    app: object,
+    prompt: object,
+    model_name: object,
+    user_id: object | None = None,
+    temperature: float = 0.8,
+) -> str:
     """Call the AI model to generate summary.
 
     Args:

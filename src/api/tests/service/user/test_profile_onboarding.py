@@ -26,7 +26,9 @@ def _create_user(user_bid: str = "user-onboarding") -> None:
     db.session.commit()
 
 
-def test_profile_onboarding_config_roundtrip(app, monkeypatch) -> None:
+def test_profile_onboarding_config_roundtrip(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_payloads = []
@@ -42,7 +44,7 @@ def test_profile_onboarding_config_roundtrip(app, monkeypatch) -> None:
         module, "load_profile_onboarding_config_payload", lambda: current_config
     )
 
-    def fake_save_config(_app, payload, *, updated_by) -> None:
+    def fake_save_config(_app: object, payload: object, *, updated_by: object) -> None:
         saved_payloads.append((payload, updated_by))
         current_config.update(payload)
 
@@ -70,7 +72,9 @@ def test_profile_onboarding_config_roundtrip(app, monkeypatch) -> None:
     assert saved_payloads[0][1] == "operator-1"
 
 
-def test_profile_onboarding_config_rejects_non_whitelisted_variable(app) -> None:
+def test_profile_onboarding_config_rejects_non_whitelisted_variable(
+    app: object,
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         update_profile_onboarding_config,
     )
@@ -86,7 +90,7 @@ def test_profile_onboarding_config_rejects_non_whitelisted_variable(app) -> None
         )
 
 
-def test_profile_onboarding_status_hides_after_skip(app) -> None:
+def test_profile_onboarding_status_hides_after_skip(app: object) -> None:
     from flaskr.service.profile.onboarding import (
         PROFILE_ONBOARDING_STATE_KEY,
         complete_profile_onboarding,
@@ -117,7 +121,7 @@ def test_profile_onboarding_status_hides_after_skip(app) -> None:
 
 
 def test_profile_onboarding_complete_writes_allowed_system_profiles(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.profile.onboarding import complete_profile_onboarding
 
@@ -159,7 +163,9 @@ def test_profile_onboarding_complete_writes_allowed_system_profiles(
     ]
 
 
-def test_profile_onboarding_routes_delegate(monkeypatch, test_client) -> None:
+def test_profile_onboarding_routes_delegate(
+    monkeypatch: pytest.MonkeyPatch, test_client: object
+) -> None:
     dummy_user = SimpleNamespace(
         user_id="user-onboarding",
         language="zh-CN",
@@ -226,7 +232,9 @@ def test_profile_onboarding_routes_delegate(monkeypatch, test_client) -> None:
     }
 
 
-def test_learner_profile_routes_delegate(monkeypatch, test_client) -> None:
+def test_learner_profile_routes_delegate(
+    monkeypatch: pytest.MonkeyPatch, test_client: object
+) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
@@ -300,7 +308,7 @@ def test_learner_profile_routes_delegate(monkeypatch, test_client) -> None:
     ],
 )
 def test_learner_profile_update_rejects_invalid_shapes(
-    monkeypatch, test_client, payload
+    monkeypatch: pytest.MonkeyPatch, test_client: object, payload: object
 ) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
@@ -316,7 +324,7 @@ def test_learner_profile_update_rejects_invalid_shapes(
 
 
 def test_learner_profile_update_omits_optional_nickname(
-    monkeypatch, test_client
+    monkeypatch: pytest.MonkeyPatch, test_client: object
 ) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
@@ -347,7 +355,7 @@ def test_learner_profile_update_omits_optional_nickname(
 
 
 def test_learner_profile_optimize_route_delegates_without_persistence(
-    monkeypatch, test_client
+    monkeypatch: pytest.MonkeyPatch, test_client: object
 ) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
@@ -397,7 +405,7 @@ def test_learner_profile_optimize_route_delegates_without_persistence(
     ],
 )
 def test_learner_profile_optimize_route_rejects_invalid_shapes(
-    monkeypatch, test_client, payload
+    monkeypatch: pytest.MonkeyPatch, test_client: object, payload: object
 ) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(

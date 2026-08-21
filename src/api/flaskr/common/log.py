@@ -43,7 +43,7 @@ class AppLoggerProxy:
 class RequestFormatter(logging.Formatter):
     """Format request-aware application log records."""
 
-    def formatTime(self, record, datefmt=None) -> str:  # noqa: N802 - logging.Formatter hook name
+    def formatTime(self, record: object, datefmt: object | None = None) -> str:  # noqa: N802 - logging.Formatter hook name
         # create time zone info
         """Format a log timestamp in the application timezone."""
         bj_time = pytz.timezone("Asia/Shanghai")
@@ -58,7 +58,7 @@ class RequestFormatter(logging.Formatter):
                 s = ct.isoformat()
         return s
 
-    def format(self, record) -> str:
+    def format(self, record: object) -> str:
         """Format a log record with request context."""
         try:
             request_id = getattr(thread_local, "request_id", "No_Request_ID")
@@ -94,7 +94,7 @@ class FeishuLogHandler(logging.Handler):
 
     MAX_TEXT_LENGTH = 18000
 
-    def __init__(self, webhook_url) -> None:
+    def __init__(self, webhook_url: object) -> None:
         """Configure Feishu webhook log delivery."""
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
@@ -123,7 +123,7 @@ class FeishuLogHandler(logging.Handler):
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
-    def emit(self, record) -> None:
+    def emit(self, record: object) -> None:
         """Deliver a formatted error record to Feishu."""
         if getattr(self._delivering, "active", False):
             return
@@ -147,7 +147,7 @@ class FeishuLogHandler(logging.Handler):
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
     """Format request logs with terminal color metadata."""
 
-    def __init__(self, fmt, **kwargs: object) -> None:
+    def __init__(self, fmt: object, **kwargs: object) -> None:
         """Configure colored request-log formatting."""
         super().__init__(fmt, **kwargs)
 
@@ -201,7 +201,7 @@ def init_log(app: Flask) -> Flask:
             app.logger.info("Request method: %s", request.method)
 
     @app.after_request
-    def after_request(response) -> Response:
+    def after_request(response: object) -> Response:
         try:
             _update_request_timing(response.status_code)
             if response.headers.get(

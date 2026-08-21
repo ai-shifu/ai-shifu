@@ -63,7 +63,12 @@ JSON_GOLDEN_CASES = [
     ids=[case[0] for case in JSON_GOLDEN_CASES],
 )
 def test_json_endpoint_golden(
-    app, test_client, monkeypatch, golden_shifu, fixture_key, path
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    golden_shifu: object,
+    fixture_key: object,
+    path: object,
 ) -> None:
     _ = golden_shifu
     seed_golden_user(app, JSON_USER_BID)

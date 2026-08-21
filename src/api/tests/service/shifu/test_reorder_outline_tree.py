@@ -15,7 +15,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 
 
 @pytest.fixture(autouse=True)
-def _stub_reorder_side_effects(monkeypatch) -> None:
+def _stub_reorder_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         shifu_outline_funcs,
         "cleanup_outline_history_versions",
@@ -94,7 +94,9 @@ def _latest_outline_by_bid(shifu_bid: str) -> dict[str, DraftOutlineItem]:
     return latest_by_bid
 
 
-def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app) -> None:
+def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(
+    app: object,
+) -> None:
     shifu_bid = "shifu_reorder_parent_fix"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -130,7 +132,7 @@ def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app) -> N
 
 
 def test_reorder_outline_tree_updates_parent_bid_when_promoting_child_to_root(
-    app,
+    app: object,
 ) -> None:
     shifu_bid = "shifu_reorder_root_fix"
     with app.app_context():

@@ -60,7 +60,7 @@ def _record_diagnostics(request: pytest.FixtureRequest, lines: list[str]) -> Non
     request.node.add_report_section("call", "SSE diagnostics", "\n".join(lines))
 
 
-def _fetch_blocks_raw(app, limit=100) -> list[dict[str, object]]:
+def _fetch_blocks_raw(app: object, limit: int = 100) -> list[dict[str, object]]:
     """Fetch latest generated blocks with content directly via SQLAlchemy."""
     from flaskr.service.learn.models import LearnGeneratedBlock
 
@@ -93,13 +93,15 @@ def _fetch_blocks_raw(app, limit=100) -> list[dict[str, object]]:
         ]
 
 
-def _role_str(role_int) -> str:
+def _role_str(role_int: object) -> str:
     if role_int == ROLE_STUDENT:
         return "student"
     return "teacher"
 
 
-def _try_simulate_sse_for_block(app, block, *, with_av_contract=True) -> object:
+def _try_simulate_sse_for_block(
+    app: object, block: object, *, with_av_contract: bool = True
+) -> object:
     """Simulate SSE for a block, returning None when the simulation fails.
 
     Callers scan a sample of production-shaped rows and skip the ones the
@@ -111,7 +113,9 @@ def _try_simulate_sse_for_block(app, block, *, with_av_contract=True) -> object:
         return None
 
 
-def _simulate_sse_for_block(app, block, *, with_av_contract=True) -> list[object]:
+def _simulate_sse_for_block(
+    app: object, block: object, *, with_av_contract: bool = True
+) -> list[object]:
     """Simulate SSE stream for a single block via ListenElementRunAdapter.
 
     When with_av_contract=True (default), builds an AV segmentation contract
@@ -219,21 +223,21 @@ class TestSSEElementSplitFromDB:
     """Fetch real blocks and validate SSE element splitting."""
 
     @pytest.fixture(scope="class")
-    def blocks(self, app) -> list[object]:
+    def blocks(self, app: object) -> list[object]:
         """Load 100 latest blocks from the test DB."""
         rows = _fetch_blocks_raw(app, limit=100)
         if not rows:
             pytest.skip("No generated blocks found in test DB")
         return rows
 
-    def test_blocks_loaded(self, blocks) -> None:
+    def test_blocks_loaded(self, blocks: list[object]) -> None:
         """Sanity check: we have data to test with."""
         assert len(blocks) > 0
 
     def test_all_blocks_produce_valid_sse(
         self,
-        app,
-        blocks,
+        app: object,
+        blocks: list[object],
         request: pytest.FixtureRequest,
     ) -> None:
         """Every block must produce a valid SSE stream without errors."""
@@ -362,8 +366,8 @@ class TestSSEElementSplitFromDB:
 
     def test_sse_json_serialization_roundtrip(
         self,
-        app,
-        blocks,
+        app: object,
+        blocks: list[object],
         request: pytest.FixtureRequest,
     ) -> None:
         """Verify SSE JSON output can be parsed back correctly."""
@@ -446,8 +450,8 @@ class TestSSEElementSplitFromDB:
 
     def test_content_coverage_no_data_loss(
         self,
-        app,
-        blocks,
+        app: object,
+        blocks: list[object],
         request: pytest.FixtureRequest,
     ) -> None:
         """Verify that element splitting does not lose content."""
@@ -522,8 +526,8 @@ class TestSSEElementSplitFromDB:
 
     def test_element_type_matches_content_pattern(
         self,
-        app,
-        blocks,
+        app: object,
+        blocks: list[object],
         request: pytest.FixtureRequest,
     ) -> None:
         """Verify element_type is appropriate for the content pattern.
@@ -592,8 +596,8 @@ class TestSSEElementSplitFromDB:
 
     def test_pure_visual_blocks_element_type(
         self,
-        app,
-        blocks,
+        app: object,
+        blocks: list[object],
         request: pytest.FixtureRequest,
     ) -> None:
         """Diagnose element type inference for blocks whose content is pure visual (SVG, HTML with no speakable text).

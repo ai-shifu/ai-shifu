@@ -60,7 +60,7 @@ def _clear_dashboard_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_dashboard_tables(app) -> Iterator[None]:
+def _isolate_dashboard_tables(app: object) -> Iterator[None]:
     if app is None:
         yield
         return
@@ -78,7 +78,9 @@ def _isolate_dashboard_tables(app) -> Iterator[None]:
 class TestDashboardRoutes:
     """Verify dashboard routes behavior."""
 
-    def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1") -> None:
+    def _mock_request_user(
+        self, monkeypatch: pytest.MonkeyPatch, *, user_id: str = "teacher-1"
+    ) -> None:
         dummy_user = SimpleNamespace(
             user_id=user_id,
             language="en-US",
@@ -246,9 +248,9 @@ class TestDashboardRoutes:
 
     def test_entry_summary_uses_owned_courses_only(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -368,9 +370,9 @@ class TestDashboardRoutes:
 
     def test_entry_keyword_and_date_range_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -467,9 +469,9 @@ class TestDashboardRoutes:
 
     def test_entry_emits_utc_last_active_ignoring_request_timezone(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
         with app.app_context():
@@ -504,9 +506,9 @@ class TestDashboardRoutes:
 
     def test_entry_course_count_respects_date_filter(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -561,9 +563,9 @@ class TestDashboardRoutes:
 
     def test_entry_order_only_user_not_counted_as_learner(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -605,9 +607,9 @@ class TestDashboardRoutes:
 
     def test_entry_manual_import_user_counted_as_learner(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -650,9 +652,9 @@ class TestDashboardRoutes:
 
     def test_entry_manual_non_zero_order_counted_in_order_metrics(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -695,9 +697,9 @@ class TestDashboardRoutes:
 
     def test_entry_non_success_order_excluded_from_order_metrics(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -754,9 +756,9 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_all_shared_courses(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -835,9 +837,9 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_shared_courses_without_owned_copy(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
@@ -869,9 +871,9 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_demo_courses(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
@@ -904,9 +906,9 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_builtin_demo_titles_when_config_missing(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
@@ -943,9 +945,9 @@ class TestDashboardRoutes:
 
     def test_course_detail_returns_real_metrics(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1289,9 +1291,9 @@ class TestDashboardRoutes:
 
     def test_course_learners_supports_search_and_pagination(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1445,11 +1447,11 @@ class TestDashboardRoutes:
     )
     def test_course_learners_rejects_invalid_learner_date_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        query_string,
-        expected_param,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
+        query_string: object,
+        expected_param: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1519,11 +1521,11 @@ class TestDashboardRoutes:
     )
     def test_paginated_routes_reject_invalid_pagination_args(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        path,
-        expected_param,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
+        path: object,
+        expected_param: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1542,9 +1544,9 @@ class TestDashboardRoutes:
 
     def test_course_ratings_returns_summary_and_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1709,11 +1711,11 @@ class TestDashboardRoutes:
     )
     def test_course_ratings_reject_invalid_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        query_string,
-        expected_param,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
+        query_string: object,
+        expected_param: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1734,9 +1736,9 @@ class TestDashboardRoutes:
 
     def test_course_follow_ups_routes_return_creator_facing_data(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -1975,9 +1977,9 @@ class TestDashboardRoutes:
 
     def test_course_follow_ups_clamps_page_index_to_last_page(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -2081,11 +2083,11 @@ class TestDashboardRoutes:
     )
     def test_course_follow_ups_reject_invalid_date_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        query_string,
-        expected_param,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
+        query_string: object,
+        expected_param: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -2107,9 +2109,9 @@ class TestDashboardRoutes:
 
     def test_course_follow_ups_reject_invalid_source_status(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -2131,9 +2133,9 @@ class TestDashboardRoutes:
 
     def test_course_detail_emits_utc_created_at_ignoring_request_timezone(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -2159,9 +2161,9 @@ class TestDashboardRoutes:
 
     def test_course_learners_emit_utc_timestamps_ignoring_request_timezone(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -2231,9 +2233,9 @@ class TestDashboardRoutes:
 
     def test_course_detail_counts_restudy_learners_as_completed(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 
@@ -2347,9 +2349,9 @@ class TestDashboardRoutes:
 
     def test_course_detail_rejects_non_owned_course(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
     ) -> None:
         self._mock_request_user(monkeypatch)
 

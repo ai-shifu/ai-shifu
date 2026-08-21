@@ -374,11 +374,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress) -> Iterator[str]:
+        def _emit_feedback(_progress: object) -> Iterator[str]:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress) -> Iterator[str]:
+        def _emit_next(_progress: object) -> Iterator[str]:
             calls.append("next")
             yield "next-event"
 
@@ -400,11 +400,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress) -> Iterator[str]:
+        def _emit_feedback(_progress: object) -> Iterator[str]:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress) -> Iterator[str]:
+        def _emit_next(_progress: object) -> Iterator[str]:
             calls.append("next")
             yield "next-event"
 
@@ -426,11 +426,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress) -> Iterator[str]:
+        def _emit_feedback(_progress: object) -> Iterator[str]:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress) -> Iterator[str]:
+        def _emit_next(_progress: object) -> Iterator[str]:
             calls.append("next")
             yield "next-event"
 
@@ -462,10 +462,10 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         class _Column:
             __hash__ = None
 
-            def in_(self, _values) -> "_Column":
+            def in_(self, _values: object) -> "_Column":
                 return self
 
-            def __eq__(self, _other) -> "_Column":
+            def __eq__(self, _other: object) -> "_Column":
                 return self
 
         class _OutlineModel:
@@ -1074,7 +1074,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.finalize_calls = []
 
-            def finalize(self, *, commit=True) -> Iterator[str]:
+            def finalize(self, *, commit: bool = True) -> Iterator[str]:
                 self.finalize_calls.append(commit)
                 yield "audio-complete"
 
@@ -1111,7 +1111,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.finalize_calls = 0
 
-            def finalize(self, *, commit=True) -> Iterator[str]:
+            def finalize(self, *, commit: bool = True) -> Iterator[str]:
                 _ = commit
                 self.finalize_calls += 1
                 yield "audio-complete"
@@ -1164,7 +1164,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 _ = (args, kwargs)
                 self.visual_mode = None
 
-            def set_visual_mode(self, visual_mode) -> None:
+            def set_visual_mode(self, visual_mode: object) -> None:
                 self.visual_mode = visual_mode
 
             def set_output_language(
@@ -1183,7 +1183,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 _ = (args, kwargs)
                 self.output_language = None
 
-            def set_output_language(self, language) -> "FakeMarkdownFlow":
+            def set_output_language(self, language: object) -> "FakeMarkdownFlow":
                 self.output_language = language
                 return self
 
@@ -1737,7 +1737,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
         )
 
         def _fake_create_trace_with_root_span(
-            *, client, trace_payload, root_span_payload
+            *, client: object, trace_payload: object, root_span_payload: object
         ) -> tuple[object, object]:
             captured["client"] = client
             captured["trace_payload"] = trace_payload
@@ -1865,14 +1865,16 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 _ = args, kwargs
 
             @staticmethod
-            def normalize_context_messages(_value) -> None:
+            def normalize_context_messages(_value: object) -> None:
                 return None
 
             @staticmethod
-            def filter_context_by_output_language(context, _output_language) -> object:
+            def filter_context_by_output_language(
+                context: object, _output_language: object
+            ) -> object:
                 return context
 
-            def get_block(self, _block_index) -> types.SimpleNamespace:
+            def get_block(self, _block_index: object) -> types.SimpleNamespace:
                 return types.SimpleNamespace(
                     block_type=PreviewBlockType.CONTENT, content="Prompt block"
                 )
@@ -1893,11 +1895,11 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def process(self, events) -> object:
+            def process(self, events: object) -> object:
                 return events
 
         def _fake_create_trace_with_root_span(
-            *, client, trace_payload, root_span_payload
+            *, client: object, trace_payload: object, root_span_payload: object
         ) -> tuple[object, object]:
             _ = client, root_span_payload
             captured["trace_payload"] = trace_payload
@@ -2202,7 +2204,7 @@ class _InMemoryCache:
     def get(self, key: str) -> object:
         return self.store.get(key)
 
-    def setex(self, key: str, _ttl: int, value) -> None:
+    def setex(self, key: str, _ttl: int, value: object) -> None:
         self.store[key] = value
 
     def delete(self, *keys: str) -> int:
@@ -2290,7 +2292,7 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
 class PreviewContextStoreTruncationTests(unittest.TestCase):
     """Verify preview context store truncation behavior."""
 
-    def _populate(self, store, doc, indices) -> None:
+    def _populate(self, store: object, doc: object, indices: object) -> None:
         for idx in indices:
             store.append_context(doc, idx, f"u{idx}", f"a{idx}")
 
@@ -2437,7 +2439,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         app = Flask("runtime-langfuse-paid")
         ctx = _make_context()
 
-        def _raise_paid(_app) -> Never:
+        def _raise_paid(_app: object) -> Never:
             raise PaidError
 
         ctx.run_inner = _raise_paid
@@ -2602,7 +2604,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
             dao.db.create_all()
 
     def _run_stream_phase(
-        self, stream_items
+        self, stream_items: object
     ) -> tuple[RunScriptContextV2, list[object]]:
         ctx = _make_context()
         ctx.app = self.app
@@ -2699,7 +2701,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             default_key="profile_name",
         ) == {"legacy_key": ["Alice"]}
 
-    def _blocks(self, selection) -> list[types.SimpleNamespace]:
+    def _blocks(self, selection: object) -> list[types.SimpleNamespace]:
         return [
             types.SimpleNamespace(
                 type=BLOCK_TYPE_MDCONTENT_VALUE,

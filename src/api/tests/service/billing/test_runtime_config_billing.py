@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def runtime_config_client(monkeypatch) -> Iterator[FlaskClient]:
+def runtime_config_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[FlaskClient]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -172,7 +172,7 @@ def runtime_config_client(monkeypatch) -> Iterator[FlaskClient]:
 
 
 def test_runtime_config_returns_billing_extensions_for_custom_domain(
-    runtime_config_client,
+    runtime_config_client: FlaskClient,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config",
@@ -229,8 +229,8 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
 
 
 def test_runtime_config_hides_creator_keys_without_matching_capability(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config_route, "is_creator_customization_enabled", lambda: True)
     monkeypatch.setattr(
@@ -258,12 +258,12 @@ def test_runtime_config_hides_creator_keys_without_matching_capability(
 
 
 def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_missing(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default="") -> object:
+    def get_config_override(key: object, default: str = "") -> object:
         if key == "HOST_URL":
             return ""
         return original_route_get_config(key, default)
@@ -288,12 +288,12 @@ def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_mis
 
 
 def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default="") -> object:
+    def get_config_override(key: object, default: str = "") -> object:
         if key == "OFFICIAL_SITE_URL":
             return ""
         return original_route_get_config(key, default)
@@ -308,12 +308,12 @@ def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
 
 
 def test_runtime_config_uses_registered_home_url_default_on_config_lock_miss(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=None) -> object:
+    def get_config_override(key: object, default: object | None = None) -> object:
         if key == "HOME_URL":
             return default
         return original_route_get_config(key, default)
@@ -329,7 +329,7 @@ def test_runtime_config_uses_registered_home_url_default_on_config_lock_miss(
 
 
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(
-    runtime_config_client,
+    runtime_config_client: FlaskClient,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config",
@@ -375,7 +375,7 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
 
 
 def test_runtime_config_uses_shifu_context_for_creator_branding(
-    runtime_config_client,
+    runtime_config_client: FlaskClient,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config?shifu_bid=shifu-1",
@@ -400,7 +400,7 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
 
 
 def test_runtime_config_uses_explicit_creator_bid_param(
-    runtime_config_client,
+    runtime_config_client: FlaskClient,
 ) -> None:
     # The /admin backend has no shifu_bid in the path; an explicit creator_bid
     # query param must resolve that creator's branding directly.
@@ -416,7 +416,7 @@ def test_runtime_config_uses_explicit_creator_bid_param(
 
 
 def test_runtime_config_without_creator_param_keeps_global_defaults(
-    runtime_config_client,
+    runtime_config_client: FlaskClient,
 ) -> None:
     # No shifu_bid and no creator_bid -> existing behavior unchanged (global).
     response = runtime_config_client.get(
@@ -430,7 +430,7 @@ def test_runtime_config_without_creator_param_keeps_global_defaults(
 
 
 def test_runtime_billing_builder_and_route_config_use_dto_outputs(
-    runtime_config_client,
+    runtime_config_client: FlaskClient,
 ) -> None:
     app = runtime_config_client.application
 
@@ -459,7 +459,9 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     }
 
 
-def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
+def test_default_runtime_billing_context_is_database_free(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.runtime_config.resolve_creator_entitlement_state",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
@@ -507,8 +509,8 @@ def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
 
 
 def test_runtime_config_reports_disabled_billing_flag(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -555,8 +557,8 @@ def test_runtime_config_reports_disabled_billing_flag(
 
 
 def test_runtime_config_falls_back_when_billing_context_build_fails(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         config_route,

@@ -10,14 +10,14 @@ from flaskr.service.learn.context_v2 import RunScriptContextV2
 _PRODUCER_THREAD_NAME = "mdflow_stream_result_producer"
 
 
-def _make_context_stub(app) -> types.SimpleNamespace:
+def _make_context_stub(app: object) -> types.SimpleNamespace:
     stub = types.SimpleNamespace(app=app)
     stub._stop_requested = lambda: False
     stub._stop_if_requested = lambda: None
     return stub
 
 
-def test_stream_producer_stops_when_consumer_exits_early(app) -> None:
+def test_stream_producer_stops_when_consumer_exits_early(app: object) -> None:
     stop_streaming = threading.Event()
 
     def endless_stream() -> Iterator[int]:
@@ -48,7 +48,9 @@ def test_stream_producer_stops_when_consumer_exits_early(app) -> None:
     )
 
 
-def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch) -> None:
+def test_early_consumer_exit_invalidates_producer_session(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import context_v2
 
     invalidations = []
@@ -83,7 +85,7 @@ def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch) -> N
 
 
 def test_natural_exhaustion_does_not_invalidate_producer_session(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.learn import context_v2
 
@@ -113,7 +115,9 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(
     assert invalidations == []
 
 
-def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch) -> None:
+def test_tts_finalize_failure_runs_classified_cleanup(
+    app: object, monkeypatch: object
+) -> None:
     """A DB failure swallowed by the TTS finalize wrapper must still run the classified cleanup so an interrupted exchange discards the connection."""
     import types
 
@@ -132,7 +136,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch) -> None:
     class _FailingProcessor:
         next_element_index = 0
 
-        def finalize(self, *, commit) -> Iterator[None]:
+        def finalize(self, *, commit: object) -> Iterator[None]:
             _ = commit
             message = "desynced during finalize"
             raise ResourceClosedError(message)

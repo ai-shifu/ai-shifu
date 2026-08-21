@@ -48,7 +48,7 @@ USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 STATE_TTL = 900
 
 
-def _encode_state(app, payload: dict[str, Any]) -> str:
+def _encode_state(app: object, payload: dict[str, Any]) -> str:
     now = int(time.time())
     return jwt.encode(
         {
@@ -62,7 +62,7 @@ def _encode_state(app, payload: dict[str, Any]) -> str:
     )
 
 
-def _decode_state(app, state: str) -> dict[str, Any] | None:
+def _decode_state(app: object, state: str) -> dict[str, Any] | None:
     try:
         decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
     except jwt.exceptions.ExpiredSignatureError:
@@ -104,7 +104,7 @@ def _extract_browser_language() -> str | None:
     return f"{primary}-{region}"
 
 
-def _resolve_redirect_uri(app, explicit_uri: str | None = None) -> str:
+def _resolve_redirect_uri(app: object, explicit_uri: str | None = None) -> str:
     del app, explicit_uri
     return build_google_oauth_callback_url()
 
@@ -131,7 +131,7 @@ def _require_matching_initiator(
         raise_error("server.user.googleOAuthStateInvalid")
 
 
-def resolve_state_return_origin(app, state: str | None) -> str:
+def resolve_state_return_origin(app: object, state: str | None) -> str:
     """Return the validated origin recorded in an OAuth state, or "".
 
     The shared callback page calls this to learn whether it should forward the
@@ -153,18 +153,18 @@ class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
 
-    def _resolve_token_endpoint(self, app) -> str:
+    def _resolve_token_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_TOKEN_ENDPOINT", TOKEN_ENDPOINT)
 
-    def _resolve_userinfo_endpoint(self, app) -> str:
+    def _resolve_userinfo_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
-    def verify(self, app, request) -> AuthResult:
+    def verify(self, app: object, request: object) -> AuthResult:
         """Verify the supplied authentication credential."""
         message = "GoogleAuthProvider only supports OAuth flows"
         raise NotImplementedError(message)
 
-    def _create_session(self, app, redirect_uri: str) -> OAuth2Session:
+    def _create_session(self, app: object, redirect_uri: str) -> OAuth2Session:
         client_id = app.config.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = app.config.get("GOOGLE_OAUTH_CLIENT_SECRET")
         scopes = ["openid", "email", "profile"]
@@ -175,7 +175,7 @@ class GoogleAuthProvider(AuthProvider):
             redirect_uri=redirect_uri,
         )
 
-    def begin_oauth(self, app, metadata: dict[str, Any]) -> dict[str, Any]:
+    def begin_oauth(self, app: object, metadata: dict[str, Any]) -> dict[str, Any]:
         """Create the Google OAuth authorization redirect."""
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
@@ -227,7 +227,9 @@ class GoogleAuthProvider(AuthProvider):
         current_app.logger.info("Google OAuth begin state=%s", state)
         return {"authorization_url": authorization_url, "state": state}
 
-    def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
+    def handle_oauth_callback(
+        self, app: object, request: OAuthCallbackRequest
+    ) -> AuthResult:
         """Exchange and verify the Google OAuth callback."""
         if not request.code or not request.state:
             current_app.logger.warning(

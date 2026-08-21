@@ -73,7 +73,7 @@ def _successful_llm(raw_output: str, captured: dict) -> Callable[..., object]:
     return invoke
 
 
-def _install_trace_spies(monkeypatch, captured: dict) -> None:
+def _install_trace_spies(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
     trace = object()
     root_span = object()
 
@@ -89,7 +89,7 @@ def _install_trace_spies(monkeypatch, captured: dict) -> None:
 
 
 def test_optimize_returns_reviewable_draft_without_changing_business_state(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user_bid = "profile-optimize-success"
     source = (
@@ -168,7 +168,7 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
     ],
 )
 def test_optimize_returns_model_text_without_quality_postprocessing(
-    app, monkeypatch, case_suffix, optimized
+    app: object, monkeypatch: pytest.MonkeyPatch, case_suffix: object, optimized: object
 ) -> None:
     user_bid = f"profile-optimize-low-quality-{case_suffix}"
     source = "我在教育行业工作，希望表达简洁准确。"
@@ -203,7 +203,10 @@ def test_optimize_returns_model_text_without_quality_postprocessing(
     [("zh-CN", "简体中文"), ("en-US", "English"), ("fr-FR", "Français")],
 )
 def test_optimizer_uses_the_current_users_system_language(
-    app, monkeypatch, language, expected_output_language
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    language: object,
+    expected_output_language: object,
 ) -> None:
     user_bid = f"profile-optimize-language-{language}"
     captured: dict = {}
@@ -285,7 +288,9 @@ def test_optimizer_prompt_targets_the_downstream_learner_context_contract() -> N
     assert "Translate every foreign-language word or phrase" not in optimization_prompt
 
 
-def test_named_style_input_uses_the_full_optimizer_prompt(app, monkeypatch) -> None:
+def test_named_style_input_uses_the_full_optimizer_prompt(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setattr(
@@ -309,7 +314,7 @@ def test_named_style_input_uses_the_full_optimizer_prompt(app, monkeypatch) -> N
 
 
 def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user_bid = "profile-optimize-rejected"
     invoked = False
@@ -342,7 +347,7 @@ def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
 
 
 def test_optimize_provider_unavailable_moderation_still_allows_llm(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user_bid = "profile-optimize-moderation-unavailable"
     source = "Provider unavailable source profile"
@@ -386,7 +391,7 @@ def test_optimize_provider_unavailable_moderation_still_allows_llm(
 
 
 def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user_bid = "profile-optimize-missing-model"
     invoked = False
@@ -425,7 +430,10 @@ def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
     [("empty", ""), ("whitespace", "   ")],
 )
 def test_optimize_rejects_empty_model_output_without_changing_state(
-    app, monkeypatch, case_suffix, raw_output
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    case_suffix: object,
+    raw_output: object,
 ) -> None:
     user_bid = f"profile-optimize-empty-{case_suffix}"
     captured: dict = {}
@@ -456,7 +464,7 @@ def test_optimize_rejects_empty_model_output_without_changing_state(
 
 
 def test_optimize_timeout_finalizes_trace_without_changing_state(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user_bid = "profile-optimize-timeout"
     captured: dict = {}
@@ -488,7 +496,9 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(
     assert captured["trace_finalize"]["root_span"] is not None
 
 
-def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch) -> None:
+def test_optimize_reports_a_wrapped_timeout_as_timeout(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     user_bid = "profile-optimize-wrapped-timeout"
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
@@ -527,7 +537,11 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch) -> None
     ],
 )
 def test_optimize_reports_runtime_failure_reason_without_changing_state(
-    app, monkeypatch, provider_error, expected_code, expected_message
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider_error: object,
+    expected_code: object,
+    expected_message: object,
 ) -> None:
     user_bid = f"profile-optimize-runtime-error-{expected_code}"
     captured: dict = {}
@@ -558,7 +572,7 @@ def test_optimize_reports_runtime_failure_reason_without_changing_state(
 
 
 def test_optimize_reports_moderation_failure_reason_without_calling_llm(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     invoked = False
 
@@ -590,7 +604,7 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
 
 @pytest.mark.parametrize("learner_profile", ["", "   ", "x" * 1001])
 def test_optimize_rejects_invalid_input_before_moderation(
-    app, monkeypatch, learner_profile
+    app: object, monkeypatch: pytest.MonkeyPatch, learner_profile: object
 ) -> None:
     moderated = False
 

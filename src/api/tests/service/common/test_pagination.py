@@ -42,5 +42,7 @@ def test_constants_keep_admin_defaults() -> None:
         (2.9, 30.7, (2, 30)),
     ],
 )
-def test_normalize_pagination(page_index, page_size, expected) -> None:
+def test_normalize_pagination(
+    page_index: object, page_size: object, expected: object
+) -> None:
     assert normalize_pagination(page_index, page_size) == expected

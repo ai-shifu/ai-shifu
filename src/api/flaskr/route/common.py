@@ -61,7 +61,7 @@ def _extract_request_language() -> str | None:
 
 
 # Decorator that exempts a route from token validation
-def bypass_token_validation(func) -> Callable[..., object]:
+def bypass_token_validation(func: object) -> Callable[..., object]:
     """Mark a route as exempt from token validation."""
     by_pass_login_func.append(func.__name__)
 
@@ -100,7 +100,7 @@ def register_common_handler(app: Flask) -> Flask:
         return response
 
     @app.teardown_request
-    def teardown_shifu_context(exception) -> None:
+    def teardown_shifu_context(exception: object) -> None:
         # Ensure shifu context does not leak between requests on the same worker thread
         del exception
         clear_shifu_context()
@@ -109,7 +109,7 @@ def register_common_handler(app: Flask) -> Flask:
     return app
 
 
-def fmt(o) -> object:
+def fmt(o: object) -> object:
     """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime.datetime):
         # Single serialization choke point for datetimes returned by APIs.
@@ -126,7 +126,7 @@ def fmt(o) -> object:
     return o.__json__()
 
 
-def make_common_response(data) -> str:
+def make_common_response(data: object) -> str:
     """Build common response."""
     if data is None:
         data = {}

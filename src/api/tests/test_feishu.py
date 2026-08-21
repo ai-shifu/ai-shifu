@@ -3,7 +3,9 @@
 from types import SimpleNamespace
 
 
-def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
+def test_send_order_feishu_formats_notification(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     price_item = SimpleNamespace(
@@ -35,7 +37,9 @@ def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
     monkeypatch.setattr(order_funs, "get_shifu_info", get_shifu_info)
 
     class FakeQuery:
-        def __init__(self, first_value=None, count_value=0) -> None:
+        def __init__(
+            self, first_value: object | None = None, count_value: int = 0
+        ) -> None:
             self._first_value = first_value
             self._count_value = count_value
 
@@ -51,10 +55,10 @@ def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
     class FakeColumn:
         __hash__ = None
 
-        def __eq__(self, other) -> bool:
+        def __eq__(self, other: object) -> bool:
             return True
 
-        def __ge__(self, other) -> bool:
+        def __ge__(self, other: object) -> bool:
             return True
 
     class FakeUserConversion:
@@ -71,7 +75,7 @@ def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
 
     captured = {}
 
-    def fake_send_notify(_app, title, msgs) -> None:
+    def fake_send_notify(_app: object, title: object, msgs: object) -> None:
         captured["title"] = title
         captured["msgs"] = msgs
 

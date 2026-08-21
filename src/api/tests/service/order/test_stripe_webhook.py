@@ -45,7 +45,9 @@ class DummyStripeProvider:
         """Initialize the dummy stripe provider test double."""
         self._notification = notification
 
-    def verify_webhook(self, *, headers, raw_body, app) -> PaymentNotificationResult:
+    def verify_webhook(
+        self, *, headers: object, raw_body: object, app: object
+    ) -> PaymentNotificationResult:
         del headers, raw_body, app
         return self._notification
 
@@ -74,7 +76,7 @@ def stripe_webhook_app() -> Iterator[Flask]:
         dao.db.drop_all()
 
 
-def _ensure_order(status, order_bid) -> Order:
+def _ensure_order(status: object, order_bid: object) -> Order:
     order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
@@ -86,7 +88,9 @@ def _ensure_order(status, order_bid) -> Order:
     return order
 
 
-def _ensure_billing_subscription(status, subscription_bid) -> BillingSubscription:
+def _ensure_billing_subscription(
+    status: object, subscription_bid: object
+) -> BillingSubscription:
     subscription = BillingSubscription.query.filter(
         BillingSubscription.subscription_bid == subscription_bid
     ).first()
@@ -110,7 +114,9 @@ def _ensure_billing_subscription(status, subscription_bid) -> BillingSubscriptio
     return subscription
 
 
-def _ensure_billing_order(status, bill_order_bid, subscription_bid) -> BillingOrder:
+def _ensure_billing_order(
+    status: object, bill_order_bid: object, subscription_bid: object
+) -> BillingOrder:
     order = BillingOrder.query.filter(
         BillingOrder.bill_order_bid == bill_order_bid
     ).first()
@@ -141,7 +147,7 @@ def _ensure_billing_order(status, bill_order_bid, subscription_bid) -> BillingOr
     return order
 
 
-def _ensure_billing_stripe_raw_snapshot(bill_order_bid) -> StripeOrder:
+def _ensure_billing_stripe_raw_snapshot(bill_order_bid: object) -> StripeOrder:
     raw_order = StripeOrder.query.filter(
         StripeOrder.bill_order_bid == bill_order_bid,
         StripeOrder.biz_domain == "billing",
@@ -175,7 +181,7 @@ def _ensure_billing_stripe_raw_snapshot(bill_order_bid) -> StripeOrder:
 
 
 def test_handle_stripe_webhook_marks_order_paid(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with stripe_webhook_app.app_context():
         order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-1")
@@ -246,7 +252,7 @@ def test_handle_stripe_webhook_marks_order_paid(
 
 
 def test_stripe_webhook_route_marks_legacy_order_paid(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with stripe_webhook_app.app_context():
         order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-route-1")
@@ -329,7 +335,7 @@ def test_stripe_webhook_route_marks_legacy_order_paid(
 
 
 def test_handle_stripe_webhook_routes_bill_orders_without_regression(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
@@ -437,7 +443,7 @@ def test_handle_stripe_webhook_routes_bill_orders_without_regression(
 
 
 def test_stripe_webhook_route_delegates_bill_orders(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
@@ -515,7 +521,7 @@ def test_stripe_webhook_route_delegates_bill_orders(
 
 
 def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
@@ -586,7 +592,7 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
 
 
 def test_handle_stripe_webhook_ignores_stale_subscription_updates(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
@@ -643,7 +649,7 @@ def test_handle_stripe_webhook_ignores_stale_subscription_updates(
 
 
 def test_handle_stripe_webhook_ignores_orphan_billing_event(
-    stripe_webhook_app, monkeypatch
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     notification = PaymentNotificationResult(
         order_bid="",

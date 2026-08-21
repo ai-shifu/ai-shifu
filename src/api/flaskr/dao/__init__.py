@@ -85,7 +85,7 @@ def set_redis_client(client: Redis | None) -> None:
     _redis_state.client = client
 
 
-def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
+def _socket_has_unread_data(dbapi_connection: object, timeout: float = 0) -> bool:
     """Return True when the DBAPI connection's socket has readable bytes.
 
     A healthy pooled MySQL connection is silent between transactions: every
@@ -125,7 +125,7 @@ def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
 _CHECKIN_PROBE_GRACE_SECONDS = 0.002
 
 
-def _server_thread_id(dbapi_connection) -> int | None:
+def _server_thread_id(dbapi_connection: object) -> int | None:
     """Best-effort MySQL server-side connection id for log correlation."""
     try:
         return dbapi_connection.thread_id()
@@ -153,7 +153,7 @@ def _pool_diagnostics_logger() -> logging.Logger:
 
 @event.listens_for(sa_pool.Pool, "checkin")
 def _invalidate_desynced_connection_on_checkin(
-    dbapi_connection, connection_record
+    dbapi_connection: object, connection_record: object
 ) -> None:
     if dbapi_connection is None:
         return
@@ -177,7 +177,7 @@ def _invalidate_desynced_connection_on_checkin(
 
 @event.listens_for(sa_pool.Pool, "checkout")
 def _reject_desynced_connection_on_checkout(
-    dbapi_connection, connection_record, connection_proxy
+    dbapi_connection: object, connection_record: object, connection_proxy: object
 ) -> None:
     _ = connection_proxy
     if _socket_has_unread_data(dbapi_connection):
@@ -219,7 +219,7 @@ def _reject_desynced_connection_on_checkout(
     _mark_checkout_boundary(connection_record)
 
 
-def _mark_checkout_boundary(connection_record) -> None:
+def _mark_checkout_boundary(connection_record: object) -> None:
     # The journal lives in connection_record.info and therefore survives
     # checkin/checkout: without a boundary marker a dump can silently mix
     # statements from different requests that shared this pooled connection.
@@ -247,7 +247,7 @@ _STATEMENT_SNIPPET_CHARS = 90
 _CHECKOUT_BOUNDARY_MARKER = "-- pool checkout --"
 
 
-def _journal_from_info(info) -> collections.deque:
+def _journal_from_info(info: object) -> collections.deque:
     journal = info.get(_STATEMENT_JOURNAL_KEY)
     if journal is None:
         journal = collections.deque(maxlen=_STATEMENT_JOURNAL_SIZE)
@@ -255,13 +255,18 @@ def _journal_from_info(info) -> collections.deque:
     return journal
 
 
-def _statement_journal(connection) -> collections.deque:
+def _statement_journal(connection: object) -> collections.deque:
     return _journal_from_info(connection.info)
 
 
 @event.listens_for(Engine, "before_cursor_execute")
 def _intercept_desync_before_execute(
-    conn, cursor, statement, parameters, context, executemany
+    conn: object,
+    cursor: object,
+    statement: object,
+    parameters: object,
+    context: object,
+    executemany: object,
 ) -> None:
     _ = (cursor, parameters, context, executemany)
     dbapi_connection = getattr(conn.connection, "dbapi_connection", None)
@@ -293,7 +298,12 @@ def _intercept_desync_before_execute(
 
 @event.listens_for(Engine, "after_cursor_execute")
 def _journal_statement_after_execute(
-    conn, cursor, statement, parameters, context, executemany
+    conn: object,
+    cursor: object,
+    statement: object,
+    parameters: object,
+    context: object,
+    executemany: object,
 ) -> None:
     _ = (parameters, context, executemany)
     with contextlib.suppress(Exception):
@@ -384,7 +394,7 @@ def is_abnormal_stream_termination(exc: BaseException | None) -> bool:
     return is_protocol_interrupt_error(exc)
 
 
-def invalidate_session(*, source: str, session=None) -> bool:
+def invalidate_session(*, source: str, session: object | None = None) -> bool:
     """Discard the session's connection instead of returning it to the pool.
 
     ``Session.invalidate()`` rolls back the session state WITHOUT emitting
@@ -414,7 +424,7 @@ def invalidate_session(*, source: str, session=None) -> bool:
 
 
 def cleanup_session_after(
-    exc: BaseException | None, *, source: str, session=None
+    exc: BaseException | None, *, source: str, session: object | None = None
 ) -> str:
     """Classify a termination and clean the session accordingly.
 
@@ -511,7 +521,7 @@ def retry_on_deadlock(
     that connection.
     """
 
-    def decorator(func) -> Callable[..., object]:
+    def decorator(func: object) -> Callable[..., object]:
         @functools.wraps(func)
         def wrapper(*args: object, **kwargs: object) -> object:
             attempt = 0
@@ -620,7 +630,7 @@ def init_db(app: Flask) -> None:
     # REVERSE registration order, so registering AFTER db.init_app makes
     # this run BEFORE the extension's session removal.
     @app.teardown_appcontext
-    def _invalidate_session_on_interrupted_teardown(exc) -> None:
+    def _invalidate_session_on_interrupted_teardown(exc: object) -> None:
         if exc is not None and is_abnormal_stream_termination(exc):
             invalidate_session(source="appcontext teardown interrupt")
 
@@ -630,7 +640,12 @@ def init_db(app: Flask) -> None:
         def setup_sql_logging() -> None:
             @event.listens_for(db.engine, "before_cursor_execute")
             def before_cursor_execute(
-                conn, cursor, statement, parameters, context, executemany
+                conn: object,
+                cursor: object,
+                statement: object,
+                parameters: object,
+                context: object,
+                executemany: object,
             ) -> None:
                 _ = (conn, cursor, context, executemany)
                 stack = traceback.extract_stack()
@@ -711,7 +726,9 @@ def init_redis(app: Flask) -> None:
     app.logger.info("init redis done")
 
 
-def run_with_redis(app, key, timeout: int, func, args) -> object | None:
+def run_with_redis(
+    app: object, key: object, timeout: int, func: object, args: object
+) -> object | None:
     """Run with Redis."""
     with app.app_context():
         app.logger.info("run_with_redis start %s", key)

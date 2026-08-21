@@ -13,7 +13,9 @@ class _FailingResponse:
         raise requests.exceptions.HTTPError(message)
 
 
-def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch) -> None:
+def test_feishu_log_handler_does_not_reemit_webhook_failures(
+    monkeypatch: object,
+) -> None:
     calls = []
 
     def fake_post(*args: object, **kwargs: object) -> object:
@@ -40,7 +42,7 @@ def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch) -> Non
 
 
 def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
-    monkeypatch, caplog
+    monkeypatch: object, caplog: object
 ) -> None:
     calls = []
 
@@ -69,7 +71,9 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
     assert "Failed to send log to Feishu webhook" in caplog.text
 
 
-def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch) -> None:
+def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(
+    monkeypatch: object,
+) -> None:
     calls = []
 
     def fake_post(*args: object, **kwargs: object) -> object:
@@ -97,10 +101,10 @@ def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch) -> 
     assert calls == []
 
 
-def test_feishu_log_handler_truncates_oversized_payload(monkeypatch) -> None:
+def test_feishu_log_handler_truncates_oversized_payload(monkeypatch: object) -> None:
     captured = {}
 
-    def fake_post(_url, *, json, timeout) -> object:
+    def fake_post(_url: object, *, json: object, timeout: object) -> object:
         captured["payload"] = json
         captured["timeout"] = timeout
         return type("Response", (), {"raise_for_status": lambda _self: None})()

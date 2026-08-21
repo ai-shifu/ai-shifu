@@ -21,7 +21,9 @@ _TEST_CONFIG = {
 }
 
 
-def _patch_config(monkeypatch, config=None) -> None:
+def _patch_config(
+    monkeypatch: pytest.MonkeyPatch, config: object | None = None
+) -> None:
     values = _TEST_CONFIG if config is None else config
     monkeypatch.setattr(
         volcengine_voice_clone,
@@ -31,7 +33,7 @@ def _patch_config(monkeypatch, config=None) -> None:
 
 
 class _FakeResponse:
-    def __init__(self, payload, status_code=200) -> None:
+    def __init__(self, payload: object, status_code: int = 200) -> None:
         self._payload = payload
         self.status_code = status_code
         self.text = ""
@@ -56,14 +58,16 @@ class _FakeResponse:
         (None, False),
     ],
 )
-def test_is_valid_volcengine_custom_voice_id(value, expected) -> None:
+def test_is_valid_volcengine_custom_voice_id(value: object, expected: object) -> None:
     assert is_valid_volcengine_custom_voice_id(value) is expected
 
 
-def test_query_status_sends_expected_request(monkeypatch) -> None:
+def test_query_status_sends_expected_request(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_config(monkeypatch)
 
-    def fake_post(url, headers, json, timeout) -> object:
+    def fake_post(
+        url: object, headers: object, json: object, timeout: object
+    ) -> object:
         assert url == VOLCENGINE_MEGA_TTS_STATUS_URL
         assert headers["Authorization"] == "Bearer;test-token"
         assert headers["Resource-Id"] == VOLCENGINE_ICL_RESOURCE_ID
@@ -77,7 +81,9 @@ def test_query_status_sends_expected_request(monkeypatch) -> None:
     assert query_volcengine_voice_status("S_xxxxxxxxxx") == 2
 
 
-def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
+def test_query_status_raises_on_base_resp_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
@@ -90,13 +96,17 @@ def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_raises_without_credentials(monkeypatch) -> None:
+def test_query_status_raises_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _patch_config(monkeypatch, config={})
     with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> None:
+def test_query_status_converts_transport_error_to_param_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Provider unreachable / timeout must fail through the controlled parameter-error path, not bubble a raw RequestException into a 500."""
     import requests as requests_lib
 
@@ -112,7 +122,9 @@ def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> No
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
+def test_query_status_converts_invalid_json_to_param_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _patch_config(monkeypatch)
 
     class _BadJsonResponse:
@@ -132,7 +144,9 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
+def test_query_status_converts_http_error_to_param_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Volcengine answers 4xx (with a JSON message) for unknown speakers or missing grants; that must surface as a parameter error, not an HTTPError."""
     _patch_config(monkeypatch)
     monkeypatch.setattr(
@@ -147,7 +161,9 @@ def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("status", [2, 4])
-def test_verify_accepts_success_and_active(monkeypatch, status) -> None:
+def test_verify_accepts_success_and_active(
+    monkeypatch: pytest.MonkeyPatch, status: object
+) -> None:
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
@@ -160,7 +176,9 @@ def test_verify_accepts_success_and_active(monkeypatch, status) -> None:
 
 
 @pytest.mark.parametrize("status", [0, 1, 3])
-def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
+def test_verify_rejects_not_ready_statuses(
+    monkeypatch: pytest.MonkeyPatch, status: object
+) -> None:
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,

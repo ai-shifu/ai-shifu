@@ -12,7 +12,7 @@ from flaskr.service.common.models import AppError
 
 
 class _FakeSSEStreamingResponse:
-    def __init__(self, lines, *, headers=None) -> None:
+    def __init__(self, lines: object, *, headers: object | None = None) -> None:
         self._lines = list(lines)
         self.headers = headers or {"content-type": "text/event-stream"}
         self.closed = False
@@ -20,7 +20,7 @@ class _FakeSSEStreamingResponse:
     def raise_for_status(self) -> None:
         return None
 
-    def iter_lines(self, decode_unicode=True) -> Iterator[object]:
+    def iter_lines(self, decode_unicode: bool = True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 
@@ -53,7 +53,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
         ]
     )
 
-    def sign(key, msg) -> object:
+    def sign(key: object, msg: object) -> object:
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
     secret_date = sign(("TC3" + secret_key).encode("utf-8"), date)
@@ -70,7 +70,9 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
 
 
-def _patch_tencent_config(monkeypatch, tencent_provider) -> None:
+def _patch_tencent_config(
+    monkeypatch: pytest.MonkeyPatch, tencent_provider: object
+) -> None:
     config = {
         "TENCENT_TTS_APP_ID": "1400000000",
         "TENCENT_TTS_SECRET_ID": "secret-id",
@@ -125,7 +127,9 @@ def test_tencent_sse_tc3_headers_sign_exact_request_payload() -> None:
     )
 
 
-def test_tencent_provider_config_validation_and_explicit_only(monkeypatch) -> None:
+def test_tencent_provider_config_validation_and_explicit_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.api.tts import tencent_provider
     from flaskr.common.config import ENV_VARS
@@ -186,7 +190,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch) -> No
 
 
 def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
@@ -194,7 +198,9 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
     _patch_tencent_config(monkeypatch, tencent_provider)
     post_calls = []
 
-    def fake_post(url, data, headers, stream, timeout) -> object:
+    def fake_post(
+        url: object, data: object, headers: object, stream: object, timeout: object
+    ) -> object:
         post_calls.append(
             {
                 "url": url,
@@ -270,14 +276,16 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
 
 
 def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
     _patch_tencent_config(monkeypatch, tencent_provider)
 
-    def fake_post(url, data, headers, stream, timeout) -> object:
+    def fake_post(
+        url: object, data: object, headers: object, stream: object, timeout: object
+    ) -> object:
         _ = url, data, headers, stream, timeout
         return _FakeSSEStreamingResponse(
             [
@@ -366,12 +374,16 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     assert [cue["text"] for cue in result.subtitle_cues] == ["你好。", "世界！"]
 
 
-def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch) -> None:
+def test_tencent_provider_raises_sanitized_error_on_sse_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from flaskr.api.tts import tencent_provider
 
     _patch_tencent_config(monkeypatch, tencent_provider)
 
-    def fake_post(url, data, headers, stream, timeout) -> object:
+    def fake_post(
+        url: object, data: object, headers: object, stream: object, timeout: object
+    ) -> object:
         _ = url, data, headers, stream, timeout
         return _FakeSSEStreamingResponse(
             [

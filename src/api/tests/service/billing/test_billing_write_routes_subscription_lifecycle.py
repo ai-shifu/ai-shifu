@@ -63,7 +63,9 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
+def billing_write_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 
@@ -71,7 +73,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
     """Verify billing write routes subscription lifecycle behavior."""
 
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -178,7 +180,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert expire_event.scheduled_at == subscription.current_period_end_at
 
     def test_pending_pingxx_subscription_order_can_refresh_checkout(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
 
@@ -210,7 +212,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
         assert billing_write_client["pingxx_requests"][1]["body"] == "月套餐·轻量版"
 
     def test_subscription_checkout_reuses_same_pending_stripe_order_within_timeout(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -247,7 +249,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert orders[0].expires_at is not None
 
     def test_subscription_checkout_cancels_pending_order_when_switching_package(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -290,7 +292,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert new_order.status == BILLING_ORDER_STATUS_PENDING
 
     def test_expired_pending_order_is_timed_out_and_recreated_on_same_package_checkout(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -334,7 +336,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert old_order.failure_code == "timeout"
 
     def test_legacy_pending_order_without_expires_at_is_reused_within_timeout(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -378,7 +380,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert order.expires_at is not None
 
     def test_legacy_pending_order_without_expires_at_times_out_and_recreates(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -422,7 +424,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert old_order.failure_code == "timeout"
 
     def test_pending_subscription_checkout_route_marks_expired_order_timeout(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -453,11 +455,11 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert order.status == BILLING_ORDER_STATUS_TIMEOUT
 
     def test_pingxx_wechat_subscription_checkout_aligns_legacy_charge_extra(
-        self, billing_write_client, monkeypatch
+        self, billing_write_client: dict[str, object], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         client = billing_write_client["client"]
 
-        def fake_get_config(key, default=None) -> object:
+        def fake_get_config(key: object, default: object | None = None) -> object:
             if key == "PINGXX_APP_ID":
                 return "app_billing_test"
             return default
@@ -485,7 +487,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
         }
 
     def test_subscription_checkout_and_sync_grant_initial_credits(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -552,7 +554,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             )
 
     def test_cancel_and_resume_subscription_toggle_status(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -619,7 +621,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert cancel_event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
 
     def test_past_due_subscription_sets_grace_and_retry_event(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
 
@@ -678,7 +680,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_CANCELED
 
     def test_next_product_bid_schedules_downgrade_event(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
 
@@ -712,7 +714,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert downgrade_event.scheduled_at == subscription.current_period_end_at
 
     def test_paid_upgrade_order_switches_subscription_product_and_reschedules(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
         current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
@@ -863,7 +865,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert upgrade_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
 
     def test_paid_renewal_order_applies_scheduled_next_product(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
 
@@ -918,7 +920,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert renewal_event.scheduled_at == subscription.current_period_end_at
 
     def test_paid_pingxx_renewal_before_cycle_start_keeps_current_period(
-        self, billing_write_client, monkeypatch
+        self, billing_write_client: dict[str, object], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         app = billing_write_client["app"]
         current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
@@ -927,7 +929,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
 
         class FrozenDateTime(datetime):
             @classmethod
-            def now(cls, tz=None) -> datetime:
+            def now(cls, tz: object | None = None) -> datetime:
                 frozen_now = datetime(2026, 4, 24, 10, 0, 0)
                 if tz is not None:
                     return frozen_now.replace(tzinfo=tz)
@@ -1058,7 +1060,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
     def test_paid_pingxx_renewal_after_cycle_end_shifts_cycle_from_payment_time(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
@@ -1135,7 +1137,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             )
 
     def test_existing_subscription_grant_realigns_future_dated_cycle_on_replay(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
         paid_at = datetime(2026, 4, 15, 13, 10, 37)
@@ -1212,7 +1214,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert subscription.current_period_end_at == bucket.effective_to
 
     def test_paid_subscription_start_reactivates_reused_expired_bucket(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
         paid_at = datetime(2026, 6, 11, 14, 11, 8)
@@ -1328,7 +1330,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
     def test_paid_subscription_replay_repairs_existing_expired_bucket_status(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         app = billing_write_client["app"]
         paid_at = datetime(2026, 6, 11, 14, 11, 8)

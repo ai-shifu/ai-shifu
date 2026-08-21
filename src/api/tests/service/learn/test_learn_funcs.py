@@ -238,7 +238,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -265,11 +267,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index) -> DummyBlock:
+            def get_block(self, block_index: object) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object | None = None,
+                context: object | None = None,
+                user_input: object | None = None,
             ) -> object:
                 _ = (block_index, mode, variables, user_input)
                 FakeMarkdownFlow.last_context = context
@@ -362,7 +369,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -395,11 +404,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index) -> DummyBlock:
+            def get_block(self, block_index: object) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object | None = None,
+                context: object | None = None,
+                user_input: object | None = None,
             ) -> object:
                 _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
@@ -516,7 +530,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -539,11 +555,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index) -> DummyBlock:
+            def get_block(self, block_index: object) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object | None = None,
+                context: object | None = None,
+                user_input: object | None = None,
             ) -> types.SimpleNamespace:
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
@@ -645,7 +666,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -671,11 +694,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index) -> DummyBlock:
+            def get_block(self, block_index: object) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object | None = None,
+                context: object | None = None,
+                user_input: object | None = None,
             ) -> types.SimpleNamespace:
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
@@ -770,7 +798,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -796,11 +826,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index) -> DummyBlock:
+            def get_block(self, block_index: object) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object | None = None,
+                context: object | None = None,
+                user_input: object | None = None,
             ) -> types.SimpleNamespace:
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True

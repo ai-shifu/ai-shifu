@@ -133,7 +133,7 @@ def _find_call_by_name(node: ast.AST, name: str) -> ast.Call:
 
 
 def _mock_user(
-    monkeypatch, user_id: str, *, is_creator: bool = False
+    monkeypatch: object, user_id: str, *, is_creator: bool = False
 ) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
@@ -148,7 +148,7 @@ def _mock_user(
     return dummy_user
 
 
-def test_stream_passthrough_releases_request_db_session(monkeypatch) -> None:
+def test_stream_passthrough_releases_request_db_session(monkeypatch: object) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -178,7 +178,7 @@ def test_stream_passthrough_releases_request_db_session(monkeypatch) -> None:
 
 
 def test_stream_passthrough_ignores_request_db_session_remove_failure(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.learn import routes
 
@@ -214,7 +214,9 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(
     assert calls == ["remove", "iterate", "remove"]
 
 
-def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog) -> None:
+def test_stream_sse_logs_business_errors_as_warning(
+    monkeypatch: object, caplog: object
+) -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
@@ -247,7 +249,9 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog) -> None
     assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
-def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog) -> None:
+def test_stream_sse_keeps_unexpected_errors_at_error_level(
+    monkeypatch: object, caplog: object
+) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -277,7 +281,7 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog) 
 
 
 def test_stream_sse_emits_error_event_for_business_error_with_factory(
-    monkeypatch, caplog
+    monkeypatch: object, caplog: object
 ) -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
@@ -360,7 +364,7 @@ def test_run_route_passes_admission_payload_to_run_script() -> None:
 
 
 def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ) -> None:
     _ = app
     _mock_user(monkeypatch, "user-preview")
@@ -405,7 +409,7 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
 
 
 def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ) -> None:
     _mock_user(monkeypatch, "user-run")
 
@@ -442,7 +446,7 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
 
 
 def test_run_route_uses_payload_language_as_generation_snapshot(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ) -> None:
     _mock_user(monkeypatch, "user-run-language")
     captured = {}

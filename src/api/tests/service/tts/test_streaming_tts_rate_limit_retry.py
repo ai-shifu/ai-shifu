@@ -30,12 +30,12 @@ _TENCENT_MESSAGE = (
         ("No audio data received", False),
     ],
 )
-def test_rate_limit_detector(message, expected) -> None:
+def test_rate_limit_detector(message: object, expected: object) -> None:
     assert _is_retryable_rate_limit_error(ValueError(message)) is expected
 
 
 def _run_retry(
-    monkeypatch, outcomes, segment_index=0
+    monkeypatch: pytest.MonkeyPatch, outcomes: object, segment_index: int = 0
 ) -> tuple[object, list[object], list[object]]:
     calls = []
     sleeps = []
@@ -63,7 +63,9 @@ def _run_retry(
     return result, calls, sleeps
 
 
-def test_throttled_segment_retries_until_success(monkeypatch) -> None:
+def test_throttled_segment_retries_until_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     success = types.SimpleNamespace(audio_data=b"ok")
     result, calls, sleeps = _run_retry(
         monkeypatch,
@@ -77,7 +79,9 @@ def test_throttled_segment_retries_until_success(monkeypatch) -> None:
     assert sleeps[1] > sleeps[0] > 0
 
 
-def test_throttled_segment_gives_up_after_max_attempts(monkeypatch) -> None:
+def test_throttled_segment_gives_up_after_max_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     with pytest.raises(ValueError, match="LimitExceeded"):
         _run_retry(
             monkeypatch,
@@ -85,7 +89,9 @@ def test_throttled_segment_gives_up_after_max_attempts(monkeypatch) -> None:
         )
 
 
-def test_stagger_gives_concurrent_segments_distinct_delays(monkeypatch) -> None:
+def test_stagger_gives_concurrent_segments_distinct_delays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from flaskr.service.tts.streaming_tts import _RATE_LIMIT_RETRY_STAGGER_SLOTS
 
     success = types.SimpleNamespace(audio_data=b"ok")
@@ -104,7 +110,9 @@ def test_stagger_gives_concurrent_segments_distinct_delays(monkeypatch) -> None:
     assert len(set(delays)) == _RATE_LIMIT_RETRY_STAGGER_SLOTS
 
 
-def test_non_retryable_error_still_raises_immediately(monkeypatch) -> None:
+def test_non_retryable_error_still_raises_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     with pytest.raises(ValueError, match="AuthFailure"):
         _run_retry(
             monkeypatch,

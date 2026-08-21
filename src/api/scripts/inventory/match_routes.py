@@ -37,7 +37,7 @@ if _grep_executable is None:
 GREP_EXECUTABLE = str(Path(_grep_executable).resolve())
 
 
-def norm(path) -> tuple[str, ...]:
+def norm(path: object) -> tuple[str, ...]:
     """Normalize a route path into comparable segments."""
     path = path.split("?")[0].rstrip("/")
     segs = []
@@ -51,7 +51,7 @@ def norm(path) -> tuple[str, ...]:
     return tuple(segs)
 
 
-def grep_paths(root) -> set[tuple[str, ...]]:
+def grep_paths(root: object) -> set[tuple[str, ...]]:
     """Return source paths reported by the route search."""
     if not Path(root).is_dir():
         return set()
@@ -124,7 +124,7 @@ with Path(BACKEND_ROUTES).open(encoding="utf-8") as backend_routes:
         be.append((method, path, norm(path), src))
 
 
-def match(be_segs, fe_segs) -> bool:
+def match(be_segs: object, fe_segs: object) -> bool:
     """Return whether backend and consumer route segments match."""
     if len(be_segs) != len(fe_segs):
         return False

@@ -22,7 +22,7 @@ def _shared_i18n_root() -> Path:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_i18n_state(monkeypatch) -> Iterator[None]:
+def _isolate_i18n_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # SHARED_I18N_ROOT is restored by monkeypatch; the thread-local language
     # set via set_language() must be cleared so later tests (e.g. ask provider
     # adapters asserting en-US messages) are not affected by test order.

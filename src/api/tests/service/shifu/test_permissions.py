@@ -27,7 +27,7 @@ def _get_models() -> "tuple[type[DraftShifu], type[AiCourseAuth]]":
     return DraftShifu, AiCourseAuth
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
+def _seed_shifu(app: object, shifu_bid: str, owner_bid: str) -> None:
     with app.app_context():
         draft_shifu_model, course_auth_model = _get_models()
         draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
@@ -50,7 +50,9 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
         dao.db.session.commit()
 
 
-def _mock_user(monkeypatch, user_id: str, is_creator: bool = True) -> SimpleNamespace:
+def _mock_user(
+    monkeypatch: pytest.MonkeyPatch, user_id: str, is_creator: bool = True
+) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -72,12 +74,12 @@ def _clear_config_caches() -> None:
             config_module.Config._instance.enhanced._cache.clear()
 
 
-def _allow_email_login(monkeypatch) -> None:
+def _allow_email_login(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
     _clear_config_caches()
 
 
-def _add_auth(app, shifu_bid: str, user_id: str, status: int) -> None:
+def _add_auth(app: object, shifu_bid: str, user_id: str, status: int) -> None:
     with app.app_context():
         _, course_auth_model = _get_models()
         dao.db.session.add(
@@ -92,7 +94,7 @@ def _add_auth(app, shifu_bid: str, user_id: str, status: int) -> None:
         dao.db.session.commit()
 
 
-def _seed_user(app, *, user_bid: str, email: str) -> None:
+def _seed_user(app: object, *, user_bid: str, email: str) -> None:
     with app.app_context():
         entity = create_user_entity(
             user_bid=user_bid,
@@ -115,7 +117,7 @@ def _seed_user(app, *, user_bid: str, email: str) -> None:
         dao.db.session.commit()
 
 
-def _ensure_trial_billing_enabled(monkeypatch) -> None:
+def _ensure_trial_billing_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     import flaskr.service.billing.auth_hooks  # noqa: F401
 
     monkeypatch.setattr(
@@ -137,7 +139,9 @@ def _ensure_trial_billing_enabled(monkeypatch) -> None:
 class TestShifuPermissions:
     """Verify shifu permissions behavior."""
 
-    def test_list_permissions_only_active(self, monkeypatch, test_client, app) -> None:
+    def test_list_permissions_only_active(
+        self, monkeypatch: pytest.MonkeyPatch, test_client: object, app: object
+    ) -> None:
         shifu_bid = "test-permission-list"
         owner_id = "owner-1"
         active_user = "user-active"
@@ -174,7 +178,7 @@ class TestShifuPermissions:
         assert items[0]["user_id"] == active_user
 
     def test_remove_permissions_soft_delete(
-        self, monkeypatch, test_client, app
+        self, monkeypatch: pytest.MonkeyPatch, test_client: object, app: object
     ) -> None:
         shifu_bid = "test-permission-remove"
         owner_id = "owner-2"
@@ -203,7 +207,7 @@ class TestShifuPermissions:
             assert auth.status == 0
 
     def test_grant_view_permission_does_not_promote_creator(
-        self, monkeypatch, test_client, app
+        self, monkeypatch: pytest.MonkeyPatch, test_client: object, app: object
     ) -> None:
         shifu_bid = "test-permission-grant-view"
         owner_id = "owner-grant-view"
@@ -242,9 +246,9 @@ class TestShifuPermissions:
     )
     def test_grant_authoring_permission_promotes_creator_and_bootstraps_trial(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: pytest.MonkeyPatch,
+        test_client: object,
+        app: object,
         permission: str,
         expected_auth_types: list[str],
     ) -> None:

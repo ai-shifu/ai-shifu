@@ -4,11 +4,11 @@ import uuid
 
 
 class _FakeRedis:
-    def __init__(self, values=None) -> None:
+    def __init__(self, values: object | None = None) -> None:
         self.values = dict(values or {})
         self.deleted = []
 
-    def get(self, key) -> object:
+    def get(self, key: object) -> object:
         return self.values.get(key)
 
     def delete(self, *keys: str) -> int:
@@ -53,7 +53,7 @@ def _reset_shifu_tables() -> None:
 
 
 def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
-    tmp_path, monkeypatch
+    tmp_path: object, monkeypatch: object
 ) -> None:
     from flask import Flask
     from flaskr import dao
@@ -128,7 +128,7 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
         assert credential is not None
 
 
-def test_phone_flow_sets_user_identify(app) -> None:
+def test_phone_flow_sets_user_identify(app: object) -> None:
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
@@ -157,7 +157,7 @@ def test_phone_flow_sets_user_identify(app) -> None:
             _reset_user_auth_tables()
 
 
-def test_email_flow_sets_user_identify(app) -> None:
+def test_email_flow_sets_user_identify(app: object) -> None:
     from flaskr.service.user import email_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
@@ -180,7 +180,9 @@ def test_email_flow_sets_user_identify(app) -> None:
             _reset_user_auth_tables()
 
 
-def test_send_email_code_stores_lowercase_identifier(app, monkeypatch) -> None:
+def test_send_email_code_stores_lowercase_identifier(
+    app: object, monkeypatch: object
+) -> None:
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
     from flaskr.service.user.models import UserVerifyCode
@@ -197,7 +199,9 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch) -> None:
         def login(self, *_args: object) -> None:
             return None
 
-        def sendmail(self, _sender, recipient, _message) -> None:
+        def sendmail(
+            self, _sender: object, recipient: object, _message: object
+        ) -> None:
             self.sent_to = recipient
 
         def quit(self) -> None:
@@ -249,7 +253,7 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch) -> None:
             db.session.commit()
 
 
-def test_phone_flow_verifies_code_from_db_when_cache_missing(app) -> None:
+def test_phone_flow_verifies_code_from_db_when_cache_missing(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserVerifyCode
@@ -283,7 +287,7 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app) -> None:
         assert updated.verify_code_used == 1
 
 
-def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app) -> None:
+def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential, UserVerifyCode
@@ -331,7 +335,7 @@ def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app) -> None:
             _reset_user_auth_tables()
 
 
-def test_phone_flow_accepts_prefixed_pending_db_code(app) -> None:
+def test_phone_flow_accepts_prefixed_pending_db_code(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential, UserVerifyCode
@@ -379,7 +383,9 @@ def test_phone_flow_accepts_prefixed_pending_db_code(app) -> None:
             _reset_user_auth_tables()
 
 
-def test_consume_verification_code_accepts_prefixed_pending_cache_key(app) -> None:
+def test_consume_verification_code_accepts_prefixed_pending_cache_key(
+    app: object,
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import verification_codes
     from flaskr.service.user.models import UserVerifyCode
@@ -417,7 +423,7 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(app) -> No
             db.session.commit()
 
 
-def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app) -> None:
+def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
     from flaskr.service.user import phone_flow
@@ -468,7 +474,7 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app) -> None:
             _reset_user_auth_tables()
 
 
-def test_email_flow_verifies_code_from_db_when_cache_missing(app) -> None:
+def test_email_flow_verifies_code_from_db_when_cache_missing(app: object) -> None:
     from flaskr.dao import db
     from flaskr.service.user import email_flow
     from flaskr.service.user.models import UserVerifyCode

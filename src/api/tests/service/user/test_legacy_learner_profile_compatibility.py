@@ -66,9 +66,9 @@ def _active_legacy_values(user_bid: str) -> list[VariableValue]:
     ["save", "label", "user-info"],
 )
 def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
-    app,
-    monkeypatch,
-    writer,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    writer: object,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
@@ -96,7 +96,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
         original_first = query_type.first
         reads: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query) -> object:
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             table = (
@@ -144,7 +144,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
 
 
 def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     definitions = [
         SimpleNamespace(
@@ -198,7 +198,9 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
         assert profiles["sys_user_style"] == "another style"
 
 
-def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch) -> None:
+def test_skipped_v2_state_preserves_legacy_profile_behavior(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
@@ -223,8 +225,8 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch) ->
 
 
 def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
-    app,
-    monkeypatch,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     definitions = [
         SimpleNamespace(
@@ -308,8 +310,8 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
 
 
 def test_explicit_nickname_uses_existing_runtime_precedence_without_rewriting_legacy_rows(
-    app,
-    monkeypatch,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",

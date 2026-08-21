@@ -74,7 +74,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def credit_notifications_app(tmp_path) -> Iterator[Flask]:
+def credit_notifications_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "credit-notifications.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -2226,7 +2226,7 @@ def test_failed_provider_notification_can_be_requeued(
     captured_kwargs: list[dict[str, str]] = []
 
     class FakeTask:
-        def apply_async(self, kwargs) -> None:
+        def apply_async(self, kwargs: object) -> None:
             captured_kwargs.append(dict(kwargs))
 
     def get_celery_app(flask_app: object | None = None) -> object:

@@ -5,7 +5,7 @@ from typing import Never, Self
 import pytest
 
 
-def test_check_text_returns_unconfigured_for_yidun(app) -> None:
+def test_check_text_returns_unconfigured_for_yidun(app: object) -> None:
     from flaskr.api.check import CHECK_RESULT_UNCONF, check_text
 
     with app.app_context():
@@ -15,7 +15,9 @@ def test_check_text_returns_unconfigured_for_yidun(app) -> None:
         assert result.provider == "yidun"
 
 
-def test_yidun_check_uses_configured_timeout(app, monkeypatch) -> None:
+def test_yidun_check_uses_configured_timeout(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.api.check import CHECK_RESULT_PASS
     from flaskr.api.check import yidun as yidun_module
 
@@ -28,7 +30,12 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch) -> None:
                 "result": {"antispam": {"suggestion": 0, "label": 100}},
             }
 
-    def fake_post(url, data=None, headers=None, timeout=None) -> object:
+    def fake_post(
+        url: object,
+        data: object | None = None,
+        headers: object | None = None,
+        timeout: object | None = None,
+    ) -> object:
         _ = (data, headers)
         captured["url"] = url
         captured["timeout"] = timeout
@@ -48,7 +55,9 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch) -> None:
     assert captured["timeout"] == 3
 
 
-def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch) -> None:
+def test_ilivedata_send_wraps_oserror_as_urlerror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from urllib.error import URLError
 
     from flaskr.api.check import ilivedata as ilivedata_module
@@ -63,7 +72,9 @@ def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch) -> None:
         ilivedata_module.send("{}", b"sig", "2026-07-11T00:00:00Z", "pid", timeout=5)
 
 
-def test_ilivedata_check_uses_configured_timeout(app, monkeypatch) -> None:
+def test_ilivedata_check_uses_configured_timeout(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.api.check import CHECK_RESULT_PASS
     from flaskr.api.check import ilivedata as ilivedata_module
 
@@ -73,13 +84,13 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch) -> None:
         def __enter__(self) -> Self:
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> bool | None:
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool | None:
             captured["closed"] = True
 
         def read(self) -> bytes:
             return b'{"errorCode":0,"textSpam":{"result":0,"tags":[]}}'
 
-    def fake_urlopen(req, timeout=None) -> object:
+    def fake_urlopen(req: object, timeout: object | None = None) -> object:
         captured["host"] = req.full_url
         captured["timeout"] = timeout
         return _Resp()

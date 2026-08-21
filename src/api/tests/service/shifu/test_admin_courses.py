@@ -243,7 +243,7 @@ def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items(
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
     )
 
-    def attach_prompt_flags(model, rows) -> None:
+    def attach_prompt_flags(model: object, rows: object) -> None:
         for row in rows:
             row.has_course_prompt = model is PublishedShifu
 
@@ -417,7 +417,9 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range() -> Non
     assert latest_mock.call_args_list[0].kwargs["updated_end_time"] is None
 
 
-def test_load_course_activity_map_prefers_latest_outline_activity_row(app) -> None:
+def test_load_course_activity_map_prefers_latest_outline_activity_row(
+    app: object,
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
 
@@ -472,7 +474,7 @@ def test_load_course_activity_map_prefers_latest_outline_activity_row(app) -> No
 
 
 def test_load_course_activity_map_prefers_outline_when_timestamp_ties_course(
-    app,
+    app: object,
 ) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
@@ -704,10 +706,12 @@ def test_list_operator_courses_filters_by_course_status() -> None:
     assert published_result.items[0].course_status == "published"
 
 
-def test_list_operator_courses_applies_quick_filters(monkeypatch) -> None:
+def test_list_operator_courses_applies_quick_filters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
+        def now(cls, tz: object | None = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -839,11 +843,11 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
 
 
 def test_build_operator_course_overview_returns_expected_counts(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
+        def now(cls, tz: object | None = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -1036,7 +1040,7 @@ def test_build_operator_course_overview_returns_expected_counts(
 
 
 def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_order(
-    app,
+    app: object,
 ) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     draft_only_bid = uuid.uuid4().hex[:32]
@@ -1180,7 +1184,7 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
 
 
 def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
-    app,
+    app: object,
 ) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     published_with_blank_draft_bid = uuid.uuid4().hex[:32]
@@ -1277,7 +1281,9 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
     assert historical_fallback.tts_model == "speech-01"
 
 
-def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(app) -> None:
+def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(
+    app: object,
+) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     empty_model_bid = uuid.uuid4().hex[:32]
 
@@ -1316,7 +1322,7 @@ def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(app) -> 
 
 
 def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(
-    app,
+    app: object,
 ) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     shifu_bid = uuid.uuid4().hex[:32]
@@ -1391,7 +1397,7 @@ def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(
 
 
 def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(
-    app,
+    app: object,
 ) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     demo_bid = uuid.uuid4().hex[:32]
@@ -1445,7 +1451,9 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(
     assert [item.shifu_bid for item in result.items] == [normal_bid]
 
 
-def test_list_operator_courses_sql_path_filters_by_combined_course_query(app) -> None:
+def test_list_operator_courses_sql_path_filters_by_combined_course_query(
+    app: object,
+) -> None:
     matching_bid = uuid.uuid4().hex[:32]
     name_match_bid = uuid.uuid4().hex[:32]
     other_bid = uuid.uuid4().hex[:32]
@@ -1571,22 +1579,22 @@ class FakeColumn:
         """Initialize the fake column test double."""
         self.name = name
 
-    def __eq__(self, other) -> tuple:
+    def __eq__(self, other: object) -> tuple:
         """Build a fake equality expression."""
         return ("eq", self.name, other)
 
-    def __ge__(self, other) -> tuple:
+    def __ge__(self, other: object) -> tuple:
         """Build a fake greater-than-or-equal expression."""
         return ("ge", self.name, other)
 
-    def __le__(self, other) -> tuple:
+    def __le__(self, other: object) -> tuple:
         """Build a fake less-than-or-equal expression."""
         return ("le", self.name, other)
 
     def ilike(self, value: str) -> tuple[str, str, str]:
         return ("ilike", self.name, value)
 
-    def in_(self, value) -> tuple[str, str, object]:
+    def in_(self, value: object) -> tuple[str, str, object]:
         return ("in", self.name, value)
 
     def desc(self) -> tuple[str, str]:
@@ -1639,7 +1647,7 @@ class FakeLatestQuery:
 class FakeIdQuery:
     """Simulate ID query behavior for tests."""
 
-    def __init__(self, target) -> None:
+    def __init__(self, target: object) -> None:
         """Initialize the fake ID query test double."""
         self.target = target
 
@@ -1647,7 +1655,7 @@ class FakeIdQuery:
 class FakeOuterQuery:
     """Simulate outer query behavior for tests."""
 
-    def __init__(self, result) -> None:
+    def __init__(self, result: object) -> None:
         """Initialize the fake outer query test double."""
         self.filters = []
         self.ordering = []
@@ -1686,7 +1694,7 @@ class FakeSession:
         self.outer_query = outer_query
         self.id_queries = []
 
-    def query(self, target) -> FakeLatestQuery | FakeOuterQuery | FakeIdQuery:
+    def query(self, target: object) -> FakeLatestQuery | FakeOuterQuery | FakeIdQuery:
         if target == ("max", "id", "max_id"):
             return self.latest_query
         if isinstance(target, type) and issubclass(target, FakeModel):
@@ -1737,7 +1745,9 @@ class FakeMappedModel(FakeModel):
     updated_user_bid = FakeColumn("updated_user_bid")
 
 
-def test_load_latest_shifus_filters_on_latest_rows(monkeypatch) -> None:
+def test_load_latest_shifus_filters_on_latest_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     latest_query = FakeLatestQuery()
     expected_rows = ["latest-course-row"]
     outer_query = FakeOuterQuery(expected_rows)
@@ -1783,7 +1793,7 @@ def test_load_latest_shifus_filters_on_latest_rows(monkeypatch) -> None:
 
 
 def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     latest_query = FakeLatestQuery()
     outer_query = FakeOuterQuery(

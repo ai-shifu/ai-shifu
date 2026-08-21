@@ -3,12 +3,12 @@
 import pytest
 
 
-def _require_app(app) -> None:
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
 
-def test_preprocess_for_tts_removes_complete_svg(app) -> None:
+def test_preprocess_for_tts_removes_complete_svg(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -28,7 +28,7 @@ def test_preprocess_for_tts_removes_complete_svg(app) -> None:
     assert "http://www.w3.org" not in cleaned
 
 
-def test_preprocess_for_tts_strips_incomplete_svg_tail(app) -> None:
+def test_preprocess_for_tts_strips_incomplete_svg_tail(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -41,7 +41,7 @@ def test_preprocess_for_tts_strips_incomplete_svg_tail(app) -> None:
     assert "http://www.w3.org" not in cleaned
 
 
-def test_preprocess_for_tts_strips_incomplete_fenced_code(app) -> None:
+def test_preprocess_for_tts_strips_incomplete_fenced_code(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -52,7 +52,7 @@ def test_preprocess_for_tts_strips_incomplete_fenced_code(app) -> None:
     assert cleaned == "Hello."
 
 
-def test_preprocess_for_tts_strips_escaped_html_tags(app) -> None:
+def test_preprocess_for_tts_strips_escaped_html_tags(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -65,7 +65,7 @@ def test_preprocess_for_tts_strips_escaped_html_tags(app) -> None:
     assert "<p>" not in cleaned
 
 
-def test_preprocess_for_tts_strips_double_escaped_html_tags(app) -> None:
+def test_preprocess_for_tts_strips_double_escaped_html_tags(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -78,7 +78,7 @@ def test_preprocess_for_tts_strips_double_escaped_html_tags(app) -> None:
     assert "&lt;" not in cleaned
 
 
-def test_preprocess_for_tts_strips_incomplete_html_tag_tail(app) -> None:
+def test_preprocess_for_tts_strips_incomplete_html_tag_tail(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -89,7 +89,7 @@ def test_preprocess_for_tts_strips_incomplete_html_tag_tail(app) -> None:
     assert cleaned == "Before."
 
 
-def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app) -> None:
+def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -100,7 +100,7 @@ def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app) -> None:
     assert cleaned == "I love you < 3."
 
 
-def test_preprocess_for_tts_strips_incomplete_markdown_image_tail(app) -> None:
+def test_preprocess_for_tts_strips_incomplete_markdown_image_tail(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -113,7 +113,7 @@ def test_preprocess_for_tts_strips_incomplete_markdown_image_tail(app) -> None:
     assert "![" not in cleaned
 
 
-def test_preprocess_for_tts_strips_stray_svg_text_elements(app) -> None:
+def test_preprocess_for_tts_strips_stray_svg_text_elements(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -126,7 +126,7 @@ def test_preprocess_for_tts_strips_stray_svg_text_elements(app) -> None:
 
 
 def test_streaming_tts_processor_skips_svg_and_keeps_following_text(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _require_app(app)
 
@@ -138,7 +138,7 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(
 
     captured: list[str] = []
 
-    def _capture_submit(self, text: str) -> None:
+    def _capture_submit(self: object, text: str) -> None:
         _ = self
         captured.append(text)
 
@@ -174,7 +174,9 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(
     assert all("http://www.w3.org" not in t for t in captured)
 
 
-def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch) -> None:
+def test_streaming_tts_processor_skips_chunked_markdown_image(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
@@ -185,7 +187,7 @@ def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch) 
 
     captured: list[str] = []
 
-    def _capture_submit(self, text: str) -> None:
+    def _capture_submit(self: object, text: str) -> None:
         _ = self
         captured.append(text)
 
@@ -218,7 +220,7 @@ def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch) 
     assert all("![" not in t for t in captured)
 
 
-def test_preprocess_for_tts_removes_interaction_block(app) -> None:
+def test_preprocess_for_tts_removes_interaction_block(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -237,7 +239,9 @@ def test_preprocess_for_tts_removes_interaction_block(app) -> None:
     assert "几乎空白" not in cleaned
 
 
-def test_preprocess_for_tts_removes_interaction_block_with_variable(app) -> None:
+def test_preprocess_for_tts_removes_interaction_block_with_variable(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -251,7 +255,7 @@ def test_preprocess_for_tts_removes_interaction_block_with_variable(app) -> None
     assert "概念清楚了" not in cleaned
 
 
-def test_preprocess_for_tts_removes_interaction_block_variants(app) -> None:
+def test_preprocess_for_tts_removes_interaction_block_variants(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -272,7 +276,7 @@ def test_preprocess_for_tts_removes_interaction_block_variants(app) -> None:
             assert fragment not in cleaned
 
 
-def test_preprocess_for_tts_strips_incomplete_interaction_tail(app) -> None:
+def test_preprocess_for_tts_strips_incomplete_interaction_tail(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -286,7 +290,9 @@ def test_preprocess_for_tts_strips_incomplete_interaction_tail(app) -> None:
     assert "概念还含糊" not in cleaned
 
 
-def test_preprocess_for_tts_removes_unresolved_variable_placeholders(app) -> None:
+def test_preprocess_for_tts_removes_unresolved_variable_placeholders(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -300,7 +306,7 @@ def test_preprocess_for_tts_removes_unresolved_variable_placeholders(app) -> Non
     assert "preserved" not in cleaned
 
 
-def test_preprocess_for_tts_keeps_regular_markdown_links(app) -> None:
+def test_preprocess_for_tts_keeps_regular_markdown_links(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts import preprocess_for_tts
@@ -314,7 +320,7 @@ def test_preprocess_for_tts_keeps_regular_markdown_links(app) -> None:
 
 
 def test_preprocess_for_tts_keeps_markdown_link_directly_after_question_mark(
-    app,
+    app: object,
 ) -> None:
     _require_app(app)
 

@@ -156,7 +156,9 @@ def _make_block(
     return block
 
 
-def test_mdflow_backfill_persists_content_follow_up_and_interaction(app) -> None:
+def test_mdflow_backfill_persists_content_follow_up_and_interaction(
+    app: object,
+) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-1")
@@ -261,7 +263,7 @@ def test_mdflow_backfill_persists_content_follow_up_and_interaction(app) -> None
     assert interaction_payload["user_input"] == "Bob"
 
 
-def test_mdflow_backfill_skips_anchorless_follow_up(app) -> None:
+def test_mdflow_backfill_skips_anchorless_follow_up(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-anchorless")
@@ -302,7 +304,7 @@ def test_mdflow_backfill_skips_anchorless_follow_up(app) -> None:
     assert active_count == 0
 
 
-def test_mdflow_backfill_skips_orphan_follow_up(app) -> None:
+def test_mdflow_backfill_skips_orphan_follow_up(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-orphan")
@@ -344,7 +346,7 @@ def test_mdflow_backfill_skips_orphan_follow_up(app) -> None:
     assert follow_up_count == 0
 
 
-def test_mdflow_backfill_overwrite_replaces_group_rows(app) -> None:
+def test_mdflow_backfill_overwrite_replaces_group_rows(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-overwrite")
@@ -423,7 +425,7 @@ def test_mdflow_backfill_overwrite_replaces_group_rows(app) -> None:
     assert rows[-1].content_text.startswith("Fresh content.")
 
 
-def test_mdflow_backfill_batch_respects_after_id_and_limit(app) -> None:
+def test_mdflow_backfill_batch_respects_after_id_and_limit(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress_1 = _make_progress(progress_record_bid="progress-mdflow-batch-1")

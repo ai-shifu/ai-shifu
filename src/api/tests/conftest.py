@@ -55,20 +55,20 @@ class _TestPluginManager:
         self.extensible_generic_functions = {}
         self.is_enabled = False
 
-    def register_extension(self, target_func_name, func) -> None:
+    def register_extension(self, target_func_name: object, func: object) -> None:
         self.extension_functions.setdefault(target_func_name, []).append(func)
 
     def execute_extensions(
-        self, _func_name, result, *args: object, **kwargs: object
+        self, _func_name: object, result: object, *args: object, **kwargs: object
     ) -> object:
         _ = (args, kwargs)
         return result
 
-    def register_extensible_generic(self, func_name, func) -> None:
+    def register_extensible_generic(self, func_name: object, func: object) -> None:
         self.extensible_generic_functions.setdefault(func_name, []).append(func)
 
     def execute_extensible_generic(
-        self, _func_name, *args: object, **kwargs: object
+        self, _func_name: object, *args: object, **kwargs: object
     ) -> None:
         _ = (args, kwargs)
 
@@ -77,12 +77,12 @@ set_plugin_manager(_TestPluginManager())
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw: object) -> str:
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object) -> str:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw: object) -> str:
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> str:
     return "INTEGER"
 
 
@@ -169,7 +169,7 @@ def app() -> Iterator[Flask | None]:
 
 
 @pytest.fixture
-def test_client(app) -> Iterator[FlaskClient]:
+def test_client(app: Flask | None) -> Iterator[FlaskClient]:
     with app.test_client() as client:
         yield client
 
@@ -180,7 +180,7 @@ def token() -> str:
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_client(monkeypatch, request) -> FakeRedis:
+def mock_redis_client(monkeypatch: pytest.MonkeyPatch, request: object) -> FakeRedis:
     fake_redis = FakeRedis()
     # test_funcs.py uses its own `@patch` decorators for fine-grained Redis control.
     if "service/config/test_funcs.py" in request.node.nodeid:
@@ -212,12 +212,12 @@ def mock_redis_client(monkeypatch, request) -> FakeRedis:
     return fake_redis
 
 
-def _should_skip_llm_mock(request) -> bool:
+def _should_skip_llm_mock(request: object) -> bool:
     return request.node.get_closest_marker("no_mock_llm") is not None
 
 
 @pytest.fixture(autouse=True)
-def mock_llm_calls(monkeypatch, request) -> None:
+def mock_llm_calls(monkeypatch: pytest.MonkeyPatch, request: object) -> None:
     if _should_skip_llm_mock(request):
         return
     llm = sys.modules.get("flaskr.api.llm")
@@ -234,7 +234,7 @@ def mock_llm_calls(monkeypatch, request) -> None:
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request) -> Iterator[None]:
+def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
     if "app" in request.fixturenames:
         yield
         return

@@ -79,7 +79,7 @@ def _build_block(bid: str, position: int) -> LearnGeneratedBlock:
     )
 
 
-def _fail_next_flush(monkeypatch, exc: Exception) -> None:
+def _fail_next_flush(monkeypatch: pytest.MonkeyPatch, exc: Exception) -> None:
     """Make the next explicit ``db.session.flush()`` raise ``exc``."""
     real_flush = dao.db.session.flush
     state = {"fired": False}
@@ -93,7 +93,9 @@ def _fail_next_flush(monkeypatch, exc: Exception) -> None:
     monkeypatch.setattr(dao.db.session, "flush", _boom)
 
 
-def test_failed_pointer_step_rolls_back_whole(recorder_app, monkeypatch) -> None:
+def test_failed_pointer_step_rolls_back_whole(
+    recorder_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Mid-step failure: the flip is neither durable nor left dirty in the session, so a later unrelated commit cannot persist it (dirty-row fix)."""
     attend = _seed_attend()
     recorder = RunRecorder(recorder_app)
@@ -123,7 +125,7 @@ def test_failed_pointer_step_rolls_back_whole(recorder_app, monkeypatch) -> None
 
 
 def test_failed_placeholder_batch_rolls_back_all_records(
-    recorder_app, monkeypatch
+    recorder_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The placeholder batch is one step: on failure no partial rows remain."""
     recorder = RunRecorder(recorder_app)
@@ -153,7 +155,7 @@ def test_failed_placeholder_batch_rolls_back_all_records(
 
 
 def test_failed_finalize_leaves_staged_block_state_uncorrupted(
-    recorder_app, monkeypatch
+    recorder_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Block-finalize failure: neither the staged block nor the cursor advance survives — the pre-stream state is fully restored."""
     attend = _seed_attend()
@@ -200,7 +202,9 @@ def test_failed_finalize_leaves_staged_block_state_uncorrupted(
     )
 
 
-def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app) -> None:
+def test_disconnect_mid_stream_resumes_from_last_finalized_block(
+    recorder_app: Flask,
+) -> None:
     """Session-level model of a mid-stream disconnect: block N finalized (durable step), block N+1 staged when the session's connection is invalidated — the same add/flush/invalidate sequence the producer's GeneratorExit handler in ``runscript_v2`` performs, exercised here directly against the recorder session rather than through the generator chain.
 
     The re-run must see block N and the advanced cursor, and no trace of block N+1. An
@@ -251,7 +255,7 @@ def test_disconnect_mid_stream_resumes_from_last_finalized_block(recorder_app) -
     )
 
 
-def test_finalize_persists_generation_prompt(recorder_app) -> None:
+def test_finalize_persists_generation_prompt(recorder_app: Flask) -> None:
     """finalize_streamed_block stores the exact sent user message so context rebuilds can replay it verbatim; omitting it defaults to empty string."""
     attend = _seed_attend()
     recorder = RunRecorder(recorder_app)
@@ -289,7 +293,9 @@ def test_finalize_persists_generation_prompt(recorder_app) -> None:
     assert stored_default.generation_prompt == ""
 
 
-def test_commit_pending_step_makes_collaborator_writes_durable(recorder_app) -> None:
+def test_commit_pending_step_makes_collaborator_writes_durable(
+    recorder_app: Flask,
+) -> None:
     """The transitional ask-path step commits rows staged elsewhere."""
     recorder = RunRecorder(recorder_app)
     staged = _build_block("gb-ask-0001", 0)

@@ -607,7 +607,7 @@ def _latest_rule_map(campaign_bids: list[str]) -> dict[str, ReferralCampaignRewa
     return result
 
 
-def _count_by_campaign(model, campaign_bids: list[str]) -> dict[str, int]:
+def _count_by_campaign(model: object, campaign_bids: list[str]) -> dict[str, int]:
     if not campaign_bids:
         return {}
     rows = (
@@ -640,7 +640,7 @@ def _invite_event_stats_by_campaign(
     }
 
 
-def _count_rows(model, campaign_bid: str) -> int:
+def _count_rows(model: object, campaign_bid: str) -> int:
     return int(
         model.query.filter(
             model.deleted == 0,
@@ -696,7 +696,7 @@ def _assert_product_code_is_active_plan(product_code: str) -> None:
         raise_param_error("reward_product_code")
 
 
-def _apply_status_filter(query, status: str, *, now: datetime) -> object:
+def _apply_status_filter(query: object, status: str, *, now: datetime) -> object:
     if status == "active":
         return query.filter(
             ReferralCampaign.campaign_status == REFERRAL_CAMPAIGN_STATUS_ACTIVE,

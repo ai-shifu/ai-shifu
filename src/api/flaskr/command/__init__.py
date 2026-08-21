@@ -47,7 +47,9 @@ def enable_commands(app: Flask) -> None:
     @click.argument("course_id")
     @click.argument("discount_code")
     @click.argument("user_nick_name")
-    def import_user_command(mobile, course_id, discount_code, user_nick_name) -> None:
+    def import_user_command(
+        mobile: object, course_id: object, discount_code: object, user_nick_name: object
+    ) -> None:
         """Import user and enable course."""
         import_user(app, mobile, course_id, discount_code, user_nick_name)
 
@@ -64,7 +66,11 @@ def enable_commands(app: Flask) -> None:
         help="Show what would be migrated without actually doing it",
     )
     def migrate_command(
-        batch_size, max_workers, force_full, output_file, dry_run
+        batch_size: object,
+        max_workers: object,
+        force_full: object,
+        output_file: object,
+        dry_run: object,
     ) -> None:
         """Run unified legacy data migration."""
         setup_migration_logging()
@@ -327,7 +333,7 @@ def enable_commands(app: Flask) -> None:
     @console.command(name="export_shifu")
     @click.argument("shifu_id")
     @click.argument("file_path")
-    def export_shifu_command(shifu_id, file_path) -> None:
+    def export_shifu_command(shifu_id: object, file_path: object) -> None:
         """Export a shifu to a JSON file.
 
         Args:
@@ -365,7 +371,9 @@ def enable_commands(app: Flask) -> None:
     @click.option(
         "--user-id", required=True, help="User ID for creating/updating the shifu"
     )
-    def import_shifu_command(file_path, shifu_id, user_id) -> None:
+    def import_shifu_command(
+        file_path: object, shifu_id: object, user_id: object
+    ) -> None:
         """Import a shifu from a JSON file.
 
         Args:

@@ -10,7 +10,9 @@ from flaskr.api.tts.aliyun_nls_token import get_aliyun_nls_token
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
 
-def test_get_aliyun_nls_token_uses_override_when_configured(monkeypatch) -> None:
+def test_get_aliyun_nls_token_uses_override_when_configured(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("ALIYUN_TTS_TOKEN", "override-token")
 
     def fake_get(*args: object, **kwargs: object) -> Never:
@@ -23,7 +25,7 @@ def test_get_aliyun_nls_token_uses_override_when_configured(monkeypatch) -> None
     assert get_aliyun_nls_token() == "override-token"
 
 
-def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch) -> None:
+def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object) -> None:
     monkeypatch.setenv("REDIS_KEY_PREFIX", "test:aliyun:nls-token:")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "my_access_key_id")
@@ -47,7 +49,9 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch) -> None:
         def json(self) -> dict[str, dict[str, str | int]]:
             return {"Token": {"Id": "tok-1", "ExpireTime": int(time.time()) + 3600}}
 
-    def fake_get(url, headers=None, timeout=None) -> DummyResponse:
+    def fake_get(
+        url: object, headers: object | None = None, timeout: object | None = None
+    ) -> DummyResponse:
         captured["calls"] += 1
         captured["url"] = url
         captured["headers"] = headers
@@ -76,7 +80,9 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch) -> None:
     assert signature == unquote(expected_signature)
 
 
-def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch) -> None:
+def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("REDIS_KEY_PREFIX", "test:aliyun:nls-token:fallback:")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "my_access_key_id")
@@ -108,7 +114,7 @@ def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch) ->
     assert captured["calls"] == 1
 
 
-def test_aliyun_provider_is_configured_with_access_keys(monkeypatch) -> None:
+def test_aliyun_provider_is_configured_with_access_keys(monkeypatch: object) -> None:
     monkeypatch.setenv("ALIYUN_TTS_APPKEY", "appkey")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "ak")
@@ -118,7 +124,7 @@ def test_aliyun_provider_is_configured_with_access_keys(monkeypatch) -> None:
     assert provider.is_configured() is True
 
 
-def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch) -> None:
+def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch: object) -> None:
     monkeypatch.setenv("ALIYUN_TTS_APPKEY", "appkey")
     monkeypatch.setenv("ALIYUN_TTS_REGION", "shanghai")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
@@ -134,7 +140,12 @@ def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch) -> None:
         headers: ClassVar[dict[str, str]] = {"Content-Type": "audio/mpeg"}
         content = b"audio-bytes"
 
-    def fake_post(url, json=None, headers=None, timeout=None) -> DummyResponse:
+    def fake_post(
+        url: object,
+        json: object | None = None,
+        headers: object | None = None,
+        timeout: object | None = None,
+    ) -> DummyResponse:
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers

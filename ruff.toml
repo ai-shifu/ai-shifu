@@ -15,7 +15,8 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN002/ANN003/ANN201/ANN202/ANN204/ANN205/ANN206/ANN401, see `select`) / SLF001 /
+# - ANN (except ANN001/ANN002/ANN003/ANN201/ANN202/ANN204/ANN205/ANN206/ANN401,
+#   see `select`) / SLF001 /
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
@@ -190,7 +191,11 @@ select = [
     # methods: `__init__`/`__exit__`/`__json__` and friends have a fixed contract,
     # so the return type is never a judgement call and writing it down keeps the
     # serialization dunders (`__json__` returning a dict vs an enum value's str)
-    # readable at a glance.
+    # readable at a glance. Normal parameters use their local fixture contract
+    # or literal-default type when one is explicit; use `object` only for an
+    # intentionally heterogeneous or externally injected value whose stable
+    # concrete type is not owned in the module.
+    "ANN001",  # missing type for a function argument
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
     "ANN201",  # missing return type on a public function or method
@@ -283,8 +288,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "src/api/migrations/versions/**" = ["ANN201"]
 # This applied backfill's value normalizer predates the typed-boundary policy.
 "src/api/migrations/versions/0a7c4d8e9f12_backfill_billing_product_plan_tier.py" = ["ANN401"]
-# This applied revision's private server-default helper is also immutable.
-"src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ANN202"]
+# This applied revision's private helper and legacy parameters are immutable.
+"src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ANN001", "ANN202"]
 # This applied no-op revision keeps a legacy `NOTE:` section in its module
 # docstring. Migration history is immutable, so D405 is scoped to this file.
 "src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
@@ -298,7 +303,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # Listed one by one so new revisions stay covered by S608.
 "src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
 "src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
-"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
+# This applied backfill also keeps the legacy parameters in its local helpers.
+"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["ANN001", "S608"]
 "src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]

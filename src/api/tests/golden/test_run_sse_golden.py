@@ -40,7 +40,7 @@ from tests.golden.normalize import (
 RUN_HEADERS = {"Token": "golden-token"}
 
 
-def _run_lesson(test_client, shifu, payload) -> str:
+def _run_lesson(test_client: object, shifu: object, payload: object) -> str:
     response = test_client.put(
         f"/api/learn/shifu/{shifu.shifu_bid}/run/{shifu.lesson_bid}",
         json=payload,
@@ -51,12 +51,14 @@ def _run_lesson(test_client, shifu, payload) -> str:
     return response.get_data(as_text=True)
 
 
-def _prepare_user(app, monkeypatch, user_bid: str) -> None:
+def _prepare_user(app: object, monkeypatch: object, user_bid: str) -> None:
     seed_golden_user(app, user_bid)
     mock_validate_user(monkeypatch, user_bid)
 
 
-def test_run_fresh_start_golden(app, test_client, monkeypatch, golden_shifu) -> None:
+def test_run_fresh_start_golden(
+    app: object, test_client: object, monkeypatch: object, golden_shifu: object
+) -> None:
     user_bid = "golden-user-fresh-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -86,7 +88,9 @@ def test_run_fresh_start_golden(app, test_client, monkeypatch, golden_shifu) -> 
     )
 
 
-def test_run_continue_golden(app, test_client, monkeypatch, golden_shifu) -> None:
+def test_run_continue_golden(
+    app: object, test_client: object, monkeypatch: object, golden_shifu: object
+) -> None:
     user_bid = "golden-user-continue-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -110,7 +114,7 @@ def test_run_continue_golden(app, test_client, monkeypatch, golden_shifu) -> Non
 
 
 def test_run_interaction_input_golden(
-    app, test_client, monkeypatch, golden_shifu
+    app: object, test_client: object, monkeypatch: object, golden_shifu: object
 ) -> None:
     user_bid = "golden-user-interact-0001"
     _prepare_user(app, monkeypatch, user_bid)
@@ -148,7 +152,9 @@ def test_run_interaction_input_golden(
     )
 
 
-def test_run_ask_flow_golden(app, test_client, monkeypatch, golden_shifu) -> None:
+def test_run_ask_flow_golden(
+    app: object, test_client: object, monkeypatch: object, golden_shifu: object
+) -> None:
     user_bid = "golden-user-ask-0001"
     _prepare_user(app, monkeypatch, user_bid)
 

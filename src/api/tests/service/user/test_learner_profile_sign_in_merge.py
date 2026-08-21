@@ -45,7 +45,7 @@ def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
 
 
 class _FakeRedis:
-    def get(self, _key) -> None:
+    def get(self, _key: object) -> None:
         return None
 
     def delete(self, *_keys: str) -> None:
@@ -53,7 +53,7 @@ class _FakeRedis:
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload) -> None:
+    def __init__(self, payload: object) -> None:
         self._payload = payload
 
     def raise_for_status(self) -> None:
@@ -64,7 +64,7 @@ class _FakeGoogleResponse:
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile) -> None:
+    def __init__(self, profile: object) -> None:
         self._profile = profile
 
     def fetch_token(self, *_args: object, **_kwargs: object) -> dict[str, str]:
@@ -126,11 +126,11 @@ def _add_state(
     ids=["completed-with-name", "completed-without-name", "skipped", "cleared"],
 )
 def test_merge_helper_transfers_profile_and_handled_state(
-    app,
-    monkeypatch,
-    source_profile,
-    status,
-    trigger_source,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    source_profile: object,
+    status: object,
+    trigger_source: object,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
@@ -181,7 +181,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
         _assert_orm_utc(target_state.completed_at, PROFILE_UPDATED_AT)
 
 
-def test_merge_helper_preserves_target_profile_and_state(app) -> None:
+def test_merge_helper_preserves_target_profile_and_state(app: object) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -221,7 +221,7 @@ def test_merge_helper_preserves_target_profile_and_state(app) -> None:
 
 
 def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         source = _create_user(
@@ -251,7 +251,7 @@ def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(
 
 
 def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         source_identify = uuid.uuid4().hex
@@ -284,7 +284,9 @@ def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(
         assert target_state.status == "completed"
 
 
-def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app) -> None:
+def test_merge_helper_does_not_restore_a_profile_the_target_cleared(
+    app: object,
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -323,8 +325,8 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app) -> None
     ids=["phone", "country-prefixed-phone", "email"],
 )
 def test_merge_helper_never_copies_from_a_source_with_account_identifier(
-    app,
-    source_identify,
+    app: object,
+    source_identify: object,
 ) -> None:
     with app.app_context():
         source = _create_user(
@@ -355,8 +357,8 @@ def test_merge_helper_never_copies_from_a_source_with_account_identifier(
     ids=["registered", "trial", "paid"],
 )
 def test_merge_helper_never_copies_from_non_guest_random_identifier(
-    app,
-    source_state,
+    app: object,
+    source_state: object,
 ) -> None:
     with app.app_context():
         source = _create_user(
@@ -382,7 +384,7 @@ def test_merge_helper_never_copies_from_non_guest_random_identifier(
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_allows_numeric_uuid_guest_identifier(app) -> None:
+def test_merge_helper_allows_numeric_uuid_guest_identifier(app: object) -> None:
     with app.app_context():
         numeric_uuid = uuid.UUID("12345678-9012-4567-8901-234567890123").hex
         assert len(numeric_uuid) == 32
@@ -415,7 +417,9 @@ def test_merge_helper_allows_numeric_uuid_guest_identifier(app) -> None:
         assert target_state.trigger_source == "settings"
 
 
-def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app) -> None:
+def test_merge_helper_allows_unregistered_guest_with_wechat_credential(
+    app: object,
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -454,8 +458,8 @@ def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app) -> N
 
 @pytest.mark.parametrize("provider_name", ["phone", "email"])
 def test_merge_helper_allows_unregistered_guest_with_unverified_account_credential(
-    app,
-    provider_name,
+    app: object,
+    provider_name: object,
 ) -> None:
     with app.app_context():
         source = _create_user(
@@ -515,8 +519,8 @@ def test_merge_helper_allows_unregistered_guest_with_unverified_account_credenti
 
 @pytest.mark.parametrize("provider_name", ["phone", "email"])
 def test_merge_helper_rejects_unregistered_source_with_verified_account_credential(
-    app,
-    provider_name,
+    app: object,
+    provider_name: object,
 ) -> None:
     with app.app_context():
         source = _create_user(
@@ -566,7 +570,7 @@ def test_merge_helper_rejects_unregistered_source_with_verified_account_credenti
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_rolls_back_with_sign_in_transaction(app) -> None:
+def test_merge_helper_rolls_back_with_sign_in_transaction(app: object) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -603,7 +607,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app) -> None:
 
 
 def test_merge_helper_locks_target_then_source_profile_snapshots(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with app.app_context():
         source = _create_user(
@@ -619,7 +623,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(
         original_first = query_type.first
         read_order: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query) -> object:
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             user_bid = str(parameters.get("user_bid_1", ""))
@@ -662,7 +666,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(
         assert load_learner_profile_state(target.user_bid) is not None
 
 
-def test_merge_helper_refreshes_a_stale_source_identity_map(app) -> None:
+def test_merge_helper_refreshes_a_stale_source_identity_map(app: object) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -699,7 +703,7 @@ def test_merge_helper_refreshes_a_stale_source_identity_map(app) -> None:
 
 
 def test_phone_sign_in_merges_profile_without_course_id(
-    app, monkeypatch, caplog
+    app: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     from flaskr.service.user import phone_flow
 
@@ -750,7 +754,7 @@ def test_phone_sign_in_merges_profile_without_course_id(
 
 
 def test_email_sign_in_transfers_cleared_state_without_course_id(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from flaskr.service.user import email_flow
 
@@ -782,9 +786,9 @@ def test_email_sign_in_transfers_cleared_state_without_course_id(
 
 @pytest.mark.parametrize("sign_in_method", ["phone", "email"])
 def test_legacy_profile_migration_preserves_target_nickname(
-    app,
-    monkeypatch,
-    sign_in_method,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    sign_in_method: object,
 ) -> None:
     from flaskr.service.user import email_flow, phone_flow
 
@@ -844,10 +848,10 @@ def test_legacy_profile_migration_preserves_target_nickname(
 @pytest.mark.parametrize("sign_in_method", ["phone", "email"])
 @pytest.mark.parametrize("target_nickname_kind", ["empty", "identifier"])
 def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
-    app,
-    monkeypatch,
-    sign_in_method,
-    target_nickname_kind,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    sign_in_method: object,
+    target_nickname_kind: object,
 ) -> None:
     from flaskr.service.user import email_flow, phone_flow
 
@@ -900,7 +904,9 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
         assert token.userInfo.name == "Guest nickname"
 
 
-def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch) -> None:
+def test_google_sign_in_merges_profile_and_skipped_state(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import flaskr.service.user.auth.providers.google as google_provider
     from flaskr.service.user import phone_flow
 
@@ -971,7 +977,7 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch) -> No
 
 
 def test_google_sign_in_keeps_pre_profile_display_name_behavior(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import flaskr.service.user.auth.providers.google as google_provider
     from flaskr.service.user import phone_flow

@@ -41,7 +41,7 @@ class StreamTTSFinalizeDrainer:
         self._log_prefix = log_prefix
         self._jobs: list[_StreamTTSFinalizeJob] = []
 
-    def submit(self, processor) -> None:
+    def submit(self, processor: object) -> None:
         """Submit a streaming TTS finalization job."""
         if not processor:
             return

@@ -353,7 +353,7 @@ class DraftShifu(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def eq(self, other) -> bool:
+    def eq(self, other: object) -> bool:
         """Compare the persisted fields relevant to draft equality."""
         return (
             self.shifu_bid == other.shifu_bid
@@ -548,7 +548,7 @@ class DraftOutlineItem(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def eq(self, other) -> bool:
+    def eq(self, other: object) -> bool:
         """Compare the persisted fields relevant to draft equality."""
         return (
             self.outline_item_bid == other.outline_item_bid

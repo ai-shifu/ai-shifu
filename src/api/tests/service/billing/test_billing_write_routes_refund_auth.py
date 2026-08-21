@@ -29,7 +29,9 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
+def billing_write_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 
@@ -37,7 +39,7 @@ class TestBillingWriteRoutesRefundAuth:
     """Verify billing write routes refund auth behavior."""
 
     def test_refund_paid_stripe_order_marks_order_refunded(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -112,7 +114,7 @@ class TestBillingWriteRoutesRefundAuth:
             )
 
     def test_refund_pingxx_order_returns_unsupported(
-        self, billing_write_client
+        self, billing_write_client: dict[str, object]
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -145,7 +147,9 @@ class TestBillingWriteRoutesRefundAuth:
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
 
-    def test_write_routes_require_creator(self, billing_write_client) -> None:
+    def test_write_routes_require_creator(
+        self, billing_write_client: dict[str, object]
+    ) -> None:
         client = billing_write_client["client"]
         response = client.post(
             "/api/billing/topups/checkout",

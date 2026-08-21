@@ -59,7 +59,7 @@ class DummyShifu:
 
 
 def _mock_operator(
-    monkeypatch,
+    monkeypatch: object,
     user_id: str = "operator-1",
     *,
     is_operator: bool = True,
@@ -445,8 +445,8 @@ def test_get_operator_order_detail_returns_detail_dto() -> None:
 
 
 def test_admin_operation_orders_route_requires_operator(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -461,8 +461,8 @@ def test_admin_operation_orders_route_requires_operator(
 
 
 def test_admin_operation_order_detail_route_requires_operator(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -477,8 +477,8 @@ def test_admin_operation_order_detail_route_requires_operator(
 
 
 def test_admin_operation_credit_orders_route_requires_operator(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -493,8 +493,8 @@ def test_admin_operation_credit_orders_route_requires_operator(
 
 
 def test_admin_operation_credit_order_detail_route_requires_operator(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -509,8 +509,8 @@ def test_admin_operation_credit_order_detail_route_requires_operator(
 
 
 def test_admin_operation_credit_orders_route_returns_operator_page(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -574,8 +574,8 @@ def test_admin_operation_credit_orders_route_returns_operator_page(
 
 
 def test_admin_operation_credit_orders_route_forwards_available_credit_filter(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -608,8 +608,8 @@ def test_admin_operation_credit_orders_route_forwards_available_credit_filter(
 
 
 def test_admin_operation_credit_orders_route_rejects_invalid_available_credit_filter(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -629,8 +629,8 @@ def test_admin_operation_credit_orders_route_rejects_invalid_available_credit_fi
 
 
 def test_admin_operation_credit_order_detail_route_returns_detail(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ) -> None:
     _mock_operator(monkeypatch)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from flaskr import dao
 
 
-def _cleanup(app, creator_bid: str) -> None:
+def _cleanup(app: object, creator_bid: str) -> None:
     from flaskr.service.billing.models import BillingEntitlement
 
     with app.app_context():
@@ -13,7 +13,7 @@ def _cleanup(app, creator_bid: str) -> None:
         dao.db.session.commit()
 
 
-def test_grant_manual_entitlement_is_immediately_active(app) -> None:
+def test_grant_manual_entitlement_is_immediately_active(app: object) -> None:
     """A freshly granted manual entitlement must resolve as active right away.
 
     Regression guard for the same-second race: effective_from is back-dated so

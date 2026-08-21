@@ -83,7 +83,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         self._latest_element_snapshots[element_bid] = snapshot
 
     def _retire_fallback_element(
-        self, state, *, emit_notification: bool = True
+        self, state: object, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
@@ -100,7 +100,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         )
 
     def _retire_stream_elements(
-        self, state, *, emit_notification: bool = True
+        self, state: object, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return

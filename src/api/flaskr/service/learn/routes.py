@@ -56,7 +56,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 
-def _normalize_user_input(value) -> dict[str, list[str]] | None:
+def _normalize_user_input(value: object) -> dict[str, list[str]] | None:
     if value is None:
         return None
     if isinstance(value, dict):
@@ -77,7 +77,7 @@ def _normalize_user_input(value) -> dict[str, list[str]] | None:
     return {"user_input": [str(value)]}
 
 
-def _to_sse_data_line(message) -> str:
+def _to_sse_data_line(message: object) -> str:
     payload = message.__json__() if hasattr(message, "__json__") else message
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
 
@@ -103,11 +103,11 @@ def _release_db_session(app: Flask, *, source: str) -> None:
 def _stream_sse_response(
     app: Flask,
     *,
-    message_iter_factory,
+    message_iter_factory: object,
     close_log: str,
     error_log: str,
-    error_event_factory=None,
-    terminal_event_factory=None,
+    error_event_factory: object | None = None,
+    terminal_event_factory: object | None = None,
 ) -> Response:
     def event_stream() -> Iterator[str]:
         try:
@@ -150,7 +150,7 @@ def _stream_sse_response(
 def _stream_passthrough_response(
     app: Flask,
     *,
-    message_iter_factory,
+    message_iter_factory: object,
     close_log: str,
     error_log: str,
 ) -> Response:

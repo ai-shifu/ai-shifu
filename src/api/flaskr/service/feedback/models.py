@@ -29,7 +29,7 @@ class FeedBack(db.Model):
         comment="Update time",
     )
 
-    def __init__(self, user_id, feedback) -> None:
+    def __init__(self, user_id: object, feedback: object) -> None:
         """Store a user feedback record."""
         self.user_id = user_id
         self.feedback = feedback

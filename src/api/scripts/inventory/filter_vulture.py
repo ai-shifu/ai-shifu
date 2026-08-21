@@ -23,7 +23,7 @@ LINE_RE = re.compile(
 file_cache = {}
 
 
-def get_lines(path) -> list[str]:
+def get_lines(path: object) -> list[str]:
     """Return cached source lines for one inventory path."""
     if path not in file_cache:
         try:
@@ -34,7 +34,7 @@ def get_lines(path) -> list[str]:
     return file_cache[path]
 
 
-def decorators_above(path, lineno) -> list[str]:
+def decorators_above(path: object, lineno: object) -> list[str]:
     """Collect decorator text for the flagged symbol.
 
     Vulture flags the FIRST decorator's line for decorated defs, so scan

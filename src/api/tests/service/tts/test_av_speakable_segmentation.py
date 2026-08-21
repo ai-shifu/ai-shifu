@@ -3,12 +3,12 @@
 import pytest
 
 
-def _require_app(app) -> None:
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
 
-def test_split_av_speakable_segments_splits_svg_blocks(app) -> None:
+def test_split_av_speakable_segments_splits_svg_blocks(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -24,7 +24,7 @@ def test_split_av_speakable_segments_splits_svg_blocks(app) -> None:
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_splits_multiple_svg_blocks(app) -> None:
+def test_split_av_speakable_segments_splits_multiple_svg_blocks(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -34,7 +34,7 @@ def test_split_av_speakable_segments_splits_multiple_svg_blocks(app) -> None:
     assert split_av_speakable_segments(text) == ["A.", "B.", "C."]
 
 
-def test_split_av_speakable_segments_splits_img_tag(app) -> None:
+def test_split_av_speakable_segments_splits_img_tag(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -44,7 +44,7 @@ def test_split_av_speakable_segments_splits_img_tag(app) -> None:
 
 
 def test_split_av_speakable_segments_keeps_markdown_headers_in_speakable_text(
-    app,
+    app: object,
 ) -> None:
     _require_app(app)
 
@@ -54,7 +54,7 @@ def test_split_av_speakable_segments_keeps_markdown_headers_in_speakable_text(
     assert split_av_speakable_segments(text) == [text]
 
 
-def test_split_av_speakable_segments_splits_markdown_image(app) -> None:
+def test_split_av_speakable_segments_splits_markdown_image(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -63,7 +63,9 @@ def test_split_av_speakable_segments_splits_markdown_image(app) -> None:
     assert split_av_speakable_segments(text) == ["Hello", "world."]
 
 
-def test_split_av_speakable_segments_treats_fenced_code_as_boundary(app) -> None:
+def test_split_av_speakable_segments_treats_fenced_code_as_boundary(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -73,7 +75,7 @@ def test_split_av_speakable_segments_treats_fenced_code_as_boundary(app) -> None
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_splits_markdown_table(app) -> None:
+def test_split_av_speakable_segments_splits_markdown_table(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -83,7 +85,7 @@ def test_split_av_speakable_segments_splits_markdown_table(app) -> None:
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_splits_html_table(app) -> None:
+def test_split_av_speakable_segments_splits_html_table(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -92,7 +94,7 @@ def test_split_av_speakable_segments_splits_html_table(app) -> None:
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_splits_video_tag(app) -> None:
+def test_split_av_speakable_segments_splits_video_tag(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -101,7 +103,7 @@ def test_split_av_speakable_segments_splits_video_tag(app) -> None:
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_splits_iframe_tag(app) -> None:
+def test_split_av_speakable_segments_splits_iframe_tag(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -111,7 +113,7 @@ def test_split_av_speakable_segments_splits_iframe_tag(app) -> None:
 
 
 def test_split_av_speakable_segments_splits_iframe_wrapped_by_fixed_markers(
-    app,
+    app: object,
 ) -> None:
     _require_app(app)
 
@@ -126,7 +128,7 @@ def test_split_av_speakable_segments_splits_iframe_wrapped_by_fixed_markers(
     assert split_av_speakable_segments(text) == ["Hello.", "After."]
 
 
-def test_split_av_speakable_segments_splits_sandbox_html_block(app) -> None:
+def test_split_av_speakable_segments_splits_sandbox_html_block(app: object) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -135,7 +137,9 @@ def test_split_av_speakable_segments_splits_sandbox_html_block(app) -> None:
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_does_not_narrate_sandbox_html_block(app) -> None:
+def test_split_av_speakable_segments_does_not_narrate_sandbox_html_block(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
@@ -145,7 +149,7 @@ def test_split_av_speakable_segments_does_not_narrate_sandbox_html_block(app) ->
 
 
 def test_split_av_speakable_segments_returns_single_segment_when_no_boundaries(
-    app,
+    app: object,
 ) -> None:
     _require_app(app)
 
@@ -154,7 +158,9 @@ def test_split_av_speakable_segments_returns_single_segment_when_no_boundaries(
     assert split_av_speakable_segments("Hello.") == ["Hello."]
 
 
-def test_build_av_segmentation_contract_contains_boundaries_and_positions(app) -> None:
+def test_build_av_segmentation_contract_contains_boundaries_and_positions(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.pipeline import build_av_segmentation_contract

@@ -89,7 +89,7 @@ pytestmark = pytest.mark.no_mock_llm
 class DummySpan:
     """Simulate span behavior for tests."""
 
-    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
+    def __init__(self, trace_id: str = "trace-1", span_id: str = "span-1") -> None:
         """Initialize the dummy span test double."""
         self.generation_args = None
         self.end_args = None
@@ -111,7 +111,13 @@ class DummySpan:
 class FakeResponse:
     """Simulate response behavior for tests."""
 
-    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None) -> None:
+    def __init__(
+        self,
+        chunk_id: object,
+        content: object | None = None,
+        finish_reason: object | None = None,
+        usage: object | None = None,
+    ) -> None:
         """Initialize the fake response test double."""
         self.id = chunk_id
         delta = SimpleNamespace(content=content)
@@ -122,14 +128,18 @@ class FakeResponse:
 class FakeUsage:
     """Simulate usage behavior for tests."""
 
-    def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
+    def __init__(
+        self, prompt_tokens: object, completion_tokens: object, total_tokens: object
+    ) -> None:
         """Initialize the fake usage test double."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens
 
 
-def test_invoke_llm_streams_via_litellm(monkeypatch, app) -> None:
+def test_invoke_llm_streams_via_litellm(
+    monkeypatch: pytest.MonkeyPatch, app: object
+) -> None:
     captured_kwargs = {}
 
     def fake_completion(*args: object, **kwargs: object) -> Iterator[FakeResponse]:

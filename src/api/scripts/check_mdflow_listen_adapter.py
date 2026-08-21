@@ -45,12 +45,12 @@ if TYPE_CHECKING:
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw: object) -> str:
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object) -> str:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw: object) -> str:
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> str:
     return "INTEGER"
 
 
@@ -231,7 +231,7 @@ def _make_app() -> tuple[Flask, str]:
 def _format_stream_parts(
     content: str,
     chunk_sizes: tuple[int, ...],
-    stream_formatter_cls,
+    stream_formatter_cls: object,
 ) -> list[tuple[str, str, int]]:
     formatter = stream_formatter_cls()
     parts: list[tuple[str, str, int]] = []

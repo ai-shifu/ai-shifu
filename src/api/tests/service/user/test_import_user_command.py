@@ -18,9 +18,9 @@ from flaskr.util.datetime import now_utc
 
 @pytest.mark.parametrize("canonical_source", ["profile", "cleared-state"])
 def test_import_user_keeps_pre_profile_nickname_behavior(
-    app,
-    monkeypatch,
-    canonical_source,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    canonical_source: object,
 ) -> None:
     import_user_module = import_module("flaskr.command.import_user")
 
@@ -89,8 +89,8 @@ def test_import_user_keeps_pre_profile_nickname_behavior(
 
 
 def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
-    app,
-    monkeypatch,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import_user_module = import_module("flaskr.command.import_user")
 
@@ -141,7 +141,7 @@ def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
         read_order: list[tuple[str, str, bool, bool]] = []
         reads_before_ensure: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query) -> object:
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             lookup_value = str(

@@ -32,7 +32,11 @@ class _App:
 
 class _Response:
     def __init__(
-        self, status_code=200, text="", json_value=None, json_exc=None
+        self,
+        status_code: int = 200,
+        text: str = "",
+        json_value: object | None = None,
+        json_exc: object | None = None,
     ) -> None:
         self.status_code = status_code
         self.text = text
@@ -46,7 +50,7 @@ class _Response:
 
 
 def test_send_notify_returns_metadata_for_successful_non_json_response(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     app = _App()
     monkeypatch.setattr(
@@ -66,7 +70,7 @@ def test_send_notify_returns_metadata_for_successful_non_json_response(
     assert app.logger.warnings == []
 
 
-def test_send_notify_returns_none_for_non_2xx_response(monkeypatch) -> None:
+def test_send_notify_returns_none_for_non_2xx_response(monkeypatch: object) -> None:
     app = _App()
     monkeypatch.setattr(
         feishu, "get_config", lambda _key, _default=None: "https://example.test/webhook"
@@ -83,7 +87,7 @@ def test_send_notify_returns_none_for_non_2xx_response(monkeypatch) -> None:
     assert app.logger.warnings
 
 
-def test_send_notify_returns_none_for_request_error(monkeypatch) -> None:
+def test_send_notify_returns_none_for_request_error(monkeypatch: object) -> None:
     app = _App()
     monkeypatch.setattr(
         feishu, "get_config", lambda _key, _default=None: "https://example.test/webhook"

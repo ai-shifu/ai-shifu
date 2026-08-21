@@ -94,8 +94,8 @@ def _seed_campaign(
 
 
 def test_load_active_campaign_honors_window_and_feature_flag(
-    referral_app,
-    monkeypatch,
+    referral_app: object,
+    monkeypatch: object,
 ) -> None:
     with referral_app.app_context():
         now = datetime(2026, 6, 9, 12, 0, 0)
@@ -127,8 +127,8 @@ def test_load_active_campaign_honors_window_and_feature_flag(
 
 
 def test_invite_profile_lazily_creates_stable_campaign_scoped_code(
-    referral_app,
-    monkeypatch,
+    referral_app: object,
+    monkeypatch: object,
 ) -> None:
     with referral_app.app_context():
         _seed_campaign(campaign_bid="ref-campaign-profile")
@@ -153,7 +153,7 @@ def test_invite_profile_lazily_creates_stable_campaign_scoped_code(
 
 
 def test_invite_profile_route_returns_unavailable_without_campaign(
-    referral_app,
+    referral_app: object,
 ) -> None:
     register_referral_routes(referral_app, "/api/referral")
 
@@ -187,7 +187,7 @@ def test_invite_profile_route_returns_unavailable_without_campaign(
 
 
 def test_invite_profile_route_returns_unavailable_without_reward_rule(
-    referral_app,
+    referral_app: object,
 ) -> None:
     register_referral_routes(referral_app, "/api/referral")
 
@@ -211,8 +211,8 @@ def test_invite_profile_route_returns_unavailable_without_reward_rule(
 
 
 def test_invite_profile_includes_creator_reward_queue(
-    referral_app,
-    monkeypatch,
+    referral_app: object,
+    monkeypatch: object,
 ) -> None:
     with referral_app.app_context():
         campaign, rule = _seed_campaign(campaign_bid="ref-campaign-profile-queue")
@@ -285,7 +285,7 @@ def test_invite_profile_includes_creator_reward_queue(
 
 
 def test_invite_preview_route_returns_only_masked_inviter_mobile(
-    referral_app,
+    referral_app: object,
 ) -> None:
     register_referral_routes(referral_app, "/api/referral")
     with referral_app.app_context():
@@ -325,7 +325,7 @@ def test_invite_preview_route_returns_only_masked_inviter_mobile(
 
 
 def test_invite_preview_route_masks_email_inviter_identifier(
-    referral_app,
+    referral_app: object,
 ) -> None:
     register_referral_routes(referral_app, "/api/referral")
     with referral_app.app_context():
@@ -374,7 +374,7 @@ def test_mask_identifier_snapshot_handles_phone_email_and_short_values() -> None
 
 
 def test_invite_preview_route_is_non_identifying_for_unknown_code(
-    referral_app,
+    referral_app: object,
 ) -> None:
     register_referral_routes(referral_app, "/api/referral")
 
@@ -391,7 +391,7 @@ def test_invite_preview_route_is_non_identifying_for_unknown_code(
     }
 
 
-def test_record_invite_event_hashes_client_context(referral_app) -> None:
+def test_record_invite_event_hashes_client_context(referral_app: object) -> None:
     with referral_app.app_context():
         campaign, _rule = _seed_campaign(campaign_bid="ref-campaign-event")
         db.session.add(
@@ -431,8 +431,8 @@ def test_record_invite_event_hashes_client_context(referral_app) -> None:
 
 
 def test_post_auth_binding_is_idempotent_and_creates_reward(
-    referral_app,
-    monkeypatch,
+    referral_app: object,
+    monkeypatch: object,
 ) -> None:
     grant_calls: list[str] = []
 
@@ -500,8 +500,8 @@ def test_post_auth_binding_is_idempotent_and_creates_reward(
 
 
 def test_post_auth_preserves_reward_when_billing_grant_fails_then_repairs(
-    referral_app,
-    monkeypatch,
+    referral_app: object,
+    monkeypatch: object,
 ) -> None:
     with referral_app.app_context():
         campaign, _rule = _seed_campaign(campaign_bid="ref-campaign-repair")
@@ -587,8 +587,8 @@ def test_post_auth_preserves_reward_when_billing_grant_fails_then_repairs(
 
 
 def test_post_auth_binding_marks_cap_skipped_without_billing_side_effect(
-    referral_app,
-    monkeypatch,
+    referral_app: object,
+    monkeypatch: object,
 ) -> None:
     with referral_app.app_context():
         campaign, rule = _seed_campaign(

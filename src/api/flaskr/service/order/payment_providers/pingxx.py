@@ -42,7 +42,7 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func) -> Callable[..., object]:
+def _serialized_pingpp_config(func: object) -> Callable[..., object]:
     @wraps(func)
     def wrapped(*args: object, **kwargs: object) -> object:
         with _PINGPP_CONFIG_LOCK:

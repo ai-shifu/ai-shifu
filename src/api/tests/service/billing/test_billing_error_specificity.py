@@ -37,7 +37,7 @@ class _LockFactory:
 
 
 def test_subscription_checkout_lock_conflict_returns_busy_error(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> Never:
     monkeypatch.setattr(checkout_module.cache_provider, "cache", _LockFactory())
 
@@ -52,7 +52,9 @@ def test_subscription_checkout_lock_conflict_returns_busy_error(
     assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionCheckoutBusy"]
 
 
-def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch) -> None:
+def test_manual_plan_grant_lock_conflict_returns_busy_error(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(manual_plan_grants_module.redis, "lock", _LockFactory().lock)
 
     with pytest.raises(AppError) as exc_info:
@@ -67,7 +69,9 @@ def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch) ->
     assert exc_info.value.code == ERROR_CODE["server.billing.manualPlanGrantBusy"]
 
 
-def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch) -> None:
+def test_manual_credit_grant_failure_returns_specific_error(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         manual_credit_grants_module,
         "grant_manual_credit_wallet_balance",
@@ -95,7 +99,7 @@ def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch) ->
 
 
 def test_credit_notification_policy_save_failure_returns_specific_error(
-    app, monkeypatch
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         credit_notifications_module, "add_config", lambda *_, **__: False

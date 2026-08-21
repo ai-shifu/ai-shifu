@@ -504,7 +504,7 @@ def _build_mode(
 def build_operator_course_estimated_credit_cost(
     app: Flask,
     *,
-    course,
+    course: object,
     outline_items: list[DraftOutlineItem | PublishedOutlineItem],
     visible_leaf_outline_bids: list[str] | set[str],
 ) -> AdminOperationEstimatedCreditCostDTO:

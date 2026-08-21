@@ -17,7 +17,7 @@ _EMPTY_DATETIME_VALUES = {"", "0000-00-00", "0000-00-00 00:00:00"}
 _DATETIME_FIELDS_CACHE: dict[type, frozenset[str]] = {}
 
 
-def _allows_datetime(annotation) -> bool:
+def _allows_datetime(annotation: object) -> bool:
     if annotation is datetime:
         return True
     origin = get_origin(annotation)
@@ -26,7 +26,7 @@ def _allows_datetime(annotation) -> bool:
     return False
 
 
-def _datetime_fields_for(cls) -> frozenset[str]:
+def _datetime_fields_for(cls: object) -> frozenset[str]:
     cached = _DATETIME_FIELDS_CACHE.get(cls)
     if cached is None:
         cached = frozenset(
@@ -41,7 +41,7 @@ def _datetime_fields_for(cls) -> frozenset[str]:
 class _DTOBase(BaseModel):
     @field_validator("*", mode="before")
     @classmethod
-    def _coerce_empty_datetime(cls, value, info: ValidationInfo) -> object:
+    def _coerce_empty_datetime(cls, value: object, info: ValidationInfo) -> object:
         if not isinstance(value, str) or value.strip() not in _EMPTY_DATETIME_VALUES:
             return value
         if info.field_name in _datetime_fields_for(cls):

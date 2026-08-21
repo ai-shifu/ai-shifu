@@ -16,10 +16,10 @@ from flaskr.service.tts.validation import validate_tts_settings_strict
 
 
 @pytest.fixture(autouse=True)
-def _fake_providers(monkeypatch) -> None:
+def _fake_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     """Serve static voice/model lists without real provider credentials."""
 
-    def _fake_get_tts_provider(name) -> SimpleNamespace:
+    def _fake_get_tts_provider(name: object) -> SimpleNamespace:
         if name == "volcengine":
             cfg = SimpleNamespace(
                 voices=[{"value": "zh_female_vv_uranus_bigtts"}],
@@ -46,12 +46,12 @@ def _fake_providers(monkeypatch) -> None:
     )
 
 
-def _prepare_tables(app) -> None:
+def _prepare_tables(app: object) -> None:
     with app.app_context():
         TTSMiniMaxClonedVoice.__table__.create(db.engine, checkfirst=True)
 
 
-def _seed_ready_clone(app, *, provider: str, voice_id: str) -> None:
+def _seed_ready_clone(app: object, *, provider: str, voice_id: str) -> None:
     with app.app_context():
         db.session.add(
             TTSMiniMaxClonedVoice(
@@ -78,7 +78,7 @@ def _validate(provider: str, model: str, voice_id: str) -> object:
     )
 
 
-def test_volcengine_registered_clone_keeps_teacher_selected_model(app) -> None:
+def test_volcengine_registered_clone_keeps_teacher_selected_model(app: object) -> None:
     """A registered cloned voice validates under the teacher's normal model.
 
     For example, seed-tts-2.0 remains the model; the clone resource id is inferred inside the
@@ -92,7 +92,7 @@ def test_volcengine_registered_clone_keeps_teacher_selected_model(app) -> None:
     assert validated.model == "seed-tts-2.0"
 
 
-def test_volcengine_clone_with_unlisted_model_is_rejected(app) -> None:
+def test_volcengine_clone_with_unlisted_model_is_rejected(app: object) -> None:
     _prepare_tables(app)
     _seed_ready_clone(app, provider="volcengine", voice_id="S_xxxxxxxxxx")
     with app.app_context(), pytest.raises(AppError) as exc_info:
@@ -100,21 +100,21 @@ def test_volcengine_clone_with_unlisted_model_is_rejected(app) -> None:
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_volcengine_unregistered_clone_is_rejected(app) -> None:
+def test_volcengine_unregistered_clone_is_rejected(app: object) -> None:
     _prepare_tables(app)
     with app.app_context(), pytest.raises(AppError) as exc_info:
         _validate("volcengine", "seed-tts-2.0", "S_xxxxxxxxxxxx")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_volcengine_bad_shape_custom_voice_is_rejected(app) -> None:
+def test_volcengine_bad_shape_custom_voice_is_rejected(app: object) -> None:
     _prepare_tables(app)
     with app.app_context(), pytest.raises(AppError) as exc_info:
         _validate("volcengine", "seed-tts-2.0", "AiShifu_not_a_speaker")
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_minimax_format_bypass_does_not_require_db_row(app) -> None:
+def test_minimax_format_bypass_does_not_require_db_row(app: object) -> None:
     """Regression: the historical MiniMax bypass stays format-only (no DB row needed), so stale-but-well-formed ids keep passing strict validation."""
     _prepare_tables(app)
     with app.app_context():

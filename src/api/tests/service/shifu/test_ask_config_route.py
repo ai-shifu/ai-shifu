@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 
 def test_ask_config_route_localizes_response_by_user_language(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.route.validate_user",

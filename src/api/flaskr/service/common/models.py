@@ -12,7 +12,12 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 class AppError(Exception):
     """Represent an application error with a stable API code."""
 
-    def __init__(self, message, status_code=None, payload=None) -> None:
+    def __init__(
+        self,
+        message: object,
+        status_code: object | None = None,
+        payload: object | None = None,
+    ) -> None:
         """Initialize an application error and response payload."""
         Exception.__init__(self)
         self.message = message
@@ -58,12 +63,12 @@ def _load_error_codes() -> dict[str, int]:
 ERROR_CODE = _load_error_codes()
 
 
-def register_error(error_name, error_code) -> None:
+def register_error(error_name: object, error_code: object) -> None:
     """Register error."""
     ERROR_CODE[error_name] = error_code
 
 
-def raise_param_error(param_message) -> Never:
+def raise_param_error(param_message: object) -> Never:
     """Raise a localized invalid-parameter application error."""
     raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
@@ -71,7 +76,7 @@ def raise_param_error(param_message) -> Never:
     )
 
 
-def raise_error(error_name) -> Never:
+def raise_error(error_name: object) -> Never:
     """Raise a localized application error for the supplied key."""
     raise AppError(
         _(error_name),
@@ -79,7 +84,7 @@ def raise_error(error_name) -> Never:
     )
 
 
-def raise_error_with_args(error_name, **kwargs: object) -> Never:
+def raise_error_with_args(error_name: object, **kwargs: object) -> Never:
     """Raise error with args."""
     raise AppError(
         _(error_name).format(**kwargs),

@@ -168,7 +168,7 @@ def _failing_lifecycle_sync(
     event completion, simulating any late in-transaction error.
     """
 
-    def fake_sync(_app, subscription) -> None:
+    def fake_sync(_app: object, subscription: object) -> None:
         if subscription.subscription_bid in failing_bids:
             message = f"boom in {subscription.subscription_bid}"
             raise RuntimeError(message)
@@ -1067,7 +1067,7 @@ def test_upsert_recovers_when_concurrent_insert_wins(
         subscription_bid: str,
         *,
         event_type: int,
-        scheduled_at,
+        scheduled_at: object,
         for_update: bool = False,
     ) -> object:
         nonlocal calls
@@ -1140,7 +1140,7 @@ def test_upsert_recovers_when_cross_session_insert_wins(
         subscription_bid: str,
         *,
         event_type: int,
-        scheduled_at,
+        scheduled_at: object,
         for_update: bool = False,
     ) -> object:
         calls.append(for_update)

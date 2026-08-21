@@ -85,7 +85,7 @@ def _consume_latest_code_from_db(
     return "ok"
 
 
-def _decode_cache_value(raw) -> str:
+def _decode_cache_value(raw: object) -> str:
     if raw is None:
         return ""
     if isinstance(raw, bytes):

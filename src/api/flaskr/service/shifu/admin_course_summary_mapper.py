@@ -10,7 +10,7 @@ from flaskr.service.shifu.admin_shared import _format_decimal
 
 
 def build_admin_operation_course_summary(
-    course,
+    course: object,
     *,
     user_map: dict[str, dict[str, str]],
     course_status: str,
