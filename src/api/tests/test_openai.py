@@ -83,7 +83,7 @@ pytestmark = pytest.mark.no_mock_llm
 
 class DummySpan:
     def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
-        """Initialize the dummy span test double."""
+        """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
         self.end_args = None
         self.updated = None
@@ -103,7 +103,7 @@ class DummySpan:
 
 class FakeResponse:
     def __init__(self, chunk_id, content=None, finish_reason=None, usage=None) -> None:
-        """Initialize the fake response test double."""
+        """Capture streamed content, finish state, and usage metadata."""
         self.id = chunk_id
         delta = SimpleNamespace(content=content)
         self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
@@ -112,7 +112,7 @@ class FakeResponse:
 
 class FakeUsage:
     def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
-        """Initialize the fake usage test double."""
+        """Capture prompt, completion, and total token counts."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens

@@ -4,7 +4,7 @@ from typing import Any
 
 class FakeRedisLock:
     def __init__(self, locks: dict[str, bool], key: str) -> None:
-        """Initialize the fake Redis lock test double."""
+        """Bind a shared lock registry and key with an unheld state."""
         self._locks = locks
         self._key = key
         self._held = False
