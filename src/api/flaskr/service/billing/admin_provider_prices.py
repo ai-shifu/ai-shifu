@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from typing import Any
 
-from flask import Flask
+from flask import Flask, has_app_context
 from flaskr.service.common.models import raise_param_error
 
 from .consts import (
@@ -44,7 +45,7 @@ def build_admin_billing_provider_prices_page(
     status: str = "",
 ) -> dict[str, Any]:
     """Return active billing products with their Stripe price mapping history."""
-    with app.app_context():
+    with _maybe_app_context(app):
         products = _load_admin_provider_price_products(product_bid=product_bid)
         mappings = list_provider_price_mappings(
             product_bid=product_bid,
@@ -86,7 +87,7 @@ def create_admin_billing_provider_price_mapping(
     *,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    with app.app_context():
+    with _maybe_app_context(app):
         provider_product_id = str(payload.get("provider_product_id") or "")
         provider_price_id = str(payload.get("provider_price_id") or "")
         provider_account_id = str(payload.get("provider_account_id") or "")
@@ -121,7 +122,7 @@ def validate_admin_billing_provider_price_mapping(
     *,
     provider_price_bid: str,
 ) -> dict[str, Any]:
-    with app.app_context():
+    with _maybe_app_context(app):
         return _serialize_validation_summary(
             validate_provider_price_mapping_by_bid(provider_price_bid)
         )
@@ -132,7 +133,7 @@ def activate_admin_billing_provider_price_mapping(
     *,
     provider_price_bid: str,
 ) -> dict[str, Any]:
-    with app.app_context():
+    with _maybe_app_context(app):
         return _serialize_validation_summary(
             activate_provider_price_mapping(provider_price_bid)
         )
@@ -143,9 +144,13 @@ def retire_admin_billing_provider_price_mapping(
     *,
     provider_price_bid: str,
 ) -> dict[str, Any]:
-    with app.app_context():
+    with _maybe_app_context(app):
         mapping = retire_provider_price_mapping(provider_price_bid)
         return {"mapping": serialize_provider_price_mapping(mapping)}
+
+
+def _maybe_app_context(app: Flask):
+    return nullcontext() if has_app_context() else app.app_context()
 
 
 def _read_provider_snapshot(

@@ -1641,6 +1641,17 @@ class TestAdminBillingRoutes:
         assert payload["data"]["mapping"]["status_label"] == "draft"
         assert payload["data"]["mapping"]["provider_price_id"] == "price_plan_month_new"
 
+        list_response = client.get("/api/admin/billing/provider-prices?livemode=false")
+        list_payload = list_response.get_json(force=True)
+
+        assert list_payload["code"] == 0
+        assert (
+            list_payload["data"]["history_by_product"]["bill-product-plan-monthly"][0][
+                "provider_price_id"
+            ]
+            == "price_plan_month_new"
+        )
+
     def test_admin_billing_provider_prices_retire_mapping(
         self,
         admin_billing_client,
