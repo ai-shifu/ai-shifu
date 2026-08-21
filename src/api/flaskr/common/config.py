@@ -836,17 +836,20 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
         required=True,
-        example="ai-shifu",
+        example="",
         description="""Secret key for JWT token signing and verification
 CRITICAL: Used to encrypt/decrypt user authentication tokens
 - Must be a strong random string (at least 32 characters recommended)
 - DO NOT change in production (will invalidate all user sessions)
 - Keep different values for dev/test/prod environments
+- The public demo value "ai-shifu" is rejected
 - Never commit to version control
 Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))" """,
         secret=True,
         group="auth",
-        validator=lambda value: bool(value and str(value).strip()),
+        validator=lambda value: bool(
+            value and str(value).strip() and str(value).strip() != "ai-shifu"
+        ),
     ),
     "TOKEN_EXPIRE_TIME": EnvVar(
         name="TOKEN_EXPIRE_TIME",

@@ -42,6 +42,7 @@ class TestSecretKeyValidator:
             "\t",  # Only tab
             "\n",  # Only newline
             "\t\n ",  # Mixed whitespace
+            "ai-shifu",  # Public demo key
             None,  # None value
         ]
 
