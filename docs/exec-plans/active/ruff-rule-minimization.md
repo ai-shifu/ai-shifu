@@ -539,8 +539,9 @@ plan's progress update for that rule.
   extra diff; development-tool validation, translations, repository harness,
   architecture boundaries, configured Ruff and format, and every repository
   pre-commit hook pass on the final local T20 change.
-- [ ] Open a ready T20 PR from `sunner/ruff-t20` to `sunner/ruff-s603` after
-  the targeted, full-backend, harness, and repository gates pass.
+- [x] 2026-08-21 08:42 CST: Opened ready T20 PR #2602 from
+  `sunner/ruff-t20` to `sunner/ruff-s603` after the targeted, full-backend,
+  harness, and repository gates passed locally.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
