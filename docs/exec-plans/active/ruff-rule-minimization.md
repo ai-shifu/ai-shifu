@@ -208,6 +208,12 @@ plan's progress update for that rule.
   field contract and removing the only N803 suppression.
 - [ ] Merge or retarget N803 PR #2631 after N815 without combining it with the
   next rule unit.
+- [x] 2026-08-22: Rebuilt the S101 stage on `sunner/ruff-s101`, stacked on
+  N803. Removed the stale exact-file exception for the deleted
+  `src/api/conftest.py` path and documented the production/test assertion
+  boundary.
+- [ ] Merge or retarget S101 PR #2632 after N803 without combining it with the
+  next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
