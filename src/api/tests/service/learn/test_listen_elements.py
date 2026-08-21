@@ -1410,6 +1410,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
 
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
                         MarkdownFlowBlockType.CONTENT,
@@ -1433,6 +1434,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
 
                 def _gen():
@@ -1600,6 +1602,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
 
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
                         MarkdownFlowBlockType.CONTENT,
@@ -1623,6 +1626,8 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (block_index, mode, variables, context, user_input)
+
                 def _gen():
                     yield DummyLLMResult(
                         [DummyFormattedElement("Intro narration.\n", "text", 0)]
@@ -1664,6 +1669,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                     yield None
 
             def finalize(self, *, commit=True):
+                _ = commit
                 if self.stream_element_number == 0:
                     time.sleep(0.02)
                 resolved_audio_url = (

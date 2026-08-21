@@ -488,6 +488,7 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
 
     class FakeStripeProvider:
         def create_payment(self, *, request, app):
+            _ = app
             stripe_requests.append(
                 {
                     "order_bid": request.order_bid,

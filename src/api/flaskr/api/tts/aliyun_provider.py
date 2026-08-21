@@ -1249,6 +1249,7 @@ class AliyunTTSProvider(BaseTTSProvider):
             ValueError: If synthesis fails
 
         """
+        _ = model
         if not text or not text.strip():
             exception_message = "Text cannot be empty"
             raise ValueError(exception_message)

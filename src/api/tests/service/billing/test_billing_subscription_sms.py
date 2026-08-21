@@ -261,6 +261,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
 
     class FakeStripeProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert reference_type == "subscription"
             return PaymentNotificationResult(
                 order_bid="",
@@ -413,6 +414,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
 
     class FakeStripeProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert reference_type == "subscription"
             return PaymentNotificationResult(
                 order_bid="",
@@ -573,6 +575,7 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
 
     class FakePingxxProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert provider_reference == "ch_billing_feishu_topup_sync_1"
             assert reference_type == "charge"
             return PaymentNotificationResult(
@@ -657,6 +660,7 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
 
     class FakePingxxProvider:
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert provider_reference == "ch_trial_upgrade_sync_pingxx_1"
             assert reference_type == "charge"
             return PaymentNotificationResult(

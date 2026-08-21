@@ -11,12 +11,15 @@ class _Logger:
         self.exceptions = []
 
     def info(self, *args, **kwargs):
+        _ = kwargs
         self.infos.append(args)
 
     def warning(self, *args, **kwargs):
+        _ = kwargs
         self.warnings.append(args)
 
     def exception(self, *args, **kwargs):
+        _ = kwargs
         self.exceptions.append(args)
 
 
