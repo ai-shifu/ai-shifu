@@ -36,6 +36,7 @@ def register_shifu_commands(console: object, app: object) -> None:
     def repair_outline_structure_command(
         shifu_bids: tuple[str, ...],
         user_bid: str | None,
+        *,
         dry_run: bool,
     ) -> None:
         """Repair broken draft outline parent/position state and rebuild struct."""

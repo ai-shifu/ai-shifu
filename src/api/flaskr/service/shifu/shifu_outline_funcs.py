@@ -250,7 +250,7 @@ def get_outline_tree_dto(
                 outline_title,
                 [],
                 outline_type,
-                is_hidden,
+                is_hidden=is_hidden,
             )
         )
         if node.children:
@@ -318,10 +318,10 @@ def __insert_outline_locked(
     outline_name: str,
     outline_type: str,
     system_prompt: str,
+    *,
     is_hidden: bool,
     now_time: object,
     outline_bid: str,
-    *,
     persist_history: bool = True,
 ) -> SimpleOutlineDto:
     """Insert one outline row, allocating its position from current siblings.
@@ -459,9 +459,9 @@ def create_outline(
             outline_name,
             outline_type,
             system_prompt,
-            is_hidden,
-            now_time,
-            outline_bid,
+            is_hidden=is_hidden,
+            now_time=now_time,
+            outline_bid=outline_bid,
         )
         db.session.commit()
         return dto
@@ -641,9 +641,9 @@ def create_outlines_batch(
                     node["name"],
                     node["type"],
                     node["system_prompt"],
-                    node["is_hidden"],
-                    now_time,
-                    node["bid"],
+                    is_hidden=node["is_hidden"],
+                    now_time=now_time,
+                    outline_bid=node["bid"],
                 )
                 if node["children"]:
                     dto.children = _insert(node["children"], dto.bid)
@@ -800,6 +800,7 @@ def modify_unit(
     unit_name: str | None = None,
     unit_description: str | None = None,
     unit_system_prompt: str | None = None,
+    *,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
 ) -> OutlineDto:

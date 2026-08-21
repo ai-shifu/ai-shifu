@@ -172,8 +172,8 @@ def get_listen_element_record(
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
-    preview_mode: bool,
     *,
+    preview_mode: bool,
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Return listen element record."""

@@ -249,7 +249,9 @@ def _has_next_outline_item(
     return False
 
 
-def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifuInfoDTO:
+def get_shifu_info(
+    app: Flask, shifu_bid: str, *, preview_mode: bool
+) -> LearnShifuInfoDTO:
     """Return shifu info."""
     with app.app_context():
         model = DraftShifu if preview_mode else PublishedShifu
@@ -276,7 +278,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
 
 
 def get_outline_item_tree(
-    app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
+    app: Flask, shifu_bid: str, user_bid: str, *, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
     """Return outline item tree."""
     with app.app_context():
@@ -472,7 +474,7 @@ def get_outline_item_tree(
 
 
 def get_learn_record(
-    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
+    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, *, preview_mode: bool
 ) -> LegacyLearnRecord:
     """Rebuild the learner's legacy record from persisted progress."""
     with app.app_context():
@@ -692,6 +694,7 @@ def get_generated_content(
     shifu_bid: str,
     generated_block_bid: str,
     user_bid: str,
+    *,
     preview_mode: bool,
 ) -> GeneratedInfoDTO:
     """Return generated content."""

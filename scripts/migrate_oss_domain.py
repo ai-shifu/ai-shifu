@@ -103,6 +103,7 @@ def get_db_url(args: argparse.Namespace) -> str:
 
 
 def migrate(
+    *,
     apply: bool,
     old_url: str,
     new_url: str,
@@ -250,7 +251,13 @@ def main() -> None:
     log.info("DB:      %s", _mask_url(db_url))
     log.info("Replace: %r  ->  %r", old_url, new_url)
 
-    migrate(args.apply, old_url, new_url, db_url, args.batch_size)
+    migrate(
+        apply=args.apply,
+        old_url=old_url,
+        new_url=new_url,
+        db_url=db_url,
+        batch_size=args.batch_size,
+    )
 
 
 if __name__ == "__main__":

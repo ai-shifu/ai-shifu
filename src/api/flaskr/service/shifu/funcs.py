@@ -79,7 +79,7 @@ def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
 
 
 def mark_or_unmark_favorite_shifu(
-    app: object, user_id: str, shifu_id: str, is_favorite: bool
+    app: object, user_id: str, shifu_id: str, *, is_favorite: bool
 ) -> bool:
     """Mark or unmark a shifu as favorite for a user.
 

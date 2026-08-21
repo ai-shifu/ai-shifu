@@ -615,6 +615,7 @@ def register_billing_commands(console: object) -> None:
     def backfill_trial_plans_command(
         creator_bid: str,
         limit: int | None,
+        *,
         process_all: bool,
     ) -> None:
         """Grant the configured public trial plan to creators who still miss it."""
@@ -657,6 +658,7 @@ def register_billing_commands(console: object) -> None:
         course_bid: str,
         user_bid: str,
         limit: int | None,
+        *,
         process_all: bool,
         dry_run: bool,
     ) -> None:
@@ -703,6 +705,7 @@ def register_billing_commands(console: object) -> None:
         usage_id_start: int | None,
         usage_id_end: int | None,
         limit: int | None,
+        *,
         process_all: bool,
     ) -> None:
         """Backfill or manually replay usage settlement from the CLI."""
@@ -746,6 +749,7 @@ def register_billing_commands(console: object) -> None:
     def rebuild_wallets_command(
         creator_bid: str,
         wallet_bid: str,
+        *,
         process_all: bool,
         apply_changes: bool,
     ) -> None:
@@ -791,6 +795,7 @@ def register_billing_commands(console: object) -> None:
         creator_bid: str,
         limit: int | None,
         as_of: str,
+        *,
         process_all: bool,
     ) -> None:
         """Run read-only billing credit invariant diagnostics."""
@@ -838,6 +843,7 @@ def register_billing_commands(console: object) -> None:
         creator_bid: str,
         wallet_bucket_bid: str,
         limit: int | None,
+        *,
         process_all: bool,
         apply_changes: bool,
     ) -> None:
@@ -886,6 +892,7 @@ def register_billing_commands(console: object) -> None:
     def repair_renewal_state_drift_command(
         creator_bid: str,
         limit: int | None,
+        *,
         process_all: bool,
         apply_changes: bool,
     ) -> None:
@@ -933,6 +940,7 @@ def register_billing_commands(console: object) -> None:
     @with_appcontext
     def restore_expired_topup_buckets_command(
         bill_order_bids: tuple[str, ...],
+        *,
         apply_changes: bool,
     ) -> None:
         """Restore explicitly listed credit pack buckets expired by old logic."""
@@ -1018,6 +1026,7 @@ def register_billing_commands(console: object) -> None:
         shifu_bid: str,
         date_from: str,
         date_to: str,
+        *,
         process_all: bool,
     ) -> None:
         """Rebuild one daily aggregate date window from raw usage and ledger data."""

@@ -27,7 +27,7 @@ class FakeLLMResponse:
         self.choices = [SimpleNamespace(delta=SimpleNamespace(content=result))]
 
 
-def _stream_chunks(stream: bool) -> list[str]:
+def _stream_chunks(*, stream: bool) -> list[str]:
     if stream:
         return ["mock-", "llm"]
     return ["mock-llm"]
@@ -38,7 +38,7 @@ def fake_invoke_llm(
     **kwargs: object,
 ) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
-    chunks = _stream_chunks(stream)
+    chunks = _stream_chunks(stream=stream)
     for idx, chunk in enumerate(chunks, start=1):
         yield FakeLLMResponse(
             chunk,
@@ -53,7 +53,7 @@ def fake_chat_llm(
     **kwargs: object,
 ) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
-    chunks = _stream_chunks(stream)
+    chunks = _stream_chunks(stream=stream)
     for idx, chunk in enumerate(chunks, start=1):
         yield FakeLLMResponse(
             chunk,

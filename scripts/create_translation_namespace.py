@@ -52,7 +52,9 @@ def namespace_to_path(namespace: str) -> Path:
     return Path(relative)
 
 
-def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) -> None:
+def ensure_namespace_files(
+    namespace: str, keys: list[str] | None, *, force: bool
+) -> None:
     """Ensure namespace files."""
     relative_path = namespace_to_path(namespace)
     locale_dirs = iter_locale_dirs()
@@ -99,7 +101,7 @@ def main() -> int:
     """Create a shared translation namespace in every locale."""
     args = parse_args()
     try:
-        ensure_namespace_files(args.namespace, args.keys, args.force)
+        ensure_namespace_files(args.namespace, args.keys, force=args.force)
     except RuntimeError as error:
         print(f"Error: {error}")
         return 1

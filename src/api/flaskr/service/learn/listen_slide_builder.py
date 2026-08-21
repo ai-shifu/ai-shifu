@@ -31,7 +31,7 @@ class VisualSegment:
     is_placeholder: bool = False
 
 
-def _segment_type_for_visual_kind(visual_kind: str, is_placeholder: bool) -> str:
+def _segment_type_for_visual_kind(visual_kind: str, *, is_placeholder: bool) -> str:
     if is_placeholder:
         return "placeholder"
     if visual_kind in {"iframe", "sandbox", "html_table"}:
@@ -116,7 +116,9 @@ def build_visual_segments_for_block(
         if existing:
             return existing
         segment_id = generate_id(app) if app is not None else uuid.uuid4().hex
-        segment_type = _segment_type_for_visual_kind(visual_kind, is_placeholder)
+        segment_type = _segment_type_for_visual_kind(
+            visual_kind, is_placeholder=is_placeholder
+        )
         segment_content = (
             ""
             if is_placeholder

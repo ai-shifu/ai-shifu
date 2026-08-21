@@ -331,7 +331,7 @@ def upload_creator_brand_logo(
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
         _require_capability(
-            entitlement.branding_enabled,
+            granted=entitlement.branding_enabled,
             allow_when_customization_disabled=allow_when_customization_disabled,
         )
 
@@ -362,7 +362,7 @@ def save_creator_branding(
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
         _require_capability(
-            entitlement.branding_enabled,
+            granted=entitlement.branding_enabled,
             allow_when_customization_disabled=allow_when_customization_disabled,
         )
         value = {
@@ -434,7 +434,7 @@ def save_creator_integration(
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
         _require_capability(
-            entitlement.custom_wechat_enabled
+            granted=entitlement.custom_wechat_enabled
             if provider == "wechat_oauth"
             else entitlement.custom_payment_enabled,
             allow_when_customization_disabled=allow_when_customization_disabled,
@@ -1036,7 +1036,7 @@ def _normalize_provider(value: object) -> str:
     return provider
 
 
-def _normalize_config(provider: str, value: object, secret: bool) -> dict[str, Any]:
+def _normalize_config(provider: str, value: object, *, secret: bool) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise_param_error("secret_config" if secret else "public_config")
     public_fields, secret_fields = _PROVIDER_FIELDS[provider]
@@ -1067,8 +1067,8 @@ def _validate_required_config(
 
 
 def _require_capability(
-    granted: bool,
     *,
+    granted: bool,
     allow_when_customization_disabled: bool = False,
 ) -> None:
     if (

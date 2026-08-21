@@ -934,6 +934,32 @@ plan's progress update for that rule.
   semantic signature-and-call audit, configured Ruff and format, pinned Ruff
   0.16.3 development-tool validation, and every repository pre-commit hook
   across all files.
+- [x] 2026-08-21 19:04 CST: Opened ready FBT002 PR
+  [#2622](https://github.com/ai-shifu/ai-shifu/pull/2622) from
+  `sunner/ruff-fbt002` to `sunner/ruff-ann001`. Every GitHub check passed,
+  including the 3,032-test backend job and runtime harness, before starting
+  the FBT001 successor.
+- [x] 2026-08-21 19:19 CST: Enabled FBT001 and collapsed the three enforced
+  boolean-trap codes to the `FBT` prefix. Moved 97 parameters in 49
+  repository-owned functions behind keyword-only boundaries, including all
+  59 remaining boolean-typed parameters, and rewrote 58 affected positional
+  arguments to name the same expressions. The ten Redis-compatible `nx`/`xx`
+  parameters now carry combined exact inline FBT001/FBT002 exceptions.
+- [x] 2026-08-21 19:19 CST: A reversible signature-and-call audit matches all
+  29 changed Python files to the FBT002 parent after restoring the original
+  binding. The stable census falls from 14,025 to 13,957 and the documented
+  isolated census from 28,165 to 28,097, both by 68: FBT001 falls by all 69
+  findings, PLR0917 falls by six, and formatter-owned COM812 rises by seven.
+- [x] 2026-08-21 19:20 CST: All 390 focused backend cases pass with 14 existing
+  environment skips, the five development-tool executable-resolution tests
+  pass, both changed contributor scripts render their help entry points, and
+  the complete backend suite passes 3,032 tests with 17 skips and 733 existing
+  warnings.
+- [x] 2026-08-21 19:23 CST: Collaboration and knowledge generators produced no
+  extra diff. Translation validation, compile checks, repository harness,
+  architecture boundary ratchet, configured FBT/Ruff and format, pinned Ruff
+  0.16.3 development-tool validation, and every repository pre-commit check
+  pass on the final local FBT001 change.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1549,6 +1575,19 @@ ANN001 parent. Configured FBT002 is clean; both censuses fall by 188, to 14,025
 stable and 28,184 isolated findings, as the same change removes 88 FBT001 and
 eight PLR0917 findings while formatter-conflicting COM812 rises by six. The
 directly affected tests and the complete 3,032-test backend suite pass.
+
+The FBT001 stage extends that contract to required and nullable boolean-typed
+parameters. It moves 97 parameters in 49 repository-owned functions behind
+keyword-only boundaries, including all 59 remaining boolean parameters, and
+names 58 formerly positional argument expressions without changing their
+binding. The same ten Redis `nx`/`xx` slots retain combined FBT001/FBT002
+exceptions because their external positional protocol is intrinsic. With all
+three boolean-trap rules now active, `ruff.toml` selects the `FBT` prefix rather
+than listing members. A reversible AST audit proves executable equivalence to
+the FBT002 parent; 390 focused backend cases, five contributor-tool tests, both
+changed script entry points, and the complete 3,032-test backend suite pass.
+The stable census falls to 13,957 and the documented isolated census to 28,097:
+FBT001 falls by 69, PLR0917 falls by six, and COM812 rises by seven.
 
 ## Context and Orientation
 

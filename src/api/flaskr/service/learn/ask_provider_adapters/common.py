@@ -36,7 +36,7 @@ def render_knowledge_rule() -> str:
     return _knowledge_rule_template().strip()
 
 
-def render_knowledge_section(knowledge_context: str, include_rule: bool) -> str:
+def render_knowledge_section(knowledge_context: str, *, include_rule: bool) -> str:
     """Render the knowledge section of the ask prompt.
 
     ``include_rule`` keeps the answering rule inside the section for prompts

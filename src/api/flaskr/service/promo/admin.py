@@ -576,6 +576,7 @@ def _build_campaign_item(
     course_map: dict[str, DraftShifu | PublishedShifu],
     applied_order_count: int,
     total_discount_amount: decimal.Decimal,
+    *,
     has_redemptions: bool,
     user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCampaignItemDTO:
@@ -1591,10 +1592,10 @@ def list_operator_promotion_campaigns(
             stats_map.get(campaign.promo_bid or "", {}).get(
                 "discount_amount", decimal.Decimal(0)
             ),
-            bool(
+            has_redemptions=bool(
                 stats_map.get(campaign.promo_bid or "", {}).get("redemption_count", 0)
             ),
-            user_name_map,
+            user_name_map=user_name_map,
         ).__json__()
         for campaign in paged
     ]
@@ -1780,8 +1781,8 @@ def get_operator_promotion_campaign_detail(
         course_map,
         int(stats.get("count", 0)),
         stats.get("discount_amount", decimal.Decimal(0)),
-        bool(stats.get("redemption_count", 0)),
-        user_name_map,
+        has_redemptions=bool(stats.get("redemption_count", 0)),
+        user_name_map=user_name_map,
     )
     return AdminPromotionCampaignDetailDTO(
         campaign=item,

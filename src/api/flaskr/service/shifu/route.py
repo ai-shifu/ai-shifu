@@ -497,7 +497,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 user_id,
                 page_index,
                 page_size,
-                is_favorite,
+                is_favorite=is_favorite,
                 archived=archived,
             )
         )
@@ -1084,7 +1084,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         elif not isinstance(is_favorite, bool):
             raise_param_error("is_favorite is not a boolean")
         return make_common_response(
-            mark_or_unmark_favorite_shifu(app, user_id, shifu_bid, is_favorite)
+            mark_or_unmark_favorite_shifu(
+                app, user_id, shifu_bid, is_favorite=is_favorite
+            )
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/publish", methods=["POST"])
@@ -1447,8 +1449,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 name,
                 description,
                 system_prompt,
-                is_hidden,
-                outline_type,
+                unit_is_hidden=is_hidden,
+                unit_type=outline_type,
             )
         )
 

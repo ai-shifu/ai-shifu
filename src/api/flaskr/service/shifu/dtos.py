@@ -64,9 +64,9 @@ class ShifuDto(BaseModel):
         shifu_description: str,
         shifu_avatar: str,
         shifu_state: int,
+        *,
         is_favorite: bool,
         archived: bool,
-        *,
         can_manage_archive: bool = False,
         can_manage_permissions: bool = False,
         created_user_bid: str = "",
@@ -199,9 +199,9 @@ class ShifuDetailDto(BaseModel):
         shifu_preview_url: str,
         shifu_url: str,
         shifu_system_prompt: str,
+        *,
         readonly: bool,
         archived: bool,
-        *,
         can_manage_archive: bool = False,
         can_publish: bool = False,
         created_user_bid: str = "",
@@ -314,6 +314,7 @@ class SimpleOutlineDto(BaseModel):
         name: str,
         children: list,
         type: str | None = None,  # noqa: A002 - serialized DTO field name
+        *,
         is_hidden: bool | None = None,
     ) -> None:
         """Build the simple outline payload."""
@@ -330,7 +331,7 @@ class SimpleOutlineDto(BaseModel):
                             child.get("name", ""),
                             child.get("children", []),
                             child.get("type"),
-                            child.get("is_hidden"),
+                            is_hidden=child.get("is_hidden"),
                         )
                     )
         super().__init__(
@@ -420,6 +421,7 @@ class OutlineDto(BaseModel):
         type: str | None = None,  # noqa: A002 - serialized DTO field name
         index: int | None = None,
         system_prompt: str | None = None,
+        *,
         is_hidden: bool | None = None,
     ) -> None:
         """Build the outline payload."""

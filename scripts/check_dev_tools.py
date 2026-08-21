@@ -67,7 +67,7 @@ COOK_WEB_PRETTIER = ROOT / "src" / "cook-web" / "node_modules" / ".bin" / "prett
 class Check:
     """A single tool/state check and the command that fixes it."""
 
-    def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True) -> None:
+    def __init__(self, name: str, *, ok: bool, fix: str, required: bool = True) -> None:
         """Record a development-tool availability check."""
         self.name = name
         self.ok = ok
@@ -145,29 +145,36 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
     lefthook_present = shutil.which("lefthook") is not None
 
     core: list[Check] = [
-        Check("lefthook", lefthook_present, LEFTHOOK_PKG_INSTALL),
+        Check("lefthook", ok=lefthook_present, fix=LEFTHOOK_PKG_INSTALL),
         # Only meaningful once the binary exists; surface the install step
         # regardless so a half-finished setup is obvious.
         Check(
             "lefthook git hooks (lefthook install)",
-            lefthook_present and _lefthook_hook_installed(),
-            LEFTHOOK_INSTALL,
+            ok=lefthook_present and _lefthook_hook_installed(),
+            fix=LEFTHOOK_INSTALL,
         ),
-        Check(f"ruff {RUFF_VERSION}", _ruff_version_matches(), PIP_INSTALL),
-        Check("cz (commitizen)", shutil.which("cz") is not None, PIP_INSTALL),
+        Check(f"ruff {RUFF_VERSION}", ok=_ruff_version_matches(), fix=PIP_INSTALL),
+        Check("cz (commitizen)", ok=shutil.which("cz") is not None, fix=PIP_INSTALL),
     ]
     core.extend(
-        Check(script, shutil.which(script) is not None, PIP_INSTALL)
+        Check(script, ok=shutil.which(script) is not None, fix=PIP_INSTALL)
         for script in PRE_COMMIT_HOOKS_SCRIPTS
     )
 
     frontend: list[Check] = [
-        Check("node", shutil.which("node") is not None, NODE_INSTALL, required=False),
-        Check("npm", shutil.which("npm") is not None, NODE_INSTALL, required=False),
+        Check(
+            "node",
+            ok=shutil.which("node") is not None,
+            fix=NODE_INSTALL,
+            required=False,
+        ),
+        Check(
+            "npm", ok=shutil.which("npm") is not None, fix=NODE_INSTALL, required=False
+        ),
         Check(
             "Cook Web prettier (node_modules)",
-            COOK_WEB_PRETTIER.is_file(),
-            NPM_INSTALL,
+            ok=COOK_WEB_PRETTIER.is_file(),
+            fix=NPM_INSTALL,
             required=False,
         ),
     ]

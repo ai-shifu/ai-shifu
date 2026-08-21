@@ -52,6 +52,7 @@ def record_tts_segment_usage(
     latency_ms: int,
     voice_settings: VoiceSettings,
     audio_settings: AudioSettings,
+    *,
     is_stream: bool,
     parent_usage_bid: str,
     segment_index: int,

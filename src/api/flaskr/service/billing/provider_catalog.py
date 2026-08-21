@@ -202,7 +202,7 @@ def validate_provider_price_mapping(
         snapshot.price.product_id,
     )
 
-    expected_livemode_label = _bool_label(expected_livemode)
+    expected_livemode_label = _bool_label(value=expected_livemode)
     for code, actual in (
         ("product_livemode_mismatch", snapshot.product.livemode),
         ("price_livemode_mismatch", snapshot.price.livemode),
@@ -213,7 +213,7 @@ def validate_provider_price_mapping(
                     code=code,
                     message="Stripe catalog mode does not match the expected mode",
                     expected=expected_livemode_label,
-                    actual=_bool_label(bool(actual)),
+                    actual=_bool_label(value=bool(actual)),
                 )
             )
 
@@ -605,7 +605,7 @@ def _coerce_optional_bool(value: object) -> bool | None:
     return bool(value)
 
 
-def _bool_label(value: bool) -> str:
+def _bool_label(*, value: bool) -> str:
     return "live" if value else "test"
 
 

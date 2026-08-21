@@ -89,8 +89,8 @@ class FakeRedis:
         value: object,
         ex: int | None = None,
         px: int | None = None,
-        nx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
-        xx: bool = False,  # noqa: FBT002 - Redis-compatible positional signature
+        nx: bool = False,  # noqa: FBT001, FBT002 - Redis-compatible positional signature
+        xx: bool = False,  # noqa: FBT001, FBT002 - Redis-compatible positional signature
         *args: object,
         **kwargs: object,
     ) -> bool:

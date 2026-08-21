@@ -240,7 +240,7 @@ def apply_promo_campaigns(
 
 
 def query_promo_campaign_applications(
-    app: Flask, order_bid: str, recalc_discount: bool
+    app: Flask, order_bid: str, *, recalc_discount: bool
 ) -> list[PromoRedemption]:
     """Query promo campaign applications tied to an order."""
     with _app_context_scope(app):

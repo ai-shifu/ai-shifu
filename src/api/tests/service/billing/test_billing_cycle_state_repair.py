@@ -138,6 +138,7 @@ def test_repair_paid_reserved_grant_handles_cycle_window_boundaries(
     current_period_end_at: datetime | None,
     initial_bucket_start: datetime,
     initial_bucket_end: datetime,
+    *,
     expected_changed: bool,
     expected_bucket_start: datetime,
     expected_bucket_end: datetime,

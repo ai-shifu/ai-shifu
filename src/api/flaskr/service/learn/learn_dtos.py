@@ -167,6 +167,7 @@ class OutlineItemUpdateDTO(BaseModel):
         outline_bid: str,
         title: str,
         status: LearnStatus,
+        *,
         has_children: bool,
     ) -> None:
         """Build the outline item update payload."""
@@ -311,9 +312,9 @@ class LearnOutlineItemInfoDTO(BaseModel):
         title: str,
         status: LearnStatus,
         type: OutlineType,  # noqa: A002 - serialized DTO field name
+        *,
         is_paid: bool,
         children: list[LearnOutlineItemInfoDTO],
-        *,
         has_content_update_for_current_user: bool = False,
     ) -> None:
         """Build a learner-facing outline item payload."""
@@ -1077,6 +1078,7 @@ class RunStatusDTO(BaseModel):
 
     def __init__(
         self,
+        *,
         is_running: bool,
         running_time: int,
     ) -> None:
@@ -1105,6 +1107,7 @@ class GeneratedInfoDTO(BaseModel):
         self,
         position: int,
         outline_name: str,
+        *,
         is_trial_lesson: bool,
     ) -> None:
         """Build generated-outline metadata."""

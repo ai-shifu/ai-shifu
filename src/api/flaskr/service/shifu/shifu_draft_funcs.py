@@ -132,9 +132,9 @@ def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
 def return_shifu_draft_dto(
     shifu_draft: DraftShifu,
     base_url: str,
+    *,
     readonly: bool,
     archived_override: bool | None = None,
-    *,
     can_manage_archive: bool = False,
     can_publish: bool = False,
 ) -> ShifuDetailDto:
@@ -379,8 +379,8 @@ def get_shifu_draft_info(
         return return_shifu_draft_dto(
             shifu_draft,
             base_url,
-            readonly,
-            archived_override,
+            readonly=readonly,
+            archived_override=archived_override,
             can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
         )
@@ -399,6 +399,7 @@ def save_shifu_draft_info(
     shifu_price: float,
     shifu_system_prompt: str,
     base_url: str,
+    *,
     tts_enabled: bool | None = None,
     tts_provider: str | None = None,
     tts_model: str | None = None,
@@ -707,8 +708,8 @@ def save_shifu_draft_info(
         return return_shifu_draft_dto(
             shifu_draft,
             base_url,
-            readonly,
-            archived_override,
+            readonly=readonly,
+            archived_override=archived_override,
             can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
         )
@@ -719,8 +720,8 @@ def get_shifu_draft_list(
     user_id: str,
     page_index: int,
     page_size: int,
-    is_favorite: bool,
     *,
+    is_favorite: bool,
     archived: bool = False,
     creator_only: bool = False,
 ) -> PageNationDTO:
@@ -844,8 +845,8 @@ def get_shifu_draft_list(
                     if shifu_draft.shifu_bid in published_bids
                     else STATUS_DRAFT
                 ),
-                bool(is_favorite),
-                is_archived(shifu_draft),
+                is_favorite=bool(is_favorite),
+                archived=is_archived(shifu_draft),
                 can_manage_archive=True,
                 can_manage_permissions=(shifu_draft.created_user_bid == user_id),
                 created_user_bid=shifu_draft.created_user_bid or "",
@@ -960,7 +961,7 @@ def get_shifu_published_list(
 
 
 def _set_shifu_archive_state(
-    app: object, user_id: str, shifu_id: str, archived: bool
+    app: object, user_id: str, shifu_id: str, *, archived: bool
 ) -> None:
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)

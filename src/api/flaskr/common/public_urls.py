@@ -58,12 +58,16 @@ def build_wechatpay_notify_url() -> str:
 
 def build_stripe_learner_result_url(*, canceled: bool = False) -> str:
     """Build stripe learner result URL."""
-    return _with_canceled(build_public_url(STRIPE_LEARNER_RESULT_PATH), canceled)
+    return _with_canceled(
+        build_public_url(STRIPE_LEARNER_RESULT_PATH), canceled=canceled
+    )
 
 
 def build_stripe_billing_result_url(*, canceled: bool = False) -> str:
     """Build stripe billing result URL."""
-    return _with_canceled(build_public_url(STRIPE_BILLING_RESULT_PATH), canceled)
+    return _with_canceled(
+        build_public_url(STRIPE_BILLING_RESULT_PATH), canceled=canceled
+    )
 
 
 def build_public_url(path: str) -> str:
@@ -155,7 +159,7 @@ def _first_header_value(value: str | None) -> str:
     return str(value or "").split(",", 1)[0].strip()
 
 
-def _with_canceled(url: str, canceled: bool) -> str:
+def _with_canceled(url: str, *, canceled: bool) -> str:
     if not canceled:
         return url
     parsed = urlsplit(url)

@@ -1363,6 +1363,7 @@ class RunScriptPreviewContextV2:
         self,
         shifu_bid: str,
         outline_bid: str,
+        *,
         prefer_draft: bool,
     ) -> list[DraftOutlineItem | PublishedOutlineItem]:
         records: list[DraftOutlineItem | PublishedOutlineItem] = []
@@ -1517,7 +1518,7 @@ class RunScriptPreviewContextV2:
         )
 
     def _get_shifu_record(
-        self, shifu_bid: str, has_draft_outline: bool
+        self, shifu_bid: str, *, has_draft_outline: bool
     ) -> DraftShifu | PublishedShifu | None:
         if has_draft_outline:
             shifu = (
@@ -1611,9 +1612,9 @@ class RunScriptContextV2:
         struct: HistoryItem,
         outline_item_info: ShifuOutlineItemDto,
         user_info: UserAggregate,
+        *,
         is_paid: bool,
         preview_mode: bool,
-        *,
         listen: bool = False,
         stop_event: threading.Event | None = None,
     ) -> None:

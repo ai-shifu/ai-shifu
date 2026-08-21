@@ -139,7 +139,7 @@ def get_profile_item_definition_list(
 
 
 def update_profile_item_hidden_state(
-    app: Flask, parent_id: str, profile_keys: list[str], hidden: bool, user_id: str
+    app: Flask, parent_id: str, profile_keys: list[str], *, hidden: bool, user_id: str
 ) -> list[ProfileItemDefinition]:
     """Update is_hidden flag for given custom profile keys."""
     if not parent_id:

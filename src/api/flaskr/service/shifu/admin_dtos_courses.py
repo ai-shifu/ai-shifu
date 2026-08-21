@@ -52,6 +52,7 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         price: str,
         llm_model: str,
         tts_model: str,
+        *,
         has_course_prompt: bool,
         creator_user_bid: str,
         creator_mobile: str,

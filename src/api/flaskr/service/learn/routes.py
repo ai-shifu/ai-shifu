@@ -279,7 +279,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         if preview_mode:
             user = resolve_preview_request_user(app)
             require_shifu_preview_permission(app, user.user_id, shifu_bid)
-        return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
+        return make_common_response(
+            get_shifu_info(app, shifu_bid, preview_mode=preview_mode)
+        )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()
@@ -323,7 +325,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         if preview_mode:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
         return make_common_response(
-            get_outline_item_tree(app, shifu_bid, user_bid, preview_mode)
+            get_outline_item_tree(app, shifu_bid, user_bid, preview_mode=preview_mode)
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
@@ -687,7 +689,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 shifu_bid,
                 outline_bid,
                 user_bid,
-                preview_mode,
+                preview_mode=preview_mode,
                 include_non_navigable=include_non_navigable,
             )
         )
@@ -942,7 +944,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
         return make_common_response(
             get_generated_content(
-                app, shifu_bid, generated_block_bid, user_bid, preview_mode
+                app,
+                shifu_bid,
+                generated_block_bid,
+                user_bid,
+                preview_mode=preview_mode,
             )
         )
 
