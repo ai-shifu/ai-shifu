@@ -373,7 +373,7 @@ export const SetPasswordModal = ({
                 (activeMethod === 'phone' &&
                   (isCaptchaLoading || !captchaCode.trim()))
               }
-              className='shrink-0'
+              className='h-8 shrink-0 px-4'
             >
               {countdown > 0
                 ? t('module.settings.resendCountdown', { count: countdown })
