@@ -40,4 +40,5 @@ def test_leading_dash_consumer_root_is_not_parsed_as_grep_option(
 
     namespace = runpy.run_path(str(SCRIPT_PATH), run_name="__main__")
 
+    assert Path(namespace["GREP_EXECUTABLE"]).is_absolute()
     assert ("api", "leading-dash-consumer") in namespace["surfaces"]["miniprogram"]
