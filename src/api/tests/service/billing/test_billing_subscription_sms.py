@@ -946,18 +946,22 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
     cycle_end_at = datetime(2026, 5, 20, 0, 0, 0)
     captured: list[dict[str, object]] = []
 
+    def capture_sms(
+        app, mobile, *, template_code, template_params, sign_name=None
+    ) -> SimpleNamespace:
+        del app, sign_name
+        captured.append(
+            {
+                "mobile": mobile,
+                "template_code": template_code,
+                "template_params": dict(template_params),
+            }
+        )
+        return SimpleNamespace(ok=True)
+
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_sms_ali",
-        lambda _app, mobile, *, template_code, template_params, _sign_name=None: (
-            captured.append(
-                {
-                    "mobile": mobile,
-                    "template_code": template_code,
-                    "template_params": dict(template_params),
-                }
-            )
-            or SimpleNamespace(ok=True)
-        ),
+        capture_sms,
     )
 
     with app.app_context():
@@ -1111,11 +1115,15 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
         "app",
         types.SimpleNamespace(create_app=lambda: app),
     )
+
+    def fail_sms(
+        app, mobile, *, template_code, template_params, sign_name=None
+    ) -> None:
+        del app, mobile, template_code, template_params, sign_name
+
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_sms_ali",
-        lambda _app, _mobile, *, _template_code, _template_params, _sign_name=None: (
-            None
-        ),
+        fail_sms,
     )
 
     with pytest.raises(SubscriptionPurchaseSmsRetryableError):
