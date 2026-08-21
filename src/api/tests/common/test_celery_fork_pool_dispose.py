@@ -52,7 +52,6 @@ def test_one_failing_bind_does_not_block_the_rest(app, monkeypatch):
 
     class _BrokenEngine:
         def dispose(self, close):
-            _ = close
             message = "bind gone"
             raise RuntimeError(message)
 

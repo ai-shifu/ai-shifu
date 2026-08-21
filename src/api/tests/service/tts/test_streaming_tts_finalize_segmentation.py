@@ -773,7 +773,6 @@ class TestFinalizeDelayManagement:
         self, mock_sleep, mock_is_configured, mock_executor, mock_app
     ):
         """Test that _yield_ready_segments adds delay between segment yields."""
-        _ = mock_executor
         mock_is_configured.return_value = True
 
         processor = create_test_processor(mock_app)

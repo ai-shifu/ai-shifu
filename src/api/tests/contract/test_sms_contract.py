@@ -125,7 +125,6 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch):
             captured["config"] = config
 
         def send_sms_with_options(self, request, runtime):
-            _ = (request, runtime)
             raise DummyError
 
     def fake_assert(message):

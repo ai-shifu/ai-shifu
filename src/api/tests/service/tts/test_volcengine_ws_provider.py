@@ -61,11 +61,9 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
             return b"start_session"
 
         def encode_task_request(self, session_id, text):
-            _ = (session_id, text)
             return b"task_request"
 
         def encode_finish_session(self, session_id):
-            _ = session_id
             return b"finish_session"
 
         def encode_finish_connection(self):
@@ -139,7 +137,6 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
         def __init__(
             self, url, header, on_message, on_error, on_close, on_open
         ) -> None:
-            _ = (url, header, on_error)
             self.on_message = on_message
             self.on_close = on_close
             self.on_open = on_open
@@ -148,11 +145,9 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
             captured["ws"] = self
 
         def run_forever(self, **kwargs):
-            _ = kwargs
             self.on_open(self)
 
         def send(self, frame, opcode=None):
-            _ = opcode
             self.sent.append(frame)
             if frame == b"start_connection":
                 self.on_message(self, b"connection_started")

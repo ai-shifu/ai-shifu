@@ -228,7 +228,6 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
 ) -> None:
     class FakeAlipayProvider:
         def sync_reference(self, *, provider_reference, reference_type, app):
-            _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(
                 order_bid=provider_reference,
@@ -309,7 +308,6 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
 ) -> None:
     class FakeAlipayProvider:
         def sync_reference(self, *, provider_reference, reference_type, app):
-            _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(
                 order_bid=provider_reference,

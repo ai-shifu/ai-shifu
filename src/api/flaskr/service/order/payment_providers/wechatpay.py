@@ -55,7 +55,6 @@ class WechatPayProvider(PaymentProvider):
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
-        _ = app
         raw_body_text = (
             raw_body.decode("utf-8") if isinstance(raw_body, bytes) else str(raw_body)
         )

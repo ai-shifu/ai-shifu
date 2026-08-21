@@ -165,28 +165,24 @@ class PingxxProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        _ = (request, app)
         message = "Pingxx does not support subscriptions"
         raise RuntimeError(message)
 
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        _ = (subscription_bid, provider_subscription_id, app)
         message = "Pingxx does not support subscriptions"
         raise RuntimeError(message)
 
     def resume_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        _ = (subscription_bid, provider_subscription_id, app)
         message = "Pingxx does not support subscriptions"
         raise RuntimeError(message)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
-        _ = app
         normalized_headers = {
             str(key).lower(): str(value) for key, value in (headers or {}).items()
         }

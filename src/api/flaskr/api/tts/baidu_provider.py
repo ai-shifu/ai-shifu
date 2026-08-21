@@ -798,7 +798,6 @@ class BaiduTTSProvider(BaseTTSProvider):
             ValueError: If synthesis fails
 
         """
-        _ = model
         if not text or not text.strip():
             error_message = "Text cannot be empty"
             raise ValueError(error_message)

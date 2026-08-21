@@ -175,7 +175,6 @@ class VolcengineProtocol:
             Encoded binary frame
 
         """
-        _ = pitch
         self.session_id = session_id
 
         # Build audio params

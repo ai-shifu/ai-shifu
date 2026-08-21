@@ -1039,7 +1039,6 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
             self._key = key
 
         def acquire(self, blocking: bool = True) -> bool:
-            _ = blocking
             events.append(("acquire", self._key))
             return True
 
@@ -1048,7 +1047,6 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
 
     class _RecordingCache:
         def lock(self, key, timeout=None, blocking_timeout=None):
-            _ = (timeout, blocking_timeout)
             return _RecordingLock(key)
 
     monkeypatch.setattr(checkout_mod.cache_provider, "cache", _RecordingCache())

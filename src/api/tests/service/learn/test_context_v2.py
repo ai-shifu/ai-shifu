@@ -1108,7 +1108,6 @@ class StreamTtsTeardownTests(unittest.TestCase):
                 self.finalize_calls = 0
 
             def finalize(self, *, commit=True):
-                _ = commit
                 self.finalize_calls += 1
                 yield "audio-complete"
 
@@ -1155,7 +1154,6 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
     def test_init_calls_visual_mode_when_api_exists(self):
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs) -> None:
-                _ = (args, kwargs)
                 self.visual_mode = None
 
             def set_visual_mode(self, visual_mode):
@@ -1172,7 +1170,6 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
     def test_init_uses_explicit_output_language_when_enabled(self):
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs) -> None:
-                _ = (args, kwargs)
                 self.output_language = None
 
             def set_output_language(self, language):

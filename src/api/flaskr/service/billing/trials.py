@@ -85,7 +85,7 @@ class TrialOfferState:
     expires_at: datetime | None = None
     welcome_dialog_acknowledged_at: datetime | None = None
 
-    def to_dto(self) -> BillingTrialOfferDTO:
+    def to_dto(self, app: Flask) -> BillingTrialOfferDTO:
         return BillingTrialOfferDTO(
             enabled=bool(self.enabled),
             status=str(self.status),
@@ -689,6 +689,7 @@ def _backfill_missing_creator_trial_credits(
 
 
 def _resolve_new_creator_trial_offer(
+    app: Flask,
     creator_bid: str,
     *,
     trigger: str,
@@ -719,6 +720,7 @@ def _resolve_new_creator_trial_offer(
             legacy_entry=legacy_entry,
         )
         return _serialize_trial_offer(
+            app,
             _build_trial_offer_state(
                 product_ref,
                 enabled=enabled,
@@ -731,6 +733,7 @@ def _resolve_new_creator_trial_offer(
 
     if not enabled:
         return _serialize_trial_offer(
+            app,
             _build_trial_offer_state(
                 product_ref,
                 enabled=False,
@@ -741,6 +744,7 @@ def _resolve_new_creator_trial_offer(
     creator = get_user_entity_by_bid(normalized_creator_bid)
     if creator is None or not bool(creator.is_creator):
         return _serialize_trial_offer(
+            app,
             _build_trial_offer_state(
                 product_ref,
                 enabled=True,
@@ -751,6 +755,7 @@ def _resolve_new_creator_trial_offer(
     current_subscription = _load_active_creator_subscription(normalized_creator_bid)
     if current_subscription is not None:
         return _serialize_trial_offer(
+            app,
             _build_trial_offer_state(
                 product_ref,
                 enabled=True,
@@ -759,6 +764,7 @@ def _resolve_new_creator_trial_offer(
         )
 
     return _serialize_trial_offer(
+        app,
         _build_trial_offer_state(
             product_ref,
             enabled=True,
@@ -767,8 +773,11 @@ def _resolve_new_creator_trial_offer(
     )
 
 
-def _serialize_trial_offer(state: TrialOfferState) -> BillingTrialOfferDTO:
-    return state.to_dto()
+def _serialize_trial_offer(
+    app: Flask,
+    state: TrialOfferState,
+) -> BillingTrialOfferDTO:
+    return state.to_dto(app)
 
 
 def _acknowledge_trial_welcome_dialog(

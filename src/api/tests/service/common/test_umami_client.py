@@ -197,7 +197,6 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
             return self._cache.delete(*keys)
 
         def setex(self, key, ttl, value):
-            _ = (key, ttl, value)
             message = "cache unavailable"
             raise RuntimeError(message)
 
@@ -243,7 +242,6 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
             return self._cache.delete(*keys)
 
         def setex(self, key, ttl, value):
-            _ = (key, ttl, value)
             message = "cache unavailable"
             raise RuntimeError(message)
 
@@ -282,7 +280,6 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
 
     class BusyLock:
         def acquire(self, blocking=True, blocking_timeout=None):
-            _ = (blocking, blocking_timeout)
             return False
 
         def release(self):
@@ -290,17 +287,15 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
 
     class CacheWrapper:
         def get(self, key):
-            _ = key
+            return None
 
         def delete(self, *keys):
-            _ = keys
             return 0
 
         def setex(self, key, ttl, value):
-            _ = (key, ttl, value)
+            return None
 
         def lock(self, key, timeout=None, blocking_timeout=None):
-            _ = (key, timeout, blocking_timeout)
             return BusyLock()
 
     read_values = iter([None, None, 11])
@@ -331,7 +326,6 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
 
     class BusyLock:
         def acquire(self, blocking=True, blocking_timeout=None):
-            _ = (blocking, blocking_timeout)
             return False
 
         def release(self):
@@ -348,7 +342,6 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
             return cache_provider.setex(key, ttl, value)
 
         def lock(self, key, timeout=None, blocking_timeout=None):
-            _ = (key, timeout, blocking_timeout)
             return BusyLock()
 
     monkeypatch.setattr(umami_client, "cache", CacheWrapper())
@@ -377,7 +370,6 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch
             return self._cache.get(key)
 
         def setex(self, key, ttl, value):
-            _ = (key, ttl, value)
             message = "cache unavailable"
             raise RuntimeError(message)
 

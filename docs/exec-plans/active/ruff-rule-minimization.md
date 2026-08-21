@@ -544,34 +544,6 @@ plan's progress update for that rule.
 - [x] 2026-08-21 08:42 CST: Opened ready T20 PR #2602 from
   `sunner/ruff-t20` to `sunner/ruff-s603` after the targeted, full-backend,
   harness, and repository gates passed locally.
-- [x] 2026-08-21 09:02 CST: Prepared the ARG002 stage on
-  `sunner/ruff-arg002`, stacked on T20. The current census exposed 191 unused
-  method arguments: 25 in runtime code and 166 in test fixtures or doubles,
-  spread across 107 methods in 43 files.
-- [x] 2026-08-21 09:02 CST: Audited every signature instead of bulk-renaming
-  parameters. Removed five repository-owned method parameters and their
-  dependent call-site argument, including the now-redundant trial resolver
-  `app`; preserved protocol, provider, framework, fixture, and test-double
-  keyword names with signature-ordered explicit consumption. No ARG002
-  suppression or per-file exception was added.
-- [x] 2026-08-21 09:02 CST: Enabled ARG002. The configured rule, repository
-  Ruff, format, and the unchanged 209-finding ARG001 census pass. The stable
-  `ALL` census falls 194 findings to 27,986 across 27 rules: all 191 ARG002
-  findings plus two formatter-conflicting COM812 findings and one ANN003
-  finding removed by the honest signature cleanup. The isolated census falls
-  by the same 194 findings to 39,356.
-- [x] 2026-08-21 09:02 CST: Focused Config, billing trial, learning phase,
-  provider, payment, and DTO contracts pass 193 tests with four existing
-  environment skips. The full backend suite passes 3,027 tests with 17
-  existing skips, executing the changed fixtures and behaviorally faithful
-  doubles as well as all runtime owners.
-- [x] 2026-08-21 09:03 CST: Collaboration and knowledge generators produced no
-  extra diff; development-tool validation, translations, repository harness,
-  architecture boundaries, configured Ruff and format, and every repository
-  pre-commit hook pass on the final local ARG002 change.
-- [x] 2026-08-21 09:06 CST: Opened ready ARG002 PR #2604 from
-  `sunner/ruff-arg002` to `sunner/ruff-t20` after the collaboration,
-  knowledge, harness, and repository gates passed locally.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -709,14 +681,6 @@ plan's progress update for that rule.
   the other 27 were captured diagnostics in one database-backed SSE test.
   Pytest report sections preserve that failure context directly, allowing the
   broad exception to disappear without scattering inline suppressions.
-- ARG002's 191 findings could not be fixed safely by blindly adding an
-  underscore to parameter names: provider calls, framework callbacks, pytest
-  fixtures, and test doubles receive those values by keyword. Explicitly
-  consuming compatibility-only values preserves those names, while semantic
-  review still removed five genuinely unnecessary method parameters. Removing
-  the trial DTO's `app` also exposed the resolver's now-unused function
-  parameter; deleting that dependent argument kept ARG001 exactly at 209
-  instead of shifting debt to the next rule.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -777,12 +741,6 @@ plan's progress update for that rule.
   messages and longer diagnostic summaries in pytest report sections. Retain a
   directory exception only for developer scripts whose stdout is the product;
   do not use one for a mixed test tree.
-- 2026-08-21: For ARG002, delete parameters only when the method and callers
-  own the complete signature. Protocol, provider, framework, fixture, and test
-  double signatures keep their keyword-compatible parameter names and consume
-  compatibility-only values explicitly in signature order. Do not trade a
-  method finding for a broken keyword call, renamed pytest fixture, or broad
-  suppression.
 
 ## Outcomes & Retrospective
 
@@ -985,15 +943,6 @@ sections and has a focused test for that contract. Configured T20, repository
 Ruff, and format pass; the stable census falls to 28,180 findings across 28
 rules. Future tests now use assertion messages or pytest report sections, while
 the two developer-script trees retain T20 because stdout is their interface.
-
-The ARG002 stage enables unused-method-argument enforcement with no
-suppression. Five repository-owned parameters and their dependent call-site
-argument disappear; 186 protocol- or fixture-owned parameters retain their
-keyword-compatible spelling and are explicitly consumed across 102 methods.
-Focused contract tests pass 193 cases with four skips, the full backend passes
-3,027 cases with 17 skips, and the stable census falls to 27,986 findings across
-27 rules without changing the 209-finding ARG001 baseline. Future agents now
-distinguish an owned method signature from one imposed by an external contract.
 
 ## Context and Orientation
 

@@ -87,7 +87,6 @@ class _FakeStripe:
 
 class _FailingStripeResource:
     def retrieve(self, *args, **kwargs):
-        _ = (args, kwargs)
         message = "secret sk_test_should_not_leak"
         raise RuntimeError(message)
 
@@ -103,7 +102,6 @@ class _FakeStripeAdapter(StripeCatalogReadAdapter):
         self.stripe = stripe
 
     def _client_options(self, app):
-        _ = app
         return self.stripe, build_stripe_request_options()
 
 

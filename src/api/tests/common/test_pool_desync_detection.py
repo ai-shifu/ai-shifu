@@ -176,7 +176,6 @@ class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
         self.pings = 0
 
     def ping(self, reconnect):
-        _ = reconnect
         self.pings += 1
 
 
