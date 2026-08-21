@@ -7,8 +7,10 @@ from decimal import Decimal
 from typing import get_args
 
 import pytest
+from flaskr.common.swagger import swagger_config
 from flaskr.route.common import fmt
 from flaskr.service.common.dto_base import AutoJsonMixin
+from flaskr.service.common.dtos import UserInfo, UserToken
 from pydantic import BaseModel, Field
 
 
@@ -129,6 +131,27 @@ def test_key_overrides_and_exclusions():
     assert payload == {"page": 2, "items": ["a", "b"]}
     assert list(payload.keys()) == ["page", "items"]
     assert "internal_state" not in payload
+
+
+def test_user_token_keeps_camel_case_wire_and_swagger_field() -> None:
+    """Keep the intentional N815 exception aligned with both public contracts."""
+    user_info = UserInfo(
+        user_id="user-1",
+        username="learner",
+        name="Learner",
+        email="learner@example.com",
+        mobile="13800138000",
+        user_state=1,
+        wx_openid="openid-1",
+        language="zh-CN",
+    )
+    token = UserToken(userInfo=user_info, token="token-1")
+
+    assert token.__json__() == {"userInfo": user_info, "token": "token-1"}
+    schema = swagger_config["components"]["schemas"]["UserToken"]
+    assert list(schema["properties"]) == ["userInfo", "token"]
+    assert schema["required"] == ["userInfo", "token"]
+    assert "description" not in schema["properties"]["userInfo"]
 
 
 @pytest.mark.parametrize(

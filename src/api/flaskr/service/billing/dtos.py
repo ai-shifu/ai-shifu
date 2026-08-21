@@ -902,32 +902,38 @@ class RuntimeBillingContextDTO(BillingBaseDTO):
 class RuntimeConfigDTO(BillingBaseDTO):
     """Represent the runtime config API payload."""
 
-    defaultLlmModel: str
-    wechatAppId: str
-    enableWechatCode: bool
-    billingEnabled: bool
-    billingCreditPrecision: int
-    stripePublishableKey: str
-    stripeEnabled: bool
-    paymentChannels: list[str]
-    payOrderExpireSeconds: int
-    alwaysShowLessonTree: bool
-    logoWideUrl: str
-    logoSquareUrl: str
-    faviconUrl: str
-    umamiScriptSrc: str
-    umamiWebsiteId: str
-    enableEruda: bool
-    loginMethodsEnabled: list[str]
-    defaultLoginMethod: str
-    googleOauthRedirect: str
-    homeUrl: str
-    contactUsUrl: str
-    officialSiteUrl: str
-    currencySymbol: str
-    legalUrls: RuntimeLegalUrlsDTO
+    default_llm_model: str = Field(alias="defaultLlmModel")
+    wechat_app_id: str = Field(alias="wechatAppId")
+    enable_wechat_code: bool = Field(alias="enableWechatCode")
+    billing_enabled: bool = Field(alias="billingEnabled")
+    billing_credit_precision: int = Field(alias="billingCreditPrecision")
+    stripe_publishable_key: str = Field(alias="stripePublishableKey")
+    stripe_enabled: bool = Field(alias="stripeEnabled")
+    payment_channels: list[str] = Field(alias="paymentChannels")
+    pay_order_expire_seconds: int = Field(alias="payOrderExpireSeconds")
+    always_show_lesson_tree: bool = Field(alias="alwaysShowLessonTree")
+    logo_wide_url: str = Field(alias="logoWideUrl")
+    logo_square_url: str = Field(alias="logoSquareUrl")
+    favicon_url: str = Field(alias="faviconUrl")
+    umami_script_src: str = Field(alias="umamiScriptSrc")
+    umami_website_id: str = Field(alias="umamiWebsiteId")
+    enable_eruda: bool = Field(alias="enableEruda")
+    login_methods_enabled: list[str] = Field(alias="loginMethodsEnabled")
+    default_login_method: str = Field(alias="defaultLoginMethod")
+    google_oauth_redirect: str = Field(alias="googleOauthRedirect")
+    home_url: str = Field(alias="homeUrl")
+    contact_us_url: str = Field(alias="contactUsUrl")
+    official_site_url: str = Field(alias="officialSiteUrl")
+    currency_symbol: str = Field(alias="currencySymbol")
+    legal_urls: RuntimeLegalUrlsDTO = Field(alias="legalUrls")
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO
     domain: RuntimeBillingDomainDTO
-    customizationCapabilities: dict[str, bool] = Field(default_factory=dict)
-    paymentConfigurationReady: bool = False
+    customization_capabilities: dict[str, bool] = Field(
+        default_factory=dict,
+        alias="customizationCapabilities",
+    )
+    payment_configuration_ready: bool = Field(
+        default=False,
+        alias="paymentConfigurationReady",
+    )

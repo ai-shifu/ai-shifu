@@ -195,6 +195,13 @@ plan's progress update for that rule.
   regression. The focused test and `ruff check .` pass.
 - [ ] Merge or retarget RUF001 PR #2629 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-22: Rebuilt the N815 stage on `sunner/ruff-n815`, stacked directly
+  on RUF001. Replaced 26 Pydantic camelCase attributes with snake_case Python
+  names and explicit wire aliases, and retained one explained field-level
+  suppression where the annotated name itself defines the `UserToken` JSON and
+  Swagger contract. Both file-wide N815 exceptions are removed.
+- [ ] Merge or retarget N815 PR #2630 after RUF001 without combining it with the
+  next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
