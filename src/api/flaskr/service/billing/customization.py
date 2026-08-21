@@ -461,7 +461,7 @@ def save_creator_integration(
             updated_by=creator_bid,
             config_bid=integration_bid,
         )
-        return _serialize_integration(app, creator_bid, record)
+        return _serialize_integration(record)
 
 
 def verify_creator_integration(
@@ -472,7 +472,7 @@ def verify_creator_integration(
     with app.app_context():
         record = _load_integration_record(
             app,
-            integration_bid or _latest_version_bid(app, creator_bid, provider),
+            integration_bid or _latest_version_bid(creator_bid, provider),
             expected_creator_bid=creator_bid,
             expected_provider=provider,
         )
@@ -488,7 +488,7 @@ def verify_creator_integration(
                 last_error_message=str(exc)[:255],
             )
             _save_integration_record(app, record)
-            return _serialize_integration(app, creator_bid, record)
+            return _serialize_integration(record)
 
         record.update(
             status="verified",
@@ -509,7 +509,7 @@ def verify_creator_integration(
             ),
         )
         _activate_provider_config(app, creator_bid, provider, record)
-        return _serialize_integration(app, creator_bid, record)
+        return _serialize_integration(record)
 
 
 def disable_creator_integration(
@@ -518,7 +518,7 @@ def disable_creator_integration(
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
-        active_bid = _active_version_bid(app, creator_bid, provider)
+        active_bid = _active_version_bid(creator_bid, provider)
         if not active_bid:
             raise_param_error("provider")
         record = _load_integration_record(
@@ -534,7 +534,7 @@ def disable_creator_integration(
             creator_bid,
             INTEGRATION_ACTIVE_KEY.format(provider=provider),
         )
-        return _serialize_integration(app, creator_bid, record)
+        return _serialize_integration(record)
 
 
 def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
@@ -602,7 +602,7 @@ def resolve_provider_credential_context(
             integration_bid = _verify_callback_token(app, callback_token)
         if not integration_bid:
             integration_bid = _active_version_bid(
-                app, normalize_bid(creator_bid), _normalize_provider(provider)
+                normalize_bid(creator_bid), _normalize_provider(provider)
             )
         if not integration_bid:
             return None
@@ -635,7 +635,7 @@ def resolve_payment_integration_for_new_order(
     entitlement = resolve_creator_entitlement_state(creator_bid)
     customization_enabled = is_creator_customization_enabled()
     if not customization_enabled or not entitlement.custom_payment_enabled:
-        if _has_any_active_payment_integration(app, creator_bid):
+        if _has_any_active_payment_integration(creator_bid):
             raise_error("server.pay.payChannelNotSupport")
         return None
     context = resolve_provider_credential_context(
@@ -646,10 +646,9 @@ def resolve_payment_integration_for_new_order(
     return context
 
 
-def _has_any_active_payment_integration(app: Flask, creator_bid: str) -> bool:
+def _has_any_active_payment_integration(creator_bid: str) -> bool:
     return any(
-        _active_version_bid(app, creator_bid, provider)
-        for provider in PAYMENT_PROVIDERS
+        _active_version_bid(creator_bid, provider) for provider in PAYMENT_PROVIDERS
     )
 
 
@@ -668,9 +667,7 @@ def build_provider_config_overrides(
     return values
 
 
-def _serialize_active_integration(
-    app: Flask, creator_bid: str, provider: str
-) -> dict[str, Any]:
+def _serialize_active_integration(creator_bid: str, provider: str) -> dict[str, Any]:
     record = _load_active_record(creator_bid, provider)
     if record is None:
         return {
@@ -681,30 +678,28 @@ def _serialize_active_integration(
             "secret_configured_fields": [],
             "callback_url": "",
         }
-    return _serialize_integration(app, creator_bid, record)
+    return _serialize_integration(record)
 
 
 def _serialize_latest_management_integration(
     app: Flask, creator_bid: str, provider: str
 ) -> dict[str, Any]:
     if _saas_funcs(required=False) is None:
-        return _serialize_active_integration(app, creator_bid, provider)
+        return _serialize_active_integration(creator_bid, provider)
     try:
-        integration_bid = _latest_version_bid(app, creator_bid, provider)
+        integration_bid = _latest_version_bid(creator_bid, provider)
     except AppError:
-        return _serialize_active_integration(app, creator_bid, provider)
+        return _serialize_active_integration(creator_bid, provider)
     record = _load_integration_record(
         app,
         integration_bid,
         expected_creator_bid=creator_bid,
         expected_provider=provider,
     )
-    return _serialize_integration(app, creator_bid, record)
+    return _serialize_integration(record)
 
 
-def _serialize_integration(
-    app: Flask, creator_bid: str, record: dict[str, Any]
-) -> dict[str, Any]:
+def _serialize_integration(record: dict[str, Any]) -> dict[str, Any]:
     callback_url = ""
     if record.get("provider") in PAYMENT_PROVIDERS:
         origin = str(get_config("HOST_URL", "") or "").rstrip("/")
@@ -734,7 +729,7 @@ def _serialize_integration(
 def _load_active_record(creator_bid: str, provider: str) -> dict[str, Any] | None:
     from flask import current_app
 
-    integration_bid = _active_version_bid(current_app, creator_bid, provider)
+    integration_bid = _active_version_bid(creator_bid, provider)
     if not integration_bid:
         return None
     return _load_integration_record(
@@ -751,7 +746,7 @@ def _load_latest_record_or_active(
     if _saas_funcs(required=False) is None:
         return None
     try:
-        integration_bid = _latest_version_bid(app, creator_bid, provider)
+        integration_bid = _latest_version_bid(creator_bid, provider)
     except AppError:
         return _load_active_record(creator_bid, provider)
     return _load_integration_record(
@@ -762,7 +757,7 @@ def _load_latest_record_or_active(
     )
 
 
-def _active_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
+def _active_version_bid(creator_bid: str, provider: str) -> str:
     funcs = _saas_funcs(required=False)
     if funcs is None:
         return ""
@@ -776,7 +771,7 @@ def _active_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
     ).strip()
 
 
-def _latest_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
+def _latest_version_bid(creator_bid: str, provider: str) -> str:
     model = _saas_model()
     row = (
         model.query.filter(

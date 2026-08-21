@@ -368,6 +368,7 @@ def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
         dao.db.session.commit()
 
     def _failing_post_auth_handler(_context, *, app):
+        _ = app
         message = "boom"
         raise RuntimeError(message)
 

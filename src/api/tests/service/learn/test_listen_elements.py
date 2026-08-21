@@ -1698,6 +1698,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             stream_element_type,
             **_kwargs,
         ):
+            _ = self
             return FakeTTSProcessor(
                 generated_block_bid,
                 position,
@@ -1853,6 +1854,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
         )
 
         def _raise_paid(self, current_app):
+            _ = (self, current_app)
             raise PaidError
             yield  # pragma: no cover
 

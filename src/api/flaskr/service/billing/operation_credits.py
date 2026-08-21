@@ -266,7 +266,7 @@ def capture_reserved_operation_credits(
 
         wallet = _load_wallet(creator_bid, lock=True)
         amount = billing_primitives.quantize_credit_amount(hold.amount)
-        _apply_capture_to_buckets(hold, amount, lock=True)
+        _apply_capture_to_buckets(hold, lock=True)
 
         wallet.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(wallet.reserved_credits) - amount
@@ -342,7 +342,7 @@ def release_reserved_operation_credits(
 
         wallet = _load_wallet(creator_bid, lock=True)
         amount = billing_primitives.quantize_credit_amount(hold.amount)
-        _apply_release_to_buckets(hold, amount, lock=True)
+        _apply_release_to_buckets(hold, lock=True)
 
         wallet.available_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(wallet.available_credits) + amount
@@ -551,9 +551,7 @@ def _reservation_has_release(creator_bid: str, reservation_bid: str) -> bool:
     )
 
 
-def _apply_capture_to_buckets(
-    hold: CreditLedgerEntry, amount: Decimal, *, lock: bool = False
-) -> None:
+def _apply_capture_to_buckets(hold: CreditLedgerEntry, *, lock: bool = False) -> None:
     for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
         bucket.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.reserved_credits) - item_amount
@@ -564,9 +562,7 @@ def _apply_capture_to_buckets(
         sync_credit_bucket_status(bucket)
 
 
-def _apply_release_to_buckets(
-    hold: CreditLedgerEntry, amount: Decimal, *, lock: bool = False
-) -> None:
+def _apply_release_to_buckets(hold: CreditLedgerEntry, *, lock: bool = False) -> None:
     for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
         bucket.available_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.available_credits) + item_amount

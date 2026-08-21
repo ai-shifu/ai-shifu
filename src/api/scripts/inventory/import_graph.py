@@ -31,7 +31,7 @@ ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 mods = {}  # module name -> relative file path
 
 
-def add_tree(base_pkg, base_dir):
+def add_tree(base_dir):
     for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         rel = os.path.relpath(dirpath, ROOT)
@@ -46,8 +46,8 @@ def add_tree(base_pkg, base_dir):
             mods[name] = str(Path(rel) / fn)
 
 
-add_tree("flaskr", "flaskr")
-add_tree("scripts", "scripts")
+add_tree("flaskr")
+add_tree("scripts")
 for top in ("app.py", "celery_app.py"):
     if (Path(ROOT) / top).exists():
         mods[top[:-3]] = top

@@ -1419,6 +1419,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: object
                                     $ref: "#/components/schemas/OutlineDto"
         """
+        _ = shifu_bid
         user_id = request.user.user_id
         name = request.get_json().get("name")
         description = request.get_json().get("description")
@@ -1474,6 +1475,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: object
                                     $ref: "#/components/schemas/OutlineDto"
         """
+        _ = shifu_bid
         user_id = request.user.user_id
         return make_common_response(get_unit_by_id(app, user_id, outline_bid))
 
@@ -1513,6 +1515,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: boolean
                                     description: delete unit success
         """
+        _ = shifu_bid
         user_id = request.user.user_id
         return make_common_response(delete_unit(app, user_id, outline_bid))
 

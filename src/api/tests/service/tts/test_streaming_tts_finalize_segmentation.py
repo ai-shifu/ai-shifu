@@ -51,6 +51,7 @@ class TestFinalizeSegmentation:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -94,6 +95,7 @@ class TestFinalizeSegmentation:
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             # Capture the segment text from args[1]
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -134,6 +136,7 @@ class TestFinalizeSegmentation:
         def mock_submit(*args, **kwargs):
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -166,6 +169,7 @@ class TestFinalizeSegmentation:
         def mock_submit(*args, **kwargs):
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -227,6 +231,7 @@ class TestFinalizeSegmentation:
         remaining_text = "First sentence. Second sentence."
 
         def mock_submit(*args, **kwargs):
+            _ = (args, kwargs)
             future = MagicMock()
             future.result.return_value = None
             return future
@@ -649,6 +654,7 @@ class TestOffsetDriftRegression:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -690,6 +696,7 @@ class TestOffsetDriftRegression:
         submitted_texts = []
 
         def mock_submit(*args, **kwargs):
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):

@@ -401,6 +401,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
         )
 
     def fake_read_storage_bytes(*, object_key, profile, bucket_name):
+        _ = profile
         read_calls.append((object_key, bucket_name))
         return stored_objects[object_key]
 

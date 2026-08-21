@@ -148,7 +148,7 @@ def _load_json_translations(app: Flask, root: Path):
                     _store_translation(lang, key, value)
 
 
-def _validate_json_translations(app: Flask, root: Path):
+def _validate_json_translations(root: Path):
     if not root.exists():
         message = f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
         raise FileNotFoundError(message)
@@ -258,7 +258,7 @@ def load_translations(app: Flask, translations_dir=None):
 
     shared_root = _shared_json_root()
     try:
-        _validate_json_translations(app, shared_root)
+        _validate_json_translations(shared_root)
     except Exception:
         app.logger.exception("i18n validation failed")
         raise
@@ -297,7 +297,7 @@ def clear_language():
         delattr(_thread_local, "language")
 
 
-def get_i18n_list(app: Flask):
+def get_i18n_list():
     return list(_translations.keys())
 
 

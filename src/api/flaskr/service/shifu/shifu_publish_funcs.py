@@ -74,6 +74,7 @@ def preview_shifu_draft(
         base_url: Base URL to build preview link.
 
     """
+    _ = (user_id, variables)
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
@@ -490,6 +491,7 @@ def _make_ask_prompt(
         Ask prompt.
 
     """
+    _ = app
     return ask_prompt.format(
         learned=("\n" + learned_text) if learned_text else "",
         unlearned=("\n" + unlearned_text) if unlearned_text else "",

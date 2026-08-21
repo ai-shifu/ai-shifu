@@ -594,6 +594,7 @@ def _resolve_provider_for_model(model: str) -> tuple[str | None, str]:
 def _load_gemini_models(
     config: ProviderConfig, params: dict[str, str], base_url: str | None
 ) -> list[str | tuple[str, str]]:
+    _ = config
     models: list[str | tuple[str, str]] = []
     api_key = params.get("api_key")
     if not api_key:
@@ -743,6 +744,7 @@ def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
 
 
 def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
+    _ = model_id
     return {
         "temperature": temperature,
         "thinking": {"type": "disabled"},
@@ -753,6 +755,7 @@ def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
 
 
 def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
+    _ = model_id
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
@@ -760,6 +763,7 @@ def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
 
 
 def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
+    _ = model_id
     return {
         "temperature": temperature,
         "extra_body": {"enable_thinking": False},
@@ -767,6 +771,7 @@ def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
 
 
 def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, Any]:
+    _ = model_id
     return {
         "temperature": temperature,
         "reasoning_effort": "none",

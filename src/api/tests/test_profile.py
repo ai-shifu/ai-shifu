@@ -26,10 +26,12 @@ def test_hide_unused_profile_items_no_unused(monkeypatch):
     calls = []
 
     def fake_get_unused(app, parent_id):
+        _ = app
         calls.append(("unused", parent_id))
         return []
 
     def fake_get_defs(app, parent_id=None):
+        _ = app
         calls.append(("defs", parent_id))
         return ["defs"]
 
@@ -51,10 +53,12 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch):
     calls = []
 
     def fake_get_unused(app, parent_id):
+        _ = app
         calls.append(("unused", parent_id))
         return ["v1", "v2"]
 
     def fake_update(app, parent_id, profile_keys, hidden, user_id):
+        _ = app
         calls.append(("update", parent_id, tuple(profile_keys), hidden, user_id))
         return ["updated"]
 

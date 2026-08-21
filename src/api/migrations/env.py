@@ -40,6 +40,7 @@ target_db = current_app.extensions["migrate"].db
 def include_object(db_object, name, type_, reflected, compare_to):
     """Use the simplest mode to avoid separation."""
     # the system tables
+    _ = compare_to
     system_tables = [
         "alembic_version",
         "information_schema",
@@ -136,6 +137,7 @@ def run_migrations_online() -> None:
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
     def process_revision_directives(context, revision, directives):
+        _ = (context, revision)
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
             if script.upgrade_ops.is_empty():
@@ -585,8 +587,9 @@ def run_migrations_online() -> None:
         rendered_metadata_default,
     ):
         """Compare server defaults leniently to reduce false positives."""
-
         # Normalize how a default value is spelled
+        _ = (context, inspected_column, metadata_column, metadata_default)
+
         def normalize_default(default):
             if default is None:
                 return None
@@ -613,8 +616,9 @@ def run_migrations_online() -> None:
         context, inspected_column, metadata_column, inspected_comment, metadata_comment
     ):
         """Compare comments leniently, still reporting real comment changes."""
-
         # Normalize how a comment is spelled
+        _ = inspected_column
+
         def normalize_comment(comment):
             if comment is None:
                 return None
@@ -659,6 +663,7 @@ def run_migrations_online() -> None:
     ):
         """Compare column types leniently to reduce false positives."""
         # Treat small type differences as equal
+        _ = (context, inspected_column, metadata_column)
         inspected_str = str(inspected_type).upper()
         metadata_str = str(metadata_type).upper()
 

@@ -23,11 +23,13 @@ def mock_email_validator(value):
 
 def always_fail_validator(value):
     """Fail validation always (test helper)."""
+    _ = value
     return False
 
 
 def always_pass_validator(value):
     """Pass validation always (test helper)."""
+    _ = value
     return True
 
 
@@ -91,6 +93,7 @@ def url_validator(value):
 
 def dependency_validator(depends_on_key):
     """Create a validator that checks if another config key is set."""
+    _ = depends_on_key
 
     def validator(value):
         # In real usage, this would check if depends_on_key is configured

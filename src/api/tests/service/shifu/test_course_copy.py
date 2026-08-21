@@ -87,6 +87,7 @@ def _seed_user(
 def _seed_course_with_outlines(
     app, *, shifu_bid: str, creator_user_bid: str
 ) -> dict[str, str]:
+    _ = app
     draft = DraftShifu(
         shifu_bid=shifu_bid,
         title=SOURCE_TITLE,
@@ -739,6 +740,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
         db.session.commit()
 
     def _reject_risk(*args, **kwargs):
+        _ = (args, kwargs)
         raise_error("server.check.checkRiskControlReject")
 
     monkeypatch.setattr(

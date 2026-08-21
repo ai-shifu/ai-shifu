@@ -410,6 +410,7 @@ def ensure_user_aggregate(
     ``defaults`` is forwarded to :func:`upsert_user_entity` when creation or updates
     are required.
     """
+    _ = app
     defaults = defaults or {}
     entity, created = upsert_user_entity(user_bid=user_bid, defaults=defaults)
     aggregate = load_user_aggregate(entity.user_bid)

@@ -354,6 +354,7 @@ def test_run_route_passes_admission_payload_to_run_script() -> None:
 def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
     monkeypatch, test_client, app
 ):
+    _ = app
     _mock_user(monkeypatch, "user-preview")
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",

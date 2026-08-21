@@ -390,6 +390,10 @@ signature and all callers. Keep externally owned framework, protocol, fixture,
 and test-double signatures intact; explicitly consume compatibility values near
 the boundary so keyword contracts remain visible and lint-clean.
 
+Apply the same ownership test to `ARG001`: remove a function parameter only
+when all callers are repository-owned; explicitly consume values required by
+framework callbacks, fixtures, migrations, and compatibility facades.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

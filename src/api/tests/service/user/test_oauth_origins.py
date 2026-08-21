@@ -87,6 +87,7 @@ class TestIsAllowedOAuthOrigin:
 
     def test_lookup_failure_refuses_rather_than_allows(self, app, monkeypatch) -> None:
         def _boom(app, host):
+            _ = (app, host)
             message = "database is down"
             raise RuntimeError(message)
 

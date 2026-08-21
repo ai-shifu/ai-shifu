@@ -71,6 +71,8 @@ try:  # pragma: no cover - exercised indirectly when Celery is installed
 except ImportError:  # pragma: no cover - local fallback for non-Celery test envs
 
     def shared_task(*args, **kwargs):
+        _ = (args, kwargs)
+
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 

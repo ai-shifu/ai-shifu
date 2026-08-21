@@ -854,6 +854,7 @@ def test_sync_credit_notification_template_records_provider_exception(
     )
 
     def raise_provider_error(app: Flask, *, template_code: str) -> None:
+        _ = (app, template_code)
         message = "provider down"
         raise RuntimeError(message)
 
@@ -2337,6 +2338,7 @@ def test_provider_exception_marks_notification_failed(
     _enable_policy(app)
 
     def raise_provider_error(*args, **kwargs) -> None:
+        _ = (args, kwargs)
         message = "provider raised"
         raise RuntimeError(message)
 

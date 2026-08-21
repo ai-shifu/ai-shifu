@@ -220,6 +220,12 @@ plan's progress update for that rule.
   values without renaming keyword contracts.
 - [ ] Merge or retarget ARG002 PR #2633 after S101 without combining it with the
   next rule unit.
+- [x] 2026-08-22: Rebuilt the ARG001 stage on `sunner/ruff-arg001`, stacked on
+  ARG002. Removed repository-owned unused function parameters and explicitly
+  consumed externally owned callback, fixture, migration, and compatibility
+  values without changing accepted signatures.
+- [ ] Merge or retarget ARG001 PR #2634 after ARG002 without combining it with
+  the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

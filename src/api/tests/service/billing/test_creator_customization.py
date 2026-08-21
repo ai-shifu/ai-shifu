@@ -679,7 +679,6 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
         }
         assert (
             customization._active_version_bid(
-                app,
                 "creator-without-plugin",
                 "stripe",
             )
@@ -718,8 +717,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
         resolved = customization.resolve_creator_branding("creator-disabled-plugin")
         assert resolved["logo_wide_url"] == "/storage/brand/wide.png"
         assert (
-            customization._active_version_bid(app, "creator-disabled-plugin", "stripe")
-            == ""
+            customization._active_version_bid("creator-disabled-plugin", "stripe") == ""
         )
 
 
