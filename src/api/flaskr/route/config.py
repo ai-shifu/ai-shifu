@@ -8,6 +8,7 @@ from flaskr.service.billing.customization import (
     is_creator_customization_enabled,
     resolve_creator_public_integrations,
 )
+from flaskr.service.billing.domains import resolve_creator_bid_by_host
 from flaskr.service.billing.dtos import (
     RuntimeConfigDTO,
     RuntimeLegalUrlsDTO,
@@ -122,17 +123,29 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 request_host=request_host,
             )
 
-        domain_owner_bid = str(
-            getattr(runtime_billing.domain, "creator_bid", None) or ""
-        ).strip()
-        # Capture before the owner re-resolve below: its exception fallback
-        # rebuilds a default context that would drop the custom-domain flag.
-        is_custom_domain = bool(
-            getattr(runtime_billing.domain, "is_custom_domain", False)
-        )
-        if domain_owner_bid and is_custom_domain and domain_owner_bid != creator_bid:
+        # Who owns the host is a property of the host, not of whoever is asking.
+        # Reading it off a context built for the caller's creator_bid meant that
+        # asking about a different creator made a custom domain look like none:
+        # branding fell back to the platform default and the WeChat suppression
+        # below stopped applying.
+        try:
+            domain_owner_bid = str(
+                resolve_creator_bid_by_host(app, request_host) or ""
+            ).strip()
+        except Exception:
+            # Runtime config is a public bootstrap dependency, so a failure to
+            # look the host up degrades to requester-scoped branding rather
+            # than taking the endpoint down.
+            app.logger.exception(
+                "Failed to resolve domain owner for runtime config; request_host=%s",
+                request_host or "-",
+            )
+            domain_owner_bid = ""
+
+        owner_billing = None
+        if domain_owner_bid and domain_owner_bid != creator_bid:
             try:
-                runtime_billing = build_runtime_billing_context(
+                owner_billing = build_runtime_billing_context(
                     app,
                     creator_bid=domain_owner_bid,
                     request_host=request_host,
@@ -144,12 +157,17 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     domain_owner_bid,
                     request_host or "-",
                 )
-                runtime_billing = build_default_runtime_billing_context(
-                    creator_bid=domain_owner_bid,
-                    request_host=request_host,
-                )
+                owner_billing = None
 
-        branding = runtime_billing.branding
+        # Branding and the domain verdict follow the host's owner: a white-label
+        # domain shows its owner's brand no matter who is signed in. Entitlements
+        # keep following the caller, so nobody inherits another creator's billing
+        # context just by visiting their domain.
+        branding_source = owner_billing or runtime_billing
+        domain_context = branding_source.domain
+        is_custom_domain = bool(getattr(domain_context, "is_custom_domain", False))
+
+        branding = branding_source.branding
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")
         logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")
         favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")
@@ -263,8 +281,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
             legalUrls=legal_urls,
             entitlements=runtime_billing.entitlements,
-            branding=runtime_billing.branding,
-            domain=runtime_billing.domain,
+            branding=branding_source.branding,
+            domain=domain_context,
             customizationCapabilities=customization_capabilities,
             paymentConfigurationReady=(
                 custom_payment_enabled and bool(custom_payment_channels)

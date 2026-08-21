@@ -220,6 +220,94 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     }
 
 
+def test_white_label_branding_survives_another_creators_bid(
+    runtime_config_client,
+) -> None:
+    """A white-label host keeps its owner's brand whoever is asking.
+
+    The creator console re-fetches this with the signed-in creator's bid to show
+    their own branding. On a custom domain that must not win, or the owner's
+    site briefly shows their logo and then flips to the platform default.
+    """
+    response = runtime_config_client.get(
+        "/api/runtime-config?creator_bid=creator-2",
+        headers={"Host": "creator.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
+    assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
+    assert payload["domain"]["is_custom_domain"] is True
+    assert payload["domain"]["creator_bid"] == "creator-1"
+    # The nested block must agree with the flat fields above, or a client
+    # reading data.branding sees a different brand from one reading logoWideUrl.
+    assert payload["branding"]["logo_wide_url"] == (
+        "https://cdn.example.com/creator-wide.png"
+    )
+    assert payload["branding"]["home_url"] == "https://creator.example.com/home"
+    # Entitlements deliberately stay with the caller: visiting someone's domain
+    # must not hand over their billing context.
+    assert payload["entitlements"]["branding_enabled"] is False
+    assert payload["entitlements"]["custom_domain_enabled"] is False
+    # The WeChat suppression keys off the same verdict, so it must hold too.
+    assert payload["wechatAppId"] == ""
+    assert payload["enableWechatCode"] is False
+
+
+def test_host_lookup_failure_degrades_instead_of_failing(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    """Runtime config is a public bootstrap dependency and must still answer."""
+
+    def _boom(app, host):
+        raise RuntimeError("database is unavailable")
+
+    monkeypatch.setattr(config_route, "resolve_creator_bid_by_host", _boom)
+
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        headers={"Host": "creator.example.com"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)["data"]
+    # Answers with a usable payload instead of a 500. The same-creator path
+    # still resolves the domain from the billing context it already built, so
+    # only the cross-creator re-resolve is lost.
+    assert "logoWideUrl" in payload
+    assert payload["domain"]["request_host"] == "creator.example.com"
+
+
+def test_non_custom_domain_still_follows_the_requested_creator(
+    runtime_config_client,
+) -> None:
+    """Off a white-label host the caller's creator still decides the branding."""
+    response = runtime_config_client.get(
+        "/api/runtime-config?creator_bid=creator-1",
+        headers={"Host": "app.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
+    assert payload["domain"]["is_custom_domain"] is False
+
+
+def test_unverified_domain_does_not_borrow_its_owners_branding(
+    runtime_config_client,
+) -> None:
+    """inactive.example.com is bound but not entitled, so it is not white-label."""
+    response = runtime_config_client.get(
+        "/api/runtime-config",
+        headers={"Host": "inactive.example.com"},
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert payload["domain"]["is_custom_domain"] is False
+    assert payload["logoWideUrl"] != "https://cdn.example.com/creator-wide.png"
+
+
 def test_runtime_config_hides_creator_keys_without_matching_capability(
     runtime_config_client,
     monkeypatch,
