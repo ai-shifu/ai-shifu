@@ -170,7 +170,7 @@
         "configure": "配置价格",
         "create": "新增价格",
         "retire": "停用",
-        "saveDraft": "保存并读取",
+        "saveDraft": "保存草稿",
         "validate": "校验",
         "viewIssues": "查看问题"
       },

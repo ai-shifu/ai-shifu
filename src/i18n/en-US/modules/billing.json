@@ -170,7 +170,7 @@
         "configure": "Configure",
         "create": "Add price",
         "retire": "Disable",
-        "saveDraft": "Save and read",
+        "saveDraft": "Save draft",
         "validate": "Check",
         "viewIssues": "View issues"
       },

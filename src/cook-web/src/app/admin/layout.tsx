@@ -173,15 +173,19 @@ const MainInterface = ({
   const paymentChannels = useEnvStore(
     (state: EnvStoreState) => state.paymentChannels,
   );
+  const normalizedPaymentChannels = useMemo(
+    () => (Array.isArray(paymentChannels) ? paymentChannels : []),
+    [paymentChannels],
+  );
   const showPackageManagement = useMemo(
     () =>
-      (paymentChannels || []).some(
+      normalizedPaymentChannels.some(
         channel =>
           String(channel || '')
             .trim()
             .toLowerCase() === 'stripe',
       ),
-    [paymentChannels],
+    [normalizedPaymentChannels],
   );
 
   const menuItems = useMemo(

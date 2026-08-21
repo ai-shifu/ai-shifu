@@ -65,6 +65,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.provider_price_mappings import ProviderPriceMappingError
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
@@ -144,7 +145,13 @@ def admin_billing_client(monkeypatch):
 
     @app.errorhandler(AppError)
     def _handle_app_exception(error: AppError):
-        response = jsonify({"code": error.code, "message": error.message})
+        response = jsonify(
+            {
+                "code": error.code,
+                "message": error.message,
+                **(error.payload or {}),
+            }
+        )
         response.status_code = 200
         return response
 
@@ -1651,6 +1658,110 @@ class TestAdminBillingRoutes:
             ]
             == "price_plan_month_new"
         )
+
+    def test_admin_billing_provider_prices_validate_mapping_route(
+        self,
+        admin_billing_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        captured: dict[str, str] = {}
+
+        def _validate(_app: Flask, *, provider_price_bid: str):
+            captured["provider_price_bid"] = provider_price_bid
+            return {
+                "valid": True,
+                "mapping": {"provider_price_bid": provider_price_bid},
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "validate_admin_billing_provider_price_mapping",
+            _validate,
+        )
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin/validate"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["valid"] is True
+        assert (
+            payload["data"]["mapping"]["provider_price_bid"] == "provider-price-admin"
+        )
+        assert captured == {"provider_price_bid": "provider-price-admin"}
+
+    def test_admin_billing_provider_prices_activate_mapping_route(
+        self,
+        admin_billing_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        captured: dict[str, str] = {}
+
+        def _activate(_app: Flask, *, provider_price_bid: str):
+            captured["provider_price_bid"] = provider_price_bid
+            return {
+                "valid": True,
+                "mapping": {"provider_price_bid": provider_price_bid},
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "activate_admin_billing_provider_price_mapping",
+            _activate,
+        )
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin/activate"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["valid"] is True
+        assert (
+            payload["data"]["mapping"]["provider_price_bid"] == "provider-price-admin"
+        )
+        assert captured == {"provider_price_bid": "provider-price-admin"}
+
+    @pytest.mark.parametrize(
+        ("action", "helper_name"),
+        [
+            ("validate", "validate_admin_billing_provider_price_mapping"),
+            ("activate", "activate_admin_billing_provider_price_mapping"),
+        ],
+    )
+    def test_admin_billing_provider_price_validation_routes_return_error_envelope(
+        self,
+        admin_billing_client,
+        monkeypatch: pytest.MonkeyPatch,
+        action: str,
+        helper_name: str,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        def _raise_error(_app: Flask, *, provider_price_bid: str):
+            raise ProviderPriceMappingError(
+                "provider_price_invalid",
+                "Provider price is invalid",
+                {"provider_price_bid": provider_price_bid},
+            )
+
+        monkeypatch.setattr(billing_routes_module, helper_name, _raise_error)
+
+        response = client.post(
+            f"/api/admin/billing/provider-prices/provider-price-admin/{action}"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 9999
+        assert payload["message"] == "Provider price is invalid"
+        assert payload["provider_price_mapping_error"] == {
+            "code": "provider_price_invalid",
+            "message": "Provider price is invalid",
+            "details": {"provider_price_bid": "provider-price-admin"},
+        }
 
     def test_admin_billing_provider_prices_retire_mapping(
         self,

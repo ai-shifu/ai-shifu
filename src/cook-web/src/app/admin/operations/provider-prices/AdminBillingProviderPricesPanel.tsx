@@ -370,7 +370,16 @@ export function AdminBillingProviderPricesPanel() {
     [mutate, t],
   );
 
+  const canSubmitDraft = Boolean(
+    form.product_bid.trim() &&
+    form.provider_product_id.trim() &&
+    form.provider_price_id.trim(),
+  );
+
   const submitDraft = React.useCallback(async () => {
+    if (!canSubmitDraft) {
+      return;
+    }
     setActionLoading('create');
     try {
       await api.createAdminBillingProviderPrice({
@@ -392,7 +401,7 @@ export function AdminBillingProviderPricesPanel() {
     } finally {
       setActionLoading('');
     }
-  }, [form, mutate, t]);
+  }, [canSubmitDraft, form, mutate, t]);
 
   const filterItems = React.useMemo(
     () => [
@@ -697,6 +706,10 @@ export function AdminBillingProviderPricesPanel() {
                             {latestMapping &&
                             latestMapping.status_label !== 'active' ? (
                               <DropdownMenuItem
+                                disabled={
+                                  actionLoading ===
+                                  `activate:${latestMapping.provider_price_bid}`
+                                }
                                 onSelect={() =>
                                   runAction('activate', latestMapping)
                                 }
@@ -709,6 +722,10 @@ export function AdminBillingProviderPricesPanel() {
                             {activeMapping ? (
                               <DropdownMenuItem
                                 className='text-destructive focus:text-destructive'
+                                disabled={
+                                  actionLoading ===
+                                  `retire:${activeMapping.provider_price_bid}`
+                                }
                                 onSelect={() =>
                                   runAction('retire', activeMapping)
                                 }
@@ -884,7 +901,7 @@ export function AdminBillingProviderPricesPanel() {
             </Button>
             <Button
               type='button'
-              disabled={actionLoading === 'create'}
+              disabled={actionLoading === 'create' || !canSubmitDraft}
               onClick={submitDraft}
             >
               {t('module.billing.admin.providerPrices.actions.saveDraft')}
