@@ -44,7 +44,7 @@ class CacheProvider(Protocol):
         *args: object,
         **kwargs: object,
     ):
-        """Store a value under a cache key."""
+        """Store a value when NX/XX constraints permit and return the outcome."""
         raise NotImplementedError
 
     def setex(self, key: str, time_in_seconds: int, value: Any):
