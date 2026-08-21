@@ -244,6 +244,8 @@ def _fail_paid_renewal_activation_event(
 
 @dataclass(slots=True, frozen=True)
 class RenewalEventSnapshot:
+    """Capture a snapshot of renewal event."""
+
     renewal_event_bid: str | None
     subscription_bid: str | None
     creator_bid: str | None
@@ -274,6 +276,8 @@ class RenewalEventSnapshot:
 
 @dataclass(slots=True, frozen=True)
 class RenewalEventResult:
+    """Capture the outcome recorded for a renewal event."""
+
     status: str
     event: RenewalEventSnapshot | None = None
     renewal_event_bid: str | None = None

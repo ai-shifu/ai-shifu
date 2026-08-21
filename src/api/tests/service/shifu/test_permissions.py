@@ -131,6 +131,8 @@ def _ensure_trial_billing_enabled(monkeypatch):
 
 @pytest.mark.usefixtures("app")
 class TestShifuPermissions:
+    """Verify shifu permissions behavior."""
+
     def test_list_permissions_only_active(self, monkeypatch, test_client, app):
         shifu_bid = "test-permission-list"
         owner_id = "owner-1"

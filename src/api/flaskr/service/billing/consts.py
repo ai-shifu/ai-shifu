@@ -423,6 +423,8 @@ DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG = {
 
 @dataclass(slots=True, frozen=True)
 class CreditUsageRateSeed:
+    """Carry seed data for credit usage rate."""
+
     rate_bid: str
     usage_type: int
     provider: str

@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 
 class PhoneAuthProvider(AuthProvider):
+    """Authenticate users through a phone verification flow."""
+
     provider_name = "phone"
     supports_challenge = True
 

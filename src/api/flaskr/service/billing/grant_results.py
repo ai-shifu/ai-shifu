@@ -47,6 +47,8 @@ class ManualCreditGrantResult:
 
 @dataclass(slots=True, frozen=True)
 class ReferralRewardSummary:
+    """Summarize referral reward."""
+
     available_credits: int | float
     expires_at: datetime | None
     wallet_bucket_bid: str = ""

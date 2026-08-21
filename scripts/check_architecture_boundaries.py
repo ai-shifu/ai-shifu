@@ -39,6 +39,8 @@ BACKEND_STABLE_MODULE_SUFFIXES = {"api", "dtos", "models", "consts"}
 
 @dataclass(frozen=True)
 class Violation:
+    """Describe one detected architecture-boundary violation."""
+
     key: str
     rule_id: str
     source: str

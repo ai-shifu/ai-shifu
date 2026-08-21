@@ -117,6 +117,8 @@ def _patch_run_tts_processor(
 
 
 class TestGeneratedBlockListenTtsElementFirst:
+    """Verify generated block listen TTS element first behavior."""
+
     @classmethod
     def setup_class(cls) -> None:
         cls.app = Flask("generated-block-listen-tts")

@@ -49,6 +49,8 @@ def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
 
 
 class DifyAskProviderAdapter:
+    """Adapt Dify responses to the common ask stream."""
+
     provider = ASK_PROVIDER_DIFY
 
     def stream_answer(

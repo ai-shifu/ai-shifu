@@ -29,6 +29,8 @@ _ZERO_CREDITS = Decimal(0)
 
 @dataclass(slots=True, frozen=True)
 class CreatorUsageAdmission:
+    """Capture whether a teacher usage request may consume credits."""
+
     allowed: bool
     creator_bid: str
     shifu_bid: str

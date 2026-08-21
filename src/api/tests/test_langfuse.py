@@ -18,6 +18,8 @@ TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 
 
 class CoerceTraceIdTests(unittest.TestCase):
+    """Verify coerce trace ID behavior."""
+
     def test_passes_through_valid_w3c_trace_id(self):
         valid = "0123456789abcdef0123456789abcdef"
         assert coerce_langfuse_trace_id(valid) == valid
@@ -35,6 +37,8 @@ class CoerceTraceIdTests(unittest.TestCase):
 
 
 class RequestTraceIdTests(unittest.TestCase):
+    """Verify request trace ID behavior."""
+
     def tearDown(self):
         for attr in ("request_id",):
             if hasattr(thread_local, attr):
@@ -72,6 +76,8 @@ class RequestTraceIdTests(unittest.TestCase):
 
 
 class ResolveLangfuseTraceIdTests(unittest.TestCase):
+    """Verify resolve langfuse trace ID behavior."""
+
     def tearDown(self):
         for attr in ("request_id",):
             if hasattr(thread_local, attr):

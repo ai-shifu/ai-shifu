@@ -45,6 +45,8 @@ VISUAL_LEAK_PATTERN = re.compile(
 
 @dataclass
 class BlockSample:
+    """Represent one MarkdownFlow block used by an audit script."""
+
     id: int
     generated_block_bid: str
     created_at: str
@@ -55,6 +57,8 @@ class BlockSample:
 
 @dataclass
 class AnalysisResult:
+    """Capture findings from a stream-analysis script."""
+
     sample: BlockSample
     expected_segments: list[str]
     observed_segments: list[str]

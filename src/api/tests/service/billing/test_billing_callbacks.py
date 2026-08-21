@@ -325,6 +325,8 @@ def _create_legacy_wechatpay_records(
 
 
 class TestBillingPingxxCallbacks:
+    """Verify billing pingxx callbacks behavior."""
+
     def test_pingxx_callback_marks_billing_order_paid(
         self, billing_callback_app
     ) -> None:
@@ -594,6 +596,8 @@ class TestBillingPingxxCallbacks:
 
 
 class TestBillingNativeCallbacks:
+    """Verify billing native callbacks behavior."""
+
     def test_alipay_billing_callback_duplicate_paid_is_idempotent(
         self, billing_callback_app, monkeypatch
     ) -> None:

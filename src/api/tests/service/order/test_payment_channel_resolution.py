@@ -6,6 +6,8 @@ from flaskr.service.order.funs import _resolve_payment_channel
 
 
 class TestResolvePaymentChannel:
+    """Verify resolve payment channel behavior."""
+
     def test_pingxx_channel_requires_sub_channel(self):
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint=None,

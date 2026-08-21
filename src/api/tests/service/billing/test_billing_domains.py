@@ -153,6 +153,8 @@ def billing_domain_client(monkeypatch):
 
 
 class TestBillingDomains:
+    """Verify billing domains behavior."""
+
     def test_tls_probe_requires_tls_1_2_or_newer(self, monkeypatch) -> None:
         context = SimpleNamespace(minimum_version=None)
 

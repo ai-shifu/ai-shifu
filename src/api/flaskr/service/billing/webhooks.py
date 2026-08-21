@@ -104,6 +104,8 @@ _BILLING_STATUS_BY_NATIVE_STATE = {
 
 @dataclass(slots=True, frozen=True)
 class BillingWebhookResult:
+    """Capture how an incoming billing webhook was handled."""
+
     status: str
     status_code: int
     message: str | None = None

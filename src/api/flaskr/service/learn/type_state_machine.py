@@ -20,6 +20,8 @@ from enum import Enum
 
 
 class TypeState(Enum):
+    """Enumerate parser states used while building learning elements."""
+
     IDLE = "IDLE"
     BUILDING = "BUILDING"
     PATCHING = "PATCHING"

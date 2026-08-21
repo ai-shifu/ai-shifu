@@ -21,6 +21,8 @@ _CHECKOUT_TYPE = "referral_invitation_reward"
 
 @dataclass(slots=True, frozen=True)
 class ReferralPlanRewardRequest:
+    """Represent the request payload for referral plan reward."""
+
     reward_bid: str
     inviter_user_bid: str
     campaign_bid: str
@@ -35,6 +37,8 @@ class ReferralPlanRewardRequest:
 
 @dataclass(slots=True, frozen=True)
 class ReferralPlanRewardResult:
+    """Capture the plan reward granted through a referral."""
+
     inviter_user_bid: str
     product_bid: str
     product_code: str

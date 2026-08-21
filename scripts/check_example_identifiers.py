@@ -134,6 +134,8 @@ INTENTIONAL_PUBLIC_FEISHU_RESOURCES = {
 
 @dataclass(frozen=True, order=True)
 class IdentifierViolation:
+    """Describe a detected identifier violation."""
+
     path: str
     line: int
     message: str

@@ -105,6 +105,8 @@ def _describe_desynced_connection(result, connection) -> str:
 
 
 class ListenElementRunPersistenceMixin:
+    """Provide persistence operations for listen-mode element runs."""
+
     _ACTIVE_ELEMENT_ROW_ID_SQL = text(
         """
         SELECT id

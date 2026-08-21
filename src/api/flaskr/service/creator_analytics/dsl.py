@@ -103,6 +103,8 @@ def _raise(error_name: str, detail: str | None = None) -> None:
 
 @dataclass(frozen=True)
 class Filter:
+    """Describe one field predicate in an analytics query."""
+
     field: str
     op: str
     value: Any = None
@@ -110,6 +112,8 @@ class Filter:
 
 @dataclass(frozen=True)
 class Aggregate:
+    """Describe one aggregate calculation in an analytics query."""
+
     fn: str
     field: str | None
     alias: str
@@ -118,12 +122,16 @@ class Aggregate:
 
 @dataclass(frozen=True)
 class OrderBy:
+    """Describe one sort term in an analytics query."""
+
     field: str
     direction: str  # "asc" or "desc"
 
 
 @dataclass(frozen=True)
 class QueryDSL:
+    """Validate the supported creator-analytics query structure."""
+
     shifu_bid: str
     table: str
     spec: TableSpec

@@ -54,6 +54,8 @@ def _verified_custom_domain(monkeypatch):
 
 
 class TestIsAllowedOAuthOrigin:
+    """Verify is allowed OAuth origin behavior."""
+
     def test_platform_origin_is_allowed(self, app) -> None:
         assert oauth_origins.is_allowed_oauth_origin(app, PLATFORM_ORIGIN) is True
 
@@ -160,6 +162,8 @@ class TestPortAndUserinfoAreNotServedDomains:
 
 
 class TestResolveStateReturnOrigin:
+    """Verify resolve state return origin behavior."""
+
     @pytest.mark.usefixtures("_verified_custom_domain")
     def test_returns_the_recorded_origin(self, app) -> None:
         state = _encode_state(app, {"origin": CUSTOM_ORIGIN})

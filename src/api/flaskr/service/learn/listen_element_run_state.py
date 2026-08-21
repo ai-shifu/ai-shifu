@@ -18,12 +18,16 @@ def _mdflow_new_stream_is_new(element_type: ElementType) -> bool:
 
 @dataclass
 class BlockMeta:
+    """Track emitted metadata for one MarkdownFlow block."""
+
     progress_record_bid: str = ""
     role: str = "teacher"
 
 
 @dataclass
 class StreamElementState:
+    """Track the element currently emitted by a learning stream."""
+
     number: int
     element_bid: str
     element_index: int
@@ -34,6 +38,8 @@ class StreamElementState:
 
 @dataclass
 class BlockState:
+    """Track buffered content for one MarkdownFlow block."""
+
     generated_block_bid: str
     raw_content: str = ""
     audio_by_position: dict[int, ElementAudioDTO] = field(default_factory=dict)

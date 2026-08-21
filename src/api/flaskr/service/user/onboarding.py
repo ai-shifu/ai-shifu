@@ -43,6 +43,8 @@ USER_SEGMENT_INELIGIBLE = "ineligible"
 
 @dataclass(frozen=True)
 class OnboardingSceneStatus:
+    """Track completion state for one onboarding scene."""
+
     completed: bool
     completed_at: str | None
     eligible: bool

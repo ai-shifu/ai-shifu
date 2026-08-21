@@ -101,6 +101,8 @@ def _create_task_app():
 
 @dataclass(slots=True, frozen=True)
 class LowBalanceAlertCandidate:
+    """Represent a candidate for low balance alert."""
+
     creator_bid: str
     wallet_available_credits: Any
     alerts: list[Any]
@@ -123,6 +125,8 @@ class LowBalanceAlertCandidate:
 
 @dataclass(slots=True, frozen=True)
 class LowBalanceAlertTaskResult:
+    """Capture the outcome of low balance alert task."""
+
     status: str
     creator_count: int
     alert_count: int

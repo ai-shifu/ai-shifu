@@ -29,6 +29,8 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutesRefundAuth:
+    """Verify billing write routes refund auth behavior."""
+
     def test_refund_paid_stripe_order_marks_order_refunded(
         self, billing_write_client
     ) -> None:

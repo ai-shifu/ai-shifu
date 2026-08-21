@@ -26,6 +26,8 @@ def login_methods(monkeypatch):
 
 
 class TestResolveEnabledContactTypes:
+    """Verify resolve enabled contact types behavior."""
+
     def test_google_login_implies_email(self, login_methods) -> None:
         login_methods("google")
         assert contact_identifiers.resolve_enabled_contact_types() == {"email"}
@@ -47,6 +49,8 @@ class TestResolveEnabledContactTypes:
 
 
 class TestResolveContactType:
+    """Verify resolve contact type behavior."""
+
     def test_single_enabled_type_wins_over_the_value(self, login_methods) -> None:
         # A malformed value must still fail with the error operators expect,
         # so the deployment's only contact type decides before the "@" check.
@@ -62,6 +66,8 @@ class TestResolveContactType:
 
 
 class TestValidateContactIdentifier:
+    """Verify validate contact identifier behavior."""
+
     def test_email_is_lowercased_and_trimmed(self) -> None:
         assert (
             contact_identifiers.validate_contact_identifier(
@@ -97,6 +103,8 @@ class TestValidateContactIdentifier:
 
 
 class TestResolveContactLookupProviders:
+    """Verify resolve contact lookup providers behavior."""
+
     def test_email_also_matches_google_accounts(self) -> None:
         assert contact_identifiers.resolve_contact_lookup_providers("email") == [
             "email",

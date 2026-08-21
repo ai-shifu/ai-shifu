@@ -72,6 +72,8 @@ def _isolate_dashboard_tables(app):
 
 @pytest.mark.usefixtures("app")
 class TestDashboardRoutes:
+    """Verify dashboard routes behavior."""
+
     def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1"):
         dummy_user = SimpleNamespace(
             user_id=user_id,

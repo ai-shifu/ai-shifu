@@ -86,6 +86,8 @@ asyncio.run = _safe_asyncio_run
 
 @dataclass
 class ProviderConfig:
+    """Describe configuration for one LLM provider."""
+
     key: str
     api_key_env: str
     base_url_env: str | None = None
@@ -109,6 +111,8 @@ class ProviderConfig:
 
 @dataclass
 class ProviderState:
+    """Track availability and retry state for one LLM provider."""
+
     enabled: bool
     params: dict[str, str] | None
     models: list[str]
@@ -950,6 +954,8 @@ if not any_litellm_enabled:
 
 
 class LLMStreamaUsage:
+    """Track token usage reported by a streaming LLM response."""
+
     def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
         """Record token counts for an LLM stream."""
         self.prompt_tokens = prompt_tokens
@@ -958,6 +964,8 @@ class LLMStreamaUsage:
 
 
 class LLMStreamResponse:
+    """Wrap an LLM stream together with response metadata."""
+
     def __init__(
         self, response_id, is_end, is_truncated, result, finish_reason, usage
     ) -> None:

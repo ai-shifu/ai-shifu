@@ -74,6 +74,8 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutesPreorder:
+    """Verify billing write routes preorder behavior."""
+
     def test_subscription_checkout_allows_cycle_end_preorder_while_active(
         self, billing_write_client
     ) -> None:

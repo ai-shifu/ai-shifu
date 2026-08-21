@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 @register_schema_to_swagger
 class UserProfileLabelItemDTO(BaseModel):
+    """Represent the user profile label item API payload."""
+
     key: str = Field(..., description="key", required=False)
     label: str = Field(..., description="label", required=False)
     type: str = Field(..., description="type", required=False)
@@ -27,6 +29,8 @@ class UserProfileLabelItemDTO(BaseModel):
 
 @register_schema_to_swagger
 class UserProfileLabelDTO(BaseModel):
+    """Represent the user profile label API payload."""
+
     profiles: list[UserProfileLabelItemDTO] = Field(
         ..., description="items", required=False
     )
