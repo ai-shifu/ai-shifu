@@ -382,7 +382,7 @@ class DraftShifu(db.Model):
         )
 
     def get_str_to_check(self):
-        """Return normalized draft content for comparison."""
+        """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.keywords} {self.description} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 
@@ -570,7 +570,7 @@ class DraftOutlineItem(db.Model):
         )
 
     def get_str_to_check(self):
-        """Return normalized draft content for comparison."""
+        """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 
