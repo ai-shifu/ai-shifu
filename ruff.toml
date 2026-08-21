@@ -282,11 +282,6 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
-# Every field in these two DTOs is serialized verbatim into an API response and
-# read by the frontend under that exact key, so the camelCase spelling is the
-# wire contract, not a naming slip.
-"src/api/flaskr/service/billing/dtos.py" = ["N815"]
-"src/api/flaskr/service/common/dtos.py" = ["N815"]
 # Developer scripts and the backend inventory/harness tooling are console
 # programs: printing to stdout is their interface.
 "scripts/**" = ["S603", "S607", "T20"]

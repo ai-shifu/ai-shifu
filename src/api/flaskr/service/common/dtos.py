@@ -88,7 +88,7 @@ class UserInfo:
 class UserToken:
     """Represent an issued user token in API responses."""
 
-    userInfo: UserInfo
+    userInfo: UserInfo  # noqa: N815 - exact serialized and Swagger field name
     token: str
 
     def __init__(self, userInfo: UserInfo, token) -> None:  # noqa: N803 - mirrors the serialized field name
