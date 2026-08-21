@@ -106,7 +106,7 @@ class WechatPayProvider(PaymentProvider):
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
-        """Refund a payment through this provider."""
+        """Raise because direct WeChat Pay refunds are unsupported."""
         del request, app
         message = "WeChat Pay refunds are not supported"
         raise RuntimeError(message)
