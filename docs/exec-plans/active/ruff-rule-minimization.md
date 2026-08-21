@@ -556,10 +556,9 @@ plan's progress update for that rule.
   suppression or per-file exception was added.
 - [x] 2026-08-21 09:02 CST: Enabled ARG002. The configured rule, repository
   Ruff, format, and the unchanged 209-finding ARG001 census pass. The stable
-  `ALL` census falls 194 findings to 27,986 across 27 rules: all 191 ARG002
-  findings plus two formatter-conflicting COM812 findings and one ANN003
-  finding removed by the honest signature cleanup. The isolated census falls
-  by the same 194 findings to 39,356.
+  `ALL` census falls 194 findings: all 191 ARG002 findings plus two
+  formatter-conflicting COM812 findings and one ANN003 finding removed by the
+  honest signature cleanup.
 - [x] 2026-08-21 09:02 CST: Focused Config, billing trial, learning phase,
   provider, payment, and DTO contracts pass 193 tests with four existing
   environment skips. The full backend suite passes 3,027 tests with 17
@@ -572,6 +571,14 @@ plan's progress update for that rule.
 - [x] 2026-08-21 09:06 CST: Opened ready ARG002 PR #2604 from
   `sunner/ruff-arg002` to `sunner/ruff-t20` after the collaboration,
   knowledge, harness, and repository gates passed locally.
+- [x] 2026-08-21 09:14 CST: Fast-forwarded the user-authored merge of updated
+  T20 predecessor `e4c10e10d` into ARG002. Its immediate-base diff remains the
+  same 47-file ARG002 unit. On that final base, the stable census falls exactly
+  194 findings from 28,185 to 27,991 across 27 rules, the isolated census falls
+  from 39,571 to 39,377, and ARG001 remains exactly 209.
+- [x] 2026-08-21 09:17 CST: Re-ran the full backend suite on the combined
+  predecessor/ARG002 tip; all 3,032 tests pass with the same 17 environment
+  skips and 733 existing warnings.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -990,9 +997,10 @@ The ARG002 stage enables unused-method-argument enforcement with no
 suppression. Five repository-owned parameters and their dependent call-site
 argument disappear; 186 protocol- or fixture-owned parameters retain their
 keyword-compatible spelling and are explicitly consumed across 102 methods.
-Focused contract tests pass 193 cases with four skips, the full backend passes
-3,027 cases with 17 skips, and the stable census falls to 27,986 findings across
-27 rules without changing the 209-finding ARG001 baseline. Future agents now
+Focused contract tests pass 193 cases with four skips, the final combined
+backend tip passes 3,032 cases with 17 skips, and the stable census falls to
+27,991 findings across 27 rules without changing the 209-finding ARG001
+baseline. Future agents now
 distinguish an owned method signature from one imposed by an external contract.
 
 ## Context and Orientation
