@@ -215,7 +215,7 @@ def _run_codex(
 
 def _codex_version() -> str:
     try:
-        completed = subprocess.run(
+        completed = subprocess.run(  # noqa: S603 - resolved Codex, fixed version flag
             [
                 _codex_executable(
                     missing_message="could not determine the codex CLI version",

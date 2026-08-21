@@ -40,6 +40,7 @@ def test_run_codex_keeps_dynamic_values_as_arguments(
     temporary_directory = MagicMock()
     temporary_directory.return_value.__enter__.return_value = str(tmp_path)
     monkeypatch.setattr(evaluator.tempfile, "TemporaryDirectory", temporary_directory)
+    monkeypatch.setattr(evaluator.shutil, "which", lambda _name: "/trusted/codex")
     monkeypatch.setattr(evaluator.subprocess, "run", fake_run)
 
     # Exercise the internal runner without widening the production script API.
@@ -51,7 +52,7 @@ def test_run_codex_keeps_dynamic_values_as_arguments(
         timeout_seconds=5,
     )
 
-    assert captured_command[0] == "codex"
+    assert captured_command[0] == "/trusted/codex"
     assert captured_command[captured_command.index("--model") + 1] == "test-model"
     assert captured_kwargs["input"] == "profile; echo not-a-command"
     assert "shell" not in captured_kwargs

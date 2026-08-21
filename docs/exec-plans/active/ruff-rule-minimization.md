@@ -498,6 +498,22 @@ plan's progress update for that rule.
   contract unchanged and isolated the test with pytest's cross-platform
   `tmp_path`; the test still exercises the exact subprocess command and stdin
   boundary it owns.
+- [x] 2026-08-21 08:09 CST: Rebased S603 onto expanded S607 commit
+  `ed43b47d3`. The predecessor's five resolved Git calls and resolved Codex
+  version call also require S603 argument-boundary audits, so all six now have
+  explained inline suppressions instead of restoring a script-tree exception.
+  The S603 Codex argument test now fixes and expects the predecessor's resolved
+  executable path.
+- [x] 2026-08-21 08:09 CST: Configured S603 and S607 scans pass. Ignoring S603
+  suppressions reports 13 reviewed boundaries: the 12 calls owned across these
+  two stacked rule units plus the pre-existing operator-supplied plugin clone.
+  Eight root-script tests pass, and the combined backend owners pass 67 tests
+  with the same two explicit environment skips. The stable `ALL` census remains
+  exactly 28,202 findings across 28 rules.
+- [x] 2026-08-21 08:10 CST: After the rebase adjustment, collaboration and
+  knowledge generators produced no extra diff; translations, repository
+  harness, architecture boundaries, development-tool validation, repository
+  Ruff and format, and every pre-commit hook pass on the final local S603 tip.
 - [ ] Merge or retarget S603 PR #2601 after its predecessors without combining
   it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
@@ -628,9 +644,10 @@ plan's progress update for that rule.
   environment-isolation coverage. Both use the current interpreter and fixed
   source owned by the test; their security boundary is narrow enough to explain
   inline, allowing the entire backend test tree to become enforced. The two
-  script-tree S603 exceptions also hid only four calls, not a durable class of
-  safe code. Auditing them individually exposed a real option-boundary gap in
-  the route inventory and made both broad exceptions removable.
+  script-tree S603 exceptions hid four original calls plus six resolved-command
+  calls introduced by the S607 predecessor, not a durable class of safe code.
+  Auditing them individually exposed a real option-boundary gap in the route
+  inventory and made both broad exceptions removable.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -868,16 +885,17 @@ census remains 28,202 findings across 28 rules. Future runtime, test, and
 contributor code now follows the same executable-resolution contract.
 
 The S603 stage removes the backend test-tree and both script-tree exceptions,
-replacing them with six explained inline audits. The two child-process tests run
+replacing them with 12 explained inline audits. The two child-process tests run
 the current interpreter against fixed, test-owned source. The diagnostics
-runner does the same with a fixed repository script; the prompt evaluator uses
-a fixed Codex command; the Prettier helper allowlists `git` and `node`; and the
-route inventory terminates grep options before its dynamic directory. The root
-script suites pass four tests, while the backend script tests and original S603
-owners pass 63 tests with only the explicit local environment skips. Configured
-and isolated S603 scans pass, the stable census remains 28,202 findings across
-28 rules, and future code validates every subprocess boundary at the call
-rather than exempting tests or contributor scripts as a class.
+runner does the same with a fixed repository script; both Codex calls use the
+resolved executable and source-owned arguments; the Prettier helper allowlists
+`git` and `node`; the route inventory terminates grep options before its dynamic
+directory; and five Git calls use resolved executables with fixed subcommands.
+Eight root-script tests pass, while the backend script tests and original S603
+owners pass 67 tests with only the two explicit environment skips. Configured
+S603 and S607 scans pass, the stable census remains 28,202 findings across 28
+rules, and future code validates every subprocess boundary at the call rather
+than exempting tests or contributor scripts as a class.
 
 ## Context and Orientation
 

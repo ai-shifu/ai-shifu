@@ -246,8 +246,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 [lint.per-file-ignores]
 # `assert` is the point of a test, and both scripts below are test code: one is
 # a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
-# Developer tooling may use the controlled development PATH through the S607
-# exceptions below, but each S603 argument boundary is audited at its call.
+# Developer tooling resolves executable paths for S607 and audits each S603
+# argument boundary at its call.
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
 "src/api/tests/**" = ["S101", "S105", "S106", "T20"]

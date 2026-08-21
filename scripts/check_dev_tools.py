@@ -81,7 +81,7 @@ def _hooks_dir() -> Path | None:
         return None
     git_executable = str(Path(git_executable).resolve())
     try:
-        configured = subprocess.run(
+        configured = subprocess.run(  # noqa: S603 - resolved Git, fixed arguments
             [git_executable, "config", "--get", "core.hooksPath"],
             cwd=ROOT,
             capture_output=True,
@@ -93,7 +93,7 @@ def _hooks_dir() -> Path | None:
             path = Path(configured.stdout.strip()).expanduser()
             return path if path.is_absolute() else (ROOT / path)
 
-        resolved = subprocess.run(
+        resolved = subprocess.run(  # noqa: S603 - resolved Git, fixed arguments
             [git_executable, "rev-parse", "--git-path", "hooks"],
             cwd=ROOT,
             capture_output=True,

@@ -378,7 +378,7 @@ def _git_executable() -> str:
 
 
 def _repository_relative_paths() -> list[str]:
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603 - resolved Git, fixed inventory arguments
         [
             _git_executable(),
             "ls-files",
@@ -399,7 +399,7 @@ def _repository_relative_paths() -> list[str]:
 
 
 def _index_entries() -> list[tuple[str, str]]:
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603 - resolved Git, fixed index arguments
         [_git_executable(), "ls-files", "--stage", "-z"],
         cwd=ROOT,
         check=True,
@@ -426,7 +426,7 @@ def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
     unique_object_ids = list(dict.fromkeys(object_ids))
     if not unique_object_ids:
         return {}
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603 - resolved Git, fixed batch arguments
         [_git_executable(), "cat-file", "--batch"],
         cwd=ROOT,
         check=True,
