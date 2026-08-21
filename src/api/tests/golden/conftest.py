@@ -35,10 +35,14 @@ import os
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.common.fixtures.fake_llm import FakeLLMResponse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 GOLDEN_DIR = Path(__file__).parent
 FIXTURES_DIR = GOLDEN_DIR / "fixtures"
@@ -104,7 +108,7 @@ def _iter_golden_completion(messages) -> list[str]:
     return list(GOLDEN_LLM_CHUNKS)
 
 
-def golden_chat_llm(*args: object, **kwargs: object):
+def golden_chat_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMResponse]:
     messages = kwargs.get("messages")
     if messages is None:
         for arg in args:
@@ -121,7 +125,7 @@ def golden_chat_llm(*args: object, **kwargs: object):
         )
 
 
-def golden_invoke_llm(*args: object, **kwargs: object):
+def golden_invoke_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMResponse]:
     yield from golden_chat_llm(*args, **kwargs)
 
 
@@ -134,7 +138,7 @@ def golden_get_current_models(_app) -> list[dict[str, str]]:
 
 
 @pytest.fixture(autouse=True)
-def golden_llm(monkeypatch):
+def golden_llm(monkeypatch) -> None:
     """Patch a deterministic fake LLM into every namespace the /run path uses."""
     import sys
 
@@ -166,13 +170,13 @@ def golden_llm(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def golden_sse_settings(app, monkeypatch):
+def golden_sse_settings(app, monkeypatch) -> None:
     """Disable timing-dependent SSE heartbeats for deterministic transcripts."""
     monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
 
 
 @pytest.fixture(autouse=True)
-def golden_disable_risk_audit_commit(monkeypatch):
+def golden_disable_risk_audit_commit(monkeypatch) -> None:
     """Skip the risk-control audit side-write on SQLite.
 
     ``add_risk_control_result`` commits through a nested ``app.app_context()``
@@ -225,7 +229,7 @@ def seed_golden_user(app, user_bid: str) -> None:
 
 
 @pytest.fixture
-def golden_shifu(app):
+def golden_shifu(app) -> SimpleNamespace:
     """Seed a published, free shifu with one chapter and one runnable lesson.
 
     Idempotent: existing golden rows are removed before reseeding so every

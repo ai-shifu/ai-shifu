@@ -78,7 +78,7 @@ class _LangfuseState:
 _langfuse_state = _LangfuseState()
 
 
-def get_langfuse_client():
+def get_langfuse_client() -> object:
     """Return langfuse client."""
     return _langfuse_state.client
 
@@ -152,7 +152,7 @@ def build_langfuse_observation_link(
 PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
 
 
-def init_langfuse(app: Flask):
+def init_langfuse(app: Flask) -> None:
     """Initialize langfuse."""
     if os.environ.get(PRELOAD_MASTER_ENV):
         # Running inside the gunicorn preload master. Creating a real client
@@ -396,7 +396,7 @@ def create_trace_with_root_span(
     client: Any,
     trace_payload: dict[str, Any],
     root_span_payload: dict[str, Any],
-):
+) -> tuple[LangfuseTraceHandle, LangfuseObservationHandle]:
     """Create trace with root span."""
     trace_payload = compact_langfuse_payload(trace_payload)
     root_payload = _map_observation_kwargs(root_span_payload, _OBSERVATION_KEYS)
@@ -418,7 +418,7 @@ def update_langfuse_trace(
     trace: Any,
     payload: dict[str, Any] | None = None,
     **kwargs: object,
-):
+) -> object:
     """Update langfuse trace."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
@@ -430,7 +430,7 @@ def update_langfuse_observation(
     observation: Any,
     payload: dict[str, Any] | None = None,
     **kwargs: object,
-):
+) -> object:
     """Update langfuse observation."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
@@ -444,7 +444,7 @@ def finalize_langfuse_trace(
     root_span: Any | None,
     trace_payload: dict[str, Any] | None = None,
     root_span_payload: dict[str, Any] | None = None,
-):
+) -> object:
     # Update trace attributes before ending the root span: in SDK v3 trace
     # attributes are written through the (still open) root span.
     """Finalize langfuse trace."""

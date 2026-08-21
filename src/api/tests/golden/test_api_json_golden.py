@@ -62,7 +62,7 @@ JSON_GOLDEN_CASES = [
 )
 def test_json_endpoint_golden(
     app, test_client, monkeypatch, golden_shifu, fixture_key, path
-):
+) -> None:
     _ = golden_shifu
     seed_golden_user(app, JSON_USER_BID)
     mock_validate_user(monkeypatch, JSON_USER_BID)

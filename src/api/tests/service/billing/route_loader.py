@@ -7,7 +7,10 @@ import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import ModuleType
+
+    from flask import Flask
 
 _ROUTE_PACKAGE = "flaskr.route"
 _ROUTE_COMMON = f"{_ROUTE_PACKAGE}.common"
@@ -38,5 +41,5 @@ def load_billing_routes_module() -> ModuleType:
     return importlib.import_module(_BILLING_ROUTES_MODULE)
 
 
-def load_register_billing_routes():
+def load_register_billing_routes() -> Callable[..., Flask]:
     return load_billing_routes_module().register_billing_routes

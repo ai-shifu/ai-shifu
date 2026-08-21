@@ -1,7 +1,9 @@
 """Mock validators for testing configuration validation."""
 
+from collections.abc import Callable
 
-def mock_port_validator(value):
+
+def mock_port_validator(value) -> bool:
     """Mock port validator that accepts 1-65535."""
     try:
         port = int(value)
@@ -11,7 +13,7 @@ def mock_port_validator(value):
         return 1 <= port <= 65535
 
 
-def mock_email_validator(value):
+def mock_email_validator(value) -> bool:
     """Mock email validator with simple regex."""
     import re
 
@@ -21,19 +23,19 @@ def mock_email_validator(value):
     return bool(re.match(pattern, str(value)))
 
 
-def always_fail_validator(value):
+def always_fail_validator(value) -> bool:
     """Fail validation always (test helper)."""
     _ = value
     return False
 
 
-def always_pass_validator(value):
+def always_pass_validator(value) -> bool:
     """Pass validation always (test helper)."""
     _ = value
     return True
 
 
-def range_validator(min_val, max_val):
+def range_validator(min_val, max_val) -> Callable[[object], bool]:
     """Create a range validator for numeric values."""
 
     def validator(value):
@@ -47,7 +49,7 @@ def range_validator(min_val, max_val):
     return validator
 
 
-def string_length_validator(min_len=0, max_len=100):
+def string_length_validator(min_len=0, max_len=100) -> Callable[[object], bool]:
     """Create a string length validator."""
 
     def validator(value):
@@ -59,7 +61,7 @@ def string_length_validator(min_len=0, max_len=100):
     return validator
 
 
-def regex_validator(pattern):
+def regex_validator(pattern) -> Callable[[object], bool]:
     """Create a regex-based validator."""
     import re
 
@@ -73,7 +75,7 @@ def regex_validator(pattern):
     return validator
 
 
-def url_validator(value):
+def url_validator(value) -> bool:
     """Mock URL validator."""
     import re
 
@@ -91,7 +93,7 @@ def url_validator(value):
     return bool(url_pattern.match(str(value)))
 
 
-def dependency_validator(depends_on_key):
+def dependency_validator(depends_on_key) -> Callable[[object], bool]:
     """Create a validator that checks if another config key is set."""
     _ = depends_on_key
 

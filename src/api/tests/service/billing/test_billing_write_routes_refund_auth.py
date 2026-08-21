@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from tests.service.billing import (
@@ -22,9 +24,12 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     add_active_subscription,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_write_client(monkeypatch):
+def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 

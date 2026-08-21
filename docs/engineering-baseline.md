@@ -562,6 +562,23 @@ are runtime data, search for `__doc__` and inspection consumers, prove
 executable AST equality after removing only the new function docstrings, and
 run focused Swagger and CLI regressions when those surfaces are touched.
 
+For `ANN201`, annotate every public production and test function or method with
+its observable return contract. Use `None` for procedures and behavior tests,
+`Never` for paths that cannot return, concrete DTO, model, Flask, or collection
+types for values, and `Iterator[T]` / `AsyncIterator[T]` for generator
+functions and yielding fixtures. Decorator factories should expose the precise
+callable shape they accept and return. Use `object` only at a genuinely
+heterogeneous SDK, ORM, or decorator boundary; do not add `Any` merely to
+silence `ANN201`, because that transfers the same uncertainty to `ANN401`.
+Keep annotation-only imports behind `TYPE_CHECKING` when postponed annotations
+make that safe, but first inspect framework overrides, protocol declarations,
+decorators, and consumers of runtime `__annotations__`. Ruff's unsafe fix is a
+starting point rather than proof: review every inferred non-`None` contract and
+every manual boundary, then verify executable AST equality without the added
+annotations and type-import scaffolding. Applied Alembic revisions are
+immutable and keep their conventional unannotated `upgrade` / `downgrade`
+hooks; new and otherwise mutable public functions must be annotated.
+
 For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
 adding `noqa`, or turning the same promise into an untracked prose comment.
 Complete the work when it is part of the current change. When it genuinely

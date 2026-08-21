@@ -756,6 +756,33 @@ plan's progress update for that rule.
   repository knowledge, then passed the repository harness, architecture
   boundary ratchet, pinned Ruff 0.16.3 developer-tool check, and every
   repository pre-commit hook across all files.
+- [x] 2026-08-21 15:00 CST: Ready D103 PR #2614 passed every GitHub check,
+  including the 3,032-test backend job and runtime harness. Selected ANN201 as
+  the next additive contract rule after deferring early-return and stable-
+  signature candidates whose mechanical fixes would reduce readability or
+  compatibility.
+- [x] 2026-08-21 15:34 CST: Enabled ANN201 across every mutable public
+  callable. Ruff inferred 1,927 return contracts after excluding applied
+  migrations, and 257 manually reviewed boundaries received concrete DTO,
+  model, collection, Flask, iterator, callable, or deliberately heterogeneous
+  `object` contracts. No new return annotation uses `Any`.
+- [x] 2026-08-21 15:34 CST: Retained one exact migration-history exception for
+  102 conventional `upgrade` / `downgrade` hooks and made no change under
+  `src/api/migrations/versions/`. A semantic audit found exactly 2,184 added
+  return annotations and 133 annotation-only import aliases across 331 Python
+  files, with identical executable ASTs after removing that type scaffolding.
+  Configured ANN201 and repository Ruff pass.
+- [x] 2026-08-21 15:34 CST: The stable census falls from 22,963 to 20,845:
+  configured ANN201 falls from 2,286 findings to zero, while formatter-owned
+  COM812 rises by 165 and E501 by three because concrete return types expand
+  signatures. The isolated census falls from 36,993 to 34,977 and exposes
+  exactly the 102 immutable migration hooks; no enforced rule gains debt.
+- [x] 2026-08-21 15:40 CST: The complete backend suite passes 3,032 tests with
+  17 skips and 733 existing warnings. Regenerated collaboration mirrors and
+  repository knowledge, then passed translation validation, the repository
+  harness, architecture boundary ratchet, configured Ruff and format, pinned
+  Ruff 0.16.3 development-tool validation, and every repository pre-commit
+  hook across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -976,6 +1003,15 @@ plan's progress update for that rule.
   ignored options. A fixture parameter can own setup even when the test body
   never reads it. Do not trade an argument finding for a broken keyword call,
   renamed pytest fixture, or broad suppression.
+- 2026-08-21: ANN201 is an additive public contract, but Ruff's unsafe fix is
+  not sufficient evidence. Review inferred non-`None` results and every manual
+  boundary, prefer concrete observable types, use `object` only for truly
+  heterogeneous integration contracts, and never introduce `Any` just to move
+  the finding to ANN401. Yielding pytest fixtures use `Iterator[T]`; behavior
+  tests return `None`. Applied migration hooks remain an exact immutable-history
+  exception. Prove the final edit preserves executable ASTs after removing
+  annotations and type-only import scaffolding, then run the complete backend
+  suite to catch runtime annotation and import consumers.
 
 ## Outcomes & Retrospective
 
@@ -1258,6 +1294,20 @@ touched Swagger YAML docstrings remain unchanged. The stable census falls by
 exactly the 2,108 intentional D103 findings. Translation and representative CLI
 contracts, 11 focused Swagger and legacy-record tests, the full 3,032-test
 backend suite, and every repository pre-commit hook pass.
+
+The ANN201 stage adds observable return contracts to all 2,184 mutable public
+production, tool, and test callables across 331 Python files. Concrete return,
+generator, fixture, and decorator types are preferred; deliberately dynamic
+SDK, ORM, and decorator boundaries use `object`, and no new `Any` return is
+introduced. The only exception is the exact applied-migration tree, which
+retains 102 immutable conventional hooks without editing migration history. A
+semantic audit strips the new return annotations and 133 type-only import
+aliases and matches every executable AST to the D103 parent. Configured ANN201
+falls from 2,286 findings to zero, the stable census falls to 20,845, and the
+isolated census falls to 34,977 with exactly the 102 documented hooks exposed.
+The complete backend suite passes 3,032 tests with 17 skips, and all repository
+harness, architecture, Ruff, format, development-tool, and pre-commit gates
+pass.
 
 ## Context and Orientation
 

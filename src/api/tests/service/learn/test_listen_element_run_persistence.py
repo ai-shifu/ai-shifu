@@ -33,7 +33,9 @@ def _make_row(
     )
 
 
-def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(app):
+def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
+    app,
+) -> None:
     with app.app_context():
         LearnGeneratedElement.query.delete()
         db.session.commit()
@@ -75,7 +77,9 @@ def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(ap
         assert row_ids == expected_ids
 
 
-def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(app):
+def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(
+    app,
+) -> None:
     with app.app_context():
         LearnGeneratedElement.query.delete()
         db.session.commit()
@@ -101,7 +105,9 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(ap
         db.session.rollback()
 
 
-def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkeypatch):
+def test_find_active_element_row_ids_invalidates_desynced_connection(
+    app, monkeypatch
+) -> None:
     class _DesyncedResult:
         def fetchall(self):
             message = (
@@ -166,7 +172,9 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
     assert fake_connection.invalidated == 0
 
 
-def test_deactivate_active_element_rows_retires_rows_without_touching_others(app):
+def test_deactivate_active_element_rows_retires_rows_without_touching_others(
+    app,
+) -> None:
     with app.app_context():
         LearnGeneratedElement.query.delete()
         db.session.commit()
@@ -205,7 +213,7 @@ def test_deactivate_active_element_rows_retires_rows_without_touching_others(app
         assert [row.status for row in rows] == [0, 0, 1]
 
 
-def test_desync_forensics_capture_fingerprints_the_stale_response():
+def test_desync_forensics_capture_fingerprints_the_stale_response() -> None:
     from flaskr.service.learn.listen_element_run_persistence import (
         _describe_desynced_connection,
     )
@@ -247,7 +255,7 @@ def test_desync_forensics_capture_fingerprints_the_stale_response():
     assert "insert_id=4242" in described
 
 
-def test_desync_forensics_survives_missing_raw_connection():
+def test_desync_forensics_survives_missing_raw_connection() -> None:
     from flaskr.service.learn.listen_element_run_persistence import (
         _describe_desynced_connection,
     )
@@ -262,7 +270,7 @@ def test_desync_forensics_survives_missing_raw_connection():
     assert "raw_connection=unavailable" in described
 
 
-def test_desync_forensics_logs_only_packet_header_not_payload():
+def test_desync_forensics_logs_only_packet_header_not_payload() -> None:
     import socket as socket_module
 
     from flaskr.service.learn.listen_element_run_persistence import (

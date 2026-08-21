@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -37,9 +38,12 @@ from flaskr.service.billing.models import (
 )
 from sqlalchemy import text
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_view_app():
+def billing_view_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

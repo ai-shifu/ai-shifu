@@ -10,6 +10,7 @@ import types
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -61,9 +62,12 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYP
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_task_integration_app(tmp_path):
+def billing_task_integration_app(tmp_path) -> Iterator[Flask]:
     db_path = tmp_path / "billing-task.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

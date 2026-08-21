@@ -7,6 +7,7 @@ recirculating them.
 """
 
 import socket
+from collections.abc import Iterator
 
 import pytest
 from flaskr import dao
@@ -30,7 +31,7 @@ class _FakePyMySQLConnection:
 
 
 @pytest.fixture
-def sock_pair():
+def sock_pair() -> Iterator[tuple[socket.socket, socket.socket]]:
     left, right = socket.socketpair()
     left.setblocking(False)  # noqa: FBT003 -- stdlib socket API
     yield left, right
@@ -38,7 +39,7 @@ def sock_pair():
     right.close()
 
 
-def test_unread_data_detected(sock_pair):
+def test_unread_data_detected(sock_pair) -> None:
     left, right = sock_pair
     conn = _FakePyMySQLConnection(left)
     assert dao._socket_has_unread_data(conn) is False
@@ -47,14 +48,14 @@ def test_unread_data_detected(sock_pair):
     assert dao._socket_has_unread_data(conn) is True
 
 
-def test_connection_without_socket_is_ignored():
+def test_connection_without_socket_is_ignored() -> None:
     class _NoSock:
         pass
 
     assert dao._socket_has_unread_data(_NoSock()) is False
 
 
-def test_unusable_socket_object_is_ignored():
+def test_unusable_socket_object_is_ignored() -> None:
     class _BadSock:
         # No fileno(): select.select raises TypeError for such objects.
         _sock = object()
@@ -62,7 +63,7 @@ def test_unusable_socket_object_is_ignored():
     assert dao._socket_has_unread_data(_BadSock()) is False
 
 
-def test_pool_discards_connection_desynced_during_use(sock_pair):
+def test_pool_discards_connection_desynced_during_use(sock_pair) -> None:
     left, right = sock_pair
     dirty_conn = _FakePyMySQLConnection(left)
     clean_sock_a, clean_sock_b = socket.socketpair()
@@ -98,7 +99,7 @@ def test_pool_discards_connection_desynced_during_use(sock_pair):
         clean_sock_b.close()
 
 
-def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
+def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair) -> None:
     left, right = sock_pair
     dirty_conn = _FakePyMySQLConnection(left)
     clean_sock_a, clean_sock_b = socket.socketpair()
@@ -128,7 +129,7 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
         clean_sock_b.close()
 
 
-def test_probe_timeout_waits_for_in_flight_data(sock_pair):
+def test_probe_timeout_waits_for_in_flight_data(sock_pair) -> None:
     """A timed probe must catch data that arrives DURING the wait window: the zero-timeout probe misses an owed response still in flight, which is exactly how a just-interrupted exchange poisons the pool.
 
     A generous test window (far larger than any CI scheduler delay) keeps this
@@ -159,7 +160,7 @@ def test_probe_timeout_waits_for_in_flight_data(sock_pair):
         sender.join()
 
 
-def test_checkin_grace_window_is_a_short_positive_interval():
+def test_checkin_grace_window_is_a_short_positive_interval() -> None:
     # The production checkin window must stay a small positive value: zero
     # reintroduces the arrival race, and anything larger taxes every
     # transaction end. The bound is pinned to the current 2ms on purpose -
@@ -180,7 +181,7 @@ class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
         self.pings += 1
 
 
-def test_checkout_appends_a_journal_boundary_marker():
+def test_checkout_appends_a_journal_boundary_marker() -> None:
     clean_a, clean_b = socket.socketpair()
     conn = _FakePingablePyMySQLConnection(clean_a)
 

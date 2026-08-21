@@ -94,7 +94,7 @@ def _latest_outline_by_bid(shifu_bid: str) -> dict[str, DraftOutlineItem]:
     return latest_by_bid
 
 
-def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app):
+def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app) -> None:
     shifu_bid = "shifu_reorder_parent_fix"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -129,7 +129,9 @@ def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_reorder_outline_tree_updates_parent_bid_when_promoting_child_to_root(app):
+def test_reorder_outline_tree_updates_parent_bid_when_promoting_child_to_root(
+    app,
+) -> None:
     shifu_bid = "shifu_reorder_root_fix"
     with app.app_context():
         _seed_shifu(shifu_bid)

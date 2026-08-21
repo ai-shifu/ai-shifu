@@ -64,7 +64,7 @@ def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = True):
 
 def test_admin_import_activation_rejects_shared_permission_user(
     monkeypatch, test_client, app
-):
+) -> None:
     shifu_bid = "import-permission-course-1"
     owner_bid = "owner-import-1"
     shared_bid = "shared-import-1"
@@ -87,7 +87,7 @@ def test_admin_import_activation_rejects_shared_permission_user(
     assert payload["code"] == 401
 
 
-def test_admin_import_activation_allows_owner(monkeypatch, test_client, app):
+def test_admin_import_activation_allows_owner(monkeypatch, test_client, app) -> None:
     shifu_bid = "import-permission-course-2"
     owner_bid = "owner-import-2"
     _seed_shifu(app, shifu_bid, owner_bid)

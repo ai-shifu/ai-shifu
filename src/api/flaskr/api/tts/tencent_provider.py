@@ -16,7 +16,7 @@ import logging
 import time
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -41,6 +41,9 @@ from flaskr.service.tts.audio_utils import (
     try_get_audio_duration_ms,
 )
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -1231,7 +1234,7 @@ class TencentTTSProvider(BaseTTSProvider):
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
-    ):
+    ) -> Iterator[TencentSSEStreamChunk]:
         """Stream synthesized speech from this provider."""
         if not self.is_configured():
             error_message = "Tencent TTS is not configured"

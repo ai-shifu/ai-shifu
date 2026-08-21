@@ -143,7 +143,7 @@ class _FakeLangfuseClient:
         return root
 
 
-def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
+def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders() -> None:
     from flaskr.service.shifu import shifu_publish_funcs as module
     from flaskr.util.prompt_loader import load_prompt_template
 
@@ -167,7 +167,7 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
     assert "<knowledge>" not in result
 
 
-def test_get_summary_updates_trace_and_span_output(monkeypatch):
+def test_get_summary_updates_trace_and_span_output(monkeypatch) -> None:
     from flaskr.api import langfuse as langfuse_module
     from flaskr.service.shifu import shifu_publish_funcs as module
 
@@ -215,7 +215,7 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     assert trace.updated["output"] == "summary result"
 
 
-def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
+def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch) -> None:
     from unittest.mock import MagicMock
 
     from flaskr.service.shifu import shifu_publish_funcs as module
@@ -243,7 +243,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
     error_mock.assert_not_called()
 
 
-def test_run_summary_logs_error_for_other_failures(monkeypatch):
+def test_run_summary_logs_error_for_other_failures(monkeypatch) -> None:
     from unittest.mock import MagicMock
 
     from flaskr.service.shifu import shifu_publish_funcs as module
@@ -268,7 +268,7 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch):
     warning_mock.assert_not_called()
 
 
-def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
+def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch) -> None:
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)

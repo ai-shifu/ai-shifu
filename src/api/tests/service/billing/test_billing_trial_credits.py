@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask, jsonify, request
@@ -42,6 +43,9 @@ from tests.service.billing.route_loader import (
     load_register_billing_routes,
 )
 
+if TYPE_CHECKING:
+    from flask.testing import FlaskClient
+
 billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
@@ -60,7 +64,7 @@ def _seed_creator(*, user_bid: str, is_creator: bool = True) -> None:
 
 
 @pytest.fixture
-def trial_billing_client(monkeypatch):
+def trial_billing_client(monkeypatch) -> FlaskClient:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

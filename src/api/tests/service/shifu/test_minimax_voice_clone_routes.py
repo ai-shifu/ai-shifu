@@ -126,7 +126,9 @@ def _auth(monkeypatch, user_bid: str = "creator-route") -> None:
     monkeypatch.setattr("flaskr.service.shifu.route.validate_user", lambda *_args: user)
 
 
-def test_minimax_voice_clone_cost_is_zero_without_rate(app, test_client, monkeypatch):
+def test_minimax_voice_clone_cost_is_zero_without_rate(
+    app, test_client, monkeypatch
+) -> None:
     _prepare_minimax_tables(app)
     _auth(monkeypatch)
     monkeypatch.setattr(
@@ -154,7 +156,7 @@ def test_minimax_voice_clone_cost_is_zero_without_rate(app, test_client, monkeyp
     assert payload["data"]["billing_enabled"] is True
 
 
-def test_minimax_validate_custom_voice_id_route(app, test_client, monkeypatch):
+def test_minimax_validate_custom_voice_id_route(app, test_client, monkeypatch) -> None:
     _prepare_minimax_tables(app)
     _auth(monkeypatch)
 
@@ -173,7 +175,7 @@ def test_minimax_voice_clone_submit_creates_queued_voice(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     from flaskr.service.tts.models import (
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
         TTSMiniMaxClonedVoice,
@@ -242,7 +244,7 @@ def test_minimax_voice_clone_submit_rejects_insufficient_credits(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 
     _prepare_minimax_tables(app)
@@ -287,7 +289,7 @@ def test_minimax_voice_routes_only_expose_current_owner_voices(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     from flaskr.service.tts.models import (
         TTS_MINIMAX_CLONE_STATUS_FAILED,
         TTS_MINIMAX_CLONE_STATUS_READY,

@@ -7,7 +7,9 @@ from flaskr.service.resource.models import Resource
 from flaskr.service.shifu import funcs
 
 
-def test_upload_file_creates_resource_when_resource_id_is_missing(app, monkeypatch):
+def test_upload_file_creates_resource_when_resource_id_is_missing(
+    app, monkeypatch
+) -> None:
     class DummyFile:
         filename = "avatar.png"
 

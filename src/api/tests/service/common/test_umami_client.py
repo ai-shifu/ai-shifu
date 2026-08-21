@@ -17,7 +17,7 @@ def _mock_config(monkeypatch, values: dict[str, object]) -> None:
     )
 
 
-def test_get_course_visit_count_30d_counts_all_metric_pages(app, monkeypatch):
+def test_get_course_visit_count_30d_counts_all_metric_pages(app, monkeypatch) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -63,7 +63,7 @@ def test_get_course_visit_count_30d_counts_all_metric_pages(app, monkeypatch):
     assert calls[0]["headers"]["x-umami-api-key"] == "api-key"
 
 
-def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch):
+def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -99,7 +99,7 @@ def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch):
 
 def test_get_course_visit_count_30d_returns_zero_without_required_config(
     app, monkeypatch
-):
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -116,11 +116,11 @@ def test_get_course_visit_count_30d_returns_zero_without_required_config(
         assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
 
 
-def test_build_course_visit_event_name_normalizes_non_ascii_to_match_frontend():
+def test_build_course_visit_event_name_normalizes_non_ascii_to_match_frontend() -> None:
     assert umami_client.build_course_visit_event_name("课程-1") == "course_visit___-1"
 
 
-def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
+def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -151,7 +151,7 @@ def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
     assert request_count["value"] == 1
 
 
-def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
+def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -175,7 +175,7 @@ def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
 
 def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails(
     app, monkeypatch
-):
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -221,7 +221,7 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
 
 def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
     app, monkeypatch
-):
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -269,7 +269,7 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
 
 def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     app, monkeypatch
-):
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -321,7 +321,7 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     assert sleep_calls == [umami_client.UMAMI_CACHE_LOCK_WAIT_SECONDS]
 
 
-def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
+def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -361,7 +361,9 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
     )
 
 
-def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch):
+def test_login_for_access_token_returns_token_when_cache_write_fails(
+    monkeypatch,
+) -> None:
     _mock_config(
         monkeypatch,
         {

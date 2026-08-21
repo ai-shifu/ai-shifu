@@ -42,7 +42,7 @@ def _patch_config_store(monkeypatch):
     return store
 
 
-def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
+def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch) -> None:
     redis = _TrackingRedis()
     store = _patch_config_store(monkeypatch)
     monkeypatch.setattr(dao._redis_state, "client", redis)

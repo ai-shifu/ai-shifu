@@ -23,7 +23,7 @@ class _Response:
 
 
 @pytest.fixture
-def baidu(monkeypatch):
+def baidu(monkeypatch) -> BaiduTTSProvider:
     monkeypatch.setattr(baidu_mod, "_get_access_token", lambda *_args: "token")
     provider = BaiduTTSProvider()
     monkeypatch.setattr(provider, "_get_credentials", lambda: ("key", "secret"))
@@ -31,14 +31,14 @@ def baidu(monkeypatch):
 
 
 @pytest.fixture
-def aliyun(monkeypatch):
+def aliyun(monkeypatch) -> AliyunTTSProvider:
     monkeypatch.setattr(aliyun_mod, "get_aliyun_nls_token", lambda: "token")
     provider = AliyunTTSProvider()
     monkeypatch.setattr(provider, "_get_settings", lambda: ("appkey", "shanghai"))
     return provider
 
 
-def test_baidu_reports_the_json_error_payload(baidu, monkeypatch):
+def test_baidu_reports_the_json_error_payload(baidu, monkeypatch) -> None:
     monkeypatch.setattr(
         requests,
         "post",
@@ -49,7 +49,7 @@ def test_baidu_reports_the_json_error_payload(baidu, monkeypatch):
         baidu.synthesize("hello")
 
 
-def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch):
+def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch) -> None:
     monkeypatch.setattr(
         requests,
         "post",
@@ -60,7 +60,7 @@ def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch):
         baidu.synthesize("hello")
 
 
-def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch):
+def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch) -> None:
     monkeypatch.setattr(
         requests,
         "post",
@@ -77,7 +77,9 @@ def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch):
         aliyun.synthesize("hello")
 
 
-def test_aliyun_reports_the_raw_body_when_json_is_malformed(aliyun, monkeypatch):
+def test_aliyun_reports_the_raw_body_when_json_is_malformed(
+    aliyun, monkeypatch
+) -> None:
     monkeypatch.setattr(
         requests,
         "post",

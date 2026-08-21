@@ -11,7 +11,7 @@ from flaskr.service.shifu.utils import (
 )
 
 
-def test_resource_url_helpers(app):
+def test_resource_url_helpers(app) -> None:
     with app.app_context():
         res = Resource(
             resource_id="res-1",
@@ -35,7 +35,7 @@ def test_resource_url_helpers(app):
         assert parse_shifu_res_bid("https://example.com/path/res-1") == "res-1"
 
 
-def test_get_shifu_creator_bid_prefers_draft(app):
+def test_get_shifu_creator_bid_prefers_draft(app) -> None:
     with app.app_context():
         draft = DraftShifu(
             shifu_bid="shifu-1",

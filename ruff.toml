@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN002/ANN003/ANN204/ANN205/ANN206, see `select`) / SLF001 /
+# - ANN (except ANN002/ANN003/ANN201/ANN204/ANN205/ANN206, see `select`) / SLF001 /
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
@@ -190,6 +190,7 @@ select = [
     # readable at a glance.
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
+    "ANN201",  # missing return type on a public function or method
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
@@ -268,6 +269,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # would break `alembic` revision discovery. Applied migration history is also
 # immutable, so its standard `upgrade` / `downgrade` hooks retain D103.
 "src/api/migrations/**" = ["D103", "INP001"]
+# Applied revision hooks are immutable public functions. New revisions inherit
+# Alembic's `upgrade` / `downgrade` contract instead of rewriting history.
+"src/api/migrations/versions/**" = ["ANN201"]
 # This applied no-op revision keeps a legacy `NOTE:` section in its module
 # docstring. Migration history is immutable, so D405 is scoped to this file.
 "src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]

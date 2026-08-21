@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import pytest
 from flask import Flask
@@ -27,6 +27,9 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _enqueue_clone(app: object, *, voice_bid: str) -> bool:
     del app, voice_bid
@@ -44,7 +47,7 @@ def _normalize_audio(data: bytes, filename: str, purpose: str) -> SimpleNamespac
 
 
 @pytest.fixture
-def minimax_clone_app(monkeypatch):
+def minimax_clone_app(monkeypatch) -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -499,7 +502,9 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
         assert read_calls[0] == (source_object_key, "resource-bucket")
 
 
-def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch):
+def test_execute_clone_processing_uses_row_values_inside_app_context(
+    monkeypatch,
+) -> None:
     from flaskr.service.tts import minimax_voice_clone
 
     in_context = False

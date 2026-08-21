@@ -17,7 +17,7 @@ from flaskr.service.promo.models import Coupon, CouponUsage
 from flaskr.util.datetime import now_utc
 
 
-def test_use_coupon_code_applies_discount(app, monkeypatch):
+def test_use_coupon_code_applies_discount(app, monkeypatch) -> None:
     order_bid = "order-fix-discount-1"
     course_bid = "course-fix-discount-1"
     user_bid = "user-fix-discount-1"
@@ -76,7 +76,9 @@ def test_use_coupon_code_applies_discount(app, monkeypatch):
     assert sent["code"] == coupon_code
 
 
-def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(app, monkeypatch):
+def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(
+    app, monkeypatch
+) -> None:
     order_bid = "order-fix-discount-2"
     course_bid = "course-fix-discount-2"
     user_bid = "user-fix-discount-2"
@@ -146,7 +148,7 @@ def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(app, monkeyp
         assert updated_coupon.used_count == 1
 
 
-def test_use_coupon_code_accepts_legacy_coupon_status(app, monkeypatch):
+def test_use_coupon_code_accepts_legacy_coupon_status(app, monkeypatch) -> None:
     order_bid = "order-fix-discount-legacy"
     course_bid = "course-fix-discount-legacy"
     user_bid = "user-fix-discount-legacy"
@@ -201,7 +203,7 @@ def test_use_coupon_code_accepts_legacy_coupon_status(app, monkeypatch):
         assert updated_coupon.used_count == 1
 
 
-def test_use_coupon_code_accepts_coupon_expiring_soon_in_utc(app, monkeypatch):
+def test_use_coupon_code_accepts_coupon_expiring_soon_in_utc(app, monkeypatch) -> None:
     # Regression: the validity window is stored and compared as naive UTC.
     # A localized (UTC+8) reading of `end` used to reject coupons that expire
     # within the next eight hours as already expired.
@@ -247,7 +249,9 @@ def test_use_coupon_code_accepts_coupon_expiring_soon_in_utc(app, monkeypatch):
     assert result.order_id == order_bid
 
 
-def test_use_coupon_code_rejects_coupon_not_yet_started_in_utc(app, monkeypatch):
+def test_use_coupon_code_rejects_coupon_not_yet_started_in_utc(
+    app, monkeypatch
+) -> None:
     # Regression: a localized (UTC+8) reading of `start` used to open the
     # redemption window eight hours before the stored UTC start time.
     order_bid = "order-fix-discount-utc-2"

@@ -57,7 +57,7 @@ def _reset_gate_state():
     rpm_gate._FALLBACK_WARNING_KEYS.clear()
 
 
-def test_rpm_gate_smooths_same_provider_and_api_key(monkeypatch):
+def test_rpm_gate_smooths_same_provider_and_api_key(monkeypatch) -> None:
     fake_redis = _FakeRedis()
     monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
     now_fn, sleep_fn = _clock()
@@ -83,7 +83,7 @@ def test_rpm_gate_smooths_same_provider_and_api_key(monkeypatch):
     assert second.waited_seconds == pytest.approx(1.0)
 
 
-def test_rpm_gate_uses_independent_queues_for_different_api_keys(monkeypatch):
+def test_rpm_gate_uses_independent_queues_for_different_api_keys(monkeypatch) -> None:
     fake_redis = _FakeRedis()
     monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
     now_fn, sleep_fn = _clock()
@@ -109,7 +109,7 @@ def test_rpm_gate_uses_independent_queues_for_different_api_keys(monkeypatch):
     assert second.waited_seconds == 0
 
 
-def test_rpm_gate_uses_independent_queues_for_different_models(monkeypatch):
+def test_rpm_gate_uses_independent_queues_for_different_models(monkeypatch) -> None:
     fake_redis = _FakeRedis()
     monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
     now_fn, sleep_fn = _clock()
@@ -138,7 +138,7 @@ def test_rpm_gate_uses_independent_queues_for_different_models(monkeypatch):
     assert second.waited_seconds == 0
 
 
-def test_rpm_gate_smooths_same_model(monkeypatch):
+def test_rpm_gate_smooths_same_model(monkeypatch) -> None:
     fake_redis = _FakeRedis()
     monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
     now_fn, sleep_fn = _clock()
@@ -166,7 +166,7 @@ def test_rpm_gate_smooths_same_model(monkeypatch):
     assert second.waited_seconds == pytest.approx(1.0)
 
 
-def test_rpm_gate_times_out_when_queue_exceeds_max_wait(monkeypatch):
+def test_rpm_gate_times_out_when_queue_exceeds_max_wait(monkeypatch) -> None:
     fake_redis = _FakeRedis()
     monkeypatch.setattr(rpm_gate, "_get_redis_client", lambda: fake_redis)
     now_fn, sleep_fn = _clock()
@@ -191,7 +191,9 @@ def test_rpm_gate_times_out_when_queue_exceeds_max_wait(monkeypatch):
         )
 
 
-def test_rpm_gate_falls_back_to_process_local_when_redis_unavailable(monkeypatch):
+def test_rpm_gate_falls_back_to_process_local_when_redis_unavailable(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(
         rpm_gate,
         "_get_redis_client",

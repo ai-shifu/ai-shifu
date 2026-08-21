@@ -376,17 +376,17 @@ class ShifuOutlineTreeNode:
             self.position = ""
         self.parent_node = None
 
-    def add_child(self, child: "ShifuOutlineTreeNode"):
+    def add_child(self, child: "ShifuOutlineTreeNode") -> None:
         """Add a child to the node."""
         self.children.append(child)
         child.parent_node = self
 
-    def remove_child(self, child: "ShifuOutlineTreeNode"):
+    def remove_child(self, child: "ShifuOutlineTreeNode") -> None:
         """Remove a child from the node."""
         child.parent_node = None
         self.children.remove(child)
 
-    def get_new_position(self):
+    def get_new_position(self) -> str:
         """Get the new position of the node."""
         if not self.parent_node:
             return self.position

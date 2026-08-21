@@ -21,7 +21,7 @@ def test_import_user_keeps_pre_profile_nickname_behavior(
     app,
     monkeypatch,
     canonical_source,
-):
+) -> None:
     import_user_module = import_module("flaskr.command.import_user")
 
     monkeypatch.setattr(
@@ -91,7 +91,7 @@ def test_import_user_keeps_pre_profile_nickname_behavior(
 def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
     app,
     monkeypatch,
-):
+) -> None:
     import_user_module = import_module("flaskr.command.import_user")
 
     monkeypatch.setattr(

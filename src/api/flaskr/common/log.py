@@ -44,7 +44,7 @@ class AppLoggerProxy:
 class RequestFormatter(logging.Formatter):
     """Format request-aware application log records."""
 
-    def formatTime(self, record, datefmt=None):  # noqa: N802 - logging.Formatter hook name
+    def formatTime(self, record, datefmt=None) -> str:  # noqa: N802 - logging.Formatter hook name
         # create time zone info
         """Format a log timestamp in the application timezone."""
         bj_time = pytz.timezone("Asia/Shanghai")
@@ -59,7 +59,7 @@ class RequestFormatter(logging.Formatter):
                 s = ct.isoformat()
         return s
 
-    def format(self, record):
+    def format(self, record) -> str:
         """Format a log record with request context."""
         try:
             request_id = getattr(thread_local, "request_id", "No_Request_ID")
@@ -124,7 +124,7 @@ class FeishuLogHandler(logging.Handler):
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
-    def emit(self, record):
+    def emit(self, record) -> None:
         """Deliver a formatted error record to Feishu."""
         if getattr(self._delivering, "active", False):
             return

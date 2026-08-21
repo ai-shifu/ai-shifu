@@ -32,7 +32,7 @@ class Dict:
         return {"name": self.name, "display": self.display, "items": self.items}
 
 
-def register_dict(name, desp, items: dict):
+def register_dict(name, desp, items: dict) -> None:
     """Register dict."""
     if name in DICTS:
         return

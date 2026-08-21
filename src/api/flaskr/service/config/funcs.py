@@ -4,6 +4,7 @@ import base64
 import hashlib
 import random
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from cryptography.fernet import Fernet
@@ -28,7 +29,7 @@ _config_override_local = threading.local()
 
 
 @contextmanager
-def config_overrides(values: dict[str, object]):
+def config_overrides(values: dict[str, object]) -> Iterator[None]:
     """Return config overrides."""
     previous = getattr(_config_override_local, "values", None)
     merged = dict(previous) if previous is not None else {}

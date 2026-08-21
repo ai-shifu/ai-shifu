@@ -9,6 +9,7 @@ import time as time_module
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -68,9 +69,12 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def credit_notifications_app(tmp_path):
+def credit_notifications_app(tmp_path) -> Iterator[Flask]:
     db_path = tmp_path / "credit-notifications.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

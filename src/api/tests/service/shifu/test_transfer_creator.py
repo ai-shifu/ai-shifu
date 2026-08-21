@@ -157,7 +157,7 @@ def _ensure_trial_billing_enabled(app, monkeypatch) -> None:
 
 def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
     app, monkeypatch
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
@@ -228,7 +228,7 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
         assert shared_auth is not None
 
 
-def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):
+def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -276,7 +276,7 @@ def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):
 
 def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
     app, monkeypatch
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -308,7 +308,9 @@ def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
         assert trial_order.payment_provider == "manual"
 
 
-def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monkeypatch):
+def test_transfer_creator_skips_post_auth_when_target_already_creator(
+    app, monkeypatch
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -338,7 +340,7 @@ def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monke
         assert post_auth_calls == []
 
 
-def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
+def test_transfer_creator_route_for_operator(app, test_client, monkeypatch) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -378,7 +380,7 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
         assert latest_draft.updated_at > old_updated_at
 
 
-def test_transfer_creator_records_operator_history_entry(app):
+def test_transfer_creator_records_operator_history_entry(app) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -413,7 +415,7 @@ def test_transfer_creator_records_operator_history_entry(app):
 
 def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
     app, monkeypatch
-):
+) -> None:
     _ = monkeypatch
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
@@ -453,7 +455,7 @@ def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
         assert permission_map[shifu_bid] == {"view", "edit", "publish"}
 
 
-def test_transfer_creator_invalidates_cached_shifu_creator(app):
+def test_transfer_creator_invalidates_cached_shifu_creator(app) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -478,7 +480,7 @@ def test_transfer_creator_invalidates_cached_shifu_creator(app):
         assert _get_shifu_creator_bid_cached(app, shifu_bid) == target_user_bid
 
 
-def test_transfer_creator_preserves_existing_target_nickname(app):
+def test_transfer_creator_preserves_existing_target_nickname(app) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]

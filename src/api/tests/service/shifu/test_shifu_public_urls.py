@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
 import pytest
@@ -13,6 +14,9 @@ from flaskr import dao
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
@@ -20,7 +24,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_public_url_config_cache():
+def clear_public_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")
@@ -109,7 +113,7 @@ def _build_detail_for_base_url(monkeypatch, base_url: str):
     )
 
 
-def test_shifu_detail_urls_prefer_host_url(monkeypatch):
+def test_shifu_detail_urls_prefer_host_url(monkeypatch) -> None:
     from flaskr.service.shifu.route import _get_request_base_url
 
     monkeypatch.setenv("HOST_URL", "https://example.com/")
@@ -126,7 +130,7 @@ def test_shifu_detail_urls_prefer_host_url(monkeypatch):
     assert detail.preview_url == "https://example.com/c/course-1?preview=true"
 
 
-def test_shifu_detail_urls_use_forwarded_https_origin(monkeypatch):
+def test_shifu_detail_urls_use_forwarded_https_origin(monkeypatch) -> None:
     from flaskr.service.shifu.route import _get_request_base_url
 
     monkeypatch.delenv("HOST_URL", raising=False)
@@ -147,7 +151,7 @@ def test_shifu_detail_urls_use_forwarded_https_origin(monkeypatch):
     assert detail.preview_url == "https://forwarded.example.com/c/course-1?preview=true"
 
 
-def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch):
+def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch) -> None:
     from flaskr.service.shifu import shifu_publish_funcs
     from flaskr.service.shifu.route import _get_request_base_url
 
@@ -185,7 +189,7 @@ def test_shifu_preview_endpoint_admits_course_owner_usage_for_collaborator(
     monkeypatch,
     test_client,
     app,
-):
+) -> None:
     shifu_bid = "preview-route-owner-admission"
     owner_bid = "owner-preview-route-admission"
     collaborator_bid = "collaborator-preview-route-admission"
@@ -228,7 +232,7 @@ def test_shifu_preview_endpoint_admits_course_owner_usage_for_collaborator(
     }
 
 
-def test_shifu_publish_url_builder_uses_public_base():
+def test_shifu_publish_url_builder_uses_public_base() -> None:
     from flaskr.service.shifu.shifu_publish_funcs import _build_frontend_url
 
     assert (
@@ -293,7 +297,7 @@ def _seed_white_label(
         dao.db.session.commit()
 
 
-def test_resolve_effective_custom_origin_returns_verified_host(app):
+def test_resolve_effective_custom_origin_returns_verified_host(app) -> None:
     from flaskr.service.billing.domains import resolve_effective_custom_origin
 
     creator_bid = "wl-owner-verified"
@@ -304,7 +308,7 @@ def test_resolve_effective_custom_origin_returns_verified_host(app):
     )
 
 
-def test_resolve_effective_custom_origin_none_when_entitlement_disabled(app):
+def test_resolve_effective_custom_origin_none_when_entitlement_disabled(app) -> None:
     from flaskr.service.billing.domains import resolve_effective_custom_origin
 
     creator_bid = "wl-owner-disabled"
@@ -318,7 +322,7 @@ def test_resolve_effective_custom_origin_none_when_entitlement_disabled(app):
     assert resolve_effective_custom_origin(app, creator_bid) is None
 
 
-def test_resolve_effective_custom_origin_none_when_binding_pending(app):
+def test_resolve_effective_custom_origin_none_when_binding_pending(app) -> None:
     from flaskr.service.billing.consts import (
         BILLING_DOMAIN_BINDING_STATUS_PENDING,
     )
@@ -335,7 +339,7 @@ def test_resolve_effective_custom_origin_none_when_binding_pending(app):
     assert resolve_effective_custom_origin(app, creator_bid) is None
 
 
-def test_publish_base_url_prefers_custom_domain(app, monkeypatch):
+def test_publish_base_url_prefers_custom_domain(app, monkeypatch) -> None:
     from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
     from flaskr.service.shifu.route import _resolve_publish_base_url
 
@@ -352,7 +356,7 @@ def test_publish_base_url_prefers_custom_domain(app, monkeypatch):
         clear_shifu_context()
 
 
-def test_publish_base_url_falls_back_without_custom_domain(app, monkeypatch):
+def test_publish_base_url_falls_back_without_custom_domain(app, monkeypatch) -> None:
     from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
     from flaskr.service.shifu.route import _resolve_publish_base_url
 

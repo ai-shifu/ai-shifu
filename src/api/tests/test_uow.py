@@ -1,9 +1,11 @@
 """unit_of_work termination-classification behavior."""
 
+from typing import Never
+
 import pytest
 
 
-def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch):
+def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch) -> Never:
     from flaskr import dao
     from flaskr.dao.uow import unit_of_work
 
@@ -23,7 +25,7 @@ def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch):
     assert invalidations == ["unit_of_work interrupt"]
 
 
-def test_unit_of_work_classifies_desync_exceptions(app, monkeypatch):
+def test_unit_of_work_classifies_desync_exceptions(app, monkeypatch) -> Never:
     from flaskr import dao
     from flaskr.dao.uow import unit_of_work
 

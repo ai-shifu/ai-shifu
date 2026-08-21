@@ -12,7 +12,7 @@ from flaskr.service.common.models import AppError
 
 
 @pytest.fixture
-def login_methods(monkeypatch):
+def login_methods(monkeypatch) -> set[str]:
     def _set(value: str) -> None:
         monkeypatch.setattr(
             contact_identifiers,

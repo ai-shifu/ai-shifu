@@ -30,7 +30,7 @@ def _isolate_i18n_state(monkeypatch):
     clear_language()
 
 
-def test_load_and_translate_basic():
+def test_load_and_translate_basic() -> None:
     app = Flask(__name__)
 
     # Load translations from shared JSON
@@ -45,7 +45,7 @@ def test_load_and_translate_basic():
     assert t("module.chat.ask") == "追问"
 
 
-def test_french_language_loads_shared_translations():
+def test_french_language_loads_shared_translations() -> None:
     app = Flask(__name__)
 
     load_translations(app)
@@ -55,7 +55,7 @@ def test_french_language_loads_shared_translations():
     assert t("module.chat.ask") == "Demander"
 
 
-def test_language_fallback_to_default():
+def test_language_fallback_to_default() -> None:
     app = Flask(__name__)
 
     load_translations(app)
@@ -65,7 +65,7 @@ def test_language_fallback_to_default():
     assert t("module.chat.ask") == "Ask"
 
 
-def test_existing_language_missing_key_falls_back_to_default():
+def test_existing_language_missing_key_falls_back_to_default() -> None:
     app = Flask(__name__)
 
     load_translations(app)
@@ -82,7 +82,7 @@ def test_existing_language_missing_key_falls_back_to_default():
         fr_translations["MODULE.CHAT.ASK"] = removed_upper
 
 
-def test_flat_section_namespace_loading():
+def test_flat_section_namespace_loading() -> None:
     app = Flask(__name__)
 
     load_translations(app)

@@ -56,7 +56,7 @@ def _prepare_user(app, monkeypatch, user_bid: str) -> None:
     mock_validate_user(monkeypatch, user_bid)
 
 
-def test_run_fresh_start_golden(app, test_client, monkeypatch, golden_shifu):
+def test_run_fresh_start_golden(app, test_client, monkeypatch, golden_shifu) -> None:
     user_bid = "golden-user-fresh-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -86,7 +86,7 @@ def test_run_fresh_start_golden(app, test_client, monkeypatch, golden_shifu):
     )
 
 
-def test_run_continue_golden(app, test_client, monkeypatch, golden_shifu):
+def test_run_continue_golden(app, test_client, monkeypatch, golden_shifu) -> None:
     user_bid = "golden-user-continue-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -109,7 +109,9 @@ def test_run_continue_golden(app, test_client, monkeypatch, golden_shifu):
     )
 
 
-def test_run_interaction_input_golden(app, test_client, monkeypatch, golden_shifu):
+def test_run_interaction_input_golden(
+    app, test_client, monkeypatch, golden_shifu
+) -> None:
     user_bid = "golden-user-interact-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -146,7 +148,7 @@ def test_run_interaction_input_golden(app, test_client, monkeypatch, golden_shif
     )
 
 
-def test_run_ask_flow_golden(app, test_client, monkeypatch, golden_shifu):
+def test_run_ask_flow_golden(app, test_client, monkeypatch, golden_shifu) -> None:
     user_bid = "golden-user-ask-0001"
     _prepare_user(app, monkeypatch, user_bid)
 

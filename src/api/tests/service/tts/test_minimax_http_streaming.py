@@ -33,7 +33,7 @@ def _ignore_saved_audio_record(record: object, commit: object = None) -> None:
     del record, commit
 
 
-def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
+def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch) -> None:
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 
@@ -133,7 +133,7 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     }
 
 
-def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
+def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch) -> None:
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 
@@ -182,7 +182,7 @@ def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
     assert post_calls[0][0].endswith("GroupId=test-group")
 
 
-def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
+def test_minimax_http_streaming_raises_on_business_error(monkeypatch) -> None:
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 
     monkeypatch.setattr(
@@ -217,7 +217,7 @@ def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
 
 def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -356,7 +356,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
 
 def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -474,7 +474,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
 
 def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -598,7 +598,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
 
 def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitles(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -724,7 +724,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
 
 def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -862,7 +862,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
 
 def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -1020,7 +1020,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
 
 def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_stretch(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -1157,7 +1157,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
 
 def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -1318,7 +1318,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
 
 def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count_provider_cues(
     monkeypatch,
-):
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 

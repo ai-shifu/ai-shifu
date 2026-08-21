@@ -72,7 +72,7 @@ class _FakeResponse:
         return self._body
 
 
-def test_tc3_headers_sign_exact_request_payload():
+def test_tc3_headers_sign_exact_request_payload() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import (
         build_texttovoice_tc3_headers,
     )
@@ -108,7 +108,7 @@ def test_tc3_headers_sign_exact_request_payload():
     )
 
 
-def test_provider_config_exposes_two_model_tiers_with_tagged_voices():
+def test_provider_config_exposes_two_model_tiers_with_tagged_voices() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import (
         TencentTextToVoiceProvider,
     )
@@ -130,7 +130,7 @@ def test_provider_config_exposes_two_model_tiers_with_tagged_voices():
     assert all(v["value"][:3] in {"501", "601"} for v in large_voices)
 
 
-def test_resolve_sample_rate_by_voice_tier_and_model_fallback():
+def test_resolve_sample_rate_by_voice_tier_and_model_fallback() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import _resolve_sample_rate
 
     assert _resolve_sample_rate("101001", "") == 16000
@@ -141,7 +141,7 @@ def test_resolve_sample_rate_by_voice_tier_and_model_fallback():
     assert _resolve_sample_rate("999999", "") == 16000
 
 
-def test_split_text_weighted_limits():
+def test_split_text_weighted_limits() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import (
         _SEGMENT_WEIGHT_LIMIT,
         _split_text,
@@ -169,7 +169,7 @@ def test_split_text_weighted_limits():
     assert _split_text("   ") == []
 
 
-def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
+def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
@@ -226,7 +226,7 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
     assert result.usage_characters == len(text)
 
 
-def test_synthesize_raises_on_api_error_with_code(monkeypatch):
+def test_synthesize_raises_on_api_error_with_code(monkeypatch) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
@@ -256,7 +256,7 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     assert "req-err" in str(exc_info.value)
 
 
-def test_synthesize_raises_on_empty_audio(monkeypatch):
+def test_synthesize_raises_on_empty_audio(monkeypatch) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
@@ -279,7 +279,7 @@ def test_synthesize_raises_on_empty_audio(monkeypatch):
     assert "No audio data received from Tencent TextToVoice" in str(exc_info.value)
 
 
-def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
+def test_synthesize_rejects_non_numeric_voice_id(monkeypatch) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
@@ -294,7 +294,7 @@ def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
     assert "Invalid Tencent TextToVoice voice id" in str(exc_info.value)
 
 
-def test_validation_requires_model_and_tier_consistency():
+def test_validation_requires_model_and_tier_consistency() -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.tts.validation import validate_tts_settings_strict
 

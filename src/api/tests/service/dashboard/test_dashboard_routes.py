@@ -245,7 +245,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 1, 15, 10, 0, 0)
@@ -367,7 +367,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         in_range = datetime(2025, 1, 10, 9, 0, 0)
@@ -466,7 +466,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
         with app.app_context():
             self._seed_dashboard_course(shifu_bid="course-timezone", title="Course TZ")
@@ -503,7 +503,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         in_range = datetime(2025, 2, 10, 9, 0, 0)
@@ -560,7 +560,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -604,7 +604,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -649,7 +649,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -694,7 +694,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -753,7 +753,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -834,7 +834,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.dashboard.funcs.get_dynamic_config",
@@ -868,7 +868,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.shifu.demo_courses.get_dynamic_config",
@@ -903,7 +903,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.shifu.demo_courses.get_dynamic_config",
@@ -942,7 +942,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         draft_created_at = datetime(2025, 1, 1, 8, 0, 0)
@@ -1288,7 +1288,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2026, 4, 10, 12, 0, 0)
@@ -1446,7 +1446,7 @@ class TestDashboardRoutes:
         app,
         query_string,
         expected_param,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1508,7 +1508,7 @@ class TestDashboardRoutes:
         app,
         path,
         expected_param,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1529,7 +1529,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1698,7 +1698,7 @@ class TestDashboardRoutes:
         app,
         query_string,
         expected_param,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1721,7 +1721,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = now_utc().replace(microsecond=0)
@@ -1962,7 +1962,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = now_utc().replace(microsecond=0)
@@ -2070,7 +2070,7 @@ class TestDashboardRoutes:
         app,
         query_string,
         expected_param,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2094,7 +2094,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2118,7 +2118,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2146,7 +2146,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         joined_at = datetime(2026, 3, 4, 9, 15, 0)
@@ -2218,7 +2218,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2334,7 +2334,7 @@ class TestDashboardRoutes:
         monkeypatch,
         test_client,
         app,
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():

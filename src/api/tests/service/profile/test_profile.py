@@ -9,7 +9,7 @@ from flaskr.service.profile.profile_manage import (
 )
 
 
-def test_add_profile_item_quick_creates_definition(app):
+def test_add_profile_item_quick_creates_definition(app) -> None:
     with app.app_context():
         definition = add_profile_item_quick(
             app,
@@ -23,7 +23,7 @@ def test_add_profile_item_quick_creates_definition(app):
         assert any(item.profile_key == "favorite_color" for item in definitions)
 
 
-def test_hide_unused_profile_items_no_unused(monkeypatch):
+def test_hide_unused_profile_items_no_unused(monkeypatch) -> None:
     calls = []
 
     def fake_get_unused(_app, parent_id):
@@ -48,7 +48,7 @@ def test_hide_unused_profile_items_no_unused(monkeypatch):
     assert ("defs", "shifu_bid") in calls
 
 
-def test_hide_unused_profile_items_updates_hidden(monkeypatch):
+def test_hide_unused_profile_items_updates_hidden(monkeypatch) -> None:
     calls = []
 
     def fake_get_unused(_app, parent_id):
@@ -71,7 +71,7 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch):
     assert ("update", "shifu_bid", ("v1", "v2"), True, "user_bid") in calls
 
 
-def test_get_profile_variable_usage_groups_keys(monkeypatch):
+def test_get_profile_variable_usage_groups_keys(monkeypatch) -> None:
     calls = []
 
     def fake_get_defs(_app, parent_id=None, _type="all"):

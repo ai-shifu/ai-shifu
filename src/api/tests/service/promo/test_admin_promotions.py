@@ -73,7 +73,7 @@ def _isolate_tables(app):
         db.session.remove()
 
 
-def test_promotion_dtos_coerce_empty_and_zero_datetime_values_to_none():
+def test_promotion_dtos_coerce_empty_and_zero_datetime_values_to_none() -> None:
     summary = AdminPromotionSummaryDTO(
         total=0,
         active=0,
@@ -111,7 +111,7 @@ def test_promotion_dtos_coerce_empty_and_zero_datetime_values_to_none():
     assert campaign.channel == ""
 
 
-def test_creator_redemption_empty_result_summary_uses_none_latest_usage_at(app):
+def test_creator_redemption_empty_result_summary_uses_none_latest_usage_at(app) -> None:
     # Exercise the actual empty-result service branch (not just the DTO) so a
     # regression reverting latest_usage_at back to "" would be caught here.
     with app.app_context():
@@ -208,7 +208,9 @@ def _seed_order(
     return order
 
 
-def test_admin_promotions_coupons_route_requires_operator(test_client, monkeypatch):
+def test_admin_promotions_coupons_route_requires_operator(
+    test_client, monkeypatch
+) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
     response = test_client.get(
@@ -239,7 +241,7 @@ def test_admin_promotions_routes_reject_invalid_status_filter(
     monkeypatch,
     path,
     query_string,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(
@@ -253,7 +255,9 @@ def test_admin_promotions_routes_reject_invalid_status_filter(
     assert payload["message"] == "Params Error status"
 
 
-def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch):
+def test_admin_promotions_coupon_routes_round_trip(
+    app, test_client, monkeypatch
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.promo.admin.now_utc",
@@ -491,7 +495,7 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
 
 def test_admin_promotions_coupon_list_returns_empty_ops_states_by_default(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.promo.admin.now_utc",
@@ -536,7 +540,7 @@ def test_admin_promotions_coupon_list_returns_empty_ops_states_by_default(
 
 def test_creator_redemption_code_route_creates_course_scoped_coupon(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_creator(monkeypatch, user_id="creator-1")
 
     with app.app_context():
@@ -580,7 +584,7 @@ def test_creator_redemption_code_route_creates_course_scoped_coupon(
 
 def test_creator_redemption_code_route_rejects_shared_course(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_creator(monkeypatch, user_id="creator-1")
 
     with app.app_context():
@@ -622,7 +626,7 @@ def test_creator_redemption_code_route_rejects_shared_course(
 
 def test_creator_redemption_code_list_shows_only_owned_course_batches(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_creator(monkeypatch, user_id="creator-1")
 
     with app.app_context():
@@ -701,7 +705,7 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
 
 def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
     app, test_client, monkeypatch
-):
+) -> None:
     _ = app
     _mock_creator(monkeypatch, user_id="creator-1")
     captured_filters = {}
@@ -745,7 +749,7 @@ def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
 
 def test_creator_redemption_code_usage_route_requires_owned_course_coupon(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_creator(monkeypatch, user_id="creator-1")
 
     with app.app_context():
@@ -857,7 +861,7 @@ def test_creator_redemption_code_usage_route_requires_owned_course_coupon(
 
 def test_creator_redemption_code_detail_update_and_status_require_owned_course_coupon(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_creator(monkeypatch, user_id="creator-1")
 
     with app.app_context():
@@ -1018,7 +1022,7 @@ def test_creator_redemption_code_detail_update_and_status_require_owned_course_c
 
 def test_admin_promotions_generic_coupon_requires_code_and_quantity(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1067,7 +1071,9 @@ def test_admin_promotions_generic_coupon_requires_code_and_quantity(
     assert missing_quantity_payload["code"] != 0
 
 
-def test_admin_promotions_serializes_coupon_times_as_utc(app, test_client, monkeypatch):
+def test_admin_promotions_serializes_coupon_times_as_utc(
+    app, test_client, monkeypatch
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1117,7 +1123,7 @@ def test_admin_promotions_serializes_coupon_times_as_utc(app, test_client, monke
 
 def test_admin_promotions_single_use_coupon_generates_sub_codes_only(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1165,7 +1171,7 @@ def test_admin_promotions_single_use_coupon_generates_sub_codes_only(
 
 def test_admin_promotions_single_use_coupon_rejects_unknown_course(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1194,7 +1200,7 @@ def test_admin_promotions_single_use_coupon_rejects_unknown_course(
 
 def test_admin_promotions_single_use_coupon_rejects_oversized_batch(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1224,7 +1230,7 @@ def test_admin_promotions_single_use_coupon_rejects_oversized_batch(
 
 def test_admin_promotions_coupon_usage_falls_back_to_order_course(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1283,7 +1289,7 @@ def test_admin_promotions_coupon_usage_falls_back_to_order_course(
 
 def test_admin_promotions_coupon_usage_list_supports_keyword_filter(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1363,7 +1369,7 @@ def test_admin_promotions_coupon_usage_list_supports_keyword_filter(
 
 def test_admin_promotions_coupon_usage_list_rejects_invalid_status(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1400,7 +1406,7 @@ def test_admin_promotions_coupon_usage_list_rejects_invalid_status(
 
 def test_admin_promotions_coupon_update_keeps_used_records_unchanged(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1500,7 +1506,7 @@ def test_admin_promotions_coupon_update_keeps_used_records_unchanged(
 
 def test_admin_promotions_coupon_code_list_supports_keyword_filter(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1559,7 +1565,9 @@ def test_admin_promotions_coupon_code_list_supports_keyword_filter(
     assert code_payload["data"]["items"][0]["order_bid"] == "order-2"
 
 
-def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypatch):
+def test_admin_promotions_campaign_routes_round_trip(
+    app, test_client, monkeypatch
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1711,7 +1719,7 @@ def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypat
 
 def test_admin_promotions_campaign_redemptions_support_keyword_filter(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1792,7 +1800,7 @@ def test_admin_promotions_campaign_redemptions_support_keyword_filter(
 
 def test_admin_promotions_campaign_redemptions_summary_only_counts_applied(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1867,7 +1875,9 @@ def test_admin_promotions_campaign_redemptions_summary_only_counts_applied(
     assert redemption_payload["data"]["summary"]["discount_amount"] == "14.85"
 
 
-def test_admin_promotions_campaign_route_rejects_overlap(app, test_client, monkeypatch):
+def test_admin_promotions_campaign_route_rejects_overlap(
+    app, test_client, monkeypatch
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1913,7 +1923,7 @@ def test_admin_promotions_campaign_route_rejects_overlap(app, test_client, monke
 
 def test_admin_promotions_campaign_route_rejects_overlap_with_legacy_enabled_campaign(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -1961,7 +1971,7 @@ def test_admin_promotions_campaign_route_rejects_overlap_with_legacy_enabled_cam
 
 def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2080,7 +2090,7 @@ def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
 
 def test_admin_promotions_campaign_list_compatibly_displays_legacy_status_rows(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2199,7 +2209,7 @@ def test_admin_promotions_campaign_list_compatibly_displays_legacy_status_rows(
 
 def test_admin_promotions_coupon_update_rejects_locked_fields(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2250,7 +2260,7 @@ def test_admin_promotions_coupon_update_rejects_locked_fields(
 
 def test_admin_promotions_coupon_update_allows_changing_only_end_time(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2307,7 +2317,7 @@ def test_admin_promotions_coupon_update_allows_changing_only_end_time(
 
 def test_admin_promotions_coupon_update_ignores_empty_start_time(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2365,7 +2375,7 @@ def test_admin_promotions_coupon_update_ignores_empty_start_time(
 
 def test_admin_promotions_coupon_status_rejects_enabling_expired_coupon(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2403,7 +2413,7 @@ def test_admin_promotions_coupon_status_rejects_enabling_expired_coupon(
 
 def test_admin_promotions_campaign_update_only_allows_name_description_time_and_apply_type(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2462,7 +2472,7 @@ def test_admin_promotions_campaign_update_only_allows_name_description_time_and_
 
 def test_admin_promotions_campaign_update_rejects_channel_and_value_change_before_redemption(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2510,7 +2520,7 @@ def test_admin_promotions_campaign_update_rejects_channel_and_value_change_befor
 
 def test_admin_promotions_campaign_update_allows_changing_only_start_time(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2569,7 +2579,7 @@ def test_admin_promotions_campaign_update_allows_changing_only_start_time(
 
 def test_admin_promotions_campaign_update_ignores_null_end_time(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2629,7 +2639,7 @@ def test_admin_promotions_campaign_update_ignores_null_end_time(
 
 def test_admin_promotions_campaign_update_rejects_apply_type_change_after_redemption(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2694,7 +2704,7 @@ def test_admin_promotions_campaign_update_rejects_apply_type_change_after_redemp
 
 def test_admin_promotions_campaign_update_rejects_channel_and_value_change_after_redemption(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2759,7 +2769,7 @@ def test_admin_promotions_campaign_update_rejects_channel_and_value_change_after
 
 def test_admin_promotions_campaign_status_rejects_enabling_ended_campaign(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2796,7 +2806,7 @@ def test_admin_promotions_campaign_status_rejects_enabling_ended_campaign(
 
 def test_admin_promotions_campaign_status_allows_manual_campaign_overlap_with_auto(
     app, test_client, monkeypatch
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():

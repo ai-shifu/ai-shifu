@@ -37,7 +37,7 @@ def _add_progress_with_block(shifu_bid: str, user_bid: str, suffix: str) -> None
     db.session.commit()
 
 
-def test_migrate_user_study_record_moves_records_and_blocks(app):
+def test_migrate_user_study_record_moves_records_and_blocks(app) -> None:
     shifu_bid = "shifu-migrate"
     with app.app_context():
         LearnGeneratedBlock.query.delete()
@@ -94,7 +94,7 @@ def test_migrate_user_study_record_moves_records_and_blocks(app):
         assert untouched_block.user_bid == "tmp-user"
 
 
-def test_migrate_user_study_record_skips_outlines_already_present(app):
+def test_migrate_user_study_record_skips_outlines_already_present(app) -> None:
     shifu_bid = "shifu-migrate-dup"
     with app.app_context():
         LearnGeneratedBlock.query.delete()

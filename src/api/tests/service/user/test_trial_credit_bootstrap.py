@@ -6,6 +6,7 @@ import importlib
 import json
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -38,6 +39,9 @@ from flaskr.service.user.utils import generate_token
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
+if TYPE_CHECKING:
+    from flask.testing import FlaskClient
+
 
 def _load_user_route_handlers():
     common_module = importlib.import_module("flaskr.route.common")
@@ -58,7 +62,7 @@ def _post_json(client, path: str, payload: dict, headers: dict | None = None):
 
 
 @pytest.fixture
-def user_trial_client(monkeypatch, tmp_path):
+def user_trial_client(monkeypatch, tmp_path) -> FlaskClient:
     import flaskr.service.billing.auth_hooks as _billing_auth_hooks  # noqa: F401
     import flaskr.service.user.utils as user_utils
     from flaskr.service.user import email_flow, phone_flow
@@ -172,7 +176,7 @@ def _assert_trial_bootstrapped(user_bid: str) -> None:
 
 def test_sms_login_admin_login_bootstraps_trial_once(
     user_trial_client,
-):
+) -> None:
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     phone = f"155{uuid.uuid4().int % 100000000:08d}"
@@ -214,7 +218,7 @@ def test_sms_login_admin_login_bootstraps_trial_once(
 
 def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
     user_trial_client,
-):
+) -> None:
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -255,7 +259,7 @@ def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
 
 def test_password_login_existing_creator_does_not_bootstrap_trial_again(
     user_trial_client,
-):
+) -> None:
     app = user_trial_client.application
     email = f"{uuid.uuid4().hex[:10]}@example.com"
     password = "Abcd1234"
@@ -305,7 +309,7 @@ def test_password_login_existing_creator_does_not_bootstrap_trial_again(
 
 def test_password_login_non_creator_does_not_grant_trial(
     user_trial_client,
-):
+) -> None:
     app = user_trial_client.application
     email = f"{uuid.uuid4().hex[:10]}@example.com"
     password = "Abcd1234"
@@ -351,7 +355,7 @@ def test_password_login_non_creator_does_not_grant_trial(
 
 def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
     user_trial_client,
-):
+) -> None:
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     email = f"{uuid.uuid4().hex[:10]}@example.com"

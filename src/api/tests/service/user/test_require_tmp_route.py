@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 
 
-def test_require_tmp_passes_payload_source_to_temp_user(test_client, monkeypatch):
+def test_require_tmp_passes_payload_source_to_temp_user(
+    test_client, monkeypatch
+) -> None:
     import flaskr.route.user as user_route
 
     calls: list[dict[str, str | None]] = []

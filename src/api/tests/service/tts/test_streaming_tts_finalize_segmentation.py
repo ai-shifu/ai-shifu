@@ -14,14 +14,14 @@ from flaskr.service.tts.streaming_tts import StreamingTTSProcessor, TTSSegment
 
 
 @pytest.fixture
-def mock_app():
+def mock_app() -> MagicMock:
     """Create a mock Flask app."""
     app = MagicMock()
     app.config = {}
     return app
 
 
-def create_test_processor(mock_app, **kwargs: object):
+def create_test_processor(mock_app, **kwargs: object) -> StreamingTTSProcessor:
     """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
@@ -43,7 +43,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_process_chunk_submits_only_after_sentence_boundary(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test stream-time submission waits for a full sentence ending."""
         mock_is_configured.return_value = True
 
@@ -75,7 +75,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_in_segments_splits_at_sentence_boundaries(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test that remaining text is split at sentence boundaries."""
         mock_is_configured.return_value = True
 
@@ -119,7 +119,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_does_not_split_by_char_count_without_sentence(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test that text without sentence boundaries is submitted as one segment."""
         mock_is_configured.return_value = True
 
@@ -155,7 +155,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_short_text(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test handling of very short remaining text."""
         mock_is_configured.return_value = True
 
@@ -190,7 +190,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_empty_string(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test handling of empty remaining text."""
         mock_is_configured.return_value = True
 
@@ -206,7 +206,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_whitespace_only(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test handling of whitespace-only remaining text."""
         mock_is_configured.return_value = True
 
@@ -222,7 +222,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_logs_segment_info(
         self, mock_is_configured, mock_executor, mock_app, caplog
-    ):
+    ) -> None:
         """Test that segment submission is properly logged."""
         mock_is_configured.return_value = True
 
@@ -260,7 +260,7 @@ class TestStreamingSynthesisRetries:
         mock_record_usage,
         mock_sleep,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received from Tencent TTS"),
@@ -307,7 +307,7 @@ class TestStreamingSynthesisRetries:
         mock_sleep,
         mock_logger,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = ValueError(
             "No audio data received from Tencent TTS"
@@ -355,7 +355,7 @@ class TestStreamingSynthesisRetries:
         mock_logger,
         mock_app,
         tts_provider,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         app_context = MagicMock()
         app_context.__enter__.return_value = None
@@ -394,7 +394,7 @@ class TestStreamingSynthesisRetries:
         mock_minimax_provider,
         mock_logger,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="minimax")
 
@@ -424,7 +424,7 @@ class TestStreamingSynthesisRetries:
         mock_synthesize_text,
         mock_logger,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="volcengine")
 
@@ -456,7 +456,7 @@ class TestStreamingSynthesisRetries:
         mock_record_usage,
         mock_sleep,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received"),
@@ -515,7 +515,7 @@ class TestStreamingSynthesisRetries:
         mock_record_aggregate_usage,
         mock_save_audio_record,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
             audio_data=b"provider-audio",
@@ -592,7 +592,7 @@ class TestStreamingSynthesisRetries:
         mock_save_audio_record,
         mock_sleep,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received"),
@@ -641,7 +641,7 @@ class TestOffsetDriftRegression:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_bold_spanning_chunks_no_text_loss(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Bold markers completing across chunks must not cause text loss.
 
         Regression: when **bold** spans the processed/unprocessed boundary,
@@ -688,7 +688,7 @@ class TestOffsetDriftRegression:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_link_spanning_chunks_no_text_loss(
         self, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Links completing across chunks must not lose surrounding text."""
         mock_is_configured.return_value = True
 
@@ -731,7 +731,7 @@ class TestFinalizeDelayManagement:
         mock_synthesize_text,
         mock_record_segment_usage,
         mock_app,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
             audio_data=b"fake_audio_data",
@@ -778,7 +778,7 @@ class TestFinalizeDelayManagement:
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
     def test_yield_ready_segments_adds_delay_between_segments(
         self, mock_sleep, mock_is_configured, mock_executor, mock_app
-    ):
+    ) -> None:
         """Test that _yield_ready_segments adds delay between segment yields."""
         _ = mock_executor
         mock_is_configured.return_value = True

@@ -4,7 +4,7 @@ from flaskr.service.shifu.consts import STATUS_PUBLISHED
 from flaskr.service.shifu.dtos import ShifuDto
 
 
-def test_shifu_dto_json_includes_state():
+def test_shifu_dto_json_includes_state() -> None:
     dto = ShifuDto(
         shifu_id="course-1",
         shifu_name="Course 1",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -29,6 +30,9 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _load_route_module(module_name: str):
     return importlib.import_module(f"flaskr.route.{module_name}")
@@ -41,13 +45,13 @@ class DummyStripeProvider:
         """Initialize the dummy stripe provider test double."""
         self._notification = notification
 
-    def verify_webhook(self, *, headers, raw_body, app):
+    def verify_webhook(self, *, headers, raw_body, app) -> PaymentNotificationResult:
         del headers, raw_body, app
         return self._notification
 
 
 @pytest.fixture
-def stripe_webhook_app():
+def stripe_webhook_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -170,7 +174,9 @@ def _ensure_billing_stripe_raw_snapshot(bill_order_bid):
     return raw_order
 
 
-def test_handle_stripe_webhook_marks_order_paid(stripe_webhook_app, monkeypatch):
+def test_handle_stripe_webhook_marks_order_paid(
+    stripe_webhook_app, monkeypatch
+) -> None:
     with stripe_webhook_app.app_context():
         order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-1")
 
@@ -239,7 +245,9 @@ def test_handle_stripe_webhook_marks_order_paid(stripe_webhook_app, monkeypatch)
         assert refreshed_stripe_order.status == 1
 
 
-def test_stripe_webhook_route_marks_legacy_order_paid(stripe_webhook_app, monkeypatch):
+def test_stripe_webhook_route_marks_legacy_order_paid(
+    stripe_webhook_app, monkeypatch
+) -> None:
     with stripe_webhook_app.app_context():
         order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-route-1")
 
@@ -322,7 +330,7 @@ def test_stripe_webhook_route_marks_legacy_order_paid(stripe_webhook_app, monkey
 
 def test_handle_stripe_webhook_routes_bill_orders_without_regression(
     stripe_webhook_app, monkeypatch
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -428,7 +436,9 @@ def test_handle_stripe_webhook_routes_bill_orders_without_regression(
         assert len(ledgers) == 1
 
 
-def test_stripe_webhook_route_delegates_bill_orders(stripe_webhook_app, monkeypatch):
+def test_stripe_webhook_route_delegates_bill_orders(
+    stripe_webhook_app, monkeypatch
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -506,7 +516,7 @@ def test_stripe_webhook_route_delegates_bill_orders(stripe_webhook_app, monkeypa
 
 def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
     stripe_webhook_app, monkeypatch
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -577,7 +587,7 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
 
 def test_handle_stripe_webhook_ignores_stale_subscription_updates(
     stripe_webhook_app, monkeypatch
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -634,7 +644,7 @@ def test_handle_stripe_webhook_ignores_stale_subscription_updates(
 
 def test_handle_stripe_webhook_ignores_orphan_billing_event(
     stripe_webhook_app, monkeypatch
-):
+) -> None:
     notification = PaymentNotificationResult(
         order_bid="",
         status="checkout.session.completed",

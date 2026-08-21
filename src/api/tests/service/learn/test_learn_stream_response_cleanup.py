@@ -13,7 +13,7 @@ from sqlalchemy.exc import ResourceClosedError
 
 
 @pytest.fixture
-def invalidations(monkeypatch):
+def invalidations(monkeypatch) -> list[str]:
     calls = []
 
     def release_db_session(app: object, *, source: str) -> None:
@@ -39,7 +39,7 @@ def _iter_stream(app, helper, iter_factory):
         return response.response
 
 
-def test_sse_close_invalidates_session(app, invalidations):
+def test_sse_close_invalidates_session(app, invalidations) -> None:
     def factory():
         yield {"type": "chunk"}
         yield {"type": "chunk2"}
@@ -58,7 +58,7 @@ def test_sse_close_invalidates_session(app, invalidations):
     assert invalidations == ["learn stream_sse_response close"]
 
 
-def test_sse_protocol_error_invalidates_session(app, invalidations):
+def test_sse_protocol_error_invalidates_session(app, invalidations) -> None:
     def factory():
         yield {"type": "chunk"}
         message = "desynced"
@@ -79,7 +79,7 @@ def test_sse_protocol_error_invalidates_session(app, invalidations):
     assert invalidations == ["learn stream_sse_response desync"]
 
 
-def test_sse_business_error_does_not_invalidate(app, invalidations):
+def test_sse_business_error_does_not_invalidate(app, invalidations) -> None:
     def factory():
         yield {"type": "chunk"}
         message = "business"
@@ -100,7 +100,7 @@ def test_sse_business_error_does_not_invalidate(app, invalidations):
     assert invalidations == []
 
 
-def test_passthrough_close_invalidates_session(app, invalidations):
+def test_passthrough_close_invalidates_session(app, invalidations) -> None:
     def factory():
         yield "data: 1\n\n"
         yield "data: 2\n\n"
@@ -119,7 +119,7 @@ def test_passthrough_close_invalidates_session(app, invalidations):
     assert invalidations == ["learn stream_passthrough_response close"]
 
 
-def test_passthrough_close_disguised_as_runtime_error(app, invalidations):
+def test_passthrough_close_disguised_as_runtime_error(app, invalidations) -> None:
     def factory():
         yield "data: 1\n\n"
         message = "generator ignored GeneratorExit"
@@ -140,7 +140,7 @@ def test_passthrough_close_disguised_as_runtime_error(app, invalidations):
     assert invalidations == ["learn stream_passthrough_response close"]
 
 
-def test_passthrough_normal_exhaustion_does_not_invalidate(app, invalidations):
+def test_passthrough_normal_exhaustion_does_not_invalidate(app, invalidations) -> None:
     def factory():
         yield "data: 1\n\n"
 

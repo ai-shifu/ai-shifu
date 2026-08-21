@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -30,9 +31,12 @@ from flaskr.service.billing.models import (
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_daily_rebuild_app(tmp_path):
+def billing_daily_rebuild_app(tmp_path) -> Iterator[Flask]:
     db_path = tmp_path / "billing-daily-rebuild.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

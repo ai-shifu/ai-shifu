@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 
-def test_send_order_feishu_formats_notification(app, monkeypatch):
+def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
     from flaskr.service.order import funs as order_funs
 
     price_item = SimpleNamespace(

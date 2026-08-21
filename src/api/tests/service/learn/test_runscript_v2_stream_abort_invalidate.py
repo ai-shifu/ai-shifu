@@ -114,7 +114,9 @@ def _start_stream(app):
     return generator
 
 
-def test_generator_exit_invalidates_connection_instead_of_rollback(app, monkeypatch):
+def test_generator_exit_invalidates_connection_instead_of_rollback(
+    app, monkeypatch
+) -> None:
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -126,7 +128,9 @@ def test_generator_exit_invalidates_connection_instead_of_rollback(app, monkeypa
     assert session.removed == 1
 
 
-def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatch):
+def test_desync_error_invalidates_connection_instead_of_rollback(
+    app, monkeypatch
+) -> None:
     session = _patch_run_dependencies(
         monkeypatch,
         [
@@ -152,7 +156,7 @@ def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatc
     assert session.removed == 1
 
 
-def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
+def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch) -> None:
     session = _patch_run_dependencies(
         monkeypatch, ["chunk-1", ValueError("business failure")]
     )
@@ -167,7 +171,7 @@ def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
     assert session.removed == 1
 
 
-def test_desync_error_classifier_covers_symptom_family():
+def test_desync_error_classifier_covers_symptom_family() -> None:
     assert _is_protocol_desync_error(ResourceClosedError("no rows"))
     wrapped_2013 = OperationalError(
         "INSERT ...",
@@ -184,7 +188,9 @@ def test_desync_error_classifier_covers_symptom_family():
     assert not _is_protocol_desync_error(wrapped_deadlock)
 
 
-def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatch):
+def test_stop_event_cancellation_invalidates_instead_of_rollback(
+    app, monkeypatch
+) -> None:
     import threading
 
     session = _patch_run_dependencies(monkeypatch, ["chunk-1"])
@@ -220,7 +226,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     assert session.rollbacks == 0
 
 
-def test_natural_exhaustion_never_invalidates(app, monkeypatch):
+def test_natural_exhaustion_never_invalidates(app, monkeypatch) -> None:
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -233,7 +239,7 @@ def test_natural_exhaustion_never_invalidates(app, monkeypatch):
     assert session.commits >= 1
 
 
-def test_discard_helper_works_on_real_scoped_session(app, caplog):
+def test_discard_helper_works_on_real_scoped_session(app, caplog) -> None:
     import logging
 
     from flaskr.service.learn.runscript_v2 import _discard_session_connection

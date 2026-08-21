@@ -46,7 +46,7 @@ class _FakeResponse:
         return self._json_data
 
 
-def test_dify_adapter_streams_success_content(app, monkeypatch):
+def test_dify_adapter_streams_success_content(app, monkeypatch) -> None:
     adapter = module.DifyAskProviderAdapter()
     request_state = {}
 
@@ -103,7 +103,7 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
 
-def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
+def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch) -> None:
     adapter = module.CozeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -138,7 +138,9 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
         )
 
 
-def test_stream_ask_provider_response_raises_error_for_unsupported_provider(app):
+def test_stream_ask_provider_response_raises_error_for_unsupported_provider(
+    app,
+) -> None:
     with pytest.raises(module.AskProviderConfigError):
         list(
             module.stream_ask_provider_response(
@@ -152,7 +154,7 @@ def test_stream_ask_provider_response_raises_error_for_unsupported_provider(app)
         )
 
 
-def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
+def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch) -> None:
     adapter = module.CozeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -192,7 +194,7 @@ def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
         )
 
 
-def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
+def test_coze_workflow_adapter_streams_success_content(app, monkeypatch) -> None:
     adapter = module.CozeWorkflowAskProviderAdapter()
     request_state = {}
 
@@ -256,7 +258,9 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
     )
 
 
-def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypatch):
+def test_coze_workflow_adapter_nonzero_code_raises_provider_error(
+    app, monkeypatch
+) -> None:
     adapter = module.CozeWorkflowAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -299,7 +303,7 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypat
         )
 
 
-def test_dify_adapter_missing_shifu_config_raises_config_error(app):
+def test_dify_adapter_missing_shifu_config_raises_config_error(app) -> None:
     adapter = module.DifyAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="base_url/api_key"):
@@ -314,7 +318,7 @@ def test_dify_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_adapter_missing_shifu_config_raises_config_error(app):
+def test_coze_adapter_missing_shifu_config_raises_config_error(app) -> None:
     adapter = module.CozeAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="api_key is required"):
@@ -329,7 +333,7 @@ def test_coze_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app):
+def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app) -> None:
     adapter = module.CozeWorkflowAskProviderAdapter()
 
     with pytest.raises(
@@ -346,7 +350,7 @@ def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
+def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch) -> None:
     adapter = module.CozeAskProviderAdapter()
     request_state = {}
 
@@ -390,7 +394,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     assert [chunk.content for chunk in chunks] == ["ok"]
 
 
-def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
+def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch) -> None:
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -452,7 +456,7 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
     assert request_state["headers"]["X-Content-Sha256"]
 
 
-def test_volc_knowledge_adapter_missing_config_raises_error(app):
+def test_volc_knowledge_adapter_missing_config_raises_error(app) -> None:
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="account_id/ak/sk"):
@@ -472,7 +476,9 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app):
         )
 
 
-def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatch):
+def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(
+    app, monkeypatch
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -576,7 +582,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
 def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
     app, monkeypatch
-):
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -633,7 +639,7 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
 
 def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context(
     app, monkeypatch
-):
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -675,7 +681,9 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context
     assert [chunk.content for chunk in chunks] == ["fallback answer"]
 
 
-def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypatch):
+def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(
+    app, monkeypatch
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -725,7 +733,7 @@ def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypa
     ]
 
 
-def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
+def test_get_biji_knowledge_adapter_missing_config_raises_error(app) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     with pytest.raises(
@@ -747,7 +755,9 @@ def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
         )
 
 
-def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
+def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(
+    app, monkeypatch
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     def _raise_timeout(*_args: object, **_kwargs: object):
@@ -774,7 +784,9 @@ def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatc
         )
 
 
-def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkeypatch):
+def test_get_biji_knowledge_adapter_http_error_raises_provider_error(
+    app, monkeypatch
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
     http_error = requests.HTTPError("bad request")
 
@@ -810,7 +822,7 @@ def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkey
 
 def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
     app, monkeypatch
-):
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -854,7 +866,7 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
 
 def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
     app, monkeypatch
-):
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
     cases = [
         # Auth failures arrive as HTTP 401 with a business error body.
@@ -906,7 +918,7 @@ def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
             )
 
 
-def test_render_knowledge_rule_and_section():
+def test_render_knowledge_rule_and_section() -> None:
     rule = common.render_knowledge_rule()
     section = common.render_knowledge_section("retrieved material", include_rule=False)
     section_with_rule = common.render_knowledge_section(
@@ -921,7 +933,7 @@ def test_render_knowledge_rule_and_section():
     assert "{knowledge_rule}" not in section
 
 
-def test_apply_knowledge_context_fills_rule_and_section_placeholders():
+def test_apply_knowledge_context_fills_rule_and_section_placeholders() -> None:
     prompt = (
         "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
         "{knowledge_section}\n\n# settings"
@@ -939,7 +951,7 @@ def test_apply_knowledge_context_fills_rule_and_section_placeholders():
     assert filled.count(rule) == 1
 
 
-def test_apply_knowledge_context_removes_rule_and_section_without_knowledge():
+def test_apply_knowledge_context_removes_rule_and_section_without_knowledge() -> None:
     prompt = (
         "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
         "{knowledge_section}\n\n# settings"
@@ -951,7 +963,7 @@ def test_apply_knowledge_context_removes_rule_and_section_without_knowledge():
     assert filled == "# rules\n- learned rule\n- unlearned rule\n\n# settings"
 
 
-def test_apply_knowledge_context_appends_section_for_legacy_prompts():
+def test_apply_knowledge_context_appends_section_for_legacy_prompts() -> None:
     prompt = "legacy prompt without placeholder"
 
     filled = common.apply_knowledge_context(prompt, "retrieved material")
@@ -967,13 +979,13 @@ def test_apply_knowledge_context_appends_section_for_legacy_prompts():
     assert common.render_knowledge_rule() in filled
 
 
-def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
+def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge() -> None:
     prompt = "legacy prompt without placeholder"
 
     assert common.apply_knowledge_context(prompt, "") == prompt
 
 
-def test_apply_knowledge_to_messages_updates_first_system_message():
+def test_apply_knowledge_to_messages_updates_first_system_message() -> None:
     messages = [
         {"role": "system", "content": "rules {knowledge_section} end"},
         {"role": "user", "content": "question"},
@@ -988,7 +1000,7 @@ def test_apply_knowledge_to_messages_updates_first_system_message():
     assert messages[0]["content"] == "rules {knowledge_section} end"
 
 
-def test_apply_knowledge_to_messages_prepends_system_when_missing():
+def test_apply_knowledge_to_messages_prepends_system_when_missing() -> None:
     messages = [{"role": "user", "content": "question"}]
 
     updated = common.apply_knowledge_to_messages(messages, "retrieved material")
@@ -1001,7 +1013,7 @@ def test_apply_knowledge_to_messages_prepends_system_when_missing():
     assert unchanged == messages
 
 
-def test_llm_adapter_streams_from_runtime_factory(app):
+def test_llm_adapter_streams_from_runtime_factory(app) -> None:
     adapter = module.LlmAskProviderAdapter()
 
     runtime = module.AskProviderRuntime(
@@ -1029,7 +1041,7 @@ def test_llm_adapter_streams_from_runtime_factory(app):
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
 
 
-def test_llm_adapter_missing_runtime_raises_config_error(app):
+def test_llm_adapter_missing_runtime_raises_config_error(app) -> None:
     adapter = module.LlmAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="llm runtime"):
@@ -1044,7 +1056,7 @@ def test_llm_adapter_missing_runtime_raises_config_error(app):
         )
 
 
-def test_stream_ask_provider_response_uses_llm_adapter_runtime(app):
+def test_stream_ask_provider_response_uses_llm_adapter_runtime(app) -> None:
     runtime = module.AskProviderRuntime(
         llm_stream_factory=lambda: iter([types.SimpleNamespace(result="from-llm")])
     )

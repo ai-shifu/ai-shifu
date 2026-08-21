@@ -38,7 +38,7 @@ def _cleanup():
     db.session.commit()
 
 
-def test_yields_all_versions_newest_first_across_batches(app):
+def test_yields_all_versions_newest_first_across_batches(app) -> None:
     with app.app_context():
         _cleanup()
         expected_ids = _seed_versions(7)
@@ -52,7 +52,7 @@ def test_yields_all_versions_newest_first_across_batches(app):
         _cleanup()
 
 
-def test_max_rows_caps_the_scan(app):
+def test_max_rows_caps_the_scan(app) -> None:
     with app.app_context():
         _cleanup()
         expected_ids = _seed_versions(6)
@@ -68,7 +68,7 @@ def test_max_rows_caps_the_scan(app):
         _cleanup()
 
 
-def test_early_break_leaves_session_usable(app):
+def test_early_break_leaves_session_usable(app) -> None:
     with app.app_context():
         _cleanup()
         expected_ids = _seed_versions(5)
@@ -86,7 +86,7 @@ def test_early_break_leaves_session_usable(app):
         _cleanup()
 
 
-def test_skips_deleted_versions(app):
+def test_skips_deleted_versions(app) -> None:
     with app.app_context():
         _cleanup()
         ids = _seed_versions(4)

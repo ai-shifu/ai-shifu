@@ -28,7 +28,7 @@ def _audio_settings():
 
 def test_record_tts_usage_persists_supplied_output_without_provider_mapping(
     monkeypatch,
-):
+) -> None:
     app = Flask(__name__)
     captured = {}
     enqueued = []
@@ -77,7 +77,7 @@ def test_record_tts_usage_persists_supplied_output_without_provider_mapping(
     assert enqueued == ["usage-tts-explicit-output"]
 
 
-def test_record_tts_segment_usage_uses_usage_characters_for_output(monkeypatch):
+def test_record_tts_segment_usage_uses_usage_characters_for_output(monkeypatch) -> None:
     captured = {}
 
     monkeypatch.setattr(
@@ -109,7 +109,7 @@ def test_record_tts_segment_usage_uses_usage_characters_for_output(monkeypatch):
     assert kwargs["word_count"] == 52
 
 
-def test_record_tts_segment_usage_falls_back_to_local_length(monkeypatch):
+def test_record_tts_segment_usage_falls_back_to_local_length(monkeypatch) -> None:
     captured = {}
 
     monkeypatch.setattr(
@@ -140,7 +140,7 @@ def test_record_tts_segment_usage_falls_back_to_local_length(monkeypatch):
     assert kwargs["word_count"] == 2
 
 
-def test_record_tts_aggregated_usage_uses_total_usage_characters(monkeypatch):
+def test_record_tts_aggregated_usage_uses_total_usage_characters(monkeypatch) -> None:
     captured = {}
 
     monkeypatch.setattr(

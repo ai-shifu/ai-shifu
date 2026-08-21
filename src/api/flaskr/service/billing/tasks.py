@@ -70,7 +70,7 @@ try:  # pragma: no cover - exercised indirectly when Celery is installed
     from celery import shared_task
 except ImportError:  # pragma: no cover - local fallback for non-Celery test envs
 
-    def shared_task(*args: object, **kwargs: object):
+    def shared_task(*args: object, **kwargs: object) -> Callable[..., object]:
         """Register a Celery task with the configured application context."""
         _ = (args, kwargs)
 

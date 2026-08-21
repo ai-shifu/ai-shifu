@@ -39,7 +39,7 @@ def _create_user(
     return user
 
 
-def test_serialize_datetime_emits_explicit_utc_suffix():
+def test_serialize_datetime_emits_explicit_utc_suffix() -> None:
     assert _serialize_datetime(None) is None
     assert _serialize_datetime(datetime(2026, 6, 17, 12, 5, 0)) == (
         "2026-06-17T12:05:00Z"
@@ -54,7 +54,7 @@ def test_serialize_datetime_emits_explicit_utc_suffix():
 
 def test_onboarding_status_returns_eligible_creator_scene_state(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     now = datetime(2026, 6, 17, 12, 0, 0)
 
@@ -120,7 +120,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
 
 def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(
@@ -161,7 +161,7 @@ def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches
 
 def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     created_at = datetime(2026, 6, 1, 12, 0, 0)
     creator_activated_at = datetime(2026, 6, 12, 9, 30, 0)
@@ -203,7 +203,7 @@ def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
 
 def test_onboarding_status_includes_existing_creator_rollout_segment(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     created_at = datetime(2026, 5, 1, 12, 0, 0)
 
@@ -245,7 +245,7 @@ def test_onboarding_status_includes_existing_creator_rollout_segment(
 
 def test_onboarding_status_excludes_existing_creator_before_rollout_switch(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
@@ -286,7 +286,7 @@ def test_onboarding_status_excludes_existing_creator_before_rollout_switch(
 
 def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_missing(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
@@ -331,7 +331,7 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
 
 def test_onboarding_status_stays_ineligible_when_all_rollout_gates_missing(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
@@ -366,7 +366,7 @@ def test_onboarding_status_stays_ineligible_when_all_rollout_gates_missing(
     assert payload["data"]["user_segment"] == "ineligible"
 
 
-def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -414,7 +414,9 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
         assert len(rows) == 1
 
 
-def test_complete_onboarding_scene_records_skipped(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_records_skipped(
+    app, test_client, monkeypatch
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -457,7 +459,7 @@ def test_complete_onboarding_scene_records_skipped(app, test_client, monkeypatch
 
 def test_complete_onboarding_scene_rejects_invalid_status(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -496,7 +498,7 @@ def test_complete_onboarding_scene_rejects_invalid_status(
 
 def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -537,7 +539,7 @@ def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
 
 def test_complete_course_editor_onboarding_accepts_skills_create(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -578,7 +580,7 @@ def test_complete_course_editor_onboarding_accepts_skills_create(
 
 def test_complete_onboarding_scene_handles_integrity_error(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     completed_at = datetime(2026, 6, 17, 12, 5, 0)
 
@@ -639,7 +641,7 @@ def test_complete_onboarding_scene_handles_integrity_error(
 
 def test_complete_onboarding_scene_rejects_ineligible_user(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(
@@ -672,7 +674,7 @@ def test_complete_onboarding_scene_rejects_ineligible_user(
 
 def test_complete_onboarding_scene_handles_non_object_payload(
     app, test_client, monkeypatch
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))

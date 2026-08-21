@@ -421,7 +421,7 @@ def create_outline(
     outline_type: str = UNIT_TYPE_GUEST,
     system_prompt: str | None = None,
     is_hidden: bool = False,
-):
+) -> OutlineDto:
     """Create outline.
 
     Args:
@@ -568,7 +568,7 @@ def create_outlines_batch(
     shifu_id: str,
     outlines: list,
     parent_id: str = "",
-):
+) -> list[OutlineDto]:
     """Create multiple outlines atomically with correct sequential positions.
 
     Every row is inserted under a single per-shifu lock inside one transaction,
@@ -653,7 +653,7 @@ def create_outlines_batch(
 
 def reorder_outline_tree(
     app, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
-):
+) -> bool:
     """Reorder outline tree.
 
     usage:
@@ -747,7 +747,7 @@ def reorder_outline_tree(
         return True
 
 
-def get_unit_by_id(app, user_id: str, unit_id: str):
+def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
     """Get unit by id.
 
     Args:
@@ -798,7 +798,7 @@ def modify_unit(
     unit_system_prompt: str | None = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
-):
+) -> OutlineDto:
     """Modify unit.
 
     Args:
@@ -883,7 +883,7 @@ def modify_unit(
         )
 
 
-def delete_unit(app, user_id: str, unit_id: str):
+def delete_unit(app, user_id: str, unit_id: str) -> bool:
     """Delete unit.
 
     Args:

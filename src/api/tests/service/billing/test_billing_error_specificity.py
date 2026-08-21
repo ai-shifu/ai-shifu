@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Never
 
 import flaskr.service.billing.checkout as checkout_module
 import flaskr.service.billing.credit_notifications as credit_notifications_module
@@ -35,7 +36,9 @@ class _LockFactory:
         return _UnavailableLock()
 
 
-def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch):
+def test_subscription_checkout_lock_conflict_returns_busy_error(
+    app, monkeypatch
+) -> Never:
     monkeypatch.setattr(checkout_module.cache_provider, "cache", _LockFactory())
 
     message = "lock body should not execute"
@@ -49,7 +52,7 @@ def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch
     assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionCheckoutBusy"]
 
 
-def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch):
+def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch) -> None:
     monkeypatch.setattr(manual_plan_grants_module.redis, "lock", _LockFactory().lock)
 
     with pytest.raises(AppError) as exc_info:
@@ -64,7 +67,7 @@ def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch):
     assert exc_info.value.code == ERROR_CODE["server.billing.manualPlanGrantBusy"]
 
 
-def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
+def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch) -> None:
     monkeypatch.setattr(
         manual_credit_grants_module,
         "grant_manual_credit_wallet_balance",
@@ -93,7 +96,7 @@ def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
 
 def test_credit_notification_policy_save_failure_returns_specific_error(
     app, monkeypatch
-):
+) -> None:
     monkeypatch.setattr(
         credit_notifications_module, "add_config", lambda *_, **__: False
     )

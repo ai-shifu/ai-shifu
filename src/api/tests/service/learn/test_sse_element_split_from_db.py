@@ -219,14 +219,14 @@ class TestSSEElementSplitFromDB:
     """Fetch real blocks and validate SSE element splitting."""
 
     @pytest.fixture(scope="class")
-    def blocks(self, app):
+    def blocks(self, app) -> list[object]:
         """Load 100 latest blocks from the test DB."""
         rows = _fetch_blocks_raw(app, limit=100)
         if not rows:
             pytest.skip("No generated blocks found in test DB")
         return rows
 
-    def test_blocks_loaded(self, blocks):
+    def test_blocks_loaded(self, blocks) -> None:
         """Sanity check: we have data to test with."""
         assert len(blocks) > 0
 
@@ -235,7 +235,7 @@ class TestSSEElementSplitFromDB:
         app,
         blocks,
         request: pytest.FixtureRequest,
-    ):
+    ) -> None:
         """Every block must produce a valid SSE stream without errors."""
         failures = []
         stats = {
@@ -365,7 +365,7 @@ class TestSSEElementSplitFromDB:
         app,
         blocks,
         request: pytest.FixtureRequest,
-    ):
+    ) -> None:
         """Verify SSE JSON output can be parsed back correctly."""
         from flaskr.service.learn.routes import _to_sse_data_line
 
@@ -449,7 +449,7 @@ class TestSSEElementSplitFromDB:
         app,
         blocks,
         request: pytest.FixtureRequest,
-    ):
+    ) -> None:
         """Verify that element splitting does not lose content."""
         sample_blocks = [
             b
@@ -525,7 +525,7 @@ class TestSSEElementSplitFromDB:
         app,
         blocks,
         request: pytest.FixtureRequest,
-    ):
+    ) -> None:
         """Verify element_type is appropriate for the content pattern.
 
         When a block's entire content is a single visual element (e.g. pure SVG),
@@ -595,7 +595,7 @@ class TestSSEElementSplitFromDB:
         app,
         blocks,
         request: pytest.FixtureRequest,
-    ):
+    ) -> None:
         """Diagnose element type inference for blocks whose content is pure visual (SVG, HTML with no speakable text).
 
         These blocks have visual_boundaries in av_contract but no

@@ -17,7 +17,7 @@ from flaskr.service.user.repository import (
 
 def import_user(
     app: Flask, mobile, course_id, discount_code="web", user_nick_name=None
-):
+) -> None:
     """Import user and enable course."""
     app.logger.info("import_user: %s, %s", mobile, course_id)
     with app.app_context():

@@ -756,14 +756,14 @@ def _seed_outline(
     )
 
 
-def test_coerce_operator_datetime_accepts_mysql_string_values(app):
+def test_coerce_operator_datetime_accepts_mysql_string_values(app) -> None:
     with app.app_context():
         assert _coerce_operator_datetime("2026-05-20 16:40:51") == datetime(
             2026, 5, 20, 16, 40, 51
         )
 
 
-def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app):
+def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app) -> None:
     with app.app_context():
         assert _coerce_operator_datetime("2026-05-22T10:00:00+08:00") == datetime(
             2026, 5, 22, 2, 0, 0
@@ -777,7 +777,7 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -1086,7 +1086,7 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -1299,7 +1299,7 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1386,7 +1386,7 @@ def test_admin_operation_course_detail_routes_require_operator(
     test_client,
     monkeypatch,
     path,
-):
+) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
     response = test_client.get(path, headers={"Token": "test-token"})
@@ -1400,7 +1400,7 @@ def test_admin_operation_course_prompt_route_returns_course_prompt(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1435,7 +1435,7 @@ def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1481,7 +1481,7 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1547,7 +1547,7 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1612,7 +1612,7 @@ def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1651,7 +1651,7 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1728,7 +1728,7 @@ def test_admin_operation_course_detail_route_rejects_missing_course(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _ = app
     _mock_operator(monkeypatch)
 
@@ -1746,7 +1746,7 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1770,7 +1770,9 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
     assert payload["code"] == 4009
 
 
-def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(app):
+def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(
+    app,
+) -> None:
     with pytest.raises(AppError) as exc_info:
         get_operator_course_detail(app, shifu_bid="   ")
 
@@ -1779,7 +1781,7 @@ def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(ap
 
 def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
     app,
-):
+) -> None:
     with pytest.raises(AppError) as exc_info:
         get_operator_course_chapter_detail(
             app,
@@ -1793,7 +1795,7 @@ def test_admin_operation_course_users_route_returns_course_related_users(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1933,7 +1935,7 @@ def test_admin_operation_course_users_route_applies_filters(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1992,7 +1994,7 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -2065,7 +2067,7 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -2175,7 +2177,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2472,7 +2474,7 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     load_counts = {"llm": 0, "tts": 0}
@@ -2623,7 +2625,7 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2701,7 +2703,7 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
     monkeypatch,
     query,
     field,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2729,7 +2731,7 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2756,7 +2758,7 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
 def test_admin_operation_course_credit_usages_route_rejects_missing_course(
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(
@@ -2774,7 +2776,7 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2871,7 +2873,7 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2941,7 +2943,7 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
@@ -3023,7 +3025,7 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
@@ -3113,7 +3115,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -3402,7 +3404,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
 def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(
@@ -3421,7 +3423,7 @@ def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -3451,7 +3453,7 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -3541,7 +3543,7 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -3775,7 +3777,7 @@ def test_admin_operation_course_ratings_route_rejects_invalid_filters(
     monkeypatch,
     query_string,
     expected_param,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -3803,7 +3805,7 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -3938,7 +3940,7 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4061,7 +4063,7 @@ def test_admin_operation_course_follow_up_detail_route_prefers_interaction_sourc
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4147,7 +4149,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4252,7 +4254,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_sour
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4340,7 +4342,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4441,7 +4443,7 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4553,7 +4555,7 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4662,7 +4664,7 @@ def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -4739,7 +4741,7 @@ def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -4807,7 +4809,7 @@ def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -4878,7 +4880,7 @@ def test_admin_operation_course_detail_metrics_include_successful_orders_across_
     app,
     test_client,
     monkeypatch,
-):
+) -> None:
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.get_course_visit_count_30d",
@@ -4974,7 +4976,7 @@ def test_admin_operation_course_users_route_rejects_invalid_pagination_params(
     monkeypatch,
     query_string,
     expected_param,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(

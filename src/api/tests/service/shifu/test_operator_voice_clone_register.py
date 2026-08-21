@@ -91,7 +91,9 @@ def _bypass_voice_verification(monkeypatch) -> None:
     )
 
 
-def test_operator_voice_clone_register_requires_operator(app, test_client, monkeypatch):
+def test_operator_voice_clone_register_requires_operator(
+    app, test_client, monkeypatch
+) -> None:
     _prepare_minimax_tables(app)
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -111,7 +113,7 @@ def test_operator_voice_clone_register_requires_operator(app, test_client, monke
 
 def test_operator_voice_clone_register_creates_ready_free_voice(
     app, test_client, monkeypatch
-):
+) -> None:
     from flaskr.service.tts.models import (
         TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
         TTS_MINIMAX_CLONE_STATUS_READY,
@@ -155,7 +157,7 @@ def test_operator_voice_clone_register_creates_ready_free_voice(
 
 def test_operator_voice_clone_register_rejects_non_teacher_owner(
     app, test_client, monkeypatch
-):
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="not-a-teacher", is_creator=False)
     _mock_operator(monkeypatch)
@@ -195,7 +197,7 @@ def _forbid_minimax_synthesis(monkeypatch) -> None:
 
 def test_operator_voice_clone_register_volcengine_uses_free_status_check(
     app, test_client, monkeypatch
-):
+) -> None:
     from flaskr.service.tts.models import (
         TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
         TTS_MINIMAX_CLONE_STATUS_READY,
@@ -238,7 +240,7 @@ def test_operator_voice_clone_register_volcengine_uses_free_status_check(
 
 def test_operator_voice_clone_register_volcengine_rejects_bad_id_shape(
     app, test_client, monkeypatch
-):
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="teacher-volc-2")
     _mock_operator(monkeypatch)
@@ -261,7 +263,7 @@ def test_operator_voice_clone_register_volcengine_rejects_bad_id_shape(
 
 def test_operator_voice_clone_register_volcengine_rejects_untrained_voice(
     app, test_client, monkeypatch
-):
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="teacher-volc-3")
     _mock_operator(monkeypatch)
@@ -285,7 +287,7 @@ def test_operator_voice_clone_register_volcengine_rejects_untrained_voice(
 
 def test_operator_voice_clone_register_rejects_unknown_provider(
     app, test_client, monkeypatch
-):
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="teacher-volc-4")
     _mock_operator(monkeypatch)
@@ -307,7 +309,7 @@ def test_operator_voice_clone_register_rejects_unknown_provider(
 
 def test_operator_voice_clone_register_same_voice_id_across_providers(
     app, test_client, monkeypatch
-):
+) -> None:
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 
     _prepare_minimax_tables(app)
@@ -356,7 +358,7 @@ def test_operator_voice_clone_register_same_voice_id_across_providers(
         assert providers == {"minimax", "volcengine"}
 
 
-def test_teacher_voice_list_filters_by_provider(app, test_client, monkeypatch):
+def test_teacher_voice_list_filters_by_provider(app, test_client, monkeypatch) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="teacher-filter")
     _mock_operator(monkeypatch)
@@ -399,7 +401,9 @@ def test_teacher_voice_list_filters_by_provider(app, test_client, monkeypatch):
     }
 
 
-def test_operator_registered_voice_visible_only_to_owner(app, test_client, monkeypatch):
+def test_operator_registered_voice_visible_only_to_owner(
+    app, test_client, monkeypatch
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="teacher-a", identify="13800000001")
     _seed_teacher(app, user_bid="teacher-b", identify="13800000002")

@@ -9,7 +9,7 @@ from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.shifu.admin_operations import credit_notifications as module
 
 
-def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
+def test_operator_credit_notification_services_delegate_to_billing(monkeypatch) -> None:
     app = Flask(__name__)
     calls: list[tuple[str, object]] = []
 
@@ -102,7 +102,7 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     ]
 
 
-def test_operator_credit_notification_config_preserves_opt_out(monkeypatch):
+def test_operator_credit_notification_config_preserves_opt_out(monkeypatch) -> None:
     app = Flask(__name__)
     saved_payloads: list[tuple[object, dict[str, object], bool, str]] = []
     policies = [{"version": 1}, {"version": 2}]
@@ -135,7 +135,7 @@ def test_operator_credit_notification_config_preserves_opt_out(monkeypatch):
 
 def test_operator_credit_notification_services_pass_operator_audit_context(
     monkeypatch,
-):
+) -> None:
     app = Flask(__name__)
     calls: list[tuple[str, object]] = []
 
@@ -197,7 +197,7 @@ def test_operator_credit_notification_services_pass_operator_audit_context(
 def test_credit_notification_list_route_rejects_invalid_status_filters(
     test_client,
     monkeypatch,
-):
+) -> None:
     dummy_user = SimpleNamespace(
         user_id="operator-1",
         is_operator=True,

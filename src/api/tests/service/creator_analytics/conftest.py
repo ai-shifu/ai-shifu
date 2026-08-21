@@ -30,6 +30,7 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import datetime
 
 
@@ -67,7 +68,7 @@ def _isolate_creator_analytics_tables(app):
 
 
 @pytest.fixture
-def mock_request_user(monkeypatch):
+def mock_request_user(monkeypatch) -> Callable[[str, bool], None]:
     """Return a helper that installs a fake authenticated user."""
 
     def _install(user_id: str = "teacher-1", is_creator: bool = True) -> None:

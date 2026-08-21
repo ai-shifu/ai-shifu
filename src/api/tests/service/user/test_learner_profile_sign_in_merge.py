@@ -130,7 +130,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
     source_profile,
     status,
     trigger_source,
-):
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
         lambda *_args, **_kwargs: pytest.fail("sign-in merge must not re-moderate"),
@@ -180,7 +180,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
         _assert_orm_utc(target_state.completed_at, PROFILE_UPDATED_AT)
 
 
-def test_merge_helper_preserves_target_profile_and_state(app):
+def test_merge_helper_preserves_target_profile_and_state(app) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -219,7 +219,9 @@ def test_merge_helper_preserves_target_profile_and_state(app):
         assert target_state.trigger_source == "settings"
 
 
-def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(app):
+def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(
+    app,
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -247,7 +249,9 @@ def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(a
         assert stored_target.nickname == "Guest nickname"
 
 
-def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(app):
+def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(
+    app,
+) -> None:
     with app.app_context():
         source_identify = uuid.uuid4().hex
         source = _create_user(
@@ -279,7 +283,7 @@ def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(ap
         assert target_state.status == "completed"
 
 
-def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
+def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -320,7 +324,7 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(app):
 def test_merge_helper_never_copies_from_a_source_with_account_identifier(
     app,
     source_identify,
-):
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=source_identify,
@@ -352,7 +356,7 @@ def test_merge_helper_never_copies_from_a_source_with_account_identifier(
 def test_merge_helper_never_copies_from_non_guest_random_identifier(
     app,
     source_state,
-):
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -377,7 +381,7 @@ def test_merge_helper_never_copies_from_non_guest_random_identifier(
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_allows_numeric_uuid_guest_identifier(app):
+def test_merge_helper_allows_numeric_uuid_guest_identifier(app) -> None:
     with app.app_context():
         numeric_uuid = uuid.UUID("12345678-9012-4567-8901-234567890123").hex
         assert len(numeric_uuid) == 32
@@ -410,7 +414,7 @@ def test_merge_helper_allows_numeric_uuid_guest_identifier(app):
         assert target_state.trigger_source == "settings"
 
 
-def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app):
+def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -451,7 +455,7 @@ def test_merge_helper_allows_unregistered_guest_with_wechat_credential(app):
 def test_merge_helper_allows_unregistered_guest_with_unverified_account_credential(
     app,
     provider_name,
-):
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -512,7 +516,7 @@ def test_merge_helper_allows_unregistered_guest_with_unverified_account_credenti
 def test_merge_helper_rejects_unregistered_source_with_verified_account_credential(
     app,
     provider_name,
-):
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -561,7 +565,7 @@ def test_merge_helper_rejects_unregistered_source_with_verified_account_credenti
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_rolls_back_with_sign_in_transaction(app):
+def test_merge_helper_rolls_back_with_sign_in_transaction(app) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -597,7 +601,9 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app):
         assert load_learner_profile_state(target.user_bid) is None
 
 
-def test_merge_helper_locks_target_then_source_profile_snapshots(app, monkeypatch):
+def test_merge_helper_locks_target_then_source_profile_snapshots(
+    app, monkeypatch
+) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -655,7 +661,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(app, monkeypatc
         assert load_learner_profile_state(target.user_bid) is not None
 
 
-def test_merge_helper_refreshes_a_stale_source_identity_map(app):
+def test_merge_helper_refreshes_a_stale_source_identity_map(app) -> None:
     with app.app_context():
         source = _create_user(
             identify=uuid.uuid4().hex,
@@ -691,7 +697,9 @@ def test_merge_helper_refreshes_a_stale_source_identity_map(app):
         assert stored_target.nickname == "新名字"
 
 
-def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog):
+def test_phone_sign_in_merges_profile_without_course_id(
+    app, monkeypatch, caplog
+) -> None:
     from flaskr.service.user import phone_flow
 
     caplog.set_level(logging.INFO)
@@ -740,7 +748,9 @@ def test_phone_sign_in_merges_profile_without_course_id(app, monkeypatch, caplog
         assert "phone merge sentinel" not in caplog.text
 
 
-def test_email_sign_in_transfers_cleared_state_without_course_id(app, monkeypatch):
+def test_email_sign_in_transfers_cleared_state_without_course_id(
+    app, monkeypatch
+) -> None:
     from flaskr.service.user import email_flow
 
     monkeypatch.setattr(email_flow, "redis", _FakeRedis())
@@ -774,7 +784,7 @@ def test_legacy_profile_migration_preserves_target_nickname(
     app,
     monkeypatch,
     sign_in_method,
-):
+) -> None:
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
@@ -837,7 +847,7 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
     monkeypatch,
     sign_in_method,
     target_nickname_kind,
-):
+) -> None:
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
@@ -889,7 +899,7 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
         assert token.userInfo.name == "Guest nickname"
 
 
-def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
+def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch) -> None:
     import flaskr.service.user.auth.providers.google as google_provider
     from flaskr.service.user import phone_flow
 
@@ -959,7 +969,9 @@ def test_google_sign_in_merges_profile_and_skipped_state(app, monkeypatch):
         assert UserInfo.query.filter_by(user_bid=source.user_bid).one() is not None
 
 
-def test_google_sign_in_keeps_pre_profile_display_name_behavior(app, monkeypatch):
+def test_google_sign_in_keeps_pre_profile_display_name_behavior(
+    app, monkeypatch
+) -> None:
     import flaskr.service.user.auth.providers.google as google_provider
     from flaskr.service.user import phone_flow
 

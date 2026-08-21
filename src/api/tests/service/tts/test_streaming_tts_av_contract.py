@@ -8,7 +8,9 @@ def _require_app(app):
         pytest.skip("App fixture disabled")
 
 
-def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch):
+def test_av_streaming_tts_processor_emits_av_contract_in_events(
+    app, monkeypatch
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -90,7 +92,9 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch
     assert [item["position"] for item in first_contract["speakable_segments"]] == [0, 1]
 
 
-def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch):
+def test_av_streaming_tts_processor_skips_chunked_markdown_image(
+    app, monkeypatch
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
@@ -146,7 +150,9 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatc
     assert "![" not in joined
 
 
-def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch):
+def test_av_streaming_tts_processor_skips_chunked_html_img_tag(
+    app, monkeypatch
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
@@ -203,7 +209,7 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch)
 
 def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
     app, monkeypatch
-):
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
@@ -269,7 +275,7 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
 
 def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     app, monkeypatch
-):
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -336,7 +342,9 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     assert audio_complete[0].content.position == 1
 
 
-def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch):
+def test_av_streaming_tts_processor_never_emits_new_slide_event(
+    app, monkeypatch
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -401,7 +409,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch
 
 def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
     app, monkeypatch
-):
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.listen_slide_builder import VisualSegment
@@ -458,7 +466,7 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
 
 def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
     app, monkeypatch
-):
+) -> None:
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor

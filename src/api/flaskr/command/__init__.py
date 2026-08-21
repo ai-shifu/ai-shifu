@@ -20,7 +20,7 @@ from .unified_migration_task import MigrationConfig, UnifiedMigrationTask
 from .update_shifu_demo import update_demo_shifu
 
 
-def setup_migration_logging():
+def setup_migration_logging() -> None:
     """Set up logging for migration commands."""
     logging.basicConfig(
         level=logging.INFO,
@@ -32,7 +32,7 @@ def setup_migration_logging():
     )
 
 
-def enable_commands(app: Flask):
+def enable_commands(app: Flask) -> None:
     """Register the application's command-line commands."""
 
     @app.cli.group()

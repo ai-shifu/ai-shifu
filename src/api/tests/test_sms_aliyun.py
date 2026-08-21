@@ -6,7 +6,7 @@ from flask import Flask
 from flaskr.api.sms import aliyun
 
 
-def test_query_sms_template_list_caps_page_size_at_provider_limit(monkeypatch):
+def test_query_sms_template_list_caps_page_size_at_provider_limit(monkeypatch) -> None:
     captured = {}
 
     class FakeClient:

@@ -1,10 +1,11 @@
 """Inject plugin dependencies into application components."""
 
+from collections.abc import Callable
 from functools import wraps
 
 
 # inject app to function and set inject flag
-def inject(func):
+def inject(func) -> Callable[..., object]:
     """Inject a plugin callback at the requested extension point."""
 
     @wraps(func)

@@ -13,7 +13,7 @@ def _cleanup(app, creator_bid: str) -> None:
         dao.db.session.commit()
 
 
-def test_grant_manual_entitlement_is_immediately_active(app):
+def test_grant_manual_entitlement_is_immediately_active(app) -> None:
     """A freshly granted manual entitlement must resolve as active right away.
 
     Regression guard for the same-second race: effective_from is back-dated so

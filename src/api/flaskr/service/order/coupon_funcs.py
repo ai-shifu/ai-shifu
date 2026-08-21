@@ -7,7 +7,11 @@ from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.dao import db
 from flaskr.service.common import raise_error
-from flaskr.service.order.funs import query_buy_record, success_buy_record
+from flaskr.service.order.funs import (
+    AICourseBuyRecordDTO,
+    query_buy_record,
+    success_buy_record,
+)
 from flaskr.service.order.models import Order
 from flaskr.service.promo.api import (
     build_coupon_enabled_expression,
@@ -113,7 +117,7 @@ def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) ->
 
 def send_feishu_coupon_code(
     app: Flask, user_id, discount_code, discount_name, discount_value
-):
+) -> None:
     """Send feishu coupon code."""
     with app.app_context():
         user_info = load_user_aggregate(user_id)
@@ -139,7 +143,9 @@ def send_feishu_coupon_code(
         send_notify(app, title, msgs)
 
 
-def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
+def use_coupon_code(
+    app: Flask, user_id, coupon_code, order_id
+) -> AICourseBuyRecordDTO | None:
     """Use coupon code.
 
     Args:

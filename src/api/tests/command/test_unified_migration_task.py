@@ -44,19 +44,19 @@ def _task_with_session(session):
 
 
 @pytest.mark.parametrize("name", ["learn_progress_records", "_bid", "Col1"])
-def test_quote_identifier_quotes_valid_names(name):
+def test_quote_identifier_quotes_valid_names(name) -> None:
     assert _quote_identifier(name) == f"`{name}`"
 
 
 @pytest.mark.parametrize(
     "name", ["", "1table", "users; drop table users", "user`s", "learn progress"]
 )
-def test_quote_identifier_rejects_unsafe_names(name):
+def test_quote_identifier_rejects_unsafe_names(name) -> None:
     with pytest.raises(ValueError, match="Unsafe SQL identifier"):
         _quote_identifier(name)
 
 
-def test_get_table_count_quotes_the_table_name():
+def test_get_table_count_quotes_the_table_name() -> None:
     session = _FakeSession(value=7)
     task = _task_with_session(session)
 
@@ -72,7 +72,7 @@ def test_get_table_count_quotes_the_table_name():
 @pytest.mark.parametrize(
     "table_name", ["learn_progress_records; drop table users", "learn progress"]
 )
-def test_get_table_count_rejects_unsafe_table_names(table_name):
+def test_get_table_count_rejects_unsafe_table_names(table_name) -> None:
     session = _FakeSession()
     task = _task_with_session(session)
 
@@ -83,7 +83,7 @@ def test_get_table_count_rejects_unsafe_table_names(table_name):
     assert session.calls == []
 
 
-def test_table_exists_binds_the_table_name():
+def test_table_exists_binds_the_table_name() -> None:
     session = _FakeSession(value=("learn_progress_records",))
     task = _task_with_session(session)
 
@@ -94,7 +94,7 @@ def test_table_exists_binds_the_table_name():
     assert params == {"table_name": "learn_progress_records"}
 
 
-def test_check_column_exists_binds_table_and_column():
+def test_check_column_exists_binds_table_and_column() -> None:
     session = _FakeSession(value=1)
     task = _task_with_session(session)
 
@@ -114,7 +114,7 @@ def test_check_column_exists_binds_table_and_column():
     }
 
 
-def test_migrate_table_logs_formatted_batch_progress(caplog):
+def test_migrate_table_logs_formatted_batch_progress(caplog) -> None:
     task = UnifiedMigrationTask.__new__(UnifiedMigrationTask)
     task.config = MigrationConfig(batch_size=10)
 

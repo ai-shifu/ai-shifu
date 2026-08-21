@@ -17,7 +17,7 @@ def _extract_tag_content(prompt: str, opening_tag: str, closing_tag: str) -> str
     return prompt.split(f"{opening_tag}\n", 1)[1].split(f"\n{closing_tag}", 1)[0]
 
 
-def test_course_prompt_composes_contract_course_and_escaped_profile_once():
+def test_course_prompt_composes_contract_course_and_escaped_profile_once() -> None:
     course_prompt = (
         "  COURSE RULE\n\n"
         "Use the teacher's full course design and presentation choices.\n  "
@@ -79,7 +79,7 @@ def test_course_prompt_composes_contract_course_and_escaped_profile_once():
     )
 
 
-def test_composition_contract_leaves_course_open_and_treats_profile_as_data():
+def test_composition_contract_leaves_course_open_and_treats_profile_as_data() -> None:
     prompt = build_course_prompt(
         "COURSE RULE",
         learner=SimpleNamespace(learner_profile="Use a warm language style"),
@@ -113,7 +113,7 @@ def test_composition_contract_leaves_course_open_and_treats_profile_as_data():
     assert "visual baselines" not in contract
 
 
-def test_course_prompt_formats_only_teacher_authored_course_variables():
+def test_course_prompt_formats_only_teacher_authored_course_variables() -> None:
     learner = SimpleNamespace(learner_profile="称呼：{sys_user_nickname}")
     prompt = build_course_prompt("你好，{sys_user_nickname}", learner=learner)
 
@@ -124,7 +124,9 @@ def test_course_prompt_formats_only_teacher_authored_course_variables():
     assert formatted.count("小雨") == 1
 
 
-def test_course_prompt_uses_explicit_nickname_without_parsing_the_introduction():
+def test_course_prompt_uses_explicit_nickname_without_parsing_the_introduction() -> (
+    None
+):
     learner = SimpleNamespace(
         learner_profile="I work in an office and want to build something with AI.",
         nickname="Alex",
@@ -149,7 +151,7 @@ def test_course_prompt_uses_explicit_nickname_without_parsing_the_introduction()
     )
 
 
-def test_course_prompt_can_personalize_with_only_an_explicit_nickname():
+def test_course_prompt_can_personalize_with_only_an_explicit_nickname() -> None:
     prompt = build_course_prompt(
         "COURSE RULE",
         learner=SimpleNamespace(
@@ -174,7 +176,9 @@ def test_course_prompt_can_personalize_with_only_an_explicit_nickname():
 
 
 @pytest.mark.parametrize("nickname", ["learner@example.com", "+8613800138000"])
-def test_course_prompt_does_not_expose_account_identifier_as_a_nickname(nickname):
+def test_course_prompt_does_not_expose_account_identifier_as_a_nickname(
+    nickname,
+) -> None:
     course_prompt = "COURSE RULE"
 
     assert (
@@ -191,7 +195,7 @@ def test_course_prompt_does_not_expose_account_identifier_as_a_nickname(nickname
     )
 
 
-def test_course_prompt_keeps_composer_placeholder_text_in_course_source():
+def test_course_prompt_keeps_composer_placeholder_text_in_course_source() -> None:
     course_prompt = (
         "Explain these literals unchanged: {course_prompt}, {learner_profile}, "
         "and {composition_contract}."
@@ -207,7 +211,7 @@ def test_course_prompt_keeps_composer_placeholder_text_in_course_source():
     assert prompt.count("偏好简洁表达") == 1
 
 
-def test_course_prompt_marker_text_does_not_disable_composition():
+def test_course_prompt_marker_text_does_not_disable_composition() -> None:
     course_prompt = f"Explain this literal marker: {LEARNER_PROFILE_PROMPT_MARKER}"
 
     prompt = build_course_prompt(
@@ -223,7 +227,7 @@ def test_course_prompt_marker_text_does_not_disable_composition():
     assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 2
 
 
-def test_course_prompt_recomposes_for_the_current_learner():
+def test_course_prompt_recomposes_for_the_current_learner() -> None:
     profile_a = SimpleNamespace(learner_profile="称呼我为小雨")
     profile_b = SimpleNamespace(learner_profile="称呼我为小林")
     prompt_for_a = build_course_prompt("COURSE RULE", learner=profile_a)
@@ -248,7 +252,7 @@ def test_course_prompt_recomposes_for_the_current_learner():
     assert cleared_prompt == "COURSE RULE"
 
 
-def test_course_prompt_recomposes_an_envelope_from_an_older_contract():
+def test_course_prompt_recomposes_an_envelope_from_an_older_contract() -> None:
     older_prompt = (
         "<composition_contract>\n"
         f"{LEARNER_PROFILE_PROMPT_MARKER}\n"
@@ -272,7 +276,7 @@ def test_course_prompt_recomposes_an_envelope_from_an_older_contract():
     assert "<course_prompt>\nCOURSE RULE\n</course_prompt>" in recomposed
 
 
-def test_course_prompt_is_unchanged_without_profile():
+def test_course_prompt_is_unchanged_without_profile() -> None:
     course_prompt = "COURSE RULE  \n"
 
     assert build_course_prompt(course_prompt, learner=None) == course_prompt
@@ -285,7 +289,7 @@ def test_course_prompt_is_unchanged_without_profile():
     )
 
 
-def test_profile_is_not_injected_without_course_prompt():
+def test_profile_is_not_injected_without_course_prompt() -> None:
     learner = SimpleNamespace(learner_profile="称呼我为小雨")
 
     assert build_course_prompt(None, learner=learner) is None

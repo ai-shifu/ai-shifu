@@ -16,7 +16,7 @@ def _make_context_stub(app):
     return stub
 
 
-def test_stream_producer_stops_when_consumer_exits_early(app):
+def test_stream_producer_stops_when_consumer_exits_early(app) -> None:
     stop_streaming = threading.Event()
 
     def endless_stream():
@@ -47,7 +47,7 @@ def test_stream_producer_stops_when_consumer_exits_early(app):
     )
 
 
-def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch):
+def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch) -> None:
     from flaskr.service.learn import context_v2
 
     invalidations = []
@@ -81,7 +81,9 @@ def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch):
     assert invalidations == ["mdflow stream producer abort"]
 
 
-def test_natural_exhaustion_does_not_invalidate_producer_session(app, monkeypatch):
+def test_natural_exhaustion_does_not_invalidate_producer_session(
+    app, monkeypatch
+) -> None:
     from flaskr.service.learn import context_v2
 
     invalidations = []
@@ -110,7 +112,7 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(app, monkeypatc
     assert invalidations == []
 
 
-def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch):
+def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch) -> None:
     """A DB failure swallowed by the TTS finalize wrapper must still run the classified cleanup so an interrupted exchange discards the connection."""
     import types
 

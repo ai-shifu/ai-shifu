@@ -183,7 +183,7 @@ class AICourseBuyRecordDTO:
 
 
 # to do : add to plugins
-def send_order_feishu(app: Flask, record_id: str):
+def send_order_feishu(app: Flask, record_id: str) -> None:
     """Send order feishu."""
     order_info = query_buy_record(app, record_id)
     if order_info is None:
@@ -242,7 +242,7 @@ def send_order_feishu(app: Flask, record_id: str):
     send_notify(app, title, msgs)
 
 
-def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
+def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str) -> None:
     """Send revoke feishu."""
     order: Order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
@@ -380,7 +380,7 @@ def _sync_order_campaign_pricing(
 @retry_on_deadlock()
 def init_buy_record(
     app: Flask, user_id: str, course_id: str, active_id: str | None = None
-):
+) -> AICourseBuyRecordDTO:
     """Initialize buy record."""
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)
@@ -1166,7 +1166,7 @@ def sync_stripe_checkout_session(
     order_id: str,
     session_id: str | None = None,
     expected_user: str | None = None,
-):
+) -> dict[str, object]:
     """Synchronize stripe checkout session."""
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1232,7 +1232,7 @@ def sync_native_payment_order(
     *,
     expected_user: str | None = None,
     payment_channel: str | None = None,
-):
+) -> dict[str, object]:
     """Synchronize native payment order."""
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1880,7 +1880,9 @@ def success_buy_record_from_native(
             lock.release()
 
 
-def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
+def success_buy_record_from_pingxx(
+    app: Flask, charge_id: str, body: dict
+) -> AICourseBuyRecordDTO | None:
     """Success buy record from pingxx."""
     with _app_context_scope(app):
         pingxx_order = (
@@ -1944,7 +1946,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
     return None
 
 
-def success_buy_record(app: Flask, record_id: str):
+def success_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO | None:
     """Success buy record.
 
     Owns a unit of work so legacy callers (coupon_funcs, order admin) keep

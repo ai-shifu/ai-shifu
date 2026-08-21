@@ -1,5 +1,7 @@
 """Verify stripe refund behavior."""
 
+from collections.abc import Iterator
+
 import pytest
 from flask import Flask
 from flaskr import dao
@@ -17,13 +19,13 @@ class DummyStripeRefundProvider:
         """Initialize the dummy stripe refund provider test double."""
         self._result = result
 
-    def refund_payment(self, *, request, app):  # pylint: disable=unused-argument
+    def refund_payment(self, *, request, app) -> PaymentRefundResult:  # pylint: disable=unused-argument
         _ = (request, app)
         return self._result
 
 
 @pytest.fixture
-def app():
+def app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -54,7 +56,7 @@ def _ensure_order(status, order_bid):
     return order
 
 
-def test_refund_order_payment_updates_status(app, monkeypatch):
+def test_refund_order_payment_updates_status(app, monkeypatch) -> None:
     order_bid = "order-refund-1"
     with app.app_context():
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
@@ -139,7 +141,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
         assert billing_snapshot.status == 0
 
 
-def test_get_payment_details_returns_stripe_payload(app):
+def test_get_payment_details_returns_stripe_payload(app) -> None:
     with app.app_context():
         order_bid = "order-details-1"
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)

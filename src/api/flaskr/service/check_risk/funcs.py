@@ -20,7 +20,7 @@ def add_risk_control_result(
     check_resp,
     is_pass,
     check_strategy,
-):
+) -> int:
     """Add risk control result."""
     with app.app_context():
         risk_control_result = RiskControlResult(

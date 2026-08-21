@@ -66,7 +66,7 @@ def _positions(shifu_bid: str) -> list[str]:
     return [r.position for r in rows]
 
 
-def test_batch_assigns_unique_sequential_positions(app):
+def test_batch_assigns_unique_sequential_positions(app) -> None:
     shifu_bid = "shifu_batch_1"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -95,7 +95,7 @@ def test_batch_assigns_unique_sequential_positions(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_of_many_siblings_never_collides(app):
+def test_batch_of_many_siblings_never_collides(app) -> None:
     shifu_bid = "shifu_batch_many"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -112,7 +112,7 @@ def test_batch_of_many_siblings_never_collides(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_nested_under_existing_parent(app):
+def test_batch_nested_under_existing_parent(app) -> None:
     shifu_bid = "shifu_batch_parent"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -130,7 +130,7 @@ def test_batch_nested_under_existing_parent(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_sequential_single_creates_still_increment(app):
+def test_sequential_single_creates_still_increment(app) -> None:
     shifu_bid = "shifu_single_seq"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -142,7 +142,7 @@ def test_sequential_single_creates_still_increment(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_risk_checks_every_node(app, monkeypatch):
+def test_batch_risk_checks_every_node(app, monkeypatch) -> None:
     """Every node (including nested children) is risk-checked exactly once.
 
     The check runs before the per-shifu lock is taken, so no external network
@@ -171,7 +171,7 @@ def test_batch_risk_checks_every_node(app, monkeypatch):
     assert len(checked) == 4
 
 
-def test_batch_rejects_empty_payload(app):
+def test_batch_rejects_empty_payload(app) -> None:
     shifu_bid = "shifu_batch_empty"
     with app.app_context():
         _seed_shifu(shifu_bid)

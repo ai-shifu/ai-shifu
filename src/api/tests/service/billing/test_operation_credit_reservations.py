@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -34,9 +35,12 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def operation_credit_app():
+def operation_credit_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

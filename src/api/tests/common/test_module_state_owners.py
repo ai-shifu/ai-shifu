@@ -5,7 +5,7 @@ from flaskr import dao
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module
 
 
-def test_database_extension_keeps_one_shared_identity():
+def test_database_extension_keeps_one_shared_identity() -> None:
     app = Flask("stable-database-extension")
     app.config.update(
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -19,7 +19,7 @@ def test_database_extension_keeps_one_shared_identity():
     assert app.extensions["sqlalchemy"] is shared_db
 
 
-def test_redis_initialization_updates_the_owned_client(monkeypatch):
+def test_redis_initialization_updates_the_owned_client(monkeypatch) -> None:
     app = Flask("owned-redis-client")
     app.config.update(
         REDIS_HOST="redis.internal",
@@ -50,7 +50,7 @@ def test_redis_initialization_updates_the_owned_client(monkeypatch):
     }
 
 
-def test_plugin_manager_registry_replaces_one_owned_instance(monkeypatch):
+def test_plugin_manager_registry_replaces_one_owned_instance(monkeypatch) -> None:
     first_app = Flask("first-plugin-manager")
     second_app = Flask("second-plugin-manager")
     monkeypatch.setattr(plugin_manager_module._plugin_manager_state, "manager", None)

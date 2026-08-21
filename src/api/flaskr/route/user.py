@@ -1,6 +1,7 @@
 """Expose user HTTP routes."""
 
 import contextlib
+from collections.abc import Callable
 from functools import wraps
 
 from flask import Flask, current_app, make_response, request
@@ -195,7 +196,7 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
-def optional_token_validation(f):
+def optional_token_validation(f) -> Callable[..., object]:
     """Allow a route to accept an optional authentication token."""
 
     @wraps(f)

@@ -13,7 +13,9 @@ class FakeRedisLock:
         self._key = key
         self._held = False
 
-    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
+    def acquire(
+        self, blocking: bool = True, blocking_timeout: int | None = None
+    ) -> bool:
         _ = (blocking, blocking_timeout)
         if self._locks.get(self._key, False):
             return False
@@ -21,7 +23,7 @@ class FakeRedisLock:
         self._held = True
         return True
 
-    def release(self):
+    def release(self) -> None:
         if self._held:
             self._locks.pop(self._key, None)
             self._held = False
@@ -58,7 +60,7 @@ class FakeRedis:
             return True
         return False
 
-    def get(self, key: str):
+    def get(self, key: str) -> bytes | None:
         if key not in self._store or self._is_expired(key):
             return None
         return self._store.get(key)
@@ -69,7 +71,9 @@ class FakeRedis:
             self._is_expired(key)
         return list(self._store)
 
-    def getex(self, key: str, ex: int | None = None, px: int | None = None):
+    def getex(
+        self, key: str, ex: int | None = None, px: int | None = None
+    ) -> bytes | None:
         value = self.get(key)
         if value is None:
             return None
@@ -89,7 +93,7 @@ class FakeRedis:
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> bool:
         _ = kwargs
         if ex is None and args:
             ex = args[0]
@@ -106,7 +110,7 @@ class FakeRedis:
             self._expires.pop(key, None)
         return True
 
-    def setex(self, key: str, time_in_seconds: int, value: Any):
+    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
         return self.set(key, value, ex=time_in_seconds)
 
     def delete(self, *keys: str) -> int:
@@ -118,7 +122,7 @@ class FakeRedis:
                 self._expires.pop(key, None)
         return deleted
 
-    def incr(self, key: str, amount: int = 1):
+    def incr(self, key: str, amount: int = 1) -> int:
         current = self.get(key)
         current_value = 0 if current is None else int(current)
         new_value = current_value + amount
@@ -144,12 +148,12 @@ class FakeRedis:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ):
+    ) -> FakeRedisLock:
         _ = (timeout, blocking_timeout)
         return FakeRedisLock(self._locks, key)
 
-    def ping(self):
+    def ping(self) -> bool:
         return True
 
-    def close(self):
+    def close(self) -> None:
         return None
