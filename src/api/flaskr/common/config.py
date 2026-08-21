@@ -915,7 +915,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
         default=900,
         type=int,
-        description="Sliding window for failed password login counters in seconds",
+        description="Fixed window for failed password login counters in seconds",
         group="auth",
         validator=lambda value: int(value) >= 1,
     ),
