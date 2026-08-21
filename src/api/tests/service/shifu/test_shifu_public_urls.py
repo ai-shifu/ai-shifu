@@ -11,9 +11,8 @@ import flaskr.common.config as common_config
 import pytest
 from flask import Flask
 from flaskr import dao
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
-from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import ERROR_CODE, raise_error
+from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
