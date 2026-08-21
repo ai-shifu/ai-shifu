@@ -52,7 +52,7 @@ class OutlineStructureRepairRecord:
     changed_outlines: list[OutlineStructureChange] = field(default_factory=list)
 
     def to_payload(self) -> dict:
-        """Serialize this result as an API payload."""
+        """Serialize this result for the outline repair CLI report."""
         return {
             "shifu_bid": self.shifu_bid,
             "shifu_title": self.shifu_title,
