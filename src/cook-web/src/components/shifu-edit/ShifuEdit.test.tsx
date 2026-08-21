@@ -329,7 +329,16 @@ const mockShifuState = {
   autosavePaused: false,
 };
 
-const mockUserStoreState = {
+const mockUserStoreState: {
+  userInfo: {
+    user_bid: 'user-1';
+    user_id: 'user-1';
+    language: 'zh-CN';
+  } | null;
+  isInitialized: boolean;
+  isGuest: boolean;
+  getToken: () => string;
+} = {
   userInfo: {
     user_bid: 'user-1',
     user_id: 'user-1',
@@ -409,6 +418,11 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.hasDraftConflict = false;
     mockShifuState.autosavePaused = false;
     mockShifuState.mdflow = '';
+    mockUserStoreState.userInfo = {
+      user_bid: 'user-1',
+      user_id: 'user-1',
+      language: 'zh-CN',
+    };
   });
 
   afterEach(() => {
@@ -448,6 +462,20 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
       creditInsufficientAudience: 'teacher-collaborator',
     });
+  });
+
+  test('keeps lesson preview disabled while the user profile is unresolved', () => {
+    setLessonNode();
+    mockUserStoreState.userInfo = null;
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      creditInsufficientAudience: null,
+    });
+    expect(
+      screen.getByText('module.shifu.previewArea.action').closest('button'),
+    ).toBeDisabled();
   });
 
   test('defaults editor onboarding trigger source for direct editor entry', () => {
