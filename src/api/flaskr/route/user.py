@@ -38,7 +38,7 @@ from flaskr.service.user.auth.providers.google import (
     resolve_state_return_origin,
 )
 from flaskr.service.user.auth.providers.password import (
-    clear_password_login_identifier_failures,
+    clear_password_login_user_failures,
 )
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
@@ -1233,10 +1233,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.add(pwd_cred)
             set_password_hash(pwd_cred, hash_password(new_password))
 
-        clear_password_login_identifier_failures(
-            app,
-            identifier=selected_identifier,
-        )
+        clear_password_login_user_failures(app, user_bid=user_bid)
         db.session.commit()
         return make_common_response({"success": True})
 
@@ -1271,6 +1268,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_error("server.user.invalidCredentials")
 
         set_password_hash(pwd_cred, hash_password(new_password))
+        clear_password_login_user_failures(app, user_bid=user_bid)
         db.session.commit()
         return make_common_response({"success": True})
 
@@ -1339,10 +1337,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.add(pwd_cred)
             set_password_hash(pwd_cred, hash_password(new_password))
 
-        clear_password_login_identifier_failures(
-            app,
-            identifier=normalized_identifier,
-        )
+        clear_password_login_user_failures(app, user_bid=user_bid)
         db.session.commit()
         return make_common_response({"success": True})
 

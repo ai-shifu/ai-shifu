@@ -22,6 +22,7 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.password_utils import verify_password
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
@@ -184,16 +185,30 @@ def _reject_failed_password_login(
     raise_error("server.user.invalidCredentials")
 
 
-def clear_password_login_identifier_failures(
+def _clear_password_login_identifier_failures(
     app: Flask,
     *,
-    identifier: str,
+    identifiers: set[str],
 ) -> None:
+    keys = [_counter_key(app, "identifier", identifier) for identifier in identifiers]
+    if not keys:
+        return
     try:
-        _shared_counter_cache(app).delete(_counter_key(app, "identifier", identifier))
+        _shared_counter_cache(app).delete(*keys)
     except (RedisError, RuntimeError):
         app.logger.exception("Password login failure counter clear failed")
         raise_error("server.user.passwordLoginRateLimited")
+
+
+def clear_password_login_user_failures(app: Flask, *, user_bid: str) -> None:
+    identifiers = {
+        str(credential.identifier or "").strip()
+        for credential in list_credentials(user_bid=user_bid)
+        if credential.provider_name in {"phone", "email"}
+        and credential.state == CREDENTIAL_STATE_VERIFIED
+        and str(credential.identifier or "").strip()
+    }
+    _clear_password_login_identifier_failures(app, identifiers=identifiers)
 
 
 class PasswordAuthProvider(AuthProvider):
@@ -260,7 +275,7 @@ class PasswordAuthProvider(AuthProvider):
                 remote_addr=remote_addr,
             )
 
-        clear_password_login_identifier_failures(app, identifier=identifier)
+        clear_password_login_user_failures(app, user_bid=aggregate.user_bid)
 
         # Build login token
         user_info = build_user_info_from_aggregate(aggregate)

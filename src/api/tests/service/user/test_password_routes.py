@@ -490,6 +490,75 @@ def test_password_reset_clears_identifier_failure_limit(
     assert login_body["code"] == 0
 
 
+def test_password_reset_clears_failure_limit_for_linked_email(
+    test_client: FlaskClient,
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Clear linked verified identifiers after recovering a shared password."""
+    from flaskr.dao import db
+    from flaskr.service.user.repository import upsert_credential
+
+    phone = "15500002227"
+    email = "recovery-linked@example.com"
+    old_password = "Abcd1234"
+    new_password = "Efgh5678"
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT",
+        _TEST_IDENTIFIER_FAILURE_LIMIT,
+    )
+    monkeypatch.setitem(
+        app.config,
+        "PASSWORD_LOGIN_IP_FAILURE_LIMIT",
+        _TEST_IP_FAILURE_LIMIT,
+    )
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=phone, code="9999"
+        )
+        upsert_credential(
+            app,
+            user_bid=user_token.userInfo.user_id,
+            provider_name="email",
+            subject_id=email,
+            subject_format="email",
+            identifier=email,
+            metadata={},
+            verified=True,
+        )
+        db.session.commit()
+
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": phone, "code": "9999", "new_password": old_password},
+        headers={"Token": user_token.token},
+    )
+    for wrong_password in ("wrong-one", "wrong-two"):
+        _post_json(
+            test_client,
+            "/api/user/login_password",
+            {"identifier": email, "password": wrong_password},
+        )
+
+    reset, reset_body = _post_json(
+        test_client,
+        "/api/user/reset_password",
+        {"identifier": phone, "code": "9999", "new_password": new_password},
+    )
+    assert reset.status_code == _HTTP_OK
+    assert reset_body["code"] == 0
+
+    login, login_body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": email, "password": new_password},
+    )
+    assert login.status_code == _HTTP_OK
+    assert login_body["code"] == 0
+
+
 def test_first_password_clears_identifier_failure_limit(
     test_client: FlaskClient,
     app: Flask,
