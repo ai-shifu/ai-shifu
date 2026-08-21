@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 from flasgger.utils import parse_docstring
+from flaskr.common.swagger import sanitize_swagger_docstring
 from yaml import YAMLError
 
 API_ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +30,12 @@ def _swagger_docstrings():
                 yield path.relative_to(API_ROOT), node.name, docstring
 
 
+def test_swagger_sanitizer_omits_framing_newlines():
+    assert sanitize_swagger_docstring("\nReset the chapter order.\n\n") == (
+        "Reset the chapter order."
+    )
+
+
 def test_all_swagger_docstrings_keep_valid_yaml_after_summary():
     discovered = []
     unparseable = set()
@@ -48,13 +55,16 @@ def test_all_swagger_docstrings_keep_valid_yaml_after_summary():
         try:
             summary, description, specification = parse_docstring(
                 view,
-                process_doc=lambda text: text,
+                process_doc=sanitize_swagger_docstring,
             )
         except YAMLError:
             unparseable.add((str(path), function_name))
             continue
         assert summary == lines[0].strip(), (path, function_name)
         assert isinstance(description, str), (path, function_name)
+        description_source = "\n".join(lines[1:separator_index])
+        if not description_source.strip():
+            assert description == "", (path, function_name)
         assert isinstance(specification, dict), (path, function_name)
         assert specification, (path, function_name)
 
