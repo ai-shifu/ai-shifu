@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = REPO_ROOT / "src/cook-web/scripts/prettier-check-changed.mjs"
@@ -26,7 +27,7 @@ def run(
     if resolved_executable is None:
         message = f"test executable not found: {executable}"
         raise FileNotFoundError(message)
-    resolved_command = [resolved_executable, *command[1:]]
+    resolved_command = [str(Path(resolved_executable).resolve()), *command[1:]]
     return subprocess.run(  # noqa: S603 - executable is allowlisted above
         resolved_command,
         cwd=cwd,
@@ -67,6 +68,16 @@ class PrettierCheckChangedTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
+
+    def test_run_makes_resolved_executable_absolute(self) -> None:
+        completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        with (
+            patch.object(shutil, "which", return_value="bin/git"),
+            patch.object(subprocess, "run", return_value=completed) as run_mock,
+        ):
+            run(["git", "status"], self.repo)
+
+        assert Path(run_mock.call_args.args[0][0]).is_absolute()
 
     def script_env(self) -> dict[str, str]:
         env = os.environ.copy()

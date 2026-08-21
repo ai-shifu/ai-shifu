@@ -126,6 +126,7 @@ def _ruff_version_matches() -> bool:
     ruff = shutil.which("ruff")
     if ruff is None:
         return False
+    ruff = str(Path(ruff).resolve())
     try:
         result = subprocess.run(  # noqa: S603 - resolved Ruff, fixed version flag
             [ruff, "--version"],
