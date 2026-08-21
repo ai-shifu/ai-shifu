@@ -394,6 +394,11 @@ Apply the same ownership test to `ARG001`: remove a function parameter only
 when all callers are repository-owned; explicitly consume values required by
 framework callbacks, fixtures, migrations, and compatibility facades.
 
+For `ARG005`, prefer zero-argument lambdas when callers pass nothing. When a
+callback or test double must accept positional or keyword arguments, use a
+named helper or underscore-prefixed parameters that preserve the actual call
+contract; do not rename externally supplied keyword parameters.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

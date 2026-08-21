@@ -216,11 +216,11 @@ def test_handle_stripe_webhook_marks_order_paid(stripe_webhook_app, monkeypatch)
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(notification),
+        lambda _channel: DummyStripeProvider(notification),
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.send_order_feishu",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
     )
 
     payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
@@ -291,11 +291,11 @@ def test_stripe_webhook_route_marks_legacy_order_paid(stripe_webhook_app, monkey
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(notification),
+        lambda _channel: DummyStripeProvider(notification),
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.send_order_feishu",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
     )
 
     with stripe_webhook_app.test_client() as client:
@@ -358,7 +358,7 @@ def test_handle_stripe_webhook_routes_bill_orders_without_regression(
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(success_notification),
+        lambda _channel: DummyStripeProvider(success_notification),
     )
     payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
 
@@ -389,7 +389,7 @@ def test_handle_stripe_webhook_routes_bill_orders_without_regression(
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(failed_notification),
+        lambda _channel: DummyStripeProvider(failed_notification),
     )
     payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
 
@@ -464,7 +464,7 @@ def test_stripe_webhook_route_delegates_bill_orders(stripe_webhook_app, monkeypa
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(notification),
+        lambda _channel: DummyStripeProvider(notification),
     )
 
     with stripe_webhook_app.test_client() as client:
@@ -541,7 +541,7 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(notification),
+        lambda _channel: DummyStripeProvider(notification),
     )
 
     first_payload, first_status = handle_stripe_webhook(
@@ -617,7 +617,7 @@ def test_handle_stripe_webhook_ignores_stale_subscription_updates(
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(notification),
+        lambda _channel: DummyStripeProvider(notification),
     )
 
     payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")
@@ -658,7 +658,7 @@ def test_handle_stripe_webhook_ignores_orphan_billing_event(
     )
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda channel: DummyStripeProvider(notification),
+        lambda _channel: DummyStripeProvider(notification),
     )
 
     payload, status_code = handle_stripe_webhook(stripe_webhook_app, b"{}", "sig")

@@ -11,7 +11,7 @@ def test_unit_of_work_invalidates_on_base_exception(app, monkeypatch):
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
     class _Interrupt(BaseException):
@@ -31,7 +31,7 @@ def test_unit_of_work_classifies_desync_exceptions(app, monkeypatch):
     monkeypatch.setattr(
         dao,
         "cleanup_session_after",
-        lambda exc, *, source, session=None: (
+        lambda exc, *, source, _session=None: (
             outcomes.append((type(exc).__name__, source)) or "invalidated"
         ),
     )

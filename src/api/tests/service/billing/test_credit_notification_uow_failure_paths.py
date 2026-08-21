@@ -107,7 +107,7 @@ def _neutralize_savepoints_on_sqlite(monkeypatch):
 
     from sqlalchemy.orm import Session
 
-    monkeypatch.setattr(Session, "begin_nested", lambda self: nullcontext())
+    monkeypatch.setattr(Session, "begin_nested", lambda _self: nullcontext())
 
 
 def _seed_creator(

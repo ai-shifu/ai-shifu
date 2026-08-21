@@ -29,6 +29,10 @@ def _sse_line(payload):
     return f"data: {json.dumps(payload)}"
 
 
+def _ignore_saved_audio_record(record: object, commit: object = None) -> None:
+    del record, commit
+
+
 def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
@@ -191,7 +195,7 @@ def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.api.tts.minimax_provider.requests.post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             [
                 _sse_line(
                     {
@@ -265,7 +269,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -277,7 +281,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -397,7 +401,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -409,7 +413,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -527,7 +531,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -539,7 +543,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -650,7 +654,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -662,7 +666,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -796,7 +800,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -808,7 +812,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -929,7 +933,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -941,7 +945,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -1071,7 +1075,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1089,7 +1093,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -1224,7 +1228,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1236,7 +1240,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -1378,7 +1382,7 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1390,7 +1394,7 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",

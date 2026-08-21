@@ -90,7 +90,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses._load_shifu_demo_metadata",
-        lambda app, shifu_bid: (
+        lambda _app, shifu_bid: (
             [("AI Shifu Guide Course", "system")]
             if shifu_bid == "demo-zh-course"
             else [("AI-Shifu Creation Guide", "system")]
@@ -381,7 +381,7 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     payload = {
@@ -605,7 +605,7 @@ def test_complete_onboarding_scene_handles_integrity_error(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     original_commit = db.session.commit
@@ -652,7 +652,7 @@ def test_complete_onboarding_scene_rejects_ineligible_user(
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     response = test_client.post(
@@ -681,7 +681,7 @@ def test_complete_onboarding_scene_handles_non_object_payload(
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     response = test_client.post(

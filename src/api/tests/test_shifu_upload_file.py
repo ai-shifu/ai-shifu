@@ -18,7 +18,7 @@ def test_upload_file_creates_resource_when_resource_id_is_missing(app, monkeypat
     )
 
     monkeypatch.setattr(funcs, "get_image_content_type", lambda _filename: "image/png")
-    monkeypatch.setattr(funcs, "upload_to_storage", lambda *args, **kwargs: uploaded)
+    monkeypatch.setattr(funcs, "upload_to_storage", lambda *_args, **_kwargs: uploaded)
 
     with app.app_context():
         db.session.query(Resource).filter_by(resource_id="missing-resource-id").delete()

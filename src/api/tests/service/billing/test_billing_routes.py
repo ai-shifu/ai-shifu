@@ -172,7 +172,7 @@ def billing_test_client(monkeypatch):
     monkeypatch.setattr(
         billing_routes_module,
         "clear_admin_creator_customization_draft",
-        lambda *args, **kwargs: {"status": "noop"},
+        lambda *_args, **_kwargs: {"status": "noop"},
     )
 
     register_billing_routes(app=app)

@@ -8,17 +8,26 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
     from sqlalchemy.exc import ResourceClosedError
 
     events = []
+
+    def invalidate(*, source, session=None):
+        del session
+        events.append(("invalidate", source))
+        return True
+
+    def cleanup(exc, *, source, session=None):
+        del exc, session
+        events.append(("cleanup", source))
+        return "rolled_back"
+
     monkeypatch.setattr(
         repo_module,
         "invalidate_session",
-        lambda *, source, session=None: events.append(("invalidate", source)) or True,
+        invalidate,
     )
     monkeypatch.setattr(
         repo_module,
         "cleanup_session_after",
-        lambda exc, *, source, session=None: (
-            events.append(("cleanup", source)) or "rolled_back"
-        ),
+        cleanup,
     )
 
     class _Nested:

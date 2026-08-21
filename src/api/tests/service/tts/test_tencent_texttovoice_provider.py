@@ -188,15 +188,20 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
         )
 
     monkeypatch.setattr(module.requests, "post", _fake_post)
+
+    def concat_audio(segments: list[bytes], output_format: str = "mp3") -> bytes:
+        del output_format
+        return b"".join(segments)
+
     monkeypatch.setattr(
         module,
         "concat_audio_best_effort",
-        lambda segments, output_format="mp3": b"".join(segments),
+        concat_audio,
     )
     monkeypatch.setattr(
         module,
         "try_get_audio_duration_ms",
-        lambda audio, **_kwargs: 1234,
+        lambda _audio, **_kwargs: 1234,
     )
 
     provider = module.TencentTextToVoiceProvider()
@@ -228,7 +233,7 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     monkeypatch.setattr(
         module.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {
                 "Response": {
                     "Error": {
@@ -258,7 +263,7 @@ def test_synthesize_raises_on_empty_audio(monkeypatch):
     monkeypatch.setattr(
         module.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"Response": {"Audio": "", "RequestId": "req-empty"}}
         ),
     )

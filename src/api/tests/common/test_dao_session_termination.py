@@ -151,7 +151,7 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: order.append(f"invalidate:{source}") or True,
+        lambda *, source, session=None: order.append(f"invalidate:{source}") or True,  # noqa: ARG005 -- preserve invalidation keyword contract
     )
     original_remove = db.session.remove
 
@@ -178,7 +178,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, session=None: invalidations.append(source) or True,  # noqa: ARG005 -- preserve invalidation keyword contract
     )
 
     message = "business"
@@ -194,10 +194,16 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
     from flaskr import dao
 
     order = []
+
+    def invalidate_session(*, source: object, session: object | None = None) -> bool:
+        del source, session
+        order.append("invalidate")
+        return True
+
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: order.append("invalidate") or True,
+        invalidate_session,
     )
     original_remove = db.session.remove
     monkeypatch.setattr(
@@ -242,7 +248,7 @@ def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch
     monkeypatch.setattr(
         dao,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, session=None: invalidations.append(source) or True,  # noqa: ARG005 -- preserve invalidation keyword contract
     )
 
     with app.app_context():

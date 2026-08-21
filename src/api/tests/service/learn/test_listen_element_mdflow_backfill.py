@@ -20,7 +20,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 

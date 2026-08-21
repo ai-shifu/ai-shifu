@@ -31,7 +31,7 @@ def captured_spans(monkeypatch):
     monkeypatch.setattr(
         LangfuseTransformingSpanExporter,
         "export",
-        lambda self, spans: SpanExportResult.SUCCESS,
+        lambda _self, _spans: SpanExportResult.SUCCESS,
         raising=False,
     )
     exporter = InMemorySpanExporter()

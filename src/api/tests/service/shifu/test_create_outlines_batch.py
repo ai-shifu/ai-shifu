@@ -31,13 +31,13 @@ def _isolate_side_effects(monkeypatch):
     monkeypatch.setattr(
         shifu_outline_funcs,
         "check_text_with_risk_control",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
     monkeypatch.setattr(
         shifu_outline_funcs,
         "save_new_outline_history",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
 
@@ -153,7 +153,7 @@ def test_batch_risk_checks_every_node(app, monkeypatch):
     monkeypatch.setattr(
         shifu_outline_funcs,
         "check_text_with_risk_control",
-        lambda app, bid, user_id, text: checked.append(text),
+        lambda _app, _bid, _user_id, text: checked.append(text),
         raising=True,
     )
     with app.app_context():

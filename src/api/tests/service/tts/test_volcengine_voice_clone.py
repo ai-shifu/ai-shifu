@@ -80,7 +80,7 @@ def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"BaseResp": {"StatusCode": 1001, "StatusMessage": "bad request"}}
         ),
     )
@@ -124,7 +124,7 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _BadJsonResponse(),
+        lambda *_args, **_kwargs: _BadJsonResponse(),
     )
     with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
@@ -136,7 +136,7 @@ def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"message": "parameter license not found for appid"}, status_code=403
         ),
     )
@@ -150,7 +150,7 @@ def test_verify_accepts_success_and_active(monkeypatch, status) -> None:
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"BaseResp": {"StatusCode": 0}, "status": status}
         ),
     )
@@ -163,7 +163,7 @@ def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"BaseResp": {"StatusCode": 0}, "status": status}
         ),
     )

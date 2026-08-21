@@ -61,7 +61,7 @@ def test_rebuild_daily_aggregates_rebuilds_creator_date_window(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-rebuild-1",
+        lambda _app, _usage: "creator-rebuild-1",
     )
 
     with billing_daily_rebuild_app.app_context():
@@ -163,7 +163,7 @@ def test_rebuild_daily_aggregates_scopes_usage_by_shifu_and_skips_ledger(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-rebuild-1",
+        lambda _app, _usage: "creator-rebuild-1",
     )
 
     with billing_daily_rebuild_app.app_context():

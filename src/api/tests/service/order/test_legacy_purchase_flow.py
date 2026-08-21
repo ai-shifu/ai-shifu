@@ -65,16 +65,20 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
 ) -> None:
     from flaskr.service.order import funs as order_funs
 
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, bid, preview_mode
+        return SimpleNamespace(
+            price=Decimal("99.00"),
+            title="Legacy course",
+            description="Legacy checkout flow",
+        )
+
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
     monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, preview_mode: SimpleNamespace(
-            price=Decimal("99.00"),
-            title="Legacy course",
-            description="Legacy checkout flow",
-        ),
+        get_shifu_info,
     )
     monkeypatch.setattr(
         order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
@@ -344,15 +348,20 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
         order_funs, "get_shifu_creator_bid", lambda _app, _bid: "teacher-pay-1"
     )
     monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        order_funs,
-        "get_shifu_info",
-        lambda _app, bid, preview_mode: SimpleNamespace(
+
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, preview_mode
+        return SimpleNamespace(
             bid=bid,
             price=Decimal("99.00"),
             title="Paid course",
             description="Course checkout",
-        ),
+        )
+
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        get_shifu_info,
     )
     monkeypatch.setattr(
         order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
@@ -514,7 +523,7 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
     monkeypatch.setattr(
         order_funs,
         "get_payment_provider",
-        lambda provider_name: FakeStripeProvider(),
+        lambda _provider_name: FakeStripeProvider(),
     )
 
     with legacy_order_app.app_context():

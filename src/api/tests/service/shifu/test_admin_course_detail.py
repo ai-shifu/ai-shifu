@@ -119,11 +119,15 @@ def _pin_app_timezone_to_utc(app):
 
 @pytest.fixture(autouse=True)
 def _mock_bcrypt_module(monkeypatch):
+    def gensalt(rounds=12):
+        del rounds
+        return b"salt"
+
     monkeypatch.setitem(
         sys.modules,
         "bcrypt",
         SimpleNamespace(
-            gensalt=lambda rounds=12: b"salt",
+            gensalt=gensalt,
             hashpw=lambda plain, salt: plain + b":" + salt,
             checkpw=lambda plain, hashed: hashed == plain + b":salt",
         ),

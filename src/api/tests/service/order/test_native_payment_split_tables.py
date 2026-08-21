@@ -244,7 +244,7 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda provider_name: FakeAlipayProvider(),
+        lambda _provider_name: FakeAlipayProvider(),
     )
 
     with native_payment_split_app.app_context():
@@ -326,7 +326,7 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda provider_name: FakeAlipayProvider(),
+        lambda _provider_name: FakeAlipayProvider(),
     )
 
     with native_payment_split_app.app_context():

@@ -282,11 +282,11 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakeStripeProvider(),
+        lambda _channel: FakeStripeProvider(),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -342,7 +342,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -435,15 +435,24 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakeStripeProvider(),
+        lambda _channel: FakeStripeProvider(),
     )
+
+    def enqueue_subscription_purchase_sms(
+        app: object,
+        *,
+        bill_order_bid: str,
+    ) -> dict[str, str]:
+        del app, bill_order_bid
+        return {"status": "enqueued"}
+
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {"status": "enqueued"},
+        enqueue_subscription_purchase_sms,
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -512,7 +521,7 @@ def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -596,11 +605,11 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakePingxxProvider(),
+        lambda _channel: FakePingxxProvider(),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -681,7 +690,7 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakePingxxProvider(),
+        lambda _channel: FakePingxxProvider(),
     )
 
     with app.app_context():
@@ -771,7 +780,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
+        lambda _app, title, msgs: (
             captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
         ),
     )
@@ -853,7 +862,7 @@ def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failur
     )
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: None,
+        lambda _app, _title, _msgs: None,
     )
 
     with app.app_context():
@@ -895,7 +904,7 @@ def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
+        lambda _app, title, msgs: (
             captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
         ),
     )
@@ -937,18 +946,22 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
     cycle_end_at = datetime(2026, 5, 20, 0, 0, 0)
     captured: list[dict[str, object]] = []
 
+    def capture_sms(
+        app, mobile, *, template_code, template_params, sign_name=None
+    ) -> SimpleNamespace:
+        del app, sign_name
+        captured.append(
+            {
+                "mobile": mobile,
+                "template_code": template_code,
+                "template_params": dict(template_params),
+            }
+        )
+        return SimpleNamespace(ok=True)
+
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: (
-            captured.append(
-                {
-                    "mobile": mobile,
-                    "template_code": template_code,
-                    "template_params": dict(template_params),
-                }
-            )
-            or SimpleNamespace(ok=True)
-        ),
+        capture_sms,
     )
 
     with app.app_context():
@@ -1102,9 +1115,15 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
         "app",
         types.SimpleNamespace(create_app=lambda: app),
     )
+
+    def fail_sms(
+        app, mobile, *, template_code, template_params, sign_name=None
+    ) -> None:
+        del app, mobile, template_code, template_params, sign_name
+
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+        fail_sms,
     )
 
     with pytest.raises(SubscriptionPurchaseSmsRetryableError):
@@ -1135,9 +1154,14 @@ def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
             captured_kwargs.append(dict(kwargs))
 
     fake_celery = SimpleNamespace(tasks={SUBSCRIPTION_SMS_TASK_NAME: FakeTask()})
+
+    def get_celery_app(flask_app: object | None = None) -> object:
+        del flask_app
+        return fake_celery
+
     monkeypatch.setattr(
         "flaskr.common.celery_app.get_celery_app",
-        lambda flask_app=None: fake_celery,
+        get_celery_app,
     )
 
     with app.app_context():
