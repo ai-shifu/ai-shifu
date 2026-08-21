@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -82,6 +81,8 @@ from .primitives import (
 from .queries import load_product_code_map
 
 if TYPE_CHECKING:
+    from flask import Flask
+
     from .models import (
         BillingCampaign,
         BillingCampaignProduct,

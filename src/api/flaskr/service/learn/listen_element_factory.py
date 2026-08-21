@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementChangeType,
@@ -23,11 +22,14 @@ from flaskr.service.learn.listen_element_types import (
     _element_type_for_visual_kind,
     _new_element_bid,
 )
-from flaskr.service.learn.listen_slide_builder import VisualSegment
 from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from flaskr.service.learn.listen_slide_builder import VisualSegment
 
 
 def _visuals_from_segment(

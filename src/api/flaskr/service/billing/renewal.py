@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
@@ -100,6 +99,8 @@ from .wallets import _expire_credit_wallet_buckets_in_session
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from flask import Flask
 
 _CLAIMABLE_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,

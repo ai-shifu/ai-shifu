@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.dtos import UserInfo, UserToken
 from flaskr.service.user.models import AuthCredential
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class _BaseDTO(BaseModel):

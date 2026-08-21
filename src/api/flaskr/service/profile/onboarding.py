@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.common.profile_onboarding import (
@@ -21,6 +20,9 @@ from flaskr.service.profile.learner_profile import has_learner_profile_or_state
 from flaskr.service.profile.models import VariableValue
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def _now_iso() -> str:

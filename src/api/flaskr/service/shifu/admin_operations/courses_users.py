@@ -8,7 +8,6 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
@@ -48,6 +47,8 @@ from flaskr.util.datetime import NAIVE_DATETIME_MIN
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import datetime
+
+    from flask import Flask
 
 
 def _load_course_related_user_bids(

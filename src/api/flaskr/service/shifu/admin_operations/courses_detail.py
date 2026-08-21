@@ -8,7 +8,6 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.service.common.models import (
@@ -59,13 +58,15 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
 )
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    PublishedOutlineItem,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from flask import Flask
+    from flaskr.service.shifu.models import (
+        DraftOutlineItem,
+        PublishedOutlineItem,
+    )
 
 
 def _resolve_learning_permission(item_type: int | None) -> str:

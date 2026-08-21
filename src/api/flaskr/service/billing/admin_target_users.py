@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.contact_identifiers import (
     resolve_contact_lookup_providers,
     resolve_contact_type,
     validate_contact_identifier,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def resolve_admin_entitlement_grant_target(

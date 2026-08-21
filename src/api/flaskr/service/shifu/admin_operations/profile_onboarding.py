@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.profile_onboarding import (
     get_profile_onboarding_config,
     update_profile_onboarding_config,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def get_operator_profile_onboarding_config(app: Flask) -> dict[str, Any]:

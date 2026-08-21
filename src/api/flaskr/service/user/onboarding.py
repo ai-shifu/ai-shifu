@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
@@ -13,6 +12,9 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, parse_naive_utc
 from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 ONBOARDING_VERSION = "v1"
 SCENE_ADMIN_HOME = "admin_home_onboarding"

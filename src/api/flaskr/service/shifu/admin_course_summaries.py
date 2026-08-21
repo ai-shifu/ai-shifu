@@ -19,9 +19,6 @@ from flaskr.service.common.models import (
 from flaskr.service.shifu.admin_course_summary_mapper import (
     build_admin_operation_course_summary,
 )
-from flaskr.service.shifu.admin_dtos_courses import (
-    AdminOperationCourseSummaryDTO,
-)
 from flaskr.service.shifu.admin_shared import (
     COURSE_QUICK_FILTER_VALUES,
     COURSE_STATUS_PUBLISHED,
@@ -51,6 +48,10 @@ from sqlalchemy.orm import defer
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from decimal import Decimal
+
+    from flaskr.service.shifu.admin_dtos_courses import (
+        AdminOperationCourseSummaryDTO,
+    )
 
 
 def _format_average_score(value: Decimal | None) -> str:
