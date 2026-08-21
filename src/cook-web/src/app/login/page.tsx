@@ -360,6 +360,9 @@ export default function AuthPage() {
     setShowTermsDialog(false);
   }, []);
 
+  const isPasswordEmailOnly =
+    isPasswordEnabled && !isPhoneEnabled && (isEmailEnabled || isGoogleEnabled);
+
   const renderLoginContent = useCallback(
     (method: LoginMethod) => {
       switch (method) {
@@ -393,7 +396,8 @@ export default function AuthPage() {
           return (
             <PasswordLogin
               onLoginSuccess={handleAuthSuccess}
-              supportEmailIdentifier={isEmailEnabled}
+              supportEmailIdentifier={isEmailEnabled || isGoogleEnabled}
+              forceEmailIdentifier={isPasswordEmailOnly}
             />
           );
         default:
@@ -409,6 +413,8 @@ export default function AuthPage() {
       courseIdFromRedirect,
       referralMetadata,
       isEmailEnabled,
+      isGoogleEnabled,
+      isPasswordEmailOnly,
     ],
   );
 
