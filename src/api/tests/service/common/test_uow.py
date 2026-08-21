@@ -33,7 +33,7 @@ def test_outermost_commits_on_clean_exit(app) -> None:
 def test_outermost_rolls_back_on_exception(app) -> None:
     with app.app_context():
 
-        def write_then_fail():
+        def write_then_fail() -> Never:
             with uow.unit_of_work():
                 dao.db.session.add(_make_shifu("uow-rollback-1"))
                 dao.db.session.flush()
@@ -48,11 +48,11 @@ def test_outermost_rolls_back_on_exception(app) -> None:
 def test_nested_block_joins_outer_transaction(app) -> None:
     with app.app_context():
 
-        def helper():
+        def helper() -> None:
             with uow.unit_of_work():
                 dao.db.session.add(_make_shifu("uow-nested-inner-1"))
 
-        def outer_fails_after_helper():
+        def outer_fails_after_helper() -> Never:
             with uow.unit_of_work():
                 helper()
                 dao.db.session.add(_make_shifu("uow-nested-outer-1"))
@@ -90,7 +90,7 @@ def test_depth_is_isolated_per_thread(app) -> None:
     """The /run producer runs in its own thread; depth must not leak across."""
     seen = {}
 
-    def worker():
+    def worker() -> None:
         seen["inside_thread"] = uow.in_unit_of_work()
 
     with app.app_context(), uow.unit_of_work():
@@ -130,7 +130,7 @@ def test_on_commit_dropped_on_rollback(app) -> None:
     calls = []
     with app.app_context():
 
-        def schedule_then_fail():
+        def schedule_then_fail() -> Never:
             with uow.unit_of_work():
                 uow.on_commit(lambda: calls.append("never"))
                 message = "boom"
@@ -144,7 +144,7 @@ def test_on_commit_dropped_on_rollback(app) -> None:
 def test_on_commit_callback_exception_does_not_propagate(app) -> None:
     calls = []
 
-    def boom():
+    def boom() -> Never:
         message = "callback boom"
         raise RuntimeError(message)
 

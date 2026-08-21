@@ -28,10 +28,10 @@ def test_volcengine_http_synthesize_success(monkeypatch) -> None:
         headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
         text = ""
 
-        def raise_for_status(self):
+        def raise_for_status(self) -> None:
             return None
 
-        def json(self):
+        def json(self) -> dict[str, object]:
             return {
                 "reqid": "reqid",
                 "code": 3000,
@@ -41,7 +41,7 @@ def test_volcengine_http_synthesize_success(monkeypatch) -> None:
                 "addition": {"duration": "1234"},
             }
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None) -> DummyResponse:
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers
@@ -95,10 +95,10 @@ def test_volcengine_http_legacy_resource_id_overrides_default_cluster(
         headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
         text = ""
 
-        def raise_for_status(self):
+        def raise_for_status(self) -> None:
             return None
 
-        def json(self):
+        def json(self) -> dict[str, object]:
             return {
                 "reqid": "reqid",
                 "code": 3000,
@@ -108,7 +108,7 @@ def test_volcengine_http_legacy_resource_id_overrides_default_cluster(
                 "addition": {"duration": "0"},
             }
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None) -> DummyResponse:
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers

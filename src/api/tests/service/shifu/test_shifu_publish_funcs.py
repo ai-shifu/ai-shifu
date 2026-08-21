@@ -3,6 +3,7 @@
 import sys
 import types
 from datetime import datetime
+from typing import Never
 
 from flask import Flask
 from flaskr.dao import db
@@ -20,7 +21,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -99,33 +100,33 @@ class _FakeObservation:
         self.id = f"fake-{kind}-id"
         self.generations = []
 
-    def start_span(self, **kwargs: object):
+    def start_span(self, **kwargs: object) -> object:
         return _FakeObservation("span", **kwargs)
 
-    def start_observation(self, as_type="span", **kwargs: object):
+    def start_observation(self, as_type="span", **kwargs: object) -> object:
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
         return child
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updates.append(kwargs)
 
-    def update_trace(self, **kwargs: object):
+    def update_trace(self, **kwargs: object) -> None:
         self.trace_updates.append(kwargs)
 
-    def end(self):
+    def end(self) -> None:
         self.ended = True
 
     @property
-    def end_kwargs(self):
+    def end_kwargs(self) -> dict[object, object]:
         merged = {}
         for item in self.updates:
             merged.update(item)
         return merged
 
     @property
-    def updated(self):
+    def updated(self) -> dict[object, object]:
         merged = {}
         for item in self.trace_updates:
             merged.update(item)
@@ -136,7 +137,7 @@ class _FakeLangfuseClient:
     def __init__(self) -> None:
         self.traces = []
 
-    def start_span(self, trace_context=None, **kwargs: object):
+    def start_span(self, trace_context=None, **kwargs: object) -> object:
         root = _FakeObservation("span", **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
@@ -222,7 +223,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
-    def _raise_shutdown(*_a: object, **_k: object):
+    def _raise_shutdown(*_a: object, **_k: object) -> Never:
         message = (
             "litellm.MidStreamFallbackError: APIConnectionError: OpenAIException - "
             "cannot schedule new futures after shutdown"
@@ -250,7 +251,7 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
-    def _raise_other(*_a: object, **_k: object):
+    def _raise_other(*_a: object, **_k: object) -> Never:
         message = "boom"
         raise ValueError(message)
 
@@ -275,7 +276,7 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch) -> N
     original_load_existing_outline_items = module.load_existing_outline_items
     outline_load_calls = []
 
-    def _record_outline_load(*args: object, **kwargs: object):
+    def _record_outline_load(*args: object, **kwargs: object) -> object:
         outline_load_calls.append((args, kwargs))
         return original_load_existing_outline_items(*args, **kwargs)
 

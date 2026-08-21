@@ -1,6 +1,7 @@
 """Verify billable usage is persisted and queued for settlement."""
 
 from collections.abc import Iterator
+from typing import Never
 
 import pytest
 from flask import Flask
@@ -351,7 +352,7 @@ def test_persist_cleanup_targets_failed_session_inside_context(
 
     events = []
 
-    def _fake_cleanup(exc, *, source, session=None):
+    def _fake_cleanup(exc, *, source, session=None) -> str:
         # Must be called while the pushed app context is active.
         _ = (source, session)
         events.append((type(exc).__name__, current_app._get_current_object() is app))
@@ -360,10 +361,10 @@ def test_persist_cleanup_targets_failed_session_inside_context(
     monkeypatch.setattr(recorder_module, "cleanup_session_after", _fake_cleanup)
 
     class _FailingSession:
-        def add(self, _record):
+        def add(self, _record) -> None:
             pass
 
-        def commit(self):
+        def commit(self) -> Never:
             message = "desynced"
             raise ResourceClosedError(message)
 
@@ -391,10 +392,10 @@ def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch) -> No
         pass
 
     class _InterruptedSession:
-        def add(self, _record):
+        def add(self, _record) -> None:
             pass
 
-        def commit(self):
+        def commit(self) -> Never:
             raise _Interrupt
 
     monkeypatch.setattr(

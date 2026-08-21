@@ -1,5 +1,6 @@
 """Verify transient database deadlocks are retried safely."""
 
+from typing import Never
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,7 +15,7 @@ class _FakeOrigError(Exception):
         self.args = (errno, message)
 
 
-def _operational_error(errno):
+def _operational_error(errno) -> OperationalError:
     return OperationalError("SELECT 1", {}, _FakeOrigError(errno, "boom"))
 
 
@@ -22,7 +23,7 @@ def test_retries_deadlock_then_succeeds() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def flaky():
+    def flaky() -> str:
         calls["n"] += 1
         if calls["n"] < 3:
             raise _operational_error(1213)
@@ -36,7 +37,7 @@ def test_retries_lock_wait_timeout() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=2, backoff_seconds=0)
-    def flaky():
+    def flaky() -> str:
         calls["n"] += 1
         if calls["n"] < 2:
             raise _operational_error(1205)
@@ -50,7 +51,7 @@ def test_reraises_after_exhausting_attempts() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def always_deadlock():
+    def always_deadlock() -> Never:
         calls["n"] += 1
         raise _operational_error(1213)
 
@@ -63,7 +64,7 @@ def test_does_not_retry_non_retryable_operational_error() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def other_error():
+    def other_error() -> Never:
         calls["n"] += 1
         raise _operational_error(1146)  # table doesn't exist
 
@@ -78,7 +79,7 @@ def test_rolls_back_session_on_every_caught_error(monkeypatch) -> None:
     monkeypatch.setattr(dao, "db", fake_db)
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def always_deadlock():
+    def always_deadlock() -> Never:
         raise _operational_error(1213)
 
     with pytest.raises(OperationalError):
@@ -92,7 +93,7 @@ def test_rolls_back_session_on_non_retryable_error(monkeypatch) -> None:
     monkeypatch.setattr(dao, "db", fake_db)
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def other_error():
+    def other_error() -> Never:
         raise _operational_error(1146)
 
     with pytest.raises(OperationalError):
@@ -112,7 +113,7 @@ def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch) -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def desynced():
+    def desynced() -> Never:
         calls["n"] += 1
         raise _operational_error(2014)
 
@@ -134,7 +135,7 @@ def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch) -> None:
     )
 
     class _BrokenSession:
-        def rollback(self):
+        def rollback(self) -> Never:
             message = "ROLLBACK"
             raise OperationalError(message, {}, Exception())
 
@@ -145,7 +146,7 @@ def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch) -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
-    def deadlocked():
+    def deadlocked() -> Never:
         calls["n"] += 1
         raise _operational_error(1213)
 

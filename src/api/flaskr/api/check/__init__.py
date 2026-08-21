@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 
-def check_text(app: Flask, data_id: str, text: str, user_id: str):
+def check_text(app: Flask, data_id: str, text: str, user_id: str) -> CheckResultDTO:
     check_provider = app.config.get("CHECK_PROVIDER")
     if check_provider == "ilivedata":
         return ilivedata_check(app, data_id, text, user_id)

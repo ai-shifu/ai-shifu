@@ -71,6 +71,7 @@ from sqlalchemy import and_, case, func, not_, or_
 
 if TYPE_CHECKING:
     from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
@@ -240,7 +241,7 @@ def _build_like_pattern(keyword: str) -> str:
     return f"%{escaped}%"
 
 
-def _build_user_keyword_query(keyword: str):
+def _build_user_keyword_query(keyword: str) -> object:
     like_pattern = _build_like_pattern(keyword)
     return (
         db.session.query(UserEntity.user_bid)
@@ -272,7 +273,9 @@ def _build_user_keyword_query(keyword: str):
     )
 
 
-def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields: object):
+def _apply_keyword_filter(
+    query, keyword: str, user_bid_field, *text_fields: object
+) -> object:
     normalized = str(keyword or "").strip().lower()
     if not normalized:
         return query
@@ -285,7 +288,7 @@ def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields: obj
     return query.filter(or_(*keyword_filters))
 
 
-def _build_coupon_status_filter(status: str):
+def _build_coupon_status_filter(status: str) -> ColumnElement[bool] | None:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
@@ -313,7 +316,7 @@ def _build_coupon_status_filter(status: str):
     return None
 
 
-def _build_campaign_status_filter(status: str):
+def _build_campaign_status_filter(status: str) -> ColumnElement[bool] | None:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None

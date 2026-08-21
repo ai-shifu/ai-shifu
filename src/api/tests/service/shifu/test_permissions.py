@@ -4,6 +4,7 @@ import contextlib
 import json
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr import dao
@@ -16,14 +17,17 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 
-def _get_models():
+
+def _get_models() -> "tuple[type[DraftShifu], type[AiCourseAuth]]":
     from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 
     return DraftShifu, AiCourseAuth
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str):
+def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
     with app.app_context():
         draft_shifu_model, course_auth_model = _get_models()
         draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
@@ -46,7 +50,7 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
         dao.db.session.commit()
 
 
-def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
+def _mock_user(monkeypatch, user_id: str, is_creator: bool = True) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -73,7 +77,7 @@ def _allow_email_login(monkeypatch) -> None:
     _clear_config_caches()
 
 
-def _add_auth(app, shifu_bid: str, user_id: str, status: int):
+def _add_auth(app, shifu_bid: str, user_id: str, status: int) -> None:
     with app.app_context():
         _, course_auth_model = _get_models()
         dao.db.session.add(
@@ -88,7 +92,7 @@ def _add_auth(app, shifu_bid: str, user_id: str, status: int):
         dao.db.session.commit()
 
 
-def _seed_user(app, *, user_bid: str, email: str):
+def _seed_user(app, *, user_bid: str, email: str) -> None:
     with app.app_context():
         entity = create_user_entity(
             user_bid=user_bid,
@@ -111,7 +115,7 @@ def _seed_user(app, *, user_bid: str, email: str):
         dao.db.session.commit()
 
 
-def _ensure_trial_billing_enabled(monkeypatch):
+def _ensure_trial_billing_enabled(monkeypatch) -> None:
     import flaskr.service.billing.auth_hooks  # noqa: F401
 
     monkeypatch.setattr(
@@ -142,7 +146,7 @@ class TestShifuPermissions:
         _add_auth(app, shifu_bid, active_user, status=1)
         _add_auth(app, shifu_bid, inactive_user, status=0)
 
-        def fake_load_user_aggregate(user_id: str):
+        def fake_load_user_aggregate(user_id: str) -> SimpleNamespace:
             return SimpleNamespace(
                 user_bid=user_id,
                 mobile="13800000000",

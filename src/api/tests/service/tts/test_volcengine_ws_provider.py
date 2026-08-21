@@ -55,25 +55,25 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
     captured = {}
 
     class FakeProtocol:
-        def encode_start_connection(self):
+        def encode_start_connection(self) -> bytes:
             return b"start_connection"
 
-        def encode_start_session(self, **kwargs: object):
+        def encode_start_session(self, **kwargs: object) -> bytes:
             captured["start_session_kwargs"] = kwargs
             return b"start_session"
 
-        def encode_task_request(self, session_id, text):
+        def encode_task_request(self, session_id, text) -> bytes:
             _ = (session_id, text)
             return b"task_request"
 
-        def encode_finish_session(self, session_id):
+        def encode_finish_session(self, session_id) -> bytes:
             _ = session_id
             return b"finish_session"
 
-        def encode_finish_connection(self):
+        def encode_finish_connection(self) -> bytes:
             return b"finish_connection"
 
-        def decode_frame(self, message):
+        def decode_frame(self, message) -> SimpleNamespace:
             if message == b"connection_started":
                 return SimpleNamespace(
                     event=volcengine_provider.Event.CONNECTION_STARTED,
@@ -149,11 +149,11 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
             self.session_started_sent = False
             captured["ws"] = self
 
-        def run_forever(self, **kwargs: object):
+        def run_forever(self, **kwargs: object) -> None:
             _ = kwargs
             self.on_open(self)
 
-        def send(self, frame, opcode=None):
+        def send(self, frame, opcode=None) -> None:
             _ = opcode
             self.sent.append(frame)
             if frame == b"start_connection":
@@ -173,11 +173,11 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
                 self.on_message(self, b"subtitle")
                 self.on_message(self, b"session_finished")
 
-        def _emit_session_started(self):
+        def _emit_session_started(self) -> None:
             self.session_started_sent = True
             self.on_message(self, b"session_started")
 
-        def close(self):
+        def close(self) -> None:
             self.on_close(self, None, None)
 
     fake_websocket = SimpleNamespace(

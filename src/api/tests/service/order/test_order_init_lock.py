@@ -1,5 +1,7 @@
 """Verify order init lock behavior."""
 
+from typing import Never
+
 import flaskr.service.order.funs as order_funs
 
 
@@ -62,7 +64,7 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch) -> None:
 
 def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch) -> None:
     class _BrokenCacheProvider:
-        def lock(self, *args: object, **kwargs: object):
+        def lock(self, *args: object, **kwargs: object) -> Never:
             _ = (args, kwargs)
             message = "lock unavailable"
             raise RuntimeError(message)

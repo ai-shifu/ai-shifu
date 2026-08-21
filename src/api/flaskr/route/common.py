@@ -7,7 +7,7 @@ import traceback
 from collections.abc import Callable
 from functools import wraps
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from flaskr.common.shifu_context import clear_shifu_context
@@ -66,7 +66,7 @@ def bypass_token_validation(func) -> Callable[..., object]:
     by_pass_login_func.append(func.__name__)
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: object, **kwargs: object) -> object:
         return func(*args, **kwargs)
 
     return wrapper
@@ -76,20 +76,20 @@ def register_common_handler(app: Flask) -> Flask:
     """Register the common routes on the Flask application."""
 
     @app.errorhandler(AppError)
-    def handle_invalid_usage(error: AppError):
+    def handle_invalid_usage(error: AppError) -> Response:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
 
     @app.errorhandler(HTTPException)
-    def handle_invalid_http(error: HTTPException):
+    def handle_invalid_http(error: HTTPException) -> Response:
         app.logger.info(error)
         response = jsonify({"code": error.code, "message": error.description})
         response.status_code = 200
         return response
 
     @app.errorhandler(Exception)
-    def handle_invalid_exception(error: Exception):
+    def handle_invalid_exception(error: Exception) -> Response:
         del error
         app.logger.error(traceback.format_exc())
         language = _extract_request_language()
@@ -100,7 +100,7 @@ def register_common_handler(app: Flask) -> Flask:
         return response
 
     @app.teardown_request
-    def teardown_shifu_context(exception):
+    def teardown_shifu_context(exception) -> None:
         # Ensure shifu context does not leak between requests on the same worker thread
         del exception
         clear_shifu_context()

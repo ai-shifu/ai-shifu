@@ -600,7 +600,7 @@ class TestBillingWriteRoutesTopup:
         app = billing_write_client["app"]
         add_active_subscription(app, subscription_bid="sub-topup-default-provider-1")
 
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "pingxx"
             return default

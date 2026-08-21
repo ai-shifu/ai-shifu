@@ -129,7 +129,7 @@ class TestListenElementHistorySubtitles:
             element_type: str,
             content_text: str,
             is_speakable: int,
-        ):
+        ) -> None:
             db.session.add(
                 self.LearnGeneratedElement(
                     element_bid=element_bid,
@@ -163,7 +163,7 @@ class TestListenElementHistorySubtitles:
                 )
             )
 
-        def add_audio(*, position: int):
+        def add_audio(*, position: int) -> None:
             db.session.add(
                 self.LearnGeneratedAudio(
                     audio_bid=f"audio-history-multi-{position}",
@@ -259,7 +259,7 @@ class TestListenElementHistorySubtitles:
             element_bid: str,
             element_index: int,
             content_text: str,
-        ):
+        ) -> None:
             db.session.add(
                 self.LearnGeneratedElement(
                     element_bid=element_bid,

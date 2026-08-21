@@ -13,7 +13,9 @@ def test_query_sms_template_list_caps_page_size_at_provider_limit(monkeypatch) -
         def __init__(self, _config) -> None:
             pass
 
-        def query_sms_template_list_with_options(self, request, _runtime):
+        def query_sms_template_list_with_options(
+            self, request, _runtime
+        ) -> SimpleNamespace:
             captured["page_index"] = request.page_index
             captured["page_size"] = request.page_size
             return SimpleNamespace(body=SimpleNamespace(code="OK"))

@@ -33,7 +33,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
         ]
     )
 
-    def sign(key, msg):
+    def sign(key, msg) -> object:
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
     secret_date = sign(("TC3" + secret_key).encode("utf-8"), date)
@@ -50,7 +50,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
 
 
-def _patch_credentials(monkeypatch):
+def _patch_credentials(monkeypatch) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     config = {
@@ -68,7 +68,7 @@ class _FakeResponse:
     def __init__(self, body) -> None:
         self._body = body
 
-    def json(self):
+    def json(self) -> object:
         return self._body
 
 
@@ -175,7 +175,7 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch) -> Non
     _patch_credentials(monkeypatch)
     captured_payloads = []
 
-    def _fake_post(url, data=None, headers=None, timeout=None):
+    def _fake_post(url, data=None, headers=None, timeout=None) -> object:
         _ = (url, headers, timeout)
         captured_payloads.append(json.loads(data.decode("utf-8")))
         return _FakeResponse(

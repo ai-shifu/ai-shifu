@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from flask import Flask, request
 
 from flaskr.route.common import make_common_response
 from flaskr.service.creator_analytics.credit_detail import run as run_credit_detail
 from flaskr.service.creator_analytics.funcs import run_dsl
 
+if TYPE_CHECKING:
+    from flask.typing import ResponseReturnValue
+
 
 def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the creator analytics routes on the Flask application."""
 
     @app.route(path_prefix + "/query", methods=["POST"])
-    def creator_analytics_query():
+    def creator_analytics_query() -> ResponseReturnValue:
         """Run a creator-analytics DSL query.
 
         ---
@@ -89,7 +94,7 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(result)
 
     @app.route(path_prefix + "/credit-detail", methods=["POST"])
-    def creator_analytics_credit_detail():
+    def creator_analytics_credit_detail() -> ResponseReturnValue:
         """Fetch joined credit consumption detail for one shifu.
 
         Server-side joins ``bill_usage`` and ``credit_ledger_entries`` on

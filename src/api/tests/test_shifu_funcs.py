@@ -1,15 +1,17 @@
 """Verify course summaries isolate and report generation failures."""
 
+from typing import Never
+
 from flaskr.service.shifu import shifu_publish_funcs
 
 
 def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch) -> None:
     called = {"apply": False, "summary": False}
 
-    def fake_apply(_snapshot):
+    def fake_apply(_snapshot) -> None:
         called["apply"] = True
 
-    def fake_summary(_app, _shifu_id):
+    def fake_summary(_app, _shifu_id) -> Never:
         called["summary"] = True
         message = "boom"
         raise RuntimeError(message)

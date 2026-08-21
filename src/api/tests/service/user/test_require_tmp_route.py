@@ -12,7 +12,9 @@ def test_require_tmp_passes_payload_source_to_temp_user(
 
     calls: list[dict[str, str | None]] = []
 
-    def fake_generate_temp_user(app, temp_id, source, wx_code=None, language="en-US"):
+    def fake_generate_temp_user(
+        app, temp_id, source, wx_code=None, language="en-US"
+    ) -> dict[str, str | dict[str, str]]:
         _ = app
         calls.append(
             {

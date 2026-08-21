@@ -231,7 +231,9 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
     monkeypatch,
 ) -> None:
     class FakeAlipayProvider:
-        def sync_reference(self, *, provider_reference, reference_type, app):
+        def sync_reference(
+            self, *, provider_reference, reference_type, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(
@@ -312,7 +314,9 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
     monkeypatch,
 ) -> None:
     class FakeAlipayProvider:
-        def sync_reference(self, *, provider_reference, reference_type, app):
+        def sync_reference(
+            self, *, provider_reference, reference_type, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(

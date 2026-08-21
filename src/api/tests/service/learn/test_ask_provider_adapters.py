@@ -1,6 +1,8 @@
 """Verify ask provider adapter behavior."""
 
 import types
+from collections.abc import Iterator
+from typing import Never
 
 import pytest
 import requests
@@ -32,15 +34,15 @@ class _FakeResponse:
         self._json_data = json_data
         self._json_error = json_error
 
-    def iter_lines(self, decode_unicode=True):
+    def iter_lines(self, decode_unicode=True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         if self._http_error is not None:
             raise self._http_error
 
-    def json(self):
+    def json(self) -> object:
         if self._json_error is not None:
             raise self._json_error
         return self._json_data
@@ -58,7 +60,7 @@ def test_dify_adapter_streams_success_content(app, monkeypatch) -> None:
         }.get,
     )
 
-    def _fake_post(*_args: object, **kwargs: object):
+    def _fake_post(*_args: object, **kwargs: object) -> object:
         request_state["json"] = kwargs.get("json")
         return _FakeResponse(
             lines=[
@@ -114,7 +116,7 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch) -> None:
         }.get,
     )
 
-    def _raise_timeout(*_args: object, **_kwargs: object):
+    def _raise_timeout(*_args: object, **_kwargs: object) -> Never:
         message = "timeout"
         raise requests.Timeout(message)
 
@@ -206,7 +208,7 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch) -> None
         }.get,
     )
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url, **kwargs: object) -> object:
         request_state["url"] = url
         request_state["json"] = kwargs.get("json")
         request_state["headers"] = kwargs.get("headers") or {}
@@ -362,7 +364,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch) -> No
         }.get,
     )
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url, **kwargs: object) -> object:
         request_state["url"] = url
         request_state["json"] = kwargs["json"]
         return _FakeResponse(
@@ -407,7 +409,7 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch) -> Non
 
     request_state = {}
 
-    def _fake_request(*_args: object, **kwargs: object):
+    def _fake_request(*_args: object, **kwargs: object) -> object:
         request_state["method"] = kwargs.get("method")
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["url"] = kwargs.get("url")
@@ -491,7 +493,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(
 
     request_state = {}
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url, **kwargs: object) -> object:
         request_state["url"] = url
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["json"] = kwargs.get("json")
@@ -527,7 +529,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context) -> Iterator[types.SimpleNamespace]:
         captured_context["value"] = knowledge_context
         return iter(
             [
@@ -608,7 +610,7 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context) -> Iterator[types.SimpleNamespace]:
         captured_context["value"] = knowledge_context
         return iter([types.SimpleNamespace(result="answer")])
 
@@ -652,7 +654,7 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context) -> Iterator[types.SimpleNamespace]:
         captured_context["value"] = knowledge_context
         return iter([types.SimpleNamespace(result="fallback answer")])
 
@@ -760,7 +762,7 @@ def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(
 ) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
-    def _raise_timeout(*_args: object, **_kwargs: object):
+    def _raise_timeout(*_args: object, **_kwargs: object) -> Never:
         message = "timeout"
         raise requests.Timeout(message)
 

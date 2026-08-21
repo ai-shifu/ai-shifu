@@ -48,7 +48,7 @@ class PluginHotReloader:
         except Exception:
             self.app.logger.exception("Hot reload plugin failed: %s", plugin_path)
 
-    def _unload_plugin(self, plugin_path: str):
+    def _unload_plugin(self, plugin_path: str) -> None:
         """Unload a plugin and clean up its resources.
 
         Args:
@@ -97,7 +97,7 @@ class PluginHotReloader:
         except Exception:
             self.app.logger.exception("Failed to unload plugin %s", plugin_path)
 
-    def _register_plugin(self, module):
+    def _register_plugin(self, module) -> None:
         """Register a newly loaded plugin.
 
         Args:

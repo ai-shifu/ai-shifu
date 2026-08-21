@@ -386,7 +386,9 @@ def get_outline_item_tree(
                     progress_record
                 )
 
-        def build_outline_item_tree(item: HistoryItem):
+        def build_outline_item_tree(
+            item: HistoryItem,
+        ) -> LearnOutlineItemInfoDTO | None:
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
                 (i for i in outline_items_dbs if i.id == item.id), None
             )
@@ -814,7 +816,7 @@ def _resolve_shifu_tts_settings(
     *,
     shifu_bid: str,
     preview_mode: bool,
-):
+) -> tuple[object, object, object, object]:
     shifu_model = DraftShifu if preview_mode else PublishedShifu
     shifu = (
         shifu_model.query.filter(
@@ -871,7 +873,7 @@ def _yield_tts_segments(
     tts_model: str,
     voice_settings,
     audio_settings,
-):
+) -> Iterator[tuple[str, str, int, object, int, int, int]]:
     provider_name = (provider or "").strip().lower()
     if not provider_name:
         error_message = "TTS provider is required"
@@ -1002,7 +1004,7 @@ def _yield_with_tts_error_mapping(
     *,
     unknown_error_log: str,
     body,
-):
+) -> Iterator[RunMarkdownFlowDTO]:
     try:
         yield from body()
     except ValueError as exc:
@@ -1151,7 +1153,7 @@ def _yield_tts_synthesis(
     outline_bid: str,
     unknown_error_log: str,
     body,
-):
+) -> Iterator[RunMarkdownFlowDTO]:
     """Run a TTS synthesis body under a per-(user, outline) concurrency slot.
 
     Cache-hit paths never reach here, so they do not consume a slot. When the
@@ -1194,7 +1196,7 @@ def _record_stream_segment_usage(
     parent_usage_bid: str,
     segment_index: int,
     usage_metadata: dict,
-):
+) -> None:
     segment_length = len(segment_text or "")
     output_chars = resolve_tts_billable_chars(segment_text, usage_characters)
     record_tts_usage(
@@ -1231,7 +1233,7 @@ def _record_stream_summary_usage(
     duration_ms: int,
     segment_count: int,
     usage_metadata: dict,
-):
+) -> None:
     raw_length = len(raw_text or "")
     cleaned_length = len(cleaned_text or "")
     output_chars = total_output_chars or cleaned_length
@@ -1446,7 +1448,7 @@ def _yield_stream_tts_audio_segments(
     stats: dict,
     position: int | None = None,
     av_contract: dict | None = None,
-):
+) -> Iterator[RunMarkdownFlowDTO]:
     for (
         index,
         audio_data,
@@ -1521,7 +1523,7 @@ def _yield_run_tts_audio_events(
     position: int | None = None,
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
-):
+) -> Iterator[RunMarkdownFlowDTO]:
     from flaskr.common.config import get_config
 
     max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS") or 300
@@ -1596,7 +1598,7 @@ def stream_generated_block_audio(
             )
         )
 
-        def _resolve_existing_single_block_audio():
+        def _resolve_existing_single_block_audio() -> object:
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
                     LearnGeneratedAudio.generated_block_bid == generated_block_bid,
@@ -1623,7 +1625,9 @@ def stream_generated_block_audio(
                 None,
             )
 
-        def _yield_existing_single_block_audio(existing_audio: LearnGeneratedAudio):
+        def _yield_existing_single_block_audio(
+            existing_audio: LearnGeneratedAudio,
+        ) -> Iterator[RunMarkdownFlowDTO]:
             yield _build_audio_complete_message(
                 outline_bid=generated_block.outline_item_bid or "",
                 generated_block_bid=generated_block_bid,
@@ -1639,7 +1643,7 @@ def stream_generated_block_audio(
                 yield from _yield_existing_single_block_audio(existing_audio)
                 return
 
-        def _yield_single_block_audio():
+        def _yield_single_block_audio() -> Iterator[RunMarkdownFlowDTO]:
             cleaned_text = preprocess_for_tts(raw_text)
             if not cleaned_text or len(cleaned_text.strip()) < 2:
                 raise_error_with_args(
@@ -1647,7 +1651,7 @@ def stream_generated_block_audio(
                     param_message="No speakable text available for TTS synthesis",
                 )
 
-            def _generate_single_audio():
+            def _generate_single_audio() -> Iterator[RunMarkdownFlowDTO]:
                 yield from _yield_run_tts_audio_events(
                     app=app,
                     text=raw_text,
@@ -1668,7 +1672,7 @@ def stream_generated_block_audio(
                 body=_generate_single_audio,
             )
 
-        def _yield_preview_single_block_audio():
+        def _yield_preview_single_block_audio() -> Iterator[RunMarkdownFlowDTO]:
             cleaned_text = preprocess_for_tts(raw_text)
             if not cleaned_text or len(cleaned_text.strip()) < 2:
                 raise_error_with_args(
@@ -1695,7 +1699,7 @@ def stream_generated_block_audio(
             audio_parts: list[bytes] = []
             subtitle_cues: list[dict] = []
 
-            def _generate_preview_audio():
+            def _generate_preview_audio() -> Iterator[RunMarkdownFlowDTO]:
                 yield from _yield_stream_tts_audio_segments(
                     app=app,
                     text=raw_text,
@@ -1808,7 +1812,7 @@ def stream_generated_block_audio(
                     )
                     return
 
-                def _generate_legacy_audio():
+                def _generate_legacy_audio() -> Iterator[RunMarkdownFlowDTO]:
                     yield from _yield_run_tts_audio_events(
                         app=app,
                         text=raw_text,
@@ -1901,7 +1905,7 @@ def stream_generated_block_audio(
                 )
                 return
 
-            def _generate_av_audio():
+            def _generate_av_audio() -> Iterator[RunMarkdownFlowDTO]:
                 for position, element in enumerate(speakable_elements):
                     speakable_text = str(element.content_text or "")
                     # Skip before the cache lookup so historical records for
@@ -2001,7 +2005,7 @@ def stream_preview_tts_audio(
         audio_parts: list[bytes] = []
         subtitle_cues: list[dict] = []
 
-        def _generate_preview_audio():
+        def _generate_preview_audio() -> Iterator[RunMarkdownFlowDTO]:
             yield from _yield_stream_tts_audio_segments(
                 app=app,
                 text=text or "",

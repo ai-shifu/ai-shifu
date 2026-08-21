@@ -90,7 +90,7 @@ def test_invalidate_session_uses_fake_sessions_directly() -> None:
     calls = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self) -> None:
             calls.append(1)
 
     assert invalidate_session(source="test fake", session=_Fake()) is True
@@ -101,10 +101,10 @@ def test_cleanup_rolls_back_on_server_delivered_errors() -> None:
     events = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self) -> None:
             events.append("invalidate")
 
-        def rollback(self):
+        def rollback(self) -> None:
             events.append("rollback")
 
     outcome = cleanup_session_after(ValueError("business"), source="t", session=_Fake())
@@ -116,10 +116,10 @@ def test_cleanup_invalidates_on_interrupting_terminations() -> None:
     events = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self) -> None:
             events.append("invalidate")
 
-        def rollback(self):
+        def rollback(self) -> None:
             events.append("rollback")
 
     outcome = cleanup_session_after(GeneratorExit(), source="t", session=_Fake())
@@ -131,10 +131,10 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails() -> None:
     events = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self) -> None:
             events.append("invalidate")
 
-        def rollback(self):
+        def rollback(self) -> Never:
             events.append("rollback")
             message = "rollback broke"
             raise RuntimeError(message)
@@ -156,7 +156,7 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch) -> N
     )
     original_remove = db.session.remove
 
-    def _tracking_remove():
+    def _tracking_remove() -> object:
         order.append("remove")
         return original_remove()
 

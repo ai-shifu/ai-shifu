@@ -15,7 +15,7 @@ import flaskr.service.billing.serializers as billing_serializers_module
 import flaskr.service.billing.wallets as billing_wallets_module
 import flaskr.service.common.contact_identifiers as contact_identifiers_module
 import pytest
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flaskr import dao
 from flaskr.i18n import _translations, load_translations, set_language
 from flaskr.service.billing.campaigns import (
@@ -154,7 +154,7 @@ def admin_billing_client(monkeypatch) -> Iterator[dict[str, object]]:
     load_translations(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> Response:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -1289,7 +1289,9 @@ class TestAdminBillingRoutes:
             _resolve_existing_target,
         )
 
-        def _save_branding(_app, creator_bid, payload, **kwargs: object):
+        def _save_branding(
+            _app, creator_bid, payload, **kwargs: object
+        ) -> dict[str, object | None]:
             captured["creator_bid"] = creator_bid
             captured["payload"] = payload
             captured["kwargs"] = kwargs

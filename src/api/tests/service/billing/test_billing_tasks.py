@@ -111,7 +111,7 @@ def test_settle_usage_task_calls_settlement_engine(
 
     captured: dict[str, object] = {}
 
-    def _fake_settle_bill_usage(app, *, usage_bid: str = ""):
+    def _fake_settle_bill_usage(app, *, usage_bid: str = "") -> dict[str, str]:
         captured["app"] = app
         captured["usage_bid"] = usage_bid
         return {
@@ -170,7 +170,7 @@ def test_aggregate_daily_usage_metrics_task_calls_helper(
         stat_date: str = "",
         creator_bid: str = "",
         finalize: bool = False,
-    ):
+    ) -> dict[str, str | bool | None]:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -217,7 +217,7 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
         stat_date: str = "",
         creator_bid: str = "",
         finalize: bool = False,
-    ):
+    ) -> dict[str, str | bool | None]:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -266,7 +266,7 @@ def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
         *,
         stat_date: str = "",
         creator_bid: str = "",
-    ):
+    ) -> dict[str, str | bool | None]:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -307,7 +307,7 @@ def test_finalize_daily_ledger_summary_task_accepts_explicit_stat_date(
         *,
         stat_date: str = "",
         creator_bid: str = "",
-    ):
+    ) -> dict[str, str | bool | None]:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -352,7 +352,7 @@ def test_rebuild_daily_aggregates_task_calls_helper(
         shifu_bid: str = "",
         date_from: str = "",
         date_to: str = "",
-    ):
+    ) -> dict[str, str | None]:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["shifu_bid"] = shifu_bid
@@ -404,7 +404,7 @@ def test_verify_domain_binding_task_calls_helper(
         domain_binding_bid: str = "",
         host: str = "",
         verification_token: str = "",
-    ):
+    ) -> dict[str, str | dict[str, str | None] | None]:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["domain_binding_bid"] = domain_binding_bid
@@ -460,7 +460,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._events = events
             self._second_attempted = second_attempted
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(self, blocking: bool = True, blocking_timeout=None) -> object:
             self._events.append(
                 {
                     "type": "attempt",
@@ -510,7 +510,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self.events: list[dict[str, object]] = []
             self.second_attempted = threading.Event()
 
-        def lock(self, key: str, timeout=None, blocking_timeout=None):
+        def lock(self, key: str, timeout=None, blocking_timeout=None) -> object:
             del timeout, blocking_timeout
             with self._guard:
                 raw_lock = self._locks.setdefault(key, threading.Lock())
@@ -536,7 +536,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 
     original_build_usage_metric_charges = settlement_module.build_usage_metric_charges
 
-    def _blocking_build_usage_metric_charges(*args: object, **kwargs: object):
+    def _blocking_build_usage_metric_charges(*args: object, **kwargs: object) -> object:
         usage = args[0]
         if usage.usage_bid == "usage-concurrent-1":
             entered_first_charge.set()
@@ -760,7 +760,7 @@ def test_replay_usage_settlement_task_calls_replay_helper(
         creator_bid: str = "",
         usage_bid: str = "",
         usage_id=None,
-    ):
+    ) -> dict[str, str | bool]:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["usage_bid"] = usage_bid
@@ -801,7 +801,9 @@ def test_expire_wallet_buckets_task_calls_wallet_helper(
 
     captured: dict[str, object] = {}
 
-    def _fake_expire_credit_wallet_buckets(app, *, creator_bid="", expire_before=None):
+    def _fake_expire_credit_wallet_buckets(
+        app, *, creator_bid="", expire_before=None
+    ) -> dict[str, str | int]:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["expire_before"] = expire_before
@@ -856,7 +858,9 @@ def test_expire_pending_orders_task_delegates_to_sync_flow(
 
     captured: dict[str, object] = {}
 
-    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+    def _fake_sync_billing_order(
+        app, creator_bid: str, bill_order_bid: str, payload
+    ) -> SimpleNamespace:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["bill_order_bid"] = bill_order_bid
@@ -925,7 +929,9 @@ def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
 
     captured: dict[str, object] = {}
 
-    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+    def _fake_sync_billing_order(
+        app, creator_bid: str, bill_order_bid: str, payload
+    ) -> SimpleNamespace:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["bill_order_bid"] = bill_order_bid
@@ -1051,7 +1057,7 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
             events.append(("release", self._key))
 
     class _RecordingCache:
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(self, key, timeout=None, blocking_timeout=None) -> object:
             _ = (timeout, blocking_timeout)
             return _RecordingLock(key)
 
@@ -1111,7 +1117,7 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
         provider_reference_id="",
         bill_order_bid="",
         session_id="",
-    ):
+    ) -> dict[str, object]:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["payment_provider"] = payment_provider
@@ -1194,7 +1200,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
 
     called = {"apply_async": 0}
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs=None, **options: object) -> None:
         del kwargs, options
         called["apply_async"] += 1
 
@@ -1336,7 +1342,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs=None, **options: object) -> None:
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1427,7 +1433,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs=None, **options: object) -> None:
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1505,7 +1511,7 @@ def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs=None, **options: object) -> None:
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1621,7 +1627,7 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
         provider_reference_id="",
         bill_order_bid="",
         session_id="",
-    ):
+    ) -> dict[str, object]:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["payment_provider"] = payment_provider

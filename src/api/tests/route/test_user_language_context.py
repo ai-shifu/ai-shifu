@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import flaskr.route.user as user_route
 from flask import Flask, jsonify
+from flask.typing import ResponseReturnValue
 from flaskr.i18n import clear_language, get_current_language
 from flaskr.route.user import register_user_handler
 
@@ -21,7 +22,7 @@ def test_authenticated_request_prefers_accept_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language")
-    def runtime_language():
+    def runtime_language() -> ResponseReturnValue:
         return jsonify({"language": get_current_language()})
 
     try:
@@ -48,7 +49,7 @@ def test_authenticated_request_normalizes_accept_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language")
-    def runtime_language():
+    def runtime_language() -> ResponseReturnValue:
         return jsonify({"language": get_current_language()})
 
     try:
@@ -75,7 +76,7 @@ def test_authenticated_request_reads_json_payload_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language", methods=["POST"])
-    def runtime_language():
+    def runtime_language() -> ResponseReturnValue:
         return jsonify({"language": get_current_language()})
 
     try:

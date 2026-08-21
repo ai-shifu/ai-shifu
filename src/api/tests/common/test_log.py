@@ -1,13 +1,14 @@
 """Verify Feishu logging failure isolation and payload limits."""
 
 import logging
+from typing import Never
 
 import requests
 from flaskr.common.log import FeishuLogHandler
 
 
 class _FailingResponse:
-    def raise_for_status(self):
+    def raise_for_status(self) -> Never:
         message = "400 Client Error"
         raise requests.exceptions.HTTPError(message)
 
@@ -15,7 +16,7 @@ class _FailingResponse:
 def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch) -> None:
     calls = []
 
-    def fake_post(*args: object, **kwargs: object):
+    def fake_post(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
         return _FailingResponse()
 
@@ -43,7 +44,7 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
 ) -> None:
     calls = []
 
-    def fake_post(*args: object, **kwargs: object):
+    def fake_post(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
         return _FailingResponse()
 
@@ -71,7 +72,7 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
 def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch) -> None:
     calls = []
 
-    def fake_post(*args: object, **kwargs: object):
+    def fake_post(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
         return type("Response", (), {"raise_for_status": lambda _self: None})()
 
@@ -99,7 +100,7 @@ def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch) -> 
 def test_feishu_log_handler_truncates_oversized_payload(monkeypatch) -> None:
     captured = {}
 
-    def fake_post(_url, *, json, timeout):
+    def fake_post(_url, *, json, timeout) -> object:
         captured["payload"] = json
         captured["timeout"] = timeout
         return type("Response", (), {"raise_for_status": lambda _self: None})()

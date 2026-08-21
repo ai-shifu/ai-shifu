@@ -1,6 +1,7 @@
 """Expose HTTP routes for LLM routing."""
 
 from flask import Flask
+from flask.typing import ResponseReturnValue
 from flaskr.api.llm import get_current_models
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
@@ -12,7 +13,7 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm") -> Flask:
     app.logger.info("register llm routes %s", path_prefix)
 
     @app.route(path_prefix + "/model-list", methods=["GET"])
-    def model_list_api():
+    def model_list_api() -> ResponseReturnValue:
         """Get model list.
 
         ---

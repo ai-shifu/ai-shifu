@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Never
 
 from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE
@@ -185,7 +186,7 @@ def _mock_volcengine_status(monkeypatch, status: int) -> None:
 
 
 def _forbid_minimax_synthesis(monkeypatch) -> None:
-    def _fail(*_args: object, **_kwargs: object):
+    def _fail(*_args: object, **_kwargs: object) -> Never:
         message = "synthesize_text must not be called for volcengine"
         raise AssertionError(message)
 

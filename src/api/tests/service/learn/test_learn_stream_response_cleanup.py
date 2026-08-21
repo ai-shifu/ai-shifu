@@ -7,6 +7,8 @@ The helpers must invalidate the session BEFORE the finally-remove would
 otherwise roll back on a possibly desynced connection.
 """
 
+from collections.abc import Iterator
+
 import pytest
 from flaskr.service.learn import routes as learn_routes
 from sqlalchemy.exc import ResourceClosedError
@@ -28,7 +30,7 @@ def invalidations(monkeypatch) -> list[str]:
     return calls
 
 
-def _iter_stream(app, helper, iter_factory):
+def _iter_stream(app, helper, iter_factory) -> object:
     with app.test_request_context("/"):
         response = helper(
             app,
@@ -40,7 +42,7 @@ def _iter_stream(app, helper, iter_factory):
 
 
 def test_sse_close_invalidates_session(app, invalidations) -> None:
-    def factory():
+    def factory() -> Iterator[dict[str, str]]:
         yield {"type": "chunk"}
         yield {"type": "chunk2"}
 
@@ -59,7 +61,7 @@ def test_sse_close_invalidates_session(app, invalidations) -> None:
 
 
 def test_sse_protocol_error_invalidates_session(app, invalidations) -> None:
-    def factory():
+    def factory() -> Iterator[dict[str, str]]:
         yield {"type": "chunk"}
         message = "desynced"
         raise ResourceClosedError(message)
@@ -80,7 +82,7 @@ def test_sse_protocol_error_invalidates_session(app, invalidations) -> None:
 
 
 def test_sse_business_error_does_not_invalidate(app, invalidations) -> None:
-    def factory():
+    def factory() -> Iterator[dict[str, str]]:
         yield {"type": "chunk"}
         message = "business"
         raise ValueError(message)
@@ -101,7 +103,7 @@ def test_sse_business_error_does_not_invalidate(app, invalidations) -> None:
 
 
 def test_passthrough_close_invalidates_session(app, invalidations) -> None:
-    def factory():
+    def factory() -> Iterator[str]:
         yield "data: 1\n\n"
         yield "data: 2\n\n"
 
@@ -120,7 +122,7 @@ def test_passthrough_close_invalidates_session(app, invalidations) -> None:
 
 
 def test_passthrough_close_disguised_as_runtime_error(app, invalidations) -> None:
-    def factory():
+    def factory() -> Iterator[str]:
         yield "data: 1\n\n"
         message = "generator ignored GeneratorExit"
         raise RuntimeError(message)
@@ -141,7 +143,7 @@ def test_passthrough_close_disguised_as_runtime_error(app, invalidations) -> Non
 
 
 def test_passthrough_normal_exhaustion_does_not_invalidate(app, invalidations) -> None:
-    def factory():
+    def factory() -> Iterator[str]:
         yield "data: 1\n\n"
 
     with app.test_request_context("/"):

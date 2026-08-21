@@ -37,6 +37,8 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from flask import Flask
 
 _RATE_METRICS = {
@@ -66,7 +68,7 @@ _CREDITS_PER_UNIT_MAX = Decimal("9999999999.9999999999")
 _ActiveRateIndex = dict[tuple[int, int, str, str], CreditUsageRate]
 
 
-def _rate_effective_now():
+def _rate_effective_now() -> datetime:
     # MySQL DATETIME columns in this schema do not keep fractional seconds.
     # Truncate before writing so a just-saved rate is immediately readable and
     # repeated saves in one second hit the same deterministic version.

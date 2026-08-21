@@ -22,10 +22,10 @@ class _FakePyMySQLConnection:
         self.closed = False
 
     # QueuePool reset/close hooks
-    def rollback(self):
+    def rollback(self) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
         self._sock.close()
 
@@ -73,7 +73,7 @@ def test_pool_discards_connection_desynced_during_use(sock_pair) -> None:
     ]
     made = []
 
-    def _creator():
+    def _creator() -> object:
         conn = connections[len(made) % len(connections)]
         made.append(conn)
         return conn
@@ -106,7 +106,7 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair) -> Non
     connections = [dirty_conn, _FakePyMySQLConnection(clean_sock_a)]
     made = []
 
-    def _creator():
+    def _creator() -> object:
         conn = connections[len(made) % len(connections)]
         made.append(conn)
         return conn
@@ -145,7 +145,7 @@ def test_probe_timeout_waits_for_in_flight_data(sock_pair) -> None:
     # Zero-timeout probe sees nothing yet.
     assert dao._socket_has_unread_data(conn) is False
 
-    def _late_send():
+    def _late_send() -> None:
         time_module.sleep(0.001)
         right.sendall(b"\x05late-owed-response")
 
@@ -176,7 +176,7 @@ class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
         super().__init__(sock)
         self.pings = 0
 
-    def ping(self, reconnect):
+    def ping(self, reconnect) -> None:
         _ = reconnect
         self.pings += 1
 

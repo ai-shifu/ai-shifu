@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
@@ -80,7 +80,7 @@ def trial_billing_client(monkeypatch) -> FlaskClient:
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> Response:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

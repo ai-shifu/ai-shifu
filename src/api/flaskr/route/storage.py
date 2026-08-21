@@ -13,6 +13,8 @@ from flaskr.service.common.storage import get_local_storage_path
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from flask.typing import ResponseReturnValue
+
 
 def _guess_mimetype(path: Path) -> str:
     guessed, _encoding = mimetypes.guess_type(path.name)
@@ -46,7 +48,7 @@ def register_storage_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/storage/<profile>/<path:object_key>", methods=["GET"])
     @bypass_token_validation
-    def serve_local_storage(profile: str, object_key: str):
+    def serve_local_storage(profile: str, object_key: str) -> ResponseReturnValue:
         try:
             file_path = get_local_storage_path(profile, object_key)
         except ValueError:

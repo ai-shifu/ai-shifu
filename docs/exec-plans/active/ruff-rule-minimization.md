@@ -783,6 +783,38 @@ plan's progress update for that rule.
   harness, architecture boundary ratchet, configured Ruff and format, pinned
   Ruff 0.16.3 development-tool validation, and every repository pre-commit
   hook across all files.
+- [x] 2026-08-21 16:00 CST: Ready ANN201 PR
+  [#2615](https://github.com/ai-shifu/ai-shifu/pull/2615) passed every GitHub
+  check, including the 3,032-test backend job and runtime harness. Selected
+  ANN202 next because it extends the same reviewed return-contract policy to
+  private callables without changing executable behavior.
+- [x] 2026-08-21 16:28 CST: Enabled ANN202 across every mutable private
+  callable. Ruff supplied 413 retained fixes after restoring its one edit to
+  applied migration history; 1,096 manually reviewed boundaries received
+  concrete route, iterator, DTO, model, collection, protocol, or deliberately
+  heterogeneous `object` contracts. No new return annotation uses `Any`.
+- [x] 2026-08-21 16:28 CST: Retained one exact migration-history exception for
+  the private `_set_server_default` helper and made no change under
+  `src/api/migrations/versions/`. A semantic audit found exactly 1,509 added
+  return annotations and 186 annotation-only import aliases across 276
+  annotated Python files. After removing that type scaffolding and normalizing
+  four expected source-signature literals in one additional contract test, all
+  277 changed Python files have identical executable ASTs. Configured ANN202
+  and repository Ruff pass.
+- [x] 2026-08-21 16:28 CST: The stable census falls from 20,845 to 19,430:
+  configured ANN202 falls from 1,510 findings to zero, while formatter-owned
+  COM812 rises by 94 and E501 by one because concrete return types expand
+  signatures. The isolated census falls from 34,977 to 33,563 and exposes
+  exactly the one immutable migration helper; no enforced rule gains debt.
+- [x] 2026-08-21 16:32 CST: Updated one source-contract test to recognize the
+  new `ResponseReturnValue` route-local signatures; its three focused tests
+  pass. The complete backend suite passes 3,032 tests with 17 skips and 733
+  existing warnings.
+- [x] 2026-08-21 16:34 CST: Regenerated collaboration mirrors and repository
+  knowledge, then passed translation validation, the repository harness,
+  architecture boundary ratchet, configured Ruff and format, pinned Ruff
+  0.16.3 development-tool validation, and every repository pre-commit hook
+  across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1012,6 +1044,16 @@ plan's progress update for that rule.
   exception. Prove the final edit preserves executable ASTs after removing
   annotations and type-only import scaffolding, then run the complete backend
   suite to catch runtime annotation and import consumers.
+- 2026-08-21: ANN202 follows the same observable-contract policy for private
+  callables; private visibility is not permission to use an uncertain type.
+  Route-local views use `ResponseReturnValue`, generators and yielding fixtures
+  use iterator protocols, and private adapters or query builders use concrete
+  stable types. Reserve `object` for dynamic SDK, ORM, decorator, and test-
+  double boundaries, never use `Any` to move debt to ANN401, and audit local or
+  forward types for runtime annotation evaluation. Applied migration helpers
+  remain an exact immutable-history exception. Review Ruff's unsafe fix,
+  preserve executable AST equality after removing annotation scaffolding, and
+  run the complete backend suite for import and annotation consumers.
 
 ## Outcomes & Retrospective
 
@@ -1308,6 +1350,22 @@ isolated census falls to 34,977 with exactly the 102 documented hooks exposed.
 The complete backend suite passes 3,032 tests with 17 skips, and all repository
 harness, architecture, Ruff, format, development-tool, and pre-commit gates
 pass.
+
+The ANN202 stage extends that contract to all 1,509 mutable private production,
+tool, and test callables across 276 Python files. Concrete return, route,
+generator, fixture, protocol, and model types are preferred; only genuinely
+dynamic SDK, ORM, decorator, and test-double boundaries use `object`, and no
+new `Any` return is introduced. The exact applied-migration exception retains
+one immutable private helper without editing migration history. A semantic
+audit strips the new return annotations and 186 type-only import aliases and
+normalizes four expected signature literals in one source-contract test, then
+matches all 277 changed Python-file ASTs to the ANN201 parent. Configured
+ANN202 falls from 1,510 findings to zero, the stable census falls to 19,430,
+and the isolated census falls to 33,563 with exactly the documented migration
+helper exposed. The synchronized source-contract test passes three focused
+tests, and the complete backend suite passes 3,032 tests with 17 skips.
+Generated collaboration guidance, repository knowledge, translation,
+architecture, Ruff, format, development-tool, and pre-commit gates all pass.
 
 ## Context and Orientation
 

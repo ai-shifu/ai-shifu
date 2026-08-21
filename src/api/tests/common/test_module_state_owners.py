@@ -31,7 +31,7 @@ def test_redis_initialization_updates_the_owned_client(monkeypatch) -> None:
     sentinel = object()
     captured: dict[str, object] = {}
 
-    def fake_redis(**kwargs: object):
+    def fake_redis(**kwargs: object) -> object:
         captured.update(kwargs)
         return sentinel
 

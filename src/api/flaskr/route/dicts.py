@@ -1,6 +1,7 @@
 """Expose dicts HTTP routes."""
 
 from flask import Flask
+from flask.typing import ResponseReturnValue
 
 from flaskr.api.llm import get_current_models
 from flaskr.service.common.dicts import get_all_dicts
@@ -13,7 +14,7 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/dicts", methods=["GET"])
     @bypass_token_validation
-    def get_dicts():
+    def get_dicts() -> ResponseReturnValue:
         """Get all dictionaries.
 
         ---
@@ -24,7 +25,7 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/models", methods=["GET"])
     @bypass_token_validation
-    def get_models():
+    def get_models() -> ResponseReturnValue:
         """Get all models.
 
         ---

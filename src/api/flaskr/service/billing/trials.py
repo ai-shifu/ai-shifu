@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -61,7 +61,7 @@ _ACTIVE_SUBSCRIPTION_STATUSES = (
 _TRIAL_WELCOME_ACK_KEY = "welcome_trial_dialog_acknowledged_at"
 
 
-def _maybe_app_context(app: Flask):
+def _maybe_app_context(app: Flask) -> AbstractContextManager[object]:
     return nullcontext() if has_app_context() else app.app_context()
 
 

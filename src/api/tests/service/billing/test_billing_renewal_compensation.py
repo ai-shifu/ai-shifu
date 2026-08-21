@@ -58,7 +58,9 @@ def billing_renewal_compensation_env(
     sync_state: dict[str, dict] = {"subscription": {}}
 
     class FakeStripeProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "subscription"
             assert provider_reference == sync_state["subscription"]["id"]

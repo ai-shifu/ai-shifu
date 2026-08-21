@@ -1,5 +1,7 @@
 """Verify listen element run persistence behavior."""
 
+from typing import Never
+
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn import listen_element_run_persistence
@@ -14,7 +16,7 @@ def _make_row(
     target_element_bid: str = "",
     run_event_seq: int,
     status: int = 1,
-):
+) -> LearnGeneratedElement:
     return LearnGeneratedElement(
         element_bid=element_bid,
         target_element_bid=target_element_bid,
@@ -109,31 +111,31 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
     app, monkeypatch
 ) -> None:
     class _DesyncedResult:
-        def fetchall(self):
+        def fetchall(self) -> Never:
             message = (
                 "This result object does not return rows. "
                 "It has been closed automatically."
             )
             raise ResourceClosedError(message)
 
-        def close(self):
+        def close(self) -> None:
             pass
 
     class _FakeConnection:
         def __init__(self) -> None:
             self.invalidated = 0
 
-        def execute(self, *_args: object, **_kwargs: object):
+        def execute(self, *_args: object, **_kwargs: object) -> object:
             return _DesyncedResult()
 
-        def invalidate(self):
+        def invalidate(self) -> None:
             self.invalidated += 1
 
     class _FakeSession:
         def __init__(self, connection) -> None:
             self._connection = connection
 
-        def connection(self):
+        def connection(self) -> object:
             return self._connection
 
     fake_connection = _FakeConnection()
@@ -238,7 +240,7 @@ def test_desync_forensics_capture_fingerprints_the_stale_response() -> None:
         _result = _FakePrevResult()
         _sock = None
 
-        def thread_id(self):
+        def thread_id(self) -> int:
             return 555001
 
     class _FakeConnection:
@@ -287,7 +289,7 @@ def test_desync_forensics_logs_only_packet_header_not_payload() -> None:
             _result = None
             _sock = left
 
-            def thread_id(self):
+            def thread_id(self) -> int:
                 return 1
 
         class _FakeConnection:

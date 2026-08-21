@@ -113,7 +113,7 @@ def _seed_published_course(shifu_bid: str, creator_user_bid: str) -> None:
     db.session.flush()
 
 
-def _mock_operator(monkeypatch, user_id: str = "operator-1"):
+def _mock_operator(monkeypatch, user_id: str = "operator-1") -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_operator=True,

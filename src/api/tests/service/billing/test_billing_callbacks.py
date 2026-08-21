@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 import pytest
 from flask import Flask
@@ -606,7 +606,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app, monkeypatch
     ) -> None:
         class FakeAlipayProvider:
-            def handle_notification(self, *, payload, app):
+            def handle_notification(self, *, payload, app) -> PaymentNotificationResult:
                 _ = (payload, app)
                 return _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS")
 
@@ -796,7 +796,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app, monkeypatch
     ) -> None:
         class FakeAlipayProvider:
-            def handle_notification(self, *, payload, app):
+            def handle_notification(self, *, payload, app) -> PaymentNotificationResult:
                 _ = (payload, app)
                 return _alipay_notification("missing-native-order", "TRADE_SUCCESS")
 
@@ -822,7 +822,9 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app, monkeypatch
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers, raw_body, app):
+            def verify_webhook(
+                self, *, headers, raw_body, app
+            ) -> PaymentNotificationResult:
                 _ = (headers, raw_body, app)
                 return _wechatpay_notification("legacy-wechatpay-attempt-1", "SUCCESS")
 
@@ -888,7 +890,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app, monkeypatch
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers, raw_body, app):
+            def verify_webhook(self, *, headers, raw_body, app) -> Never:
                 _ = (headers, raw_body, app)
                 message = "secret verification detail"
                 raise RuntimeError(message)

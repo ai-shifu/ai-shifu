@@ -30,7 +30,7 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
     from datetime import datetime
 
 
@@ -56,7 +56,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_creator_analytics_tables(app):
+def _isolate_creator_analytics_tables(app) -> Iterator[None]:
     if app is None:
         yield
         return

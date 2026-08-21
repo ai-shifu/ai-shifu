@@ -1,5 +1,7 @@
 """Verify TTS rate-limit queues isolate credentials and models."""
 
+from collections.abc import Callable, Iterator
+
 import pytest
 from flaskr.service.tts import rpm_gate
 
@@ -8,11 +10,11 @@ class _FakeRedisLock:
     def __init__(self) -> None:
         self.released = False
 
-    def acquire(self, blocking=True, blocking_timeout=None):
+    def acquire(self, blocking=True, blocking_timeout=None) -> bool:
         _ = blocking, blocking_timeout
         return True
 
-    def release(self):
+    def release(self) -> None:
         self.released = True
 
 
@@ -21,35 +23,35 @@ class _FakeRedis:
         self.values = {}
         self.locks = []
 
-    def get(self, key):
+    def get(self, key) -> object:
         return self.values.get(key)
 
-    def set(self, key, value, ex=None):
+    def set(self, key, value, ex=None) -> bool:
         _ = ex
         self.values[key] = str(value).encode("utf-8")
         return True
 
-    def lock(self, key, timeout=None, blocking_timeout=None):
+    def lock(self, key, timeout=None, blocking_timeout=None) -> object:
         _ = key, timeout, blocking_timeout
         lock = _FakeRedisLock()
         self.locks.append(lock)
         return lock
 
 
-def _clock(start=1000.0):
+def _clock(start=1000.0) -> tuple[Callable[..., object], Callable[..., object]]:
     now = {"value": float(start)}
 
-    def now_fn():
+    def now_fn() -> object:
         return now["value"]
 
-    def sleep_fn(seconds):
+    def sleep_fn(seconds) -> None:
         now["value"] += seconds
 
     return now_fn, sleep_fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_gate_state():
+def _reset_gate_state() -> Iterator[None]:
     rpm_gate._LOCAL_STATE.clear()
     rpm_gate._FALLBACK_WARNING_KEYS.clear()
     yield

@@ -1,6 +1,6 @@
 """Verify content-risk providers honor configuration and timeouts."""
 
-from typing import Self
+from typing import Never, Self
 
 import pytest
 
@@ -22,13 +22,13 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch) -> None:
     captured = {}
 
     class _Resp:
-        def json(self):
+        def json(self) -> dict[str, int | dict[str, dict[str, int]]]:
             return {
                 "code": 200,
                 "result": {"antispam": {"suggestion": 0, "label": 100}},
             }
 
-    def fake_post(url, data=None, headers=None, timeout=None):
+    def fake_post(url, data=None, headers=None, timeout=None) -> object:
         _ = (data, headers)
         captured["url"] = url
         captured["timeout"] = timeout
@@ -53,7 +53,7 @@ def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch) -> None:
 
     from flaskr.api.check import ilivedata as ilivedata_module
 
-    def fake_urlopen(*_args: object, **_kwargs: object):
+    def fake_urlopen(*_args: object, **_kwargs: object) -> Never:
         message = "timed out"
         raise TimeoutError(message)
 
@@ -76,10 +76,10 @@ def test_ilivedata_check_uses_configured_timeout(app, monkeypatch) -> None:
         def __exit__(self, exc_type, exc, tb) -> bool | None:
             captured["closed"] = True
 
-        def read(self):
+        def read(self) -> bytes:
             return b'{"errorCode":0,"textSpam":{"result":0,"tags":[]}}'
 
-    def fake_urlopen(req, timeout=None):
+    def fake_urlopen(req, timeout=None) -> object:
         captured["host"] = req.full_url
         captured["timeout"] = timeout
         return _Resp()

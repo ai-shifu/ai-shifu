@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Never
 
 import pytest
 from flaskr.dao import db
@@ -44,10 +45,10 @@ def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
 
 
 class _FakeRedis:
-    def get(self, _key):
+    def get(self, _key) -> None:
         return None
 
-    def delete(self, *_keys: str):
+    def delete(self, *_keys: str) -> None:
         return None
 
 
@@ -55,10 +56,10 @@ class _FakeGoogleResponse:
     def __init__(self, payload) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def json(self):
+    def json(self) -> dict[str, object]:
         return self._payload
 
 
@@ -66,10 +67,10 @@ class _FakeGoogleSession:
     def __init__(self, profile) -> None:
         self._profile = profile
 
-    def fetch_token(self, *_args: object, **_kwargs: object):
+    def fetch_token(self, *_args: object, **_kwargs: object) -> dict[str, str]:
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args: object, **_kwargs: object):
+    def get(self, *_args: object, **_kwargs: object) -> object:
         return _FakeGoogleResponse(self._profile)
 
 
@@ -580,7 +581,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app) -> None:
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
-        def merge_then_fail():
+        def merge_then_fail() -> Never:
             with transactional_session():
                 merge_learner_profile_for_sign_in(
                     source_user_id=source.user_bid,
@@ -618,7 +619,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(
         original_first = query_type.first
         read_order: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query):
+        def track_first(query) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             user_bid = str(parameters.get("user_bid_1", ""))

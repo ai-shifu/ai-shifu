@@ -7,6 +7,8 @@ SQL build → SQLite engine. The token middleware is bypassed by mocking
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from flaskr.service.creator_analytics import engine as analytics_engine
 
@@ -20,18 +22,23 @@ from .conftest import (
     seed_user_info,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from werkzeug.test import TestResponse
+
 ENDPOINT = "/api/creator-analytics/query"
 
 
 @pytest.fixture(autouse=True)
-def _reset_analytics_engine_singleton():
+def _reset_analytics_engine_singleton() -> Iterator[None]:
     """Ensure each test starts with the cached fallback engine cleared."""
     analytics_engine.reset_for_tests()
     yield
     analytics_engine.reset_for_tests()
 
 
-def _post(test_client, body):
+def _post(test_client, body) -> TestResponse:
     return test_client.post(ENDPOINT, json=body)
 
 
@@ -701,7 +708,7 @@ def test_dedicated_engine_replacement_disposes_previous_owner(app, monkeypatch) 
 
     created: list[_FakeEngine] = []
 
-    def fake_create_engine(uri, **_kwargs: object):
+    def fake_create_engine(uri, **_kwargs: object) -> object:
         engine = _FakeEngine(uri)
         created.append(engine)
         return engine

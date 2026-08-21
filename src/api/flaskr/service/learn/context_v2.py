@@ -10,7 +10,7 @@ from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from flask import Flask
 from flaskr.api.langfuse import (
@@ -131,6 +131,9 @@ from markdown_flow import (
     replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
+
+if TYPE_CHECKING:
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
 context_local = threading.local()
 
@@ -1750,7 +1753,7 @@ class RunScriptContextV2:
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-    ):
+    ) -> "StreamingTTSProcessor | None":
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
@@ -3361,7 +3364,7 @@ class RunScriptContextV2:
         def _switch_tts_processor(
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ):
+        ) -> None:
             nonlocal \
                 tts_processor, \
                 tts_enabled, \
@@ -3395,7 +3398,7 @@ class RunScriptContextV2:
             chunk_content: str,
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ):
+        ) -> Iterator[RunMarkdownFlowDTO]:
             nonlocal \
                 generated_content, \
                 tts_processor, \
@@ -3448,7 +3451,7 @@ class RunScriptContextV2:
             )
             _disable_all_tts()
 
-        def _drain_current_tts_ready_events():
+        def _drain_current_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
             if not tts_processor:
                 return
             if not hasattr(tts_processor, "drain_ready_segments"):
@@ -3458,7 +3461,7 @@ class RunScriptContextV2:
             except Exception as exc:
                 _handle_current_tts_drain_error(exc)
 
-        def _drain_tts_ready_events():
+        def _drain_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
             yield from tts_finalize_drainer.drain()
             yield from _drain_current_tts_ready_events()
             yield from tts_finalize_drainer.drain()

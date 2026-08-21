@@ -16,7 +16,7 @@ class _FakeSegment:
     def __len__(self) -> int:
         return self.duration_ms
 
-    def append(self, other, crossfade=100):
+    def append(self, other, crossfade=100) -> object:
         _FakeSegment.append_crossfades.append(crossfade)
         if crossfade > len(self):
             message = (
@@ -39,7 +39,7 @@ class _FakeSegment:
             return _FakeSegment(max(stop - start, 0))
         return self
 
-    def export(self, output_io, format="mp3", bitrate="128k"):  # noqa: A002 - mirrors the pydub API
+    def export(self, output_io, format="mp3", bitrate="128k") -> None:  # noqa: A002 - mirrors the pydub API
         _ = (format, bitrate)
         output_io.write(f"duration={self.duration_ms}".encode())
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -26,9 +27,12 @@ from flaskr.service.referral.models import (
     ReferralInviteReward,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture(autouse=True)
-def _isolate_referral_campaign_tables(app):
+def _isolate_referral_campaign_tables(app) -> Iterator[None]:
     with app.app_context():
         db.session.query(ReferralInviteEvent).delete()
         db.session.query(ReferralInviteReward).delete()
@@ -83,7 +87,7 @@ def _seed_plan_product() -> None:
     db.session.commit()
 
 
-def _payload():
+def _payload() -> dict[str, str | bool | int | dict[str, bool]]:
     return {
         "campaign_code": "domestic_creator_invite_202606",
         "campaign_name": "Domestic creator invite",

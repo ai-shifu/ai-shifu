@@ -31,6 +31,7 @@ PR3 scope notes (mirroring the emitter's PR1 conventions):
 """
 
 import queue
+from types import ModuleType
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
@@ -59,7 +60,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _runtime():
+def _runtime() -> ModuleType:
     """Resolve the context_v2 module lazily.
 
     Lazy for two reasons: ``context_v2`` imports this module at load time
@@ -99,7 +100,7 @@ class RunStateResolver:
         return self._context._preview_mode
 
     @property
-    def _outline_model(self):
+    def _outline_model(self) -> object:
         return self._context._outline_model
 
     @property
@@ -107,7 +108,7 @@ class RunStateResolver:
         return self._context._user_info.user_id
 
     @property
-    def _current_outline_item(self):
+    def _current_outline_item(self) -> object:
         return self._context._current_outline_item
 
     @property
@@ -216,7 +217,7 @@ class RunStateResolver:
 
         def _mark_sub_node_completed(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
+        ) -> None:
             q = queue.Queue()
             q.put(self._struct)
             if ctx._is_leaf_outline_item(outline_item_info):
@@ -283,7 +284,7 @@ class RunStateResolver:
 
         def _mark_sub_node_start(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
+        ) -> None:
             path = _find_outline_path_or_raise(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":

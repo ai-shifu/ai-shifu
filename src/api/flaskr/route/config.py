@@ -1,6 +1,7 @@
 """Expose config HTTP routes."""
 
 from flask import Flask, request
+from flask.typing import ResponseReturnValue
 
 from flaskr.common.config import ENV_VARS
 from flaskr.common.public_urls import build_google_oauth_callback_url
@@ -41,7 +42,7 @@ def _to_bool(value, default=False) -> bool:
     return default
 
 
-def _to_list(value, default=None):
+def _to_list(value, default=None) -> list[object]:
     default = default or []
     if value is None:
         return default
@@ -75,7 +76,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_runtime_config():
+    def get_runtime_config() -> ResponseReturnValue:
         # An explicit creator_bid lets surfaces without a shifu in the path
         # (e.g. the /admin backend) fetch a creator's branding. Falls back to
         # the shifu-context creator when absent, so existing callers are

@@ -1,6 +1,7 @@
 """Verify MiniMax HTTP streaming behavior."""
 
 import json
+from collections.abc import Iterator
 from types import SimpleNamespace
 
 import pytest
@@ -13,19 +14,19 @@ class _FakeResponse:
         self._json_payload = json_payload or {}
         self.headers = {"content-type": "text/event-stream"}
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         if self._status_error:
             raise self._status_error
 
-    def iter_lines(self, decode_unicode=True):
+    def iter_lines(self, decode_unicode=True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 
-    def json(self):
+    def json(self) -> object:
         return self._json_payload
 
 
-def _sse_line(payload):
+def _sse_line(payload) -> str:
     return f"data: {json.dumps(payload)}"
 
 
@@ -55,7 +56,7 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch) ->
         lambda **kwargs: gate_calls.append(kwargs),
     )
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url, **kwargs: object) -> object:
         post_calls.append((url, kwargs))
         return _FakeResponse(
             [
@@ -149,7 +150,7 @@ def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch) 
         lambda key: config.get(key, ""),
     )
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url, **kwargs: object) -> object:
         post_calls.append((url, kwargs))
         return _FakeResponse(
             json_payload={
@@ -226,7 +227,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     aggregate_usage_calls = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **kwargs: object):
+        def stream_synthesize(self, **kwargs: object) -> Iterator[SimpleNamespace]:
             calls.append(kwargs["text"])
             yield SimpleNamespace(
                 audio_data=b"fake-mp3",
@@ -361,7 +362,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs: object):
+        def stream_synthesize(self, **_kwargs: object) -> Iterator[SimpleNamespace]:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3",
                 is_final=False,
@@ -482,7 +483,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     synthesize_calls = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **kwargs: object):
+        def stream_synthesize(self, **kwargs: object) -> Iterator[SimpleNamespace]:
             stream_calls.append(kwargs["text"])
             yield SimpleNamespace(
                 audio_data=b"broken-stream-mp3",
@@ -494,7 +495,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
                 trace_id="trace-invalid-audio",
             )
 
-        def synthesize(self, **kwargs: object):
+        def synthesize(self, **kwargs: object) -> SimpleNamespace:
             synthesize_calls.append(kwargs["text"])
             return SimpleNamespace(
                 audio_data=b"complete-mp3",
@@ -503,7 +504,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
                 word_count=12,
             )
 
-    def _fake_try_get_duration(audio_data, audio_format="mp3"):
+    def _fake_try_get_duration(audio_data, audio_format="mp3") -> int | None:
         _ = audio_format
         if audio_data == b"broken-stream-mp3":
             return None
@@ -603,7 +604,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs: object):
+        def stream_synthesize(self, **_kwargs: object) -> Iterator[SimpleNamespace]:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -630,7 +631,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
 
     export_calls = []
 
-    def _fake_export(_audio_data, **kwargs: object):
+    def _fake_export(_audio_data, **kwargs: object) -> tuple[bytes, int]:
         export_calls.append(kwargs)
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
@@ -729,7 +730,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs: object):
+        def stream_synthesize(self, **_kwargs: object) -> Iterator[SimpleNamespace]:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -778,7 +779,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
 
     export_calls = []
 
-    def _fake_export(_audio_data, **kwargs: object):
+    def _fake_export(_audio_data, **kwargs: object) -> tuple[bytes, int]:
         export_calls.append(kwargs)
         end_ms = int(kwargs.get("end_ms") or 0)
         start_ms = int(kwargs.get("start_ms") or 0)
@@ -870,7 +871,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     saved_records = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **kwargs: object):
+        def stream_synthesize(self, **kwargs: object) -> Iterator[SimpleNamespace]:
             calls.append(kwargs["text"])
             if kwargs["text"] == "First sentence.":
                 yield SimpleNamespace(
@@ -903,12 +904,12 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
                 ],
             )
 
-    def _fake_export(audio_data, **_kwargs: object):
+    def _fake_export(audio_data, **_kwargs: object) -> tuple[object, int]:
         if audio_data == b"first-mp3":
             return audio_data, 1000
         return audio_data, 1200
 
-    def _fake_build_completed_audio_record(**kwargs: object):
+    def _fake_build_completed_audio_record(**kwargs: object) -> SimpleNamespace:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -1025,7 +1026,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs: object):
+        def stream_synthesize(self, **_kwargs: object) -> Iterator[SimpleNamespace]:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -1052,7 +1053,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
                 ],
             )
 
-    def _fake_export(_audio_data, **kwargs: object):
+    def _fake_export(_audio_data, **kwargs: object) -> tuple[bytes, int]:
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
@@ -1083,7 +1084,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     saved_records = []
 
-    def _fake_build_completed_audio_record(**kwargs: object):
+    def _fake_build_completed_audio_record(**kwargs: object) -> SimpleNamespace:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -1164,7 +1165,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     saved_records = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs: object):
+        def stream_synthesize(self, **_kwargs: object) -> Iterator[SimpleNamespace]:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -1201,14 +1202,14 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
                 ],
             )
 
-    def _fake_export(_audio_data, **kwargs: object):
+    def _fake_export(_audio_data, **kwargs: object) -> tuple[bytes, int]:
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
             return b"early-piece", 1900
         return b"final-piece", int(end_ms or 0) - start_ms
 
-    def _fake_build_completed_audio_record(**kwargs: object):
+    def _fake_build_completed_audio_record(**kwargs: object) -> SimpleNamespace:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -1325,7 +1326,7 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
     saved_records = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs: object):
+        def stream_synthesize(self, **_kwargs: object) -> Iterator[SimpleNamespace]:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -1355,14 +1356,14 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
                 ],
             )
 
-    def _fake_export(_audio_data, **kwargs: object):
+    def _fake_export(_audio_data, **kwargs: object) -> tuple[bytes, int]:
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
             return b"early-piece", 1946
         return b"final-piece", int(end_ms or 0) - start_ms
 
-    def _fake_build_completed_audio_record(**kwargs: object):
+    def _fake_build_completed_audio_record(**kwargs: object) -> SimpleNamespace:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 

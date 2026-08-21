@@ -82,7 +82,7 @@ class CacheUnavailableError(RuntimeError):
 
 
 class _DynamicRedisCacheProvider:
-    def _client(self):
+    def _client(self) -> CacheProvider:
         try:
             from flaskr.dao import get_redis_client
         except Exception as exc:  # pragma: no cover - defensive
@@ -95,10 +95,12 @@ class _DynamicRedisCacheProvider:
             raise CacheUnavailableError(message)
         return redis_client
 
-    def get(self, key: str):
+    def get(self, key: str) -> bytes | None:
         return self._client().get(key)
 
-    def getex(self, key: str, ex: int | None = None, px: int | None = None):
+    def getex(
+        self, key: str, ex: int | None = None, px: int | None = None
+    ) -> bytes | None:
         return self._client().getex(key, ex=ex, px=px)
 
     def set(
@@ -111,19 +113,19 @@ class _DynamicRedisCacheProvider:
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> bool:
         if ex is None and args:
             ex = args[0]
             args = ()
         return self._client().set(key, value, ex=ex, px=px, nx=nx, xx=xx, **kwargs)
 
-    def setex(self, key: str, time_in_seconds: int, value: Any):
+    def setex(self, key: str, time_in_seconds: int, value: Any) -> bool:
         return self._client().setex(key, time_in_seconds, value)
 
     def delete(self, *keys: str) -> int:
         return int(self._client().delete(*keys))
 
-    def incr(self, key: str, amount: int = 1):
+    def incr(self, key: str, amount: int = 1) -> int:
         return self._client().incr(key, amount)
 
     def ttl(self, key: str) -> int:
@@ -134,7 +136,7 @@ class _DynamicRedisCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ):
+    ) -> CacheLock:
         return self._client().lock(
             key, timeout=timeout, blocking_timeout=blocking_timeout
         )
@@ -151,7 +153,9 @@ class _InMemoryLock:
         self._lock = lock
         self._held = False
 
-    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
+    def acquire(
+        self, blocking: bool = True, blocking_timeout: int | None = None
+    ) -> bool:
         if not blocking:
             acquired = self._lock.acquire(blocking=False)
         elif blocking_timeout is None:
@@ -316,7 +320,7 @@ class FallbackCacheProvider:
         self._primary = primary
         self._fallback = fallback
 
-    def _call(self, method: str, *args: object, **kwargs: object):
+    def _call(self, method: str, *args: object, **kwargs: object) -> object:
         primary_fn = getattr(self._primary, method)
         fallback_fn = getattr(self._fallback, method)
         try:

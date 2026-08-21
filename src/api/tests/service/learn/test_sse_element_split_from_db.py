@@ -60,7 +60,7 @@ def _record_diagnostics(request: pytest.FixtureRequest, lines: list[str]) -> Non
     request.node.add_report_section("call", "SSE diagnostics", "\n".join(lines))
 
 
-def _fetch_blocks_raw(app, limit=100):
+def _fetch_blocks_raw(app, limit=100) -> list[dict[str, object]]:
     """Fetch latest generated blocks with content directly via SQLAlchemy."""
     from flaskr.service.learn.models import LearnGeneratedBlock
 
@@ -93,13 +93,13 @@ def _fetch_blocks_raw(app, limit=100):
         ]
 
 
-def _role_str(role_int):
+def _role_str(role_int) -> str:
     if role_int == ROLE_STUDENT:
         return "student"
     return "teacher"
 
 
-def _try_simulate_sse_for_block(app, block, *, with_av_contract=True):
+def _try_simulate_sse_for_block(app, block, *, with_av_contract=True) -> object:
     """Simulate SSE for a block, returning None when the simulation fails.
 
     Callers scan a sample of production-shaped rows and skip the ones the
@@ -111,7 +111,7 @@ def _try_simulate_sse_for_block(app, block, *, with_av_contract=True):
         return None
 
 
-def _simulate_sse_for_block(app, block, *, with_av_contract=True):
+def _simulate_sse_for_block(app, block, *, with_av_contract=True) -> list[object]:
     """Simulate SSE stream for a single block via ListenElementRunAdapter.
 
     When with_av_contract=True (default), builds an AV segmentation contract

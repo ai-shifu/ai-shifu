@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     import pytest
     from flask import Flask
     from flask.testing import FlaskClient
+    from werkzeug.test import TestResponse
 
     from tests.common.fixtures.fake_redis import FakeRedis
 
@@ -35,7 +36,7 @@ def _post_json(
     payload: dict,
     headers: dict | None = None,
     environ_overrides: dict | None = None,
-):
+) -> tuple[TestResponse, object]:
     resp = client.post(
         path,
         data=json.dumps(payload),

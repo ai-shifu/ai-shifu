@@ -7,6 +7,7 @@ a payload smoke for emitter-side event construction.
 
 import types
 import unittest
+from collections.abc import Iterator
 
 from flask import Flask
 from flaskr import dao
@@ -30,25 +31,27 @@ class _RecordingEmitter:
     def __init__(self) -> None:
         self.calls = []
 
-    def render_outline_updates(self, outline_updates, new_chapter=False):
+    def render_outline_updates(
+        self, outline_updates, new_chapter=False
+    ) -> Iterator[str]:
         self.calls.append(("render_outline_updates", outline_updates, new_chapter))
         yield "outline-event"
 
-    def emit_next_chapter_interaction(self, progress_record):
+    def emit_next_chapter_interaction(self, progress_record) -> Iterator[str]:
         self.calls.append(("emit_next_chapter_interaction", progress_record))
         yield "next-event"
 
-    def emit_lesson_feedback_interaction(self, progress_record):
+    def emit_lesson_feedback_interaction(self, progress_record) -> Iterator[str]:
         self.calls.append(("emit_lesson_feedback_interaction", progress_record))
         yield "feedback-event"
 
-    def is_access_gate_blocking_interaction(self, parsed_interaction):
+    def is_access_gate_blocking_interaction(self, parsed_interaction) -> bool:
         self.calls.append(("is_access_gate_blocking_interaction", parsed_interaction))
         return True
 
     def maybe_emit_feedback_after_access_gate(
         self, *, parsed_interaction, progress_record, is_tail_gate
-    ):
+    ) -> Iterator[str]:
         self.calls.append(
             (
                 "maybe_emit_feedback_after_access_gate",
@@ -59,21 +62,21 @@ class _RecordingEmitter:
         )
         yield "gate-feedback-event"
 
-    def emit_feedback_after_exception_gate(self):
+    def emit_feedback_after_exception_gate(self) -> Iterator[str]:
         self.calls.append(("emit_feedback_after_exception_gate",))
         yield "exception-feedback-event"
 
-    def ensure_current_attend_for_gate_interaction(self):
+    def ensure_current_attend_for_gate_interaction(self) -> str:
         self.calls.append(("ensure_current_attend_for_gate_interaction",))
         return "attend"
 
-    def emit_current_progress_gate_interaction(self, content):
+    def emit_current_progress_gate_interaction(self, content) -> Iterator[str]:
         self.calls.append(("emit_current_progress_gate_interaction", content))
         yield "gate-interaction-event"
 
     def emit_completion_tail_interactions(
         self, *, progress_record, current_outline_completed, has_next_outline_item
-    ):
+    ) -> Iterator[str]:
         self.calls.append(
             (
                 "emit_completion_tail_interactions",
@@ -182,11 +185,11 @@ class EmitterContextSeamTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress) -> Iterator[str]:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress):
+        def _emit_next(_progress) -> Iterator[str]:
             calls.append("next")
             yield "next-event"
 
@@ -208,7 +211,7 @@ class EmitterContextSeamTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress) -> Iterator[str]:
             calls.append("feedback")
             yield "feedback-event"
 

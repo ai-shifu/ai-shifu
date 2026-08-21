@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import flaskr.service.billing.domains as billing_domains
 import pytest
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flaskr import dao
 from flaskr.common.shifu_context import get_shifu_creator_bid, with_shifu_context
 from flaskr.service.billing.consts import (
@@ -35,6 +35,8 @@ from tests.service.billing.route_loader import (
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flask.typing import ResponseReturnValue
+
 billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
@@ -56,7 +58,7 @@ def billing_domain_client(monkeypatch) -> Iterator[dict[str, object]]:
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> Response:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -72,7 +74,7 @@ def billing_domain_client(monkeypatch) -> Iterator[dict[str, object]]:
 
     @app.route("/_domain-context", methods=["GET"])
     @with_shifu_context()
-    def _domain_context():
+    def _domain_context() -> ResponseReturnValue:
         return jsonify({"creator_bid": get_shifu_creator_bid()})
 
     monkeypatch.setattr(
@@ -184,7 +186,7 @@ class TestBillingDomains:
             verification_token="verify-token",
         )
 
-        def fake_resolve(name, record_type, lifetime):
+        def fake_resolve(name, record_type, lifetime) -> list[SimpleNamespace]:
             assert lifetime == 5
             if record_type == "TXT":
                 assert name == "_ai-shifu-verification.learn.example.com"

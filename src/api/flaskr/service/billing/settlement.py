@@ -45,6 +45,7 @@ from .wallets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from datetime import datetime
 
     from flask import Flask
@@ -558,7 +559,9 @@ def backfill_bill_usage_settlement(
 
 
 @contextmanager
-def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
+def _usage_settlement_lock(
+    app: Flask, *, creator_bid: str, usage_bid: str
+) -> Iterator[None]:
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_usage_bid = str(usage_bid or "").strip()
     lock_scope = normalized_creator_bid or f"usage:{normalized_usage_bid}"

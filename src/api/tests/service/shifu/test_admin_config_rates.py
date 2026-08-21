@@ -89,7 +89,7 @@ def _seed_default_llm_rates() -> None:
 def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(
     monkeypatch, app
 ) -> None:
-    def config_getter(key, default=None):
+    def config_getter(key, default=None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "3000",
@@ -320,14 +320,14 @@ def test_update_db_only_llm_alias_only_supersedes_explicit_alias(
 
 
 def test_update_new_llm_rate_uses_default_metric_ratios(monkeypatch, app) -> None:
-    def config_getter(key, default=None):
+    def config_getter(key, default=None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "3000",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
         }.get(key, default)
 
-    def resolve_identity(model: str):
+    def resolve_identity(model: str) -> tuple[object, list[object]]:
         provider, actual_model = model.split("/", 1)
         return provider, [actual_model, model]
 
@@ -393,7 +393,7 @@ def test_update_new_llm_rate_uses_default_metric_ratios(monkeypatch, app) -> Non
 def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
     monkeypatch, app
 ) -> None:
-    def config_getter(key, default=None):
+    def config_getter(key, default=None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "ark/doubao-seed-2-0-lite-260428",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
@@ -438,7 +438,7 @@ def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
 
 
 def test_update_rate_rejects_missing_credit_1x_anchor(monkeypatch, app) -> None:
-    def config_getter(key, default=None):
+    def config_getter(key, default=None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
@@ -628,7 +628,7 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
             _parameters,
             _context,
             _executemany,
-        ):
+        ) -> None:
             nonlocal active_rate_selects
             if "credit_usage_rates" in statement.lower():
                 active_rate_selects += 1

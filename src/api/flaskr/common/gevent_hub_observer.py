@@ -55,7 +55,7 @@ def install_hub_error_observer(logger, hub=None) -> bool:
 
     original_handle_error = hub.handle_error
 
-    def handle_error(context, exc_type, value, tb):
+    def handle_error(context, exc_type, value, tb) -> object:
         # Log BEFORE delegating: the original handler may re-raise for
         # system errors. Nothing in here may raise or block - a failure in
         # the error path would take down the hub itself.

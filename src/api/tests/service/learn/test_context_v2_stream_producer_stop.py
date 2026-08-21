@@ -3,13 +3,14 @@
 import threading
 import time
 import types
+from collections.abc import Iterator
 
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 
 _PRODUCER_THREAD_NAME = "mdflow_stream_result_producer"
 
 
-def _make_context_stub(app):
+def _make_context_stub(app) -> types.SimpleNamespace:
     stub = types.SimpleNamespace(app=app)
     stub._stop_requested = lambda: False
     stub._stop_if_requested = lambda: None
@@ -19,7 +20,7 @@ def _make_context_stub(app):
 def test_stream_producer_stops_when_consumer_exits_early(app) -> None:
     stop_streaming = threading.Event()
 
-    def endless_stream():
+    def endless_stream() -> Iterator[int]:
         index = 0
         while not stop_streaming.is_set():
             yield index
@@ -59,7 +60,7 @@ def test_early_consumer_exit_invalidates_producer_session(app, monkeypatch) -> N
 
     stop_streaming = threading.Event()
 
-    def endless_stream():
+    def endless_stream() -> Iterator[int]:
         index = 0
         while not stop_streaming.is_set():
             yield index
@@ -93,7 +94,7 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(
         lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
-    def short_stream():
+    def short_stream() -> Iterator[str]:
         yield "a"
         yield "b"
 
@@ -131,7 +132,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch) -> None:
     class _FailingProcessor:
         next_element_index = 0
 
-        def finalize(self, *, commit):
+        def finalize(self, *, commit) -> Iterator[None]:
             _ = commit
             message = "desynced during finalize"
             raise ResourceClosedError(message)

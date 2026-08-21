@@ -61,7 +61,7 @@ def _seed_plan_product(product_code: str = "creator-plan-monthly-pro") -> None:
     db.session.commit()
 
 
-def _payload(**overrides: object):
+def _payload(**overrides: object) -> dict[str, str | bool | int | dict[str, bool]]:
     payload = {
         "campaign_code": "domestic_creator_invite_202606",
         "campaign_name": "Domestic creator invite",

@@ -16,6 +16,8 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from redis import Redis
+
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _LOCAL_STATE: dict[str, float] = {}
@@ -161,7 +163,7 @@ def _acquire_local_slot(
         )
 
 
-def _get_redis_client():
+def _get_redis_client() -> Redis | None:
     from flaskr.dao import get_redis_client
 
     redis_client = get_redis_client()

@@ -136,7 +136,7 @@ def run_migrations_online() -> None:
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
-    def process_revision_directives(context, revision, directives):
+    def process_revision_directives(context, revision, directives) -> None:
         _ = (context, revision)
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
@@ -178,7 +178,7 @@ def run_migrations_online() -> None:
                         # merge the related changes into the same migration
                         merge_related_changes(script)
 
-    def is_meaningful_operation(op):
+    def is_meaningful_operation(op) -> bool:
         """Judge if an operation is meaningful (not meaningless type conversion)."""
         op_type = type(op).__name__
 
@@ -230,7 +230,7 @@ def run_migrations_online() -> None:
 
         return True
 
-    def filter_unnecessary_operations(script):
+    def filter_unnecessary_operations(script) -> None:
         """Filter out the unnecessary or duplicate operations."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
@@ -268,7 +268,7 @@ def run_migrations_online() -> None:
                 len(filtered_ops),
             )
 
-    def get_operation_signature(op):
+    def get_operation_signature(op) -> str:
         """Generate the unique signature of the operation to detect duplication."""
         op_type = type(op).__name__
 
@@ -296,12 +296,12 @@ def run_migrations_online() -> None:
             return f"{op_type}:{table_name}"
         return f"{op_type}:unknown"
 
-    def should_skip_operation(op):
+    def should_skip_operation(op) -> bool:
         """Judge if it should skip the operation."""
         op_type = type(op).__name__
 
         # dynamically get the application table prefixes, based on the actual defined models
-        def get_app_table_prefixes():
+        def get_app_table_prefixes() -> list[str]:
             """Dynamically get the table prefixes from the actual models."""
             prefixes = set()
 
@@ -332,7 +332,7 @@ def run_migrations_online() -> None:
         app_table_prefixes = get_app_table_prefixes()
 
         # get all registered application table names
-        def get_app_table_names():
+        def get_app_table_names() -> set[str]:
             """Get all registered application table names."""
             table_names = set()
             for mapper in db.Model.registry.mappers:
@@ -486,7 +486,7 @@ def run_migrations_online() -> None:
 
         return False
 
-    def merge_related_changes(script):
+    def merge_related_changes(script) -> None:
         """Merge the related changes into the same migration."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
@@ -585,12 +585,12 @@ def run_migrations_online() -> None:
         inspected_default,
         metadata_default,
         rendered_metadata_default,
-    ):
+    ) -> bool:
         """Compare server defaults leniently to reduce false positives."""
         # Normalize how a default value is spelled
         _ = (context, inspected_column, metadata_column, metadata_default)
 
-        def normalize_default(default):
+        def normalize_default(default) -> str | None:
             if default is None:
                 return None
             default_str = str(default).strip()
@@ -614,12 +614,12 @@ def run_migrations_online() -> None:
 
     def compare_comment(
         context, inspected_column, metadata_column, inspected_comment, metadata_comment
-    ):
+    ) -> bool:
         """Compare comments leniently, still reporting real comment changes."""
         # Normalize how a comment is spelled
         _ = inspected_column
 
-        def normalize_comment(comment):
+        def normalize_comment(comment) -> str | None:
             if comment is None:
                 return None
             comment_str = str(comment).strip()
@@ -660,7 +660,7 @@ def run_migrations_online() -> None:
 
     def compare_type(
         context, inspected_column, metadata_column, inspected_type, metadata_type
-    ):
+    ) -> bool | None:
         """Compare column types leniently to reduce false positives."""
         # Treat small type differences as equal
         _ = (context, inspected_column, metadata_column)

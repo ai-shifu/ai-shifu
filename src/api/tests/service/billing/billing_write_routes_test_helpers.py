@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import flaskr.common.config as common_config
 import flaskr.service.billing.checkout as billing_checkout_module
 import flaskr.service.billing.subscriptions as billing_subscriptions_module
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flaskr import dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
@@ -392,7 +392,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request, app) -> PaymentCreationResult:
             _ = app
             stripe_requests.append(
                 {
@@ -413,10 +413,12 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def create_subscription(self, *, request, app):
+        def create_subscription(self, *, request, app) -> object:
             return self.create_payment(request=request, app=app)
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "checkout_session"
             return PaymentNotificationResult(
@@ -441,7 +443,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
 
         def cancel_subscription(
             self, *, subscription_bid: str, provider_subscription_id: str, app
-        ):
+        ) -> SubscriptionUpdateResult:
             _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
@@ -457,7 +459,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
 
         def resume_subscription(
             self, *, subscription_bid: str, provider_subscription_id: str, app
-        ):
+        ) -> SubscriptionUpdateResult:
             _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
@@ -471,7 +473,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
                 extra={"cancel_at_period_end": False},
             )
 
-        def refund_payment(self, *, request, app):
+        def refund_payment(self, *, request, app) -> PaymentRefundResult:
             _ = app
             refund_requests.append(
                 {
@@ -488,7 +490,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
             )
 
     class FakePingxxProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request, app) -> PaymentCreationResult:
             _ = app
             pingxx_requests.append(
                 {
@@ -505,7 +507,9 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
                 extra={"credential": {"alipay_qr": "https://pingxx.test/qr"}},
             )
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "charge"
             return PaymentNotificationResult(
@@ -515,7 +519,9 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
                 charge_id=provider_reference,
             )
 
-    def _fake_get_payment_provider(channel: str):
+    def _fake_get_payment_provider(
+        channel: str,
+    ) -> FakeStripeProvider | FakePingxxProvider:
         if channel == "stripe":
             return FakeStripeProvider()
         if channel == "pingxx":
@@ -540,7 +546,7 @@ def billing_write_client(monkeypatch) -> Iterator[dict[str, object]]:
     )
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> Response:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

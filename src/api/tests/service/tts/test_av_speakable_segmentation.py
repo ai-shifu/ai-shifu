@@ -3,7 +3,7 @@
 import pytest
 
 
-def _require_app(app):
+def _require_app(app) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 

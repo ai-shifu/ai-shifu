@@ -1,6 +1,6 @@
 """Handle learner follow-up questions and streamed answers."""
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from typing import Any
 
 from flask import Flask
@@ -65,7 +65,7 @@ stream_ask_provider_response = None
 chat_llm = None
 
 
-def _is_valid_asks(asks):
+def _is_valid_asks(asks) -> bool:
     """Check if asks list has at least one complete student+teacher pair."""
     if not asks or not isinstance(asks, list):
         return False
@@ -74,7 +74,9 @@ def _is_valid_asks(asks):
     return has_student and has_teacher
 
 
-def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
+def _load_legacy_ask_context(
+    anchor_element, ask_element, ask_max_history_len
+) -> list[dict[str, str]] | None:
     if anchor_element is None or ask_element is None:
         return None
 
@@ -104,7 +106,9 @@ def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
     return messages
 
 
-def _load_ask_context(anchor_element, follow_up_elements, ask_max_history_len):
+def _load_ask_context(
+    anchor_element, follow_up_elements, ask_max_history_len
+) -> list[dict[str, str]] | None:
     """Load ask context from ask/answer sidecar elements first."""
     if anchor_element is None or not follow_up_elements:
         return None
@@ -157,7 +161,7 @@ def _create_ask_block(
     user_bid,
     input_text,
     last_position,
-):
+) -> LearnGeneratedBlock:
     ask_block = init_generated_block(
         app,
         shifu_bid=outline_item_info.shifu_bid,
@@ -183,7 +187,7 @@ def _create_answer_block(
     user_bid,
     response_text,
     last_position,
-):
+) -> LearnGeneratedBlock:
     answer_block = init_generated_block(
         app,
         shifu_bid=outline_item_info.shifu_bid,
@@ -215,7 +219,7 @@ def _run_guardrail(
     usage_context,
     chapter_title,
     ask_scene,
-):
+) -> list[str]:
     check_text_func = globals().get("check_text_with_llm_response")
     llm_settings_cls = globals().get("LLMSettings")
     if check_text_func is None or llm_settings_cls is None:
@@ -594,7 +598,7 @@ def handle_input_ask(
         apply_knowledge_to_messages,
     )
 
-    def _chat_llm_stream(stream_messages: list[dict[str, Any]]):
+    def _chat_llm_stream(stream_messages: list[dict[str, Any]]) -> Iterator[object]:
         return chat_llm_func(
             app,
             user_info.user_id,

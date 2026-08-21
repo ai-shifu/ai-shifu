@@ -97,7 +97,7 @@ def _seed_preview_route_course(
         dao.db.session.commit()
 
 
-def _build_detail_for_base_url(monkeypatch, base_url: str):
+def _build_detail_for_base_url(monkeypatch, base_url: str) -> object:
     from flaskr.service.shifu import shifu_draft_funcs
 
     monkeypatch.setattr(

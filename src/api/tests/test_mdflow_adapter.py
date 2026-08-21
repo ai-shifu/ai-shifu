@@ -454,7 +454,7 @@ def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(
         position="0105",
     )
 
-    def _risk_check_and_reorder(_app, _check_id, _user_id, _content):
+    def _risk_check_and_reorder(_app, _check_id, _user_id, _content) -> None:
         with app.app_context():
             latest = (
                 DraftOutlineItem.query.filter_by(
@@ -629,7 +629,7 @@ def test_restore_shifu_mdflow_history_passes_base_revision(app, monkeypatch) -> 
         _outline_bid,
         _content,
         base_revision=None,
-    ):
+    ) -> dict[str, bool | dict[str, int]]:
         captured["base_revision"] = base_revision
         return {"conflict": True, "meta": {"revision": 99}}
 

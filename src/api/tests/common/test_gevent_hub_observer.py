@@ -7,6 +7,7 @@ the application log while the hub's original behavior is preserved.
 """
 
 import logging
+from typing import Never
 
 from flaskr.common.gevent_hub_observer import install_hub_error_observer
 
@@ -15,14 +16,14 @@ class _StubHub:
     def __init__(self) -> None:
         self.calls = []
 
-        def _original(context, exc_type, value, tb):
+        def _original(context, exc_type, value, tb) -> str:
             self.calls.append((context, exc_type, value, tb))
             return "original-result"
 
         self.handle_error = _original
 
 
-def _fire(hub, context=None, exc=None):
+def _fire(hub, context=None, exc=None) -> object:
     exc = exc if exc is not None else AssertionError("(None, <callback>)")
     return hub.handle_error(context, type(exc), exc, None)
 
@@ -67,7 +68,7 @@ def test_logger_failure_never_blocks_the_original_handler() -> None:
     hub = _StubHub()
 
     class _BrokenLogger:
-        def error(self, *args: object, **kwargs: object):
+        def error(self, *args: object, **kwargs: object) -> Never:
             _ = (args, kwargs)
             message = "logging backend down"
             raise RuntimeError(message)

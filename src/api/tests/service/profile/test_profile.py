@@ -26,11 +26,11 @@ def test_add_profile_item_quick_creates_definition(app) -> None:
 def test_hide_unused_profile_items_no_unused(monkeypatch) -> None:
     calls = []
 
-    def fake_get_unused(_app, parent_id):
+    def fake_get_unused(_app, parent_id) -> list[object]:
         calls.append(("unused", parent_id))
         return []
 
-    def fake_get_defs(_app, parent_id=None):
+    def fake_get_defs(_app, parent_id=None) -> list[str]:
         calls.append(("defs", parent_id))
         return ["defs"]
 
@@ -51,11 +51,11 @@ def test_hide_unused_profile_items_no_unused(monkeypatch) -> None:
 def test_hide_unused_profile_items_updates_hidden(monkeypatch) -> None:
     calls = []
 
-    def fake_get_unused(_app, parent_id):
+    def fake_get_unused(_app, parent_id) -> list[str]:
         calls.append(("unused", parent_id))
         return ["v1", "v2"]
 
-    def fake_update(_app, parent_id, profile_keys, hidden, user_id):
+    def fake_update(_app, parent_id, profile_keys, hidden, user_id) -> list[str]:
         calls.append(("update", parent_id, tuple(profile_keys), hidden, user_id))
         return ["updated"]
 
@@ -74,7 +74,7 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch) -> None:
 def test_get_profile_variable_usage_groups_keys(monkeypatch) -> None:
     calls = []
 
-    def fake_get_defs(_app, parent_id=None, _type="all"):
+    def fake_get_defs(_app, parent_id=None, _type="all") -> list[object]:
         calls.append(("defs", parent_id))
         return [
             # system key should be ignored
@@ -85,7 +85,7 @@ def test_get_profile_variable_usage_groups_keys(monkeypatch) -> None:
             object.__class__("obj", (), {"profile_scope": "user", "profile_key": "k2"}),
         ]
 
-    def fake_collect(_app, parent_id):
+    def fake_collect(_app, parent_id) -> set[str]:
         calls.append(("collect", parent_id))
         return {"k2"}
 

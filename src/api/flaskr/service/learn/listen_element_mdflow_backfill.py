@@ -96,6 +96,7 @@ from flaskr.service.shifu.consts import (
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
 SUPPORTED_BLOCK_TYPES = {
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -256,7 +257,7 @@ def _make_adapter(
     outline_bid: str,
     user_bid: str,
     run_session_bid: str,
-):
+) -> ListenElementRunAdapter:
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
     return ListenElementRunAdapter(
@@ -271,7 +272,7 @@ def _make_adapter(
 def _iter_active_group_rows(
     progress_record_bid: str,
     generated_block_bid: str,
-):
+) -> object:
     return LearnGeneratedElement.query.filter(
         LearnGeneratedElement.progress_record_bid == progress_record_bid,
         LearnGeneratedElement.generated_block_bid == generated_block_bid,

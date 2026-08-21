@@ -44,7 +44,7 @@ def app() -> Iterator[Flask]:
         dao.db.drop_all()
 
 
-def _ensure_order(status, order_bid):
+def _ensure_order(status, order_bid) -> Order:
     order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")

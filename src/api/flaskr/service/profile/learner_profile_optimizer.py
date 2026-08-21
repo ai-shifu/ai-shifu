@@ -22,6 +22,8 @@ from flaskr.service.profile.learner_profile import (
 from flaskr.util.prompt_loader import load_prompt_template
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Flask
 
 LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
@@ -39,7 +41,7 @@ def _parse_optimized_profile(raw_response: str) -> str:
     return raw_response
 
 
-def _exception_chain(exc: BaseException):
+def _exception_chain(exc: BaseException) -> Iterator[BaseException | None]:
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:

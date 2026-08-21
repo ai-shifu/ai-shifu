@@ -39,6 +39,8 @@ from .entitlements import (
 from .primitives import normalize_bid
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from werkzeug.datastructures import FileStorage
 
 BRANDING_KEY = "CUSTOMIZATION.BRANDING"
@@ -1310,7 +1312,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
     return output.getvalue()
 
 
-def _saas_funcs(*, required: bool = True):
+def _saas_funcs(*, required: bool = True) -> ModuleType | None:
     try:
         module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
@@ -1335,7 +1337,7 @@ def _saas_funcs(*, required: bool = True):
     return module
 
 
-def _saas_model():
+def _saas_model() -> type[object]:
     return import_module(
         "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.models"
     ).SaasUserConfig

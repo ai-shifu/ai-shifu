@@ -1,6 +1,7 @@
 """Verify translated error handling on shared HTTP routes."""
 
 from pathlib import Path
+from typing import Never
 
 from flask import Flask
 from flaskr.i18n import _translations, load_translations
@@ -20,7 +21,7 @@ def test_common_handler_returns_translated_unexpected_error_for_unhandled_except
     register_common_handler(app)
 
     @app.route("/boom")
-    def _boom():
+    def _boom() -> Never:
         message = "unexpected failure"
         raise RuntimeError(message)
 
@@ -43,7 +44,7 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(
     register_common_handler(app)
 
     @app.route("/boom-zh")
-    def _boom_zh():
+    def _boom_zh() -> Never:
         message = "unexpected failure"
         raise RuntimeError(message)
 
@@ -91,7 +92,7 @@ def test_common_handler_uses_json_language_for_patch_requests(monkeypatch) -> No
     register_common_handler(app)
 
     @app.route("/boom-patch", methods=["PATCH"])
-    def _boom_patch():
+    def _boom_patch() -> Never:
         message = "unexpected failure"
         raise RuntimeError(message)
 

@@ -27,7 +27,7 @@ class StripeProvider(PaymentProvider):
 
     channel = "stripe"
 
-    def _ensure_client(self, app: Flask):
+    def _ensure_client(self, app: Flask) -> object:
         return get_stripe_client_options(app)[0]
 
     def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:

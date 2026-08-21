@@ -55,7 +55,7 @@ class TestResolvePaymentChannel:
     def test_stripe_only_configuration_overrides_pingxx_default(
         self, monkeypatch
     ) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "stripe"
             return default
@@ -77,7 +77,7 @@ class TestResolvePaymentChannel:
     def test_disabled_payment_channel_raises_for_explicit_request(
         self, monkeypatch
     ) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "stripe"
             return default
@@ -95,7 +95,7 @@ class TestResolvePaymentChannel:
             )
 
     def test_alipay_qr_prefers_native_when_enabled(self, monkeypatch) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "alipay,pingxx"
             return default
@@ -116,7 +116,7 @@ class TestResolvePaymentChannel:
     def test_alipay_qr_falls_back_to_pingxx_when_native_disabled(
         self, monkeypatch
     ) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "pingxx"
             return default
@@ -135,7 +135,7 @@ class TestResolvePaymentChannel:
         assert sub_channel == "alipay_qr"
 
     def test_wechat_jsapi_prefers_native_when_enabled(self, monkeypatch) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "wechatpay,pingxx"
             return default
@@ -154,7 +154,7 @@ class TestResolvePaymentChannel:
         assert sub_channel == "wx_pub"
 
     def test_explicit_wechatpay_defaults_to_qr_channel(self, monkeypatch) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "wechatpay"
             return default
@@ -187,7 +187,7 @@ class TestResolvePaymentChannel:
     def test_explicit_native_provider_rejects_unsupported_channel(
         self, monkeypatch
     ) -> None:
-        def fake_get_config(key, default=None):
+        def fake_get_config(key, default=None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "alipay"
             return default

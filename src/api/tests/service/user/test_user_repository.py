@@ -30,10 +30,10 @@ def test_transactional_session_classifies_before_savepoint_rollback(
             self.rollbacks = 0
             self.commits = 0
 
-        def rollback(self):
+        def rollback(self) -> None:
             self.rollbacks += 1
 
-        def commit(self):
+        def commit(self) -> None:
             self.commits += 1
 
     nested = _Nested()

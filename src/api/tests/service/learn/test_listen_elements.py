@@ -3,11 +3,12 @@
 import json
 import time
 import types
+from collections.abc import Iterator
 
 import pytest
 
 
-def _require_app(app):
+def _require_app(app) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
@@ -1424,25 +1425,27 @@ def test_listen_run_persists_content_block_before_element_rows(app) -> None:
                     )
                 ]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> object:
                 _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
 
-                def _gen():
+                def _gen() -> Iterator[DummyLLMResult]:
                     yield DummyLLMResult(block.content)
 
                 return _gen()
@@ -1617,24 +1620,26 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app) -> None:
                     )
                 ]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> object:
                 _ = (block_index, mode, variables, context, user_input)
 
-                def _gen():
+                def _gen() -> Iterator[DummyLLMResult]:
                     yield DummyLLMResult(
                         [DummyFormattedElement("Intro narration.\n", "text", 0)]
                     )
@@ -1666,15 +1671,15 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app) -> None:
                 self.stream_element_number = stream_element_number
                 self.stream_element_type = stream_element_type
 
-            def process_chunk(self, chunk_content):
+            def process_chunk(self, chunk_content) -> Iterator[object]:
                 if False:
                     yield chunk_content
 
-            def drain_ready_segments(self):
+            def drain_ready_segments(self) -> Iterator[None]:
                 if False:
                     yield None
 
-            def finalize(self, *, commit=True):
+            def finalize(self, *, commit=True) -> Iterator[RunMarkdownFlowDTO]:
                 _ = commit
                 if self.stream_element_number == 0:
                     time.sleep(0.02)
@@ -1703,7 +1708,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app) -> None:
             stream_element_number,
             stream_element_type,
             **_kwargs: object,
-        ):
+        ) -> FakeTTSProcessor:
             _ = self
             return FakeTTSProcessor(
                 generated_block_bid,
@@ -1859,7 +1864,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app) -> No
             ctx,
         )
 
-        def _raise_paid(self, current_app):
+        def _raise_paid(self, current_app) -> Iterator[None]:
             _ = (self, current_app)
             raise PaidError
             yield  # pragma: no cover

@@ -41,15 +41,16 @@ from sqlalchemy.ext.compiler import compiles
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from types import ModuleType
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw: object):
+def _compile_longtext_sqlite(_type, _compiler, **_kw: object) -> str:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw: object):
+def _compile_bigint_sqlite(_type, _compiler, **_kw: object) -> str:
     return "INTEGER"
 
 
@@ -182,7 +183,7 @@ def _load_samples(path: Path, limit: int) -> list[BlockSample]:
     return samples
 
 
-def _bootstrap_mdflow(mdflow_root: str):
+def _bootstrap_mdflow(mdflow_root: str) -> ModuleType:
     root = Path(mdflow_root)
     init_file = root / "markdown_flow" / "__init__.py"
     if not init_file.exists():

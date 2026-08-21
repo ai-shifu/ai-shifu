@@ -9,7 +9,7 @@ def inject(func) -> Callable[..., object]:
     """Inject a plugin callback at the requested extension point."""
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: object, **kwargs: object) -> object:
         app = kwargs.get("app")
         if app:
             with app.app_context():

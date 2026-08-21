@@ -8,9 +8,11 @@ import subprocess
 import sys
 import textwrap
 import types
+from collections.abc import Iterator
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 
@@ -22,10 +24,10 @@ def _install_litellm_stub() -> None:
     litellm_stub = types.ModuleType("litellm")
     litellm_stub.model_cost = {}
 
-    def register_model(model_map):
+    def register_model(model_map) -> None:
         litellm_stub.model_cost.update(model_map)
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -195,7 +197,7 @@ def _create_credit_rate(
     )
 
 
-def _configure_model_list(monkeypatch):
+def _configure_model_list(monkeypatch) -> None:
     available_models = [
         "qwen/deepseek-v4-flash",
         "ark/doubao-seed-2-0-lite-260428",
@@ -421,7 +423,7 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
 ) -> None:
     _configure_model_list(monkeypatch)
 
-    def raise_lookup(_app):
+    def raise_lookup(_app) -> Never:
         message = "db unavailable"
         raise RuntimeError(message)
 
@@ -440,7 +442,7 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
 def test_deepseek_model_loader_lists_models(monkeypatch) -> None:
     captured = {}
 
-    def fake_get(url, headers=None, timeout=None):
+    def fake_get(url, headers=None, timeout=None) -> FakeModelsResponse:
         captured["url"] = url
         captured["headers"] = headers
         captured["timeout"] = timeout
@@ -475,7 +477,7 @@ def test_deepseek_model_loader_lists_models(monkeypatch) -> None:
 
 
 def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch) -> None:
-    def fake_get(*args: object, **kwargs: object):
+    def fake_get(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "network unavailable"
         raise RuntimeError(message)
@@ -500,7 +502,9 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch) ->
 def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app) -> None:
     captured = {}
 
-    def fake_completion(model, *args: object, **kwargs: object):
+    def fake_completion(
+        model, *args: object, **kwargs: object
+    ) -> Iterator[FakeResponse]:
         _ = args
         captured["model"] = model
         captured["kwargs"] = kwargs
@@ -508,7 +512,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app) -> N
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
-    def reload_qwen_params(model_id, temperature):
+    def reload_qwen_params(model_id, temperature) -> object:
         captured["reload_model"] = model_id
         return llm._reload_qwen_params(model_id, temperature)
 
@@ -669,7 +673,7 @@ def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
 def test_stream_litellm_completion_omits_unknown_limit(monkeypatch, app) -> None:
     captured = {}
 
-    def raise_unknown(_model):
+    def raise_unknown(_model) -> Never:
         message = "unknown model"
         raise ValueError(message)
 
@@ -766,7 +770,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 ) -> None:
     captured = {}
 
-    def fake_get_model_info(*, model, custom_llm_provider):
+    def fake_get_model_info(*, model, custom_llm_provider) -> object:
         captured["model"] = model
         captured["custom_llm_provider"] = custom_llm_provider
         return model_info
@@ -788,7 +792,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
     monkeypatch,
 ) -> None:
-    def raise_unknown(*args: object, **kwargs: object):
+    def raise_unknown(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -1259,7 +1263,7 @@ def test_litellm_195_native_adapter_contracts() -> None:
 def test_chat_llm_disables_deepseek_thinking(monkeypatch, app) -> None:
     captured_kwargs = {}
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> Iterator[FakeResponse]:
         _ = args
         captured_kwargs["kwargs"] = kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
@@ -1329,11 +1333,13 @@ def test_gemini_25_pro_params_use_lowest_supported_reasoning() -> None:
 def test_invoke_llm_uses_actual_model_for_provider_params(monkeypatch, app) -> None:
     captured = {}
 
-    def reload_params(model_id, temperature):
+    def reload_params(model_id, temperature) -> dict[str, object]:
         captured["reload_model"] = model_id
         return {"temperature": temperature}
 
-    def fake_completion(model, *args: object, **kwargs: object):
+    def fake_completion(
+        model, *args: object, **kwargs: object
+    ) -> Iterator[FakeResponse]:
         _ = args
         captured["completion_model"] = model
         captured["completion_kwargs"] = kwargs
@@ -1384,7 +1390,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     class RepeatedChunkError(Exception):
         __module__ = "litellm.exceptions"
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> Iterator[FakeResponse]:
         _ = (args, kwargs)
         yield FakeResponse("chunk-1", content="你好")
         message = "The model is repeating the same chunk = ！ ！ ."
@@ -1421,7 +1427,9 @@ def test_chat_llm_streams(monkeypatch, app) -> None:
     captured_kwargs = {}
     captured_usage = {}
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(
+        *args: object, **kwargs: object
+    ) -> Iterator[FakeResponse | SimpleNamespace]:
         _ = args
         captured_kwargs["kwargs"] = kwargs
         chunks = [
@@ -1491,7 +1499,7 @@ def test_chat_llm_streams(monkeypatch, app) -> None:
 def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
     monkeypatch, app, llm_method
 ) -> None:
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> Iterator[FakeResponse]:
         _ = args, kwargs
         return iter(
             [
@@ -1593,7 +1601,7 @@ def test_extract_reasoning_delta_supports_litellm_fallback_fields(
 
 
 def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app) -> None:
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> Iterator[FakeResponse]:
         _ = args, kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 
@@ -1636,7 +1644,7 @@ class _FakeMidStreamFallbackError(Exception):
     """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
-def _stream_chunk(content):
+def _stream_chunk(content) -> SimpleNamespace:
     return SimpleNamespace(
         choices=[
             SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=None)
@@ -1645,7 +1653,7 @@ def _stream_chunk(content):
     )
 
 
-def _reasoning_stream_chunk(reasoning_content):
+def _reasoning_stream_chunk(reasoning_content) -> SimpleNamespace:
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -1659,7 +1667,7 @@ def _reasoning_stream_chunk(reasoning_content):
     )
 
 
-def _patch_retryable_stream_errors(monkeypatch):
+def _patch_retryable_stream_errors(monkeypatch) -> None:
     # Distinct classes per exception name: a resolver that silently drops one
     # of the names fails that class's parametrized retry test instead of
     # being masked by a shared class.
@@ -1674,15 +1682,15 @@ def _patch_retryable_stream_errors(monkeypatch):
     )
 
 
-def _patch_scripted_streams(monkeypatch, scripts):
+def _patch_scripted_streams(monkeypatch, scripts) -> dict[str, int]:
     """Each call to _stream_litellm_completion consumes the next script; a script is a list of chunks and/or exceptions raised in order."""
     calls = {"count": 0}
 
-    def _factory(_app, _requested, _invoke, _messages, _params, _kwargs):
+    def _factory(_app, _requested, _invoke, _messages, _params, _kwargs) -> object:
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
 
-        def _gen():
+        def _gen() -> Iterator[object]:
             for item in script:
                 if isinstance(item, BaseException):
                     raise item
@@ -1694,7 +1702,7 @@ def _patch_scripted_streams(monkeypatch, scripts):
     return calls
 
 
-def _collect_retry_stream(app):
+def _collect_retry_stream(app) -> list[object]:
     return list(
         llm._iter_stream_with_precontent_retry(
             app, "qwen/test-model", "test-model", [], {}, {}

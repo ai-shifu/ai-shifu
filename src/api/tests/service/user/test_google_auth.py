@@ -40,10 +40,10 @@ class _FakeGoogleResponse:
     def __init__(self, payload) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def json(self):
+    def json(self) -> dict[str, object]:
         return self._payload
 
 
@@ -52,23 +52,25 @@ class _FakeGoogleSession:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 
-    def fetch_token(self, *_args: object, **_kwargs: object):
+    def fetch_token(self, *_args: object, **_kwargs: object) -> dict[str, str]:
         if self._fetch_token_error is not None:
             raise self._fetch_token_error
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args: object, **_kwargs: object):
+    def get(self, *_args: object, **_kwargs: object) -> object:
         return _FakeGoogleResponse(self._profile)
 
 
-def _reset_user_auth_tables():
+def _reset_user_auth_tables() -> None:
     UserTokenModel.query.delete()
     AuthCredential.query.delete()
     UserEntity.query.delete()
     db.session.commit()
 
 
-def _run_google_callback(app, monkeypatch, profile, *, fetch_token_error=None):
+def _run_google_callback(
+    app, monkeypatch, profile, *, fetch_token_error=None
+) -> object:
     monkeypatch.setenv("HOST_URL", "http://localhost")
     _reset_config_cache("HOST_URL")
     provider = GoogleAuthProvider()
@@ -208,7 +210,7 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             original_first = query_type.first
             reads: list[tuple[str, str, bool, bool]] = []
 
-            def track_first(query):
+            def track_first(query) -> object:
                 statement = str(query.statement)
                 parameters = query.statement.compile().params
                 table = (

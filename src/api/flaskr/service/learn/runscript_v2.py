@@ -8,7 +8,7 @@ import threading
 import time
 import traceback
 import uuid
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -424,7 +424,7 @@ def run_script_inner(
             def _iter_run_events(
                 events,
                 ready_element_bids_by_block_bid: dict[str, list[str]],
-            ):
+            ) -> Iterator[RunElementSSEMessageDTO]:
                 if element_adapter is None:
                     for event in events:
                         _remember_audio_backfill_ready_element(
@@ -442,7 +442,7 @@ def run_script_inner(
 
             def _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid: dict[str, list[str]],
-            ):
+            ) -> Iterator[RunElementSSEMessageDTO]:
                 if input_type == INPUT_TYPE_ASK:
                     return
                 for (
@@ -764,7 +764,7 @@ def run_script(
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
         producer_thread: threading.Thread | None = None
 
-        def producer():
+        def producer() -> None:
             # Propagate logging thread-local context into this background thread
             if parent_request_id:
                 log_thread_local.request_id = parent_request_id

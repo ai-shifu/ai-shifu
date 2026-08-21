@@ -1,5 +1,7 @@
 """Verify native language labels reach generated prompts."""
 
+from collections.abc import Iterator
+
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from markdown_flow import MarkdownFlow, ProcessMode
 
@@ -19,13 +21,13 @@ def test_french_native_name_reaches_content_and_interaction_prompts() -> None:
         def __init__(self) -> None:
             self.calls = []
 
-        def complete(self, messages, **_kwargs: object):
+        def complete(self, messages, **_kwargs: object) -> str:
             self.calls.append(messages)
             if "JSON Interaction Translation Task" in messages[0]["content"]:
                 return '{"buttons":["Continuer"]}'
             return "Réponse"
 
-        def stream(self, _messages, **_kwargs: object):
+        def stream(self, _messages, **_kwargs: object) -> Iterator[object]:
             return iter(())
 
     provider = CapturingProvider()

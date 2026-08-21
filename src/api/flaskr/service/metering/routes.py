@@ -3,6 +3,7 @@
 import datetime
 
 from flask import Flask, request
+from flask.typing import ResponseReturnValue
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
@@ -28,7 +29,7 @@ def register_metering_routes(app: Flask, path_prefix: str = "/api/metering") -> 
     """Register metering routes."""
 
     @app.route(path_prefix + "/usage-summary", methods=["GET"])
-    def get_usage_summary():
+    def get_usage_summary() -> ResponseReturnValue:
         start_date = request.args.get("start_date", "")
         end_date = request.args.get("end_date", "")
         user_bid = request.args.get("user_bid", "")

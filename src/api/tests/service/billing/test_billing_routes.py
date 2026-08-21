@@ -14,7 +14,7 @@ import flaskr.service.billing.queries as billing_queries_module
 import flaskr.service.billing.read_models as billing_read_models_module
 import flaskr.service.billing.serializers as billing_serializers_module
 import pytest
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flaskr import dao
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
 from flaskr.service.billing.consts import (
@@ -119,7 +119,7 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
 
-def _seed_products_with_yearly_entitlements():
+def _seed_products_with_yearly_entitlements() -> object:
     return build_bill_products(
         overrides_by_bid={
             "bill-product-plan-yearly": {
@@ -156,7 +156,7 @@ def billing_test_client(monkeypatch) -> Iterator[FlaskClient]:
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> Response:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -1226,7 +1226,7 @@ class TestBillingRoutes:
         with app.app_context():
             order_select_count = 0
 
-            def _count_order_selects(_conn, _cursor, statement, *_args: object):
+            def _count_order_selects(_conn, _cursor, statement, *_args: object) -> None:
                 nonlocal order_select_count
                 if "bill_orders" in statement.lower():
                     order_select_count += 1
@@ -1695,7 +1695,7 @@ class TestBillingRoutes:
 
         order_select_count = 0
 
-        def _count_order_selects(_conn, _cursor, statement, *_args: object):
+        def _count_order_selects(_conn, _cursor, statement, *_args: object) -> None:
             nonlocal order_select_count
             if "bill_orders" in statement.lower():
                 order_select_count += 1

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Never
 
 import pytest
 from flaskr.api.check import CHECK_RESULT_UNKNOWN
@@ -15,6 +16,9 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.profile import learner_profile_optimizer as optimizer
 from flaskr.service.user.models import UserInfo, UserOnboardingState
 from flaskr.service.user.repository import create_user_entity
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 PROFILE_UPDATED_AT = datetime(2026, 8, 14, 8, 30, tzinfo=UTC)
 STATE_COMPLETED_AT = datetime(2026, 8, 14, 8, 45, tzinfo=UTC)
@@ -59,8 +63,8 @@ def _snapshot_profile_state(user_bid: str) -> tuple:
     )
 
 
-def _successful_llm(raw_output: str, captured: dict):
-    def invoke(*args: object, **kwargs: object):
+def _successful_llm(raw_output: str, captured: dict) -> Callable[..., object]:
+    def invoke(*args: object, **kwargs: object) -> Iterator[SimpleNamespace]:
         captured["call_count"] = captured.get("call_count", 0) + 1
         captured["args"] = args
         captured["kwargs"] = kwargs
@@ -73,11 +77,11 @@ def _install_trace_spies(monkeypatch, captured: dict) -> None:
     trace = object()
     root_span = object()
 
-    def create_trace(**kwargs: object):
+    def create_trace(**kwargs: object) -> tuple[object, object]:
         captured["trace_create"] = kwargs
         return trace, root_span
 
-    def finalize_trace(**kwargs: object):
+    def finalize_trace(**kwargs: object) -> None:
         captured["trace_finalize"] = kwargs
 
     monkeypatch.setattr(optimizer, "create_trace_with_root_span", create_trace)
@@ -311,7 +315,9 @@ def test_optimize_rejects_moderation_without_calling_llm_or_changing_state(
     invoked = False
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: False)
 
-    def unexpected_invoke(*_args: object, **_kwargs: object):
+    def unexpected_invoke(
+        *_args: object, **_kwargs: object
+    ) -> Iterator[SimpleNamespace]:
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -387,7 +393,9 @@ def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setitem(app.config, "DEFAULT_LLM_MODEL", "")
 
-    def unexpected_invoke(*_args: object, **_kwargs: object):
+    def unexpected_invoke(
+        *_args: object, **_kwargs: object
+    ) -> Iterator[SimpleNamespace]:
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -454,7 +462,7 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def timeout_invoke(*_args: object, **_kwargs: object):
+    def timeout_invoke(*_args: object, **_kwargs: object) -> Iterator[None]:
         message = "provider timeout"
         raise TimeoutError(message)
         yield  # pragma: no cover
@@ -484,7 +492,7 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch) -> None
     user_bid = "profile-optimize-wrapped-timeout"
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def timeout_invoke(*_args: object, **_kwargs: object):
+    def timeout_invoke(*_args: object, **_kwargs: object) -> Iterator[None]:
         try:
             # The wrapped-timeout shape is exactly what this test asserts.
             message = "provider timeout"
@@ -525,7 +533,7 @@ def test_optimize_reports_runtime_failure_reason_without_changing_state(
     captured: dict = {}
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
-    def failed_invoke(*_args: object, **_kwargs: object):
+    def failed_invoke(*_args: object, **_kwargs: object) -> Iterator[None]:
         raise provider_error
         yield  # pragma: no cover
 
@@ -554,11 +562,13 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
 ) -> None:
     invoked = False
 
-    def failed_moderation(*_args: object):
+    def failed_moderation(*_args: object) -> Never:
         message = "moderation unavailable"
         raise RuntimeError(message)
 
-    def unexpected_invoke(*_args: object, **_kwargs: object):
+    def unexpected_invoke(
+        *_args: object, **_kwargs: object
+    ) -> Iterator[SimpleNamespace]:
         nonlocal invoked
         invoked = True
         yield SimpleNamespace(result="unexpected")
@@ -584,7 +594,7 @@ def test_optimize_rejects_invalid_input_before_moderation(
 ) -> None:
     moderated = False
 
-    def unexpected_moderation(*_args: object):
+    def unexpected_moderation(*_args: object) -> bool:
         nonlocal moderated
         moderated = True
         return True

@@ -2,18 +2,22 @@
 
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from flaskr import dao
 from flaskr.service.common.models import ERROR_CODE
 
+if TYPE_CHECKING:
+    from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
-def _get_models():
+
+def _get_models() -> "tuple[type[DraftShifu], type[DraftOutlineItem]]":
     from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
     return DraftShifu, DraftOutlineItem
 
 
-def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
+def _mock_user(monkeypatch, user_id: str, is_creator: bool = True) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,

@@ -3,7 +3,7 @@
 from flaskr.api.tts import minimax_provider
 
 
-def _set_config(monkeypatch, mapping):
+def _set_config(monkeypatch, mapping) -> None:
     monkeypatch.setattr(
         minimax_provider,
         "get_config",

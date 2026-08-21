@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import click
@@ -21,12 +22,12 @@ def enable_plugins(app: Flask) -> None:
         raise RuntimeError(message)
 
     @app.cli.group()
-    def plugin():
+    def plugin() -> None:
         """Plugin management commands."""
 
     @plugin.command(name="add")
     @click.argument("repo_url")
-    def add(repo_url):
+    def add(repo_url) -> None:
         """Add a plugin by cloning the repository."""
         repo_name = repo_url.split("/")[-1].replace(".git", "")
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
@@ -41,7 +42,7 @@ def enable_plugins(app: Flask) -> None:
 
     @plugin.command(name="delete")
     @click.argument("repo_name")
-    def delete(repo_name):
+    def delete(repo_name) -> None:
         """Delete a plugin by its repository name."""
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if not Path(dest_dir).exists():
@@ -49,7 +50,7 @@ def enable_plugins(app: Flask) -> None:
         shutil.rmtree(dest_dir)
 
     @plugin.command(name="list")
-    def list_plugins():
+    def list_plugins() -> None:
         """List all plugins."""
         plugins_dir = str(Path("flaskr") / "plugins")
         plugins = [path.name for path in Path(plugins_dir).iterdir() if path.is_dir()]
@@ -57,7 +58,7 @@ def enable_plugins(app: Flask) -> None:
             if plugin == "__pycache__":
                 continue
 
-    def get_plugin_migrations():
+    def get_plugin_migrations() -> list[object]:
         """Get plugin migrations."""
         plugins = []
         app.logger.info(
@@ -72,7 +73,7 @@ def enable_plugins(app: Flask) -> None:
         return plugins
 
     @plugin.group(name="db")
-    def plugin_db():
+    def plugin_db() -> None:
         """Manage the plugin database."""
 
     def get_version_table_name(plugin_name: str) -> str:
@@ -94,10 +95,10 @@ def enable_plugins(app: Flask) -> None:
 
         return alembic_cfg
 
-    def get_plugin_include_object(plugin_name: str):
+    def get_plugin_include_object(plugin_name: str) -> Callable[..., object]:
         """Generate plugin model filter function."""
 
-        def include_object(db_object, name, type_, reflected, compare_to):
+        def include_object(db_object, name, type_, reflected, compare_to) -> bool:
             _ = (name, reflected, compare_to)
             if type_ == "table":
                 return db_object.__module__.startswith(f"flaskr.plugins.{plugin_name}")
@@ -108,7 +109,7 @@ def enable_plugins(app: Flask) -> None:
     @plugin_db.command(name="upgrade")
     @click.argument("plugin_name", required=False)
     @with_appcontext
-    def upgrade(plugin_name):
+    def upgrade(plugin_name) -> None:
         """Upgrade the plugin database to the latest version."""
         plugins = get_plugin_migrations()
 
@@ -125,7 +126,7 @@ def enable_plugins(app: Flask) -> None:
     @plugin_db.command(name="history")
     @click.argument("plugin_name")
     @with_appcontext
-    def history(plugin_name):
+    def history(plugin_name) -> None:
         """View the migration history of the plugin."""
         plugins = get_plugin_migrations()
         for plugin in plugins:
@@ -141,7 +142,7 @@ def enable_plugins(app: Flask) -> None:
     @plugin_db.command(name="migrate")
     @click.argument("plugin_name")
     @with_appcontext
-    def migrate(plugin_name):
+    def migrate(plugin_name) -> None:
         """Migrate the plugin database to the latest version."""
         plugins = get_plugin_migrations()
         for plugin in plugins:

@@ -1,6 +1,7 @@
 """Verify TTS error mapping behavior."""
 
 import logging
+from collections.abc import Iterator
 
 import pytest
 from flaskr.service.common.models import ERROR_CODE, AppError
@@ -9,7 +10,7 @@ from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
 
 
 def test_rpm_queue_timeout_maps_to_rate_limited_not_unknown(app, caplog) -> None:
-    def _body():
+    def _body() -> Iterator[None]:
         message = "TTS RPM queue wait exceeded 10.00s"
         raise TTSRpmQueueTimeoutError(message)
         yield  # pragma: no cover
@@ -35,7 +36,7 @@ def test_rpm_queue_timeout_maps_to_rate_limited_not_unknown(app, caplog) -> None
 
 
 def test_unexpected_error_still_maps_to_unknown_error(app, caplog) -> None:
-    def _body():
+    def _body() -> Iterator[None]:
         message = "tts worker crashed"
         raise RuntimeError(message)
         yield  # pragma: no cover

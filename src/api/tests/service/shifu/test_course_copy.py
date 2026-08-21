@@ -33,7 +33,7 @@ def _unique_email(label: str) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _stub_copy_course_risk_control(monkeypatch):
+def _stub_copy_course_risk_control(monkeypatch) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.check_text_with_risk_control",
         lambda *_args, **_kwargs: None,
@@ -202,7 +202,7 @@ def _seed_course_with_outlines(
     }
 
 
-def _mock_operator(monkeypatch, user_id: str = SOURCE_OPERATOR_BID):
+def _mock_operator(monkeypatch, user_id: str = SOURCE_OPERATOR_BID) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_operator=True,
@@ -743,7 +743,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(
         )
         db.session.commit()
 
-    def _reject_risk(*args: object, **kwargs: object):
+    def _reject_risk(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         raise_error("server.check.checkRiskControlReject")
 

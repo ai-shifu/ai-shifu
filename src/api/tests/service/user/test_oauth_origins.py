@@ -8,6 +8,8 @@ pin that check down.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Never
+
 import flaskr.common.config as common_config
 import pytest
 from flaskr.service.common.models import AppError
@@ -17,6 +19,9 @@ from flaskr.service.user.auth.providers.google import (
     _require_matching_initiator,
     resolve_state_return_origin,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 PLATFORM_CALLBACK = "https://app.example.com/login/google-callback"
 PLATFORM_ORIGIN = "https://app.example.com"
@@ -30,7 +35,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _shared_callback(monkeypatch):
+def _shared_callback(monkeypatch) -> Iterator[None]:
     """Pin the deployment to one shared callback URL."""
     _reset_config_cache("HOST_URL", "GOOGLE_OAUTH_REDIRECT_URI")
     monkeypatch.setattr(
@@ -44,7 +49,7 @@ def _shared_callback(monkeypatch):
 
 
 @pytest.fixture
-def _verified_custom_domain(monkeypatch):
+def _verified_custom_domain(monkeypatch) -> None:
     """Treat exactly one host as a verified, TLS-active custom domain."""
     monkeypatch.setattr(
         oauth_origins,
@@ -86,7 +91,7 @@ class TestIsAllowedOAuthOrigin:
         )
 
     def test_lookup_failure_refuses_rather_than_allows(self, app, monkeypatch) -> None:
-        def _boom(app, host):
+        def _boom(app, host) -> Never:
             _ = (app, host)
             message = "database is down"
             raise RuntimeError(message)

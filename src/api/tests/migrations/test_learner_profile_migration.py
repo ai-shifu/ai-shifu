@@ -5,9 +5,13 @@ from __future__ import annotations
 import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy.dialects import mysql
 from sqlalchemy.schema import CreateColumn
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 API_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION_PATH = (
@@ -24,7 +28,7 @@ MERGE_MIGRATION_PATH = (
 )
 
 
-def _load_migration_module(path=MIGRATION_PATH):
+def _load_migration_module(path=MIGRATION_PATH) -> object:
     spec = importlib.util.spec_from_file_location(
         "test_learner_profile_migration_module",
         path,
@@ -45,18 +49,20 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers() -> None:
     executed_statements = []
 
     class _BatchOperations:
-        def add_column(self, column):
+        def add_column(self, column) -> None:
             added_columns.append(column)
 
-        def alter_column(self, column_name, **kwargs: object):
+        def alter_column(self, column_name, **kwargs: object) -> None:
             altered_columns.append((column_name, kwargs))
 
     class _Operations:
         @contextmanager
-        def batch_alter_table(self, *_args: object, **_kwargs: object):
+        def batch_alter_table(
+            self, *_args: object, **_kwargs: object
+        ) -> Iterator[object]:
             yield _BatchOperations()
 
-        def execute(self, statement):
+        def execute(self, statement) -> None:
             executed_statements.append(str(statement))
 
     migration.op = _Operations()

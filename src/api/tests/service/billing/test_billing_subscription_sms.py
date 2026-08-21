@@ -6,7 +6,7 @@ import sys
 import types
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 import pytest
 from flask import Flask
@@ -145,7 +145,7 @@ def _billing_paid_feishu_payload(
     }
 
 
-def _raise_if_send_notify_called(*args: object, **kwargs: object):
+def _raise_if_send_notify_called(*args: object, **kwargs: object) -> Never:
     _ = (args, kwargs)
     message = "billing paid Feishu delivery should run in a Celery task"
     raise AssertionError(message)
@@ -265,7 +265,9 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
     enqueued: list[str] = []
 
     class FakeStripeProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "subscription"
             return PaymentNotificationResult(
@@ -418,7 +420,9 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
     enqueued: list[str] = []
 
     class FakeStripeProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert reference_type == "subscription"
             return PaymentNotificationResult(
@@ -588,7 +592,9 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
     enqueued: list[str] = []
 
     class FakePingxxProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert provider_reference == "ch_billing_feishu_topup_sync_1"
             assert reference_type == "charge"
@@ -673,7 +679,9 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
     paid_at = datetime(2026, 7, 31, 4, 0, 53)
 
     class FakePingxxProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app
+        ) -> PaymentNotificationResult:
             _ = app
             assert provider_reference == "ch_trial_upgrade_sync_pingxx_1"
             assert reference_type == "charge"
@@ -1146,7 +1154,7 @@ def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
     captured_kwargs: list[dict[str, str]] = []
 
     class FakeTask:
-        def apply_async(self, kwargs):
+        def apply_async(self, kwargs) -> None:
             captured_kwargs.append(dict(kwargs))
 
     fake_celery = SimpleNamespace(tasks={SUBSCRIPTION_SMS_TASK_NAME: FakeTask()})

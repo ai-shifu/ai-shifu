@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Never
+
 import pytest
 from flaskr.service.common.models import AppError
 from flaskr.service.tts import volcengine_voice_clone
@@ -19,7 +21,7 @@ _TEST_CONFIG = {
 }
 
 
-def _patch_config(monkeypatch, config=None):
+def _patch_config(monkeypatch, config=None) -> None:
     values = _TEST_CONFIG if config is None else config
     monkeypatch.setattr(
         volcengine_voice_clone,
@@ -34,7 +36,7 @@ class _FakeResponse:
         self.status_code = status_code
         self.text = ""
 
-    def json(self):
+    def json(self) -> dict[str, object]:
         return self._payload
 
 
@@ -61,7 +63,7 @@ def test_is_valid_volcengine_custom_voice_id(value, expected) -> None:
 def test_query_status_sends_expected_request(monkeypatch) -> None:
     _patch_config(monkeypatch)
 
-    def fake_post(url, headers, json, timeout):
+    def fake_post(url, headers, json, timeout) -> object:
         assert url == VOLCENGINE_MEGA_TTS_STATUS_URL
         assert headers["Authorization"] == "Bearer;test-token"
         assert headers["Resource-Id"] == VOLCENGINE_ICL_RESOURCE_ID
@@ -100,7 +102,7 @@ def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> No
 
     _patch_config(monkeypatch)
 
-    def _raise_transport_error(*args: object, **kwargs: object):
+    def _raise_transport_error(*args: object, **kwargs: object) -> Never:
         _ = (args, kwargs)
         message = "connect timeout"
         raise requests_lib.exceptions.ConnectTimeout(message)
@@ -117,7 +119,7 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
         status_code = 200
         text = "<html>gateway error</html>"
 
-        def json(self):
+        def json(self) -> Never:
             message = "no json"
             raise ValueError(message)
 

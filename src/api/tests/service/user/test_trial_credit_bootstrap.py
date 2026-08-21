@@ -6,7 +6,7 @@ import importlib
 import json
 import uuid
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 import pytest
 from flask import Flask
@@ -41,9 +41,10 @@ from tests.common.fixtures.fake_redis import FakeRedis
 
 if TYPE_CHECKING:
     from flask.testing import FlaskClient
+    from werkzeug.test import TestResponse
 
 
-def _load_user_route_handlers():
+def _load_user_route_handlers() -> tuple[object, object]:
     common_module = importlib.import_module("flaskr.route.common")
     user_module = importlib.import_module("flaskr.route.user")
     return user_module.register_user_handler, common_module.register_common_handler
@@ -52,7 +53,9 @@ def _load_user_route_handlers():
 register_user_handler, register_common_handler = _load_user_route_handlers()
 
 
-def _post_json(client, path: str, payload: dict, headers: dict | None = None):
+def _post_json(
+    client, path: str, payload: dict, headers: dict | None = None
+) -> TestResponse:
     return client.post(
         path,
         data=json.dumps(payload),
@@ -371,7 +374,7 @@ def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
         token = generate_token(app, user_bid)
         dao.db.session.commit()
 
-    def _failing_post_auth_handler(_context, *, app):
+    def _failing_post_auth_handler(_context, *, app) -> Never:
         _ = app
         message = "boom"
         raise RuntimeError(message)

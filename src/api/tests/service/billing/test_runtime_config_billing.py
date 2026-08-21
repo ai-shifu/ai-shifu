@@ -263,7 +263,7 @@ def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_mis
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=""):
+    def get_config_override(key, default="") -> object:
         if key == "HOST_URL":
             return ""
         return original_route_get_config(key, default)
@@ -293,7 +293,7 @@ def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=""):
+    def get_config_override(key, default="") -> object:
         if key == "OFFICIAL_SITE_URL":
             return ""
         return original_route_get_config(key, default)
@@ -313,7 +313,7 @@ def test_runtime_config_uses_registered_home_url_default_on_config_lock_miss(
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=None):
+    def get_config_override(key, default=None) -> object:
         if key == "HOME_URL":
             return default
         return original_route_get_config(key, default)

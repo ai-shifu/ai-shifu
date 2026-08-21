@@ -34,11 +34,13 @@ def test_rate_limit_detector(message, expected) -> None:
     assert _is_retryable_rate_limit_error(ValueError(message)) is expected
 
 
-def _run_retry(monkeypatch, outcomes, segment_index=0):
+def _run_retry(
+    monkeypatch, outcomes, segment_index=0
+) -> tuple[object, list[object], list[object]]:
     calls = []
     sleeps = []
 
-    def _fake_synthesize_text(**kwargs: object):
+    def _fake_synthesize_text(**kwargs: object) -> object:
         calls.append(kwargs)
         outcome = outcomes[min(len(calls) - 1, len(outcomes) - 1)]
         if isinstance(outcome, Exception):

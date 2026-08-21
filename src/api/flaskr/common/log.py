@@ -13,7 +13,7 @@ from typing import Any
 import colorlog
 import pytz
 import requests
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from .observability import current_trace_ids
 from .request_context import thread_local
@@ -168,7 +168,7 @@ def init_log(app: Flask) -> Flask:
     """Configure request-aware application logging."""
 
     @app.before_request
-    def setup_logging():
+    def setup_logging() -> None:
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
         thread_local.request_id = request_id
         thread_local.url = request.path
@@ -202,7 +202,7 @@ def init_log(app: Flask) -> Flask:
             app.logger.info("Request method: %s", request.method)
 
     @app.after_request
-    def after_request(response):
+    def after_request(response) -> Response:
         try:
             _update_request_timing(response.status_code)
             if response.headers.get(
@@ -211,7 +211,7 @@ def init_log(app: Flask) -> Flask:
                 app.logger.info("Response: <SSE streaming response>")
 
                 @response.call_on_close
-                def log_sse_end():
+                def log_sse_end() -> None:
                     app.logger.info("SSE Response: <streaming ended>")
 
                 return response

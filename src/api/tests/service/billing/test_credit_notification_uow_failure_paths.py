@@ -23,6 +23,7 @@ import secrets
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 from flask import Flask
@@ -91,7 +92,7 @@ def credit_notification_uow_app(tmp_path) -> Flask:
 
 
 @pytest.fixture(autouse=True)
-def _neutralize_savepoints_on_sqlite(monkeypatch):
+def _neutralize_savepoints_on_sqlite(monkeypatch) -> None:
     """Make begin_nested a no-op under the SQLite test engine.
 
     ``_stage_notification_record`` wraps its INSERT in
@@ -249,8 +250,10 @@ def _seed_credit_ledger(*, ledger_bid: str, creator_bid: str) -> None:
     dao.db.session.commit()
 
 
-def _stub_send_sms(monkeypatch: pytest.MonkeyPatch, sends: list[dict]):
-    def fake_send(app, mobile, *, template_code, template_params, sign_name=None):
+def _stub_send_sms(monkeypatch: pytest.MonkeyPatch, sends: list[dict]) -> None:
+    def fake_send(
+        app, mobile, *, template_code, template_params, sign_name=None
+    ) -> SimpleNamespace:
         _ = (app, sign_name)
         sends.append(
             {
@@ -293,7 +296,7 @@ def test_scan_item_failure_is_isolated_from_neighbor_items(
 
     original_stage = credit_notifications._stage_notification_record
 
-    def staging_then_boom(app_arg, **kwargs: object):
+    def staging_then_boom(app_arg, **kwargs: object) -> object:
         result = original_stage(app_arg, **kwargs)
         if kwargs.get("creator_bid") == "creator-uow-2":
             message = "boom in creator-uow-2"
@@ -401,7 +404,7 @@ def test_failed_provider_marker_persists_and_stays_retryable(
     )
     notification_bid = str(staged["notification_bid"])
 
-    def crashing_send(*_args: object, **_kwargs: object):
+    def crashing_send(*_args: object, **_kwargs: object) -> Never:
         message = "provider connection dropped"
         raise RuntimeError(message)
 

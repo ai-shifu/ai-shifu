@@ -39,13 +39,13 @@ def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
             self._first_value = first_value
             self._count_value = count_value
 
-        def filter(self, *_args: object, **_kwargs: object):
+        def filter(self, *_args: object, **_kwargs: object) -> "FakeQuery":
             return self
 
-        def first(self):
+        def first(self) -> object:
             return self._first_value
 
-        def count(self):
+        def count(self) -> object:
             return self._count_value
 
     class FakeColumn:
@@ -71,7 +71,7 @@ def test_send_order_feishu_formats_notification(app, monkeypatch) -> None:
 
     captured = {}
 
-    def fake_send_notify(_app, title, msgs):
+    def fake_send_notify(_app, title, msgs) -> None:
         captured["title"] = title
         captured["msgs"] = msgs
 

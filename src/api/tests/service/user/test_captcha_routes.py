@@ -6,9 +6,10 @@ from io import BytesIO
 
 from flasgger.utils import parse_docstring
 from PIL import Image
+from werkzeug.test import TestResponse
 
 
-def _post_json(client, path: str, payload: dict):
+def _post_json(client, path: str, payload: dict) -> tuple[TestResponse, object]:
     resp = client.post(
         path,
         data=json.dumps(payload),
@@ -17,7 +18,7 @@ def _post_json(client, path: str, payload: dict):
     return resp, resp.get_json(force=True)
 
 
-def _get_captcha(client, app):
+def _get_captcha(client, app) -> object:
     app.config["ENV"] = "development"
     app.config["CAPTCHA_CODE_OVERRIDE"] = "0000"
     response = client.get("/api/user/captcha")
@@ -27,7 +28,7 @@ def _get_captcha(client, app):
     return body["data"]
 
 
-def _get_ticket(client, app):
+def _get_ticket(client, app) -> object:
     captcha = _get_captcha(client, app)
     response, body = _post_json(
         client,

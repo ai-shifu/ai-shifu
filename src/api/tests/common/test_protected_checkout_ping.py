@@ -19,7 +19,7 @@ class _FakeRecord:
     def __init__(self) -> None:
         self.invalidated_with = []
 
-    def invalidate(self, e=None):
+    def invalidate(self, e=None) -> None:
         self.invalidated_with.append(e)
 
 
@@ -27,11 +27,11 @@ class _FakeGreenletExit(BaseException):
     pass
 
 
-def _make_conn(sock, ping_exc=None):
+def _make_conn(sock, ping_exc=None) -> object:
     class _Conn:
         _sock = sock
 
-        def ping(self, reconnect):
+        def ping(self, reconnect) -> None:
             assert reconnect is False
             if ping_exc is not None:
                 raise ping_exc

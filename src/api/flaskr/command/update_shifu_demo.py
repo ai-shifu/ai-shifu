@@ -98,7 +98,7 @@ def _process_demo_shifu(
     return shifu_bid
 
 
-def _ensure_creator_permissions(app: Flask, shifu_bid: str):
+def _ensure_creator_permissions(app: Flask, shifu_bid: str) -> None:
     """Ensure all creator users have permissions for the given shifu.
 
     Args:

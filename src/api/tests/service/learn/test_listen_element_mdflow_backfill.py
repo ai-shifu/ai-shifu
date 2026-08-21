@@ -5,6 +5,7 @@
 import json
 import sys
 import types
+from typing import Never
 
 
 def _install_litellm_stub() -> None:
@@ -13,7 +14,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)

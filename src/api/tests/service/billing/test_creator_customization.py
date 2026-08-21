@@ -615,7 +615,7 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(
     _require_saas_config_plugin()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
-    def fake_get_config(key, default=None):
+    def fake_get_config(key, default=None) -> object:
         if key == "ALIBABA_CLOUD_OSS_COURSES_URL":
             return "https://courses-oss.example.com"
         if key == "ALIBABA_CLOUD_OSS_BASE_URL":
@@ -624,7 +624,7 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(
 
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app, **kwargs: object) -> SimpleNamespace:
         uploaded.update(kwargs)
         return SimpleNamespace(
             url=f"https://courses-oss.example.com/{kwargs['object_key']}",
@@ -669,7 +669,7 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(
 def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
     app, monkeypatch
 ) -> None:
-    def missing_plugin(name):
+    def missing_plugin(name) -> object:
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             raise ModuleNotFoundError(name=name)
         return import_module(name)
@@ -700,7 +700,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch) -> None
             message = "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
             raise AssertionError(message)
 
-    def fake_import(name):
+    def fake_import(name) -> object:
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             return _ExplodingModule()
         return import_module(name)
@@ -732,7 +732,7 @@ def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch) -> N
 
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app, **kwargs: object) -> SimpleNamespace:
         uploaded.update(kwargs)
         return SimpleNamespace(
             url=f"https://courses-oss.example.com/{kwargs['object_key']}",
@@ -828,7 +828,7 @@ def test_runtime_branding_falls_back_to_square_logo_for_favicon(app) -> None:
 def test_creator_branding_home_url_roundtrip(app, monkeypatch) -> None:
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
-    def missing_plugin(name):
+    def missing_plugin(name) -> object:
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             raise ModuleNotFoundError(name=name)
         return import_module(name)
@@ -927,7 +927,7 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(
 def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch) -> None:
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app, **kwargs: object) -> object:
         content = kwargs["file_content"].read()
         uploaded["content"] = content
         return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()
@@ -966,7 +966,7 @@ def test_creator_brand_logo_upload_preserves_wide_retina_variant(
 ) -> None:
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app, **kwargs: object) -> object:
         content = kwargs["file_content"].read()
         uploaded["content"] = content
         return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()

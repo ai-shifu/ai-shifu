@@ -155,7 +155,9 @@ def publish_shifu_draft(
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
 
-        def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem):
+        def publish_outline_item(
+            node: ShifuOutlineTreeNode, history_item: HistoryItem
+        ) -> None:
             outline_item = PublishedOutlineItem()
             draft_outline_item: DraftOutlineItem = node.outline
             outline_item.shifu_bid = shifu_id
@@ -226,7 +228,9 @@ def publish_shifu_draft(
         return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 
-def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None):
+def _run_summary_with_error_handling(
+    app, shifu_id, shifu_context_snapshot=None
+) -> None:
     """Run shifu summary generation with error handling.
 
     Args:
@@ -310,7 +314,7 @@ def _generate_ask_prompts(
     outline_summary_map: dict[str, dict],
     outline_item_map: dict[str, PublishedOutlineItem],
     ask_prompt_template: str,
-):
+) -> None:
     """Generate ask_prompt for each section.
 
     Args:
@@ -505,7 +509,7 @@ def _make_ask_prompt(
     )
 
 
-def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
+def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8) -> str:
     """Call the AI model to generate summary.
 
     Args:

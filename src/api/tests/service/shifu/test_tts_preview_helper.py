@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 from flask import Flask
@@ -93,7 +94,7 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         raising=False,
     )
 
-    def _fake_record_tts_usage(app, context, **kwargs: object):
+    def _fake_record_tts_usage(app, context, **kwargs: object) -> object | str | None:
         captured.append(
             {
                 "app": app,
@@ -153,7 +154,7 @@ def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> No
     app = Flask(__name__)
     captured: dict[str, object] = {}
 
-    def _fake_validate_tts_settings_strict(**kwargs: object):
+    def _fake_validate_tts_settings_strict(**kwargs: object) -> SimpleNamespace:
         captured.update(kwargs)
         return SimpleNamespace(
             provider="fake",
@@ -247,7 +248,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
         raising=False,
     )
 
-    def _fake_guard(_app, *, provider, voice_id, owner_user_bid):
+    def _fake_guard(_app, *, provider, voice_id, owner_user_bid) -> Never:
         guard_calls.append(
             {
                 "provider": provider,
@@ -291,7 +292,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
     ]
 
 
-def _stub_preview_pipeline(monkeypatch):
+def _stub_preview_pipeline(monkeypatch) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.validate_tts_settings_strict",
         lambda **_kwargs: SimpleNamespace(

@@ -1,6 +1,7 @@
 """Verify TTS config options behavior."""
 
 import json
+from collections.abc import Callable
 from decimal import Decimal
 
 from flask import Flask
@@ -8,7 +9,7 @@ from flaskr.api.tts import base
 
 
 class _FakeMinimaxProvider:
-    def get_provider_config(self):
+    def get_provider_config(self) -> base.ProviderConfig:
         return base.ProviderConfig(
             name="MiniMax",
             label="MiniMax",
@@ -25,7 +26,7 @@ class _FakeMinimaxProvider:
 
 
 class _FakeBaiduProvider:
-    def get_provider_config(self):
+    def get_provider_config(self) -> base.ProviderConfig:
         return base.ProviderConfig(
             name="baidu",
             label="Baidu",
@@ -110,8 +111,8 @@ class _FakeRate:
         self.model = model
 
 
-def _chars_per_token_config(value: str):
-    def _get_config(key, default=None):
+def _chars_per_token_config(value: str) -> Callable[..., object]:
+    def _get_config(key, default=None) -> object:
         if key == "TTS_CHARS_PER_LLM_TOKEN":
             return value
         return default
@@ -126,7 +127,7 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch) -> None:
 
     captured = []
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at) -> object:
         _ = settlement_at
         captured.append((usage.usage_type, usage.provider, usage.model, billing_metric))
         if (
@@ -163,7 +164,7 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch) -> None:
     from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
     from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at) -> object:
         _ = settlement_at
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
@@ -195,7 +196,7 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch) -> None:
 def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch) -> None:
     import flaskr.api.tts as tts_api
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at) -> None:
         _ = (usage, billing_metric, settlement_at)  # no curated TTS rate
 
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.216"))
@@ -214,7 +215,7 @@ def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch) -> None:
 def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch) -> None:
     import flaskr.api.tts as tts_api
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at) -> object:
         _ = (usage, billing_metric, settlement_at)
         return _FakeRate("8", 10000, "tencent", "")
 
@@ -330,7 +331,7 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch) -> None:
 
     captured = {}
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at) -> None:
         _ = (usage, billing_metric)
         captured["settlement_at"] = settlement_at
 
@@ -363,7 +364,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch) -> No
     from flaskr.i18n import clear_language, set_language
 
     class _FakeVolcengineProvider:
-        def get_provider_config(self):
+        def get_provider_config(self) -> base.ProviderConfig:
             return base.ProviderConfig(
                 name="volcengine",
                 label="火山引擎",
@@ -427,7 +428,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch) -> No
     ]
 
 
-def _patch_two_provider_registry(monkeypatch, tts_api):
+def _patch_two_provider_registry(monkeypatch, tts_api) -> None:
     monkeypatch.setattr(
         tts_api,
         "_PROVIDER_REGISTRY",

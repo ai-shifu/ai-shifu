@@ -3,7 +3,9 @@
 
 import sys
 import types
+from collections.abc import Iterator
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 
@@ -14,7 +16,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -130,7 +132,7 @@ class FakeUsage:
 def test_invoke_llm_streams_via_litellm(monkeypatch, app) -> None:
     captured_kwargs = {}
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> Iterator[FakeResponse]:
         captured_kwargs["args"] = args
         captured_kwargs["kwargs"] = kwargs
         usage = FakeUsage(prompt_tokens=5, completion_tokens=4, total_tokens=9)

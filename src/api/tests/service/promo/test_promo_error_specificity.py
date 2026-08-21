@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import flaskr.service.promo.admin as promo_admin
 import pytest
@@ -11,9 +12,12 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.promo.consts import COUPON_STATUS_ACTIVE, COUPON_TYPE_FIXED
 from flaskr.service.promo.models import Coupon, CouponUsage
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture(autouse=True)
-def _isolate_coupon_tables(app):
+def _isolate_coupon_tables(app) -> Iterator[None]:
     with app.app_context():
         CouponUsage.query.delete()
         Coupon.query.delete()

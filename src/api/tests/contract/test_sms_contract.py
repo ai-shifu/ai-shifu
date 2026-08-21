@@ -2,6 +2,7 @@
 
 import logging
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 from flask import Flask
@@ -16,7 +17,7 @@ def test_send_sms_ali_builds_request_for_generic_template(monkeypatch) -> None:
         def __init__(self, config) -> None:
             captured["config"] = config
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request, runtime) -> SimpleNamespace:
             captured["request"] = request
             captured["runtime"] = runtime
             return SimpleNamespace(body=SimpleNamespace(code="OK"))
@@ -59,7 +60,7 @@ def test_send_sms_code_ali_builds_request(monkeypatch) -> None:
         def __init__(self, config) -> None:
             captured["config"] = config
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request, runtime) -> SimpleNamespace:
             captured["request"] = request
             captured["runtime"] = runtime
             return SimpleNamespace(body=SimpleNamespace(code="OK"))
@@ -90,7 +91,7 @@ def test_send_sms_code_ali_builds_request(monkeypatch) -> None:
 def test_send_sms_code_ali_returns_none_without_keys(monkeypatch) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
-    def fake_client(_config):
+    def fake_client(_config) -> Never:
         message = "client should not be created"
         raise AssertionError(message)
 
@@ -124,11 +125,11 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch) -> None:
         def __init__(self, config) -> None:
             captured["config"] = config
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request, runtime) -> Never:
             _ = (request, runtime)
             raise DummyError
 
-    def fake_assert(message):
+    def fake_assert(message) -> None:
         captured["assert_message"] = message
 
     monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", FakeClient)
@@ -157,7 +158,7 @@ def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(
         def __init__(self, _config) -> None:
             pass
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request, runtime) -> SimpleNamespace:
             del request, runtime
             return SimpleNamespace(
                 body=SimpleNamespace(
@@ -203,7 +204,7 @@ def test_send_sms_ali_logs_recipient_throttle_as_warning(
         def __init__(self, _config) -> None:
             pass
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request, runtime) -> SimpleNamespace:
             del request, runtime
             return SimpleNamespace(
                 body=SimpleNamespace(
@@ -250,7 +251,7 @@ def test_send_sms_ali_logs_illegal_recipient_number_as_warning(
         def __init__(self, _config) -> None:
             pass
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request, runtime) -> SimpleNamespace:
             del request, runtime
             return SimpleNamespace(
                 body=SimpleNamespace(

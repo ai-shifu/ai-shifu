@@ -5,7 +5,7 @@ import decimal
 import json
 import re
 from collections.abc import Iterator
-from contextlib import contextmanager, nullcontext, suppress
+from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -161,7 +161,7 @@ class AICourseBuyRecordDTO:
     def __json__(self) -> dict:
         """Return the AI course buy record as JSON-compatible data."""
 
-        def format_decimal(value):
+        def format_decimal(value) -> str:
             # Convert to a string with two decimal places
             formatted_value = value if isinstance(value, str) else f"{value:.2f}"
             # If the decimal part is .00, remove it
@@ -670,7 +670,9 @@ def generate_charge(
     return None
 
 
-def _order_credential_scope(app: Flask, order: Order, context=None):
+def _order_credential_scope(
+    app: Flask, order: Order, context=None
+) -> AbstractContextManager[object]:
     """Use the immutable credential version snapshotted on the order."""
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
@@ -1315,7 +1317,7 @@ def _update_stripe_order_snapshot(
     stripe_order: StripeOrder,
     session: dict[str, Any],
     intent: dict[str, Any] | None,
-):
+) -> None:
     if session:
         stripe_order.checkout_session_id = session.get(
             "id", stripe_order.checkout_session_id

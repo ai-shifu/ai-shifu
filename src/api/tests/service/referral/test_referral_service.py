@@ -450,7 +450,7 @@ def test_post_auth_binding_is_idempotent_and_creates_reward(
         )
         db.session.commit()
 
-        def fake_grant(_app: Flask, *, reward: ReferralInviteReward):
+        def fake_grant(_app: Flask, *, reward: ReferralInviteReward) -> object:
             grant_calls.append(reward.reward_bid)
             reward.reward_status = REFERRAL_REWARD_STATUS_GENERATED
             reward.billing_artifacts = {

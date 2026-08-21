@@ -12,6 +12,7 @@ matches a usage record.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.service.billing.consts import (
@@ -26,17 +27,22 @@ from .conftest import (
     seed_owned_course,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from werkzeug.test import TestResponse
+
 ENDPOINT = "/api/creator-analytics/credit-detail"
 
 
 @pytest.fixture(autouse=True)
-def _reset_analytics_engine_singleton():
+def _reset_analytics_engine_singleton() -> Iterator[None]:
     analytics_engine.reset_for_tests()
     yield
     analytics_engine.reset_for_tests()
 
 
-def _post(test_client, body):
+def _post(test_client, body) -> TestResponse:
     return test_client.post(ENDPOINT, json=body)
 
 

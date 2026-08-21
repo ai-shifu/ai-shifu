@@ -579,6 +579,22 @@ annotations and type-import scaffolding. Applied Alembic revisions are
 immutable and keep their conventional unannotated `upgrade` / `downgrade`
 hooks; new and otherwise mutable public functions must be annotated.
 
+For `ANN202`, apply the same observable-contract standard to private functions
+and methods: private visibility does not make an uncertain return type
+acceptable. Route-local view functions use Flask's `ResponseReturnValue`;
+generators and yielding fixtures use `Iterator[T]` or `AsyncIterator[T]`; and
+private adapters, query builders, serializers, and state helpers use the
+concrete stable type their callers observe. Reserve `object` for genuinely
+dynamic SDK, ORM, decorator, and test-double boundaries, and never introduce
+`Any` merely to move the finding to `ANN401`. Inspect local and forward types
+before importing them: use `TYPE_CHECKING` imports or quoted annotations when
+runtime evaluation would otherwise introduce a cycle or an unavailable name.
+Treat Ruff's unsafe fix only as an inventory starting point, then review every
+non-`None` inference and prove executable AST equality without the annotations
+and type-import scaffolding. Applied Alembic revisions are immutable, including
+private migration helpers; keep only the exact migration-history exception and
+annotate every new or otherwise mutable private callable.
+
 For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
 adding `noqa`, or turning the same promise into an untracked prose comment.
 Complete the work when it is part of the current change. When it genuinely

@@ -8,15 +8,15 @@ class _FakeRedis:
         self.values = dict(values or {})
         self.deleted = []
 
-    def get(self, key):
+    def get(self, key) -> object:
         return self.values.get(key)
 
-    def delete(self, *keys: str):
+    def delete(self, *keys: str) -> int:
         self.deleted.extend(keys)
         return len(keys)
 
 
-def _reset_user_auth_tables():
+def _reset_user_auth_tables() -> None:
     from flaskr.dao import db
     from flaskr.service.user.models import (
         AuthCredential,
@@ -191,16 +191,16 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch) -> None:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             self.sent_to = None
 
-        def starttls(self):
+        def starttls(self) -> None:
             return None
 
-        def login(self, *_args: object):
+        def login(self, *_args: object) -> None:
             return None
 
-        def sendmail(self, _sender, recipient, _message):
+        def sendmail(self, _sender, recipient, _message) -> None:
             self.sent_to = recipient
 
-        def quit(self):
+        def quit(self) -> None:
             return None
 
     fake_redis = FakeRedis()

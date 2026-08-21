@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from typing import NoReturn
 
     from flask import Flask
+    from flaskr.common.cache_provider import CacheProvider
 
 
 _IDENTIFIER_LIMIT_CONFIG = "PASSWORD_LOGIN_IDENTIFIER_FAILURE_LIMIT"
@@ -65,7 +66,7 @@ def _config_int(app: Flask, name: str, default: int) -> int:
     return max(1, int(app.config.get(name, default)))
 
 
-def _shared_counter_cache(app: Flask):
+def _shared_counter_cache(app: Flask) -> CacheProvider:
     """Return the shared Redis backend required by password throttling."""
     from flaskr.dao import get_redis_client
 

@@ -66,6 +66,8 @@ from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
+    from decimal import Decimal
+
     from flask import Flask
 
 MINIMAX_FILE_UPLOAD_URL = "https://api.minimaxi.com/v1/files/upload"
@@ -1111,7 +1113,7 @@ def _validate_audio_upload(data: bytes, *, filename: str, max_bytes: int) -> Non
         raise_param_error("unsupported audio file type")
 
 
-def _available_wallet_credits(app: Flask, creator_bid: str):
+def _available_wallet_credits(app: Flask, creator_bid: str) -> Decimal:
     from flaskr.service.billing.models import CreditWallet
 
     with app.app_context():

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from flask import Flask
+
 try:  # pragma: no cover - exercised indirectly when Celery is installed.
     from celery import shared_task
 except ImportError:  # pragma: no cover - local fallback for non-Celery test envs.
@@ -22,7 +24,7 @@ except ImportError:  # pragma: no cover - local fallback for non-Celery test env
         return decorator
 
 
-def _create_task_app():
+def _create_task_app() -> Flask:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     from app import create_app
 

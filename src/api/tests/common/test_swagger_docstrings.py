@@ -1,6 +1,7 @@
 """Validate every source-defined Flasgger docstring as a runtime contract."""
 
 import ast
+from collections.abc import Iterator
 from pathlib import Path
 
 from flasgger.utils import parse_docstring
@@ -16,7 +17,7 @@ KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS = {
 }
 
 
-def _swagger_docstrings():
+def _swagger_docstrings() -> Iterator[tuple[object, object, object]]:
     for path in (API_ROOT / "flaskr").rglob("*.py"):
         source = path.read_text()
         tree = ast.parse(source)
@@ -48,7 +49,7 @@ def test_all_swagger_docstrings_keep_valid_yaml_after_summary() -> None:
         assert separator_index > 1, (path, function_name)
         assert lines[1].strip() == "", (path, function_name)
 
-        def view():
+        def view() -> None:
             pass
 
         view.__doc__ = docstring

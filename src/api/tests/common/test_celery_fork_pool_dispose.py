@@ -9,7 +9,7 @@ off-by-one protocol desync. The worker_process_init hook must discard the
 inherited pool without touching the parent's file descriptors.
 """
 
-from typing import ClassVar
+from typing import ClassVar, Never
 
 from celery.signals import worker_process_init
 from flaskr.common.celery_app import dispose_inherited_db_pools, get_celery_app
@@ -51,13 +51,13 @@ def test_one_failing_bind_does_not_block_the_rest(app, monkeypatch) -> None:
     disposed = []
 
     class _BrokenEngine:
-        def dispose(self, close):
+        def dispose(self, close) -> Never:
             _ = close
             message = "bind gone"
             raise RuntimeError(message)
 
     class _GoodEngine:
-        def dispose(self, close):
+        def dispose(self, close) -> None:
             disposed.append(close)
 
     class _FakeDB:

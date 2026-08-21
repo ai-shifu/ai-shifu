@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Never
+
 import flaskr.service.order.admin as order_admin
 from flaskr.i18n import _
 
@@ -9,7 +11,7 @@ from flaskr.i18n import _
 def test_import_activation_orders_unexpected_failure_returns_specific_message(
     app, monkeypatch
 ) -> None:
-    def raise_unexpected(*_args: object, **_kwargs: object):
+    def raise_unexpected(*_args: object, **_kwargs: object) -> Never:
         message = "boom"
         raise RuntimeError(message)
 
@@ -35,7 +37,7 @@ def test_import_activation_orders_unexpected_failure_returns_specific_message(
 def test_import_activation_orders_from_entries_unexpected_failure_returns_specific_message(
     app, monkeypatch
 ) -> None:
-    def raise_unexpected(*_args: object, **_kwargs: object):
+    def raise_unexpected(*_args: object, **_kwargs: object) -> Never:
         message = "boom"
         raise RuntimeError(message)
 

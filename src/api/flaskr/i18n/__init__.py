@@ -43,7 +43,7 @@ def _shared_json_root() -> Path:
     return Path(__file__).resolve().parents[2] / "i18n"
 
 
-def _flatten_dict(data, prefix: str = ""):
+def _flatten_dict(data, prefix: str = "") -> dict[str, object]:
     if not isinstance(data, dict):
         key = prefix or ""
         return {key: data} if key else {}
@@ -59,14 +59,14 @@ def _flatten_dict(data, prefix: str = ""):
     return flattened
 
 
-def _store_translation(lang: str, key: str, value):
+def _store_translation(lang: str, key: str, value) -> None:
     if value is None:
         return
     _translations[lang][key] = value
     _translations[lang][key.upper()] = value
 
 
-def _load_json_translations(app: Flask, root: Path):
+def _load_json_translations(app: Flask, root: Path) -> None:
     if not root.exists():
         app.logger.debug("i18n JSON directory not found: %s", root)
         return
@@ -148,7 +148,7 @@ def _load_json_translations(app: Flask, root: Path):
                     _store_translation(lang, key, value)
 
 
-def _validate_json_translations(root: Path):
+def _validate_json_translations(root: Path) -> None:
     if not root.exists():
         message = f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
         raise FileNotFoundError(message)
@@ -216,7 +216,7 @@ def _validate_json_translations(root: Path):
         raise RuntimeError(details)
 
 
-def _load_python_translations(app: Flask, translations_dir: Path):
+def _load_python_translations(app: Flask, translations_dir: Path) -> None:
     if not translations_dir.exists():
         return
 
@@ -282,11 +282,11 @@ def translate_for_language(text: str, language: str | None = None) -> str:
     )
 
 
-def _(text: str):
+def _(text: str) -> str:
     return translate_for_language(text)
 
 
-def get_current_language():
+def get_current_language() -> str:
     return getattr(_thread_local, "language", "en-US")
 
 

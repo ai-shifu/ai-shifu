@@ -9,8 +9,12 @@ import logging
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import TYPE_CHECKING, Never
 
 from flask import Flask
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def _install_litellm_stub() -> None:
@@ -19,7 +23,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> Never:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -128,7 +132,9 @@ def _find_call_by_name(node: ast.AST, name: str) -> ast.Call:
     raise AssertionError(message)
 
 
-def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = False):
+def _mock_user(
+    monkeypatch, user_id: str, *, is_creator: bool = False
+) -> SimpleNamespace:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -153,7 +159,7 @@ def test_stream_passthrough_releases_request_db_session(monkeypatch) -> None:
         SimpleNamespace(session=SimpleNamespace(remove=lambda: calls.append("remove"))),
     )
 
-    def _messages():
+    def _messages() -> Iterator[str]:
         calls.append("iterate")
         yield 'data: {"type":"done"}\n\n'
 
@@ -179,7 +185,7 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(
     app = Flask(__name__)
     calls = []
 
-    def _remove():
+    def _remove() -> Never:
         calls.append("remove")
         message = "remove failed"
         raise RuntimeError(message)
@@ -190,7 +196,7 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(
         SimpleNamespace(session=SimpleNamespace(remove=_remove)),
     )
 
-    def _messages():
+    def _messages() -> Iterator[str]:
         calls.append("iterate")
         yield 'data: {"type":"done"}\n\n'
 
@@ -219,7 +225,7 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog) -> None
         SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
     )
 
-    def _messages():
+    def _messages() -> Iterator[None]:
         message = "TTS provider quota exceeded"
         raise AppError(message, 45000292)
         yield  # pragma: no cover
@@ -251,7 +257,7 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog) 
         SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
     )
 
-    def _messages():
+    def _messages() -> Iterator[None]:
         message = "tts worker crashed"
         raise RuntimeError(message)
         yield  # pragma: no cover
@@ -283,7 +289,7 @@ def test_stream_sse_emits_error_event_for_business_error_with_factory(
         SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
     )
 
-    def _messages():
+    def _messages() -> Iterator[None]:
         message = "TTS provider quota exceeded"
         raise AppError(message, 45000292)
         yield  # pragma: no cover
@@ -414,7 +420,7 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
         ),
     )
 
-    def _fake_run_script(*_args: object, **kwargs: object):
+    def _fake_run_script(*_args: object, **kwargs: object) -> Iterator[str]:
         assert "runtime_admission_payload" not in kwargs
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 
@@ -446,7 +452,7 @@ def test_run_route_uses_payload_language_as_generation_snapshot(
         lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
     )
 
-    def _fake_run_script(*_args: object, **kwargs: object):
+    def _fake_run_script(*_args: object, **kwargs: object) -> Iterator[str]:
         captured.update(kwargs)
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 

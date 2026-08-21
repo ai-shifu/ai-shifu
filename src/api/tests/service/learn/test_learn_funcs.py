@@ -4,6 +4,7 @@ import sys
 import types
 import unittest
 import unittest.mock
+from collections.abc import Iterator
 
 from flask import Flask
 
@@ -253,25 +254,27 @@ class LearnRecordLoadTests(unittest.TestCase):
                 _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "md content", 0)]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> object:
                 _ = (block_index, mode, variables, user_input)
                 FakeMarkdownFlow.last_context = context
 
-                def _gen():
+                def _gen() -> Iterator[DummyLLMResult]:
                     yield DummyLLMResult("chunk")
 
                 return _gen()
@@ -381,27 +384,29 @@ class LearnRecordLoadTests(unittest.TestCase):
                     ),
                 ]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> object:
                 _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
                 if block.block_type == MarkdownFlowBlockType.INTERACTION:
                     return types.SimpleNamespace(content=block.content)
 
-                def _gen():
+                def _gen() -> Iterator[DummyLLMResult]:
                     yield DummyLLMResult(block.content)
 
                 return _gen()
@@ -523,21 +528,23 @@ class LearnRecordLoadTests(unittest.TestCase):
                 _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> types.SimpleNamespace:
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-emitted")
@@ -653,21 +660,23 @@ class LearnRecordLoadTests(unittest.TestCase):
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> types.SimpleNamespace:
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-called")
@@ -776,21 +785,23 @@ class LearnRecordLoadTests(unittest.TestCase):
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(
+                self, *_args: object, **_kwargs: object
+            ) -> "FakeMarkdownFlow":
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> list[DummyBlock]:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index) -> DummyBlock:
                 return self.blocks[block_index]
 
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+            ) -> types.SimpleNamespace:
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-called")

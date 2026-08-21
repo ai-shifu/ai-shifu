@@ -12,7 +12,7 @@ from flaskr.service.tts.tts_usage_recorder import (
 )
 
 
-def _voice_settings():
+def _voice_settings() -> SimpleNamespace:
     return SimpleNamespace(
         voice_id="voice-1",
         speed=1.0,
@@ -22,7 +22,7 @@ def _voice_settings():
     )
 
 
-def _audio_settings():
+def _audio_settings() -> SimpleNamespace:
     return SimpleNamespace(format="mp3", sample_rate=32000)
 
 

@@ -140,7 +140,7 @@ def disable_plugin_manager(app: Flask) -> Flask:
 def extension(target_func_name) -> Callable[..., object]:
     """Decorate a function with registered extension callbacks."""
 
-    def decorator(func):
+    def decorator(func) -> Callable[..., object]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
@@ -154,7 +154,7 @@ def extension(target_func_name) -> Callable[..., object]:
 def extensible_generic_register(func_name) -> Callable[..., object]:
     """Register a generic extension point."""
 
-    def decorator(func):
+    def decorator(func) -> Callable[..., object]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
@@ -170,7 +170,7 @@ def extensible(func) -> Callable[..., object]:
     """Decorate a function as an extension point."""
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: object, **kwargs: object) -> object:
         result = func(*args, **kwargs)
         manager = get_plugin_manager()
         if manager is None:
@@ -192,7 +192,7 @@ def extensible_generic(func) -> Callable[..., object]:
         pass
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: object, **kwargs: object) -> Iterator[object]:
         result = func(*args, **kwargs)
         if result:
             yield from result

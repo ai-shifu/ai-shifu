@@ -1,7 +1,7 @@
 """Promo functions."""
 
 import decimal
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -56,7 +56,7 @@ def is_campaign_enabled_for_runtime(campaign) -> bool:
     )
 
 
-def _blank_legacy_bid_expression(column):
+def _blank_legacy_bid_expression(column) -> bool:
     normalized = func.coalesce(column, "")
     normalized = func.replace(normalized, "\t", "")
     normalized = func.replace(normalized, "\n", "")
@@ -88,7 +88,7 @@ def build_campaign_enabled_expression(model_or_columns) -> ColumnElement[bool]:
     )
 
 
-def _app_context_scope(app: Flask):
+def _app_context_scope(app: Flask) -> AbstractContextManager[object]:
     return nullcontext() if has_app_context() else app.app_context()
 
 

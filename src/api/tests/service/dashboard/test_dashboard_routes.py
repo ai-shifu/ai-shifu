@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -37,6 +38,9 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _clear_dashboard_tables() -> None:
     db.session.query(UserToken).delete()
@@ -56,7 +60,7 @@ def _clear_dashboard_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_dashboard_tables(app):
+def _isolate_dashboard_tables(app) -> Iterator[None]:
     if app is None:
         yield
         return
@@ -74,7 +78,7 @@ def _isolate_dashboard_tables(app):
 class TestDashboardRoutes:
     """Verify dashboard routes behavior."""
 
-    def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1"):
+    def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1") -> None:
         dummy_user = SimpleNamespace(
             user_id=user_id,
             language="en-US",

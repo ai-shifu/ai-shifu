@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -41,9 +42,12 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc, parse_naive_utc
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app):
+def _isolate_tables(app) -> Iterator[None]:
     with app.app_context():
         db.session.query(PromoRedemption).delete()
         db.session.query(PromoCampaign).delete()
@@ -159,7 +163,7 @@ def _mock_creator(monkeypatch, user_id: str = "creator-1") -> None:
 
 def _seed_user(
     user_bid: str, identifier: str, nickname: str, *, is_operator: bool = False
-):
+) -> UserEntity:
     user = UserEntity()
     user.user_bid = user_bid
     user.user_identify = identifier
@@ -178,7 +182,9 @@ def _seed_user(
     return user
 
 
-def _seed_course(shifu_bid: str, title: str, *, creator_user_bid: str = "operator-1"):
+def _seed_course(
+    shifu_bid: str, title: str, *, creator_user_bid: str = "operator-1"
+) -> PublishedShifu:
     course = PublishedShifu()
     course.shifu_bid = shifu_bid
     course.title = title
@@ -196,7 +202,7 @@ def _seed_order(
     *,
     payable: str = "99.00",
     paid: str = "79.00",
-):
+) -> Order:
     order = Order()
     order.order_bid = order_bid
     order.shifu_bid = shifu_bid
@@ -710,7 +716,9 @@ def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
     _mock_creator(monkeypatch, user_id="creator-1")
     captured_filters = {}
 
-    def fake_list(_app, creator_user_bid, page_index, page_size, filters):
+    def fake_list(
+        _app, creator_user_bid, page_index, page_size, filters
+    ) -> dict[str, object]:
         captured_filters.update(filters)
         assert creator_user_bid == "creator-1"
         assert page_index == 1

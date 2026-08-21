@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import re
+from collections.abc import Iterator
 
 import pytest
 from flaskr.service.common.models import AppError
@@ -16,14 +17,14 @@ class _FakeSSEStreamingResponse:
         self.headers = headers or {"content-type": "text/event-stream"}
         self.closed = False
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def iter_lines(self, decode_unicode=True):
+    def iter_lines(self, decode_unicode=True) -> Iterator[object]:
         _ = decode_unicode
         yield from self._lines
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
 
@@ -52,7 +53,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
         ]
     )
 
-    def sign(key, msg):
+    def sign(key, msg) -> object:
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
     secret_date = sign(("TC3" + secret_key).encode("utf-8"), date)
@@ -69,7 +70,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
 
 
-def _patch_tencent_config(monkeypatch, tencent_provider):
+def _patch_tencent_config(monkeypatch, tencent_provider) -> None:
     config = {
         "TENCENT_TTS_APP_ID": "1400000000",
         "TENCENT_TTS_SECRET_ID": "secret-id",
@@ -193,7 +194,7 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
     _patch_tencent_config(monkeypatch, tencent_provider)
     post_calls = []
 
-    def fake_post(url, data, headers, stream, timeout):
+    def fake_post(url, data, headers, stream, timeout) -> object:
         post_calls.append(
             {
                 "url": url,
@@ -276,7 +277,7 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
 
     _patch_tencent_config(monkeypatch, tencent_provider)
 
-    def fake_post(url, data, headers, stream, timeout):
+    def fake_post(url, data, headers, stream, timeout) -> object:
         _ = url, data, headers, stream, timeout
         return _FakeSSEStreamingResponse(
             [
@@ -370,7 +371,7 @@ def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch) -> No
 
     _patch_tencent_config(monkeypatch, tencent_provider)
 
-    def fake_post(url, data, headers, stream, timeout):
+    def fake_post(url, data, headers, stream, timeout) -> object:
         _ = url, data, headers, stream, timeout
         return _FakeSSEStreamingResponse(
             [

@@ -64,7 +64,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def _build_user_query_filter(user_query: str):
+def _build_user_query_filter(user_query: str) -> object:
     normalized_query = str(user_query or "").strip()
     like_pattern = f"%{normalized_query}%"
     credential_user_bids = db.session.query(AuthCredential.user_bid).filter(

@@ -34,7 +34,7 @@ from flaskr.service.tts import streaming_tts as streaming_tts_module
 from flaskr.service.tts.pipeline import split_av_speakable_segments
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
 VISUAL_LEAK_PATTERN = re.compile(
@@ -146,13 +146,13 @@ def _simulate_observed_segments(
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
-        def process_chunk(self, chunk):
+        def process_chunk(self, chunk) -> Iterator[None]:
             if chunk:
                 self._parts.append(chunk)
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self, commit=True) -> Iterator[None]:
             _ = commit
             text = "".join(self._parts).strip()
             if text:

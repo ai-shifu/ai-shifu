@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 from flaskr.service.billing.consts import (
@@ -20,7 +21,7 @@ from flaskr.service.billing.cycle_transitions import (
 )
 
 
-def _raise_unexpected_call(*_args: object, **_kwargs: object):
+def _raise_unexpected_call(*_args: object, **_kwargs: object) -> Never:
     message = "unexpected callback call"
     raise AssertionError(message)
 

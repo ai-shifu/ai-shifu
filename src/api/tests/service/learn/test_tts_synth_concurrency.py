@@ -1,5 +1,6 @@
 """Verify TTS synth concurrency behavior."""
 
+from collections.abc import Iterator
 from typing import Never
 
 from flaskr import dao
@@ -114,7 +115,7 @@ def test_yield_tts_synthesis_sheds_request_when_full(app, monkeypatch) -> None:
 
     body_calls = {"n": 0}
 
-    def _body():
+    def _body() -> Iterator[str]:
         body_calls["n"] += 1
         yield "chunk"
 
@@ -143,7 +144,7 @@ def test_yield_tts_synthesis_runs_and_releases_slot(app, monkeypatch) -> None:
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
-    def _body():
+    def _body() -> Iterator[str]:
         yield "a"
         yield "b"
 
@@ -172,7 +173,7 @@ def test_yield_tts_synthesis_bypass_does_not_release(app, monkeypatch) -> None:
     monkeypatch.setattr(dao._redis_state, "client", boom)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
-    def _body():
+    def _body() -> Iterator[str]:
         yield "a"
 
     with app.app_context():

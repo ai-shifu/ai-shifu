@@ -6,6 +6,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Never
 
 import pytest
 from flaskr.dao import db
@@ -105,9 +106,12 @@ from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.billing_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch):
+def _mock_bcrypt_module(monkeypatch) -> None:
     monkeypatch.setitem(
         sys.modules,
         "bcrypt",
@@ -120,7 +124,7 @@ def _mock_bcrypt_module(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app):
+def _isolate_tables(app) -> Iterator[None]:
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillUsageRecord).delete()
@@ -185,7 +189,7 @@ def _mock_operator(
     )
 
 
-def _z(value):
+def _z(value) -> object:
     """Serialize a datetime the way flaskr.route.common.fmt does (UTC ISO 'Z')."""
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
@@ -215,7 +219,7 @@ def _seed_user(
     updated_at: datetime,
     providers: list[tuple[str, str]] | None = None,
     credential_created_at: datetime | None = None,
-):
+) -> None:
     entity = create_user_entity(
         user_bid=user_bid,
         identify=identify,
@@ -255,7 +259,7 @@ def _seed_course(
     creator_user_bid: str,
     created_at: datetime,
     updated_at: datetime,
-):
+) -> object:
     course = model(
         shifu_bid=shifu_bid,
         title=title,
@@ -278,7 +282,7 @@ def _seed_success_order(
     created_at: datetime,
     paid_price: str = "0.00",
     payable_price: str = "0.00",
-):
+) -> Order:
     order = Order(
         order_bid=order_bid,
         shifu_bid=shifu_bid,
@@ -303,7 +307,7 @@ def _seed_published_outline_item(
     parent_bid: str,
     position: str,
     hidden: int = 0,
-):
+) -> PublishedOutlineItem:
     outline_item = PublishedOutlineItem(
         shifu_bid=shifu_bid,
         outline_item_bid=outline_item_bid,
@@ -323,7 +327,7 @@ def _seed_credit_wallet(
     creator_bid: str,
     wallet_bid: str,
     available_credits: str,
-):
+) -> CreditWallet:
     wallet = CreditWallet(
         wallet_bid=wallet_bid,
         creator_bid=creator_bid,
@@ -340,7 +344,7 @@ def _seed_billing_order(
     creator_bid: str,
     bill_order_bid: str,
     metadata_json: dict | None = None,
-):
+) -> BillingOrder:
     order = BillingOrder(
         bill_order_bid=bill_order_bid,
         creator_bid=creator_bid,
@@ -373,7 +377,7 @@ def _seed_billing_subscription(
     billing_provider: str = "manual",
     provider_subscription_id: str = "",
     provider_customer_id: str = "",
-):
+) -> BillingSubscription:
     subscription = BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
@@ -404,7 +408,7 @@ def _seed_credit_wallet_bucket(
     source_type: int,
     effective_from: datetime,
     effective_to: datetime | None = None,
-):
+) -> CreditWalletBucket:
     bucket = CreditWalletBucket(
         wallet_bucket_bid=bucket_bid,
         wallet_bid=wallet_bid,
@@ -443,7 +447,7 @@ def _seed_credit_ledger_entry(
     expires_at: datetime | None = None,
     consumable_from: datetime | None = None,
     metadata_json: dict | None = None,
-):
+) -> CreditLedgerEntry:
     entry = CreditLedgerEntry(
         ledger_bid=ledger_bid,
         creator_bid=creator_bid,
@@ -488,7 +492,7 @@ def _seed_bill_usage_record(
     duration_ms: int = 0,
     segment_index: int = 0,
     segment_count: int = 0,
-):
+) -> BillUsageRecord:
     usage = BillUsageRecord(
         usage_bid=usage_bid,
         parent_usage_bid=parent_usage_bid,
@@ -533,7 +537,7 @@ def _seed_generated_block(
     outline_item_bid: str,
     generated_content: str,
     created_at: datetime,
-):
+) -> LearnGeneratedBlock:
     block = LearnGeneratedBlock(
         generated_block_bid=generated_block_bid,
         progress_record_bid=progress_record_bid,
@@ -563,7 +567,7 @@ def _seed_generated_element(
     audio_segments: str,
     sequence_number: int,
     created_at: datetime,
-):
+) -> LearnGeneratedElement:
     element = LearnGeneratedElement(
         element_bid=element_bid,
         generated_block_bid=generated_block_bid,
@@ -594,7 +598,7 @@ def _seed_learn_progress(
     user_bid: str,
     status: int,
     created_at: datetime,
-):
+) -> LearnProgressRecord:
     progress_record = LearnProgressRecord(
         progress_record_bid=f"progress-{user_bid}-{outline_item_bid}-{status}",
         shifu_bid=shifu_bid,
@@ -616,7 +620,7 @@ def _seed_course_auth(
     user_id: str,
     created_at: datetime,
     status: int = 1,
-):
+) -> AiCourseAuth:
     course_auth = AiCourseAuth(
         course_auth_id=f"course-auth-{user_id}-{course_id}",
         course_id=course_id,
@@ -632,7 +636,7 @@ def _seed_course_auth(
     return course_auth
 
 
-def _seed_user_token(*, user_bid: str, token: str, created_at: datetime):
+def _seed_user_token(*, user_bid: str, token: str, created_at: datetime) -> UserToken:
     user_token = UserToken(
         user_id=user_bid,
         token=token,
@@ -1251,7 +1255,7 @@ def test_list_operator_users_returns_learning_and_created_courses(app) -> None:
 def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch) -> None:
     load_calls = []
 
-    def fake_load_latest_shifus(model, **kwargs: object):
+    def fake_load_latest_shifus(model, **kwargs: object) -> list[object]:
         load_calls.append(("latest", model.__name__, kwargs.get("lightweight")))
         return []
 
@@ -1260,7 +1264,7 @@ def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch) ->
         shifu_bids,
         *,
         lightweight=False,
-    ):
+    ) -> list[object]:
         load_calls.append(("by_bids", model.__name__, tuple(shifu_bids), lightweight))
         return []
 
@@ -1953,7 +1957,7 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
     captured_source_bids: list[str] = []
     original_load_billing_order_map = user_credits_module._load_billing_order_map
 
-    def capture_order_source_bids(source_bids):
+    def capture_order_source_bids(source_bids) -> object:
         captured_source_bids.extend(list(source_bids))
         return original_load_billing_order_map(source_bids)
 
@@ -4848,7 +4852,7 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
     app, monkeypatch
 ) -> None:
     class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs: object):
+        def filter(self, *_args: object, **_kwargs: object) -> Never:
             message = "expected no user query when users=[] is provided"
             raise AssertionError(message)
 
@@ -4906,7 +4910,7 @@ def test_contact_map_skips_user_query_when_users_argument_is_empty(
     app, monkeypatch
 ) -> None:
     class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs: object):
+        def filter(self, *_args: object, **_kwargs: object) -> Never:
             message = "expected no user query when users=[] is provided"
             raise AssertionError(message)
 

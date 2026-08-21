@@ -613,7 +613,7 @@ def test_complete_onboarding_scene_handles_integrity_error(
     original_commit = db.session.commit
     state = {"raised": False}
 
-    def flaky_commit():
+    def flaky_commit() -> object:
         if not state["raised"]:
             state["raised"] = True
             message = "duplicate"

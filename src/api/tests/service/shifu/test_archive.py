@@ -2,13 +2,24 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, Never
 
 import pytest
 from flaskr import dao
 from flaskr.service.common.models import AppError
 
+if TYPE_CHECKING:
+    from flaskr.service.shifu.models import (
+        DraftOutlineItem,
+        DraftShifu,
+        LogDraftStruct,
+        ShifuUserArchive,
+    )
 
-def _get_models():
+
+def _get_models() -> (
+    "tuple[type[DraftOutlineItem], type[DraftShifu], type[LogDraftStruct], type[ShifuUserArchive]]"
+):
     from flaskr.service.shifu.models import (
         DraftOutlineItem,
         DraftShifu,
@@ -19,19 +30,19 @@ def _get_models():
     return DraftOutlineItem, DraftShifu, LogDraftStruct, ShifuUserArchive
 
 
-def _get_archive_funcs():
+def _get_archive_funcs() -> tuple[object, object]:
     from flaskr.service.shifu import shifu_draft_funcs
 
     return shifu_draft_funcs.archive_shifu, shifu_draft_funcs.unarchive_shifu
 
 
-def _get_draft_module():
+def _get_draft_module() -> object:
     from flaskr.service.shifu import shifu_draft_funcs
 
     return shifu_draft_funcs
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str):
+def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
     """Create draft shifu row and clear archive state for testing."""
     with app.app_context():
         _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
@@ -321,7 +332,7 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
 
     monkeypatch.setattr(draft_module, "generate_id", lambda _app: "shifu-risk-skip")
 
-    def fake_draft_risk(*args: object, **kwargs: object):
+    def fake_draft_risk(*args: object, **kwargs: object) -> None:
         draft_risk_calls.append((args, kwargs))
 
     monkeypatch.setattr(
@@ -332,7 +343,7 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
 
     from flaskr.service.shifu import shifu_outline_funcs
 
-    def fail_outline_risk(*_args: object, **_kwargs: object):
+    def fail_outline_risk(*_args: object, **_kwargs: object) -> Never:
         message = "default outline content should not trigger risk check"
         raise AssertionError(message)
 
@@ -371,7 +382,7 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(
         lambda *_args, **_kwargs: None,
     )
 
-    def fail_default_outlines(*_args: object, **_kwargs: object):
+    def fail_default_outlines(*_args: object, **_kwargs: object) -> Never:
         message = "outline init failed"
         raise AppError(message)
 

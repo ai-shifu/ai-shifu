@@ -25,6 +25,8 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from flask import Flask
 
 _PINGPP_CONFIG_LOCK = threading.RLock()
@@ -40,9 +42,9 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func):
+def _serialized_pingpp_config(func) -> Callable[..., object]:
     @wraps(func)
-    def wrapped(*args: object, **kwargs: object):
+    def wrapped(*args: object, **kwargs: object) -> object:
         with _PINGPP_CONFIG_LOCK:
             return func(*args, **kwargs)
 
