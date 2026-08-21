@@ -71,7 +71,7 @@ const ShifuCard = ({
 
   return (
     <div
-      className='relative w-full h-full group'
+      className='relative w-full h-full'
       {...(onboardingTargetId
         ? buildOnboardingTargetProps(onboardingTargetId)
         : {})}
@@ -96,7 +96,8 @@ const ShifuCard = ({
                   {image ? (
                     <img
                       src={image}
-                      alt='recipe'
+                      alt=''
+                      aria-hidden='true'
                       className='h-full w-full rounded-[8px] object-cover'
                     />
                   ) : (

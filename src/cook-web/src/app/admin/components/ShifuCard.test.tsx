@@ -30,4 +30,25 @@ describe('ShifuCard', () => {
     expect(actionsTrigger).toHaveClass('h-8', 'w-8', 'bg-transparent');
     expect(actionsTrigger.closest('a')).toBeNull();
   });
+
+  test('marks the course cover image as decorative', () => {
+    const { container } = render(
+      <ShifuCard
+        id='course-1'
+        image='https://example.com/cover.png'
+        title='Course 1'
+        description='Course description'
+        isFavorite={false}
+      />,
+    );
+
+    expect(screen.queryByRole('img')).toBeNull();
+
+    const cover = container.querySelector(
+      'img[src="https://example.com/cover.png"]',
+    );
+    expect(cover).not.toBeNull();
+    expect(cover).toHaveAttribute('alt', '');
+    expect(cover).toHaveAttribute('aria-hidden', 'true');
+  });
 });
