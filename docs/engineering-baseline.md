@@ -399,6 +399,10 @@ callback or test double must accept positional or keyword arguments, use a
 named helper or underscore-prefixed parameters that preserve the actual call
 contract; do not rename externally supplied keyword parameters.
 
+For `ANN002`, annotate the element type accepted by `*args`, not a tuple type.
+Use the narrow shared type when the forwarding contract is homogeneous and
+`object` only for genuinely heterogeneous compatibility forwarding.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

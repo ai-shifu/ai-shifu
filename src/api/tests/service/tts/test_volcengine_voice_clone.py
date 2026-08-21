@@ -100,7 +100,7 @@ def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> No
 
     _patch_config(monkeypatch)
 
-    def _raise_transport_error(*args, **kwargs):
+    def _raise_transport_error(*args: object, **kwargs):
         _ = (args, kwargs)
         message = "connect timeout"
         raise requests_lib.exceptions.ConnectTimeout(message)

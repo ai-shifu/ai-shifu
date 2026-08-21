@@ -195,7 +195,7 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
         def get(self, key):
             return self._cache.get(key)
 
-        def delete(self, *keys):
+        def delete(self, *keys: str):
             return self._cache.delete(*keys)
 
         def setex(self, key, ttl, value):
@@ -241,7 +241,7 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
         def get(self, key):
             return self._cache.get(key)
 
-        def delete(self, *keys):
+        def delete(self, *keys: str):
             return self._cache.delete(*keys)
 
         def setex(self, key, ttl, value):
@@ -294,7 +294,7 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
         def get(self, key):
             _ = key
 
-        def delete(self, *keys):
+        def delete(self, *keys: str):
             _ = keys
             return 0
 

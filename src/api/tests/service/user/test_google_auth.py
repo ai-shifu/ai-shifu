@@ -51,12 +51,12 @@ class _FakeGoogleSession:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 
-    def fetch_token(self, *_args, **_kwargs):
+    def fetch_token(self, *_args: object, **_kwargs):
         if self._fetch_token_error is not None:
             raise self._fetch_token_error
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args, **_kwargs):
+    def get(self, *_args: object, **_kwargs):
         return _FakeGoogleResponse(self._profile)
 
 

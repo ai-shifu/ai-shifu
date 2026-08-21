@@ -258,7 +258,7 @@ def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
 
         original_ensure_user = order_admin.ensure_user_for_identifier
 
-        def track_ensure_user(*args, **kwargs):
+        def track_ensure_user(*args: object, **kwargs):
             reads_before_ensure.extend(read_order)
             return original_ensure_user(*args, **kwargs)
 

@@ -401,7 +401,7 @@ def test_failed_provider_marker_persists_and_stays_retryable(
     )
     notification_bid = str(staged["notification_bid"])
 
-    def crashing_send(*_args, **_kwargs):
+    def crashing_send(*_args: object, **_kwargs):
         message = "provider connection dropped"
         raise RuntimeError(message)
 

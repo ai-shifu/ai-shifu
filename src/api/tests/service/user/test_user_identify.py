@@ -11,7 +11,7 @@ class _FakeRedis:
     def get(self, key):
         return self.values.get(key)
 
-    def delete(self, *keys):
+    def delete(self, *keys: str):
         self.deleted.extend(keys)
         return len(keys)
 
@@ -191,13 +191,13 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
         sent_message = ""
         sent_to = ""
 
-        def __init__(self, *_args, **_kwargs) -> None:
+        def __init__(self, *_args: object, **_kwargs) -> None:
             pass
 
         def starttls(self):
             return None
 
-        def login(self, *_args):
+        def login(self, *_args: object):
             return None
 
         def sendmail(self, _sender, recipient, message):
@@ -280,13 +280,13 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(app, monkey
     class _FakeSMTP:
         sent_message = ""
 
-        def __init__(self, *_args, **_kwargs) -> None:
+        def __init__(self, *_args: object, **_kwargs) -> None:
             pass
 
         def starttls(self):
             return None
 
-        def login(self, *_args):
+        def login(self, *_args: object):
             return None
 
         def sendmail(self, _sender, _recipient, message):

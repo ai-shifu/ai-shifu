@@ -89,7 +89,7 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     _mock_authenticated_user(monkeypatch)
     fake_langfuse = _FakeLangfuseClient()
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "dify"
@@ -148,7 +148,7 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
 def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         provider = kwargs.get("provider", "")
         if provider == "dify":
@@ -221,7 +221,7 @@ def test_ask_preview_route_provider_only_does_not_require_ask_model(
 ):
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "coze"
@@ -264,7 +264,7 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
 ):
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "coze_workflow"
@@ -308,7 +308,7 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
     _mock_authenticated_user(monkeypatch)
     captured: dict[str, object] = {}
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "get_biji_knowledge"
@@ -356,7 +356,7 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
 def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_client):
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = (args, kwargs)
         message = (
             "get_biji_knowledge request failed: 401 Client Error for url: "
@@ -404,7 +404,7 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
 ):
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = (args, kwargs)
         message = "dify request failed: 500 | {raw body}"
         raise AskProviderError(message)
@@ -464,12 +464,12 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
         raising=False,
     )
 
-    def fake_chat_llm(*args, **kwargs):
+    def fake_chat_llm(*args: object, **kwargs):
         _ = args
         captured["chat_llm"] = kwargs
         yield SimpleNamespace(content="debug answer")
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         runtime = kwargs.get("runtime")
         assert runtime is not None
@@ -521,12 +521,12 @@ def test_ask_preview_route_passes_debug_usage_context_for_creator(
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
-    def fake_chat_llm(*args, **kwargs):
+    def fake_chat_llm(*args: object, **kwargs):
         _ = args
         captured.update(kwargs)
         yield SimpleNamespace(content="debug answer")
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs):
         _ = args
         runtime = kwargs.get("runtime")
         assert runtime is not None

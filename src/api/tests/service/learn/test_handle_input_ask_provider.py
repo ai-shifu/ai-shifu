@@ -11,7 +11,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args, **kwargs):
+    def get_model_info(*args: object, **kwargs):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -95,13 +95,13 @@ class _DummyOrderColumn(_DummyColumn):
 
 
 class _DummyQuery:
-    def filter(self, *_args, **_kwargs):
+    def filter(self, *_args: object, **_kwargs):
         return self
 
-    def order_by(self, *_args, **_kwargs):
+    def order_by(self, *_args: object, **_kwargs):
         return self
 
-    def limit(self, *_args, **_kwargs):
+    def limit(self, *_args: object, **_kwargs):
         return self
 
     def all(self):
@@ -118,7 +118,7 @@ class _DummyLearnGeneratedBlockModel:
 class _DummyNoneQuery:
     """Query that always returns None for .first()."""
 
-    def filter(self, *_args, **_kwargs):
+    def filter(self, *_args: object, **_kwargs):
         return self
 
     def first(self):
@@ -277,7 +277,7 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
 
     call_counter = {"index": 0}
 
-    def _fake_init_generated_block(*_args, **_kwargs):
+    def _fake_init_generated_block(*_args: object, **_kwargs):
         call_counter["index"] += 1
         return types.SimpleNamespace(
             generated_block_bid=f"gb-{call_counter['index']}",
@@ -311,7 +311,7 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args, **_kwargs):
+    def _fake_chat_llm(*_args: object, **_kwargs):
         llm_call_counter["count"] += 1
         yield _LLMChunk("should-not-run")
 
@@ -377,7 +377,7 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args, **_kwargs):
+    def _fake_chat_llm(*_args: object, **_kwargs):
         llm_call_counter["count"] += 1
         yield _LLMChunk("llm-fallback-answer")
 
@@ -449,7 +449,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
 
     llm_calls = []
 
-    def _fake_chat_llm(*_args, **kwargs):
+    def _fake_chat_llm(*_args: object, **kwargs):
         llm_calls.append(kwargs)
         yield _LLMChunk("synthesized-answer")
 
@@ -520,7 +520,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args, **_kwargs):
+    def _fake_chat_llm(*_args: object, **_kwargs):
         llm_call_counter["count"] += 1
         yield _LLMChunk("should-not-run")
 

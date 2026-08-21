@@ -532,7 +532,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 
     original_build_usage_metric_charges = settlement_module.build_usage_metric_charges
 
-    def _blocking_build_usage_metric_charges(*args, **kwargs):
+    def _blocking_build_usage_metric_charges(*args: object, **kwargs):
         usage = args[0]
         if usage.usage_bid == "usage-concurrent-1":
             entered_first_charge.set()

@@ -243,7 +243,7 @@ class _FakeSaasQuery:
     def filter(self, *conditions: tuple[str, object]) -> _FakeSaasQuery:
         return _FakeSaasQuery(self._fake_saas, [*self._conditions, *conditions])
 
-    def order_by(self, *_args) -> _FakeSaasQuery:
+    def order_by(self, *_args: object) -> _FakeSaasQuery:
         return self
 
     def first(self):

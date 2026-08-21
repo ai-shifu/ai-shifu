@@ -19,7 +19,7 @@ def require_api_key(f):
     """Authenticate Open API requests via X-User-Uid + X-Api-Key headers."""
 
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: object, **kwargs):
         user_uid = request.headers.get("X-User-Uid", "").strip()
         api_key = request.headers.get("X-Api-Key", "").strip()
 

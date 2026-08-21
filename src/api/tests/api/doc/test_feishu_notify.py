@@ -10,15 +10,15 @@ class _Logger:
         self.warnings = []
         self.exceptions = []
 
-    def info(self, *args, **kwargs):
+    def info(self, *args: object, **kwargs):
         _ = kwargs
         self.infos.append(args)
 
-    def warning(self, *args, **kwargs):
+    def warning(self, *args: object, **kwargs):
         _ = kwargs
         self.warnings.append(args)
 
-    def exception(self, *args, **kwargs):
+    def exception(self, *args: object, **kwargs):
         _ = kwargs
         self.exceptions.append(args)
 
@@ -91,7 +91,7 @@ def test_send_notify_returns_none_for_request_error(monkeypatch):
         lambda key, default=None: "https://example.test/webhook",  # noqa: ARG005 -- preserve get_config keyword contract
     )
 
-    def _raise(*args, **kwargs):
+    def _raise(*args: object, **kwargs):
         _ = (args, kwargs)
         message = "network down"
         raise requests.RequestException(message)

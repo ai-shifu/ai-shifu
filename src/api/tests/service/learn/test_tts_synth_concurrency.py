@@ -19,7 +19,7 @@ class FakeRedis:
         """Initialize semaphore counters keyed by synthesis slot."""
         self.counters: dict[str, int] = {}
 
-    def eval(self, _script, _numkeys, *args):
+    def eval(self, _script, _numkeys, *args: object):
         key = args[0]
         if len(args) >= 3:  # acquire: key, max_count, ttl
             max_count = int(args[1])
@@ -42,7 +42,7 @@ class ExplodingRedis:
         """Reset the count of intentionally failing Redis calls."""
         self.calls = 0
 
-    def eval(self, *_args, **_kwargs):
+    def eval(self, *_args: object, **_kwargs):
         self.calls += 1
         message = "redis down"
         raise RuntimeError(message)

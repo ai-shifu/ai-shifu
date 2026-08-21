@@ -173,7 +173,7 @@ def with_shifu_context(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: object, **kwargs):
             try:
                 from flask import current_app, request
             except Exception:

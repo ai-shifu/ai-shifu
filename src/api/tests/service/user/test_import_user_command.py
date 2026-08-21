@@ -166,7 +166,7 @@ def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
 
         original_ensure_user = import_user_module.ensure_user_for_identifier
 
-        def track_ensure_user(*args, **kwargs):
+        def track_ensure_user(*args: object, **kwargs):
             reads_before_ensure.extend(read_order)
             return original_ensure_user(*args, **kwargs)
 

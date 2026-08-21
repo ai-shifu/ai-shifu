@@ -935,7 +935,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
-        def _fail_sem_acquire(*_args, **_kwargs):
+        def _fail_sem_acquire(*_args: object, **_kwargs):
             message = "cache fast-path should not acquire the synthesis semaphore"
             raise AssertionError(message)
 
@@ -1159,7 +1159,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
-        def _fail_sem_acquire(*_args, **_kwargs):
+        def _fail_sem_acquire(*_args: object, **_kwargs):
             message = "markup-only blocks should not acquire the synthesis semaphore"
             raise AssertionError(message)
 

@@ -55,7 +55,7 @@ class FakeCacheProvider:
         self._lock = lock
         self.values: dict[str, bytes] = {}
 
-    def lock(self, *_args, **_kwargs):
+    def lock(self, *_args: object, **_kwargs):
         return self._lock
 
     def setex(self, key: str, _time_in_seconds: int, value):
@@ -78,7 +78,7 @@ class FakeCacheProvider:
 class FakeListenElementAdapter:
     """Simulate listen element adapter behavior for tests."""
 
-    def __init__(self, *_args, **_kwargs) -> None:
+    def __init__(self, *_args: object, **_kwargs) -> None:
         """Initialize event sequencing for a fixed run session."""
         self._seq = 0
         self._run_session_bid = "run-session-1"
@@ -531,10 +531,10 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
         def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs):
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs):
             return []
 
         def has_next(self):
@@ -733,10 +733,10 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
         def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs):
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs):
             return []
 
         def has_next(self):
@@ -821,10 +821,10 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
             self.finalize_calls = 0
             FakeRunScriptContext.last_instance = self
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs):
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs):
             return []
 
         def has_next(self):
@@ -921,10 +921,10 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
         def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs):
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs):
             return []
 
         def has_next(self):
@@ -1050,10 +1050,10 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(monkeypa
         def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs):
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs):
             return []
 
         def has_next(self):
