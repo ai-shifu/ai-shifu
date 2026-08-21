@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -21,8 +22,13 @@ def run(
     if executable not in ALLOWED_TEST_EXECUTABLES:
         message = f"unexpected test executable: {executable}"
         raise ValueError(message)
+    resolved_executable = shutil.which(executable)
+    if resolved_executable is None:
+        message = f"test executable not found: {executable}"
+        raise FileNotFoundError(message)
+    resolved_command = [resolved_executable, *command[1:]]
     return subprocess.run(  # noqa: S603 - executable is allowlisted above
-        command,
+        resolved_command,
         cwd=cwd,
         env=env,
         check=False,

@@ -195,8 +195,7 @@ def run_backend_diagnostics(
     command = [
         sys.executable,
         "scripts/harness_diagnostics.py",
-        "--request-id",
-        request_id,
+        f"--request-id={request_id}",
     ]
     entry: dict[str, Any] = {
         "request_id": request_id,

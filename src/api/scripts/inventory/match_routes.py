@@ -20,6 +20,7 @@ Environment:
 
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -29,6 +30,10 @@ SP = os.environ.get("INVENTORY_WORK_DIR", str(Path.cwd()))
 BACKEND_ROUTES = str(Path(SP) / "routes-backend.txt")
 SKILLS = os.environ.get("SKILLS_REPO", str((Path(ROOT) / ".." / "skills").resolve()))
 MINIAPP = os.environ.get("MINIAPP_REPO", "")
+GREP_EXECUTABLE = shutil.which("grep")
+if GREP_EXECUTABLE is None:
+    message = "grep is required for route inventory"
+    raise RuntimeError(message)
 
 
 def norm(path):
@@ -48,7 +53,7 @@ def grep_paths(root, extra_args=None):
     if not Path(root).is_dir():
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
-    cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", "--", root]
+    cmd = [GREP_EXECUTABLE, "-rhoE", r"/api/[^'\"`[:space:]]*", "--", root]
     out = subprocess.run(  # noqa: S603 - fixed grep with an option boundary
         cmd,
         capture_output=True,
