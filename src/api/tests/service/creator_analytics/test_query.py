@@ -1037,9 +1037,11 @@ def test_shifu_published_returns_current_title_excluding_history(
 def test_shifu_published_excludes_other_creators_rows(
     mock_request_user, test_client, app
 ):
-    """Even if a co-author / shared user had view permission on the same shifu_bid, the creator_scoped_column injection (created_user_bid =.
+    """Creator scoping excludes other creators' rows.
 
-    :caller) ensures only the caller's own rows surface. Here we model
+    Even if a co-author or shared user had view permission on the same shifu_bid, the
+    creator_scoped_column injection (created_user_bid = :caller) ensures only the caller's own
+    rows surface. Here we model
     the simpler "two creators with the same shifu_bid title prefix" case
     — caller can see their own row and never the other creator's.
     """
