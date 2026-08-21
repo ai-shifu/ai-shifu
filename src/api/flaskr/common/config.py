@@ -1788,7 +1788,7 @@ class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
     def __init__(self, env_vars: dict[str, EnvVar]) -> None:
-        """Load and validate the declared environment variables."""
+        """Register environment declarations with an empty, unvalidated cache."""
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
