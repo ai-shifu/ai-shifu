@@ -59,6 +59,26 @@ def dispose_inherited_db_pools(flask_app: Flask) -> None:
                 )
 
 
+@worker_process_init.connect
+def _reset_database_pool_after_worker_fork(**_kwargs: Any) -> None:
+    """Replace the inherited SQLAlchemy pool in each prefork worker child."""
+
+    flask_app = getattr(__CELERY_APP__, "flask_app", None)
+    if flask_app is None:
+        return
+
+    from flaskr import dao
+
+    if dao.db is None:
+        return
+    with flask_app.app_context():
+        # The Flask app factory can query system configuration before Celery
+        # forks its worker pool. Reusing those inherited sockets from multiple
+        # children interleaves MySQL protocol responses. ``close=False`` swaps
+        # in a child-local pool without touching the parent's connections.
+        dao.db.engine.dispose(close=False)
+
+
 def create_celery_app(flask_app: Flask | None = None) -> Celery:
     """Build a Celery app bound to the Flask app context."""
     resolved_flask_app = flask_app or _load_flask_app()
