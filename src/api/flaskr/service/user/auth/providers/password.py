@@ -9,7 +9,6 @@ import hashlib
 import hmac
 from typing import TYPE_CHECKING
 
-from flaskr.common.cache_provider import cache
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
@@ -66,20 +65,32 @@ def _config_int(app: Flask, name: str, default: int) -> int:
     return max(1, int(app.config.get(name, default)))
 
 
+def _shared_counter_cache(app: Flask):
+    """Return the shared Redis backend required by password throttling."""
+    from flaskr.dao import get_redis_client
+
+    client = get_redis_client()
+    if client is None:
+        app.logger.error("Password login failure counters require Redis")
+        raise_error("server.user.passwordLoginRateLimited")
+    return client
+
+
 def _read_counter(app: Flask, key: str) -> int:
     try:
-        raw_value = cache.get(key)
+        raw_value = _shared_counter_cache(app).get(key)
         return int(raw_value or 0)
     except (RedisError, TypeError, ValueError):
         app.logger.exception("Password login failure counter read failed")
-        return 0
+        raise_error("server.user.passwordLoginRateLimited")
 
 
 def _increment_counter(app: Flask, key: str, window_seconds: int) -> int:
     lock = None
     acquired = False
     try:
-        lock = cache.lock(
+        shared_cache = _shared_counter_cache(app)
+        lock = shared_cache.lock(
             f"{key}:lock",
             timeout=2,
             blocking_timeout=1,
@@ -89,10 +100,10 @@ def _increment_counter(app: Flask, key: str, window_seconds: int) -> int:
             app.logger.warning("Password login failure counter lock is busy")
             raise_error("server.user.passwordLoginRateLimited")
         next_count = _read_counter(app, key) + 1
-        cache.set(key, next_count, ex=window_seconds)
+        shared_cache.set(key, next_count, ex=window_seconds)
     except (RedisError, RuntimeError, TypeError, ValueError):
         app.logger.exception("Password login failure counter update failed")
-        return 0
+        raise_error("server.user.passwordLoginRateLimited")
     else:
         return next_count
     finally:
@@ -171,15 +182,16 @@ def _reject_failed_password_login(
     raise_error("server.user.invalidCredentials")
 
 
-def _clear_password_login_identifier_failures(
+def clear_password_login_identifier_failures(
     app: Flask,
     *,
     identifier: str,
 ) -> None:
     try:
-        cache.delete(_counter_key(app, "identifier", identifier))
+        _shared_counter_cache(app).delete(_counter_key(app, "identifier", identifier))
     except (RedisError, RuntimeError):
         app.logger.exception("Password login failure counter clear failed")
+        raise_error("server.user.passwordLoginRateLimited")
 
 
 class PasswordAuthProvider(AuthProvider):
@@ -246,7 +258,7 @@ class PasswordAuthProvider(AuthProvider):
                 remote_addr=remote_addr,
             )
 
-        _clear_password_login_identifier_failures(app, identifier=identifier)
+        clear_password_login_identifier_failures(app, identifier=identifier)
 
         # Build login token
         user_info = build_user_info_from_aggregate(aggregate)
