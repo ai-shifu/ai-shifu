@@ -56,8 +56,18 @@ VALID_TYPE_CODES = set(range(201, 214))
 # ---------------------------------------------------------------------------
 
 
-def _record_diagnostics(request: pytest.FixtureRequest, lines: list[str]) -> None:
-    request.node.add_report_section("call", "SSE diagnostics", "\n".join(lines))
+def _record_diagnostics(
+    request: pytest.FixtureRequest,
+    lines: list[str],
+    *,
+    show_always: bool = False,
+) -> None:
+    content = "\n".join(lines)
+    request.node.add_report_section("call", "SSE diagnostics", content)
+    if show_always:
+        terminal_reporter = request.config.pluginmanager.get_plugin("terminalreporter")
+        if terminal_reporter is not None:
+            terminal_reporter.write_line(content)
 
 
 def _fetch_blocks_raw(app, limit=100):
@@ -213,6 +223,17 @@ def test_diagnostics_are_attached_to_pytest_report() -> None:
         "SSE diagnostics",
         "first line\nsecond line",
     )
+
+
+def test_non_failing_diagnostics_are_written_to_terminal() -> None:
+    """Keep warning-only diagnostics visible when their test passes."""
+    terminal_reporter = MagicMock()
+    request = MagicMock()
+    request.config.pluginmanager.get_plugin.return_value = terminal_reporter
+
+    _record_diagnostics(request, ["warning", "details"], show_always=True)
+
+    terminal_reporter.write_line.assert_called_once_with("warning\ndetails")
 
 
 class TestSSEElementSplitFromDB:
@@ -588,7 +609,7 @@ class TestSSEElementSplitFromDB:
             # Report as diagnostics, not hard failures, since the adapter
             # may legitimately use fallback TEXT when av_contract does
             # not recognize the visual boundary
-        _record_diagnostics(request, report_lines)
+        _record_diagnostics(request, report_lines, show_always=bool(mismatches))
 
     def test_pure_visual_blocks_element_type(
         self,
