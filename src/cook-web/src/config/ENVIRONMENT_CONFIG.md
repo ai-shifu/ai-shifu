@@ -82,7 +82,7 @@
 | `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 | `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 
-**注意**: 这些配置由后端 `/api/config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际配置均通过后端接口获取。
+**注意**: 这些配置由后端 `/api/runtime-config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际运行时配置均通过后端接口获取。
 
 - The frontend only reads `NEXT_PUBLIC_API_BASE_URL` and the build-time authentication fallbacks `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` / `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD` directly; other runtime values are configured in the backend environment or DB and returned through `/api/runtime-config` to avoid duplicate frontend/backend settings.
 - billing 总开关由后端 `BILL_ENABLED` 决定，并通过 `/api/runtime-config` 下发给前端入口和请求层。
@@ -114,7 +114,7 @@ const isGoogleEnabled = loginMethods.includes('google');
 const isPasswordEnabled = loginMethods.includes('password');
 const googleRedirect = '/login/google-callback';
 
-// Get legal document URLs (from /api/config)
+// Get legal document URLs (from /api/runtime-config)
 const legalUrls = environment.legalUrls;
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
