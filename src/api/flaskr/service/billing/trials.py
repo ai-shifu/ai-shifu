@@ -86,6 +86,7 @@ class TrialOfferState:
     welcome_dialog_acknowledged_at: datetime | None = None
 
     def to_dto(self) -> BillingTrialOfferDTO:
+        """Convert this state into its transfer object."""
         return BillingTrialOfferDTO(
             enabled=bool(self.enabled),
             status=str(self.status),

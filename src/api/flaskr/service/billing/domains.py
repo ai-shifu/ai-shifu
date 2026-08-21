@@ -62,6 +62,7 @@ class DomainVerificationResult:
     binding: BillingDomainBindingDTO
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "creator_bid": self.creator_bid,
             "action": self.action,

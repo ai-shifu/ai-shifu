@@ -52,6 +52,7 @@ class CreatorEntitlementState:
     feature_payload: JsonObjectMap = field(default_factory=JsonObjectMap)
 
     def to_public_payload(self) -> dict[str, Any]:
+        """Serialize the entitlement state for public output."""
         return {
             "branding_enabled": self.branding_enabled,
             "custom_domain_enabled": self.custom_domain_enabled,

@@ -97,6 +97,7 @@ class ListenElementRunAdapter(
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Iterable[RunElementSSEMessageDTO]:
+        """Adapt lesson run events into element SSE messages while advancing element state."""
         for event in events:
             if event.type == GeneratedType.CONTENT:
                 yield from self._handle_content(event)

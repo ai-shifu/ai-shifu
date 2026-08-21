@@ -160,6 +160,7 @@ class GoogleAuthProvider(AuthProvider):
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
     def verify(self, app, request):
+        """Raise because Google authentication is supported only through OAuth flows."""
         message = "GoogleAuthProvider only supports OAuth flows"
         raise NotImplementedError(message)
 
@@ -175,6 +176,7 @@ class GoogleAuthProvider(AuthProvider):
         )
 
     def begin_oauth(self, app, metadata: dict[str, Any]) -> dict[str, Any]:
+        """Create the Google OAuth authorization redirect."""
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
         session = self._create_session(app, redirect_uri)
@@ -226,6 +228,7 @@ class GoogleAuthProvider(AuthProvider):
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
+        """Verify the callback, resolve account state, and issue a login token."""
         if not request.code or not request.state:
             current_app.logger.warning(
                 "Google OAuth callback missing code or state: has_code=%s, has_state=%s",

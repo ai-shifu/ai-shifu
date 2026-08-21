@@ -27,6 +27,7 @@ class LlmAskProviderAdapter:
         provider_config: dict[str, Any],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         _ = (app, user_id, user_query, messages, provider_config)
         if runtime is None or runtime.llm_stream_factory is None:
             message = "llm runtime is not configured"

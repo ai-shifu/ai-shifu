@@ -407,6 +407,11 @@ For `ANN003`, annotate the value type accepted by `**kwargs`, not a dictionary
 type. Prefer a shared narrow value type for homogeneous options and `object`
 only when an adapter genuinely forwards heterogeneous keyword values.
 
+For `D102`, document the observable responsibility or contract of each public
+production and tool method. Keep behavior-focused pytest functions exempt;
+their names and assertions are the executable specification. Do not add generic
+docstrings that merely restate the method name or signature.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

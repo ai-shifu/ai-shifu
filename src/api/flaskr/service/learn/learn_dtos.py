@@ -752,6 +752,7 @@ class ElementDTO(BaseModel):
 
     @property
     def content_text(self) -> str:
+        """Return the element's learner-visible text."""
         return self.content
 
     @content_text.setter
@@ -773,6 +774,7 @@ class ElementDTO(BaseModel):
     )
 
     def apply_patch(self, patch: ElementDTO) -> None:
+        """Apply an incremental patch to this element."""
         for field_name in self._PATCH_FIELDS:
             setattr(self, field_name, getattr(patch, field_name))
 
@@ -935,6 +937,7 @@ class RunMarkdownFlowDTO(BaseModel):
     def set_mdflow_stream_parts(
         self, parts: list[tuple[str, str, int]] | None
     ) -> RunMarkdownFlowDTO:
+        """Attach incremental MarkdownFlow stream parts."""
         normalized_parts: list[tuple[str, str, int]] = []
         for item in parts or []:
             if not isinstance(item, tuple) or len(item) != 3:
@@ -953,6 +956,7 @@ class RunMarkdownFlowDTO(BaseModel):
         return self
 
     def get_mdflow_stream_parts(self) -> list[tuple[str, str, int]]:
+        """Return attached MarkdownFlow stream parts."""
         return list(self._mdflow_stream_parts)
 
     def __json__(self) -> dict:
@@ -1011,6 +1015,7 @@ class PlaygroundPreviewRequest(BaseModel):
     )
 
     def get_document(self) -> str:
+        """Return the requested playground document."""
         return self.content or ""
 
 

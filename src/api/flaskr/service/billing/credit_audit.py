@@ -57,6 +57,7 @@ class CreditAuditIssue:
     details: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         payload: dict[str, Any] = {
             "code": self.code,
             "severity": self.severity,
@@ -94,6 +95,7 @@ class CreditAuditReport:
     issues: list[CreditAuditIssue]
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result for the billing credit-audit CLI report."""
         counts_by_code: dict[str, int] = {}
         for issue in self.issues:
             counts_by_code[issue.code] = counts_by_code.get(issue.code, 0) + 1

@@ -33,6 +33,7 @@ class AlipayProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         if request.channel != "alipay_qr":
             message = f"Unsupported Alipay channel: {request.channel}"
             raise RuntimeError(message)
@@ -96,11 +97,13 @@ class AlipayProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a native Alipay payment for a subscription request."""
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         del headers
         payload = _parse_form_payload(raw_body)
         if not self._verify_notification_signature(payload, app):
@@ -111,6 +114,7 @@ class AlipayProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and normalize a provider notification for later application."""
         normalized_payload = dict(payload or {})
         if "raw_body" in normalized_payload:
             return self.verify_webhook(
@@ -126,6 +130,7 @@ class AlipayProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Query a provider payment reference without applying local state changes."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"payment", "trade", "charge"}:
             message = f"Unsupported Alipay reference type: {reference_type}"
@@ -151,6 +156,7 @@ class AlipayProvider(PaymentProvider):
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
+        """Raise because this provider does not support payment refunds."""
         del request, app
         message = "Alipay refunds are not supported"
         raise RuntimeError(message)

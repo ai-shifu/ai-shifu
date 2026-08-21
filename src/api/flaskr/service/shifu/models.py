@@ -321,6 +321,7 @@ class DraftShifu(db.Model):
     )
 
     def clone(self):
+        """Create a transient copy of this draft record for a new revision."""
         return DraftShifu(
             shifu_bid=self.shifu_bid,
             title=self.title,
@@ -353,6 +354,7 @@ class DraftShifu(db.Model):
         )
 
     def eq(self, other):
+        """Compare the persisted fields relevant to draft equality."""
         return (
             self.shifu_bid == other.shifu_bid
             and self.title == other.title
@@ -380,6 +382,7 @@ class DraftShifu(db.Model):
         )
 
     def get_str_to_check(self):
+        """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.keywords} {self.description} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 
@@ -520,6 +523,7 @@ class DraftOutlineItem(db.Model):
     )
 
     def clone(self):
+        """Create a transient copy of this draft record for a new revision."""
         return DraftOutlineItem(
             outline_item_bid=self.outline_item_bid,
             shifu_bid=self.shifu_bid,
@@ -545,6 +549,7 @@ class DraftOutlineItem(db.Model):
         )
 
     def eq(self, other):
+        """Compare the persisted fields relevant to draft equality."""
         return (
             self.outline_item_bid == other.outline_item_bid
             and self.shifu_bid == other.shifu_bid
@@ -565,6 +570,7 @@ class DraftOutlineItem(db.Model):
         )
 
     def get_str_to_check(self):
+        """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 

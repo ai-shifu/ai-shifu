@@ -110,6 +110,7 @@ class LowBalanceAlertCandidate:
     alerts: list[Any]
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         serialized_alerts: list[Any] = []
         for alert in self.alerts:
             if hasattr(alert, "__json__"):
@@ -136,6 +137,7 @@ class LowBalanceAlertTaskResult:
     task_name: str = "billing.send_low_balance_alert"
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_count": self.creator_count,

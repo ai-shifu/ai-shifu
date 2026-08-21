@@ -281,6 +281,7 @@ class RUNLLMProvider(LLMProvider):
         self.usage_scene = usage_scene
 
     def set_usage_generated_block_bid(self, generated_block_bid: str) -> None:
+        """Attach the generated block to LLM usage tracking."""
         self.usage_context = replace(
             self.usage_context,
             generated_block_bid=str(generated_block_bid or ""),
@@ -318,6 +319,7 @@ class RUNLLMProvider(LLMProvider):
         temperature: float | None = None,
     ) -> str:
         # Extract the last message content as the main prompt
+        """Start a nonstreaming LLM completion and return its text."""
         if not messages:
             message = "No messages provided"
             raise ValueError(message)
@@ -366,6 +368,7 @@ class RUNLLMProvider(LLMProvider):
         temperature: float | None = None,
     ) -> Generator[str, None, None]:
         # Extract the last message content as the main prompt
+        """Start a streaming LLM completion and yield its response chunks."""
         if not messages:
             message = "No messages provided"
             raise ValueError(message)
@@ -455,9 +458,11 @@ class MdflowContextV2:
             self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
     def get_block(self, block_index: int):
+        """Return a MarkdownFlow block by its index."""
         return self._mdflow.get_block(block_index)
 
     def get_all_blocks(self):
+        """Return all MarkdownFlow blocks in encounter order."""
         return self._mdflow.get_all_blocks()
 
     def process(
@@ -469,6 +474,7 @@ class MdflowContextV2:
         variables: dict | None = None,
         user_input: dict[str, list[str]] | None = None,
     ):
+        """Process the current MarkdownFlow content."""
         return self._mdflow.process(
             block_index=block_index,
             mode=mode,
@@ -481,6 +487,7 @@ class MdflowContextV2:
     def normalize_context_messages(
         context: Iterable[dict[str, str]] | None,
     ) -> list[dict[str, str]] | None:
+        """Normalize messages for the model context."""
         if not context:
             return None
         filtered: list[dict[str, str]] = []
@@ -499,6 +506,7 @@ class MdflowContextV2:
         context: list[dict[str, str]] | None,
         output_language: str,
     ) -> list[dict[str, str]] | None:
+        """Keep context compatible with the output language."""
         if not context:
             return context
         normalized_language = (output_language or "").strip().lower()
@@ -520,6 +528,7 @@ class MdflowContextV2:
         input_value: str | dict | list | None,
         default_key: str = "input",
     ) -> dict[str, list[str]]:
+        """Normalize learner inputs into the context schema."""
         if input_value is None:
             return {}
         if isinstance(input_value, dict):
@@ -543,6 +552,7 @@ class MdflowContextV2:
     def flatten_user_input_map(
         user_input: dict[str, list[str]] | None,
     ) -> str:
+        """Flatten normalized learner inputs for prompt use."""
         if not user_input:
             return ""
         values: list[str] = []
@@ -559,6 +569,7 @@ class MdflowContextV2:
         document: str,
         variables: dict | None = None,
     ) -> list[dict[str, str]]:
+        """Build model context from MarkdownFlow blocks."""
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
         block_list = mdflow_context.get_all_blocks()
@@ -825,6 +836,7 @@ class RunScriptPreviewContextV2:
         user_bid: str,
         session_id: str,
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        """Stream a preview run without persisting learner progress."""
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, has_draft_outline=True)
         document_prompt = self._resolve_document_prompt(
@@ -1700,11 +1712,13 @@ class RunScriptContextV2:
 
     @staticmethod
     def get_current_context(_app: Flask) -> Union["RunScriptContextV2", None]:
+        """Return the current RunScript context, if one is active."""
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
 
     def append_langfuse_output(self, value: Any) -> None:
+        """Buffer output content for active Langfuse trace finalization."""
         if not hasattr(self, "_langfuse_output_chunks"):
             self._langfuse_output_chunks = []
         text = normalize_langfuse_output_value(value)
@@ -3602,6 +3616,7 @@ class RunScriptContextV2:
             self._can_continue = False
 
     def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Execute the current lesson run."""
         try:
             yield from self.run_inner(app)
         except PaidError:
@@ -3620,9 +3635,11 @@ class RunScriptContextV2:
             yield from self._emit_feedback_after_exception_gate()
 
     def has_next(self) -> bool:
+        """Return whether the lesson run can execute another step."""
         return self._can_continue
 
     def get_system_prompt(self, outline_item_bid: str) -> str | None:
+        """Build the system prompt for the current lesson run."""
         path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
@@ -3671,6 +3688,7 @@ class RunScriptContextV2:
         return build_course_prompt(course_prompt, learner=self._user_info)
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
+        """Return the effective LLM settings for this run."""
         path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
@@ -3706,6 +3724,7 @@ class RunScriptContextV2:
         *,
         reload_element_bid: str | None = None,
     ):
+        """Regenerate from an anchor by rewinding progress and deactivating superseded persisted state."""
         with app.app_context():
             anchor_element = None
             anchor_generated_block_bid = ""

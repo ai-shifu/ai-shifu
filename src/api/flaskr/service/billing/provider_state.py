@@ -104,6 +104,7 @@ class BillingOrderProviderUpdateResult:
         app: Flask,
         order: BillingOrder | None,
     ) -> None:
+        """Stage paid-order side effects after local state changes."""
         self.paid_order_side_effects = _stage_billing_paid_order_side_effects(
             app,
             order,
@@ -111,6 +112,7 @@ class BillingOrderProviderUpdateResult:
         )
 
     def dispatch_after_commit(self, app: Flask) -> None:
+        """Dispatch staged paid-order side effects after commit."""
         _dispatch_billing_paid_order_side_effects(
             app,
             self.paid_order_side_effects,

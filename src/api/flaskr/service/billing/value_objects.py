@@ -20,6 +20,7 @@ class PageWindow(Generic[T]):
     total: int
 
     def to_dto_kwargs(self) -> dict[str, Any]:
+        """Return keyword arguments for the page-window DTO."""
         return {
             "items": self.items,
             "page": self.page,
@@ -64,12 +65,15 @@ class JsonObjectMap(MutableMapping[str, Any]):
         return len(self.values)
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Return the stored value for a key."""
         return self.values.get(key, default)
 
     def copy(self) -> JsonObjectMap:
+        """Return a shallow copy of this JSON object map."""
         return JsonObjectMap(values=dict(self.values))
 
     def to_metadata_json(self) -> dict[str, Any]:
+        """Serialize this value as JSON-compatible metadata."""
         return {
             str(key): _serialize_json_value(value) for key, value in self.values.items()
         }

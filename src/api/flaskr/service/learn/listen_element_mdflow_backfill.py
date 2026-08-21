@@ -145,6 +145,7 @@ class MdflowElementBackfillStats:
     error: str = ""
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 
 
@@ -166,6 +167,7 @@ class MdflowElementBackfillBatchStats:
     failed_progress_records: list[dict[str, str]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 
 
