@@ -459,7 +459,7 @@ class LangfuseObservationHandle:
         return self
 
     def update_trace(self, **kwargs: object) -> "LangfuseObservationHandle":
-        """Propagate supported trace attributes through the observation tree."""
+        """Apply trace attributes to this observation and future descendants."""
         payload = _map_trace_kwargs(kwargs)
         if not payload:
             return self
