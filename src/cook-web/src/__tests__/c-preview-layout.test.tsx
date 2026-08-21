@@ -88,9 +88,12 @@ describe('C preview layout', () => {
     typeof getCourseInfo
   >;
   const contentLabel = 'content';
-  const buildCourseInfo = (isOwner: boolean) => ({
+  const buildCourseInfo = (
+    isOwner: boolean,
+    courseId = 'course-transient',
+  ) => ({
     course_desc: 'Description',
-    course_id: 'course-transient',
+    course_id: courseId,
     course_keywords: ['test'],
     course_name: 'Course',
     course_price: '0',
@@ -100,6 +103,15 @@ describe('C preview layout', () => {
     default_listen_mode_enabled: false,
     course_is_owner: isOwner,
   });
+  const createDeferredCourseInfo = () => {
+    let resolve!: (value: ReturnType<typeof buildCourseInfo>) => void;
+    const promise = new Promise<ReturnType<typeof buildCourseInfo>>(
+      resolvePromise => {
+        resolve = resolvePromise;
+      },
+    );
+    return { promise, resolve };
+  };
 
   afterEach(() => {
     jest.useRealTimers();
@@ -262,6 +274,59 @@ describe('C preview layout', () => {
         skip: true,
       });
     });
+  });
+
+  test('ignores stale ownership responses after course navigation', async () => {
+    const firstCourseInfo = createDeferredCourseInfo();
+    const secondCourseInfo = createDeferredCourseInfo();
+    mockedGetCourseInfo.mockImplementation(courseId => {
+      return courseId === 'course-a'
+        ? firstCourseInfo.promise
+        : secondCourseInfo.promise;
+    });
+    act(() => {
+      useEnvStore.setState({
+        runtimeConfigLoaded: true,
+        courseId: 'course-a',
+      });
+    });
+
+    render(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() =>
+      expect(mockedGetCourseInfo).toHaveBeenCalledWith(
+        'course-a',
+        false,
+        undefined,
+      ),
+    );
+
+    act(() => {
+      useEnvStore.setState({ courseId: 'course-b' });
+    });
+    await waitFor(() =>
+      expect(mockedGetCourseInfo).toHaveBeenCalledWith(
+        'course-b',
+        false,
+        undefined,
+      ),
+    );
+
+    await act(async () => {
+      secondCourseInfo.resolve(buildCourseInfo(false, 'course-b'));
+      await secondCourseInfo.promise;
+    });
+    expect(useCourseStore.getState().isCurrentUserCourseOwner).toBe(false);
+
+    await act(async () => {
+      firstCourseInfo.resolve(buildCourseInfo(true, 'course-a'));
+      await firstCourseInfo.promise;
+    });
+    expect(useCourseStore.getState().isCurrentUserCourseOwner).toBe(false);
   });
 
   test('redirects to /404 when course is not found', async () => {
