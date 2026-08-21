@@ -27,7 +27,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Detect frontend changes
+        id: frontend-changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/frontend-changed-files.txt
+          if grep -Eq '^(\.github/workflows/frontend-tests\.yml$|src/cook-web/|src/i18n/)' /tmp/frontend-changed-files.txt; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Node.js
+        if: steps.frontend-changes.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22.16.0"
@@ -35,9 +56,15 @@ jobs:
           cache-dependency-path: src/cook-web/package-lock.json
 
       - name: Install frontend dependencies
+        if: steps.frontend-changes.outputs.run == 'true'
         working-directory: src/cook-web
         run: npm ci
 
       - name: Run frontend tests
+        if: steps.frontend-changes.outputs.run == 'true'
         working-directory: src/cook-web
         run: npm run test:ci
+
+      - name: Skip frontend tests
+        if: steps.frontend-changes.outputs.run != 'true'
+        run: echo "Skipping frontend tests because this pull request has no frontend or shared i18n changes."
