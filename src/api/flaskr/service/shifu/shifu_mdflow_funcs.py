@@ -64,7 +64,7 @@ def cleanup_outline_history_versions(
     keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
     keep_days: int = LESSON_HISTORY_MAX_DAYS,
 ) -> None:
-    """Keep outline version history bounded:.
+    """Keep outline version history bounded.
 
     - trim to around `keep_versions` latest non-deleted versions
     - trim to around `keep_days` days of non-deleted versions
