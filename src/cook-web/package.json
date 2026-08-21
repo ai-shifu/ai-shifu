@@ -18,6 +18,7 @@
     "format:check:changed": "node scripts/prettier-check-changed.mjs",
     "precommit": "lint-staged",
     "test": "jest",
+    "test:ci": "jest --ci --silent --maxWorkers=50%",
     "test:e2e": "npx @playwright/test test",
     "test:e2e:headed": "npx @playwright/test test --headed",
     "test:watch": "jest --watch",
