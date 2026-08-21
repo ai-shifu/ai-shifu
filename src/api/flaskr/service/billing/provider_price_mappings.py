@@ -477,5 +477,7 @@ def _normalize_provider(value: str) -> str:
 def _require_value(value: str, name: str) -> str:
     normalized = normalize_bid(value)
     if not normalized:
-        raise ProviderPriceMappingError(f"{name}_required", f"{name} is required")
+        code = f"{name}_required"
+        message = f"{name} is required"
+        raise ProviderPriceMappingError(code, message)
     return normalized
