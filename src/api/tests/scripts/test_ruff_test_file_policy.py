@@ -24,15 +24,13 @@ class RuffTestFilePolicyTest(unittest.TestCase):
             raise unittest.SkipTest(message)
 
     def run_ruff(self, filename: str) -> subprocess.CompletedProcess[str]:
-        """Run RUF001 against source presented under one repository path."""
+        """Run the configured Ruff policy against source at one repository path."""
         return subprocess.run(
             [
                 self.ruff,
                 "check",
                 "--config",
                 str(REPO_ROOT / "ruff.toml"),
-                "--select",
-                "RUF001",
                 "--stdin-filename",
                 filename,
                 "-",
@@ -45,7 +43,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
         )
 
     def test_test_module_allows_confusable_fixture_text(self) -> None:
-        """Allow verbatim fixtures under every supported test convention."""
+        """Allow verbatim fixtures without an RUF001 diagnostic under test paths."""
         test_filenames = (
             "example/tests/fixture.py",
             "example/test_fixture.py",
@@ -56,7 +54,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
         for filename in test_filenames:
             with self.subTest(filename=filename):
                 result = self.run_ruff(filename)
-                assert result.returncode == 0, result.stdout + result.stderr
+                assert "RUF001" not in result.stdout, result.stdout + result.stderr
 
     def test_production_module_still_rejects_confusable_text(self) -> None:
         """Keep RUF001 enforced outside test paths."""

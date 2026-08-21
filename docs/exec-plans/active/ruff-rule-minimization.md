@@ -188,6 +188,11 @@ plan's progress update for that rule.
   Conventional Python test modules and test configuration are exempt so they
   can preserve user text, provider payloads, protocol samples, and malformed
   inputs verbatim without weakening production enforcement.
+- [x] 2026-08-22 CST: Addressed the remaining PR #2629 review by removing the
+  test-only `--select RUF001` override from the RUF001 policy test. The test now
+  exercises `ruff.toml` as CI does: test paths must omit RUF001 while a production
+  path must report it, so moving RUF001 back to a global ignore would fail the
+  regression. The focused test and `ruff check .` pass.
 - [ ] Merge or retarget RUF001 PR #2629 after its predecessors without combining
   it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
