@@ -1,21 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { StarIcon } from '@heroicons/react/24/solid';
-import { MoreHorizontal } from 'lucide-react';
 import api from '@/api';
 import { Shifu } from '@/types/shifu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/DropdownMenu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,35 +40,8 @@ import {
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
 import AdminTitle from './components/AdminTitle';
+import ShifuCard from './components/ShifuCard';
 
-interface ShifuCardProps {
-  id: string;
-  image: string | undefined;
-  title: string;
-  description: string;
-  isFavorite: boolean;
-  archived?: boolean;
-  canManageArchive?: boolean;
-  canManagePermissions?: boolean;
-  onArchiveRequest?: () => void;
-  onPermissionRequest?: () => void;
-  onImportActivationRequest?: () => void;
-  onRedemptionCodeRequest?: () => void;
-  onboardingTargetId?: string;
-}
-
-const CARD_CONTAINER_CLASS =
-  'w-full h-full min-h-[118px] rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] transition-colors duration-200 ease-in-out hover:bg-primary/[0.04]';
-const CARD_CONTAINER_STYLE: React.CSSProperties = {
-  boxShadow:
-    'var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px) var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0) var(--shadow-sm-1-color, rgba(0, 0, 0, 0.10)), var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px) var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px) var(--shadow-sm-2-color, rgba(0, 0, 0, 0.10))',
-};
-const CARD_CONTENT_CLASS = 'p-4 flex flex-col h-full cursor-pointer';
-const COURSE_AVATAR_CLASS =
-  'mr-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px]';
-const COURSE_AVATAR_EMPTY_STYLE: React.CSSProperties = {
-  backgroundColor: '#CFCED4',
-};
 const COURSE_TABS_LIST_CLASS =
   'h-auto rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]';
 const COURSE_TABS_TRIGGER_CLASS =
@@ -88,162 +50,6 @@ const CREATE_SUCCESS_TOAST_DURATION_MS = 2000;
 const CREATE_SUCCESS_REDIRECT_DELAY_MS = 600;
 const ACTION_DIALOG_RESET_DELAY_MS = 200;
 const SHIFU_STATE_PUBLISHED = 1;
-
-const ShifuCard = ({
-  id,
-  image,
-  title,
-  description,
-  isFavorite,
-  archived,
-  canManageArchive,
-  canManagePermissions,
-  onArchiveRequest,
-  onPermissionRequest,
-  onImportActivationRequest,
-  onRedemptionCodeRequest,
-  onboardingTargetId,
-}: ShifuCardProps) => {
-  const { t } = useTranslation();
-  const showMenu = Boolean(
-    onRedemptionCodeRequest ||
-    onImportActivationRequest ||
-    canManageArchive ||
-    canManagePermissions,
-  );
-
-  return (
-    <div
-      className='relative w-full h-full group'
-      {...(onboardingTargetId
-        ? buildOnboardingTargetProps(onboardingTargetId)
-        : {})}
-    >
-      <Link
-        href={`/shifu/${id}`}
-        className='block w-full h-full'
-      >
-        <Card
-          className={CARD_CONTAINER_CLASS}
-          style={CARD_CONTAINER_STYLE}
-        >
-          <CardContent className={CARD_CONTENT_CLASS}>
-            <div className='mb-4 flex flex-row items-center justify-between'>
-              <div className='flex min-w-0 flex-row items-center w-full'>
-                <div
-                  className={COURSE_AVATAR_CLASS}
-                  style={!image ? COURSE_AVATAR_EMPTY_STYLE : undefined}
-                >
-                  {image && (
-                    <img
-                      src={image}
-                      alt='recipe'
-                      className='h-full w-full rounded-[8px] object-cover'
-                    />
-                  )}
-                  {!image && (
-                    <img
-                      src='/icons/logo.svg'
-                      alt=''
-                      aria-hidden='true'
-                      className='h-[19px] w-4 object-contain'
-                    />
-                  )}
-                </div>
-
-                <h3 className='overflow-hidden text-ellipsis whitespace-nowrap text-[16px] font-medium leading-5 text-black'>
-                  {title}
-                </h3>
-                {archived && (
-                  <Badge className='ml-2 rounded-full bg-muted text-muted-foreground px-2 py-0 text-xs whitespace-nowrap'>
-                    {t('common.core.archived')}
-                  </Badge>
-                )}
-              </div>
-              <div className='flex items-center gap-2'>
-                {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
-              </div>
-            </div>
-            <p className='min-h-[1.25rem] break-words break-all text-sm font-normal leading-5 text-[color:rgba(10,10,10,0.65)] line-clamp-3'>
-              {description || ''}
-            </p>
-          </CardContent>
-        </Card>
-      </Link>
-      {showMenu && (
-        <DropdownMenu>
-          {/* Reveal the menu when hovering the whole card, while keeping click behavior unchanged. */}
-          <div className='absolute top-0 right-0 h-10 w-10 flex items-center justify-center z-10 group'>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type='button'
-                variant='ghost'
-                size='icon'
-                className='h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100'
-                title={t('common.core.more')}
-                aria-label={t('common.core.more')}
-                onClick={event => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-              >
-                <MoreHorizontal className='h-4 w-4 text-muted-foreground' />
-              </Button>
-            </DropdownMenuTrigger>
-          </div>
-          <DropdownMenuContent
-            align='end'
-            sideOffset={0}
-            className='min-w-0'
-          >
-            {onImportActivationRequest && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onImportActivationRequest();
-                }}
-              >
-                {t('module.order.importActivation.action')}
-              </DropdownMenuItem>
-            )}
-            {onRedemptionCodeRequest && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onRedemptionCodeRequest();
-                }}
-              >
-                {t('module.order.redemptionCodes.action')}
-              </DropdownMenuItem>
-            )}
-            {canManagePermissions && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onPermissionRequest?.();
-                }}
-              >
-                {t('module.shifuSetting.permissionManage')}
-              </DropdownMenuItem>
-            )}
-            {canManageArchive && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onArchiveRequest?.();
-                }}
-              >
-                {archived
-                  ? t('module.shifuSetting.unarchive')
-                  : t('module.shifuSetting.archive')}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  );
-};
 
 const ScriptManagementPage = () => {
   const router = useRouter();
