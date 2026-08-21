@@ -760,7 +760,10 @@ def _generate_pingxx_charge(
         qr_url_key = "alipay_qr"
     elif channel == "wx_pub":  # wxpay JSAPI
         user = load_user_aggregate(buy_record.user_bid)
-        charge_extra = {"open_id": user.wechat_open_id} if user else {}
+        open_id = str(user.wechat_open_id or "").strip() if user else ""
+        if not open_id:
+            raise_error("server.pay.wechatOpenIdRequired")
+        charge_extra = {"open_id": open_id}
         qr_url_key = "wx_pub"
     elif channel == "wx_wap":  # wxpay H5
         charge_extra = {}
