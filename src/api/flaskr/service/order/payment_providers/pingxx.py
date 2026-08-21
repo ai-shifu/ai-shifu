@@ -252,7 +252,7 @@ class PingxxProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
-        """Synchronize local state from a provider reference."""
+        """Retrieve a Pingxx charge and normalize it for local state application."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"charge", "payment"}:
             message = f"Unsupported Pingxx reference type: {reference_type}"
