@@ -4,6 +4,8 @@ from pydantic import BaseModel
 
 
 class LLMSettings(BaseModel):
+    """Normalize model settings used by learning runs."""
+
     model: str
     temperature: float
 

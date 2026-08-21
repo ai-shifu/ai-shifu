@@ -55,6 +55,8 @@ if TYPE_CHECKING:
 
 
 class ExpireBucketBalanceForTransition(Protocol):
+    """Define the interface for expire bucket balance for transition."""
+
     def __call__(
         self,
         app: Flask,
@@ -72,6 +74,8 @@ class IncompleteReservedGrantActivationError(RuntimeError):
 
 @dataclass(slots=True, frozen=True)
 class ReservedActivationTarget:
+    """Identify the subscription cycle eligible for reserved activation."""
+
     kind: str
     order_bid: str
     ledger_bid: str

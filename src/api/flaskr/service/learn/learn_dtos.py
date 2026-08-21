@@ -11,6 +11,8 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
 
 @register_schema_to_swagger
 class LearnStatus(Enum):
+    """Enumerate supported learn status values."""
+
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -23,6 +25,8 @@ class LearnStatus(Enum):
 
 @register_schema_to_swagger
 class OutlineType(Enum):
+    """Enumerate supported outline type values."""
+
     NORMAL = "normal"
     TRIAL = "trial"
     GUEST = "guest"
@@ -34,6 +38,8 @@ class OutlineType(Enum):
 
 @register_schema_to_swagger
 class GeneratedType(Enum):
+    """Enumerate supported generated type values."""
+
     CONTENT = "content"
     BREAK = "break"
     INTERACTION = "interaction"
@@ -54,6 +60,8 @@ class GeneratedType(Enum):
 
 @register_schema_to_swagger
 class ElementType(Enum):
+    """Enumerate supported element type values."""
+
     HTML = "html"
     SVG = "svg"
     DIFF = "diff"
@@ -82,6 +90,8 @@ class ElementType(Enum):
 
 @register_schema_to_swagger
 class ElementChangeType(Enum):
+    """Enumerate supported element change type values."""
+
     RENDER = "render"
     DIFF = "diff"
 
@@ -92,6 +102,8 @@ class ElementChangeType(Enum):
 
 @register_schema_to_swagger
 class LikeStatus(Enum):
+    """Enumerate supported like status values."""
+
     LIKE = "like"
     DISLIKE = "dislike"
     NONE = "none"
@@ -103,6 +115,8 @@ class LikeStatus(Enum):
 
 @register_schema_to_swagger
 class BlockType(Enum):
+    """Enumerate supported block type values."""
+
     CONTENT = "content"
     INTERACTION = "interaction"
     ERROR_MESSAGE = "error_message"
@@ -116,6 +130,8 @@ class BlockType(Enum):
 
 @register_schema_to_swagger
 class VariableUpdateDTO(BaseModel):
+    """Represent the variable update API payload."""
+
     variable_name: str = Field(..., description="variable name", required=False)
     variable_value: str = Field(..., description="variable value", required=False)
 
@@ -137,6 +153,8 @@ class VariableUpdateDTO(BaseModel):
 
 @register_schema_to_swagger
 class OutlineItemUpdateDTO(BaseModel):
+    """Represent the outline item update API payload."""
+
     outline_bid: str = Field(..., description="outline item id", required=False)
     title: str = Field(..., description="outline item name", required=False)
     status: LearnStatus = Field(..., description="outline item status", required=False)
@@ -171,6 +189,8 @@ class OutlineItemUpdateDTO(BaseModel):
 
 @register_schema_to_swagger
 class LearnShifuInfoDTO(BaseModel):
+    """Represent the learn shifu info API payload."""
+
     bid: str = Field(..., description="shifu id", required=False)
     title: str = Field(..., description="shifu title", required=False)
     description: str = Field(..., description="shifu description", required=False)
@@ -222,6 +242,8 @@ class LearnShifuInfoDTO(BaseModel):
 
 
 class LearnBannerInfoDTO(BaseModel):
+    """Represent the learn banner info API payload."""
+
     title: str = Field(..., description="banner title", required=False)
     pop_up_title: str = Field(..., description="banner pop up title", required=False)
     pop_up_content: str = Field(
@@ -264,6 +286,8 @@ class LearnBannerInfoDTO(BaseModel):
 
 @register_schema_to_swagger
 class LearnOutlineItemInfoDTO(BaseModel):
+    """Represent the learn outline item info API payload."""
+
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline position", required=False)
     title: str = Field(..., description="outline title", required=False)
@@ -318,6 +342,8 @@ class LearnOutlineItemInfoDTO(BaseModel):
 
 @register_schema_to_swagger
 class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
+    """Represent the learn outline items with banner info API payload."""
+
     banner_info: LearnBannerInfoDTO | None = Field(
         ..., description="banner info", required=False
     )
@@ -490,6 +516,8 @@ class AudioCompleteDTO(BaseModel):
 
 @register_schema_to_swagger
 class ElementVisualDTO(BaseModel):
+    """Represent the element visual API payload."""
+
     visual_type: str = Field(..., description="Visual payload type", required=False)
     content: str = Field(..., description="Visual payload content", required=False)
 
@@ -504,6 +532,8 @@ class ElementVisualDTO(BaseModel):
 
 @register_schema_to_swagger
 class SubtitleCueDTO(BaseModel):
+    """Represent the subtitle cue API payload."""
+
     text: str = Field(..., description="Cue text", required=False)
     start_ms: int = Field(..., description="Cue start in ms", required=False)
     end_ms: int = Field(..., description="Cue end in ms", required=False)
@@ -544,6 +574,8 @@ class SubtitleCueDTO(BaseModel):
 
 @register_schema_to_swagger
 class ElementAudioDTO(BaseModel):
+    """Represent the element audio API payload."""
+
     position: int = Field(
         default=0, description="Audio position within the element", required=False
     )
@@ -588,6 +620,8 @@ class ElementAudioDTO(BaseModel):
 
 @register_schema_to_swagger
 class ElementPayloadDTO(BaseModel):
+    """Represent the element payload API payload."""
+
     audio: ElementAudioDTO | None = Field(
         default=None, description="Final merged audio payload"
     )
@@ -659,6 +693,8 @@ class ElementPayloadDTO(BaseModel):
 
 @register_schema_to_swagger
 class ElementDTO(BaseModel):
+    """Represent the element API payload."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     run_session_bid: str | None = Field(
@@ -787,6 +823,8 @@ class ElementDTO(BaseModel):
 
 @register_schema_to_swagger
 class AudioBackfillReadyDTO(BaseModel):
+    """Represent the audio backfill ready API payload."""
+
     generated_block_bid: str = Field(
         ..., description="Generated block ready for persisted audio backfill"
     )
@@ -805,6 +843,8 @@ class AudioBackfillReadyDTO(BaseModel):
 
 @register_schema_to_swagger
 class RunElementSSEMessageDTO(BaseModel):
+    """Represent the run element SSE message API payload."""
+
     type: str = Field(..., description="Run event type")
     event_type: str = Field(..., description="Run event type mirror")
     generated_block_bid: str | None = Field(
@@ -850,6 +890,8 @@ class RunElementSSEMessageDTO(BaseModel):
 
 @register_schema_to_swagger
 class RunMarkdownFlowDTO(BaseModel):
+    """Represent the run markdown flow API payload."""
+
     _mdflow_stream_parts: list[tuple[str, str, int]] = PrivateAttr(default_factory=list)
 
     outline_bid: str = Field(..., description="outline id", required=False)
@@ -929,6 +971,8 @@ class RunMarkdownFlowDTO(BaseModel):
 
 
 class PlaygroundPreviewRequest(BaseModel):
+    """Represent the playground preview request API payload."""
+
     content: str | None = Field(
         default=None, description="Markdown-Flow document content"
     )
@@ -972,6 +1016,8 @@ class PlaygroundPreviewRequest(BaseModel):
 
 @register_schema_to_swagger
 class LearnElementRecordDTO(BaseModel):
+    """Represent the learn element record API payload."""
+
     elements: list[ElementDTO] = Field(
         default_factory=list, description="Listen-mode final element snapshots"
     )
@@ -1016,6 +1062,8 @@ class LearnElementRecordDTO(BaseModel):
 
 @register_schema_to_swagger
 class RunStatusDTO(BaseModel):
+    """Represent the run status API payload."""
+
     is_running: bool = Field(..., description="is running", required=False)
     running_time: int = Field(..., description="running time", required=False)
 
@@ -1037,6 +1085,8 @@ class RunStatusDTO(BaseModel):
 
 @register_schema_to_swagger
 class GeneratedInfoDTO(BaseModel):
+    """Represent the generated info API payload."""
+
     position: int = Field(..., description="generated block position", required=False)
     outline_name: str = Field(..., description="outline item name", required=False)
     is_trial_lesson: bool = Field(

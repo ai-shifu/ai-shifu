@@ -25,11 +25,11 @@ def _get_models():
 
 def _seed_shifu(app, shifu_bid: str, owner_bid: str):
     with app.app_context():
-        DraftShifu, AiCourseAuth = _get_models()
-        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
-        AiCourseAuth.query.filter_by(course_id=shifu_bid).delete()
+        draft_shifu_model, course_auth_model = _get_models()
+        draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
+        course_auth_model.query.filter_by(course_id=shifu_bid).delete()
 
-        draft = DraftShifu(
+        draft = draft_shifu_model(
             shifu_bid=shifu_bid,
             title="Test Shifu",
             description="desc",
@@ -75,9 +75,9 @@ def _allow_email_login(monkeypatch) -> None:
 
 def _add_auth(app, shifu_bid: str, user_id: str, status: int):
     with app.app_context():
-        _, AiCourseAuth = _get_models()
+        _, course_auth_model = _get_models()
         dao.db.session.add(
-            AiCourseAuth(
+            course_auth_model(
                 course_auth_id=f"auth-{user_id}",
                 course_id=shifu_bid,
                 user_id=user_id,
@@ -131,6 +131,8 @@ def _ensure_trial_billing_enabled(monkeypatch):
 
 @pytest.mark.usefixtures("app")
 class TestShifuPermissions:
+    """Verify shifu permissions behavior."""
+
     def test_list_permissions_only_active(self, monkeypatch, test_client, app):
         shifu_bid = "test-permission-list"
         owner_id = "owner-1"
@@ -187,8 +189,8 @@ class TestShifuPermissions:
         assert payload["data"]["removed"] is True
 
         with app.app_context():
-            _, AiCourseAuth = _get_models()
-            auth = AiCourseAuth.query.filter_by(
+            _, course_auth_model = _get_models()
+            auth = course_auth_model.query.filter_by(
                 course_id=shifu_bid, user_id=target_user
             ).first()
             assert auth is not None
@@ -267,9 +269,9 @@ class TestShifuPermissions:
             assert payload["code"] == 0
 
         with app.app_context():
-            _, AiCourseAuth = _get_models()
+            _, course_auth_model = _get_models()
             user = UserEntity.query.filter_by(user_bid=target_user).one()
-            auth = AiCourseAuth.query.filter_by(
+            auth = course_auth_model.query.filter_by(
                 course_id=shifu_bid,
                 user_id=target_user,
                 status=1,

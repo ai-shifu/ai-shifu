@@ -125,6 +125,8 @@ NON_FOLLOW_UP_ANCHOR_TYPES = {
 
 @dataclass
 class MdflowElementBackfillStats:
+    """Summarize statistics for MarkdownFlow element backfill."""
+
     progress_record_bid: str
     progress_record_id: int = 0
     shifu_bid: str = ""
@@ -148,6 +150,8 @@ class MdflowElementBackfillStats:
 
 @dataclass
 class MdflowElementBackfillBatchStats:
+    """Summarize statistics for MarkdownFlow element backfill batch."""
+
     processed_progress_records: int = 0
     processed_block_groups: int = 0
     inserted_element_rows: int = 0

@@ -44,6 +44,8 @@ _ZERO = Decimal(0)
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditEstimate:
+    """Estimate credits required for one metered operation."""
+
     consumed_credits: Decimal
     billing_metric: int = BILLING_METRIC_TTS_REQUEST_COUNT
     status: str = "rated"
@@ -51,6 +53,8 @@ class OperationCreditEstimate:
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditReservationResult:
+    """Capture credits reserved for one metered operation."""
+
     status: str
     reservation_bid: str
     creator_bid: str
@@ -62,6 +66,8 @@ class OperationCreditReservationResult:
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditCaptureResult:
+    """Capture reserved credits consumed by one metered operation."""
+
     status: str
     reservation_bid: str
     usage_bid: str
@@ -71,6 +77,8 @@ class OperationCreditCaptureResult:
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditReleaseResult:
+    """Capture reserved credits released by one metered operation."""
+
     status: str
     reservation_bid: str
     ledger_bid: str

@@ -27,6 +27,8 @@ from .consts import ASK_MODE_DEFAULT
 
 
 class ResourceType:
+    """Enumerate resource categories stored with course assets."""
+
     CHAPTER = 9001
     SECTION = 9002
     BLOCK = 9003
@@ -382,6 +384,8 @@ class DraftShifu(db.Model):
 
 
 class DraftOutlineItem(db.Model):
+    """Persist draft outline item records."""
+
     __tablename__ = "shifu_draft_outline_items"
     __table_args__ = (
         Index(
@@ -565,6 +569,8 @@ class DraftOutlineItem(db.Model):
 
 
 class LogDraftStruct(db.Model):
+    """Persist log draft struct records."""
+
     __tablename__ = "shifu_log_draft_structs"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     struct_bid = Column(
@@ -617,6 +623,8 @@ class LogDraftStruct(db.Model):
 
 # published shifu's model
 class PublishedShifu(db.Model):
+    """Persist published shifu records."""
+
     __tablename__ = "shifu_published_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
@@ -759,6 +767,8 @@ class PublishedShifu(db.Model):
 
 
 class PublishedOutlineItem(db.Model):
+    """Persist published outline item records."""
+
     __tablename__ = "shifu_published_outline_items"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
@@ -866,6 +876,8 @@ class PublishedOutlineItem(db.Model):
 
 
 class LogPublishedStruct(db.Model):
+    """Persist log published struct records."""
+
     __tablename__ = "shifu_log_published_structs"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     struct_bid = Column(

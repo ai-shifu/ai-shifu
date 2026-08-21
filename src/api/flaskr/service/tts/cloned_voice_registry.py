@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ClonedVoiceProviderSpec:
+    """Define the specification for cloned voice provider."""
+
     provider: str
     is_valid_custom_voice_id: Callable[[str], bool]
     # Whether strict validation demands a ready DB row. MiniMax keeps its

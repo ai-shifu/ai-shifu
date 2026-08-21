@@ -44,6 +44,8 @@ _ZERO = Decimal(0)
 
 @dataclass(slots=True, frozen=True)
 class CreditAuditIssue:
+    """Describe an issue detected by credit audit."""
+
     code: str
     severity: str
     creator_bid: str
@@ -77,6 +79,8 @@ class CreditAuditIssue:
 
 @dataclass(slots=True, frozen=True)
 class CreditAuditReport:
+    """Summarize findings from credit audit."""
+
     status: str
     creator_bid: str | None
     as_of: datetime

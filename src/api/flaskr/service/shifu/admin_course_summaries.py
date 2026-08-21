@@ -78,6 +78,8 @@ def _resolve_course_rating_sort_by(value: str) -> str:
 
 @dataclass
 class OperatorCourseListSeed:
+    """Carry seed data for operator course list."""
+
     id: int
     shifu_bid: str
     title: str
@@ -92,6 +94,8 @@ class OperatorCourseListSeed:
 
 @dataclass
 class OperatorCourseListCandidate:
+    """Represent a candidate for operator course list."""
+
     id: int
     shifu_bid: str
     title: str

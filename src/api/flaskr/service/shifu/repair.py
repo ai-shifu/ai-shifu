@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class OutlineStructureChange:
+    """Describe one repair to a course outline structure."""
+
     outline_item_bid: str
     old_parent_bid: str
     new_parent_bid: str
@@ -41,6 +43,8 @@ class OutlineStructureChange:
 
 @dataclass
 class OutlineStructureRepairRecord:
+    """Record outline structure repair details."""
+
     shifu_bid: str
     shifu_title: str
     issue_types: list[str]
@@ -58,6 +62,8 @@ class OutlineStructureRepairRecord:
 
 @dataclass
 class OutlineStructureSkippedRecord:
+    """Record outline structure skipped details."""
+
     shifu_bid: str
     reason: str
 
@@ -70,6 +76,8 @@ class OutlineStructureSkippedRecord:
 
 @dataclass
 class OutlineStructureRepairResult:
+    """Capture the repair outcome for outline structure."""
+
     status: str
     dry_run: bool
     scanned_shifu_count: int

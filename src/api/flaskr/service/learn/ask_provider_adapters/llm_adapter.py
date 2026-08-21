@@ -14,6 +14,8 @@ from .consts import ASK_PROVIDER_LLM
 
 
 class LlmAskProviderAdapter:
+    """Adapt direct LLM responses to the common ask stream."""
+
     provider = ASK_PROVIDER_LLM
 
     def stream_answer(

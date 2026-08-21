@@ -86,6 +86,8 @@ class _RecordingEmitter:
 
 
 class EmitterAccessorTests(unittest.TestCase):
+    """Verify emitter accessor behavior."""
+
     def test_lazy_creation_and_caching(self):
         ctx = _make_context()
 
@@ -97,6 +99,8 @@ class EmitterAccessorTests(unittest.TestCase):
 
 
 class WrapperDelegationTests(unittest.TestCase):
+    """Verify wrapper delegation behavior."""
+
     def setUp(self):
         self.ctx = _make_context()
         self.emitter = _RecordingEmitter()
@@ -224,6 +228,8 @@ class EmitterContextSeamTests(unittest.TestCase):
 
 
 class EmitterPayloadSmokeTests(unittest.TestCase):
+    """Verify emitter payload smoke behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("run-emitter-payload-tests")

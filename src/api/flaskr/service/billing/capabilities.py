@@ -14,6 +14,8 @@ from .dtos import (
 
 @dataclass(frozen=True, slots=True)
 class BillingCapabilityDefinition:
+    """Define billing capability."""
+
     key: str
     status: str
     audience: str

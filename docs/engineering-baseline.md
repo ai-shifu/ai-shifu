@@ -389,6 +389,15 @@ visible result. Keep a one-line contract when sufficient, and make test-double
 operators name the fake expression they build. Do not write filler such as
 "Implement `__json__`".
 
+For `N806`, distinguish a class declaration or module-level class import from
+a value bound inside a function. Keep real class names in CapWords, but bind a
+locally loaded model or constructor to a descriptive snake_case name such as
+`draft_shifu_model` or `session_factory`, then use that name consistently in
+the function. Preserve a deliberate lazy import instead of moving it to module
+scope merely for lint, and do not add a per-file exception for ordinary local
+bindings. Run the tests that exercise the local loader or factory so the rename
+cannot silently point queries or object creation at a different class.
+
 For `D100`, describe why the module exists at its ownership boundary. A
 production module names the service responsibility, protocol, or data contract
 it owns; a test module names the behavior group it protects; an executable
@@ -400,6 +409,17 @@ file-level tool directives. Because adding it changes `module.__doc__`, search
 runtime introspection before a bulk adoption and verify executable AST equality
 after removing the new module docstrings.
 
+For `D101`, document the class's role or observable contract, not its spelling.
+DTOs name the payload they carry, persistence models name the state they store,
+protocols name the operations they require, exceptions name the failure they
+signal, and test doubles name the collaborator or failure they simulate. A test
+class names the behavior group it verifies. Keep the contract to one line when
+that is sufficient, and do not write filler such as "Class for X" or merely
+split the CapWords name into a sentence. Because a class docstring is visible
+through `Class.__doc__` and may feed schema or inspection frameworks, search
+runtime introspection before adding it and verify executable AST equality after
+removing only the new class docstrings. Run focused schema tests when a touched
+class is registered with Swagger or created by Pydantic.
 For `TC002` and `TC003`, move a third-party or standard-library import into an
 `if TYPE_CHECKING:` block only after confirming every use is an annotation that
 Python does not need to resolve at runtime. Postponed annotations are the

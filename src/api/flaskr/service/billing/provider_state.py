@@ -87,6 +87,8 @@ _STRIPE_SUBSCRIPTION_STATUS_MAP = {
 
 @dataclass(slots=True)
 class BillingOrderProviderUpdateResult:
+    """Capture provider-state changes applied to a billing order."""
+
     applied: bool = False
     previous_status: int | None = None
     paid_order_side_effects: BillingPaidOrderSideEffects = field(

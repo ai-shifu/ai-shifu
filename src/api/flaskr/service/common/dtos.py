@@ -21,6 +21,8 @@ USE_STATE_VALUES = {
 
 @register_schema_to_swagger
 class UserInfo:
+    """Represent user identity details in API responses."""
+
     user_id: str
     username: str
     name: str
@@ -84,6 +86,8 @@ class UserInfo:
 
 @register_schema_to_swagger
 class UserToken:
+    """Represent an issued user token in API responses."""
+
     userInfo: UserInfo
     token: str
 
@@ -102,6 +106,8 @@ class UserToken:
 
 @register_schema_to_swagger
 class OAuthStartDTO:
+    """Represent the API payload that starts an OAuth flow."""
+
     authorization_url: str
     state: str
 
@@ -120,6 +126,8 @@ class OAuthStartDTO:
 
 @register_schema_to_swagger
 class PageNationDTO(BaseModel):
+    """Represent pagination metadata in API responses."""
+
     page: int = Field(..., description="page")
     page_size: int = Field(..., description="page_size")
     total: int = Field(..., description="total")

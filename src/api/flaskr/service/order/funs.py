@@ -1966,6 +1966,8 @@ def success_buy_record(app: Flask, record_id: str):
 
 
 class DiscountInfo:
+    """Describe discounts applied to an order."""
+
     discount_value: str
     items: list[PayItemDto]
 

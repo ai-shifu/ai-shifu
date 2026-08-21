@@ -171,6 +171,8 @@ def is_self_managed_billing_provider(provider: str | None) -> bool:
 
 @dataclass(slots=True, frozen=True)
 class CreditGrantContext:
+    """Carry context for credit grant."""
+
     source_type: int
     bucket_category: int
     priority: int
@@ -179,6 +181,8 @@ class CreditGrantContext:
 
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairRecord:
+    """Record topup expiry repair details."""
+
     wallet_bucket_bid: str
     bill_order_bid: str | None
     previous_effective_to: datetime | None
@@ -197,6 +201,8 @@ class TopupExpiryRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairResult:
+    """Capture the repair outcome for topup expiry."""
+
     status: str
     creator_bid: str | None
     inspected_bucket_count: int
@@ -223,6 +229,8 @@ class TopupExpiryRepairResult:
 
 @dataclass(slots=True, frozen=True)
 class SubscriptionCycleRepairRecord:
+    """Record subscription cycle repair details."""
+
     subscription_bid: str
     creator_bid: str
     bill_order_bid: str | None
@@ -249,6 +257,8 @@ class SubscriptionCycleRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class SubscriptionCycleRepairResult:
+    """Capture the repair outcome for subscription cycle."""
+
     status: str
     creator_bid: str | None
     subscription_bid: str | None

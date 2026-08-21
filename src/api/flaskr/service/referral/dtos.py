@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True, frozen=True)
 class InviteProfileDTO:
+    """Represent the invite profile API payload."""
+
     campaign_bid: str
     campaign_code: str
     invite_code: str
@@ -73,6 +75,8 @@ class InviteProfileDTO:
 
 @dataclass(slots=True, frozen=True)
 class InvitePreviewDTO:
+    """Represent the invite preview API payload."""
+
     recognized: bool
     invite_code: str = ""
     inviter_mobile_masked: str = ""

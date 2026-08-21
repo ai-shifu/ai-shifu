@@ -44,11 +44,15 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
 
 
 class DraftConflictResult(TypedDict):
+    """Capture the outcome of draft conflict."""
+
     conflict: bool
     meta: dict
 
 
 class DraftSaveResult(TypedDict):
+    """Capture the outcome of draft save."""
+
     conflict: bool
     new_revision: int
 

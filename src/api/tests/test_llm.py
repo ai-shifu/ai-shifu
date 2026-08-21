@@ -112,6 +112,8 @@ pytestmark = pytest.mark.no_mock_llm
 
 
 class DummySpan:
+    """Simulate span behavior for tests."""
+
     def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
         """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
@@ -131,6 +133,8 @@ class DummySpan:
 
 
 class FakeResponse:
+    """Simulate response behavior for tests."""
+
     def __init__(
         self,
         chunk_id,
@@ -150,6 +154,8 @@ class FakeResponse:
 
 
 class FakeModelsResponse:
+    """Simulate models response behavior for tests."""
+
     def __init__(self, payload) -> None:
         """Capture the payload returned by the fake models endpoint."""
         self.payload = payload

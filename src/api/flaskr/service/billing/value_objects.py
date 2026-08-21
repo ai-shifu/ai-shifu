@@ -11,6 +11,8 @@ T = TypeVar("T")
 
 @dataclass(slots=True, frozen=True)
 class PageWindow(Generic[T]):
+    """Describe the offset and size of one result page."""
+
     items: list[T]
     page: int
     page_count: int
@@ -37,6 +39,8 @@ def _serialize_json_value(value: Any) -> Any:
 
 @dataclass(slots=True)
 class JsonObjectMap(MutableMapping[str, Any]):
+    """Map string keys to JSON-compatible object values."""
+
     values: dict[str, Any] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:

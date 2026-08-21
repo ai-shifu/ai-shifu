@@ -10,6 +10,8 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class CacheLock(Protocol):
+    """Define the locking operations required by cache providers."""
+
     def acquire(self, blocking: bool = True, blocking_timeout: int | None = None):
         raise NotImplementedError
 
@@ -19,6 +21,8 @@ class CacheLock(Protocol):
 
 @runtime_checkable
 class CacheProvider(Protocol):
+    """Define the cache operations used by application services."""
+
     def get(self, key: str):
         raise NotImplementedError
 
@@ -60,7 +64,7 @@ class CacheProvider(Protocol):
 
 
 class CacheUnavailableError(RuntimeError):
-    pass
+    """Signal that the configured cache cannot serve a request."""
 
 
 class _DynamicRedisCacheProvider:
@@ -148,6 +152,8 @@ class _InMemoryLock:
 
 
 class InMemoryCacheProvider:
+    """Store cache entries and locks in process memory."""
+
     def __init__(self) -> None:
         """Initialize an empty process-local cache."""
         self._store: dict[str, _InMemoryEntry] = {}

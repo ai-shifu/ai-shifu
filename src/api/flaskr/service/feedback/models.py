@@ -11,6 +11,8 @@ from sqlalchemy.dialects.mysql import BIGINT
 
 
 class FeedBack(db.Model):
+    """Persist submitted product feedback."""
+
     __tablename__ = "user_feedback"
 
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)

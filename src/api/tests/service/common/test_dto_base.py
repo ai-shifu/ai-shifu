@@ -13,11 +13,15 @@ from pydantic import BaseModel, Field
 
 
 class ChildDTO(AutoJsonMixin, BaseModel):
+    """Verify child DTO behavior."""
+
     name: str = Field(...)
     count: int = Field(...)
 
 
 class SampleDTO(AutoJsonMixin, BaseModel):
+    """Verify sample DTO behavior."""
+
     text: str = Field(...)
     number: int = Field(...)
     flag: bool = Field(...)
@@ -29,6 +33,8 @@ class SampleDTO(AutoJsonMixin, BaseModel):
 
 
 class RenamedDTO(AutoJsonMixin, BaseModel):
+    """Verify renamed DTO behavior."""
+
     __json_key_overrides__ = {"data": "items"}
     __json_exclude__ = frozenset({"internal_state"})
 

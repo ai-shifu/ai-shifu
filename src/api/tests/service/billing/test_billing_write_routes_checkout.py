@@ -41,6 +41,8 @@ def billing_write_client(monkeypatch):
 
 
 class TestBillingWriteRoutesCheckout:
+    """Verify billing write routes checkout behavior."""
+
     def test_subscription_checkout_rejects_when_billing_feature_disabled(
         self, billing_write_client, monkeypatch
     ) -> None:

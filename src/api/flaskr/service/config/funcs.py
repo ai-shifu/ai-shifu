@@ -48,6 +48,8 @@ def has_config_override(key: str) -> bool:
 
 
 class ConfigCache(BaseModel):
+    """Cache validated application configuration values."""
+
     is_encrypted: bool = Field(default=False)
     value: str = Field(default="")
 

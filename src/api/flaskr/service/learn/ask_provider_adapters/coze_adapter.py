@@ -26,6 +26,8 @@ DEFAULT_COZE_BASE_URL = "https://api.coze.cn"
 
 
 class CozeAskProviderAdapter:
+    """Adapt Coze chat responses to the common ask stream."""
+
     provider = ASK_PROVIDER_COZE
 
     def stream_answer(

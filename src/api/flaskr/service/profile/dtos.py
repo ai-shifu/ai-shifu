@@ -7,6 +7,8 @@ from flaskr.common.swagger import register_schema_to_swagger
 
 @register_schema_to_swagger
 class ColorSetting:
+    """Describe colors used to render a profile item."""
+
     color: str  # the background color of the profile item
     text_color: str  # the text color of the profile item
 
@@ -26,6 +28,8 @@ class ColorSetting:
 
 @register_schema_to_swagger
 class ProfileItemDefinition:
+    """Define profile item."""
+
     profile_key: str  # the key of the profile item and could be used in prompt
     color_setting: ColorSetting  # the color setting of the profile item
     profile_type: str  # the type of the profile item, could be text or option
@@ -95,6 +99,8 @@ DEFAULT_COLOR_SETTINGS = [
 
 @register_schema_to_swagger
 class ProfileValueDto:
+    """Represent the profile value API payload."""
+
     name: str
     value: str
 
@@ -110,6 +116,8 @@ class ProfileValueDto:
 
 @register_schema_to_swagger
 class ProfileToSave:
+    """Carry profile values queued for persistence."""
+
     key: str
     value: str
     bid: str

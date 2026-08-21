@@ -33,6 +33,8 @@ from .value_objects import JsonObjectMap
 
 @dataclass(slots=True, frozen=True)
 class CreatorEntitlementState:
+    """Track the billing entitlements currently granted to a teacher."""
+
     creator_bid: str
     source_kind: str
     source_type: str | None

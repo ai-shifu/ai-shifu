@@ -59,6 +59,8 @@ STATE_TO_PUBLIC_STATE = {
 
 @dataclass
 class CredentialSummary:
+    """Summarize authentication credentials linked to a user."""
+
     credential_bid: str
     provider: str
     identifier: str
@@ -74,6 +76,8 @@ class CredentialSummary:
 
 @dataclass
 class UserAggregate:
+    """Combine user identity and profile data for repository reads."""
+
     user_bid: str
     identify: str
     nickname: str
@@ -619,6 +623,8 @@ def _normalize_user_state(raw_state) -> int:
 
 @dataclass
 class UserProfileSnapshot:
+    """Capture a snapshot of user profile."""
+
     user_bid: str
     legacy: dict[str, Any] = field(default_factory=dict)
     credentials: list[dict[str, str | None]] = field(default_factory=list)

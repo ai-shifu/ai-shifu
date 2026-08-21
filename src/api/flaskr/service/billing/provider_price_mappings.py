@@ -32,6 +32,8 @@ PROVIDER_STRIPE = "stripe"
 
 @dataclass(slots=True)
 class ProviderPriceMappingError(RuntimeError):
+    """Represent a provider-price mapping error with structured details."""
+
     code: str
     message: str
     details: dict[str, Any] = field(default_factory=dict)
@@ -43,6 +45,8 @@ class ProviderPriceMappingError(RuntimeError):
 
 @dataclass(slots=True)
 class ProviderPriceMappingValidationSummary:
+    """Summarize validation results and serialized data for a provider-price mapping."""
+
     valid: bool
     errors: list[dict[str, str]] = field(default_factory=list)
     warnings: list[dict[str, str]] = field(default_factory=list)

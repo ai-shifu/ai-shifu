@@ -626,6 +626,8 @@ def billing_test_client(monkeypatch):
 
 
 class TestBillingRoutes:
+    """Verify billing routes behavior."""
+
     def test_billing_routes_reject_requests_when_feature_disabled(
         self, billing_test_client, monkeypatch
     ) -> None:
