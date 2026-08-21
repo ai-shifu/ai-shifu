@@ -289,7 +289,7 @@ class StripeProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
-        """Apply a verified provider notification."""
+        """Verify and normalize a Stripe provider notification."""
         headers = dict(payload.get("headers", {}) or {})
         sig_header = payload.get("sig_header", "")
         if sig_header and "Stripe-Signature" not in headers:
