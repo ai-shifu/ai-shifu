@@ -271,15 +271,28 @@ and the repository-wide pre-commit gate passes. The engineering baseline now
 tells future agents to parameterize logging rather than hiding eager f-strings.
 
 The D205 stage removes the global missing-blank-line exception and gives all
-262 affected docstrings a complete first-line summary. A semantic AST audit
-confirms that the 66 tracked Python files contain no code changes outside
-docstrings and that all 112 touched Flasgger YAML bodies are identical. The new
-repository-wide parser regression test discovers all 114 Swagger docstrings,
-requires the D205 boundary, parses every valid specification, and freezes the
-three pre-existing invalid specifications. The focused suite passes 11 tests,
-the full backend suite passes 3,010 tests with 17 skips, and the repository-wide
-pre-commit gate passes. Future agents now have an explicit D205 and Flasgger
-repair contract in the engineering baseline.
+262 affected docstrings a complete first-line summary. The semantic AST audit is
+scoped to that 66-file mechanical docstring rewrite: within that scope, it found
+no non-docstring code changes and confirmed that all 112 touched Flasgger YAML
+bodies are identical. The final PR also includes these separately reviewed
+non-docstring changes required to preserve the documentation contract:
+
+- `app.py` wires `sanitize_swagger_docstring` into Flasgger and
+  `flaskr/common/swagger.py` trims framing whitespace so summary-only routes do
+  not emit a placeholder `<br/>` description while real descriptions retain
+  their text.
+- `convert_outline_to_reorder_outline_item_dto` now declares its actual
+  `list[ReorderOutlineItemDto]` return contract; `get_unit_by_id` documents its
+  existing `AppError` path instead of a nonexistent `None` return.
+- The Swagger regression test inventories all 114 source-defined contracts,
+  freezes the three pre-existing invalid specifications, and reads source files
+  explicitly as UTF-8 for locale-independent collection.
+
+The focused Swagger and reorder-conversion tests cover these exceptions in
+addition to the D205 parser contract; the full backend suite passes 3,010 tests
+with 17 skips, and the repository-wide pre-commit gate passes. Future agents
+now have an explicit D205 and Flasgger repair contract in the engineering
+baseline.
 
 The D107 stage removes the global missing-constructor-docstring exception and
 adds responsibility-focused documentation to all 123 affected constructors in

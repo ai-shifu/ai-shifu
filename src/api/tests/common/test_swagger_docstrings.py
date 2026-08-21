@@ -18,7 +18,7 @@ KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS = {
 
 def _swagger_docstrings():
     for path in (API_ROOT / "flaskr").rglob("*.py"):
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
