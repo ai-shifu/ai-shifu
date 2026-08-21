@@ -39,10 +39,10 @@ class CozeAskProviderAdapter:
         provider_config: dict[str, Any],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         _ = (messages, runtime)
-        config = provider_config.get("config") or {}
-        if not isinstance(config, dict):
-            config = {}
+        raw_config = provider_config.get("config")
+        config = raw_config if isinstance(raw_config, dict) else {}
 
         base_url = str(config.get("base_url") or DEFAULT_COZE_BASE_URL).strip()
         api_key = str(config.get("api_key") or "").strip()

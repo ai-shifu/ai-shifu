@@ -330,6 +330,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "volcengine"
 
     def _infer_resource_id_for_voice(self, voice_id: str) -> str:

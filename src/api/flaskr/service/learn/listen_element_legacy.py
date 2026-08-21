@@ -73,6 +73,7 @@ class LearnElementsBackfillStats:
     error: str = ""
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 
 

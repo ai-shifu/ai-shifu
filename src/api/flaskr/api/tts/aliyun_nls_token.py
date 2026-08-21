@@ -51,9 +51,11 @@ class AliyunNlsToken:
 
     @property
     def expires_in_seconds(self) -> int:
+        """Return the token lifetime in seconds."""
         return max(0, int(self.expire_time - time.time()))
 
     def is_expired(self, now: float | None = None) -> bool:
+        """Return whether the cached token has expired."""
         now_ts = time.time() if now is None else float(now)
         return self.expire_time <= int(now_ts)
 

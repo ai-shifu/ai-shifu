@@ -97,10 +97,12 @@ class ConsistencyCheckResult:
 
     @property
     def count_match(self) -> bool:
+        """Return whether the source and destination counts match."""
         return self.old_count == self.new_count
 
     @property
     def is_consistent(self) -> bool:
+        """Return whether all consistency checks pass."""
         return self.count_match and self.sample_integrity_passed
 
 

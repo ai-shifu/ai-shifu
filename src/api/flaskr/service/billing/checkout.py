@@ -195,6 +195,7 @@ class ProviderReferenceReconcileResult:
     payment_provider: str | None
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -220,6 +221,7 @@ class StripeLineItemPayload:
     quantity: int = 1
 
     def to_provider_payload(self) -> dict[str, Any]:
+        """Serialize this value for the payment provider."""
         price_data: dict[str, Any] = {
             "currency": self.currency,
             "unit_amount": self.unit_amount,
@@ -243,6 +245,7 @@ class RefundProviderMetadata:
     charge_id: str | None = None
 
     def to_provider_payload(self) -> dict[str, Any]:
+        """Serialize this value for the payment provider."""
         payload = {
             "bill_order_bid": self.bill_order_bid,
             "creator_bid": self.creator_bid,

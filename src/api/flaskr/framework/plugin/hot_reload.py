@@ -136,6 +136,7 @@ class PluginFileHandler(FileSystemEventHandler):
         self.min_reload_interval = 1.0  # Minimum seconds between reloads
 
     def on_modified(self, event):
+        """Reload the plugin affected by a file change."""
         if event.is_directory:
             return
 

@@ -127,6 +127,7 @@ class CreditNotificationStageResult:
     enqueued: bool = False
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "notification_bid": self.notification_bid or None,

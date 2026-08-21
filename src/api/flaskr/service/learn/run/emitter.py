@@ -75,6 +75,7 @@ class RunEventEmitter:
     def render_outline_updates(
         self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
     ) -> Generator[str, None, None]:
+        """Render outline updates into run events."""
         ctx = self._context
         shifu_bids = [o.outline_bid for o in outline_updates]
         outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
@@ -268,6 +269,7 @@ class RunEventEmitter:
         )
 
     def is_access_gate_blocking_interaction(self, parsed_interaction: dict) -> bool:
+        """Return whether an access gate blocks progress."""
         ctx = self._context
         is_logged_in = bool(
             getattr(ctx._user_info, "mobile", None)
@@ -291,6 +293,7 @@ class RunEventEmitter:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         # Dispatch through the context wrappers so instance-level overrides
         # (tests patch these seams) keep taking effect.
+        """Emit feedback after a completed access gate."""
         ctx = self._context
         if not ctx._is_access_gate_blocking_interaction(parsed_interaction):
             return
@@ -301,6 +304,7 @@ class RunEventEmitter:
     def emit_feedback_after_exception_gate(
         self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Emit feedback after an exception gate."""
         ctx = self._context
         if not ctx._outline_item_info:
             return
@@ -341,6 +345,7 @@ class RunEventEmitter:
     def ensure_current_attend_for_gate_interaction(
         self,
     ) -> LearnProgressRecord | None:
+        """Ensure gate interactions have an attendance record."""
         ctx = self._context
         if ctx._current_attend:
             return ctx._current_attend
@@ -380,6 +385,7 @@ class RunEventEmitter:
         self,
         content: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Emit the gate interaction for current progress."""
         ctx = self._context
         current_attend = ctx._ensure_current_attend_for_gate_interaction()
         if not current_attend:
@@ -420,6 +426,7 @@ class RunEventEmitter:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         # Dispatch through the context wrappers so instance-level overrides
         # (tests patch these seams) keep taking effect.
+        """Emit interactions that follow lesson completion."""
         ctx = self._context
         if has_next_outline_item:
             yield from ctx._emit_next_chapter_interaction(progress_record)

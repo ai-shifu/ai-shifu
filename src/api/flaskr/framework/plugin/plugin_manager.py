@@ -40,6 +40,7 @@ class PluginManager:
             del self.extension_functions[target_func_name]
 
     def register_extension(self, target_func_name, func):
+        """Register an extension callback for a target function."""
         self.app.logger.info(
             "register_extension: %s -> %s", target_func_name, func.__name__
         )
@@ -51,6 +52,7 @@ class PluginManager:
         self.extension_functions[target_func_name].append(func)
 
     def execute_extensions(self, func_name, result, *args: object, **kwargs: object):
+        """Execute callbacks registered for a target function."""
         self.app.logger.info("execute_extensions: %s", func_name)
         if not self.is_enabled:
             return result
@@ -60,6 +62,7 @@ class PluginManager:
         return result
 
     def register_extensible_generic(self, func_name, func):
+        """Register a generic extensible function."""
         self.app.logger.info(
             "register_extensible_generic: %s -> %s", func_name, func.__name__
         )
@@ -77,6 +80,7 @@ class PluginManager:
         *args: object,
         **kwargs: object,
     ):
+        """Execute a generic extensible function and its callbacks."""
         self.app.logger.info("execute_extensible_generic: %s", func_name)
         if not self.is_enabled:
             return result

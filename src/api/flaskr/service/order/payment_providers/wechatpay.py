@@ -40,6 +40,7 @@ class WechatPayProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         if request.channel == "wx_pub_qr":
             return self._create_native_payment(request=request, app=app)
         if request.channel == "wx_pub":
@@ -50,11 +51,13 @@ class WechatPayProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a recurring subscription through this provider."""
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         _ = app
         raw_body_text = (
             raw_body.decode("utf-8") if isinstance(raw_body, bytes) else str(raw_body)
@@ -78,6 +81,7 @@ class WechatPayProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Synchronize local state from a provider reference."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"payment", "trade", "charge"}:
             message = f"Unsupported WeChat Pay reference type: {reference_type}"
@@ -102,6 +106,7 @@ class WechatPayProvider(PaymentProvider):
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
+        """Refund a payment through this provider."""
         del request, app
         message = "WeChat Pay refunds are not supported"
         raise RuntimeError(message)

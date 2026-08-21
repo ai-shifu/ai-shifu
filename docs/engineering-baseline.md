@@ -535,6 +535,17 @@ runtime introspection before adding it and verify executable AST equality after
 removing only the new class docstrings. Run focused schema tests when a touched
 class is registered with Swagger or created by Pydantic.
 
+For `D102`, production public methods document their observable result, side
+effect, or protocol responsibility. Serialization methods name the destination
+payload, provider methods name the external operation, properties name the
+state they expose, and protocol declarations use the same contract wording as
+their implementations. Do not write filler such as "Perform the X operation"
+or copy the method name without explaining its boundary. Test methods remain
+exempt: a behavior-focused `test_*` name is already the test contract, while a
+duplicate docstring makes failures harder to scan without adding information.
+Search for method-docstring introspection before bulk adoption and verify AST
+equality after removing only the new method docstrings.
+
 For `FIX002`, do not make an unresolved task invisible by renaming `TODO`,
 adding `noqa`, or turning the same promise into an untracked prose comment.
 Complete the work when it is part of the current change. When it genuinely

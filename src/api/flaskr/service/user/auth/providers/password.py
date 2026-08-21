@@ -201,6 +201,7 @@ class PasswordAuthProvider(AuthProvider):
     supports_challenge = False
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+        """Verify the supplied authentication credential."""
         raw_identifier = request.identifier.strip()
         identifier = (
             raw_identifier.lower()

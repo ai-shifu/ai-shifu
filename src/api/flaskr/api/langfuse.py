@@ -317,16 +317,19 @@ class LangfuseObservationHandle:
 
     @property
     def id(self) -> str:
+        """Return the underlying observation identifier."""
         delegate_id = getattr(self._delegate, "id", "")
         return delegate_id if isinstance(delegate_id, str) else ""
 
     def span(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Create a child span observation."""
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "span")
         child = self._delegate.start_span(**payload)
         return LangfuseObservationHandle(child, self.trace_id)
 
     def generation(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Create a child generation observation."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         payload.setdefault("name", "generation")
         # start_generation() is deprecated in SDK v3; start_observation() is
@@ -335,12 +338,14 @@ class LangfuseObservationHandle:
         return LangfuseObservationHandle(child, self.trace_id)
 
     def event(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Create a child event observation."""
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "event")
         child = self._delegate.create_event(**payload)
         return LangfuseObservationHandle(child, self.trace_id)
 
     def update(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Update the underlying Langfuse observation."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
             self._delegate.update(**payload)
@@ -348,6 +353,7 @@ class LangfuseObservationHandle:
 
     def end(self, **kwargs: object) -> "LangfuseObservationHandle":
         # SDK v3 end() only accepts end_time; flush attribute updates first.
+        """Finalize the underlying Langfuse observation."""
         end_time = kwargs.pop("end_time", None)
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
@@ -359,6 +365,7 @@ class LangfuseObservationHandle:
         return self
 
     def update_trace(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Update the trace that owns this observation."""
         payload = _map_observation_kwargs(kwargs, _TRACE_KEYS)
         if payload:
             self._delegate.update_trace(**payload)
@@ -369,6 +376,7 @@ class LangfuseTraceHandle(LangfuseObservationHandle):
     """v2-style trace facade; trace attributes live on the root span in v3."""
 
     def update(self, **kwargs: object) -> "LangfuseTraceHandle":
+        """Update the underlying Langfuse observation."""
         self.update_trace(**kwargs)
         return self
 

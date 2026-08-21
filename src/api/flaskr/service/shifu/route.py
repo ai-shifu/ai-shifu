@@ -176,6 +176,8 @@ class ShifuTokenValidation:
         self.is_creator = is_creator
 
     def __call__(self, f) -> Callable:
+        """Validate the course token before invoking the route."""
+
         @wraps(f)
         def decorated_function(*args: object, **kwargs: object):
             token = request.cookies.get("token", None)

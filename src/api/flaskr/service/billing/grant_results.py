@@ -26,6 +26,7 @@ class ManualCreditGrantResult:
     metadata_json: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "user_bid": self.user_bid,
@@ -55,6 +56,7 @@ class ReferralRewardSummary:
     grant_count: int = 0
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "available_credits": self.available_credits,
             "expires_at": self.expires_at,

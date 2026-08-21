@@ -711,6 +711,26 @@ plan's progress update for that rule.
 - [x] 2026-08-21 13:24 CST: Passed the repository harness, architecture boundary
   ratchet, pinned Ruff 0.16.3 developer-tool check, and the complete lefthook
   pre-commit suite across all files.
+- [x] 2026-08-21 13:47 CST: PR #2612 passed every GitHub check. Audited the next
+  candidates and deferred ANN401 because 460 of its 490 `Any` annotations are
+  production JSON, SDK, Pydantic, and billing payload contracts; PLR0917 is also
+  deferred because 96 of 116 findings are production DTO or provider
+  signatures. Selected D102 as the next behaviorally safe rule.
+- [x] 2026-08-21 13:47 CST: Narrowed D102 from a global ignore to test-only
+  exceptions: behavior-focused test names remain the contract for 526 backend
+  test methods and seven unittest-script methods. Added responsibility-focused
+  docstrings to the remaining 273 production and tool methods across 75 Python
+  files. A normalized AST audit proves 74 files are documentation-only; the
+  Coze adapter's one derived complexity interaction is handled below.
+- [x] 2026-08-21 13:56 CST: Prevented the one D102 docstring that pushed Coze's
+  adapter over PLR0915 by consolidating its equivalent config normalization;
+  all 31 adapter tests pass. The full backend then passes 3,032 tests with 17
+  skips and 733 existing warnings. The stable census falls by 807, from 26,613
+  to 25,806 (D102 -806 and PLR0912 -1); the isolated census falls by 274, from
+  38,002 to 37,728, retaining exactly the 533 documented test-method findings.
+- [x] 2026-08-21 13:59 CST: Passed the repository harness, architecture boundary
+  ratchet, pinned Ruff 0.16.3 developer-tool check, and the complete lefthook
+  pre-commit suite across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1187,6 +1207,19 @@ in the 81 touched test files pass with 15 skips, both touched script entry
 points load, and the full backend passes 3,032 tests with 17 skips. Stable and
 isolated censuses fall exactly 378, to 26,613 and 38,002, with no other rule
 count changing.
+
+The D102 stage removes the global undocumented-public-method ignore and keeps a
+single semantic boundary: 526 backend test methods and seven unittest-script
+methods rely on behavior-focused names instead of duplicate docstrings. The
+remaining 273 production and tool methods across 75 files now document their
+observable result, side effect, serialization target, or provider/protocol
+responsibility. Seventy-four files are docstring-only by normalized AST. The
+Coze adapter also consolidates an equivalent config normalization so its new
+docstring does not transfer debt to PLR0915; all 31 adapter tests and the full
+3,032-test backend suite pass. The stable census falls by 807 to 25,806 because
+D102 loses all 806 configured findings and the Coze cleanup also removes one
+PLR0912 finding. The isolated census falls by 274 to 37,728 and exposes exactly
+the 533 intentional test-method D102 findings.
 
 ## Context and Orientation
 

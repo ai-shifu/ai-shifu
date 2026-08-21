@@ -64,4 +64,6 @@ class AskProviderAdapter(Protocol):
         messages: list[dict[str, Any]],
         provider_config: dict[str, Any],
         runtime: AskProviderRuntime | None = None,
-    ) -> Generator[AskProviderChunk, None, None]: ...
+    ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
+        ...

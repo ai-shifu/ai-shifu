@@ -1144,9 +1144,11 @@ class TencentTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "tencent"
 
     def get_credentials(self) -> TencentTTSCredentials:
+        """Return the configured provider credentials."""
         app_id = get_config("TENCENT_TTS_APP_ID", "")
         secret_id = str(get_config("TENCENT_TTS_SECRET_ID", "") or "").strip()
         secret_key = str(get_config("TENCENT_TTS_SECRET_KEY", "") or "").strip()
@@ -1160,6 +1162,7 @@ class TencentTTSProvider(BaseTTSProvider):
         )
 
     def is_configured(self) -> bool:
+        """Return whether this provider has usable credentials."""
         try:
             self.get_credentials()
         except ValueError:
@@ -1167,6 +1170,7 @@ class TencentTTSProvider(BaseTTSProvider):
         return True
 
     def get_default_voice_settings(self) -> VoiceSettings:
+        """Return this provider's default voice settings."""
         return VoiceSettings(
             voice_id=TENCENT_DEFAULT_VOICE_ID,
             speed=0,
@@ -1176,6 +1180,7 @@ class TencentTTSProvider(BaseTTSProvider):
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
+        """Return this provider's default audio settings."""
         return AudioSettings(
             format=_tencent_codec(),
             sample_rate=TENCENT_DEFAULT_SAMPLE_RATE,
@@ -1184,12 +1189,15 @@ class TencentTTSProvider(BaseTTSProvider):
         )
 
     def get_supported_emotions(self) -> list[str]:
+        """Return the emotions exposed by this provider."""
         return [item["value"] for item in TENCENT_EMOTIONS if item["value"]]
 
     def get_supported_voices(self) -> list[dict[str, str]]:
+        """Return the voices exposed by this provider."""
         return [dict(voice) for voice in TENCENT_PREMIUM_VOICES]
 
     def get_provider_config(self) -> ProviderConfig:
+        """Return the provider's public configuration."""
         return ProviderConfig(
             name=self.provider_name,
             label="腾讯云语音合成",
@@ -1218,6 +1226,7 @@ class TencentTTSProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ):
+        """Stream synthesized speech from this provider."""
         if not self.is_configured():
             error_message = "Tencent TTS is not configured"
             raise ValueError(error_message)
@@ -1310,6 +1319,7 @@ class TencentTTSProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
+        """Synthesize speech with this provider."""
         if not self.is_configured():
             message = "Tencent TTS is not configured"
             raise ValueError(message)

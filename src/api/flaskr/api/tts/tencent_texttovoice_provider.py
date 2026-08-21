@@ -293,6 +293,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "tencent_texttovoice"
 
     def _get_credentials(self) -> tuple:
@@ -301,10 +302,12 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         return secret_id, secret_key
 
     def is_configured(self) -> bool:
+        """Return whether this provider has usable credentials."""
         secret_id, secret_key = self._get_credentials()
         return bool(secret_id and secret_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
+        """Return this provider's default voice settings."""
         return VoiceSettings(
             voice_id=TENCENT_TEXTTOVOICE_DEFAULT_VOICE_ID,
             speed=0,  # Tencent native range -2..6, 0 is normal speed
@@ -314,6 +317,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
+        """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
             sample_rate=_PREMIUM_SAMPLE_RATE,
@@ -322,6 +326,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
 
     def get_supported_voices(self) -> list[dict[str, str]]:
+        """Return the voices exposed by this provider."""
         return [dict(voice) for voice in TENCENT_TEXTTOVOICE_VOICES]
 
     def _synthesize_segment(
@@ -385,6 +390,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
+        """Synthesize speech with this provider."""
         _ = audio_settings
         if not text or not text.strip():
             error_message = "Text cannot be empty"
@@ -445,6 +451,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
 
     def get_provider_config(self) -> ProviderConfig:
+        """Return the provider's public configuration."""
         return ProviderConfig(
             name=self.provider_name,
             label="腾讯云语音合成",

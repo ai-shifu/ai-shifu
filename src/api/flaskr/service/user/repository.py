@@ -71,6 +71,7 @@ class CredentialSummary:
 
     @property
     def is_verified(self) -> bool:
+        """Return whether the credential is verified."""
         return self.state == CREDENTIAL_STATE_VERIFIED
 
 
@@ -109,6 +110,7 @@ class UserAggregate:
 
     @property
     def email(self) -> str:
+        """Return the verified email address, if present."""
         credential = self._preferred_identifier("email")
         if credential:
             return credential.identifier
@@ -118,6 +120,7 @@ class UserAggregate:
 
     @property
     def mobile(self) -> str:
+        """Return the verified mobile number, if present."""
         credential = self._preferred_identifier("phone")
         if credential:
             return credential.identifier
@@ -127,6 +130,7 @@ class UserAggregate:
 
     @property
     def wechat_open_id(self) -> str:
+        """Return the verified WeChat open ID, if present."""
         for credential in self.credentials:
             if (
                 credential.provider == "wechat"
@@ -137,6 +141,7 @@ class UserAggregate:
 
     @property
     def wechat_union_id(self) -> str:
+        """Return the verified WeChat union ID, if present."""
         for credential in self.credentials:
             if (
                 credential.provider == "wechat"
@@ -147,6 +152,7 @@ class UserAggregate:
 
     @property
     def username(self) -> str:
+        """Return the account username, if present."""
         if self.identify:
             return self.identify
         if self.email:
@@ -157,14 +163,17 @@ class UserAggregate:
 
     @property
     def display_name(self) -> str:
+        """Return the learner-facing display name."""
         return self.nickname
 
     @property
     def user_language(self) -> str:
+        """Return the learner's preferred language."""
         return self.language or "en-US"
 
     @property
     def public_state(self) -> int:
+        """Return the learner's public account state."""
         return STATE_TO_PUBLIC_STATE.get(self.state, 0)
 
     # Compatibility accessors for legacy call sites that previously relied on
@@ -174,25 +183,31 @@ class UserAggregate:
 
     @property
     def user_id(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user row ID."""
         return self.user_bid
 
     @property
     def name(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user name."""
         return self.display_name
 
     @property
     def user_state(self) -> int:  # pragma: no cover - trivial alias
+        """Return the persisted user state."""
         return self.state
 
     @property
     def user_avatar(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted avatar URL."""
         return self.avatar
 
     @property
     def user_open_id(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user open ID."""
         return self.wechat_open_id
 
     def to_user_info(self) -> UserInfo:
+        """Convert the aggregate into public user information."""
         return UserInfo(
             user_id=self.user_bid,
             username=self.username,
@@ -632,6 +647,7 @@ class UserProfileSnapshot:
     credentials: list[dict[str, str | None]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "user_bid": self.user_bid,
             "legacy": self.legacy,

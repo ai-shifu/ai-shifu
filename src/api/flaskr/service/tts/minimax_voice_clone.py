@@ -22,6 +22,7 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
 
         @staticmethod
         def from_file(*_args: object, **_kwargs: object) -> None:
+            """Load an audio segment from a local file."""
             message = "audio decoder is not available"
             raise RuntimeError(message)
 
@@ -134,6 +135,7 @@ class MiniMaxVoiceCloneRunResult:
     message: str = ""
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "voice_bid": self.voice_bid,
@@ -212,6 +214,7 @@ class MiniMaxVoiceCloneClient:
         filename: str,
         content_type: str,
     ) -> MiniMaxUploadedFile:
+        """Upload source audio for a voice-clone request."""
         return self._upload_file(
             audio_bytes=audio_bytes,
             filename=filename,
@@ -225,6 +228,7 @@ class MiniMaxVoiceCloneClient:
         filename: str,
         content_type: str,
     ) -> MiniMaxUploadedFile:
+        """Upload prompt audio for clone verification."""
         return self._upload_file(
             audio_bytes=audio_bytes,
             filename=filename,
@@ -241,6 +245,7 @@ class MiniMaxVoiceCloneClient:
         preview_text: str = MINIMAX_CLONE_PREVIEW_TEXT,
         preview_model: str = MINIMAX_CLONE_PREVIEW_MODEL,
     ) -> MiniMaxVoiceCloneResult:
+        """Create a cloned voice from uploaded audio."""
         payload: dict[str, Any] = {
             "file_id": _minimax_file_id_payload(file_id),
             "voice_id": voice_id,

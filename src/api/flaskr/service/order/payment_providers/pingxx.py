@@ -132,6 +132,7 @@ class PingxxProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         client = self._ensure_client(app)
         provider_options: dict[str, Any] = request.extra or {}
         app_id = provider_options.get("app_id") or get_config("PINGXX_APP_ID")
@@ -159,12 +160,14 @@ class PingxxProvider(PaymentProvider):
 
     @_serialized_pingpp_config
     def retrieve_charge(self, *, charge_id: str, app: Flask):
+        """Retrieve a charge from the payment provider."""
         client = self._ensure_client(app)
         return client.Charge.retrieve(charge_id)
 
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a recurring subscription through this provider."""
         _ = (request, app)
         message = "Pingxx does not support subscriptions"
         raise RuntimeError(message)
@@ -172,6 +175,7 @@ class PingxxProvider(PaymentProvider):
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
+        """Cancel a recurring provider subscription."""
         _ = (subscription_bid, provider_subscription_id, app)
         message = "Pingxx does not support subscriptions"
         raise RuntimeError(message)
@@ -179,6 +183,7 @@ class PingxxProvider(PaymentProvider):
     def resume_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
+        """Resume a paused provider subscription."""
         _ = (subscription_bid, provider_subscription_id, app)
         message = "Pingxx does not support subscriptions"
         raise RuntimeError(message)
@@ -186,6 +191,7 @@ class PingxxProvider(PaymentProvider):
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         _ = app
         normalized_headers = {
             str(key).lower(): str(value) for key, value in (headers or {}).items()
@@ -227,6 +233,7 @@ class PingxxProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
+        """Apply a verified provider notification."""
         if "raw_body" in payload:
             return self.verify_webhook(
                 headers=payload.get("headers", {}) or {},
@@ -245,6 +252,7 @@ class PingxxProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Synchronize local state from a provider reference."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"charge", "payment"}:
             message = f"Unsupported Pingxx reference type: {reference_type}"

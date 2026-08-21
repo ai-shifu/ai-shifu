@@ -2260,6 +2260,7 @@ class Config(FlaskConfig):
         return self.enhanced.get_list(key)
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
+        """Resolve a configuration value by key."""
         return self.parent.__call__(*args, **kwds)
 
     def setdefault(self, key: Any, default: Any = None) -> Any:

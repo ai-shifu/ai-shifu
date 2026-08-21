@@ -160,6 +160,7 @@ class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
     metadata_json = Column("metadata", JSON, nullable=True)
 
     def to_snapshot(self) -> dict[str, object]:
+        """Capture this reward rule as an immutable snapshot."""
         amount = self.reward_credit_amount
         return {
             "reward_rule_bid": self.reward_rule_bid,

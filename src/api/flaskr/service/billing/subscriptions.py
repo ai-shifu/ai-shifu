@@ -190,6 +190,7 @@ class TopupExpiryRepairRecord:
     ledger_bids: tuple[str, ...] = ()
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "bill_order_bid": self.bill_order_bid,
@@ -212,6 +213,7 @@ class TopupExpiryRepairResult:
     skipped_bucket_bids: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -242,6 +244,7 @@ class SubscriptionCycleRepairRecord:
     reason: str
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "subscription_bid": self.subscription_bid,
             "creator_bid": self.creator_bid,
@@ -268,6 +271,7 @@ class SubscriptionCycleRepairResult:
     skipped_subscription_bids: list[str] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,

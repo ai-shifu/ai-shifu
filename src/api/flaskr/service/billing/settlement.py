@@ -76,6 +76,7 @@ class SettlementResult:
     backfill: bool = False
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         payload: dict[str, Any] = {
             "status": self.status,
             "usage_bid": self.usage_bid,
@@ -107,6 +108,7 @@ class BackfillSettlementItem:
     requested_creator_bid: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "usage_bid": self.usage_bid,
             "usage_id": self.usage_id,
@@ -135,6 +137,7 @@ class BackfillSettlementResult:
     backfill: bool = True
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,

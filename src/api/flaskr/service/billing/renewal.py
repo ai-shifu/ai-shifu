@@ -257,6 +257,7 @@ class RenewalEventSnapshot:
     payload: Any
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "renewal_event_bid": self.renewal_event_bid,
             "subscription_bid": self.subscription_bid,
@@ -290,6 +291,7 @@ class RenewalEventResult:
     order_status: int | None = None
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         payload: dict[str, Any] = {"status": self.status}
         if self.event is not None:
             payload.update(self.event.to_payload())

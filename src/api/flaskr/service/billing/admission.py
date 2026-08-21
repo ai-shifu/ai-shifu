@@ -40,6 +40,7 @@ class CreatorUsageAdmission:
     priority_class: str
 
     def to_response_dict(self) -> dict[str, Any]:
+        """Serialize this result for an API response."""
         return {
             "allowed": self.allowed,
             "creator_bid": self.creator_bid,

@@ -42,6 +42,7 @@ class StreamTTSFinalizeDrainer:
         self._jobs: list[_StreamTTSFinalizeJob] = []
 
     def submit(self, processor) -> None:
+        """Submit a streaming TTS finalization job."""
         if not processor:
             return
 
@@ -87,6 +88,7 @@ class StreamTTSFinalizeDrainer:
         thread.start()
 
     def drain(self, *, wait: bool = False) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Wait for submitted finalization jobs to finish."""
         while self._jobs:
             for job in list(self._jobs):
                 yield from self._drain_job(job, wait=wait)
@@ -97,6 +99,7 @@ class StreamTTSFinalizeDrainer:
                 break
 
     def close(self) -> None:
+        """Stop accepting work and drain pending jobs."""
         for job in list(self._jobs):
             job.thread.join(timeout=0.1)
 
