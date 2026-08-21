@@ -389,6 +389,52 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
   });
 
+  test.each(['content', 'data'] as const)(
+    'reads credit codes from serialized SSE %s payloads',
+    async payloadField => {
+      const source = buildMockSseSource();
+      (SSE as jest.Mock).mockReturnValueOnce(source);
+      const ownerMessage = getCreditInsufficientMessage('teacher', 7101);
+
+      const { result } = renderHook(() =>
+        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      );
+
+      await act(async () => {
+        await result.current.startPreview({
+          shifuBid: 'shifu-1',
+          outlineBid: 'lesson-1',
+          mdflow: 'prompt',
+        });
+      });
+
+      act(() => {
+        source.listeners.message?.({
+          data: JSON.stringify({
+            type: 'error',
+            [payloadField]: JSON.stringify({
+              code: 7101,
+              message: 'serialized backend credit error',
+            }),
+          }),
+        });
+      });
+
+      await waitFor(() => expect(result.current.error).toBe(ownerMessage));
+      expect(result.current.items.at(-1)).toMatchObject({
+        content: ownerMessage,
+        type: ChatContentItemType.ERROR,
+        business_code: 7101,
+      });
+      expect(toastOnce).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dedupeKey: 'credit-insufficient:teacher:7101',
+          action: expect.anything(),
+        }),
+      );
+    },
+  );
+
   test('shows friendly content when preview SSE error exposes Langfuse details', async () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValueOnce(source);

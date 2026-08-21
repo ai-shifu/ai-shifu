@@ -136,12 +136,9 @@ const resolvePreviewBusinessCode = (
     return response.code;
   }
   for (const candidate of [response.content, response.data]) {
-    if (
-      candidate &&
-      typeof candidate === 'object' &&
-      typeof (candidate as { code?: unknown }).code === 'number'
-    ) {
-      return (candidate as { code: number }).code;
+    const payload = parseObjectPayload<{ code?: unknown }>(candidate);
+    if (typeof payload?.code === 'number') {
+      return payload.code;
     }
   }
   return undefined;
