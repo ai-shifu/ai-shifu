@@ -1,3 +1,5 @@
+"""Orchestrate learning-session state and SSE generation."""
+
 import contextlib
 import hashlib
 import inspect

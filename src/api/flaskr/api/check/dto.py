@@ -1,3 +1,5 @@
+"""Define request and response DTOs for risk checks."""
+
 CHECK_RESULT_PASS = 0
 CHECK_RESULT_REVIEW = 1
 CHECK_RESULT_REJECT = 2

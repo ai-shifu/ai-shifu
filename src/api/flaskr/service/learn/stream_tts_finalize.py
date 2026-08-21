@@ -1,3 +1,5 @@
+"""Drain asynchronous TTS finalization jobs."""
+
 from __future__ import annotations
 
 import queue

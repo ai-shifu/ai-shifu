@@ -1,3 +1,5 @@
+"""Handle config rates for course-administration operations."""
+
 from __future__ import annotations
 
 import unicodedata

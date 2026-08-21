@@ -1,3 +1,5 @@
+"""Verify ping++ client state behavior."""
+
 import sys
 from types import SimpleNamespace
 

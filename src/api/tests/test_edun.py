@@ -1,3 +1,5 @@
+"""Verify content-risk providers honor configuration and timeouts."""
+
 from typing import Self
 
 import pytest

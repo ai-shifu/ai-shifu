@@ -1,3 +1,5 @@
+"""Serialize shared API responses and UTC timestamps."""
+
 import datetime
 import decimal
 import json

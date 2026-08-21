@@ -1,3 +1,5 @@
+"""Protect billing data-transfer serialization contracts."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

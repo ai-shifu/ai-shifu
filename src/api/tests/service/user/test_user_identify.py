@@ -1,3 +1,5 @@
+"""Verify user identify behavior."""
+
 import uuid
 
 

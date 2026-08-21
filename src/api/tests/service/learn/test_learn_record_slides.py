@@ -1,3 +1,5 @@
+"""Verify learn record slides behavior."""
+
 import types
 
 import pytest

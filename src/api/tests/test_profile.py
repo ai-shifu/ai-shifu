@@ -1,3 +1,5 @@
+"""Verify learner-profile definitions and visibility updates."""
+
 from flaskr.service.profile import profile_manage
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,

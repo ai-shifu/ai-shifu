@@ -1,3 +1,5 @@
+"""Verify authenticated requests resolve normalized language context."""
+
 from types import SimpleNamespace
 
 import flaskr.route.user as user_route

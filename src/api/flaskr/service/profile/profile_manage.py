@@ -1,3 +1,5 @@
+"""Manage profile-variable definitions and course usage."""
+
 import hashlib
 
 from flask import Flask

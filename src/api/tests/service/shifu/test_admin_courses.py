@@ -1,3 +1,5 @@
+"""Verify admin courses behavior."""
+
 from __future__ import annotations
 
 import uuid

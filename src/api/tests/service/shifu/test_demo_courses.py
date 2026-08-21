@@ -1,3 +1,5 @@
+"""Verify built-in demo courses are identified without false matches."""
+
 from __future__ import annotations
 
 import pytest

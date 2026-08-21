@@ -1,3 +1,5 @@
+"""Verify context v2 stream producer stop behavior."""
+
 import threading
 import time
 import types

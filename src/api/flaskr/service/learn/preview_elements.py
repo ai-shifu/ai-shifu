@@ -1,3 +1,5 @@
+"""Build preview elements from course content."""
+
 from __future__ import annotations
 
 import uuid

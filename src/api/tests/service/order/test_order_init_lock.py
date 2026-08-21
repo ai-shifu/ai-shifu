@@ -1,3 +1,5 @@
+"""Verify order init lock behavior."""
+
 import flaskr.service.order.funs as order_funs
 
 

@@ -1,3 +1,5 @@
+"""Protect shared extension and client instance ownership."""
+
 from flask import Flask
 from flaskr import dao
 from flaskr.framework.plugin import plugin_manager as plugin_manager_module

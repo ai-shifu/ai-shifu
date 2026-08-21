@@ -1,3 +1,5 @@
+"""Expose the TTS service API."""
+
 from __future__ import annotations
 
 from flaskr.service.tts.cloned_voice_registry import (

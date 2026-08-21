@@ -1,3 +1,5 @@
+"""Verify Ping++ client initialization and order requests."""
+
 from flaskr.service.order.payment_providers.base import PaymentCreationResult
 
 

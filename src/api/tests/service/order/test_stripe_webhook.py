@@ -1,3 +1,5 @@
+"""Verify stripe webhook behavior."""
+
 from __future__ import annotations
 
 import importlib

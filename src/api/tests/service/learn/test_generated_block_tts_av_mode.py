@@ -1,3 +1,5 @@
+"""Verify generated block TTS AV mode behavior."""
+
 from dataclasses import dataclass
 from types import SimpleNamespace
 

@@ -1,3 +1,5 @@
+"""Verify a fresh MySQL database upgrades to the single Alembic head."""
+
 import os
 import subprocess
 import sys

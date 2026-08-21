@@ -1,3 +1,5 @@
+"""Verify transient database deadlocks are retried safely."""
+
 from unittest.mock import MagicMock
 
 import pytest

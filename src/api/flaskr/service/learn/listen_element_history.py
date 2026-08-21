@@ -1,3 +1,5 @@
+"""Read persisted listen-mode element history."""
+
 from __future__ import annotations
 
 from collections import OrderedDict

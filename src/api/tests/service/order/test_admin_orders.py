@@ -1,3 +1,5 @@
+"""Verify administrative order listing, filtering, and detail responses."""
+
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch

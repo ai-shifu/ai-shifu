@@ -1,3 +1,5 @@
+"""Verify billing primitives behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime

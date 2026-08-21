@@ -1,3 +1,5 @@
+"""Build stable Langfuse names for learning traces."""
+
 import re
 
 

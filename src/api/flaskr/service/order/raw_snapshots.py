@@ -1,3 +1,5 @@
+"""Handle raw snapshots for legacy orders."""
+
 from __future__ import annotations
 
 import json

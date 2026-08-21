@@ -1,3 +1,5 @@
+"""Persist run-scoped listen-mode elements."""
+
 from __future__ import annotations
 
 import contextlib

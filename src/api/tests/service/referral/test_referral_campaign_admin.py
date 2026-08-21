@@ -1,3 +1,5 @@
+"""Verify referral campaign admin behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

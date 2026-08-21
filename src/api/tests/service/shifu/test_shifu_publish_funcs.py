@@ -1,3 +1,5 @@
+"""Verify shifu publish funcs behavior."""
+
 import sys
 import types
 from datetime import datetime

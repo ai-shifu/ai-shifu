@@ -1,3 +1,5 @@
+"""Verify reorder outline conversion behavior."""
+
 import pytest
 from flaskr.service.common.models import AppError
 from flaskr.service.shifu.shifu_outline_funcs import (

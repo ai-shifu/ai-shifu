@@ -1,3 +1,5 @@
+"""Validate provider price mapping persistence and lifecycle transitions."""
+
 from __future__ import annotations
 
 from decimal import Decimal

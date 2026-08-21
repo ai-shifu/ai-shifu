@@ -1,3 +1,5 @@
+"""Verify streaming TTS subtitles behavior."""
+
 from flask import Flask
 from flaskr import dao
 

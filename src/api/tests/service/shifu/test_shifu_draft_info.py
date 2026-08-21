@@ -1,3 +1,5 @@
+"""Verify shifu draft info behavior."""
+
 import json
 from datetime import datetime
 from decimal import Decimal

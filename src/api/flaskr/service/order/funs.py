@@ -1,3 +1,5 @@
+"""Implement business operations for legacy orders."""
+
 import datetime
 import decimal
 import json

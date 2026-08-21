@@ -1,3 +1,5 @@
+"""Verify stripe refund behavior."""
+
 import pytest
 from flask import Flask
 from flaskr import dao

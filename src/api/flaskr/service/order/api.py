@@ -1,3 +1,5 @@
+"""Expose the legacy orders service API."""
+
 from __future__ import annotations
 
 from flaskr.service.order.admin import (

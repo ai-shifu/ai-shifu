@@ -1,3 +1,5 @@
+"""Define the shared payment-provider contract for legacy orders."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

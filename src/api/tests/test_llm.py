@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+"""Verify visible LLM models include stable credit-rate metadata."""
+
 import importlib.metadata
 import json
 import os

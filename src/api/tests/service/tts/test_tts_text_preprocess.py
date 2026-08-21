@@ -1,3 +1,5 @@
+"""Verify TTS text preprocess behavior."""
+
 import pytest
 
 

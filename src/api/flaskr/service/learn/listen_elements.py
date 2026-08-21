@@ -1,3 +1,5 @@
+"""Adapt learning events into listen-mode elements."""
+
 from __future__ import annotations
 
 import uuid

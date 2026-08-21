@@ -1,3 +1,5 @@
+"""Define persistence models for legacy orders."""
+
 from typing import ClassVar
 
 from flaskr.dao import db

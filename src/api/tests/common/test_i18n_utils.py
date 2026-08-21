@@ -1,3 +1,5 @@
+"""Verify native language labels reach generated prompts."""
+
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from markdown_flow import MarkdownFlow, ProcessMode
 
