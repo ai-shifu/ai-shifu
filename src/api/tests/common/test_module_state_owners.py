@@ -48,6 +48,16 @@ def test_redis_initialization_updates_the_owned_client(monkeypatch):
     }
 
 
+def test_legacy_redis_client_import_reads_the_owned_client():
+    sentinel = object()
+    dao.set_redis_client(sentinel)
+
+    from flaskr.dao import redis_client as legacy_redis_client
+
+    assert legacy_redis_client is sentinel
+    assert "redis_client" not in vars(dao)
+
+
 def test_plugin_manager_registry_replaces_one_owned_instance(monkeypatch):
     first_app = Flask("first-plugin-manager")
     second_app = Flask("second-plugin-manager")
