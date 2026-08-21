@@ -57,7 +57,7 @@ from flaskr.service.billing.tasks import (
     CreditNotificationRetryableError,
     send_credit_notification_task,
 )
-from flaskr.service.common.models import AppError, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.config.models import Config
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (

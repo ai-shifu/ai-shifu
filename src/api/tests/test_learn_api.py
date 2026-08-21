@@ -46,7 +46,7 @@ def test_get_shifu_info_marks_matching_preview_viewer_as_owner(app):
             shifu_bid="shifu-preview-owner",
             title="Owner Preview",
             description="Desc",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid="owner-1",
         )
         db.session.add(shifu)

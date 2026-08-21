@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
+import flaskr.service.billing.api as billing_api
 import pytest
 from flask import Flask
 from flaskr import dao
-import flaskr.service.billing.api as billing_api
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
