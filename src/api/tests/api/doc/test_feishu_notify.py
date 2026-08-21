@@ -86,6 +86,7 @@ def test_send_notify_returns_none_for_request_error(monkeypatch):
     )
 
     def _raise(*args, **kwargs):
+        _ = (args, kwargs)
         message = "network down"
         raise requests.RequestException(message)
 

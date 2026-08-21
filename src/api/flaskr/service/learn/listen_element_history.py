@@ -710,6 +710,7 @@ def get_listen_element_record(
         ..., LegacyLearnRecord
     ] = build_legacy_record_for_progress,
 ) -> LearnElementRecordDTO:
+    _ = app
     progress_records = (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,

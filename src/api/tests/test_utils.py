@@ -8,6 +8,7 @@ try:
 except Exception:  # pragma: no cover - fallback for test environment
 
     def op(data, depth=10, width=120, elements=100):
+        _ = elements
         pp = pprint.PrettyPrinter(indent=2, depth=depth, width=width)
         pp.pprint(data)
 

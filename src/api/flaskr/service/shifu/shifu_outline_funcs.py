@@ -761,6 +761,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         AppError: If the unit is not found.
 
     """
+    _ = user_id
     with app.app_context():
         unit: DraftOutlineItem = (
             DraftOutlineItem.query.filter(

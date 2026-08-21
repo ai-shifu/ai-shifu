@@ -44,7 +44,7 @@ def norm(path):
     return tuple(segs)
 
 
-def grep_paths(root, extra_args=None):
+def grep_paths(root):
     if not Path(root).is_dir():
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit

@@ -142,6 +142,7 @@ def _billing_paid_feishu_payload(
 
 
 def _raise_if_send_notify_called(*args, **kwargs):
+    _ = (args, kwargs)
     message = "billing paid Feishu delivery should run in a Celery task"
     raise AssertionError(message)
 

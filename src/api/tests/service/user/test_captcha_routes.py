@@ -123,6 +123,7 @@ def test_captcha_verify_deletes_after_attempt_limit(test_client, app):
 
 
 def test_send_sms_code_requires_captcha_ticket(test_client, app):
+    _ = app
     response, body = _post_json(
         test_client,
         "/api/user/send_sms_code",
@@ -150,6 +151,7 @@ def test_send_sms_code_swagger_parameters_stay_valid_yaml(app):
 
 
 def test_send_sms_code_localizes_missing_captcha_ticket_message(test_client, app):
+    _ = app
     response, body = _post_json(
         test_client,
         "/api/user/send_sms_code",

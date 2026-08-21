@@ -702,6 +702,7 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
 def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
     app, test_client, monkeypatch
 ):
+    _ = app
     _mock_creator(monkeypatch, user_id="creator-1")
     captured_filters = {}
 

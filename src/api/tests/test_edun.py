@@ -29,6 +29,7 @@ def test_yidun_check_uses_configured_timeout(app, monkeypatch):
             }
 
     def fake_post(url, data=None, headers=None, timeout=None):
+        _ = (data, headers)
         captured["url"] = url
         captured["timeout"] = timeout
         return _Resp()

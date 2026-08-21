@@ -71,6 +71,7 @@ class MockClient:
         """Return a no-op callable for any Langfuse operation."""
 
         def method(*args, **kwargs):
+            _ = (args, kwargs)
             return self
 
         return method

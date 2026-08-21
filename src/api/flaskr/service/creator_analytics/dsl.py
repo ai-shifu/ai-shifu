@@ -190,7 +190,7 @@ def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
 
     group_by = _parse_group_by(payload.get("group_by"), spec)
     _enforce_select_group_by_compatibility(select, group_by, aggregates)
-    _enforce_user_bid_aggregation_only(select, group_by, aggregates, table_key)
+    _enforce_user_bid_aggregation_only(select, group_by, table_key)
 
     filters = _parse_filters(payload.get("where"), spec)
     _enforce_generated_content_type_filter(select, filters)
@@ -480,7 +480,6 @@ def _enforce_select_group_by_compatibility(
 def _enforce_user_bid_aggregation_only(
     select: Sequence[str],
     group_by: Sequence[str],
-    aggregates: Sequence[Aggregate],
     table_key: str,
 ) -> None:
     """``user_bid`` may only surface as a group-by dimension, never as a raw column.

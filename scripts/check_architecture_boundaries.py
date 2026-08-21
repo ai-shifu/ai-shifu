@@ -61,7 +61,7 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def collect_frontend_imports(path: Path, frontend_root: Path) -> list[str]:
+def collect_frontend_imports(path: Path) -> list[str]:
     text = read_text(path)
     imports: list[str] = [match.strip() for match in IMPORT_FROM_PATTERN.findall(text)]
     # Support dynamic imports without `from`.
@@ -140,7 +140,7 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
                 )
             )
 
-        imports = collect_frontend_imports(path, frontend_root)
+        imports = collect_frontend_imports(path)
         source_under_app = path.is_relative_to(app_root)
         source_under_components = path.is_relative_to(components_root)
 

@@ -99,7 +99,6 @@ def build_creator_domain_bindings(
             custom_domain_enabled=custom_domain_enabled,
             items=[
                 _serialize_domain_binding(
-                    app,
                     row,
                     custom_domain_enabled=custom_domain_enabled,
                 )
@@ -157,7 +156,6 @@ def manage_creator_domain_binding(
         return BillingDomainBindResultDTO(
             action=action,
             binding=_serialize_domain_binding(
-                app,
                 binding,
                 custom_domain_enabled=custom_domain_enabled,
             ),
@@ -593,7 +591,6 @@ def _load_domain_binding_for_task(
 
 
 def _serialize_domain_binding(
-    app: Flask,
     row: BillingDomainBinding,
     *,
     custom_domain_enabled: bool = False,

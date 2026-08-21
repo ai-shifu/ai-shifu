@@ -332,6 +332,7 @@ def get_video_info(app, user_id: str, url: str) -> dict:
         dict: The video information
 
     """
+    _ = user_id
     with app.app_context():
         try:
             parsed_url = urlparse(url)

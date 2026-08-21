@@ -154,6 +154,7 @@ def probe_usage_ledger(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    _ = now
     description = (
         "Successful billable top-level usage rows missing consume ledger entries."
     )
@@ -215,6 +216,7 @@ def probe_wallet_snapshot(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    _ = since
     description = (
         "Wallet available/reserved totals that differ from current consumable "
         "bucket totals."
@@ -352,6 +354,7 @@ def probe_bucket_expiration(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    _ = since
     description = (
         "Credit buckets whose status does not match expiration/available state."
     )
@@ -414,6 +417,7 @@ def probe_model_override_inventory(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    _ = (now, since)
     description = (
         "Published outline items whose explicit model differs from course defaults."
     )
@@ -491,6 +495,7 @@ def probe_sms_send_failures(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    _ = now
     description = "Recent SMS verification-code rows that were created but not sent."
     if not table_has_columns(
         inspector,
@@ -531,6 +536,7 @@ def probe_notification_template_sync(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    _ = (now, since)
     description = "Notification templates whose latest provider sync is not successful."
     if not table_has_columns(
         inspector,

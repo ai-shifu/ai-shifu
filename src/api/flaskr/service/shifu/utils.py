@@ -69,6 +69,7 @@ def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
         Optional[str]: Creator user business identifier if found, otherwise None
 
     """
+    _ = app
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 
     draft = (

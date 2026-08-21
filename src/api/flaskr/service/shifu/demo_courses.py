@@ -126,6 +126,7 @@ def _load_shifu_demo_metadata(app: Flask, shifu_bid: str) -> list[tuple[str, str
     is exactly what allowed scope-key collisions with concurrent contexts.
     Billing callers always run inside an app context.
     """
+    _ = app
     import time as time_module
 
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu

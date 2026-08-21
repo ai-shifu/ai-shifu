@@ -84,7 +84,7 @@ def _remove_db_session_safely(app: Flask, *, source: str) -> None:
 _is_protocol_desync_error = is_protocol_interrupt_error
 
 
-def _discard_session_connection(app: Flask, *, source: str) -> None:
+def _discard_session_connection(*, source: str) -> None:
     """Drop the session's DB connection instead of returning it to the pool.
 
     Used when the streaming generator terminates abnormally: the close (or a
@@ -146,7 +146,7 @@ def _ensure_healthy_db_connection(app: Flask) -> None:
         # Session.invalidate() both resets the session state WITHOUT emitting
         # SQL and discards the raw connection - a rollback here would send a
         # ROLLBACK on the very stream that just proved desynced.
-        _discard_session_connection(app, source="db connection probe failure")
+        _discard_session_connection(source="db connection probe failure")
     if last_error is not None:
         raise last_error
     message = (
@@ -463,7 +463,7 @@ def run_script_inner(
                     # exchange may have been interrupted, so discard rather
                     # than roll back on a possibly desynced connection.
                     _discard_session_connection(
-                        app, source="run_script_inner stop_event cancel"
+                        source="run_script_inner stop_event cancel"
                     )
                     return
                 yield from _iter_run_events(
@@ -486,7 +486,7 @@ def run_script_inner(
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")
                     _discard_session_connection(
-                        app, source="run_script_inner stop_event cancel"
+                        source="run_script_inner stop_event cancel"
                     )
                     return
                 app.logger.info("run_script_context.run")
@@ -511,14 +511,14 @@ def run_script_inner(
             # so the connection's protocol state is unknowable: this is the
             # exact checkin path the pool-level desync detector caught in
             # production. Discard the connection instead of rolling back on it.
-            _discard_session_connection(app, source="run_script_inner GeneratorExit")
+            _discard_session_connection(source="run_script_inner GeneratorExit")
             app.logger.info("GeneratorExit")
         except Exception as exc:
             _finalize_langfuse_if_available(run_script_context)
             if _is_protocol_desync_error(exc):
                 # Rolling back on a desynced connection consumes stale packets
                 # ("Command Out of Sync") and re-pools the poisoned stream.
-                _discard_session_connection(app, source="run_script_inner stream error")
+                _discard_session_connection(source="run_script_inner stream error")
             else:
                 db.session.rollback()
             raise
@@ -831,9 +831,7 @@ def run_script(
                         # run_script_inner already invalidated and removed the
                         # session this resolves a fresh registry Session and
                         # invalidating it is a harmless no-op.
-                        _discard_session_connection(
-                            app, source="run_script producer abort"
-                        )
+                        _discard_session_connection(source="run_script producer abort")
                     _remove_db_session_safely(app, source="run_script producer")
                     output_queue.put(("done", None))
 
@@ -1078,6 +1076,7 @@ def get_run_status(
     outline_bid: str,
     user_bid: str,
 ) -> RunStatusDTO:
+    _ = shifu_bid
     started_at = _get_run_script_started_at(app, user_bid, outline_bid)
     if started_at is None:
         return RunStatusDTO(is_running=False, running_time=0)

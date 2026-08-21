@@ -1506,6 +1506,8 @@ def build_dashboard_entry(
     page_size: int = 20,
     timezone_name: str | None = None,
 ) -> DashboardEntryDTO:
+    _ = timezone_name
+
     def _parse_optional_date(raw: str | None) -> date | None:
         if raw is None:
             return None
@@ -1638,6 +1640,7 @@ def _build_dashboard_course_learners(
     last_learning_end_time: str | None,
     timezone_name: str | None,
 ) -> DashboardCourseDetailLearnersDTO:
+    _ = timezone_name
     safe_page_size = min(
         max(int(page_size or 20), 1),
         DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX,
@@ -2049,6 +2052,7 @@ def build_dashboard_course_follow_ups(
     end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpListDTO:
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2273,6 +2277,7 @@ def build_dashboard_course_follow_up_detail(
     *,
     timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpDetailDTO:
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_generated_block_bid = str(generated_block_bid or "").strip()
@@ -2394,6 +2399,7 @@ def build_dashboard_course_ratings(
     end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseRatingListDTO:
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2638,6 +2644,7 @@ def build_dashboard_course_detail(
     *,
     timezone_name: str | None = None,
 ) -> DashboardCourseDetailDTO:
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

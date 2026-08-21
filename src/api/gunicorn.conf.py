@@ -69,6 +69,7 @@ def post_fork(server, worker):
     pool without closing the parent's file descriptors. redis-py connection
     pools are fork-safe already (pid check on checkout) and need no handling.
     """
+    _ = server
     os.environ.pop("AI_SHIFU_PRELOAD_MASTER", None)
 
     try:

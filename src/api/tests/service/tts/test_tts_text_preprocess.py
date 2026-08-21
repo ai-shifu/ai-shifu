@@ -137,6 +137,7 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeyp
     captured: list[str] = []
 
     def _capture_submit(self, text: str):
+        _ = self
         captured.append(text)
 
     monkeypatch.setattr(StreamingTTSProcessor, "_submit_tts_task", _capture_submit)
@@ -183,6 +184,7 @@ def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch):
     captured: list[str] = []
 
     def _capture_submit(self, text: str):
+        _ = self
         captured.append(text)
 
     monkeypatch.setattr(StreamingTTSProcessor, "_submit_tts_task", _capture_submit)

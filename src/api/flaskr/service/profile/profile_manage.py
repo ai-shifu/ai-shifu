@@ -380,6 +380,7 @@ def add_profile_i18n(
     profile_item_remark: str,
     user_id: str,
 ):
+    _ = app
     bind = db.session.get_bind()
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
