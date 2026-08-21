@@ -78,10 +78,16 @@ def test_codex_run_uses_resolved_executable(
 
 
 def test_codex_run_preserves_missing_tool_error(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Keep the evaluator's missing-CLI error before process startup."""
     monkeypatch.setattr(evaluator.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(
+        evaluator.tempfile,
+        "TemporaryDirectory",
+        lambda **_kwargs: contextlib.nullcontext(str(tmp_path)),
+    )
 
     with pytest.raises(evaluator.EvaluationError, match="codex CLI is not installed"):
         vars(evaluator)["_run_codex"](

@@ -424,6 +424,11 @@ plan's progress update for that rule.
   repository harness, architecture boundaries, development-tool validation,
   repository Ruff and format, and every pre-commit hook pass on the expanded
   S607 tip.
+- [x] 2026-08-21 08:13 CST: Final Backend Tests exposed that the missing-Codex
+  test entered the evaluator's macOS `/private/tmp` context before checking the
+  executable on Linux. Kept the production evaluator contract unchanged and
+  isolated that test with pytest's cross-platform `tmp_path`; it still proves
+  the missing-tool error occurs before subprocess startup.
 - [x] 2026-08-21 06:57 CST: Collaboration and knowledge generators, repository
   Ruff and format, translation checks, repository harness, architecture
   boundaries, development-tool validation, and every repository pre-commit
