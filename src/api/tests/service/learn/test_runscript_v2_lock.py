@@ -29,7 +29,7 @@ def _skip_connection_probe(monkeypatch):
 
 class FakeLock:
     def __init__(self, acquire_results: list[bool]) -> None:
-        """Initialize the fake lock test double."""
+        """Queue acquisition outcomes and reset acquire and release counters."""
         self._acquire_results = list(acquire_results)
         self.acquire_calls = 0
         self.release_calls = 0
@@ -46,7 +46,7 @@ class FakeLock:
 
 class FakeCacheProvider:
     def __init__(self, lock: FakeLock) -> None:
-        """Initialize the fake cache provider test double."""
+        """Bind a test lock and initialize the cached byte values."""
         self._lock = lock
         self.values: dict[str, bytes] = {}
 
@@ -72,7 +72,7 @@ class FakeCacheProvider:
 
 class FakeListenElementAdapter:
     def __init__(self, *_args, **_kwargs) -> None:
-        """Initialize the fake listen element adapter test double."""
+        """Initialize event sequencing for a fixed run session."""
         self._seq = 0
         self._run_session_bid = "run-session-1"
 

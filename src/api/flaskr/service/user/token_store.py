@@ -30,7 +30,7 @@ class TokenStoreProvider:
     """
 
     def __init__(self) -> None:
-        """Initialize the cache-backed token store."""
+        """Bind the shared cache provider used for token lookup acceleration."""
         self._cache = cache
 
     def _cache_key(self, app: Flask, token: str) -> str:

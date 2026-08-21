@@ -1,5 +1,6 @@
 """Provide shared utilities for user accounts."""
 
+import html
 import json
 import secrets
 import smtplib
@@ -14,7 +15,7 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.i18n import _
+from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
@@ -149,6 +150,80 @@ def generate_token(app: Flask, user_id: str) -> str:
         return _generate()
 
 
+def _format_email_verification_message(
+    code: str, expire_seconds: int, language: str | None = None
+) -> tuple[str, str, str]:
+    previous_language = get_current_language()
+    if language:
+        set_language(_normalize_language_code(language) or language)
+
+    try:
+        expire_minutes = max(1, int(expire_seconds) // 60)
+        is_one_minute = expire_minutes == 1
+        expiry_key = (
+            "server.user.emailVerificationExpirySingular"
+            if is_one_minute
+            else "server.user.emailVerificationExpiry"
+        )
+        plain_body_key = (
+            "server.user.emailVerificationPlainBodySingular"
+            if is_one_minute
+            else "server.user.emailVerificationPlainBody"
+        )
+        subject = _("server.user.emailVerificationSubject")
+        text = _(plain_body_key).format(code=code, expire_minutes=expire_minutes)
+        title = _("server.user.emailVerificationTitle")
+        intro = _("server.user.emailVerificationIntro")
+        expiry = _(expiry_key).format(expire_minutes=expire_minutes)
+        ignore = _("server.user.emailVerificationIgnore")
+        footer = _("server.user.emailVerificationFooter")
+    finally:
+        if language:
+            set_language(previous_language)
+
+    html_body = f"""\
+<!doctype html>
+<html>
+  <body style="margin:0;background:#f5f7fb;padding:24px;font-family:Arial,'Helvetica Neue',sans-serif;color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:28px 32px 12px;font-size:20px;font-weight:700;">AI-Shifu</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 8px;font-size:18px;font-weight:700;">{html.escape(title)}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 20px;font-size:14px;line-height:22px;color:#4b5563;">{html.escape(intro)}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 20px;">
+          <div style="display:inline-block;background:#eef4ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 24px;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;color:#1d4ed8;">{html.escape(code)}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 8px;font-size:14px;line-height:22px;color:#4b5563;">{html.escape(expiry)}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 24px;font-size:13px;line-height:20px;color:#6b7280;">{html.escape(ignore)}</td>
+      </tr>
+      <tr>
+        <td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;line-height:18px;color:#9ca3af;">{html.escape(footer)}</td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+    return subject, text, html_body
+
+
+def _email_verification_translation_keys_used() -> None:
+    """Register translation keys selected dynamically above."""
+    _("server.user.emailVerificationExpiry")
+    _("server.user.emailVerificationExpirySingular")
+    _("server.user.emailVerificationPlainBody")
+    _("server.user.emailVerificationPlainBodySingular")
+
+
 # send sms code
 def send_sms_code(
     app: Flask,
@@ -273,10 +348,10 @@ def send_email_code(
                 raise_error("server.user.emailSendTooFrequent")
 
         # Create the email content
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("alternative")
         msg["From"] = app.config["SMTP_SENDER"]
         msg["To"] = email
-        msg["Subject"] = _("server.user.emailVerificationSubject")
+        msg["X-Auto-Response-Suppress"] = "All"
         characters = string.digits
         random_string = "".join(secrets.choice(characters) for _ in range(4))
         # to set redis
@@ -291,8 +366,12 @@ def send_email_code(
             email_limit_key, int(time.time()), ex=int(app.config["MAIL_CODE_INTERVAL"])
         )
 
-        body = f"Your verification code is: {random_string}"
-        msg.attach(MIMEText(body, "plain"))
+        subject, plain_body, html_body = _format_email_verification_message(
+            random_string, int(app.config["MAIL_CODE_EXPIRE_TIME"]), language=language
+        )
+        msg["Subject"] = subject
+        msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
 
         user_verify_code = create_and_commit_user_verify_code(
             mail=email,

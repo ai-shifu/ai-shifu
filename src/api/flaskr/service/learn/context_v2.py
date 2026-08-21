@@ -264,7 +264,7 @@ class RUNLLMProvider(LLMProvider):
         usage_context: UsageContext,
         usage_scene: int,
     ) -> None:
-        """Configure the run-scoped LLM provider."""
+        """Bind run-scoped LLM settings, tracing, and usage dependencies."""
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
@@ -415,7 +415,12 @@ class MdflowContextV2:
         visual_mode: bool = True,
         output_language: str | None = None,
     ) -> None:
-        """Configure MarkdownFlow execution prompts and rendering options."""
+        """Create MarkdownFlow with prompts and optional output-language handling.
+
+        Initializes MarkdownFlow with the document, provider, and configured prompts.
+        When learner-language output is enabled, resolves and applies the requested
+        or fallback language.
+        """
         self._mdflow = MarkdownFlow(
             document=document,
             llm_provider=llm_provider,
@@ -1586,7 +1591,7 @@ class RunScriptContextV2:
         listen: bool = False,
         stop_event: threading.Event | None = None,
     ) -> None:
-        """Initialize the learner run-script execution context."""
+        """Select runtime models, locate the outline, and create its root trace."""
         self._last_position = -1
         self.app = app
         self._struct = struct

@@ -177,7 +177,12 @@ def normalize_audio_blob(
 
 class MiniMaxVoiceCloneClient:
     def __init__(self) -> None:
-        """Configure the MiniMax voice-clone API client."""
+        """Load and validate MiniMax API credentials for voice cloning.
+
+        Reads ``MINIMAX_API_KEY`` and optional ``MINIMAX_GROUP_ID`` from central
+        configuration. Raises ``ValueError`` when the API key is missing, before a
+        request can be made.
+        """
         self.api_key = str(get_config("MINIMAX_API_KEY") or "").strip()
         self.group_id = str(get_config("MINIMAX_GROUP_ID") or "").strip()
         if not self.api_key:

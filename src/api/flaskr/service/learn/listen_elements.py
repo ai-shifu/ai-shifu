@@ -69,7 +69,12 @@ class ListenElementRunAdapter(
         user_bid: str,
         run_session_bid: str | None = None,
     ) -> None:
-        """Configure legacy listen-mode event adaptation."""
+        """Initialize a legacy listen-mode adaptation run and ordering state.
+
+        Uses the supplied run session ID or generates one, resets event and element
+        sequence counters, and initializes the type state machine and element
+        tracking caches used by persisted and streamed events.
+        """
         self.app = app
         self.shifu_bid = shifu_bid
         self.outline_bid = outline_bid

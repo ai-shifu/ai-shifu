@@ -44,13 +44,14 @@ from .shifu_mdflow_funcs import cleanup_outline_history_versions
 
 def convert_outline_to_reorder_outline_item_dto(
     json_array: list[dict],
-) -> ReorderOutlineItemDto:
+) -> list[ReorderOutlineItemDto]:
     """Convert outline to reorder outline item dto.
 
     Args:
         json_array: The json array to convert
+
     Returns:
-        The reorder outline item dto.
+        list[ReorderOutlineItemDto]: Converted outline items.
 
     """
     if not isinstance(json_array, list):
@@ -258,8 +259,9 @@ def get_outline_tree_dto(
 
 
 def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto]:
-    """Get outline tree build outline tree from outline items.
+    """Get the current draft outline tree.
 
+    Build the tree from the stored outline items.
     usage:
     1. get outline tree
     2. return outline tree
@@ -753,8 +755,10 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         user_id: User ID
         unit_id: Unit ID
     Returns:
-        OutlineDto: Outline dto
-        None: If unit not found.
+        OutlineDto: Outline dto.
+
+    Raises:
+        AppError: If the unit is not found.
 
     """
     with app.app_context():

@@ -18,7 +18,7 @@ KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS = {
 
 def _swagger_docstrings():
     for path in (API_ROOT / "flaskr").rglob("*.py"):
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -58,7 +58,7 @@ def test_all_swagger_docstrings_keep_valid_yaml_after_summary():
                 process_doc=sanitize_swagger_docstring,
             )
         except YAMLError:
-            unparseable.add((str(path), function_name))
+            unparseable.add((path.as_posix(), function_name))
             continue
         assert summary == lines[0].strip(), (path, function_name)
         assert isinstance(description, str), (path, function_name)

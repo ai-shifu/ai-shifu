@@ -5,7 +5,11 @@ class BasePlugin:
     name: str = None
 
     def __init__(self) -> None:
-        """Initialize plugin lifecycle state."""
+        """Set the plugin name and leave its migration directory unset.
+
+        Derives the name from the concrete class and keeps ``migration_dir`` empty
+        until the plugin configures migrations.
+        """
         self.name = self.__class__.__name__
         self.migration_dir = None  # plugin migration dir
 

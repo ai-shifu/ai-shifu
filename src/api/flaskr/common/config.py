@@ -402,7 +402,10 @@ ENV_VARS: dict[str, EnvVar] = {
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
         default="phone",
-        description='Default login method tab. Values: "phone" | "email" | "google"',
+        description=(
+            'Default login method tab. Values: "phone" | "email" | '
+            '"google" | "password"'
+        ),
         group="frontend",
     ),
     "DEBUG_ERUDA_ENABLED": EnvVar(
@@ -416,7 +419,7 @@ ENV_VARS: dict[str, EnvVar] = {
         name="LOGIN_METHODS_ENABLED",
         default="phone",
         description="""Login methods exposed to users.
-Values: "phone" | "email" | "google" combinations (comma-separated)
+Values: "phone" | "email" | "google" | "password" combinations (comma-separated)
 Default: "phone".""",
         group="frontend",
     ),

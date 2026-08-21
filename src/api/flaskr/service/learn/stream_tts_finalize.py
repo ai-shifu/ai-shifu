@@ -35,7 +35,11 @@ class StreamTTSFinalizeDrainer:
     """Finalize switched-out text TTS without blocking mdflow visual chunks."""
 
     def __init__(self, run_context: Any, *, log_prefix: str) -> None:
-        """Configure deferred TTS finalization for a run."""
+        """Bind run finalization dependencies and create an empty job queue.
+
+        Stores the run context, its Flask app, and the log prefix used by deferred
+        workers before any TTS finalization job is submitted.
+        """
         self._run_context = run_context
         self._app = run_context.app
         self._log_prefix = log_prefix

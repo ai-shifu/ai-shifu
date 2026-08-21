@@ -6,7 +6,7 @@ from typing import Any
 
 class FakeRedisLock:
     def __init__(self, locks: dict[str, bool], key: str) -> None:
-        """Initialize the fake Redis lock test double."""
+        """Bind a shared lock registry and key with an unheld state."""
         self._locks = locks
         self._key = key
         self._held = False
@@ -26,7 +26,7 @@ class FakeRedisLock:
 
 class FakeRedis:
     def __init__(self) -> None:
-        """Initialize the fake Redis test double."""
+        """Initialize value, expiration, and lock registries for Redis tests."""
         self._store: dict[str, Any] = {}
         self._expires: dict[str, float] = {}
         self._locks: dict[str, bool] = {}
