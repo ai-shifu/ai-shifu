@@ -610,6 +610,11 @@ plan's progress update for that rule.
 - [x] 2026-08-21 10:12 CST: Re-ran the full backend suite after the final
   private-member cleanup; all 3,032 tests still pass with 17 skips and 733
   existing warnings.
+- [x] 2026-08-21 10:37 CST: Merged the latest S101 review-fix tip
+  `46df6998a` into ARG002. The immediate-base diff remains the same 47-file
+  ARG002 unit. Four root subprocess-boundary tests and the backend route-
+  inventory test pass; configured S603/S607/T20, repository Ruff, format,
+  development-tool validation, and every repository pre-commit hook also pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1030,8 +1035,10 @@ argument disappear; 186 protocol- or fixture-owned parameters retain their
 keyword-compatible spelling and are explicitly consumed across 102 methods.
 Focused contract tests pass 193 cases with four skips, the final combined
 backend tip passes 3,032 cases with 17 skips, and the stable census falls to
-27,991 findings across 27 rules without changing the 209-finding ARG001
-baseline. Future agents now
+27,989 findings across 27 rules without changing the 209-finding ARG001
+baseline. The test-isolation follow-up also removes two existing SLF001
+findings while keeping Config constructor tests from replacing the session
+app singleton. Future agents now
 distinguish an owned method signature from one imposed by an external contract.
 
 ## Context and Orientation
