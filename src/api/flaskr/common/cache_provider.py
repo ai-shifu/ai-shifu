@@ -214,6 +214,7 @@ class InMemoryCacheProvider:
         *args,
         **kwargs,
     ):
+        _ = kwargs
         with self._mu:
             self._purge_if_expired(key)
             if nx and key in self._store:
@@ -274,6 +275,7 @@ class InMemoryCacheProvider:
         timeout: int | None = None,
         blocking_timeout: int | None = None,
     ):
+        _ = (timeout, blocking_timeout)
         with self._mu:
             lock = self._locks.get(key)
             if lock is None:

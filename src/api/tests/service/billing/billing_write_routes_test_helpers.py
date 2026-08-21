@@ -389,6 +389,7 @@ def billing_write_client(monkeypatch):
 
     class FakeStripeProvider:
         def create_payment(self, *, request, app):
+            _ = app
             stripe_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -412,6 +413,7 @@ def billing_write_client(monkeypatch):
             return self.create_payment(request=request, app=app)
 
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert reference_type == "checkout_session"
             return PaymentNotificationResult(
                 order_bid="",
@@ -436,6 +438,7 @@ def billing_write_client(monkeypatch):
         def cancel_subscription(
             self, *, subscription_bid: str, provider_subscription_id: str, app
         ):
+            _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
                 raw_response={
@@ -451,6 +454,7 @@ def billing_write_client(monkeypatch):
         def resume_subscription(
             self, *, subscription_bid: str, provider_subscription_id: str, app
         ):
+            _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
                 raw_response={
@@ -464,6 +468,7 @@ def billing_write_client(monkeypatch):
             )
 
         def refund_payment(self, *, request, app):
+            _ = app
             refund_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -480,6 +485,7 @@ def billing_write_client(monkeypatch):
 
     class FakePingxxProvider:
         def create_payment(self, *, request, app):
+            _ = app
             pingxx_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -496,6 +502,7 @@ def billing_write_client(monkeypatch):
             )
 
         def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+            _ = app
             assert reference_type == "charge"
             return PaymentNotificationResult(
                 order_bid="",

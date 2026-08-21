@@ -394,6 +394,15 @@ behind a test-tree exception. Delete unreferenced debug helpers instead of
 preserving a lint boundary for them. A developer-script tree may retain T20 only
 when stdout is the scripts' user-facing interface.
 
+For `ARG002`, first remove an unused method parameter when the method and all
+callers are repository-owned. Preserve the exact parameter name when a base
+class, provider protocol, framework callback, pytest fixture, or behaviorally
+faithful test double owns keyword compatibility; explicitly consume that value
+in the method body with `_ = value` (or one signature-ordered tuple for several
+values). Do not rename a compatibility parameter to `_value`, because external
+keyword callers and pytest fixture injection still use its original name. Do
+not add an ARG002 suppression or a meaningless directory exception.
+
 For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
 allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are
 intentional in Chinese prose, notification formatting, and TTS sentence-boundary

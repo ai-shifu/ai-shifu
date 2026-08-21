@@ -69,7 +69,6 @@ class ShifuDto(BaseModel):
         can_manage_permissions: bool = False,
         created_user_bid: str = "",
         is_guide_course: bool = False,
-        **kwargs,
     ) -> None:
         """Build the shifu payload."""
         super().__init__(

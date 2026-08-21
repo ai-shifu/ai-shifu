@@ -315,6 +315,7 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
             return SimpleNamespace(file_id="file-source")
 
         def upload_prompt_audio(self, audio_bytes, filename, content_type):
+            _ = (audio_bytes, filename, content_type)
             message = "prompt upload should not be called"
             raise AssertionError(message)
 
@@ -430,10 +431,12 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
 
     class FakeClient:
         def upload_clone_audio(self, audio_bytes, filename, content_type):
+            _ = (filename, content_type)
             assert audio_bytes == b"WAV"
             return SimpleNamespace(file_id="file-source")
 
         def upload_prompt_audio(self, audio_bytes, filename, content_type):
+            _ = (audio_bytes, filename, content_type)
             message = "prompt upload should not be called"
             raise AssertionError(message)
 
@@ -598,9 +601,11 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
 
     class FakeClient:
         def upload_clone_audio(self, audio_bytes, filename, content_type):
+            _ = (audio_bytes, filename, content_type)
             return SimpleNamespace(file_id="file-source")
 
         def upload_prompt_audio(self, audio_bytes, filename, content_type):
+            _ = (audio_bytes, filename, content_type)
             message = "prompt upload should not be called"
             raise AssertionError(message)
 

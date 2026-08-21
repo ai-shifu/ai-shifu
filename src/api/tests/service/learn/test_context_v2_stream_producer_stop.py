@@ -130,6 +130,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(app, monkeypatch):
         next_element_index = 0
 
         def finalize(self, *, commit):
+            _ = commit
             message = "desynced during finalize"
             raise ResourceClosedError(message)
             yield  # pragma: no cover - generator marker

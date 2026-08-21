@@ -249,6 +249,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             last_context = None
 
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "md content", 0)]
 
             def set_visual_mode(self, *_args, **_kwargs):
@@ -266,6 +267,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (block_index, mode, variables, user_input)
                 FakeMarkdownFlow.last_context = context
 
                 def _gen():
@@ -366,6 +368,7 @@ class LearnRecordLoadTests(unittest.TestCase):
 
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "first content", 0),
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "second content", 1),
@@ -391,6 +394,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
                 if block.block_type == MarkdownFlowBlockType.INTERACTION:
                     return types.SimpleNamespace(content=block.content)
@@ -511,6 +515,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             process_called = False
 
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
 
             def set_visual_mode(self, *_args, **_kwargs):
@@ -528,6 +533,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-emitted")
 
@@ -635,6 +641,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             process_called = False
 
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
@@ -655,6 +662,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-called")
 
@@ -755,6 +763,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             process_called = False
 
             def __init__(self, *args, **kwargs) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
@@ -775,6 +784,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             def process(
                 self, block_index, mode, variables=None, context=None, user_input=None
             ):
+                _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-called")
 

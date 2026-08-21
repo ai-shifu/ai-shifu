@@ -793,6 +793,7 @@ class TestAddConfig:
         app,
     ):
         """Test that add_config ignores cached encrypted values when adding."""
+        _ = mock_db
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -834,6 +835,7 @@ class TestAddConfig:
         app,
     ):
         """Test that add_config uses cached plain value if exists."""
+        _ = mock_db
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             mock_get_config_from_common.return_value = None
@@ -882,6 +884,7 @@ class TestAddConfig:
         app,
     ):
         """DB writes should proceed when the key is not explicitly in os.environ."""
+        _ = mock_redis
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             mock_get_config_from_common.return_value = "parent-default"
@@ -976,6 +979,7 @@ class TestUpdateConfig:
         app,
     ):
         """Test updating encrypted config."""
+        _ = mock_db
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -1021,6 +1025,7 @@ class TestUpdateConfig:
         app,
     ):
         """update_config must persist the caller's new value, not a stale cached one, even when the cache is warm (regression: a warm cache used to overwrite the new value and re-persist the old one)."""
+        _ = mock_db
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -1066,6 +1071,7 @@ class TestUpdateConfig:
         app,
     ):
         """update_config must persist the caller's new plain value, not a stale cached one, even when the cache is warm."""
+        _ = mock_db
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             mock_get_config_from_common.return_value = None

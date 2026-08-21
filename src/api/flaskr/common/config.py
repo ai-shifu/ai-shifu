@@ -2141,9 +2141,7 @@ class Config(FlaskConfig):
 
     _instance: Config | None = None
 
-    def __init__(
-        self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
-    ) -> None:
+    def __init__(self, parent: FlaskConfig, app: Flask) -> None:
         """Build Flask configuration from defaults and environment variables."""
         self.parent = parent
         self.app = app
