@@ -726,15 +726,16 @@ def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
         "allowed_openai_params": ["reasoning_effort"],
     }
     if model_id.startswith("gemini-3"):
-        # Gemini 3 cannot fully disable thinking. LiteLLM maps none to the
-        # model's lowest supported level and suppresses thought output.
-        params["reasoning_effort"] = "none"
+        # Gemini 3 cannot fully disable thinking. LiteLLM maps minimal to the
+        # model's lowest supported level and includeThoughts=true, so any
+        # unavoidable thought summary remains available to Langfuse.
+        params["reasoning_effort"] = "minimal"
     elif model_id.startswith("gemini-2.5-pro"):
         # Gemini 2.5 Pro cannot disable thinking; LiteLLM maps minimal to its
-        # minimum supported 128-token thinking budget.
+        # minimum supported 128-token budget with includeThoughts=true.
         params["reasoning_effort"] = "minimal"
     elif model_id.startswith("gemini"):
-        # Older Gemini models can use the cost-optimized no-thinking mapping.
+        # Gemini models that support a zero thinking budget remain disabled.
         params["reasoning_effort"] = "none"
     return params
 
