@@ -39,7 +39,7 @@ class CozeAskProviderAdapter:
         provider_config: dict[str, Any],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
-        _ = runtime
+        _ = (messages, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}

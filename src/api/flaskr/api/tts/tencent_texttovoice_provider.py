@@ -385,6 +385,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
+        _ = audio_settings
         if not text or not text.strip():
             error_message = "Text cannot be empty"
             raise ValueError(error_message)

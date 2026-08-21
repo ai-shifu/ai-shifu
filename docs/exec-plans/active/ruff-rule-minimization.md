@@ -438,8 +438,8 @@ plan's progress update for that rule.
 - [x] 2026-08-21 07:01 CST: Opened ready S607 PR
   [#2599](https://github.com/ai-shifu/ai-shifu/pull/2599) from
   `sunner/ruff-s607` to the S101 branch after all local gates passed.
-- [ ] Merge or retarget S607 PR #2599 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-08-21 09:21 CST: Merged S607 PR #2599 into S101 after its
+  predecessor without changing the independently reviewed S607 rule unit.
 - [x] 2026-08-21 07:07 CST: Prepared the S603 stage on
   `sunner/ruff-s603`, stacked on S607. Removing the test-tree exception exposes
   exactly two calls: the fresh-MySQL migration smoke test and the pinned
@@ -516,8 +516,8 @@ plan's progress update for that rule.
   knowledge generators produced no extra diff; translations, repository
   harness, architecture boundaries, development-tool validation, repository
   Ruff and format, and every pre-commit hook pass on the final local S603 tip.
-- [ ] Merge or retarget S603 PR #2601 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-08-21 09:21 CST: Merged S603 PR #2601 into S101 after S607 without
+  changing the independently reviewed S603 rule unit.
 - [x] 2026-08-21 08:33 CST: Prepared the T20 stage on `sunner/ruff-t20`,
   stacked on S603. Auditing all 18 per-file patterns found that every entry
   still hides a real finding; the backend test-tree T20 boundary is the
@@ -544,6 +544,82 @@ plan's progress update for that rule.
 - [x] 2026-08-21 08:42 CST: Opened ready T20 PR #2602 from
   `sunner/ruff-t20` to `sunner/ruff-s603` after the targeted, full-backend,
   harness, and repository gates passed locally.
+- [x] 2026-08-21 09:21 CST: Merged T20 PR #2602 into S101 after S603. The
+  resulting merge commit exposed that the S101 branch pointer already included
+  ARG002, so the predecessor temporarily contained the next rule unit.
+- [x] 2026-08-21 09:02 CST: Prepared the ARG002 stage on
+  `sunner/ruff-arg002`, stacked on T20. The current census exposed 191 unused
+  method arguments: 25 in runtime code and 166 in test fixtures or doubles,
+  spread across 107 methods in 43 files.
+- [x] 2026-08-21 09:02 CST: Audited every signature instead of bulk-renaming
+  parameters. Removed five repository-owned method parameters and their
+  dependent call-site argument, including the now-redundant trial resolver
+  `app`; preserved protocol, provider, framework, fixture, and test-double
+  keyword names with signature-ordered explicit consumption. No ARG002
+  suppression or per-file exception was added.
+- [x] 2026-08-21 09:02 CST: Enabled ARG002. The configured rule, repository
+  Ruff, format, and the unchanged 209-finding ARG001 census pass. The stable
+  `ALL` census falls 194 findings: all 191 ARG002 findings plus two
+  formatter-conflicting COM812 findings and one ANN003 finding removed by the
+  honest signature cleanup.
+- [x] 2026-08-21 09:02 CST: Focused Config, billing trial, learning phase,
+  provider, payment, and DTO contracts pass 193 tests with four existing
+  environment skips. The full backend suite passes 3,027 tests with 17
+  existing skips, executing the changed fixtures and behaviorally faithful
+  doubles as well as all runtime owners.
+- [x] 2026-08-21 09:03 CST: Collaboration and knowledge generators produced no
+  extra diff; development-tool validation, translations, repository harness,
+  architecture boundaries, configured Ruff and format, and every repository
+  pre-commit hook pass on the final local ARG002 change.
+- [x] 2026-08-21 09:06 CST: Opened ready ARG002 PR #2604 from
+  `sunner/ruff-arg002` to `sunner/ruff-t20` after the collaboration,
+  knowledge, harness, and repository gates passed locally.
+- [x] 2026-08-21 09:14 CST: Fast-forwarded the user-authored merge of updated
+  T20 predecessor `e4c10e10d` into ARG002. Its immediate-base diff remains the
+  same 47-file ARG002 unit. On that final base, the stable census falls exactly
+  194 findings from 28,185 to 27,991 across 27 rules, the isolated census falls
+  from 39,571 to 39,377, and ARG001 remains exactly 209.
+- [x] 2026-08-21 09:17 CST: Re-ran the full backend suite on the combined
+  predecessor/ARG002 tip; all 3,032 tests pass with the same 17 environment
+  skips and 733 existing warnings.
+- [x] 2026-08-21 09:37 CST: Restored the stack boundary with ordinary commits:
+  S101 now reverts only the accidental ARG002 merge and has exactly the T20
+  worktree, while ARG002 records the repaired S101 commit as a parent without
+  changing its own worktree. Ready PR #2604 is based on S101 again and exposes
+  the complete 47-file ARG002 unit.
+- [x] 2026-08-21 10:01 CST: Backend CI testmon ordering exposed a pre-existing
+  test-isolation leak after the `Config` constructor changed: a non-app config
+  test replaced the session app's process-global `Config._instance` with a
+  MagicMock, so the later onboarding golden case rendered `mock.get()` as its
+  demo-course ID. The isolated golden case passed, while app initialization,
+  the leaking config test, and the golden case in that order reproduced the
+  failure.
+- [x] 2026-08-21 10:01 CST: Made the existing non-app environment fixture also
+  restore the `Config` singleton it inherited. The exact three-test regression
+  now passes, and the ordered app, complete Config unit/integration, and JSON
+  golden suites pass all 50 tests without changing the recorded API contract.
+- [x] 2026-08-21 10:05 CST: Re-ran the full backend suite after the isolation
+  fix; all 3,032 tests pass with the same 17 environment skips and 733 existing
+  warnings. The runtime harness on the preceding code-equivalent SHA also
+  passed before the final fix commit.
+- [x] 2026-08-21 10:09 CST: Reused the captured original Config instance for
+  both cache clears instead of adding private-member accesses. The final stable
+  census falls 196 findings from 28,185 to 27,989 and the isolated census falls
+  from 39,571 to 39,375: the ARG002 unit now also removes two existing SLF001
+  findings, while ARG001 remains exactly 209.
+- [x] 2026-08-21 10:12 CST: Re-ran the full backend suite after the final
+  private-member cleanup; all 3,032 tests still pass with 17 skips and 733
+  existing warnings.
+- [x] 2026-08-21 10:37 CST: Merged the latest S101 review-fix tip
+  `46df6998a` into ARG002. The immediate-base diff remains the same 47-file
+  ARG002 unit. Four root subprocess-boundary tests and the backend route-
+  inventory test pass; configured S603/S607/T20, repository Ruff, format,
+  development-tool validation, and every repository pre-commit hook also pass.
+- [x] 2026-08-21 11:20 CST: Merged the current S101 tip `503377596` into
+  ARG002 after its follow-up executable-resolution review fixes. Nine root
+  script tests and the backend route-inventory test pass; configured S603/S607,
+  repository Ruff, format, pinned development-tool validation, and every
+  repository pre-commit hook pass without changing the 47-file ARG002 unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -681,6 +757,14 @@ plan's progress update for that rule.
   the other 27 were captured diagnostics in one database-backed SSE test.
   Pytest report sections preserve that failure context directly, allowing the
   broad exception to disappear without scattering inline suppressions.
+- ARG002's 191 findings could not be fixed safely by blindly adding an
+  underscore to parameter names: provider calls, framework callbacks, pytest
+  fixtures, and test doubles receive those values by keyword. Explicitly
+  consuming compatibility-only values preserves those names, while semantic
+  review still removed five genuinely unnecessary method parameters. Removing
+  the trial DTO's `app` also exposed the resolver's now-unused function
+  parameter; deleting that dependent argument kept ARG001 exactly at 209
+  instead of shifting debt to the next rule.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -741,6 +825,12 @@ plan's progress update for that rule.
   messages and longer diagnostic summaries in pytest report sections. Retain a
   directory exception only for developer scripts whose stdout is the product;
   do not use one for a mixed test tree.
+- 2026-08-21: For ARG002, delete parameters only when the method and callers
+  own the complete signature. Protocol, provider, framework, fixture, and test
+  double signatures keep their keyword-compatible parameter names and consume
+  compatibility-only values explicitly in signature order. Do not trade a
+  method finding for a broken keyword call, renamed pytest fixture, or broad
+  suppression.
 
 ## Outcomes & Retrospective
 
@@ -943,6 +1033,18 @@ sections and has a focused test for that contract. Configured T20, repository
 Ruff, and format pass; the stable census falls to 28,180 findings across 28
 rules. Future tests now use assertion messages or pytest report sections, while
 the two developer-script trees retain T20 because stdout is their interface.
+
+The ARG002 stage enables unused-method-argument enforcement with no
+suppression. Five repository-owned parameters and their dependent call-site
+argument disappear; 186 protocol- or fixture-owned parameters retain their
+keyword-compatible spelling and are explicitly consumed across 102 methods.
+Focused contract tests pass 193 cases with four skips, the final combined
+backend tip passes 3,032 cases with 17 skips, and the stable census falls to
+27,989 findings across 27 rules without changing the 209-finding ARG001
+baseline. The test-isolation follow-up also removes two existing SLF001
+findings while keeping Config constructor tests from replacing the session
+app singleton. Future agents now
+distinguish an owned method signature from one imposed by an external contract.
 
 ## Context and Orientation
 

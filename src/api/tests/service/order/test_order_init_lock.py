@@ -12,6 +12,7 @@ class DummyLock:
         self.released = 0
 
     def acquire(self, blocking=True):
+        _ = blocking
         self.acquired += 1
         return True
 
@@ -62,6 +63,7 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch):
 def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch):
     class _BrokenCacheProvider:
         def lock(self, *args, **kwargs):
+            _ = (args, kwargs)
             message = "lock unavailable"
             raise RuntimeError(message)
 

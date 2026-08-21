@@ -133,6 +133,7 @@ class PaymentProvider(ABC):
         self, *, order_bid: str, provider_reference: str, app
     ) -> PaymentNotificationResult:
         """Synchronize payment status with the provider if supported."""
+        _ = order_bid
         return self.sync_reference(
             provider_reference=provider_reference,
             reference_type="payment",
