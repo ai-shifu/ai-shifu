@@ -244,9 +244,9 @@ def test_shifu_meta_tables_are_creator_scoped(table_key: str) -> None:
 
 @pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
 def test_shifu_meta_tables_block_aggregate_and_group_by(table_key: str) -> None:
-    """count_distinct(shifu_bid) etc.
+    """Keep metadata aggregates unavailable.
 
-    would leak the size of the caller's owned set; keep these tables strictly row-lookup
+    Aggregate counts would leak the size of the caller's owned set; keep these tables strictly row-lookup
     only.
     """
     spec = WHITELIST[table_key]
