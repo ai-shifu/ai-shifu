@@ -33,7 +33,7 @@ jest.mock('@/c-store', () => ({
     selector(mockSystemState),
 }));
 
-jest.mock('@/store', () => ({
+jest.mock('@/store/useUserStore', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>
     selector(mockUserState),
