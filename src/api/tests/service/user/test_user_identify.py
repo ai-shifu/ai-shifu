@@ -52,7 +52,6 @@ def _reset_shifu_tables() -> None:
 
 def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeypatch):
     from flask import Flask
-    from flask_sqlalchemy import SQLAlchemy
     from flaskr import dao
     from flaskr.service.user import phone_flow
     from flaskr.service.user.consts import (
@@ -79,8 +78,6 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeyp
         ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,
     )
 
-    if dao.db is None:
-        dao.db = SQLAlchemy()
     dao.db.init_app(app)
 
     fake_redis = _FakeRedis()

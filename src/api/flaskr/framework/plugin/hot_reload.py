@@ -60,7 +60,14 @@ class PluginHotReloader:
         try:
             import sys
 
-            from .plugin_manager import plugin_manager
+            from .plugin_manager import get_plugin_manager
+
+            plugin_manager = get_plugin_manager()
+            if plugin_manager is None:
+                self.app.logger.warning(
+                    "Plugin unload skipped because the plugin manager is not enabled"
+                )
+                return
 
             # Convert path to module name
             module_name = plugin_path.replace("/", ".").replace(".py", "")
