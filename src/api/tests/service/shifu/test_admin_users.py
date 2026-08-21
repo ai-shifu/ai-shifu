@@ -100,6 +100,7 @@ from flaskr.service.user.models import (
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.billing_products import build_bill_products
 
 

@@ -156,7 +156,7 @@ class ProviderCredentialContext:
 
 
 def is_creator_customization_enabled() -> bool:
-    return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", False))
+    return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", default=False))
 
 
 def build_creator_customization(
@@ -424,8 +424,12 @@ def save_creator_integration(
             else entitlement.custom_payment_enabled,
             allow_when_customization_disabled=allow_when_customization_disabled,
         )
-        public_config = _normalize_config(provider, payload.get("public_config"), False)
-        secret_config = _normalize_config(provider, payload.get("secret_config"), True)
+        public_config = _normalize_config(
+            provider, payload.get("public_config"), secret=False
+        )
+        secret_config = _normalize_config(
+            provider, payload.get("secret_config"), secret=True
+        )
         previous_record = _load_latest_record_or_active(app, creator_bid, provider)
         if previous_record:
             previous_secret_config = dict(previous_record.get("secret_config") or {})
@@ -1452,10 +1456,10 @@ def _normalize_admin_creator_customization_draft(
             if isinstance(provider_payload, dict):
                 normalized_integrations[provider] = {
                     "public_config": _normalize_config(
-                        provider, provider_payload.get("public_config"), False
+                        provider, provider_payload.get("public_config"), secret=False
                     ),
                     "secret_config": _normalize_config(
-                        provider, provider_payload.get("secret_config"), True
+                        provider, provider_payload.get("secret_config"), secret=True
                     ),
                 }
             else:

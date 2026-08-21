@@ -3,11 +3,14 @@ from functools import wraps
 
 from flask import Flask, current_app, make_response, request
 
+from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.dao import db
 from flaskr.i18n import _translations, set_language
+from flaskr.service.common.dtos import OAuthStartDTO, UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
@@ -26,17 +29,30 @@ from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
     get_profile_onboarding_status,
 )
+from flaskr.service.referral.service import extract_referral_post_auth_fields
+from flaskr.service.user.auth import get_provider
+from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequest
+from flaskr.service.user.auth.providers.google import (
+    resolve_state_return_origin,
+)
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
 )
+from flaskr.service.user.common import update_user_info, validate_user
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.onboarding import (
+    ONBOARDING_VERSION,
+    build_onboarding_status,
+    complete_onboarding_scene,
+)
 from flaskr.service.user.password_utils import (
     hash_password,
     validate_password_strength,
     verify_password,
 )
+from flaskr.service.user.post_auth import PostAuthContext, run_post_auth_extensions
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     find_credential,
@@ -46,31 +62,19 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     set_password_hash,
 )
-from flaskr.service.user.verification_codes import consume_verification_code
-from flaskr.util.uuid import generate_id
-
-from ..service.common.dtos import OAuthStartDTO, UserToken
-from ..service.feedback.funs import submit_feedback
-from ..service.referral.service import extract_referral_post_auth_fields
-from ..service.user.auth import get_provider
-from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
-from ..service.user.common import update_user_info, validate_user
-from ..service.user.onboarding import (
-    ONBOARDING_VERSION,
-    build_onboarding_status,
-    complete_onboarding_scene,
-)
-from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
-from ..service.user.user import (
+from flaskr.service.user.user import (
     generate_temp_user,
     update_user_open_id,
     upload_user_avatar,
 )
-from ..service.user.utils import (
+from flaskr.service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
     send_email_code,
     send_sms_code,
 )
+from flaskr.service.user.verification_codes import consume_verification_code
+from flaskr.util.uuid import generate_id
+
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
@@ -208,7 +212,7 @@ def _best_effort_password_login_user(app: Flask):
 
     try:
         return validate_user(app, str(token))
-    except Exception:  # noqa: BLE001 - stale login tokens must not block recovery
+    except Exception:  # stale login tokens must not block recovery
         return None
 
 
@@ -565,6 +569,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("captcha_code")
         return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
 
+    # Flasgger parses `parameters:` below as a YAML key. D405 would capitalize
+    # the key and remove the OpenAPI field, D406 would remove its colon, and
+    # D407 would insert a dashed underline; each fix breaks the published API
+    # specification.
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -613,7 +621,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             400:
                 description: parameter error
 
-        """
+        """  # noqa: D405, D406, D407
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         _apply_request_language(payload)
@@ -915,7 +923,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: openid
         """
         code = request.get_json().get("wxcode", None)
-        app.logger.info(f"update_wechat_openid code: {code}")
+        app.logger.info("update_wechat_openid code: %s", code)
         if not code:
             raise_param_error("wxcode")
         return make_common_response(
@@ -973,6 +981,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/oauth/google", methods=["GET"])
     @bypass_token_validation
+    @optional_token_validation
     def google_oauth_start():
         provider = get_provider("google")
         metadata = {}
@@ -985,12 +994,38 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
+        # Every header here is attacker-controllable — the edge nginx passes
+        # inbound X-Forwarded-* through, and Origin is forwarded unchanged — so
+        # the origin alone cannot decide where the authorization code is sent.
+        # It is paired with the session that started the flow, and the callback
+        # refuses to hand the code back unless the same session presents it.
+        metadata["origin"] = resolve_request_origin()
+        initiator = getattr(request, "user", None)
+        metadata["initiator_user_id"] = str(
+            getattr(initiator, "user_id", "") or ""
+        ).strip()
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],
             state=result["state"],
         )
         return make_common_response(dto)
+
+    @app.route(path_prefix + "/oauth/google/callback-origin", methods=["GET"])
+    @bypass_token_validation
+    def google_oauth_callback_origin():
+        """Resolve which domain a pending Google login should return to.
+
+        Every domain shares one Google callback, so the page that receives it
+        asks here whether the code belongs to a different domain and should be
+        forwarded there. Returns an empty origin when the login started on this
+        domain or when the recorded origin is no longer allowed.
+        ---
+        tags:
+            - user
+        """
+        origin = resolve_state_return_origin(app, request.args.get("state"))
+        return make_common_response({"origin": origin})
 
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation

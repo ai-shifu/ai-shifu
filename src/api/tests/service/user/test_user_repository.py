@@ -23,7 +23,7 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
     )
 
     class _Nested:
-        def __init__(self):
+        def __init__(self) -> None:
             self.rollbacks = 0
             self.commits = 0
 

@@ -1,8 +1,7 @@
 import math
 
+from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
-
-from ...common.swagger import register_schema_to_swagger
 
 USER_STATE_UNREGISTERED = 0
 USER_STATE_REGISTERED = 1
@@ -44,7 +43,7 @@ class UserInfo:
         user_avatar=None,
         is_creator=False,
         is_operator=False,
-    ):
+    ) -> None:
         self.user_id = user_id
         self.username = username
         self.name = name
@@ -59,7 +58,7 @@ class UserInfo:
         self.is_creator = is_creator
         self.is_operator = is_operator
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "user_id": self.user_id,
             "username": self.username,
@@ -74,7 +73,7 @@ class UserInfo:
             "is_operator": self.is_operator,
         }
 
-    def __html__(self):
+    def __html__(self) -> dict:
         return self.__json__()
 
 
@@ -83,11 +82,11 @@ class UserToken:
     userInfo: UserInfo
     token: str
 
-    def __init__(self, userInfo: UserInfo, token):  # noqa: N803 - mirrors the serialized field name
+    def __init__(self, userInfo: UserInfo, token) -> None:  # noqa: N803 - mirrors the serialized field name
         self.userInfo = userInfo
         self.token = token
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "userInfo": self.userInfo,
             "token": self.token,
@@ -99,11 +98,11 @@ class OAuthStartDTO:
     authorization_url: str
     state: str
 
-    def __init__(self, authorization_url: str, state: str):
+    def __init__(self, authorization_url: str, state: str) -> None:
         self.authorization_url = authorization_url
         self.state = state
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "authorization_url": self.authorization_url,
             "state": self.state,
@@ -132,7 +131,7 @@ class PageNationDTO(BaseModel):
         self.page_count = math.ceil(total / page_size if page_size > 0 else 0)
         self.data = data
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "page": self.page,
             "page_size": self.page_size,

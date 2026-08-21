@@ -11,6 +11,16 @@ from enum import Enum
 from typing import Any, Union
 
 from flask import Flask
+from flaskr.api.langfuse import (
+    LangfuseTraceHandle,
+    MockClient,
+    create_trace_with_root_span,
+    finalize_langfuse_trace,
+    get_langfuse_client,
+    get_request_trace_id,
+    normalize_langfuse_input_value,
+    normalize_langfuse_output_value,
+)
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.common.i18n_utils import (
@@ -120,17 +130,6 @@ from markdown_flow import (
 )
 from markdown_flow.llm import LLMResult
 
-from ...api.langfuse import (
-    LangfuseTraceHandle,
-    MockClient,
-    create_trace_with_root_span,
-    finalize_langfuse_trace,
-    get_langfuse_client,
-    get_request_trace_id,
-    normalize_langfuse_input_value,
-    normalize_langfuse_output_value,
-)
-
 context_local = threading.local()
 
 
@@ -215,7 +214,7 @@ class RunScriptInfo:
         outline_bid: str,
         block_position: int,
         mdflow: str,
-    ):
+    ) -> None:
         self.attend = attend
         self.outline_bid = outline_bid
         self.block_position = block_position
@@ -261,7 +260,7 @@ class RUNLLMProvider(LLMProvider):
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
-    ):
+    ) -> None:
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
@@ -388,13 +387,13 @@ class RUNLLMProvider(LLMProvider):
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
         )
-        self.app.logger.info(f"stream invoke_llm res: {res}")
+        self.app.logger.info("stream invoke_llm res: %s", res)
         first_result = False
         for i in res:
             if i.result:
                 if not first_result:
                     first_result = True
-                    self.app.logger.info(f"stream first result: {i.result}")
+                    self.app.logger.info("stream first result: %s", i.result)
                 yield i.result
         self.app.logger.info("stream invoke_llm end")
 
@@ -411,7 +410,7 @@ class MdflowContextV2:
         use_learner_language: bool = False,
         visual_mode: bool = True,
         output_language: str | None = None,
-    ):
+    ) -> None:
         self._mdflow = MarkdownFlow(
             document=document,
             llm_provider=llm_provider,
@@ -545,7 +544,7 @@ class MdflowContextV2:
 
         from flask import current_app
 
-        current_app.logger.info(f"build_context_from_blocks variables: {variables}")
+        current_app.logger.info("build_context_from_blocks variables: %s", variables)
 
         for generated_block in blocks:
             if generated_block.position < 0 or generated_block.position >= len(
@@ -622,7 +621,7 @@ class _PreviewContextStore:
         outline_bid: str,
         ttl_seconds: int | None = None,
         language: str | None = None,
-    ):
+    ) -> None:
         self._cache = cache_provider
         self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
@@ -792,7 +791,7 @@ class _PreviewContextStore:
 class RunScriptPreviewContextV2:
     """MarkdownFlow preview using context v2 logic with optional Redis caching."""
 
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask) -> None:
         self.app = app
 
     def stream_preview(
@@ -805,7 +804,7 @@ class RunScriptPreviewContextV2:
         session_id: str,
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         outline = self._get_outline_record(shifu_bid, outline_bid)
-        shifu = self._get_shifu_record(shifu_bid, True)
+        shifu = self._get_shifu_record(shifu_bid, has_draft_outline=True)
         document_prompt = self._resolve_document_prompt(
             preview_request,
             outline,
@@ -1281,7 +1280,7 @@ class RunScriptPreviewContextV2:
     ) -> UserAggregate | None:
         try:
             return load_user_aggregate(user_bid, with_credentials=False)
-        except Exception as exc:  # noqa: BLE001 - preview must survive lookup failures
+        except Exception as exc:  # preview must survive lookup failures
             cleanup_session_after(
                 exc,
                 source="preview learner profile lookup",
@@ -1580,7 +1579,7 @@ class RunScriptContextV2:
         preview_mode: bool,
         listen: bool = False,
         stop_event: threading.Event | None = None,
-    ):
+    ) -> None:
         self._last_position = -1
         self.app = app
         self._struct = struct
@@ -2201,7 +2200,9 @@ class RunScriptContextV2:
         self._stop_if_requested()
         self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         app.logger.info(
-            f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
+            "run_context.run %s %s",
+            self._current_attend.block_position,
+            self._current_attend.status,
         )
         self._bind_trace_session()
         proceed = yield from self._phase_sync_outline_progress(app)
@@ -2235,8 +2236,8 @@ class RunScriptContextV2:
                 self._can_continue = False
             return
         state.block = state.block_list[run_script_info.block_position]
-        app.logger.info(f"block: {state.block}")
-        app.logger.info(f"self._run_type: {self._run_type}")
+        app.logger.info("block: %s", state.block)
+        app.logger.info("self._run_type: %s", self._run_type)
         state.has_effective_input = self._has_effective_input()
         if self._run_type == RunType.INPUT:
             handled = yield from self._phase_process_input(app, state)
@@ -2290,7 +2291,8 @@ class RunScriptContextV2:
                 LEARN_STATUS_NOT_STARTED,
             ]:
                 app.logger.info(
-                    f"current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: {self._current_attend.status}"
+                    "current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: %s",
+                    self._current_attend.status,
                 )
                 self._can_continue = False
                 return False
@@ -2332,12 +2334,12 @@ class RunScriptContextV2:
         if self._last_position == -1:
             self._last_position = run_script_info.block_position
         ask_input = self._input
-        app.logger.info(f"ask_input: {ask_input}")
+        app.logger.info("ask_input: %s", ask_input)
         if isinstance(ask_input, dict):
             ask_input = ask_input.get("input", "")
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
-        app.logger.info(f"ask_input: {ask_input}")
+        app.logger.info("ask_input: %s", ask_input)
         res = handle_input_ask(
             app,
             self,
@@ -2717,7 +2719,8 @@ class RunScriptContextV2:
             block_index=run_script_info.block_position,
         )
         app.logger.info(
-            f"generated_block not found, init new one: {generated_block.generated_block_bid}"
+            "generated_block not found, init new one: %s",
+            generated_block.generated_block_bid,
         )
 
         # Render interaction content with translation (INPUT mode, no cached block)
@@ -2857,7 +2860,7 @@ class RunScriptContextV2:
         has_content = False
         for i in res:
             if i is not None and i != "":
-                self.app.logger.info(f"check_text_with_llm_response: {i}")
+                self.app.logger.info("check_text_with_llm_response: %s", i)
                 has_content = True
                 self.append_langfuse_output(i)
                 yield RunMarkdownFlowDTO(
@@ -2998,7 +3001,7 @@ class RunScriptContextV2:
             )
             self._run_type = RunType.OUTPUT
             self.app.logger.warning(
-                f"passed and position: {self._current_attend.block_position}"
+                "passed and position: %s", self._current_attend.block_position
             )
             return True
         else:
@@ -3226,7 +3229,7 @@ class RunScriptContextV2:
         # Render interaction content with translation (markdown-flow 0.2.34+)
         # Call process() without user_input to trigger interaction rendering
         # Note: Do NOT pass variables here - we only want translation, not variable replacement
-        app.logger.info(f"render_interaction: {run_script_info.block_position}")
+        app.logger.info("render_interaction: %s", run_script_info.block_position)
         state.llm_provider.set_usage_generated_block_bid(
             generated_block.generated_block_bid
         )
@@ -3313,8 +3316,8 @@ class RunScriptContextV2:
         )
 
         # Direct synchronous stream processing (markdown-flow 0.2.27+)
-        app.logger.info(f"process_stream: {run_script_info.block_position}")
-        app.logger.info(f"variables: {user_profile}")
+        app.logger.info("process_stream: %s", run_script_info.block_position)
+        app.logger.info("variables: %s", user_profile)
 
         def _build_content_event(
             chunk_text: str,
@@ -3607,7 +3610,8 @@ class RunScriptContextV2:
                 and outline_item_info.llm_system_prompt != ""
             ):
                 self.app.logger.info(
-                    f"outline_item_info.llm_system_prompt: {outline_item_info.llm_system_prompt}"
+                    "outline_item_info.llm_system_prompt: %s",
+                    outline_item_info.llm_system_prompt,
                 )
                 course_prompt = outline_item_info.llm_system_prompt
                 break
@@ -3621,11 +3625,11 @@ class RunScriptContextV2:
                 .order_by(self._shifu_model.id.desc())
                 .first()
             )
-            self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
+            self.app.logger.info("shifu_info_db: %s", shifu_info_db)
             if shifu_info_db and shifu_info_db.llm_system_prompt:
                 self.app.logger.info(
-                    "shifu_info_db.llm_system_prompt: "
-                    f"{shifu_info_db.llm_system_prompt}"
+                    "shifu_info_db.llm_system_prompt: %s",
+                    shifu_info_db.llm_system_prompt,
                 )
                 course_prompt = shifu_info_db.llm_system_prompt
 
@@ -3706,7 +3710,9 @@ class RunScriptContextV2:
                 self._can_continue = False
                 if self._input_type != "ask":
                     app.logger.info(
-                        f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
+                        "reload generated_block: %s,block_position: %s",
+                        generated_block.id,
+                        generated_block.position,
                     )
 
                     def _deactivate_superseded_generated_rows(

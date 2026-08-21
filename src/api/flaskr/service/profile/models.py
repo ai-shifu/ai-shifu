@@ -1,10 +1,9 @@
 from typing import ClassVar
 
+from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import Column, DateTime, SmallInteger, String, Text
 from sqlalchemy.dialects.mysql import BIGINT
-
-from ...dao import db
 
 PROFILE_TYPE_SYSTEM = 2801
 PROFILE_TYPE_USER = 2802

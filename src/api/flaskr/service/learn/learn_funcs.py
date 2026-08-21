@@ -492,7 +492,7 @@ def get_learn_record(
             return LegacyLearnRecord(
                 records=[],
             )
-        app.logger.info(f"progress_record: {progress_record.progress_record_bid}")
+        app.logger.info("progress_record: %s", progress_record.progress_record_bid)
         records = build_legacy_record_for_progress(
             progress_record,
             user_bid=user_bid,
@@ -1086,8 +1086,9 @@ def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> str:
     if max_count <= 0 or not user_bid or not outline_bid:
         return _TTS_SLOT_BYPASS
     try:
-        from flaskr.dao import redis_client
+        from flaskr.dao import get_redis_client
 
+        redis_client = get_redis_client()
         if redis_client is None:
             return _TTS_SLOT_BYPASS  # fail open when Redis is unavailable
         result = redis_client.eval(
@@ -1113,8 +1114,9 @@ def _tts_synth_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
     if _get_max_parallel_tts_synth_count(app) <= 0 or not user_bid or not outline_bid:
         return
     try:
-        from flaskr.dao import redis_client
+        from flaskr.dao import get_redis_client
 
+        redis_client = get_redis_client()
         if redis_client is None:
             return
         redis_client.eval(

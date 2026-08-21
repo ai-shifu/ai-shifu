@@ -2,6 +2,7 @@ import re
 
 from flask import Flask
 from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -13,8 +14,6 @@ from flaskr.service.shifu.shifu_draft_funcs import normalize_ask_provider_config
 from flaskr.service.shifu.shifu_struct_manager import HistoryItem, get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util.uuid import generate_id
-
-from ...service.profile.funcs import get_user_profiles
 
 
 class FollowUpInfo:
@@ -37,7 +36,7 @@ class FollowUpInfo:
         model_args,
         ask_mode,
         ask_provider_config=None,
-    ):
+    ) -> None:
         self.ask_model = ask_model
         self.ask_prompt = ask_prompt
         self.ask_history_count = ask_history_count
@@ -46,7 +45,7 @@ class FollowUpInfo:
         self.ask_mode = ask_mode
         self.ask_provider_config = ask_provider_config or {}
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "ask_model": self.ask_model,
             "ask_prompt": self.ask_prompt,
@@ -158,7 +157,7 @@ def get_fmt_prompt(
         prompt = profile_tmplate or user_input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info(f"fomat input:{prompt}")
+    app.logger.info("fomat input:%s", prompt)
     return prompt
 
 

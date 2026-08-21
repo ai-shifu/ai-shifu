@@ -26,7 +26,7 @@ def _skip_connection_probe(monkeypatch):
 
 
 class FakeLock:
-    def __init__(self, acquire_results: list[bool]):
+    def __init__(self, acquire_results: list[bool]) -> None:
         self._acquire_results = list(acquire_results)
         self.acquire_calls = 0
         self.release_calls = 0
@@ -42,7 +42,7 @@ class FakeLock:
 
 
 class FakeCacheProvider:
-    def __init__(self, lock: FakeLock):
+    def __init__(self, lock: FakeLock) -> None:
         self._lock = lock
         self.values: dict[str, bytes] = {}
 
@@ -67,7 +67,7 @@ class FakeCacheProvider:
 
 
 class FakeListenElementAdapter:
-    def __init__(self, *_args, **_kwargs):
+    def __init__(self, *_args, **_kwargs) -> None:
         self._seq = 0
         self._run_session_bid = "run-session-1"
 
@@ -515,7 +515,7 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
         def set_input(self, *_args, **_kwargs):
@@ -556,7 +556,7 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
     class FakeElementAdapter:
-        def __init__(self):
+        def __init__(self) -> None:
             self.calls = []
 
         def process(self, events):
@@ -716,7 +716,7 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
         def set_input(self, *_args, **_kwargs):
@@ -801,7 +801,7 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
     class FakeRunScriptContext:
         last_instance = None
 
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs) -> None:
             self._has_next = True
             self.finalize_calls = 0
             FakeRunScriptContext.last_instance = self
@@ -903,7 +903,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
         def set_input(self, *_args, **_kwargs):
@@ -1032,7 +1032,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(monkeypa
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs) -> None:
             self._has_next = True
 
         def set_input(self, *_args, **_kwargs):

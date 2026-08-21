@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -8,7 +9,10 @@ from flasgger import Swagger
 from flask import Flask
 from flask_cors import CORS
 from flask_migrate import Migrate
-from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
+from flaskr.framework.plugin.plugin_manager import (
+    enable_plugin_manager,
+    get_plugin_manager,
+)
 
 # set timezone to UTC
 # fix windows platform
@@ -27,19 +31,26 @@ else:
     # Flask app (and the registry-backed config instance) exists.
     os.environ["TZ"] = timezone
     time.tzset()
-app = None
+
+
+@dataclass(slots=True)
+class _ApplicationState:
+    app: Flask | None = None
+
+
+_application_state = _ApplicationState()
+app: Flask | None = None
 
 
 def create_app() -> Flask:
-    global app
-    if app:
-        return app
+    if _application_state.app is not None:
+        return _application_state.app
     import pymysql
 
     pymysql.install_as_MySQLdb()
-    app = Flask(__name__, instance_relative_config=True)
+    flask_app = Flask(__name__, instance_relative_config=True)
     CORS(
-        app,
+        flask_app,
         resources={
             r"/api/*": {
                 "origins": [
@@ -55,65 +66,71 @@ def create_app() -> Flask:
     from flaskr.common import Config, init_log
     from flaskr.common.observability import init_observability
 
-    app.config = Config(app.config, app)
+    flask_app.config = Config(flask_app.config, flask_app)
 
     # init observability before request logging so trace ids are available in logs
-    init_observability(app)
+    init_observability(flask_app)
     # init log
-    init_log(app)
-    app = enable_plugin_manager(app)
-    app.logger.info("ai-shifu-api mode: %s", app.config.get("MODE", "api"))
+    init_log(flask_app)
+    flask_app = enable_plugin_manager(flask_app)
+    flask_app.logger.info("ai-shifu-api mode: %s", flask_app.config.get("MODE", "api"))
     # init database
     from flaskr import dao
 
-    dao.init_db(app)
+    dao.init_db(flask_app)
 
     # init i18n
     from flaskr.i18n import load_translations
 
-    load_translations(app)
+    load_translations(flask_app)
 
     # init redis
-    dao.init_redis(app)
+    dao.init_redis(flask_app)
 
     from flaskr.service.user.auth import register_builtin_providers
 
     register_builtin_providers()
 
     # Init LLM
-    with app.app_context():
+    with flask_app.app_context():
         from flaskr.api import llm  # noqa: F401
     # init langfuse
     from flaskr import api
 
-    api.init_langfuse(app)
+    api.init_langfuse(flask_app)
     # load plugins
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
-    from flaskr.framework.plugin.plugin_manager import plugin_manager
 
-    load_plugins_from_dir(app, str(Path("flaskr") / "service"))
+    plugin_manager = get_plugin_manager()
+    if plugin_manager is None:
+        raise RuntimeError("Plugin manager is not enabled")
+
+    load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
     try:
-        load_plugins_from_dir(app, str(Path("flaskr") / "plugins"), plugin_manager)
+        load_plugins_from_dir(
+            flask_app, str(Path("flaskr") / "plugins"), plugin_manager
+        )
     except Exception as e:
-        app.logger.warning(f"load plugins error: {e}")
+        flask_app.logger.warning("load plugins error: %s", e)
 
-    Migrate(app, dao.db)
+    Migrate(flask_app, dao.db)
     # register route
     from flaskr.route import register_route
 
-    app = register_route(app)
+    flask_app = register_route(flask_app)
     # init swagger
-    if app.config.get("SWAGGER_ENABLED", False):
+    if flask_app.config.get("SWAGGER_ENABLED", False):
         from flaskr.common import swagger_config
 
-        app.logger.info("swagger init ...")
-        Swagger(app, config=swagger_config, merge=True)
+        flask_app.logger.info("swagger init ...")
+        Swagger(flask_app, config=swagger_config, merge=True)
 
     # enable hot reload
-    if app.config.get("ENV") == "development":
+    if flask_app.config.get("ENV") == "development":
         plugin_manager.enable_hot_reload()
 
-    return app
+    _application_state.app = flask_app
+    return flask_app
 
 
 if __name__ == "__main__":

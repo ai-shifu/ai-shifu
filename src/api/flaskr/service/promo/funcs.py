@@ -4,11 +4,11 @@ import decimal
 from contextlib import nullcontext
 
 from flask import Flask, has_app_context
+from flaskr.dao import db
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, func, or_
 
-from ...dao import db
-from ...util import generate_id
-from ...util.datetime import now_utc
 from .consts import (
     COUPON_BATCH_STATUS_ACTIVE,
     COUPON_BATCH_STATUS_INACTIVE,

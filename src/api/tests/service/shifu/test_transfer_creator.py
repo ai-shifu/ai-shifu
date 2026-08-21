@@ -27,6 +27,7 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -129,8 +130,8 @@ def _clear_config_caches() -> None:
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
     with contextlib.suppress(Exception):
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
+        if config_module.Config._instance is not None:
+            config_module.Config._instance.enhanced._cache.clear()
 
 
 def _ensure_trial_billing_enabled(app, monkeypatch) -> None:

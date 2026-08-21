@@ -32,6 +32,7 @@ from flaskr.service.billing.webhooks import (
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import AlipayOrder, Order, PingxxOrder, WechatPayOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 

@@ -4,7 +4,7 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 class UserNotLoginError(AppError):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             _("server.user.userNotLogin"),
             ERROR_CODE.get(

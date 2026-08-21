@@ -25,7 +25,7 @@ from flaskr.service.order.payment_providers import PaymentCreationResult
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
@@ -68,7 +68,7 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(
+        lambda _app, _bid, preview_mode: SimpleNamespace(
             price=Decimal("99.00"),
             title="Legacy course",
             description="Legacy checkout flow",
@@ -345,7 +345,7 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, bid, _preview: SimpleNamespace(
+        lambda _app, bid, preview_mode: SimpleNamespace(
             bid=bid,
             price=Decimal("99.00"),
             title="Paid course",

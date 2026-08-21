@@ -13,7 +13,7 @@ from flaskr.service.order.payment_providers.wechatpay import WechatPayProvider
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
@@ -40,7 +40,7 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
         pass
 
     class FakePrecreateRequest:
-        def __init__(self, *, biz_model):
+        def __init__(self, *, biz_model) -> None:
             self.biz_model = biz_model
 
     class FakeClient:

@@ -29,12 +29,6 @@ os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
-from flask_sqlalchemy import SQLAlchemy
-from flaskr import dao
-
-if dao.db is None:
-    dao.db = SQLAlchemy()
-
 from flaskr.service.tts import streaming_tts as streaming_tts_module
 from flaskr.service.tts.pipeline import split_av_speakable_segments
 
@@ -139,7 +133,7 @@ def _simulate_observed_segments(
     captured_by_position: dict[int, list[str]] = {}
 
     class CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs):
+        def __init__(self, **kwargs) -> None:
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 

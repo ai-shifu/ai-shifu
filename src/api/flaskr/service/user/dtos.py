@@ -1,8 +1,7 @@
 import datetime
 
+from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
-
-from ...common.swagger import register_schema_to_swagger
 
 
 @register_schema_to_swagger
@@ -13,7 +12,7 @@ class UserProfileLabelItemDTO(BaseModel):
     value: str | datetime.date | None = Field(..., description="value", required=False)
     items: list | None = Field(..., description="items", required=False)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "key": self.key,
             "label": self.label,
@@ -30,7 +29,7 @@ class UserProfileLabelDTO(BaseModel):
     )
     language: str = Field(..., description="language")
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "profiles": [item.__json__() for item in self.profiles],
             "language": self.language,

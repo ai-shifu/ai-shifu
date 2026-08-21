@@ -16,7 +16,7 @@ from flaskr.api.langfuse import MockClient, init_langfuse
 class _RecordingLangfuse:
     instances: ClassVar[list[dict[str, object]]] = []
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         _RecordingLangfuse.instances.append(kwargs)
 
 
@@ -24,10 +24,12 @@ def _configure(app, monkeypatch):
     app.config["LANGFUSE_PUBLIC_KEY"] = "pk"
     app.config["LANGFUSE_SECRET_KEY"] = "sk"
     app.config["LANGFUSE_HOST"] = "https://langfuse.example"
-    # init_langfuse rebinds the module-global client; snapshot the current
+    # init_langfuse replaces the registry-owned client; snapshot the current
     # value so monkeypatch restores it and later tests keep the real mock.
     monkeypatch.setattr(
-        langfuse_module, "langfuse_client", langfuse_module.langfuse_client
+        langfuse_module._langfuse_state,
+        "client",
+        langfuse_module.get_langfuse_client(),
     )
 
 
@@ -40,7 +42,7 @@ def test_preload_master_defers_real_client(app, monkeypatch):
     init_langfuse(app)
 
     assert _RecordingLangfuse.instances == []
-    assert isinstance(langfuse_module.langfuse_client, MockClient)
+    assert isinstance(langfuse_module.get_langfuse_client(), MockClient)
 
 
 def test_worker_builds_real_client_after_flag_cleared(app, monkeypatch):

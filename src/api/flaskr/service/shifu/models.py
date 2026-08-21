@@ -6,6 +6,7 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from flaskr.dao import db
 from flaskr.util.compare import compare_decimal
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
@@ -22,7 +23,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 
-from ...dao import db
 from .consts import ASK_MODE_DEFAULT
 
 

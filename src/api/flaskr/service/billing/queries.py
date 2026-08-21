@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, parse_naive_utc
 from sqlalchemy import case
 
 from .consts import (
@@ -78,7 +78,7 @@ def normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
     if not normalized_value:
         return ""
     try:
-        datetime.strptime(normalized_value, "%Y-%m-%d")
+        parse_naive_utc(normalized_value, "%Y-%m-%d")
     except ValueError:
         raise_param_error(parameter_name)
     return normalized_value

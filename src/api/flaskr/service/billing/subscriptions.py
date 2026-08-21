@@ -11,7 +11,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from flaskr.util.uuid import generate_id
 
 from .bucket_categories import (
@@ -344,9 +344,9 @@ def _load_topup_expiry_subscription_for_bucket(
         product_sort_order = int(product.sort_order) if product is not None else -1
         return (
             product_sort_order,
-            row.current_period_start_at or datetime.min,
-            row.current_period_end_at or datetime.min,
-            row.created_at or datetime.min,
+            row.current_period_start_at or NAIVE_DATETIME_MIN,
+            row.current_period_end_at or NAIVE_DATETIME_MIN,
+            row.created_at or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         )
 

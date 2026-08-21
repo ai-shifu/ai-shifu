@@ -27,7 +27,7 @@ def test_alembic_migrations_have_single_head():
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["a9c3d5e7f1b2"]
+    assert heads == ["c7b9e1a2d4f6"]
 
 
 def _get_base_mysql_uri() -> str:
@@ -166,6 +166,16 @@ def test_fresh_mysql_upgrade_reaches_head():
             ).scalar_one()
         inspector = inspect(engine)
         tables = set(inspector.get_table_names())
+        provider_price_indexes = {
+            index["name"]: tuple(index["column_names"])
+            for index in inspector.get_indexes("bill_product_provider_prices")
+        }
+        provider_price_unique_constraints = {
+            constraint["name"]: tuple(constraint["column_names"])
+            for constraint in inspector.get_unique_constraints(
+                "bill_product_provider_prices"
+            )
+        }
         engine.dispose()
 
         assert current_head == expected_head
@@ -174,6 +184,31 @@ def test_fresh_mysql_upgrade_reaches_head():
             "user_users",
             "var_variables",
             "learn_lesson_feedbacks",
+            "bill_product_provider_prices",
         }.issubset(tables)
+        assert provider_price_indexes[
+            "ix_bill_product_provider_prices_product_status"
+        ] == ("product_bid", "status")
+        assert provider_price_indexes[
+            "ix_bill_product_provider_prices_provider_product"
+        ] == ("provider", "provider_account_id", "provider_product_id")
+        assert provider_price_unique_constraints[
+            "uq_bill_product_provider_prices_provider_price"
+        ] == (
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "provider_price_id",
+            "provider_price_live_scope",
+        )
+        assert provider_price_unique_constraints[
+            "uq_bill_product_provider_prices_active_scope"
+        ] == (
+            "product_bid",
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "active_scope",
+        )
     finally:
         _drop_temp_database(base_uri, database_name)

@@ -115,7 +115,7 @@ def ilivedata_check(
             provider=PROVIDER,
             raw_data=ret,
         )
-    app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
+    app.logger.error("ilivedata check error: %s", ret.get("errorCode"))
     return CheckResultDTO(
         check_result=CHECK_RESULT_UNKNOWN,
         risk_labels=[],
@@ -135,11 +135,11 @@ def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECOND
         "Connection": "keep-alive",
     }
 
-    req = Request(
+    # The endpoint is a fixed HTTPS URL.
+    req = Request(  # noqa: S310
         endpoint_url, querystring.encode("utf-8"), headers=headers, method="POST"
     )
     try:
-        # The endpoint is a fixed https URL built from configuration.
         with urlopen(req, timeout=timeout) as response:  # noqa: S310
             return json.loads(response.read().decode(), strict=False)
     except URLError:

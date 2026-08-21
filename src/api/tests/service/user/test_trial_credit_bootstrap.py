@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 from flask import Flask
 from flaskr import dao
-from flaskr.framework.plugin import plugin_manager as plugin_manager_module
+from flaskr.framework.plugin.plugin_manager import get_plugin_manager
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -32,6 +32,7 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.token_store import token_store
 from flaskr.service.user.utils import generate_token
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
@@ -101,7 +102,7 @@ def user_trial_client(monkeypatch, tmp_path):
     monkeypatch.setattr(phone_flow, "redis", fake_redis, raising=False)
     monkeypatch.setattr(email_flow, "redis", fake_redis, raising=False)
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
-    monkeypatch.setattr(dao, "redis_client", fake_redis, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake_redis)
     token_store._cache = fake_redis
 
     with app.app_context():
@@ -367,7 +368,9 @@ def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
     def _failing_post_auth_handler(_context, *, app):
         raise RuntimeError("boom")
 
-    handlers = plugin_manager_module.plugin_manager.extension_functions.setdefault(
+    plugin_manager = get_plugin_manager()
+    assert plugin_manager is not None
+    handlers = plugin_manager.extension_functions.setdefault(
         "run_post_auth_extensions",
         [],
     )

@@ -50,7 +50,7 @@ def test_query_buy_record_keeps_stored_discount_for_unpaid_order(app, monkeypatc
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, _recalc: [
+        lambda _app, _order_id, recalc_discount: [
             SimpleNamespace(
                 discount_amount=Decimal("123.45"),
                 promo_name="spring-promo",
@@ -108,7 +108,7 @@ def test_query_buy_record_uses_coupon_name_and_code_in_price_item(app, monkeypat
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, _recalc: [],
+        lambda _app, _order_id, recalc_discount: [],
     )
 
     result = query_buy_record(app, "order-query-coupon-1")
@@ -172,7 +172,7 @@ def test_query_buy_record_does_not_supplement_voided_campaign_redemption(
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, _recalc: [],
+        lambda _app, _order_id, recalc_discount: [],
     )
 
     result = query_buy_record(app, "order-query-voided-promo-1")

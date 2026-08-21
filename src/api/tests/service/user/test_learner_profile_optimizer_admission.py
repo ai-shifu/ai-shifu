@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import pytest
+from flaskr import dao
 from flaskr.service.common.models import AppError
 from flaskr.service.profile import learner_profile_optimizer_admission as admission
 
 
 class FakeRedis:
-    def __init__(self):
+    def __init__(self) -> None:
         self.in_flight_tokens: dict[str, str] = {}
         self.acquire_ttls: list[int] = []
 
@@ -59,7 +60,7 @@ def _assert_admission_denied(app, *, user_id: str) -> None:
 
 def test_admission_allows_only_one_in_flight_request_per_user(app, monkeypatch):
     fake_redis = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake_redis, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
     with admission.learner_profile_optimization_admission(
         app,
@@ -78,7 +79,7 @@ def test_admission_allows_only_one_in_flight_request_per_user(app, monkeypatch):
 
 def test_admission_does_not_group_different_users(app, monkeypatch):
     fake_redis = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake_redis, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
     with (
         admission.learner_profile_optimization_admission(app, user_id="user-one"),
@@ -89,7 +90,7 @@ def test_admission_does_not_group_different_users(app, monkeypatch):
 
 def test_admission_releases_slot_after_request_error(app, monkeypatch):
     fake_redis = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake_redis, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
     with (
         pytest.raises(RuntimeError, match="provider failed"),
@@ -109,7 +110,7 @@ def test_admission_releases_slot_after_request_error(app, monkeypatch):
 
 def test_expired_lease_release_cannot_remove_replacement_redis_slot(app, monkeypatch):
     fake_redis = FakeRedis()
-    monkeypatch.setattr("flaskr.dao.redis_client", fake_redis, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
     first = admission._acquire_admission(app, user_id="ttl-race-user")
     fake_redis.expire_in_flight()
@@ -125,7 +126,7 @@ def test_configured_redis_failure_denies_request_without_logging_identity(
     app, monkeypatch, caplog
 ):
     sentinel_identity = "SENSITIVE_ADMISSION_IDENTITY"
-    monkeypatch.setattr("flaskr.dao.redis_client", ExplodingRedis(), raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", ExplodingRedis())
 
     app.logger.addHandler(caplog.handler)
     try:
@@ -138,7 +139,7 @@ def test_configured_redis_failure_denies_request_without_logging_identity(
 
 
 def test_missing_redis_uses_process_local_user_slot(app, monkeypatch):
-    monkeypatch.setattr("flaskr.dao.redis_client", None, raising=False)
+    monkeypatch.setattr(dao._redis_state, "client", None)
 
     with admission.learner_profile_optimization_admission(
         app,

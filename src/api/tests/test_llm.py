@@ -110,7 +110,7 @@ pytestmark = pytest.mark.no_mock_llm
 
 
 class DummySpan:
-    def __init__(self, trace_id="trace-1", span_id="span-1"):
+    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
         self.generation_args = None
         self.end_args = None
         self.trace_id = trace_id
@@ -135,7 +135,7 @@ class FakeResponse:
         finish_reason=None,
         usage=None,
         reasoning_content=None,
-    ):
+    ) -> None:
         self.id = chunk_id
         delta = SimpleNamespace(
             content=content,
@@ -146,7 +146,7 @@ class FakeResponse:
 
 
 class FakeModelsResponse:
-    def __init__(self, payload):
+    def __init__(self, payload) -> None:
         self.payload = payload
 
     def raise_for_status(self):

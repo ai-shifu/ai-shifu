@@ -2,6 +2,7 @@ import hashlib
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -10,7 +11,6 @@ from flaskr.util.uuid import generate_id
 from markdown_flow import MarkdownFlow
 from sqlalchemy import func, inspect, text
 
-from ...dao import db
 from .dtos import (
     DEFAULT_COLOR_SETTINGS,
     ColorSetting,
@@ -259,7 +259,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 legacy_scope,
                 _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
                 legacy_item["profile_id"],
-                False,
+                is_hidden=False,
             )
 
         profile_id = generate_id(app)
@@ -343,7 +343,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             legacy_scope,
             _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
             profile_id,
-            False,
+            is_hidden=False,
         )
 
     existing = (

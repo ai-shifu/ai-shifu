@@ -22,6 +22,7 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.webhooks import apply_billing_stripe_notification
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 _MONTHLY_PLAN_CREDITS = Decimal("5.0000000000")

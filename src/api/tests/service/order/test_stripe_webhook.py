@@ -24,6 +24,7 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE
 from flaskr.service.order.funs import handle_stripe_webhook
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -32,7 +33,7 @@ def _load_route_module(module_name: str):
 
 
 class DummyStripeProvider:
-    def __init__(self, notification: PaymentNotificationResult):
+    def __init__(self, notification: PaymentNotificationResult) -> None:
         self._notification = notification
 
     def verify_webhook(self, *, headers, raw_body, app):

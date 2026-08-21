@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+from flaskr.dao import db
 from flaskr.service.order.consts import LEARN_STATUS_LOCKED
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
@@ -12,8 +13,6 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-
-from ...dao import db
 
 
 class LearnProgressRecord(db.Model):

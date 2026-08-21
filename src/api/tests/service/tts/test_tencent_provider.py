@@ -9,7 +9,7 @@ from flaskr.service.common.models import AppError
 
 
 class _FakeSSEStreamingResponse:
-    def __init__(self, lines, *, headers=None):
+    def __init__(self, lines, *, headers=None) -> None:
         self._lines = list(lines)
         self.headers = headers or {"content-type": "text/event-stream"}
         self.closed = False

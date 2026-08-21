@@ -6,6 +6,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from flaskr.util.datetime import NAIVE_DATETIME_MAX, NAIVE_DATETIME_MIN
+
 from .consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_TYPE_LABELS,
@@ -150,8 +152,8 @@ def build_wallet_bucket_runtime_sort_key(
     return (
         resolve_credit_bucket_priority(normalized_category),
         bucket.effective_to is None,
-        bucket.effective_to or datetime.max,
-        bucket.created_at or datetime.min,
+        bucket.effective_to or NAIVE_DATETIME_MAX,
+        bucket.created_at or NAIVE_DATETIME_MIN,
         int(bucket.id or 0),
     )
 
