@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from flask import Flask, request
 
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.route.common import make_common_response
+from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.service.order import (
@@ -411,6 +411,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         )
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
+    @bypass_token_validation
     def stripe_webhook():
         """Stripe webhook placeholder.
         ---
