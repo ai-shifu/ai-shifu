@@ -615,6 +615,11 @@ plan's progress update for that rule.
   ARG002 unit. Four root subprocess-boundary tests and the backend route-
   inventory test pass; configured S603/S607/T20, repository Ruff, format,
   development-tool validation, and every repository pre-commit hook also pass.
+- [x] 2026-08-21 11:20 CST: Merged the current S101 tip `503377596` into
+  ARG002 after its follow-up executable-resolution review fixes. Nine root
+  script tests and the backend route-inventory test pass; configured S603/S607,
+  repository Ruff, format, pinned development-tool validation, and every
+  repository pre-commit hook pass without changing the 47-file ARG002 unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
