@@ -32,7 +32,7 @@ class OutlineStructureChange:
     new_position: str
 
     def to_payload(self) -> dict:
-        """Serialize this result as an API payload."""
+        """Serialize this result for the outline repair CLI report."""
         return {
             "outline_item_bid": self.outline_item_bid,
             "old_parent_bid": self.old_parent_bid,
