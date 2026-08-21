@@ -99,7 +99,7 @@ def concat_audio_mp3(
     if len(segments) == 1:
         return segments[0]
 
-    logger.info(f"Concatenating {len(segments)} audio segments")
+    logger.info("Concatenating %s audio segments", len(segments))
 
     # Initialize combined audio
     combined = None
@@ -144,8 +144,9 @@ def concat_audio_mp3(
     output_data = output_io.getvalue()
 
     logger.info(
-        f"Audio concatenation complete: "
-        f"{len(segments)} segments -> {len(output_data)} bytes"
+        "Audio concatenation complete: %s segments -> %s bytes",
+        len(segments),
+        len(output_data),
     )
 
     return output_data

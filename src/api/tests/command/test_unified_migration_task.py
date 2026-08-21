@@ -1,5 +1,9 @@
+import asyncio
+import logging
+
 import pytest
 from flaskr.command.unified_migration_task import (
+    MigrationConfig,
     UnifiedMigrationTask,
     _quote_identifier,
 )
@@ -106,3 +110,43 @@ def test_check_column_exists_binds_table_and_column():
         "table_name": "learn_progress_records",
         "column_name": "user_bid",
     }
+
+
+def test_migrate_table_logs_formatted_batch_progress(caplog):
+    task = UnifiedMigrationTask.__new__(UnifiedMigrationTask)
+    task.config = MigrationConfig(batch_size=10)
+
+    async def table_exists(_table_name):
+        return True
+
+    async def table_count(_table_name):
+        return 20
+
+    async def process_batch(*_args):
+        return {"synced": 5, "errors": 0, "error_messages": []}
+
+    task._table_exists_async = table_exists
+    task._get_table_count_async = table_count
+    task._process_batch_async = process_batch
+    caplog.set_level(logging.INFO, logger="flaskr.command.unified_migration_task")
+
+    result = asyncio.run(
+        task._migrate_table_async(
+            "source_table",
+            {
+                "target": "target_table",
+                "mapping": object(),
+                "key_field": "source_id",
+                "target_key": "target_id",
+            },
+        )
+    )
+
+    assert result.synced_records == 10
+    assert caplog.messages == [
+        "Starting migration for table: source_table",
+        "Total records to migrate from source_table: 20",
+        "Migration progress for source_table: 50.0% (5/20) - Batch 1",
+        "Migration progress for source_table: 100.0% (10/20) - Batch 2",
+        "Migration completed for source_table: 10/20 records, 0 errors",
+    ]

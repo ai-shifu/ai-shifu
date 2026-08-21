@@ -217,7 +217,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         if coupon.start > now:
             raise_error("server.discount.discountNotStart")
         if coupon.end < now:
-            app.logger.info(f"coupon expired: end={coupon.end} now={now}")
+            app.logger.info("coupon expired: end=%s now=%s", coupon.end, now)
             raise_error("server.discount.discountAlreadyExpired")
         if coupon.used_count + 1 > coupon.total_count:
             raise_error("server.discount.discountLimitExceeded")

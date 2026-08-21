@@ -248,7 +248,7 @@ def _run_guardrail(
     chunks = []
     for i in res:
         if i is not None and i != "":
-            app.logger.info(f"check_text_with_llm_response: {i}")
+            app.logger.info("check_text_with_llm_response: %s", i)
             chunks.append(i)
     return chunks
 
@@ -314,7 +314,7 @@ def handle_input_ask(
         usage_scene=usage_scene,
     )
 
-    app.logger.info(f"follow_up_info:{follow_up_info.__json__()}")
+    app.logger.info("follow_up_info:%s", follow_up_info.__json__())
     chapter_title = outline_item_info.title
     ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
 
@@ -442,8 +442,8 @@ def handle_input_ask(
     }
     llm_messages.append(user_message)
     provider_messages.append(user_message)
-    app.logger.info(f"llm_messages: {llm_messages}")
-    app.logger.info(f"provider_messages: {provider_messages}")
+    app.logger.info("llm_messages: %s", llm_messages)
+    app.logger.info("provider_messages: %s", provider_messages)
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model

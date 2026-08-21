@@ -1883,9 +1883,12 @@ class EnhancedConfig:
                     # Log warning about type conversion failure
                     logger = logging.getLogger(__name__)
                     logger.warning(
-                        f"Failed to convert environment variable '{key}' with value '{value}' "
-                        f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {e!s}"
+                        "Failed to convert environment variable '%s' with value '%s' to type %s. Using default value '%s'. Error: %s",
+                        key,
+                        value,
+                        env_var.type.__name__,
+                        env_var.default,
+                        e,
                     )
                     value = env_var.default
             # Apply interpolation
@@ -2190,9 +2193,8 @@ class Config(FlaskConfig):
         env_value = os.environ.get(key)
         if env_value is not None:
             self.app.logger.warning(
-                f"Configuration key '{key}' not defined in ENV_VARS registry. "
-                f"Falling back to environment variable value. "
-                f"Consider adding this to ENV_VARS in config.py for proper type conversion and validation."
+                "Configuration key '%s' not defined in ENV_VARS registry. Falling back to environment variable value. Consider adding this to ENV_VARS in config.py for proper type conversion and validation.",
+                key,
             )
             return env_value
 

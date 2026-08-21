@@ -696,7 +696,7 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
         _token_cache["access_token"] = access_token
         _token_cache["expires_at"] = current_time + expires_in
 
-        logger.info(f"Baidu access token obtained, expires in {expires_in} seconds")
+        logger.info("Baidu access token obtained, expires in %s seconds", expires_in)
 
     except requests.RequestException as e:
         logger.exception("Failed to get Baidu access token")
@@ -805,7 +805,8 @@ class BaiduTTSProvider(BaseTTSProvider):
         text_bytes = text.encode("utf-8", errors="replace")
         if len(text_bytes) > 1024:
             logger.warning(
-                f"Text exceeds Baidu limit ({len(text_bytes)} > 1024 bytes), truncating"
+                "Text exceeds Baidu limit (%s > 1024 bytes), truncating",
+                len(text_bytes),
             )
             # Truncate to fit
             text = text_bytes[:1024].decode("utf-8", errors="ignore")
@@ -869,9 +870,12 @@ class BaiduTTSProvider(BaseTTSProvider):
         }
 
         logger.debug(
-            f"Calling Baidu TTS API: voice={voice_settings.voice_id}, "
-            f"spd={baidu_speed}, pit={baidu_pitch}, vol={baidu_volume}, "
-            f"text_len={len(text)}"
+            "Calling Baidu TTS API: voice=%s, spd=%s, pit=%s, vol=%s, text_len=%s",
+            voice_settings.voice_id,
+            baidu_speed,
+            baidu_pitch,
+            baidu_volume,
+            len(text),
         )
 
         try:
@@ -894,8 +898,9 @@ class BaiduTTSProvider(BaseTTSProvider):
                 duration_ms = len(audio_data) // bytes_per_ms if bytes_per_ms > 0 else 0
 
                 logger.info(
-                    f"Baidu TTS synthesis completed: "
-                    f"size={len(audio_data)} bytes, duration~={duration_ms}ms"
+                    "Baidu TTS synthesis completed: size=%s bytes, duration~=%sms",
+                    len(audio_data),
+                    duration_ms,
                 )
 
                 return TTSResult(
