@@ -93,7 +93,7 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         raising=False,
     )
 
-    def _fake_record_tts_usage(app, context, **kwargs):
+    def _fake_record_tts_usage(app, context, **kwargs: object):
         captured.append(
             {
                 "app": app,
@@ -153,7 +153,7 @@ def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> No
     app = Flask(__name__)
     captured: dict[str, object] = {}
 
-    def _fake_validate_tts_settings_strict(**kwargs):
+    def _fake_validate_tts_settings_strict(**kwargs: object):
         captured.update(kwargs)
         return SimpleNamespace(
             provider="fake",

@@ -42,7 +42,7 @@ class ExplodingRedis:
         """Initialize the exploding Redis test double."""
         self.calls = 0
 
-    def eval(self, *_args: object, **_kwargs):
+    def eval(self, *_args: object, **_kwargs: object):
         self.calls += 1
         message = "redis down"
         raise RuntimeError(message)

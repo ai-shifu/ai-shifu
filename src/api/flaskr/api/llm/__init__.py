@@ -62,7 +62,7 @@ _original_asyncio_run = asyncio.run
 _background_asyncio_tasks: set[asyncio.Task] = set()
 
 
-def _safe_asyncio_run(coro, *args: object, **kwargs):
+def _safe_asyncio_run(coro, *args: object, **kwargs: object):
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:
@@ -1018,7 +1018,7 @@ def invoke_llm(
     request_id: str | None = None,
     trace_id: str | None = None,
     usage_metadata: dict[str, Any] | None = None,
-    **kwargs,
+    **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
     stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
@@ -1201,7 +1201,7 @@ def chat_llm(
     request_id: str | None = None,
     trace_id: str | None = None,
     usage_metadata: dict[str, Any] | None = None,
-    **kwargs,
+    **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(
         "chat_llm [%s] %s ,json:%s ,kwargs:%s", model, messages, json, kwargs

@@ -58,7 +58,7 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
         }.get,
     )
 
-    def _fake_post(*_args: object, **kwargs):
+    def _fake_post(*_args: object, **kwargs: object):
         request_state["json"] = kwargs.get("json")
         return _FakeResponse(
             lines=[
@@ -114,7 +114,7 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
         }.get,
     )
 
-    def _raise_timeout(*_args: object, **_kwargs):
+    def _raise_timeout(*_args: object, **_kwargs: object):
         message = "timeout"
         raise requests.Timeout(message)
 
@@ -204,7 +204,7 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
         }.get,
     )
 
-    def _fake_post(url, **kwargs):
+    def _fake_post(url, **kwargs: object):
         request_state["url"] = url
         request_state["json"] = kwargs.get("json")
         request_state["headers"] = kwargs.get("headers") or {}
@@ -358,7 +358,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
         }.get,
     )
 
-    def _fake_post(url, **kwargs):
+    def _fake_post(url, **kwargs: object):
         request_state["url"] = url
         request_state["json"] = kwargs["json"]
         return _FakeResponse(
@@ -403,7 +403,7 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
 
     request_state = {}
 
-    def _fake_request(*_args: object, **kwargs):
+    def _fake_request(*_args: object, **kwargs: object):
         request_state["method"] = kwargs.get("method")
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["url"] = kwargs.get("url")
@@ -485,7 +485,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
     request_state = {}
 
-    def _fake_post(url, **kwargs):
+    def _fake_post(url, **kwargs: object):
         request_state["url"] = url
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["json"] = kwargs.get("json")
@@ -750,7 +750,7 @@ def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
 def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
-    def _raise_timeout(*_args: object, **_kwargs):
+    def _raise_timeout(*_args: object, **_kwargs: object):
         message = "timeout"
         raise requests.Timeout(message)
 

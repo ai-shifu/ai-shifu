@@ -186,7 +186,7 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
     from tests.common.fixtures.fake_redis import FakeRedis
 
     class _FakeSMTP:
-        def __init__(self, *_args: object, **_kwargs) -> None:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
             self.sent_to = None
 
         def starttls(self):

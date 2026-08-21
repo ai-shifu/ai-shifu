@@ -38,7 +38,7 @@ class _FakeStripeResource:
         self.payload = payload
         self.calls = []
 
-    def retrieve(self, *args: object, **kwargs):
+    def retrieve(self, *args: object, **kwargs: object):
         self.calls.append({"args": args, "kwargs": kwargs})
         return _StripeObject(self.payload)
 
@@ -86,7 +86,7 @@ class _FakeStripe:
 
 
 class _FailingStripeResource:
-    def retrieve(self, *args: object, **kwargs):
+    def retrieve(self, *args: object, **kwargs: object):
         _ = (args, kwargs)
         message = "secret sk_test_should_not_leak"
         raise RuntimeError(message)
@@ -107,7 +107,7 @@ class _FakeStripeAdapter(StripeCatalogReadAdapter):
         return self.stripe, build_stripe_request_options()
 
 
-def _plan_product(**overrides) -> BillingProduct:
+def _plan_product(**overrides: object) -> BillingProduct:
     values = {
         "product_bid": "bill-product-growth-month",
         "product_code": "creator-global-growth-monthly",
@@ -124,7 +124,7 @@ def _plan_product(**overrides) -> BillingProduct:
     return BillingProduct(**values)
 
 
-def _topup_product(**overrides) -> BillingProduct:
+def _topup_product(**overrides: object) -> BillingProduct:
     values = {
         "product_bid": "bill-product-topup-1000",
         "product_code": "creator-global-topup-1000",

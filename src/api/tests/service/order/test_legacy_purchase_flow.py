@@ -92,7 +92,7 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         lambda *_args, **_kwargs: None,
     )
 
-    def _fake_pingxx_charge(**kwargs):
+    def _fake_pingxx_charge(**kwargs: object):
         buy_record = kwargs["buy_record"]
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         dao.db.session.add(buy_record)

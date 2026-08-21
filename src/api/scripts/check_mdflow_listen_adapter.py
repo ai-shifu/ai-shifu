@@ -44,12 +44,12 @@ if TYPE_CHECKING:
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw):
+def _compile_longtext_sqlite(_type, _compiler, **_kw: object):
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw):
+def _compile_bigint_sqlite(_type, _compiler, **_kw: object):
     return "INTEGER"
 
 

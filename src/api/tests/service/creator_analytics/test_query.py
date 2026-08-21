@@ -691,7 +691,7 @@ def test_dedicated_engine_replacement_disposes_previous_owner(app, monkeypatch):
 
     created: list[_FakeEngine] = []
 
-    def fake_create_engine(uri, **_kwargs):
+    def fake_create_engine(uri, **_kwargs: object):
         engine = _FakeEngine(uri)
         created.append(engine)
         return engine

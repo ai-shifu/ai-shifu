@@ -1285,7 +1285,7 @@ class TestAdminBillingRoutes:
             _resolve_existing_target,
         )
 
-        def _save_branding(_app, creator_bid, payload, **kwargs):
+        def _save_branding(_app, creator_bid, payload, **kwargs: object):
             captured["creator_bid"] = creator_bid
             captured["payload"] = payload
             captured["kwargs"] = kwargs

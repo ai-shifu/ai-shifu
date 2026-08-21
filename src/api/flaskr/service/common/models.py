@@ -75,7 +75,7 @@ def raise_error(error_name):
     )
 
 
-def raise_error_with_args(error_name, **kwargs):
+def raise_error_with_args(error_name, **kwargs: object):
     raise AppError(
         _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),

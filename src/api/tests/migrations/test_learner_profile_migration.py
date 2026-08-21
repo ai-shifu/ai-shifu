@@ -48,12 +48,12 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
         def add_column(self, column):
             added_columns.append(column)
 
-        def alter_column(self, column_name, **kwargs):
+        def alter_column(self, column_name, **kwargs: object):
             altered_columns.append((column_name, kwargs))
 
     class _Operations:
         @contextmanager
-        def batch_alter_table(self, *_args: object, **_kwargs):
+        def batch_alter_table(self, *_args: object, **_kwargs: object):
             yield _BatchOperations()
 
         def execute(self, statement):

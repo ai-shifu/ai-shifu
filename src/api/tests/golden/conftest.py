@@ -104,7 +104,7 @@ def _iter_golden_completion(messages) -> list[str]:
     return list(GOLDEN_LLM_CHUNKS)
 
 
-def golden_chat_llm(*args: object, **kwargs):
+def golden_chat_llm(*args: object, **kwargs: object):
     messages = kwargs.get("messages")
     if messages is None:
         for arg in args:
@@ -121,7 +121,7 @@ def golden_chat_llm(*args: object, **kwargs):
         )
 
 
-def golden_invoke_llm(*args: object, **kwargs):
+def golden_invoke_llm(*args: object, **kwargs: object):
     yield from golden_chat_llm(*args, **kwargs)
 
 

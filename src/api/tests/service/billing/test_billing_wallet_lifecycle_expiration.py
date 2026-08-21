@@ -565,7 +565,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
         real_expire = wallets_mod._expire_bucket_available_credits_if_unchanged
         changed = {"done": False}
 
-        def _consume_before_expire(target_bucket, **kwargs):
+        def _consume_before_expire(target_bucket, **kwargs: object):
             if (
                 not changed["done"]
                 and target_bucket.wallet_bucket_bid
@@ -687,7 +687,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
         real_expire = wallets_mod._expire_bucket_available_credits_if_unchanged
         changed = {"done": False}
 
-        def _extend_before_expire(target_bucket, **kwargs):
+        def _extend_before_expire(target_bucket, **kwargs: object):
             if (
                 not changed["done"]
                 and target_bucket.wallet_bucket_bid
@@ -777,7 +777,7 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
         real_sync = wallets_mod._sync_empty_available_bucket_status_if_unchanged
         changed = {"done": False}
 
-        def _release_before_status_sync(target_bucket, **kwargs):
+        def _release_before_status_sync(target_bucket, **kwargs: object):
             if not changed["done"]:
                 changed["done"] = True
                 CreditWalletBucket.query.filter(
@@ -1063,7 +1063,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
         real_persist = wallets_mod.persist_credit_wallet_snapshot
         state = {"calls": 0}
 
-        def _persist_conflict_once(target_wallet, **kwargs):
+        def _persist_conflict_once(target_wallet, **kwargs: object):
             state["calls"] += 1
             if state["calls"] == 1:
                 message = "credit_wallet_version_conflict"

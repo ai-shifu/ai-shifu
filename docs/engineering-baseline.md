@@ -403,6 +403,14 @@ intentionally heterogeneous forwarding boundaries, use `*args: object`; do not
 introduce `Any` merely to satisfy ANN002, and do not change positional or
 keyword compatibility while adding the annotation.
 
+For `ANN003`, the annotation after `**kwargs` describes each keyword value;
+Python already constrains the keys to strings. Prefer a narrow homogeneous
+value type when the function guarantees one. Use `**kwargs: object` for
+decorators, provider adapters, logging and cache compatibility shims, and test
+doubles that deliberately accept heterogeneous named options. As with ANN002,
+do not replace `object` with `Any` or narrow the accepted keyword contract just
+to satisfy the lint rule.
+
 For the `ARG` family, first remove an unused function, method, or lambda
 parameter when the callable and all callers are repository-owned. Preserve the
 exact parameter name when a base class, provider protocol, framework callback,

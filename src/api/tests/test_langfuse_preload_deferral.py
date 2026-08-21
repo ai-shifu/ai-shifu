@@ -16,7 +16,7 @@ from flaskr.api.langfuse import MockClient, init_langfuse
 class _RecordingLangfuse:
     instances: ClassVar[list[dict[str, object]]] = []
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: object) -> None:
         _RecordingLangfuse.instances.append(kwargs)
 
 

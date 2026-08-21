@@ -14,7 +14,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs):
+    def get_model_info(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -95,14 +95,14 @@ class DummySpan:
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object):
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object):
         self.end_args = kwargs
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
 
@@ -130,7 +130,7 @@ class FakeUsage:
 def test_invoke_llm_streams_via_litellm(monkeypatch, app):
     captured_kwargs = {}
 
-    def fake_completion(*args: object, **kwargs):
+    def fake_completion(*args: object, **kwargs: object):
         captured_kwargs["args"] = args
         captured_kwargs["kwargs"] = kwargs
         usage = FakeUsage(prompt_tokens=5, completion_tokens=4, total_tokens=9)

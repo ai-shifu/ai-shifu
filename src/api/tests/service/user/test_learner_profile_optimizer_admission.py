@@ -40,7 +40,7 @@ class FakeRedis:
 class ExplodingRedis:
     """Simulate a Redis failure for tests."""
 
-    def eval(self, *_args: object, **_kwargs):
+    def eval(self, *_args: object, **_kwargs: object):
         message = "redis unavailable"
         raise RuntimeError(message)
 

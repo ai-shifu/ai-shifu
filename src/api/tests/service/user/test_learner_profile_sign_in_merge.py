@@ -66,10 +66,10 @@ class _FakeGoogleSession:
     def __init__(self, profile) -> None:
         self._profile = profile
 
-    def fetch_token(self, *_args: object, **_kwargs):
+    def fetch_token(self, *_args: object, **_kwargs: object):
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args: object, **_kwargs):
+    def get(self, *_args: object, **_kwargs: object):
         return _FakeGoogleResponse(self._profile)
 
 

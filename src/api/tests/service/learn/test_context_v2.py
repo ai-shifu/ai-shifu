@@ -19,7 +19,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs):
+    def get_model_info(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -149,10 +149,10 @@ class _FakeLangfuseSpan:
         self.updated = {}
         self.end_kwargs = {}
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object):
         self.end_kwargs = kwargs
 
 
@@ -160,7 +160,7 @@ class _FakeLangfuseTrace:
     def __init__(self) -> None:
         self.updated = {}
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
 
@@ -471,14 +471,14 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             deleted = _Column()
 
         class _FakeQuery:
-            def filter(self, *_args: object, **_kwargs):
+            def filter(self, *_args: object, **_kwargs: object):
                 return self
 
             def all(self):
                 return [("outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args: object, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
             def get_all_blocks(self):
@@ -540,7 +540,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         attend = types.SimpleNamespace(outline_item_bid="outline-1", block_position=0)
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args: object, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
             def get_all_blocks(self):
@@ -1140,11 +1140,11 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_ignores_visual_mode_when_api_missing(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args: object, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 self.args = args
                 self.kwargs = kwargs
 
-            def set_output_language(self, *_args: object, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1154,14 +1154,14 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_calls_visual_mode_when_api_exists(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args: object, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.visual_mode = None
 
             def set_visual_mode(self, visual_mode):
                 self.visual_mode = visual_mode
 
-            def set_output_language(self, *_args: object, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1171,7 +1171,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_uses_explicit_output_language_when_enabled(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args: object, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.output_language = None
 
@@ -1835,17 +1835,17 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         captured = {}
 
         class _FakePreviewContextStore:
-            def __init__(self, *_args: object, **_kwargs) -> None:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def get_context(self, *_args: object, **_kwargs):
+            def get_context(self, *_args: object, **_kwargs: object):
                 return []
 
-            def replace_context(self, *_args: object, **_kwargs):
+            def replace_context(self, *_args: object, **_kwargs: object):
                 return None
 
         class _FakePreviewMdflowContext:
-            def __init__(self, *args: object, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = args, kwargs
 
             @staticmethod
@@ -1861,7 +1861,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                     block_type=PreviewBlockType.CONTENT, content="Prompt block"
                 )
 
-            def process(self, **_kwargs):
+            def process(self, **_kwargs: object):
                 return (
                     item
                     for item in [
@@ -1874,7 +1874,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 )
 
         class _FakePreviewAdapter:
-            def __init__(self, *_args: object, **_kwargs) -> None:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
             def process(self, events):

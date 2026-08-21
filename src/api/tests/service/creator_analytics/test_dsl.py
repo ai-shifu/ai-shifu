@@ -20,7 +20,7 @@ from flaskr.service.creator_analytics.dsl import (
 DEFAULT_LIMIT_MAX = 1000
 
 
-def _payload(**overrides):
+def _payload(**overrides: object):
     base = {
         "shifu_bid": "shifu-abc",
         "table": "learn_progress_records",
@@ -372,7 +372,7 @@ def test_select_user_bid_with_group_by_other_dimension_is_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _content_payload(**overrides):
+def _content_payload(**overrides: object):
     base = {
         "shifu_bid": "shifu-abc",
         "table": "learn_generated_blocks",
@@ -436,7 +436,7 @@ def test_generated_content_limit_at_100_is_allowed() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _user_users_payload(**overrides):
+def _user_users_payload(**overrides: object):
     base = {
         "shifu_bid": "shifu-abc",
         "table": "user_users",
@@ -504,7 +504,7 @@ def test_user_users_select_disallowed_column_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _user_users_identify_payload(**overrides):
+def _user_users_identify_payload(**overrides: object):
     base = {
         "shifu_bid": "shifu-abc",
         "table": "user_users",
@@ -579,7 +579,7 @@ def test_user_users_user_identify_not_groupable() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _daily_metric_payload(**overrides):
+def _daily_metric_payload(**overrides: object):
     base = {
         "shifu_bid": "shifu-abc",
         "table": "bill_daily_usage_metrics",
@@ -651,7 +651,7 @@ def test_bill_usage_table_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _generated_blocks_payload(**overrides):
+def _generated_blocks_payload(**overrides: object):
     """Build a baseline DSL payload for learn_generated_blocks tests."""
     base = {
         "shifu_bid": "shifu-abc",
@@ -763,7 +763,7 @@ def test_bill_daily_creator_bid_filter_rejected() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _shifu_meta_payload(table_key="shifu_published_shifus", **overrides):
+def _shifu_meta_payload(table_key="shifu_published_shifus", **overrides: object):
     """Build a baseline DSL payload for shifu metadata-table tests."""
     base = {
         "shifu_bid": "shifu-abc",

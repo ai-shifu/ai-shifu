@@ -508,7 +508,7 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
 
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(*args: object, **kwargs):
+        def wrapper(*args: object, **kwargs: object):
             attempt = 0
             while True:
                 try:

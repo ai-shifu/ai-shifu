@@ -697,6 +697,20 @@ plan's progress update for that rule.
 - [x] 2026-08-21 12:57 CST: Passed the repository harness, architecture boundary
   ratchet, pinned Ruff 0.16.3 developer-tool check, and the complete lefthook
   pre-commit suite across all files.
+- [x] 2026-08-21 13:11 CST: PR #2610 passed every GitHub check. Selected ANN003
+  next: 378 findings across 101 files, split between 40 production forwarding
+  boundaries and 338 test helpers. Annotated each variadic keyword value with
+  `object` without changing accepted keyword names or forwarding behavior.
+- [x] 2026-08-21 13:22 CST: Enabled ANN003 with no suppression. An AST audit
+  proves all 101 Python files are executable-code equivalent after normalizing
+  the new keyword-vararg annotations. All 81 touched test files pass 1,184
+  tests with 15 skips, both touched script entry points load successfully, and
+  the complete backend passes 3,032 tests with 17 skips and 733 existing
+  warnings. Stable and isolated censuses fall exactly 378, to 26,613 and
+  38,002; no other rule count changes.
+- [x] 2026-08-21 13:24 CST: Passed the repository harness, architecture boundary
+  ratchet, pinned Ruff 0.16.3 developer-tool check, and the complete lefthook
+  pre-commit suite across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1161,6 +1175,18 @@ transferring debt to ANN401 with `Any`. All 977 tests in the 64 touched test
 files pass with five skips, followed by the full 3,032-test backend suite. Both
 stable and isolated censuses fall exactly 215, to 26,991 and 38,380
 respectively, with no other rule count changing.
+
+The ANN003 stage annotates all 378 variadic keyword parameters across 101 files
+without changing the accepted keyword contract. The values at these decorator,
+provider, cache, logging, plugin, script, and test-double boundaries are
+intentionally heterogeneous, so they use `object` instead of creating ANN401
+debt with `Any`. Four signatures that Ruff reformatted onto multiple lines also
+receive formatter-compatible trailing commas, preventing COM812 debt. An AST
+audit proves the executable structure is otherwise unchanged. All 1,184 tests
+in the 81 touched test files pass with 15 skips, both touched script entry
+points load, and the full backend passes 3,032 tests with 17 skips. Stable and
+isolated censuses fall exactly 378, to 26,613 and 38,002, with no other rule
+count changing.
 
 ## Context and Orientation
 

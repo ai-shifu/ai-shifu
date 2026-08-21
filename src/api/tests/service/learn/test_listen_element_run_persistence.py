@@ -117,7 +117,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
         def __init__(self) -> None:
             self.invalidated = 0
 
-        def execute(self, *_args: object, **_kwargs):
+        def execute(self, *_args: object, **_kwargs: object):
             return _DesyncedResult()
 
         def invalidate(self):

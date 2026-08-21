@@ -20,7 +20,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs):
+    def get_model_info(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -89,7 +89,7 @@ _install_openai_responses_stub()
 class _FakeObservation:
     """Mimics a Langfuse SDK v3 span/generation object."""
 
-    def __init__(self, kind: str = "span", **kwargs) -> None:
+    def __init__(self, kind: str = "span", **kwargs: object) -> None:
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
@@ -99,19 +99,19 @@ class _FakeObservation:
         self.id = f"fake-{kind}-id"
         self.generations = []
 
-    def start_span(self, **kwargs):
+    def start_span(self, **kwargs: object):
         return _FakeObservation("span", **kwargs)
 
-    def start_observation(self, as_type="span", **kwargs):
+    def start_observation(self, as_type="span", **kwargs: object):
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
         return child
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.updates.append(kwargs)
 
-    def update_trace(self, **kwargs):
+    def update_trace(self, **kwargs: object):
         self.trace_updates.append(kwargs)
 
     def end(self):
@@ -136,7 +136,7 @@ class _FakeLangfuseClient:
     def __init__(self) -> None:
         self.traces = []
 
-    def start_span(self, trace_context=None, **kwargs):
+    def start_span(self, trace_context=None, **kwargs: object):
         root = _FakeObservation("span", **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
@@ -222,7 +222,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
-    def _raise_shutdown(*_a: object, **_k):
+    def _raise_shutdown(*_a: object, **_k: object):
         message = (
             "litellm.MidStreamFallbackError: APIConnectionError: OpenAIException - "
             "cannot schedule new futures after shutdown"
@@ -250,7 +250,7 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch):
 
     monkeypatch.setattr(module, "apply_shifu_context_snapshot", lambda *_a, **_k: None)
 
-    def _raise_other(*_a: object, **_k):
+    def _raise_other(*_a: object, **_k: object):
         message = "boom"
         raise ValueError(message)
 
@@ -275,7 +275,7 @@ def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
     original_load_existing_outline_items = module.load_existing_outline_items
     outline_load_calls = []
 
-    def _record_outline_load(*args: object, **kwargs):
+    def _record_outline_load(*args: object, **kwargs: object):
         outline_load_calls.append((args, kwargs))
         return original_load_existing_outline_items(*args, **kwargs)
 

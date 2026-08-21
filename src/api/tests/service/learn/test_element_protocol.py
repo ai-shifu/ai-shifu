@@ -38,11 +38,11 @@ def adapter_app():
 
 
 class _FollowUpDummyGeneration:
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object):
         self.end_kwargs = kwargs
 
 
@@ -52,21 +52,21 @@ class _FollowUpDummySpan:
         self.updated = {}
         self.output = ""
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object):
         generation = _FollowUpDummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self, **_kwargs):
+    def span(self, **_kwargs: object):
         return _FollowUpDummySpan()
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
-    def event(self, **_kwargs):
+    def event(self, **_kwargs: object):
         return None
 
-    def end(self, output=None, **kwargs):
+    def end(self, output=None, **kwargs: object):
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
@@ -75,10 +75,10 @@ class _FollowUpDummyTrace:
     def __init__(self) -> None:
         self.updated = {}
 
-    def span(self, **_kwargs):
+    def span(self, **_kwargs: object):
         return _FollowUpDummySpan()
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
 
@@ -176,7 +176,7 @@ def _setup_handle_input_ask_test_doubles(
 
         call_counter = {"index": 0}
 
-        def _fake_init_generated_block(*_args: object, **_kwargs):
+        def _fake_init_generated_block(*_args: object, **_kwargs: object):
             call_counter["index"] += 1
             return types.SimpleNamespace(
                 generated_block_bid=f"gb-{call_counter['index']}",
@@ -259,7 +259,7 @@ class TestElementType:
 class TestElementDTONewFields:
     """Verify element DTO new fields behavior."""
 
-    def _make_dto(self, **overrides):
+    def _make_dto(self, **overrides: object):
         from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
 
         defaults = {
@@ -2479,7 +2479,7 @@ class TestHandleAskAdapter:
                 patch_generated_blocks=False,
             )
 
-            def _raise_provider_error(**_kwargs):
+            def _raise_provider_error(**_kwargs: object):
                 if False:
                     yield None
                 message = "provider failed"

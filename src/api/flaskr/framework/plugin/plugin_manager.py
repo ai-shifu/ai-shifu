@@ -50,7 +50,7 @@ class PluginManager:
             self.extension_functions[target_func_name] = []
         self.extension_functions[target_func_name].append(func)
 
-    def execute_extensions(self, func_name, result, *args: object, **kwargs):
+    def execute_extensions(self, func_name, result, *args: object, **kwargs: object):
         self.app.logger.info("execute_extensions: %s", func_name)
         if not self.is_enabled:
             return result
@@ -70,7 +70,13 @@ class PluginManager:
             self.extensible_generic_functions[func_name] = []
         self.extensible_generic_functions[func_name].append(func)
 
-    def execute_extensible_generic(self, func_name, result, *args: object, **kwargs):
+    def execute_extensible_generic(
+        self,
+        func_name,
+        result,
+        *args: object,
+        **kwargs: object,
+    ):
         self.app.logger.info("execute_extensible_generic: %s", func_name)
         if not self.is_enabled:
             return result
@@ -149,7 +155,7 @@ def extensible_generic_register(func_name):
 # extensible decorator
 def extensible(func):
     @wraps(func)
-    def wrapper(*args: object, **kwargs):
+    def wrapper(*args: object, **kwargs: object):
         result = func(*args, **kwargs)
         manager = get_plugin_manager()
         if manager is None:
@@ -170,7 +176,7 @@ def extensible_generic(func):
         pass
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs):
+    def wrapper(*args: object, **kwargs: object):
         result = func(*args, **kwargs)
         if result:
             yield from result

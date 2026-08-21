@@ -56,7 +56,7 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
         def encode_start_connection(self):
             return b"start_connection"
 
-        def encode_start_session(self, **kwargs):
+        def encode_start_session(self, **kwargs: object):
             captured["start_session_kwargs"] = kwargs
             return b"start_session"
 
@@ -147,7 +147,7 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
             self.session_started_sent = False
             captured["ws"] = self
 
-        def run_forever(self, **kwargs):
+        def run_forever(self, **kwargs: object):
             _ = kwargs
             self.on_open(self)
 
