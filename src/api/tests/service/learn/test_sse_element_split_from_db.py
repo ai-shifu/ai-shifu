@@ -8,7 +8,10 @@ Run with:
     cd src/api && pytest tests/service/learn/test_sse_element_split_from_db.py -v --no-header
 """
 
+from __future__ import annotations
+
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -51,6 +54,10 @@ VALID_TYPE_CODES = set(range(201, 214))
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _record_diagnostics(request: pytest.FixtureRequest, lines: list[str]) -> None:
+    request.node.add_report_section("call", "SSE diagnostics", "\n".join(lines))
 
 
 def _fetch_blocks_raw(app, limit=100):
@@ -194,6 +201,20 @@ def _simulate_sse_for_block(app, block, *, with_av_contract=True):
 # ---------------------------------------------------------------------------
 
 
+def test_diagnostics_are_attached_to_pytest_report() -> None:
+    """Keep database diagnostics available in pytest failure reports."""
+    node = MagicMock()
+    request = MagicMock(node=node)
+
+    _record_diagnostics(request, ["first line", "second line"])
+
+    node.add_report_section.assert_called_once_with(
+        "call",
+        "SSE diagnostics",
+        "first line\nsecond line",
+    )
+
+
 class TestSSEElementSplitFromDB:
     """Fetch real blocks and validate SSE element splitting."""
 
@@ -208,9 +229,13 @@ class TestSSEElementSplitFromDB:
     def test_blocks_loaded(self, blocks):
         """Sanity check: we have data to test with."""
         assert len(blocks) > 0
-        print(f"\n  Loaded {len(blocks)} blocks from test DB")
 
-    def test_all_blocks_produce_valid_sse(self, app, blocks):
+    def test_all_blocks_produce_valid_sse(
+        self,
+        app,
+        blocks,
+        request: pytest.FixtureRequest,
+    ):
         """Every block must produce a valid SSE stream without errors."""
         failures = []
         stats = {
@@ -306,24 +331,27 @@ class TestSSEElementSplitFromDB:
 
             stats["success"] += 1
 
-        # Print summary
-        print("\n  === SSE Element Split Test Summary ===")
-        print(f"  Total blocks processed: {stats['total']}")
-        print(f"  Successful: {stats['success']}")
-        print(f"  Empty content skipped: {stats['empty_content_skipped']}")
-        print(f"  Errors during process(): {len(stats['errors'])}")
-        print("\n  Element type distribution:")
+        diagnostics = [
+            "=== SSE Element Split Test Summary ===",
+            f"Total blocks processed: {stats['total']}",
+            f"Successful: {stats['success']}",
+            f"Empty content skipped: {stats['empty_content_skipped']}",
+            f"Errors during process(): {len(stats['errors'])}",
+            "Element type distribution:",
+        ]
         for et, count in sorted(
             stats["element_type_counts"].items(),
             key=lambda x: -x[1],
         ):
-            print(f"    {et}: {count}")
+            diagnostics.append(f"  {et}: {count}")
 
         if stats["errors"]:
-            print("\n  Process errors:")
+            diagnostics.append("Process errors:")
             for err in stats["errors"][:10]:
-                print(f"    {err['block_bid']}: {err['error']}")
-                print(f"      content: {err['content_preview']}")
+                diagnostics.append(f"  {err['block_bid']}: {err['error']}")
+                diagnostics.append(f"    content: {err['content_preview']}")
+
+        _record_diagnostics(request, diagnostics)
 
         if failures:
             # Show first 20 failures for clarity
@@ -332,7 +360,12 @@ class TestSSEElementSplitFromDB:
                 failure_msg += f"\n  ... and {len(failures) - 20} more"
             pytest.fail(f"{len(failures)} validation failures:\n{failure_msg}")
 
-    def test_sse_json_serialization_roundtrip(self, app, blocks):
+    def test_sse_json_serialization_roundtrip(
+        self,
+        app,
+        blocks,
+        request: pytest.FixtureRequest,
+    ):
         """Verify SSE JSON output can be parsed back correctly."""
         from flaskr.service.learn.routes import _to_sse_data_line
 
@@ -402,13 +435,21 @@ class TestSSEElementSplitFromDB:
                         if field not in content
                     )
 
-        print(f"\n  SSE serialization tested on {len(sample_blocks)} blocks")
+        _record_diagnostics(
+            request,
+            [f"SSE serialization tested on {len(sample_blocks)} blocks"],
+        )
 
         if failures:
             failure_msg = "\n".join(failures[:20])
             pytest.fail(f"{len(failures)} serialization failures:\n{failure_msg}")
 
-    def test_content_coverage_no_data_loss(self, app, blocks):
+    def test_content_coverage_no_data_loss(
+        self,
+        app,
+        blocks,
+        request: pytest.FixtureRequest,
+    ):
         """Verify that element splitting does not lose content."""
         sample_blocks = [
             b
@@ -470,13 +511,21 @@ class TestSSEElementSplitFromDB:
                         f"Elements: {combined[:80]}..."
                     )
 
-        print(f"\n  Content coverage tested on {len(sample_blocks)} CONTENT blocks")
+        _record_diagnostics(
+            request,
+            [f"Content coverage tested on {len(sample_blocks)} CONTENT blocks"],
+        )
 
         if failures:
             failure_msg = "\n".join(failures[:20])
             pytest.fail(f"{len(failures)} content coverage failures:\n{failure_msg}")
 
-    def test_element_type_matches_content_pattern(self, app, blocks):
+    def test_element_type_matches_content_pattern(
+        self,
+        app,
+        blocks,
+        request: pytest.FixtureRequest,
+    ):
         """Verify element_type is appropriate for the content pattern.
 
         When a block's entire content is a single visual element (e.g. pure SVG),
@@ -496,7 +545,7 @@ class TestSSEElementSplitFromDB:
         ][:30]
 
         mismatches = []
-        diagnostics = []
+        boundary_diagnostics = []
         for block in sample_blocks:
             bid = block["generated_block_bid"]
             content = block["generated_content"]
@@ -521,7 +570,7 @@ class TestSSEElementSplitFromDB:
                         vb.get("kind") for vb in av.get("visual_boundaries", [])
                     ]
                     mismatches.append(f"Block {bid}: SVG content but type={et}")
-                    diagnostics.append(
+                    boundary_diagnostics.append(
                         f"  av_contract visual_boundaries kinds: {vb_kinds}"
                     )
 
@@ -529,18 +578,24 @@ class TestSSEElementSplitFromDB:
                 if "<table" in ct.lower() and et not in ("tables", "html"):
                     mismatches.append(f"Block {bid}: table content but type={et}")
 
-        print(f"\n  Type-content matching tested on {len(sample_blocks)} blocks")
+        report_lines = [f"Type-content matching tested on {len(sample_blocks)} blocks"]
         if mismatches:
-            print(f"  Mismatches found: {len(mismatches)}")
+            report_lines.append(f"Mismatches found: {len(mismatches)}")
             for i, m in enumerate(mismatches[:10]):
-                print(f"    {m}")
-                if i < len(diagnostics):
-                    print(f"    {diagnostics[i]}")
-            # Report as warnings, not hard failures, since the adapter
+                report_lines.append(f"  {m}")
+                if i < len(boundary_diagnostics):
+                    report_lines.append(f"  {boundary_diagnostics[i]}")
+            # Report as diagnostics, not hard failures, since the adapter
             # may legitimately use fallback TEXT when av_contract does
             # not recognize the visual boundary
+        _record_diagnostics(request, report_lines)
 
-    def test_pure_visual_blocks_element_type(self, app, blocks):
+    def test_pure_visual_blocks_element_type(
+        self,
+        app,
+        blocks,
+        request: pytest.FixtureRequest,
+    ):
         """Diagnose element type inference for blocks whose content is pure visual (SVG, HTML with no speakable text).
 
         These blocks have visual_boundaries in av_contract but no
@@ -568,8 +623,7 @@ class TestSSEElementSplitFromDB:
             )
         ]
 
-        print(f"\n  Pure visual blocks found: {len(visual_blocks)}")
-
+        report_lines = [f"Pure visual blocks found: {len(visual_blocks)}"]
         results = []
         for block in visual_blocks[:15]:
             bid = block["generated_block_bid"]
@@ -620,13 +674,17 @@ class TestSSEElementSplitFromDB:
                 "final_element_types": element_types,
             }
             results.append(result)
-            print(f"  Block {result['bid']}...")
-            print(f"    content: {result['content_start']}...")
-            print(f"    vb={result['visual_boundaries']} kinds={result['vb_kinds']}")
-            print(f"    speakable={result['speakable_segments']}")
-            print(f"    segments_built={result['segments_built']}")
-            print(f"    fallback_valid={result['fallback_valid']}")
-            print(f"    final types: {result['final_element_types']}")
+            report_lines.extend(
+                [
+                    f"Block {result['bid']}...",
+                    f"  content: {result['content_start']}...",
+                    (f"  vb={result['visual_boundaries']} kinds={result['vb_kinds']}"),
+                    f"  speakable={result['speakable_segments']}",
+                    f"  segments_built={result['segments_built']}",
+                    f"  fallback_valid={result['fallback_valid']}",
+                    f"  final types: {result['final_element_types']}",
+                ]
+            )
 
         # Verify the retire notification element is properly formed
         retire_issues = []
@@ -673,14 +731,17 @@ class TestSSEElementSplitFromDB:
             if has_retire and has_final_typed:
                 proper_retire += 1
 
-        print(
-            f"\n  Summary: {proper_retire}/{len(results)} blocks have "
-            f"proper retire+replace flow"
+        report_lines.append(
+            f"Summary: {proper_retire}/{len(results)} blocks have "
+            "proper retire+replace flow",
         )
 
         if retire_issues:
-            for issue in retire_issues[:5]:
-                print(f"    Issue: {issue}")
+            report_lines.extend(f"Issue: {issue}" for issue in retire_issues[:5])
+
+        _record_diagnostics(request, report_lines)
+
+        if retire_issues:
             pytest.fail(
                 f"{len(retire_issues)} retire element issues:\n"
                 + "\n".join(retire_issues[:10])

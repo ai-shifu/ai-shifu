@@ -386,6 +386,14 @@ suppression at the call. Run the test so its expected output, failure, or side
 effect still proves why the child process exists. Apply the same per-call audit
 to contributor tooling; do not exempt an entire test or script tree from S603.
 
+For `T20`, shipped code should use the existing logger so output follows the
+service's observability contract. Tests should put expected context in assertion
+messages or attach longer diagnostics with pytest's
+`request.node.add_report_section(...)`; do not leave `print(...)` calls hidden
+behind a test-tree exception. Delete unreferenced debug helpers instead of
+preserving a lint boundary for them. A developer-script tree may retain T20 only
+when stdout is the scripts' user-facing interface.
+
 For `RUF001`, preserve the standard fullwidth Chinese punctuation explicitly
 allowed by `ruff.toml`: `，`, `：`, `！`, `？`, and `；`. These code points are
 intentional in Chinese prose, notification formatting, and TTS sentence-boundary

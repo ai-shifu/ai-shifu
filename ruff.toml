@@ -70,9 +70,9 @@ select = [
     "EXE",     # shebang vs executable-bit consistency
     "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
     # T20 bans `print`/`pprint` in shipped code, where logging is the contract.
-    # Developer scripts, the inventory tooling and the test suites are console
-    # programs by design and are exempt below; the few remaining backend calls
-    # are CLI or debug output and say so inline.
+    # Developer scripts and the inventory tooling are console programs by design
+    # and are exempt below. Tests attach diagnostics to pytest reports instead;
+    # the few remaining backend calls are CLI or debug output and say so inline.
     "T20",     # print / pprint in shipped code
     "T1",      # leftover debugger calls
     "ERA001",  # commented-out code
@@ -250,7 +250,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # argument boundary at its call.
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
-"src/api/tests/**" = ["S101", "S105", "S106", "T20"]
+"src/api/tests/**" = ["S101", "S105", "S106"]
 # `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
 # by path and never imported, so making `src/api` a package would only shadow
 # the top-level `flaskr` import path. `src/api/scripts` is a real package

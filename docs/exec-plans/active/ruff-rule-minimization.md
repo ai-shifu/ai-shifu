@@ -516,6 +516,31 @@ plan's progress update for that rule.
   Ruff and format, and every pre-commit hook pass on the final local S603 tip.
 - [ ] Merge or retarget S603 PR #2601 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 08:33 CST: Prepared the T20 stage on `sunner/ruff-t20`,
+  stacked on S603. Auditing all 18 per-file patterns found that every entry
+  still hides a real finding; the backend test-tree T20 boundary is the
+  smallest removable unit, with all 51 prints confined to two files.
+- [x] 2026-08-21 08:33 CST: Confirmed `src/api/tests/test_utils.py` has no
+  repository caller and removed the obsolete debug helper. Replaced the 27
+  database-backed SSE test prints with pytest report sections so diagnostics
+  remain attached to failures without treating stdout as a test interface.
+  A focused unit test freezes the report-section name and rendered content.
+- [x] 2026-08-21 08:33 CST: Removed T20 from the backend test-tree exception
+  without adding an inline or exact-file replacement. Configured T20,
+  repository Ruff, and format pass; the focused SSE module passes its report
+  test and skips six database-dependent cases at their existing empty-fixture
+  gate. The stable `ALL` census falls 22 findings to 28,180 across the same 28
+  rules, exactly matching the non-T20 debt removed with the unused helper.
+- [x] 2026-08-21 08:38 CST: The full backend suite passes 3,027 tests with 17
+  existing environment skips, proving no test dynamically imports the removed
+  debug helper and the report-section rewrite does not disturb collection or
+  neighboring test behavior.
+- [x] 2026-08-21 08:40 CST: Collaboration and knowledge generators produced no
+  extra diff; development-tool validation, translations, repository harness,
+  architecture boundaries, configured Ruff and format, and every repository
+  pre-commit hook pass on the final local T20 change.
+- [ ] Open a ready T20 PR from `sunner/ruff-t20` to `sunner/ruff-s603` after
+  the targeted, full-backend, harness, and repository gates pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -648,6 +673,11 @@ plan's progress update for that rule.
   calls introduced by the S607 predecessor, not a durable class of safe code.
   Auditing them individually exposed a real option-boundary gap in the route
   inventory and made both broad exceptions removable.
+- T20's backend test-tree exception hid 51 prints, but they were not a durable
+  test-suite contract. Twenty-four belonged to an unreferenced debug helper;
+  the other 27 were captured diagnostics in one database-backed SSE test.
+  Pytest report sections preserve that failure context directly, allowing the
+  broad exception to disappear without scattering inline suppressions.
 - D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
   it was more honest than inventing a module purpose and also removed one
   CPY001 finding; every documented module otherwise differs from its parent
@@ -704,6 +734,10 @@ plan's progress update for that rule.
   Resolve external commands once per operation, make the result absolute, keep
   the existing missing-tool contract, and inspect variable-built subprocess
   commands that Ruff cannot identify before retaining a directory exception.
+- 2026-08-21: T20 applies to ordinary tests. Put concise context in assertion
+  messages and longer diagnostic summaries in pytest report sections. Retain a
+  directory exception only for developer scripts whose stdout is the product;
+  do not use one for a mixed test tree.
 
 ## Outcomes & Retrospective
 
@@ -896,6 +930,14 @@ owners pass 67 tests with only the two explicit environment skips. Configured
 S603 and S607 scans pass, the stable census remains 28,202 findings across 28
 rules, and future code validates every subprocess boundary at the call rather
 than exempting tests or contributor scripts as a class.
+
+The T20 stage removes T20 from the backend test-tree exception without adding
+a narrower replacement. An unreferenced debug-print helper is deleted, while
+the database-backed SSE diagnostic test attaches its summaries to pytest report
+sections and has a focused test for that contract. Configured T20, repository
+Ruff, and format pass; the stable census falls to 28,180 findings across 28
+rules. Future tests now use assertion messages or pytest report sections, while
+the two developer-script trees retain T20 because stdout is their interface.
 
 ## Context and Orientation
 
