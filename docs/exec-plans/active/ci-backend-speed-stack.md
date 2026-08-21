@@ -10,6 +10,13 @@ each cache advance independently so later CI runs can reuse the work completed
 by earlier runs. It also keeps frontend dependency installation reusable when
 only frontend source files change.
 
+A follow-up incident showed that advancing the cache is not enough when the
+recorded execution environment can drift. The Backend Tests workflow requested
+the floating Python version `3.11`; GitHub Actions moved from Python 3.11.15 to
+3.11.16 between consecutive commits, so testmon invalidated the restored state
+and selected the full backend suite. The follow-up fixes the interpreter and CI
+test-tool versions so an exact-parent cache remains reusable.
+
 The observable outcome is that a warm Runtime Harness run restores separate API
 and Cook Web image caches, while a later commit on the same pull request restores
 the most recently completed testmon state instead of the first cache written for
@@ -31,6 +38,16 @@ that branch.
   PRs #2536, #2537, and #2538.
 - [x] 2026-08-20 12:35 CST: Verified the corrected Backend Tests workflow saved
   a cache under the pull request head SHA for an exact next-commit restore.
+- [x] 2026-08-21: Traced Backend Tests run 32378085271 to testmon
+  invalidating an exact-parent cache after Python changed from 3.11.15 to
+  3.11.16.
+- [x] 2026-08-21 06:37 CST: Pinned the complete Python and CI test-tool versions
+  and included both runtime and CI requirements in the pip and testmon cache
+  hashes.
+- [x] 2026-08-21 06:44 CST: Verified the cold PR run passed and saved testmon
+  state under the exact Python 3.11.16, requirements hash, and head SHA.
+- [x] 2026-08-21 06:47 CST: Verified the next PR run restored the exact-parent
+  cache, kept testmon's environment valid, and selected no unchanged tests.
 
 ## Surprises & Discoveries
 
@@ -49,6 +66,13 @@ that branch.
   same pull request merge ref, even though both entries had the same cache
   version. The workflow now uses the pull request head SHA as the saved key and
   resolves its direct parent for an exact lineage restore before broad fallbacks.
+- testmon records the complete Python version and installed package environment.
+  A cache can therefore restore successfully at the GitHub Actions layer but be
+  unusable to testmon after a floating interpreter or test tool changes.
+- `flaskr/route/user.py` participates in global request authentication and is
+  exercised outside `tests/service/user`. Hard-mapping that module to one test
+  directory would improve speed by hiding valid dependent tests, so the
+  cross-suite selection remains owned by testmon.
 
 ## Decision Log
 
@@ -65,6 +89,17 @@ that branch.
   of relying only on a SHA-less prefix. Rationale: live Actions runs proved exact
   cache matches work across commits while the current-ref prefix fell through to
   main; retaining the broad prefixes still covers rebases and multi-commit pushes.
+- Decision: publish the environment-stability follow-up as one independent pull
+  request based directly on `main`, not as another entry in the completed cache
+  stack. Rationale: the original stack is already merged and this incident has
+  one rollback boundary.
+- Decision: keep `route/user.py` on testmon's full dependency graph instead of
+  limiting it to `tests/service/user`. Rationale: the module owns global request
+  authentication and tests in several other domains import or exercise it.
+- Decision: pin Python, pip, coverage, and pytest-testmon together. Rationale:
+  testmon invalidates its database when either the interpreter version or the
+  installed package environment changes, so fixing only the interpreter leaves
+  the same failure mode available to floating CI tools.
 
 ## Outcomes & Retrospective
 
@@ -90,6 +125,15 @@ Runtime Harness times were measured in GitHub Actions:
   SHA exactly before using branch or main fallbacks. The first corrected run
   passed in 1m31s and saved its cache under head SHA `11cacd5f`; the next commit
   provides the live exact-parent restore check.
+
+The independent follow-up pins Python 3.11.16 and records the CI-only package
+versions in `src/api/requirements-ci.txt`. Its testmon cache namespace includes
+the exact Python version and hashes both requirement files. The cold PR run
+32425122383 passed in 6m36s, ran 3001 tests with 16 skipped in 293.91s, and saved
+testmon state under head SHA `6a8cdac2`. Warm run 32425738750 then restored that
+exact-parent cache, reported `environment: default` with zero changed files,
+collected no unchanged tests in 0.27s, and completed the job in 1m22s. The run
+saved the advanced testmon state under head SHA `28667caf`.
 
 ## Context and Orientation
 
