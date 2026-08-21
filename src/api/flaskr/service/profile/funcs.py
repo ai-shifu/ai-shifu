@@ -371,7 +371,7 @@ def get_user_profile_labels(
         include_nickname: Whether to include the stored nickname label.
 
     Returns:
-        list: User profile labels.
+        UserProfileLabelDTO: User profile labels and resolved language.
 
     """
     app.logger.info("get user profile labels:%s", course_id)
