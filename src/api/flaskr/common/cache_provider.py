@@ -375,7 +375,7 @@ class FallbackCacheProvider:
         timeout: int | None = None,
         blocking_timeout: int | None = None,
     ):
-        """Create a distributed lock for the supplied key."""
+        """Create a lock, falling back to process-local scope without Redis."""
         return self._call(
             "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
         )
