@@ -233,7 +233,7 @@ class PingxxProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
-        """Apply a verified provider notification."""
+        """Verify, when needed, and normalize a Pingxx provider notification."""
         if "raw_body" in payload:
             return self.verify_webhook(
                 headers=payload.get("headers", {}) or {},
