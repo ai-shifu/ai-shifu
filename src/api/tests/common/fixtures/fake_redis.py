@@ -24,7 +24,7 @@ class FakeRedisLock:
 
 class FakeRedis:
     def __init__(self) -> None:
-        """Initialize the fake Redis test double."""
+        """Initialize value, expiration, and lock registries for Redis tests."""
         self._store: dict[str, Any] = {}
         self._expires: dict[str, float] = {}
         self._locks: dict[str, bool] = {}
