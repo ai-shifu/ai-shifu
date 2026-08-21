@@ -2,7 +2,7 @@
 # Use docker-compose.latest.yml if you prefer to track the :latest container tags.
 x-environment: &default-env
   SQLALCHEMY_DATABASE_URI: mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
-  SECRET_KEY: ai-shifu
+  SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in docker/.env}
   UNIVERSAL_VERIFICATION_CODE: 1024
   REDIS_HOST: ai-shifu-redis
   REDIS_PORT: 6379
