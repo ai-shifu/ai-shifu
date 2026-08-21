@@ -48,10 +48,10 @@ class _StubRunContext:
 
     script: ClassVar[list] = []
 
-    def __init__(self, **_kwargs) -> None:
+    def __init__(self, **_kwargs: object) -> None:
         self._steps = iter([True, False])
 
-    def set_input(self, *_args: object, **_kwargs):
+    def set_input(self, *_args: object, **_kwargs: object):
         pass
 
     def has_next(self):
@@ -192,7 +192,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     class _TwoRoundContext(_StubRunContext):
         # Two has_next rounds so the stop_event check at the loop boundary
         # fires between them.
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             super().__init__(**kwargs)
             # Each loop round consumes TWO steps: the while condition and the
             # has_next() call inside the log line.

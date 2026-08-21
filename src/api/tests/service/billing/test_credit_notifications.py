@@ -2372,7 +2372,7 @@ def test_provider_exception_marks_notification_failed(
     _seed_creator(app)
     _enable_policy(app)
 
-    def raise_provider_error(*args: object, **kwargs) -> None:
+    def raise_provider_error(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         message = "provider raised"
         raise RuntimeError(message)

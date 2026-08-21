@@ -38,7 +38,7 @@ def _run_retry(monkeypatch, outcomes, segment_index=0):
     calls = []
     sleeps = []
 
-    def _fake_synthesize_text(**kwargs):
+    def _fake_synthesize_text(**kwargs: object):
         calls.append(kwargs)
         outcome = outcomes[min(len(calls) - 1, len(outcomes) - 1)]
         if isinstance(outcome, Exception):

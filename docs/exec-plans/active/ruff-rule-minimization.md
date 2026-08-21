@@ -237,6 +237,11 @@ plan's progress update for that rule.
   heterogeneous compatibility boundaries.
 - [ ] Merge or retarget ANN002 PR #2636 after ARG005 without combining it with
   the next rule unit.
+- [x] 2026-08-22: Rebuilt the ANN003 stage on `sunner/ruff-ann003`, stacked on
+  ANN002. Annotated every variadic keyword parameter with its value type while
+  preserving all accepted keyword options and forwarding behavior.
+- [ ] Merge or retarget ANN003 PR #2637 after ANN002 without combining it with
+  the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

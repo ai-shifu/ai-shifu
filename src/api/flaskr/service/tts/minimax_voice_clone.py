@@ -21,7 +21,7 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
         """Reference one time range in a source audio file."""
 
         @staticmethod
-        def from_file(*_args: object, **_kwargs) -> None:
+        def from_file(*_args: object, **_kwargs: object) -> None:
             message = "audio decoder is not available"
             raise RuntimeError(message)
 

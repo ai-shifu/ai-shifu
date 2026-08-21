@@ -403,6 +403,10 @@ For `ANN002`, annotate the element type accepted by `*args`, not a tuple type.
 Use the narrow shared type when the forwarding contract is homogeneous and
 `object` only for genuinely heterogeneous compatibility forwarding.
 
+For `ANN003`, annotate the value type accepted by `**kwargs`, not a dictionary
+type. Prefer a shared narrow value type for homogeneous options and `object`
+only when an adapter genuinely forwards heterogeneous keyword values.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

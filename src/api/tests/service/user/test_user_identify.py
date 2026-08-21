@@ -191,7 +191,7 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
         sent_message = ""
         sent_to = ""
 
-        def __init__(self, *_args: object, **_kwargs) -> None:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
 
         def starttls(self):
@@ -280,7 +280,7 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(app, monkey
     class _FakeSMTP:
         sent_message = ""
 
-        def __init__(self, *_args: object, **_kwargs) -> None:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
 
         def starttls(self):

@@ -532,7 +532,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 
     original_build_usage_metric_charges = settlement_module.build_usage_metric_charges
 
-    def _blocking_build_usage_metric_charges(*args: object, **kwargs):
+    def _blocking_build_usage_metric_charges(*args: object, **kwargs: object):
         usage = args[0]
         if usage.usage_bid == "usage-concurrent-1":
             entered_first_charge.set()
@@ -1190,7 +1190,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
 
     called = {"apply_async": 0}
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs=None, **options: object):
         del kwargs, options
         called["apply_async"] += 1
 
@@ -1332,7 +1332,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs=None, **options: object):
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1423,7 +1423,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs=None, **options: object):
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1501,7 +1501,7 @@ def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs=None, **options: object):
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),

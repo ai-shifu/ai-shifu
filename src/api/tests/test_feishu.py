@@ -39,7 +39,7 @@ def test_send_order_feishu_formats_notification(app, monkeypatch):
             self._first_value = first_value
             self._count_value = count_value
 
-        def filter(self, *_args: object, **_kwargs):
+        def filter(self, *_args: object, **_kwargs: object):
             return self
 
         def first(self):

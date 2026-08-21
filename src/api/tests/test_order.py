@@ -87,7 +87,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeyp
     )
     apply_calls = {"count": 0}
 
-    def fake_apply_promo_campaigns(*_args: object, **_kwargs):
+    def fake_apply_promo_campaigns(*_args: object, **_kwargs: object):
         apply_calls["count"] += 1
         if apply_calls["count"] == 1:
             return []

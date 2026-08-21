@@ -19,13 +19,13 @@ def test_french_native_name_reaches_content_and_interaction_prompts():
         def __init__(self) -> None:
             self.calls = []
 
-        def complete(self, messages, **_kwargs):
+        def complete(self, messages, **_kwargs: object):
             self.calls.append(messages)
             if "JSON Interaction Translation Task" in messages[0]["content"]:
                 return '{"buttons":["Continuer"]}'
             return "Réponse"
 
-        def stream(self, _messages, **_kwargs):
+        def stream(self, _messages, **_kwargs: object):
             return iter(())
 
     provider = CapturingProvider()

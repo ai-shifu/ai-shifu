@@ -15,7 +15,7 @@ class _FailingResponse:
 def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):
     calls = []
 
-    def fake_post(*args: object, **kwargs):
+    def fake_post(*args: object, **kwargs: object):
         calls.append((args, kwargs))
         return _FailingResponse()
 
@@ -43,7 +43,7 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
 ):
     calls = []
 
-    def fake_post(*args: object, **kwargs):
+    def fake_post(*args: object, **kwargs: object):
         calls.append((args, kwargs))
         return _FailingResponse()
 
@@ -71,7 +71,7 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
 def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch):
     calls = []
 
-    def fake_post(*args: object, **kwargs):
+    def fake_post(*args: object, **kwargs: object):
         calls.append((args, kwargs))
         return type("Response", (), {"raise_for_status": lambda _self: None})()
 

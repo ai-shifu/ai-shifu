@@ -329,7 +329,7 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
             message = "prompt upload should not be called"
             raise AssertionError(message)
 
-        def clone_voice(self, **kwargs):
+        def clone_voice(self, **kwargs: object):
             assert kwargs["file_id"] == "file-source"
             return SimpleNamespace(
                 voice_id=kwargs["voice_id"],
@@ -400,7 +400,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
     stored_objects: dict[str, bytes] = {}
     read_calls: list[tuple[str, str]] = []
 
-    def fake_upload_to_storage(_app, *, file_content, object_key, **_kwargs):
+    def fake_upload_to_storage(_app, *, file_content, object_key, **_kwargs: object):
         if hasattr(file_content, "seek"):
             file_content.seek(0)
         stored_objects[object_key] = file_content.read()
@@ -446,7 +446,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
             message = "prompt upload should not be called"
             raise AssertionError(message)
 
-        def clone_voice(self, **kwargs):
+        def clone_voice(self, **kwargs: object):
             return SimpleNamespace(
                 voice_id=kwargs["voice_id"],
                 demo_audio="https://example.test/demo.mp3",
@@ -566,7 +566,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
         _normalize_audio,
     )
 
-    def fake_store_resource_bytes(_app, **kwargs):
+    def fake_store_resource_bytes(_app, **kwargs: object):
         stored_calls.append(
             {
                 "owner_user_bid": kwargs["owner_user_bid"],
@@ -611,7 +611,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
             message = "prompt upload should not be called"
             raise AssertionError(message)
 
-        def clone_voice(self, **kwargs):
+        def clone_voice(self, **kwargs: object):
             return SimpleNamespace(
                 voice_id=kwargs["voice_id"],
                 demo_audio="https://example.test/demo.mp3",

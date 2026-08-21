@@ -64,13 +64,13 @@ _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 class MockClient:
     """Provide a no-op Langfuse client when tracing is disabled."""
 
-    def __init__(self, *args: object, **kwargs) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         """Initialize the no-op Langfuse client."""
 
     def __getattr__(self, name) -> Any:
         """Return a no-op callable for any Langfuse operation."""
 
-        def method(*args: object, **kwargs):
+        def method(*args: object, **kwargs: object):
             _ = (args, kwargs)
             return self
 
@@ -412,34 +412,34 @@ class LangfuseObservationHandle:
     def _child(self, delegate: Any) -> "LangfuseObservationHandle":
         return LangfuseObservationHandle(delegate, self.trace_id, self._propagation)
 
-    def span(self, **kwargs) -> "LangfuseObservationHandle":
+    def span(self, **kwargs: object) -> "LangfuseObservationHandle":
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "span")
         with self._propagation.scope(self._delegate):
             child = self._delegate.start_observation(as_type="span", **payload)
         return self._child(child)
 
-    def generation(self, **kwargs) -> "LangfuseObservationHandle":
+    def generation(self, **kwargs: object) -> "LangfuseObservationHandle":
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         payload.setdefault("name", "generation")
         with self._propagation.scope(self._delegate):
             child = self._delegate.start_observation(as_type="generation", **payload)
         return self._child(child)
 
-    def event(self, **kwargs) -> "LangfuseObservationHandle":
+    def event(self, **kwargs: object) -> "LangfuseObservationHandle":
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "event")
         with self._propagation.scope(self._delegate):
             child = self._delegate.create_event(**payload)
         return self._child(child)
 
-    def update(self, **kwargs) -> "LangfuseObservationHandle":
+    def update(self, **kwargs: object) -> "LangfuseObservationHandle":
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
             self._delegate.update(**payload)
         return self
 
-    def end(self, **kwargs) -> "LangfuseObservationHandle":
+    def end(self, **kwargs: object) -> "LangfuseObservationHandle":
         # SDK end() only accepts end_time; flush attribute updates first.
         end_time = kwargs.pop("end_time", None)
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
@@ -451,7 +451,7 @@ class LangfuseObservationHandle:
             self._delegate.end()
         return self
 
-    def update_trace(self, **kwargs) -> "LangfuseObservationHandle":
+    def update_trace(self, **kwargs: object) -> "LangfuseObservationHandle":
         payload = _map_trace_kwargs(kwargs)
         if not payload:
             return self
@@ -470,7 +470,7 @@ class LangfuseObservationHandle:
 class LangfuseTraceHandle(LangfuseObservationHandle):
     """v2-style trace facade; trace attributes live on the observations in v4."""
 
-    def update(self, **kwargs) -> "LangfuseTraceHandle":
+    def update(self, **kwargs: object) -> "LangfuseTraceHandle":
         self.update_trace(**kwargs)
         return self
 
@@ -509,7 +509,9 @@ def create_trace_with_root_span(
     return trace, LangfuseObservationHandle(root_span, trace_id, propagation)
 
 
-def update_langfuse_trace(trace: Any, payload: dict[str, Any] | None = None, **kwargs):
+def update_langfuse_trace(
+    trace: Any, payload: dict[str, Any] | None = None, **kwargs: object
+):
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
         trace.update(**update_payload)
@@ -519,7 +521,7 @@ def update_langfuse_trace(trace: Any, payload: dict[str, Any] | None = None, **k
 def update_langfuse_observation(
     observation: Any,
     payload: dict[str, Any] | None = None,
-    **kwargs,
+    **kwargs: object,
 ):
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:

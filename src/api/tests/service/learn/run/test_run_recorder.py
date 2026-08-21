@@ -82,7 +82,7 @@ def _fail_next_flush(monkeypatch, exc: Exception) -> None:
     real_flush = dao.db.session.flush
     state = {"fired": False}
 
-    def _boom(*args: object, **kwargs):
+    def _boom(*args: object, **kwargs: object):
         if not state["fired"]:
             state["fired"] = True
             raise exc

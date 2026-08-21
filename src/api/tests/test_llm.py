@@ -25,7 +25,7 @@ def _install_litellm_stub() -> None:
     def register_model(model_map):
         litellm_stub.model_cost.update(model_map)
 
-    def get_model_info(*args: object, **kwargs):
+    def get_model_info(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -122,14 +122,14 @@ class DummySpan:
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object):
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object):
         self.end_args = kwargs
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object):
         self.update_args = kwargs
 
 
@@ -471,7 +471,7 @@ def test_deepseek_model_loader_lists_models(monkeypatch):
 
 
 def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
-    def fake_get(*args: object, **kwargs):
+    def fake_get(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "network unavailable"
         raise RuntimeError(message)
@@ -496,7 +496,7 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
 def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
     captured = {}
 
-    def fake_completion(model, *args: object, **kwargs):
+    def fake_completion(model, *args: object, **kwargs: object):
         _ = args
         captured["model"] = model
         captured["kwargs"] = kwargs
@@ -780,7 +780,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 
 
 def test_openai_params_fall_back_to_existing_policy_for_unknown_model(monkeypatch):
-    def raise_unknown(*args: object, **kwargs):
+    def raise_unknown(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -1249,7 +1249,7 @@ def test_litellm_195_native_adapter_contracts():
 def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
     captured_kwargs = {}
 
-    def fake_completion(*args: object, **kwargs):
+    def fake_completion(*args: object, **kwargs: object):
         _ = args
         captured_kwargs["kwargs"] = kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
@@ -1323,7 +1323,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(monkeypatch, app):
         captured["reload_model"] = model_id
         return {"temperature": temperature}
 
-    def fake_completion(model, *args: object, **kwargs):
+    def fake_completion(model, *args: object, **kwargs: object):
         _ = args
         captured["completion_model"] = model
         captured["completion_kwargs"] = kwargs
@@ -1372,7 +1372,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, ap
     class RepeatedChunkError(Exception):
         __module__ = "litellm.exceptions"
 
-    def fake_completion(*args: object, **kwargs):
+    def fake_completion(*args: object, **kwargs: object):
         _ = (args, kwargs)
         yield FakeResponse("chunk-1", content="你好")
         message = "The model is repeating the same chunk = ！ ！ ."
@@ -1409,7 +1409,7 @@ def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
     captured_usage = {}
 
-    def fake_completion(*args: object, **kwargs):
+    def fake_completion(*args: object, **kwargs: object):
         _ = args
         captured_kwargs["kwargs"] = kwargs
         chunks = [
@@ -1479,7 +1479,7 @@ def test_chat_llm_streams(monkeypatch, app):
 def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
     monkeypatch, app, llm_method
 ):
-    def fake_completion(*args: object, **kwargs):
+    def fake_completion(*args: object, **kwargs: object):
         _ = args, kwargs
         return iter(
             [
@@ -1579,7 +1579,7 @@ def test_extract_reasoning_delta_supports_litellm_fallback_fields(delta, expecte
 
 
 def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app):
-    def fake_completion(*args: object, **kwargs):
+    def fake_completion(*args: object, **kwargs: object):
         _ = args, kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 

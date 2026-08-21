@@ -21,7 +21,7 @@ def mock_app():
     return app
 
 
-def create_test_processor(mock_app, **kwargs):
+def create_test_processor(mock_app, **kwargs: object):
     """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
@@ -50,7 +50,7 @@ class TestFinalizeSegmentation:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             _ = kwargs
             if len(args) > 1:
                 segment = args[1]
@@ -91,7 +91,7 @@ class TestFinalizeSegmentation:
         # Track submitted tasks
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             # Capture the segment text from args[1]
@@ -133,7 +133,7 @@ class TestFinalizeSegmentation:
 
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             _ = kwargs
@@ -166,7 +166,7 @@ class TestFinalizeSegmentation:
 
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             _ = kwargs
@@ -230,7 +230,7 @@ class TestFinalizeSegmentation:
 
         remaining_text = "First sentence. Second sentence."
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             _ = (args, kwargs)
             future = MagicMock()
             future.result.return_value = None
@@ -653,7 +653,7 @@ class TestOffsetDriftRegression:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             _ = kwargs
             if len(args) > 1:
                 segment = args[1]
@@ -695,7 +695,7 @@ class TestOffsetDriftRegression:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs):
+        def mock_submit(*args: object, **kwargs: object):
             _ = kwargs
             if len(args) > 1:
                 segment = args[1]
