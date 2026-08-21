@@ -1584,7 +1584,7 @@ class RunScriptContextV2:
         listen: bool = False,
         stop_event: threading.Event | None = None,
     ) -> None:
-        """Initialize the learner run-script execution context."""
+        """Select runtime models, locate the outline, and create its root trace."""
         self._last_position = -1
         self.app = app
         self._struct = struct
