@@ -61,6 +61,7 @@ class CreatorEntitlementState:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized entitlement field by key."""
         if key == "feature_payload":
             return self.feature_payload.to_metadata_json()
         return getattr(self, key)

@@ -265,6 +265,7 @@ class RenewalEventSnapshot:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -306,6 +307,7 @@ class RenewalEventResult:
         return payload
 
     def __getitem__(self, key: str) -> Any:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 

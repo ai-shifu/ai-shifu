@@ -10,6 +10,7 @@ class DictItem:
         self.value = value
 
     def __json__(self) -> dict:
+        """Return the dictionary item as JSON-compatible data."""
         return {"display": self.display, "value": self.value}
 
 
@@ -21,6 +22,7 @@ class Dict:
         self.items = items
 
     def __json__(self) -> dict:
+        """Return the dictionary definition as JSON-compatible data."""
         return {"name": self.name, "display": self.display, "items": self.items}
 
 

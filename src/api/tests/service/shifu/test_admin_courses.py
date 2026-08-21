@@ -1550,12 +1550,15 @@ class FakeColumn:
         self.name = name
 
     def __eq__(self, other) -> tuple:
+        """Build a fake equality expression."""
         return ("eq", self.name, other)
 
     def __ge__(self, other) -> tuple:
+        """Build a fake greater-than-or-equal expression."""
         return ("ge", self.name, other)
 
     def __le__(self, other) -> tuple:
+        """Build a fake less-than-or-equal expression."""
         return ("le", self.name, other)
 
     def ilike(self, value: str):

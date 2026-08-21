@@ -216,6 +216,7 @@ class TopupExpiryRepairResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -267,6 +268,7 @@ class SubscriptionCycleRepairResult:
         }
 
     def __getitem__(self, key: str) -> Any:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 

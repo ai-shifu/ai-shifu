@@ -27,6 +27,7 @@ class CheckResultDTO:
         self.raw_data = raw_data
 
     def __to_dict__(self) -> dict:
+        """Return the risk-check result as a dictionary."""
         return {
             "check_result": self.check_result,
             "risk_labels": self.risk_labels,
@@ -35,4 +36,5 @@ class CheckResultDTO:
         }
 
     def __json__(self) -> dict:
+        """Return the risk-check result as JSON-compatible data."""
         return self.__to_dict__()
