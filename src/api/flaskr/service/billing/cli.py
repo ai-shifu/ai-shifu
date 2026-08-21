@@ -582,7 +582,10 @@ def register_billing_commands(console) -> None:
     @with_appcontext
     def provider_price_activate_command(provider_price_bid: str) -> None:
         """Validate and activate a Stripe price mapping."""
-        _echo_payload(activate_cli_provider_price_mapping(provider_price_bid))
+        payload = activate_cli_provider_price_mapping(provider_price_bid)
+        _echo_payload(payload)
+        if payload["status"] == "invalid":
+            raise click.exceptions.Exit(1)
 
     @provider_price_group.command(name="retire")
     @click.option(
@@ -604,7 +607,10 @@ def register_billing_commands(console) -> None:
     @with_appcontext
     def provider_price_validate_command(provider_price_bid: str) -> None:
         """Validate a Stripe price mapping without activating it."""
-        _echo_payload(validate_cli_provider_price_mapping(provider_price_bid))
+        payload = validate_cli_provider_price_mapping(provider_price_bid)
+        _echo_payload(payload)
+        if payload["status"] == "invalid":
+            raise click.exceptions.Exit(1)
 
     @provider_price_group.command(name="list")
     @click.option("--product-bid", default="", help="Optional bill product bid.")
@@ -624,24 +630,33 @@ def register_billing_commands(console) -> None:
         help="Optional provider price mapping status label.",
     )
     @click.option(
-        "--livemode/--any-mode",
-        default=None,
-        help="Filter to live-mode objects, or omit for both modes.",
+        "--mode",
+        default="all",
+        show_default=True,
+        type=click.Choice(["all", "test", "live"], case_sensitive=False),
+        help="Filter by Stripe mode.",
     )
     @with_appcontext
     def provider_price_list_command(
         product_bid: str,
         provider_account_id: str,
         status_label: str,
-        livemode: bool | None,
+        mode: str,
     ) -> None:
         """List Stripe price mappings."""
+        normalized_mode = str(mode or "all").strip().lower()
         _echo_payload(
             list_cli_provider_price_mappings(
                 product_bid=product_bid,
                 provider_account_id=provider_account_id,
                 status_label=status_label,
-                livemode=livemode,
+                livemode=(
+                    True
+                    if normalized_mode == "live"
+                    else False
+                    if normalized_mode == "test"
+                    else None
+                ),
             )
         )
 

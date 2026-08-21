@@ -172,27 +172,17 @@ def test_provider_price_mapping_upsert_is_idempotent(app) -> None:
         )
 
 
-@pytest.mark.parametrize(
-    "stale_status",
-    [
-        BILLING_PROVIDER_PRICE_STATUS_INVALID,
-        BILLING_PROVIDER_PRICE_STATUS_RETIRED,
-    ],
-)
-def test_provider_price_mapping_rebind_resets_inactive_lifecycle_state(
-    app,
-    stale_status: int,
-) -> None:
-    product_bid = f"bill-product-mapping-rebind-{stale_status}"
+def test_provider_price_mapping_rebind_resets_invalid_lifecycle_state(app) -> None:
+    product_bid = "bill-product-mapping-rebind-invalid"
     with app.app_context():
         db.session.add(_product(product_bid))
         db.session.commit()
         mapping = _bind_mapping(
             product_bid=product_bid,
-            provider_price_id=f"price_rebind_{stale_status}",
+            provider_price_id="price_rebind_invalid",
         )
         stale_time = now_utc()
-        mapping.status = stale_status
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
         mapping.validated_at = stale_time
         mapping.activated_at = stale_time
         mapping.retired_at = stale_time
@@ -203,7 +193,7 @@ def test_provider_price_mapping_rebind_resets_inactive_lifecycle_state(
             product_bid=product_bid,
             provider_account_id="acct_test",
             provider_product_id="prod_growth_updated",
-            provider_price_id=f"price_rebind_{stale_status}",
+            provider_price_id="price_rebind_invalid",
             livemode=False,
             metadata={"source": "rebound"},
         )
@@ -218,6 +208,64 @@ def test_provider_price_mapping_rebind_resets_inactive_lifecycle_state(
         assert rebound.validation_error == ""
         assert rebound.provider_product_id == "prod_growth_updated"
         assert rebound.metadata_json == {"source": "rebound"}
+
+
+def test_provider_price_mapping_rejects_retired_rebind(app) -> None:
+    product_bid = "bill-product-mapping-rebind-retired"
+    with app.app_context():
+        db.session.add(_product(product_bid))
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_rebind_retired",
+        )
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        mapping.retired_at = now_utc()
+        db.session.commit()
+
+        with pytest.raises(ProviderPriceMappingError) as exc_info:
+            upsert_provider_price_mapping(
+                product_bid=product_bid,
+                provider_account_id="acct_test",
+                provider_product_id="prod_growth_updated",
+                provider_price_id="price_rebind_retired",
+                livemode=False,
+            )
+
+        assert exc_info.value.code == "retired_mapping_cannot_be_rebound"
+        assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        assert mapping.product_bid == product_bid
+        assert mapping.provider_product_id == "prod_growth"
+
+
+def test_provider_price_mapping_rejects_rebinding_price_to_different_product(
+    app,
+) -> None:
+    first_product_bid = "bill-product-mapping-price-original"
+    second_product_bid = "bill-product-mapping-price-other"
+    with app.app_context():
+        db.session.add(_product(first_product_bid))
+        db.session.add(_product(second_product_bid))
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=first_product_bid,
+            provider_price_id="price_rebind_other_product",
+        )
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
+        db.session.commit()
+
+        with pytest.raises(ProviderPriceMappingError) as exc_info:
+            upsert_provider_price_mapping(
+                product_bid=second_product_bid,
+                provider_account_id="acct_test",
+                provider_product_id="prod_business",
+                provider_price_id="price_rebind_other_product",
+                livemode=False,
+            )
+
+        assert exc_info.value.code == "provider_price_product_mismatch"
+        assert mapping.product_bid == first_product_bid
+        assert mapping.provider_product_id == "prod_growth"
 
 
 def test_provider_price_activation_retires_existing_active_mapping(app) -> None:
@@ -338,6 +386,44 @@ def test_provider_price_validate_keeps_valid_draft_as_draft(app) -> None:
         assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_DRAFT
         assert mapping.validated_at is not None
         assert mapping.validation_error == ""
+
+
+def test_active_provider_price_validate_failure_invalidates_mapping(app) -> None:
+    product_bid = "bill-product-mapping-active-invalid"
+    with app.app_context():
+        product = _product(product_bid)
+        db.session.add(product)
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_active_invalid",
+        )
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_ACTIVE
+        db.session.commit()
+
+        result = validate_provider_price_mapping_by_bid(
+            mapping.provider_price_bid,
+            adapter=_FakeStripeCatalogAdapter(
+                _snapshot(
+                    price_id="price_active_invalid",
+                    unit_amount=6900,
+                    product_code=product.product_code,
+                )
+            ),
+        )
+        db.session.commit()
+
+        assert result.valid is False
+        assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_INVALID
+        assert "unit_amount_mismatch" in mapping.validation_error
+        assert (
+            get_active_provider_price_mapping(
+                product_bid=product_bid,
+                provider_account_id="acct_test",
+                livemode=False,
+            )
+            is None
+        )
 
 
 def test_active_provider_price_selection_fails_closed_for_multiple_rows() -> None:

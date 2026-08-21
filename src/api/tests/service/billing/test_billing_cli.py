@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytest
 from flask import Flask
 from flaskr import dao
+from flaskr.service.billing import cli as billing_cli_module
 from flaskr.service.billing import notifications as billing_notifications
 from flaskr.service.billing.cli import register_billing_commands
 from flaskr.service.billing.consts import (
@@ -2060,11 +2061,24 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
             "bill-product-provider-price-cli",
         ]
     )
+    live_list_result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "provider-price",
+            "list",
+            "--product-bid",
+            "bill-product-provider-price-cli",
+            "--mode",
+            "live",
+        ]
+    )
 
     assert seed_result.exit_code == 0
     assert first_bind.exit_code == 0
     assert second_bind.exit_code == 0
     assert list_result.exit_code == 0
+    assert live_list_result.exit_code == 0
 
     first_payload = json.loads(first_bind.output)
     second_payload = json.loads(second_bind.output)
@@ -2078,6 +2092,7 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
     assert second_payload["mapping"]["metadata"] == {"operator": "qa"}
     assert list_payload["count"] == 1
     assert list_payload["items"][0]["metadata"] == {"operator": "qa"}
+    assert json.loads(live_list_result.output)["count"] == 0
     assert "sk_test" not in list_result.output
 
     inspect_result = runner.invoke(
@@ -2115,3 +2130,35 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
         ).one()
         assert mapping.provider_price_id == "price_growth_month_cli"
         assert mapping.retired_at is not None
+
+
+@pytest.mark.parametrize("command", ["validate", "activate"])
+def test_billing_provider_price_cli_invalid_validation_exits_nonzero(
+    billing_cli_runner,
+    monkeypatch,
+    command: str,
+) -> None:
+    def _invalid_payload(provider_price_bid: str) -> dict[str, object]:
+        assert provider_price_bid == "provider-price-invalid"
+        return {"status": "invalid", "validation": {"valid": False}}
+
+    target_name = (
+        "validate_cli_provider_price_mapping"
+        if command == "validate"
+        else "activate_cli_provider_price_mapping"
+    )
+    monkeypatch.setattr(billing_cli_module, target_name, _invalid_payload)
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "provider-price",
+            command,
+            "--provider-price-bid",
+            "provider-price-invalid",
+        ]
+    )
+
+    assert result.exit_code == 1
+    assert json.loads(result.output)["status"] == "invalid"

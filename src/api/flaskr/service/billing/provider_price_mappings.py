@@ -190,16 +190,29 @@ def upsert_provider_price_mapping(
             deleted=0,
         )
         db.session.add(row)
+    elif row.product_bid and row.product_bid != product.product_bid:
+        raise ProviderPriceMappingError(
+            "provider_price_product_mismatch",
+            "Provider price mappings cannot be rebound to a different product",
+            {
+                "provider_price_bid": row.provider_price_bid,
+                "existing_product_bid": row.product_bid,
+                "requested_product_bid": product.product_bid,
+            },
+        )
     elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_ACTIVE:
         raise ProviderPriceMappingError(
             "active_mapping_cannot_be_rebound",
             "Active provider price mappings cannot be rebound; retire them first",
             {"provider_price_bid": row.provider_price_bid},
         )
-    elif int(row.status or 0) in {
-        BILLING_PROVIDER_PRICE_STATUS_INVALID,
-        BILLING_PROVIDER_PRICE_STATUS_RETIRED,
-    }:
+    elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        raise ProviderPriceMappingError(
+            "retired_mapping_cannot_be_rebound",
+            "Retired provider price mappings cannot be rebound; create a new provider price instead",
+            {"provider_price_bid": row.provider_price_bid},
+        )
+    elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_INVALID:
         row.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
         row.validated_at = None
         row.activated_at = None
@@ -286,8 +299,7 @@ def activate_provider_price_mapping(
         mapping.validated_at = now_utc()
         if snapshot is not None:
             _apply_provider_snapshot(mapping, snapshot)
-        if int(mapping.status or 0) != BILLING_PROVIDER_PRICE_STATUS_ACTIVE:
-            mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
         mapping.validation_error = _validation_summary_error_text(summary)
         db.session.flush()
         summary.mapping = serialize_provider_price_mapping(mapping)
@@ -408,10 +420,7 @@ def _apply_validation_result(
         if summary.valid
         else _validation_summary_error_text(summary)
     )
-    if (
-        not summary.valid
-        and int(mapping.status or 0) != BILLING_PROVIDER_PRICE_STATUS_ACTIVE
-    ):
+    if not summary.valid:
         mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
 
 
