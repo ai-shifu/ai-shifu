@@ -2106,7 +2106,7 @@ class Config(FlaskConfig):
     def __init__(
         self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
     ) -> None:
-        """Build Flask configuration from defaults and environment variables."""
+        """Bind parent and environment config, then populate Redis prefixes."""
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__
