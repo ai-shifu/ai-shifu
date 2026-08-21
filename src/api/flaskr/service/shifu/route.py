@@ -285,7 +285,7 @@ def _resolve_publish_base_url(app: Flask) -> str:
 @inject
 def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     """Register shifu routes."""
-    app.logger.info(f"register shifu routes {path_prefix}")
+    app.logger.info("register shifu routes %s", path_prefix)
 
     def _get_login_methods_enabled() -> set[str]:
         """Resolve enabled login methods from configuration."""
@@ -479,7 +479,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if page_index < 0 or page_size < 1:
             raise_param_error("page_index or page_size is less than 0")
         app.logger.info(
-            f"get shifu list, user_id: {user_id}, page_index: {page_index}, page_size: {page_size}, is_favorite: {is_favorite}"
+            "get shifu list, user_id: %s, page_index: %s, page_size: %s, is_favorite: %s",
+            user_id,
+            page_index,
+            page_size,
+            is_favorite,
         )
         return make_common_response(
             get_shifu_draft_list(
@@ -822,7 +826,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         base_url = _resolve_publish_base_url(app)
-        app.logger.info(f"get shifu detail, user_id: {user_id}, shifu_bid: {shifu_bid}")
+        app.logger.info(
+            "get shifu detail, user_id: %s, shifu_bid: %s", user_id, shifu_bid
+        )
         return make_common_response(
             get_shifu_draft_info(app, user_id, shifu_bid, base_url)
         )
@@ -1193,7 +1199,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         outlines = request_json.get("outlines")
         app.logger.info(type(outlines))
         app.logger.info(
-            f"reorder outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}, outlines: {outlines}"
+            "reorder outline tree, user_id: %s, shifu_bid: %s, outlines: %s",
+            user_id,
+            shifu_bid,
+            outlines,
         )
         return make_common_response(
             reorder_outline_tree(app, user_id, shifu_bid, outlines)

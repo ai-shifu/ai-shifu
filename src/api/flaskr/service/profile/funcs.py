@@ -371,7 +371,7 @@ def get_user_profile_labels(
     Returns:
         list: User profile labels.
     """
-    app.logger.info(f"get user profile labels:{course_id}")
+    app.logger.info("get user profile labels:%s", course_id)
     candidate_shifus = [course_id or ""]
     if course_id:
         candidate_shifus.append("")
@@ -454,7 +454,7 @@ def get_user_profile_labels(
                     shifu_bid="",
                 )
         else:
-            app.logger.info(f"profile_item not found:{profile_key}")
+            app.logger.info("profile_item not found:%s", profile_key)
         if user_value is None and user_values:
             user_value = _get_latest_variable_value(
                 user_values,
@@ -487,7 +487,7 @@ def update_user_profile_with_lable(
     update_all: bool = False,
     course_id: str | None = None,
 ):
-    app.logger.info(f"update user profile with lable:{course_id}")
+    app.logger.info("update user profile with lable:%s", course_id)
     profile_labels = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []

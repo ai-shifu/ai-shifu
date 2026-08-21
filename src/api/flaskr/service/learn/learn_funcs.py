@@ -492,7 +492,7 @@ def get_learn_record(
             return LegacyLearnRecord(
                 records=[],
             )
-        app.logger.info(f"progress_record: {progress_record.progress_record_bid}")
+        app.logger.info("progress_record: %s", progress_record.progress_record_bid)
         records = build_legacy_record_for_progress(
             progress_record,
             user_bid=user_bid,

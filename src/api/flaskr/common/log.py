@@ -176,11 +176,11 @@ def init_log(app: Flask) -> Flask:
                     request_body["Form"] = request.form.to_dict()
                 else:
                     request_body["Raw"] = request.get_data(as_text=True)
-                app.logger.info(f"Request body: {request_body}")
+                app.logger.info("Request body: %s", request_body)
             except Exception:
                 app.logger.exception("Failed to get request body")
         else:
-            app.logger.info(f"Request method: {request.method}")
+            app.logger.info("Request method: %s", request.method)
 
     @app.after_request
     def after_request(response):
@@ -200,7 +200,7 @@ def init_log(app: Flask) -> Flask:
                 app.logger.info("Response: <streaming response omitted>")
                 return response
             response_data = response.get_data(as_text=True)
-            app.logger.info(f"Response: {response_data}")
+            app.logger.info("Response: %s", response_data)
         except Exception:
             app.logger.exception("Error logging response")
         return response

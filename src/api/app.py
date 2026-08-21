@@ -111,7 +111,7 @@ def create_app() -> Flask:
             flask_app, str(Path("flaskr") / "plugins"), plugin_manager
         )
     except Exception as e:
-        flask_app.logger.warning(f"load plugins error: {e}")
+        flask_app.logger.warning("load plugins error: %s", e)
 
     Migrate(flask_app, dao.db)
     # register route
