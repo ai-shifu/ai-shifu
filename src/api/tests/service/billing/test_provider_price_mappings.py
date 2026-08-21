@@ -388,6 +388,39 @@ def test_provider_price_validate_keeps_valid_draft_as_draft(app) -> None:
         assert mapping.validation_error == ""
 
 
+def test_provider_price_validate_moves_recovered_invalid_mapping_to_draft(
+    app,
+) -> None:
+    product_bid = "bill-product-mapping-recovered-invalid"
+    with app.app_context():
+        product = _product(product_bid)
+        db.session.add(product)
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_growth_month_recovered_invalid",
+        )
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
+        mapping.validation_error = '[{"code":"stripe_catalog_retrieve_failed"}]'
+        db.session.commit()
+
+        result = validate_provider_price_mapping_by_bid(
+            mapping.provider_price_bid,
+            adapter=_FakeStripeCatalogAdapter(
+                _snapshot(
+                    price_id="price_growth_month_recovered_invalid",
+                    product_code=product.product_code,
+                )
+            ),
+        )
+        db.session.commit()
+
+        assert result.valid is True
+        assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_DRAFT
+        assert mapping.validated_at is not None
+        assert mapping.validation_error == ""
+
+
 def test_active_provider_price_validate_failure_invalidates_mapping(app) -> None:
     product_bid = "bill-product-mapping-active-invalid"
     with app.app_context():

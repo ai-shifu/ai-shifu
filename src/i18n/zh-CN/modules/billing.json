@@ -171,7 +171,8 @@
         "create": "新增价格",
         "retire": "停用",
         "saveDraft": "保存并读取",
-        "validate": "校验"
+        "validate": "校验",
+        "viewIssues": "查看问题"
       },
       "confirm": {
         "activate": "确认启用这个收款价格？启用后，该商品后续支付将使用这个价格。",
@@ -195,11 +196,6 @@
         "product": "商品",
         "status": "状态"
       },
-      "groups": {
-        "planTier": "套餐档位：{tier}",
-        "plans": "套餐",
-        "topups": "积分包"
-      },
       "health": {
         "active": "已启用",
         "draft": "待启用",
@@ -215,15 +211,57 @@
         "oneTime": "一次性",
         "year": "每 {count} 年"
       },
+      "issueDrawer": {
+        "description": "展示面向运营的原因说明，同时保留原始 code，便于技术排查。",
+        "issues": "问题原因",
+        "noIssues": "暂无问题详情",
+        "priceId": "Stripe 价格 ID",
+        "raw": "原始信息",
+        "title": "价格校验问题"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "计费周期数量与本地商品不一致",
+        "billing_interval_mismatch": "计费周期与本地商品不一致",
+        "currency_mismatch": "币种与本地商品不一致",
+        "local_plan_billing_mode_invalid": "本地套餐计费方式配置错误",
+        "local_topup_billing_interval_count_invalid": "本地积分包周期数量应为 0",
+        "local_topup_billing_interval_invalid": "本地积分包不应配置周期",
+        "local_topup_billing_mode_invalid": "本地积分包计费方式配置错误",
+        "plan_requires_licensed_recurring_price": "套餐必须使用 licensed 周期价格",
+        "plan_requires_recurring_price": "套餐必须绑定 Stripe 周期价格",
+        "price_livemode_mismatch": "Stripe 价格环境与当前配置不一致",
+        "price_metadata_billing_interval_mismatch": "Stripe 价格计费周期 metadata 不一致",
+        "price_metadata_billing_interval_missing": "Stripe 价格缺少计费周期 metadata",
+        "price_metadata_credit_amount_mismatch": "Stripe 价格积分数 metadata 不一致",
+        "price_metadata_credit_amount_missing": "Stripe 价格缺少积分数 metadata",
+        "price_metadata_product_code_mismatch": "Stripe 价格商品编码 metadata 不一致",
+        "price_metadata_product_code_missing": "Stripe 价格缺少商品编码 metadata",
+        "price_product_mismatch": "Stripe 价格不属于当前商品",
+        "product_livemode_mismatch": "Stripe 商品环境与当前配置不一致",
+        "product_metadata_market_mismatch": "Stripe 商品市场 metadata 不一致",
+        "product_metadata_market_missing": "Stripe 商品缺少市场 metadata",
+        "product_metadata_plan_tier_mismatch": "Stripe 商品套餐档位 metadata 不一致",
+        "product_metadata_plan_tier_missing": "Stripe 商品缺少套餐档位 metadata",
+        "product_metadata_product_type_mismatch": "Stripe 商品类型 metadata 不一致",
+        "product_metadata_product_type_missing": "Stripe 商品缺少商品类型 metadata",
+        "provider_account_mismatch": "Stripe 账号不一致",
+        "provider_price_inactive": "Stripe 价格已停用",
+        "provider_price_mismatch": "Stripe 价格 ID 与当前配置不一致",
+        "provider_price_unit_amount_missing": "Stripe 价格缺少固定金额",
+        "provider_product_inactive": "Stripe 商品已停用",
+        "provider_product_mismatch": "Stripe 商品 ID 与当前配置不一致",
+        "stripe_catalog_reference_missing": "缺少 Stripe 商品 ID 或价格 ID",
+        "stripe_catalog_retrieve_failed": "无法从 Stripe 读取商品或价格",
+        "topup_requires_one_time_price": "积分包必须绑定 Stripe 一次性价格",
+        "unit_amount_mismatch": "收款金额与页面售价不一致",
+        "unknown": "未知问题",
+        "unsupported_product_type": "该商品类型暂不支持配置收款价格"
+      },
       "loadError": "暂时无法加载套餐价格配置。",
       "loading": "正在加载套餐价格...",
       "menuTitle": "套餐管理",
-      "mode": {
-        "all": "全部模式",
-        "live": "正式",
-        "test": "测试"
-      },
       "pageDescription": "管理海外套餐和积分包的收款价格，确保页面展示、实际支付和后续对账一致。",
+      "productCredits": "{credits} 积分",
       "productType": {
         "plan": "套餐",
         "topup": "积分包"
@@ -243,9 +281,10 @@
       },
       "table": {
         "actions": "操作",
-        "environment": "环境",
+        "benefit": "权益",
         "localPrice": "页面售价",
         "product": "商品",
+        "productType": "类型",
         "status": "状态",
         "stripePrice": "收款价格",
         "validatedAt": "最近校验"

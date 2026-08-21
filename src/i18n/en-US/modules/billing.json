@@ -171,7 +171,8 @@
         "create": "Add price",
         "retire": "Disable",
         "saveDraft": "Save and read",
-        "validate": "Check"
+        "validate": "Check",
+        "viewIssues": "View issues"
       },
       "confirm": {
         "activate": "Enable this payment price? Future checkout for this product will use it.",
@@ -195,11 +196,6 @@
         "product": "Product",
         "status": "Status"
       },
-      "groups": {
-        "planTier": "Plan tier: {tier}",
-        "plans": "Plans",
-        "topups": "Credit packs"
-      },
       "health": {
         "active": "Enabled",
         "draft": "Not enabled",
@@ -215,15 +211,57 @@
         "oneTime": "One-time",
         "year": "Every {count} year(s)"
       },
+      "issueDrawer": {
+        "description": "Shows operator-friendly reasons and keeps the raw codes for technical troubleshooting.",
+        "issues": "Issue reasons",
+        "noIssues": "No issue details yet",
+        "priceId": "Stripe price ID",
+        "raw": "Raw details",
+        "title": "Price validation issues"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "Billing interval count does not match the local item",
+        "billing_interval_mismatch": "Billing interval does not match the local item",
+        "currency_mismatch": "Currency does not match the local item",
+        "local_plan_billing_mode_invalid": "Local plan billing mode is invalid",
+        "local_topup_billing_interval_count_invalid": "Local credit pack interval count must be 0",
+        "local_topup_billing_interval_invalid": "Local credit packs must not use a recurring interval",
+        "local_topup_billing_mode_invalid": "Local credit pack billing mode is invalid",
+        "plan_requires_licensed_recurring_price": "Plans must use licensed recurring pricing",
+        "plan_requires_recurring_price": "Plans must use a recurring Stripe price",
+        "price_livemode_mismatch": "Stripe price mode does not match",
+        "price_metadata_billing_interval_mismatch": "Stripe price billing interval metadata does not match",
+        "price_metadata_billing_interval_missing": "Stripe price is missing billing interval metadata",
+        "price_metadata_credit_amount_mismatch": "Stripe price credit amount metadata does not match",
+        "price_metadata_credit_amount_missing": "Stripe price is missing credit amount metadata",
+        "price_metadata_product_code_mismatch": "Stripe price product code metadata does not match",
+        "price_metadata_product_code_missing": "Stripe price is missing product code metadata",
+        "price_product_mismatch": "Stripe price is not attached to this product",
+        "product_livemode_mismatch": "Stripe product mode does not match",
+        "product_metadata_market_mismatch": "Stripe product market metadata does not match",
+        "product_metadata_market_missing": "Stripe product is missing market metadata",
+        "product_metadata_plan_tier_mismatch": "Stripe product plan tier metadata does not match",
+        "product_metadata_plan_tier_missing": "Stripe product is missing plan tier metadata",
+        "product_metadata_product_type_mismatch": "Stripe product type metadata does not match",
+        "product_metadata_product_type_missing": "Stripe product is missing product type metadata",
+        "provider_account_mismatch": "Stripe account does not match",
+        "provider_price_inactive": "Stripe price is inactive",
+        "provider_price_mismatch": "Stripe price ID does not match this item",
+        "provider_price_unit_amount_missing": "Stripe price is missing a fixed amount",
+        "provider_product_inactive": "Stripe product is inactive",
+        "provider_product_mismatch": "Stripe product ID does not match this item",
+        "stripe_catalog_reference_missing": "Stripe product ID or price ID is missing",
+        "stripe_catalog_retrieve_failed": "Unable to read the product or price from Stripe",
+        "topup_requires_one_time_price": "Credit packs must use a one-time Stripe price",
+        "unit_amount_mismatch": "Payment amount does not match the display price",
+        "unknown": "Unknown issue",
+        "unsupported_product_type": "This item type cannot be linked to a payment price"
+      },
       "loadError": "Unable to load package price settings right now.",
       "loading": "Loading package prices...",
       "menuTitle": "Package Management",
-      "mode": {
-        "all": "All modes",
-        "live": "Live",
-        "test": "Test"
-      },
       "pageDescription": "Manage payment prices for overseas plans and credit packs so package display, checkout, and reconciliation stay aligned.",
+      "productCredits": "{credits} credits",
       "productType": {
         "plan": "Plan",
         "topup": "Credit pack"
@@ -243,9 +281,10 @@
       },
       "table": {
         "actions": "Actions",
-        "environment": "Mode",
+        "benefit": "Benefits",
         "localPrice": "Display price",
         "product": "Product",
+        "productType": "Type",
         "status": "Status",
         "stripePrice": "Payment price",
         "validatedAt": "Last checked"

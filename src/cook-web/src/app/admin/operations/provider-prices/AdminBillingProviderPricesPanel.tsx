@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -20,6 +20,19 @@ import {
 } from '@/components/ui/Dialog';
 import { Label } from '@/components/ui/Label';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/Sheet';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -36,6 +49,7 @@ import {
 } from '@/components/ui/Table';
 import { toast } from '@/hooks/useToast';
 import {
+  formatBillingCreditAmount,
   formatBillingDateTime,
   formatBillingPrice,
   resolveBillingEmptyLabel,
@@ -89,24 +103,62 @@ function resolveProductStatus(
   return String(mapping.status_label || 'missing');
 }
 
-function formatIssues(issues: Array<Record<string, string>> = []): string {
+function resolveIssueLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  code: string,
+): string {
+  const normalizedCode = String(code || '').trim();
+  if (!normalizedCode) {
+    return t('module.billing.admin.providerPrices.issueMessages.unknown');
+  }
+  const key = `module.billing.admin.providerPrices.issueMessages.${normalizedCode}`;
+  const translated = t(key);
+  return translated && translated !== key ? translated : normalizedCode;
+}
+
+function formatIssues(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  issues: Array<Record<string, string>> = [],
+): string {
   return issues
-    .map(issue => issue.code || issue.message || '')
+    .map(issue => resolveIssueLabel(t, issue.code || issue.message || ''))
     .filter(Boolean)
     .join(', ');
 }
 
-function resolveProductGroupLabel(
+function parseValidationIssueCodes(value?: string | null): string[] {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(normalizedValue) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map(item => {
+          if (item && typeof item === 'object' && 'code' in item) {
+            return String((item as { code?: unknown }).code || '').trim();
+          }
+          return '';
+        })
+        .filter(Boolean);
+    }
+  } catch {
+    return [normalizedValue];
+  }
+  return [normalizedValue];
+}
+
+function resolveProductBenefit(
   t: (key: string, options?: Record<string, unknown>) => string,
   product: AdminBillingProviderPriceProduct,
 ): string {
   if (product.product_type === 'topup') {
-    return t('module.billing.admin.providerPrices.groups.topups');
+    return t('module.billing.admin.providerPrices.productCredits', {
+      credits: formatBillingCreditAmount(product.credit_amount),
+    });
   }
-  const tier = String(product.plan_tier || '').trim();
-  return tier
-    ? t('module.billing.admin.providerPrices.groups.planTier', { tier })
-    : t('module.billing.admin.providerPrices.groups.plans');
+  return resolveProductBillingMeta(t, product);
 }
 
 function resolveProductBillingMeta(
@@ -146,7 +198,8 @@ function buildProductOptionLabel(
     t,
     product.display_name,
     product.product_code,
-  )} · ${resolveProductBillingMeta(t, product)}`;
+    { credits: formatBillingCreditAmount(product.credit_amount) },
+  )} · ${resolveProductBenefit(t, product)}`;
 }
 
 export function AdminBillingProviderPricesPanel() {
@@ -155,6 +208,8 @@ export function AdminBillingProviderPricesPanel() {
   const [statusFilter, setStatusFilter] = React.useState(ALL_STATUSES);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [form, setForm] = React.useState<DraftMappingForm>(DEFAULT_FORM);
+  const [issueMapping, setIssueMapping] =
+    React.useState<AdminBillingProviderPriceMapping | null>(null);
   const [actionLoading, setActionLoading] = React.useState('');
   const clearLabel = t('common.core.close');
 
@@ -201,23 +256,6 @@ export function AdminBillingProviderPricesPanel() {
     products,
     statusFilter,
   ]);
-
-  const groupedProducts = React.useMemo(() => {
-    const groups: Array<{
-      label: string;
-      items: AdminBillingProviderPriceProduct[];
-    }> = [];
-    for (const product of visibleProducts) {
-      const label = resolveProductGroupLabel(t, product);
-      const lastGroup = groups.at(-1);
-      if (lastGroup?.label === label) {
-        lastGroup.items.push(product);
-      } else {
-        groups.push({ label, items: [product] });
-      }
-    }
-    return groups;
-  }, [visibleProducts, t]);
 
   const summaryItems = React.useMemo(() => {
     const activeCount = products.filter(
@@ -305,8 +343,8 @@ export function AdminBillingProviderPricesPanel() {
           result as AdminBillingProviderPriceValidationResult;
         const issueText =
           validationResult?.valid === false
-            ? formatIssues(validationResult.errors)
-            : formatIssues(validationResult.warnings);
+            ? formatIssues(t, validationResult.errors)
+            : formatIssues(t, validationResult.warnings);
         const actionFailedValidation =
           action === 'activate' && validationResult?.valid === false;
         toast({
@@ -355,17 +393,6 @@ export function AdminBillingProviderPricesPanel() {
       setActionLoading('');
     }
   }, [form, mutate, t]);
-
-  const renderEnvironment = (
-    mapping?: AdminBillingProviderPriceMapping | null,
-  ) => {
-    if (!mapping) {
-      return resolveBillingEmptyLabel(t);
-    }
-    return mapping.livemode
-      ? t('module.billing.admin.providerPrices.mode.live')
-      : t('module.billing.admin.providerPrices.mode.test');
-  };
 
   const filterItems = React.useMemo(
     () => [
@@ -499,220 +526,290 @@ export function AdminBillingProviderPricesPanel() {
         loading={isLoading && !data}
         isEmpty={!visibleProducts.length}
         emptyContent={t('module.billing.admin.providerPrices.empty')}
-        emptyColSpan={7}
+        emptyColSpan={8}
         containerClassName='min-h-0 flex-1'
         tableWrapperClassName='max-h-[calc(100vh-22rem)] overflow-auto'
         table={emptyRow => (
-          <Table className='min-w-[1120px] table-fixed'>
+          <Table className='min-w-[1080px] table-fixed'>
             <TableHeader>
               <TableRow>
-                <TableHead className='w-[280px]'>
+                <TableHead className='w-[300px]'>
                   {t('module.billing.admin.providerPrices.table.product')}
                 </TableHead>
-                <TableHead className='w-[140px]'>
+                <TableHead className='w-[86px]'>
+                  {t('module.billing.admin.providerPrices.table.productType')}
+                </TableHead>
+                <TableHead className='w-[112px]'>
+                  {t('module.billing.admin.providerPrices.table.benefit')}
+                </TableHead>
+                <TableHead className='w-[118px]'>
                   {t('module.billing.admin.providerPrices.table.localPrice')}
                 </TableHead>
-                <TableHead className='w-[180px]'>
+                <TableHead className='w-[126px]'>
                   {t('module.billing.admin.providerPrices.table.stripePrice')}
                 </TableHead>
-                <TableHead className='w-[120px]'>
+                <TableHead className='w-[108px]'>
                   {t('module.billing.admin.providerPrices.table.status')}
                 </TableHead>
-                <TableHead className='w-[100px]'>
-                  {t('module.billing.admin.providerPrices.table.environment')}
-                </TableHead>
-                <TableHead className='w-[170px]'>
+                <TableHead className='w-[142px]'>
                   {t('module.billing.admin.providerPrices.table.validatedAt')}
                 </TableHead>
-                <TableHead className='w-[230px] text-right'>
+                <TableHead className='w-[88px] text-left'>
                   {t('module.billing.admin.providerPrices.table.actions')}
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {emptyRow}
-              {groupedProducts.map(group => (
-                <React.Fragment key={group.label}>
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className='bg-muted/40 py-2 text-xs font-medium text-muted-foreground'
-                    >
-                      {group.label}
-                    </TableCell>
-                  </TableRow>
-                  {group.items.map(product => {
-                    const activeMapping =
-                      data?.active_by_product?.[product.product_bid];
-                    const history =
-                      data?.history_by_product?.[product.product_bid] || [];
-                    const latestMapping = activeMapping || history[0] || null;
-                    const status = resolveProductStatus(activeMapping);
-                    const productDescription = resolveProductDescription(
-                      t,
-                      product,
-                    );
-                    return (
-                      <TableRow key={product.product_bid}>
-                        <TableCell className='align-top'>
-                          <div className='space-y-2'>
-                            <div className='font-medium text-foreground'>
-                              {resolveAdminBillingProductName(
-                                t,
-                                product.display_name,
-                                product.product_code,
-                              )}
-                            </div>
-                            <div className='flex flex-wrap gap-1.5'>
-                              <Badge
-                                variant='outline'
-                                className='border-slate-200 bg-slate-50 text-slate-600'
-                              >
-                                {product.product_type === 'topup'
-                                  ? t(
-                                      'module.billing.admin.providerPrices.productType.topup',
-                                    )
-                                  : t(
-                                      'module.billing.admin.providerPrices.productType.plan',
-                                    )}
-                              </Badge>
-                              <Badge
-                                variant='outline'
-                                className='border-slate-200 bg-slate-50 text-slate-600'
-                              >
-                                {resolveProductBillingMeta(t, product)}
-                              </Badge>
-                            </div>
-                            {productDescription ? (
-                              <div className='line-clamp-2 text-xs text-muted-foreground'>
-                                {productDescription}
-                              </div>
-                            ) : null}
+              {visibleProducts.map(product => {
+                const activeMapping =
+                  data?.active_by_product?.[product.product_bid];
+                const history =
+                  data?.history_by_product?.[product.product_bid] || [];
+                const latestMapping = activeMapping || history[0] || null;
+                const status = resolveProductStatus(latestMapping);
+                const productDescription = resolveProductDescription(
+                  t,
+                  product,
+                );
+                return (
+                  <TableRow key={product.product_bid}>
+                    <TableCell className='align-top'>
+                      <div className='space-y-2'>
+                        <div className='font-medium text-foreground'>
+                          {resolveAdminBillingProductName(
+                            t,
+                            product.display_name,
+                            product.product_code,
+                            {
+                              credits: formatBillingCreditAmount(
+                                product.credit_amount,
+                              ),
+                            },
+                          )}
+                        </div>
+                        {productDescription ? (
+                          <div className='line-clamp-2 text-xs text-muted-foreground'>
+                            {productDescription}
                           </div>
-                        </TableCell>
-                        <TableCell className='align-top text-sm'>
-                          {formatBillingPrice(
-                            product.price_amount,
-                            product.currency,
-                            i18n.language,
-                          )}
-                        </TableCell>
-                        <TableCell className='align-top text-sm'>
-                          {latestMapping ? (
-                            <div className='space-y-1'>
-                              <div className='font-medium text-foreground'>
-                                {formatBillingPrice(
-                                  latestMapping.unit_amount,
-                                  latestMapping.currency,
-                                  i18n.language,
-                                )}
-                              </div>
-                              <div className='truncate text-xs text-muted-foreground'>
-                                {latestMapping.provider_price_id}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className='text-muted-foreground'>
-                              {resolveBillingEmptyLabel(t)}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className='align-top'>
-                          <Badge
-                            variant='outline'
-                            className={statusClass(status)}
-                          >
-                            {t(
-                              `module.billing.admin.providerPrices.health.${status}`,
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className='align-top'>
+                      <Badge
+                        variant='outline'
+                        className='border-slate-200 bg-slate-50 text-slate-600'
+                      >
+                        {product.product_type === 'topup'
+                          ? t(
+                              'module.billing.admin.providerPrices.productType.topup',
+                            )
+                          : t(
+                              'module.billing.admin.providerPrices.productType.plan',
                             )}
-                          </Badge>
-                          {activeMapping?.validation_error ? (
-                            <div className='mt-2 line-clamp-2 text-xs text-amber-700'>
-                              {activeMapping.validation_error}
-                            </div>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className='align-top text-sm text-muted-foreground'>
-                          {renderEnvironment(latestMapping)}
-                        </TableCell>
-                        <TableCell className='align-top text-sm text-muted-foreground'>
-                          {latestMapping?.validated_at
-                            ? formatBillingDateTime(
-                                latestMapping.validated_at,
-                                i18n.language,
-                              )
-                            : resolveBillingEmptyLabel(t)}
-                        </TableCell>
-                        <TableCell className='align-top'>
-                          <div className='flex justify-end gap-2'>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='align-top text-sm text-muted-foreground'>
+                      {resolveProductBenefit(t, product)}
+                    </TableCell>
+                    <TableCell className='align-top text-sm'>
+                      {formatBillingPrice(
+                        product.price_amount,
+                        product.currency,
+                        i18n.language,
+                      )}
+                    </TableCell>
+                    <TableCell className='align-top text-sm'>
+                      {latestMapping ? (
+                        <div className='space-y-1'>
+                          <div className='font-medium text-foreground'>
+                            {formatBillingPrice(
+                              latestMapping.unit_amount,
+                              latestMapping.currency,
+                              i18n.language,
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className='text-muted-foreground'>
+                          {resolveBillingEmptyLabel(t)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className='align-top'>
+                      <Badge
+                        variant='outline'
+                        className={statusClass(status)}
+                      >
+                        {t(
+                          `module.billing.admin.providerPrices.health.${status}`,
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='align-top text-sm text-muted-foreground'>
+                      {latestMapping?.validated_at
+                        ? formatBillingDateTime(
+                            latestMapping.validated_at,
+                            i18n.language,
+                          )
+                        : resolveBillingEmptyLabel(t)}
+                    </TableCell>
+                    <TableCell className='align-top'>
+                      <div className='flex justify-start'>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
                               type='button'
-                              variant='outline'
+                              variant='ghost'
                               size='sm'
-                              onClick={() => openConfigDialog(product)}
+                              className='h-8 gap-1 px-2 text-muted-foreground'
+                            >
+                              {t('common.core.more')}
+                              <ChevronDown className='h-3.5 w-3.5' />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align='start'
+                            className='min-w-[132px]'
+                          >
+                            <DropdownMenuItem
+                              onSelect={() => openConfigDialog(product)}
                             >
                               {t(
                                 'module.billing.admin.providerPrices.actions.configure',
                               )}
-                            </Button>
+                            </DropdownMenuItem>
                             {latestMapping ? (
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
+                              <DropdownMenuItem
                                 disabled={
                                   actionLoading ===
                                   `validate:${latestMapping.provider_price_bid}`
                                 }
-                                onClick={() =>
+                                onSelect={() =>
                                   runAction('validate', latestMapping)
                                 }
                               >
                                 {t(
                                   'module.billing.admin.providerPrices.actions.validate',
                                 )}
-                              </Button>
+                              </DropdownMenuItem>
                             ) : null}
                             {latestMapping &&
                             latestMapping.status_label !== 'active' ? (
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
-                                onClick={() =>
+                              <DropdownMenuItem
+                                onSelect={() =>
                                   runAction('activate', latestMapping)
                                 }
                               >
                                 {t(
                                   'module.billing.admin.providerPrices.actions.activate',
                                 )}
-                              </Button>
+                              </DropdownMenuItem>
                             ) : null}
                             {activeMapping ? (
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
-                                onClick={() =>
+                              <DropdownMenuItem
+                                className='text-destructive focus:text-destructive'
+                                onSelect={() =>
                                   runAction('retire', activeMapping)
                                 }
                               >
                                 {t(
                                   'module.billing.admin.providerPrices.actions.retire',
                                 )}
-                              </Button>
+                              </DropdownMenuItem>
                             ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
+                            {latestMapping?.validation_error ? (
+                              <DropdownMenuItem
+                                onSelect={() => setIssueMapping(latestMapping)}
+                              >
+                                {t(
+                                  'module.billing.admin.providerPrices.actions.viewIssues',
+                                )}
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
       />
+
+      <Sheet
+        open={Boolean(issueMapping)}
+        onOpenChange={open => {
+          if (!open) {
+            setIssueMapping(null);
+          }
+        }}
+      >
+        <SheetContent className='flex w-full flex-col overflow-y-auto border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'>
+          <SheetHeader className='border-b border-border px-5 py-5 pr-12 text-left'>
+            <SheetTitle>
+              {t('module.billing.admin.providerPrices.issueDrawer.title')}
+            </SheetTitle>
+            <SheetDescription>
+              {t('module.billing.admin.providerPrices.issueDrawer.description')}
+            </SheetDescription>
+          </SheetHeader>
+          {issueMapping ? (
+            <div className='space-y-5 px-5 py-5'>
+              <div className='rounded-lg border bg-muted/30 p-3 text-sm'>
+                <div className='text-xs text-muted-foreground'>
+                  {t('module.billing.admin.providerPrices.issueDrawer.priceId')}
+                </div>
+                <div className='mt-1 break-all text-xs text-foreground'>
+                  {issueMapping.provider_price_id ||
+                    resolveBillingEmptyLabel(t)}
+                </div>
+              </div>
+              <div className='space-y-3'>
+                <div className='text-sm font-medium text-foreground'>
+                  {t('module.billing.admin.providerPrices.issueDrawer.issues')}
+                </div>
+                {parseValidationIssueCodes(issueMapping.validation_error)
+                  .length ? (
+                  <div className='space-y-2'>
+                    {parseValidationIssueCodes(
+                      issueMapping.validation_error,
+                    ).map(code => (
+                      <div
+                        key={code}
+                        className='rounded-lg border border-amber-200 bg-amber-50 px-3 py-2'
+                      >
+                        <div className='text-sm font-medium text-amber-900'>
+                          {resolveIssueLabel(t, code)}
+                        </div>
+                        <div className='mt-1 break-all font-mono text-xs text-amber-700'>
+                          {code}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className='rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground'>
+                    {t(
+                      'module.billing.admin.providerPrices.issueDrawer.noIssues',
+                    )}
+                  </div>
+                )}
+              </div>
+              <details className='rounded-lg border border-border bg-muted/20 p-3'>
+                <summary className='cursor-pointer text-sm font-medium text-muted-foreground'>
+                  {t('module.billing.admin.providerPrices.issueDrawer.raw')}
+                </summary>
+                <pre className='mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-950 p-3 text-xs text-slate-100'>
+                  {issueMapping.validation_error || resolveBillingEmptyLabel(t)}
+                </pre>
+              </details>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
       <Dialog
         open={dialogOpen}

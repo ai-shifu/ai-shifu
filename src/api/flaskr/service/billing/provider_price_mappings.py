@@ -420,7 +420,12 @@ def _apply_validation_result(
         if summary.valid
         else _validation_summary_error_text(summary)
     )
-    if not summary.valid:
+    if (
+        summary.valid
+        and int(mapping.status or 0) == BILLING_PROVIDER_PRICE_STATUS_INVALID
+    ):
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
+    elif not summary.valid:
         mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
 
 
