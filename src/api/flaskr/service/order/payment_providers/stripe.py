@@ -196,7 +196,7 @@ class StripeProvider(PaymentProvider):
     def cancel_subscription(
         self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
     ) -> SubscriptionUpdateResult:
-        """Cancel a recurring provider subscription."""
+        """Schedule provider subscription cancellation at the current period end."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
