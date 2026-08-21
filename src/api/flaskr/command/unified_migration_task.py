@@ -287,7 +287,7 @@ class UnifiedMigrationTask:
                     format(progress, ".1f"),
                     synced_count,
                     total_count,
-                    offset // self.config.batch_size + 1,
+                    offset // self.config.batch_size,
                 )
 
                 # Also print for visibility during flask db upgrade
