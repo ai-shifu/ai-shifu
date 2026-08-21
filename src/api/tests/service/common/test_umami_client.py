@@ -137,7 +137,8 @@ def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
 
     def _fake_get(url, params=None, headers=None, timeout=None):
         request_count["value"] += 1
-        raise requests.RequestException("umami unavailable")
+        message = "umami unavailable"
+        raise requests.RequestException(message)
 
     monkeypatch.setattr(umami_client.requests, "get", _fake_get)
 
@@ -196,7 +197,8 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
             return self._cache.delete(*keys)
 
         def setex(self, key, ttl, value):
-            raise RuntimeError("cache unavailable")
+            message = "cache unavailable"
+            raise RuntimeError(message)
 
         def lock(self, key, timeout=None, blocking_timeout=None):
             return self._cache.lock(
@@ -240,7 +242,8 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
             return self._cache.delete(*keys)
 
         def setex(self, key, ttl, value):
-            raise RuntimeError("cache unavailable")
+            message = "cache unavailable"
+            raise RuntimeError(message)
 
         def lock(self, key, timeout=None, blocking_timeout=None):
             return self._cache.lock(
@@ -367,7 +370,8 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch
             return self._cache.get(key)
 
         def setex(self, key, ttl, value):
-            raise RuntimeError("cache unavailable")
+            message = "cache unavailable"
+            raise RuntimeError(message)
 
         def lock(self, key, timeout=None, blocking_timeout=None):
             return self._cache.lock(

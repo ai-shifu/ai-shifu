@@ -38,9 +38,8 @@ def register_shifu_commands(console, app) -> None:
     ) -> None:
         """Repair broken draft outline parent/position state and rebuild struct."""
         if not dry_run and not user_bid:
-            raise click.ClickException(
-                "Pass --user-bid for non-dry-run outline repair."
-            )
+            message = "Pass --user-bid for non-dry-run outline repair."
+            raise click.ClickException(message)
 
         payload = repair_shifu_outline_structure(
             app,

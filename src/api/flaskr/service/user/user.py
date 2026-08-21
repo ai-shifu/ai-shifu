@@ -218,7 +218,8 @@ def _wechat_identifiers(app: Flask, open_id: str, union_id: str) -> tuple[str, s
         return open_id, union_id
     app_id = str(custom_wechat.get("app_id") or "").strip()
     if not app_id:
-        raise RuntimeError("Custom WeChat OAuth integration is missing app_id")
+        message = "Custom WeChat OAuth integration is missing app_id"
+        raise RuntimeError(message)
     return (
         f"{app_id}:{open_id}" if open_id else "",
         f"{app_id}:{union_id}" if union_id else "",

@@ -42,8 +42,9 @@ class _FakeSession:
         if behaviour == "ok":
             return _EchoResult(params["nonce"])
         if behaviour == "raise":
+            message = "SELECT :nonce"
             raise OperationalError(
-                "SELECT :nonce",
+                message,
                 params,
                 Exception("(2014, 'Command Out of Sync')"),
             )

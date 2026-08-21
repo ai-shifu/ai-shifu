@@ -471,7 +471,8 @@ def apply_billing_native_notification(
             actual_amount is not None
             and int(order.payable_amount or 0) != actual_amount
         ):
-            raise RuntimeError("Billing native payment amount mismatch")
+            message = "Billing native payment amount mismatch"
+            raise RuntimeError(message)
 
         target_status = _native_target_status(normalized_provider, trade_payload)
         order_update = _apply_billing_order_provider_update(

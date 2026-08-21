@@ -160,7 +160,8 @@ class GoogleAuthProvider(AuthProvider):
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
     def verify(self, app, request):
-        raise NotImplementedError("GoogleAuthProvider only supports OAuth flows")
+        message = "GoogleAuthProvider only supports OAuth flows"
+        raise NotImplementedError(message)
 
     def _create_session(self, app, redirect_uri: str) -> OAuth2Session:
         client_id = app.config.get("GOOGLE_OAUTH_CLIENT_ID")
@@ -272,7 +273,8 @@ class GoogleAuthProvider(AuthProvider):
         subject_id = profile.get("sub")
         email = profile.get("email")
         if not subject_id or not email:
-            raise RuntimeError("Google profile missing required identifiers")
+            message = "Google profile missing required identifiers"
+            raise RuntimeError(message)
 
         email = email.lower()
         email_verified = bool(profile.get("email_verified", False))
@@ -385,9 +387,8 @@ class GoogleAuthProvider(AuthProvider):
 
             refreshed = load_user_aggregate(aggregate.user_bid)
             if not refreshed:
-                raise RuntimeError(
-                    "Failed to refresh user aggregate after Google OAuth"
-                )
+                message = "Failed to refresh user aggregate after Google OAuth"
+                raise RuntimeError(message)
             user_dto = build_user_info_from_aggregate(refreshed)
             token_value = generate_token(app, refreshed.user_bid)
             user_token = UserToken(userInfo=user_dto, token=token_value)

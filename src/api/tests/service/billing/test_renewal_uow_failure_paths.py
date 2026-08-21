@@ -317,7 +317,8 @@ def test_renewal_order_persists_before_provider_sync_crash(
     dao.db.session.commit()
 
     def crashing_sync(*_args, **_kwargs):
-        raise RuntimeError("provider sync crash")
+        message = "provider sync crash"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(billing_renewal, "_sync_billing_renewal_order", crashing_sync)
 
@@ -408,7 +409,8 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
                 renewal_uow_app, renewal_event_bid="renewal-uow-notify"
             )
             assert enqueued == []  # not yet durable, must not dispatch
-            raise RuntimeError("outer boom")
+            message = "outer boom"
+            raise RuntimeError(message)
 
     with pytest.raises(RuntimeError, match="outer boom"):
         run_then_fail()

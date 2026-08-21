@@ -50,9 +50,8 @@ class StripeProvider(PaymentProvider):
             success_url = options.get("success_url")
             cancel_url = options.get("cancel_url")
             if not success_url or not cancel_url:
-                raise RuntimeError(
-                    "Stripe checkout session requires success and cancel URLs"
-                )
+                message = "Stripe checkout session requires success and cancel URLs"
+                raise RuntimeError(message)
 
             session_params = options.get("session_params", {})
             params: dict[str, Any] = {
@@ -64,7 +63,8 @@ class StripeProvider(PaymentProvider):
 
             line_items = options.get("line_items")
             if not line_items:
-                raise RuntimeError("Stripe checkout session requires line items")
+                message = "Stripe checkout session requires line items"
+                raise RuntimeError(message)
             params["line_items"] = line_items
             subscription_discount_amount = int(
                 options.get("subscription_one_time_discount_amount") or 0
@@ -254,7 +254,8 @@ class StripeProvider(PaymentProvider):
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
         if not webhook_secret:
             app.logger.error("STRIPE_WEBHOOK_SECRET configuration is missing")
-            raise RuntimeError("STRIPE_WEBHOOK_SECRET must be configured for Stripe")
+            message = "STRIPE_WEBHOOK_SECRET must be configured for Stripe"
+            raise RuntimeError(message)
 
         if isinstance(raw_body, bytes):
             raw_body_str = raw_body.decode("utf-8")
@@ -264,7 +265,8 @@ class StripeProvider(PaymentProvider):
             "stripe-signature", ""
         )
         if not sig_header:
-            raise RuntimeError("Stripe signature header missing")
+            message = "Stripe signature header missing"
+            raise RuntimeError(message)
 
         try:
             event = stripe.Webhook.construct_event(
@@ -368,9 +370,8 @@ class StripeProvider(PaymentProvider):
         elif charge_id:
             params["charge"] = charge_id
         else:
-            raise RuntimeError(
-                "Stripe refund requires payment_intent_id or charge_id metadata"
-            )
+            message = "Stripe refund requires payment_intent_id or charge_id metadata"
+            raise RuntimeError(message)
 
         refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()

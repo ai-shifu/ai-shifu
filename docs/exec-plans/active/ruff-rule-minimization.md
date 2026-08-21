@@ -174,6 +174,11 @@ plan's progress update for that rule.
   branch after all local gates passed.
 - [ ] Merge or retarget D100 PR #2586 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21: Prepared the EM101 stage on `sunner/ruff-em101`, stacked on
+  EM102. Assigned each ProviderPriceMappingError code to a local before raising,
+  preserving exception type, message, context, and all billing error contracts.
+- [ ] Merge or retarget EM101 PR #2628 after its predecessors without combining
+  it with the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

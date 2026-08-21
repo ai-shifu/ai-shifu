@@ -69,15 +69,16 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
             )
         )
     except Exception as exc:
-        raise RuntimeError(
-            "Admin billing operations state lock is unavailable"
-        ) from exc
+        message = "Admin billing operations state lock is unavailable"
+        raise RuntimeError(message) from exc
     if lock is None:
-        raise RuntimeError("Admin billing operations state lock is unavailable")
+        message = "Admin billing operations state lock is unavailable"
+        raise RuntimeError(message)
 
     acquired = lock.acquire(blocking=True, blocking_timeout=5)
     if not acquired:
-        raise RuntimeError("Admin billing operations state is busy")
+        message = "Admin billing operations state is busy"
+        raise RuntimeError(message)
     try:
         yield
     finally:

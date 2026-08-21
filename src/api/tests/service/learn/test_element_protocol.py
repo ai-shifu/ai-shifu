@@ -2482,7 +2482,8 @@ class TestHandleAskAdapter:
             def _raise_provider_error(**_kwargs):
                 if False:
                     yield None
-                raise AskProviderError("provider failed")
+                message = "provider failed"
+                raise AskProviderError(message)
 
             monkeypatch.setattr(
                 module,

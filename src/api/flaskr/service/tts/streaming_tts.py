@@ -105,7 +105,8 @@ def _get_tts_executor() -> ThreadPoolExecutor:
         _tts_executor_state.pid = current_pid
     executor = _tts_executor_state.executor
     if executor is None:  # pragma: no cover - guarded by the branch above
-        raise RuntimeError("TTS executor initialization failed")
+        message = "TTS executor initialization failed"
+        raise RuntimeError(message)
     return executor
 
 
@@ -605,7 +606,8 @@ class StreamingTTSProcessor:
                     continue
                 raise
         if result is None:
-            raise ValueError("TTS synthesis returned no result")
+            message = "TTS synthesis returned no result"
+            raise ValueError(message)
         return result
 
     def _synthesize_in_thread(

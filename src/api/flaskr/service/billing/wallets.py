@@ -887,7 +887,8 @@ def persist_credit_wallet_snapshot(
         CreditWallet.version == expected_version,
     ).update(values, synchronize_session=False)
     if updated_rows != 1:
-        raise RuntimeError("credit_wallet_version_conflict")
+        message = "credit_wallet_version_conflict"
+        raise RuntimeError(message)
 
     wallet.available_credits = values["available_credits"]
     wallet.reserved_credits = values["reserved_credits"]
@@ -2368,7 +2369,8 @@ def _build_expired_credit_pack_restore_records(
 
         wallet = _load_credit_wallet_by_wallet_bid(bucket.wallet_bid)
         if wallet is None:
-            raise RuntimeError("credit_pack_restore_wallet_missing")
+            message = "credit_pack_restore_wallet_missing"
+            raise RuntimeError(message)
         available_credits, reserved_credits = calculate_credit_wallet_snapshot_values(
             wallet,
             snapshot_at=repaired_at,

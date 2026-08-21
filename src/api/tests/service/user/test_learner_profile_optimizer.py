@@ -451,7 +451,8 @@ def test_optimize_timeout_finalizes_trace_without_changing_state(app, monkeypatc
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
 
     def timeout_invoke(*_args, **_kwargs):
-        raise TimeoutError("provider timeout")
+        message = "provider timeout"
+        raise TimeoutError(message)
         yield  # pragma: no cover
 
     monkeypatch.setattr(optimizer, "invoke_llm", timeout_invoke)
@@ -482,9 +483,11 @@ def test_optimize_reports_a_wrapped_timeout_as_timeout(app, monkeypatch):
     def timeout_invoke(*_args, **_kwargs):
         try:
             # The wrapped-timeout shape is exactly what this test asserts.
-            raise TimeoutError("provider timeout")  # noqa: TRY301
+            message = "provider timeout"
+            raise TimeoutError(message)  # noqa: TRY301
         except TimeoutError as exc:
-            raise AppError("wrapped provider failure", 9999) from exc
+            message = "wrapped provider failure"
+            raise AppError(message, 9999) from exc
         yield  # pragma: no cover
 
     monkeypatch.setattr(optimizer, "invoke_llm", timeout_invoke)
@@ -548,7 +551,8 @@ def test_optimize_reports_moderation_failure_reason_without_calling_llm(
     invoked = False
 
     def failed_moderation(*_args):
-        raise RuntimeError("moderation unavailable")
+        message = "moderation unavailable"
+        raise RuntimeError(message)
 
     def unexpected_invoke(*_args, **_kwargs):
         nonlocal invoked

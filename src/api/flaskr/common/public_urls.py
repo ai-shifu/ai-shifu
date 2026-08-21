@@ -37,13 +37,11 @@ def _normalize_callback_url(value: str) -> str:
         return ""
     parsed = urlsplit(raw_value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise RuntimeError(
-            "GOOGLE_OAUTH_REDIRECT_URI must include http(s) scheme and host"
-        )
+        message = "GOOGLE_OAUTH_REDIRECT_URI must include http(s) scheme and host"
+        raise RuntimeError(message)
     if parsed.query or parsed.fragment:
-        raise RuntimeError(
-            "GOOGLE_OAUTH_REDIRECT_URI must not carry a query or fragment"
-        )
+        message = "GOOGLE_OAUTH_REDIRECT_URI must not carry a query or fragment"
+        raise RuntimeError(message)
     path = parsed.path.rstrip("/") or GOOGLE_OAUTH_CALLBACK_PATH
     return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
@@ -79,7 +77,8 @@ def resolve_public_origin() -> str:
     if request_origin:
         return request_origin
 
-    raise RuntimeError("HOST_URL must be configured to build public callback URLs")
+    message = "HOST_URL must be configured to build public callback URLs"
+    raise RuntimeError(message)
 
 
 def _api_path(path: str) -> str:
@@ -131,11 +130,11 @@ def _normalize_origin(value: str) -> str:
 
     parsed = urlsplit(raw_value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise RuntimeError("HOST_URL must include http(s) scheme and host")
+        message = "HOST_URL must include http(s) scheme and host"
+        raise RuntimeError(message)
     if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
-        raise RuntimeError(
-            "HOST_URL must be an origin without path, query, or fragment"
-        )
+        message = "HOST_URL must be an origin without path, query, or fragment"
+        raise RuntimeError(message)
     return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 

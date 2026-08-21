@@ -119,24 +119,29 @@ def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
         try:
             candidate = json.loads(value)
         except (TypeError, ValueError) as exc:
-            raise ValueError("must be a JSON object") from exc
+            message = "must be a JSON object"
+            raise ValueError(message) from exc
     if not isinstance(candidate, dict):
         # ValueError is part of this parser's contract: callers only catch it.
-        raise ValueError("must be a JSON object")  # noqa: TRY004
+        message = "must be a JSON object"
+        raise ValueError(message)  # noqa: TRY004
 
     parsed: dict[str, int] = {}
     for model, max_output_tokens in candidate.items():
         if not isinstance(model, str) or not model.strip():
-            raise ValueError("model ids must be non-empty strings")
+            message = "model ids must be non-empty strings"
+            raise ValueError(message)
         normalized_model = model.strip()
         if normalized_model in parsed:
-            raise ValueError("model ids must be unique after trimming whitespace")
+            message = "model ids must be unique after trimming whitespace"
+            raise ValueError(message)
         if (
             isinstance(max_output_tokens, bool)
             or not isinstance(max_output_tokens, int)
             or max_output_tokens <= 0
         ):
-            raise ValueError("maximum output token values must be positive integers")
+            message = "maximum output token values must be positive integers"
+            raise ValueError(message)
         parsed[normalized_model] = max_output_tokens
     return parsed
 

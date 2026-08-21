@@ -156,8 +156,9 @@ def _select_single_active_mapping(
     product_bid: str,
 ) -> BillingProductProviderPrice | None:
     if len(rows) > 1:
+        error_code = "multiple_active_provider_prices"
         raise ProviderPriceMappingError(
-            "multiple_active_provider_prices",
+            error_code,
             "Multiple active provider price mappings found for the same product scope",
             {"product_bid": product_bid},
         )
@@ -196,8 +197,9 @@ def upsert_provider_price_mapping(
         )
         db.session.add(row)
     elif row.product_bid and row.product_bid != product.product_bid:
+        error_code = "provider_price_product_mismatch"
         raise ProviderPriceMappingError(
-            "provider_price_product_mismatch",
+            error_code,
             "Provider price mappings cannot be rebound to a different product",
             {
                 "provider_price_bid": row.provider_price_bid,
@@ -206,14 +208,16 @@ def upsert_provider_price_mapping(
             },
         )
     elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_ACTIVE:
+        error_code = "active_mapping_cannot_be_rebound"
         raise ProviderPriceMappingError(
-            "active_mapping_cannot_be_rebound",
+            error_code,
             "Active provider price mappings cannot be rebound; retire them first",
             {"provider_price_bid": row.provider_price_bid},
         )
     elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        error_code = "retired_mapping_cannot_be_rebound"
         raise ProviderPriceMappingError(
-            "retired_mapping_cannot_be_rebound",
+            error_code,
             "Retired provider price mappings cannot be rebound; create a new provider price instead",
             {"provider_price_bid": row.provider_price_bid},
         )
@@ -352,8 +356,9 @@ def _load_product(product_bid: str) -> BillingProduct:
         BillingProduct.product_bid == normalized_product_bid,
     ).one_or_none()
     if product is None:
+        error_code = "billing_product_not_found"
         raise ProviderPriceMappingError(
-            "billing_product_not_found",
+            error_code,
             "Billing product not found",
             {"product_bid": normalized_product_bid},
         )
@@ -367,8 +372,9 @@ def _load_mapping(provider_price_bid: str) -> BillingProductProviderPrice:
         BillingProductProviderPrice.provider_price_bid == normalized_bid,
     ).one_or_none()
     if mapping is None:
+        error_code = "provider_price_mapping_not_found"
         raise ProviderPriceMappingError(
-            "provider_price_mapping_not_found",
+            error_code,
             "Provider price mapping not found",
             {"provider_price_bid": normalized_bid},
         )
@@ -466,8 +472,9 @@ def _serialize_validation_issues(issues) -> list[dict[str, str]]:
 def _normalize_provider(value: str) -> str:
     normalized = str(value or "").strip().lower()
     if normalized != PROVIDER_STRIPE:
+        error_code = "unsupported_provider"
         raise ProviderPriceMappingError(
-            "unsupported_provider",
+            error_code,
             "Only Stripe provider price mappings are supported",
             {"provider": normalized},
         )

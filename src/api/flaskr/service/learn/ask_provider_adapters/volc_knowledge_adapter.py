@@ -217,9 +217,8 @@ class VolcKnowledgeAskProviderAdapter:
         sk = str(config.get("sk") or "").strip()
         collection_name = str(config.get("collection_name") or "").strip()
         if not account_id or not ak or not sk or not collection_name:
-            raise AskProviderConfigError(
-                "volc_knowledge account_id/ak/sk/collection_name are required in ask_provider_config.config"
-            )
+            exception_message = "volc_knowledge account_id/ak/sk/collection_name are required in ask_provider_config.config"
+            raise AskProviderConfigError(exception_message)
 
         domain = str(
             config.get("domain") or "api-knowledgebase.mlp.cn-beijing.volces.com"
@@ -289,7 +288,8 @@ class VolcKnowledgeAskProviderAdapter:
                 timeout=(5, request_timeout_seconds),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("volc_knowledge request timeout") from exc
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
         except requests.RequestException as exc:
             error_message = f"volc_knowledge request failed: {exc}"
             raise AskProviderError(error_message) from exc
@@ -299,7 +299,8 @@ class VolcKnowledgeAskProviderAdapter:
         try:
             payload_data = response.json()
         except ValueError as exc:
-            raise AskProviderError("volc_knowledge response is not valid json") from exc
+            exception_message = "volc_knowledge response is not valid json"
+            raise AskProviderError(exception_message) from exc
 
         if isinstance(payload_data, dict):
             code = payload_data.get("code")
@@ -315,7 +316,8 @@ class VolcKnowledgeAskProviderAdapter:
                 "volc_knowledge response contains no text chunks, payload=%s",
                 payload_data,
             )
-            raise AskProviderError("volc_knowledge response has no retrievable text")
+            exception_message = "volc_knowledge response has no retrievable text"
+            raise AskProviderError(exception_message)
 
         for chunk in chunks:
             yield AskProviderChunk(content=chunk)

@@ -21,7 +21,8 @@ def test_common_handler_returns_translated_unexpected_error_for_unhandled_except
 
     @app.route("/boom")
     def _boom():
-        raise RuntimeError("unexpected failure")
+        message = "unexpected failure"
+        raise RuntimeError(message)
 
     with app.test_client() as client:
         response = client.get("/boom")
@@ -41,7 +42,8 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypat
 
     @app.route("/boom-zh")
     def _boom_zh():
-        raise RuntimeError("unexpected failure")
+        message = "unexpected failure"
+        raise RuntimeError(message)
 
     with app.test_client() as client:
         response = client.get(
@@ -88,7 +90,8 @@ def test_common_handler_uses_json_language_for_patch_requests(monkeypatch):
 
     @app.route("/boom-patch", methods=["PATCH"])
     def _boom_patch():
-        raise RuntimeError("unexpected failure")
+        message = "unexpected failure"
+        raise RuntimeError(message)
 
     with app.test_client() as client:
         response = client.patch(

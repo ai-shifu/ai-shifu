@@ -65,6 +65,7 @@ def test_observer_skips_unpatched_processes(monkeypatch):
 
     class _Logger:
         def error(self, *args, **kwargs):
-            raise AssertionError("must not log during a skipped install")
+            message = "must not log during a skipped install"
+            raise AssertionError(message)
 
     assert install_hub_error_observer(_Logger()) is False

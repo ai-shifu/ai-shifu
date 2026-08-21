@@ -66,7 +66,8 @@ def _get_fernet_key(app: Flask) -> bytes:
     with app.app_context():
         secret_key = app.config.get("SECRET_KEY", "")
         if not secret_key:
-            raise ValueError("SECRET_KEY is not configured")
+            message = "SECRET_KEY is not configured"
+            raise ValueError(message)
 
         key_bytes = hashlib.sha256(secret_key.encode()).digest()
         return base64.urlsafe_b64encode(key_bytes)

@@ -126,7 +126,8 @@ def extension(target_func_name):
     def decorator(func):
         manager = get_plugin_manager()
         if manager is None:
-            raise RuntimeError("Plugin manager is not enabled")
+            message = "Plugin manager is not enabled"
+            raise RuntimeError(message)
         manager.register_extension(target_func_name, func)
         return func
 
@@ -137,7 +138,8 @@ def extensible_generic_register(func_name):
     def decorator(func):
         manager = get_plugin_manager()
         if manager is None:
-            raise RuntimeError("Plugin manager is not enabled")
+            message = "Plugin manager is not enabled"
+            raise RuntimeError(message)
         manager.register_extensible_generic(func_name, func)
         return func
 

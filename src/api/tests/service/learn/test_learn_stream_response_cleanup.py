@@ -59,7 +59,8 @@ def test_sse_close_invalidates_session(app, invalidations):
 def test_sse_protocol_error_invalidates_session(app, invalidations):
     def factory():
         yield {"type": "chunk"}
-        raise ResourceClosedError("desynced")
+        message = "desynced"
+        raise ResourceClosedError(message)
 
     with app.test_request_context("/"):
         response = learn_routes._stream_sse_response(
@@ -79,7 +80,8 @@ def test_sse_protocol_error_invalidates_session(app, invalidations):
 def test_sse_business_error_does_not_invalidate(app, invalidations):
     def factory():
         yield {"type": "chunk"}
-        raise ValueError("business")
+        message = "business"
+        raise ValueError(message)
 
     with app.test_request_context("/"):
         response = learn_routes._stream_sse_response(
@@ -118,7 +120,8 @@ def test_passthrough_close_invalidates_session(app, invalidations):
 def test_passthrough_close_disguised_as_runtime_error(app, invalidations):
     def factory():
         yield "data: 1\n\n"
-        raise RuntimeError("generator ignored GeneratorExit")
+        message = "generator ignored GeneratorExit"
+        raise RuntimeError(message)
 
     with app.test_request_context("/"):
         response = learn_routes._stream_passthrough_response(

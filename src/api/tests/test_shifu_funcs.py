@@ -11,7 +11,8 @@ def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch):
 
     def fake_summary(_app, _shifu_id):
         called["summary"] = True
-        raise RuntimeError("boom")
+        message = "boom"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(shifu_publish_funcs, "apply_shifu_context_snapshot", fake_apply)
     monkeypatch.setattr(shifu_publish_funcs, "get_shifu_summary", fake_summary)

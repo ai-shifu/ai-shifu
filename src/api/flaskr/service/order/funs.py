@@ -1839,7 +1839,8 @@ def success_buy_record_from_native(
                     actual_amount is not None
                     and int(native_order.amount or 0) != actual_amount
                 ):
-                    raise RuntimeError("Native payment amount mismatch")
+                    message = "Native payment amount mismatch"
+                    raise RuntimeError(message)
 
                 buy_record: Order = Order.query.filter(
                     Order.order_bid == native_order.order_bid,

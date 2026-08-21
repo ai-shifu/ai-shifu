@@ -56,7 +56,8 @@ class _PartiallyBrokenAudioSegment:
     def from_mp3(segment_io: io.BytesIO) -> "_FakeSegment":
         payload = segment_io.getvalue()
         if payload == b"BAD":
-            raise ValueError("Decoding failed")
+            message = "Decoding failed"
+            raise ValueError(message)
         return _FakeSegment(int(payload.decode("utf-8")))
 
 

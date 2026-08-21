@@ -87,7 +87,8 @@ class _FakeStripe:
 
 class _FailingStripeResource:
     def retrieve(self, *args, **kwargs):
-        raise RuntimeError("secret sk_test_should_not_leak")
+        message = "secret sk_test_should_not_leak"
+        raise RuntimeError(message)
 
 
 class _FailingStripe:

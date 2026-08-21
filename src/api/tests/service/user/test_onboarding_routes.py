@@ -614,7 +614,8 @@ def test_complete_onboarding_scene_handles_integrity_error(
     def flaky_commit():
         if not state["raised"]:
             state["raised"] = True
-            raise IntegrityError("duplicate", None, None)
+            message = "duplicate"
+            raise IntegrityError(message, None, None)
         return original_commit()
 
     monkeypatch.setattr(db.session, "commit", flaky_commit)

@@ -936,9 +936,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
         def _fail_sem_acquire(*_args, **_kwargs):
-            raise AssertionError(
-                "cache fast-path should not acquire the synthesis semaphore"
-            )
+            message = "cache fast-path should not acquire the synthesis semaphore"
+            raise AssertionError(message)
 
         monkeypatch.setattr(
             "flaskr.service.learn.learn_funcs._tts_synth_sem_acquire",
@@ -1161,9 +1160,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
         def _fail_sem_acquire(*_args, **_kwargs):
-            raise AssertionError(
-                "markup-only blocks should not acquire the synthesis semaphore"
-            )
+            message = "markup-only blocks should not acquire the synthesis semaphore"
+            raise AssertionError(message)
 
         monkeypatch.setattr(
             "flaskr.service.learn.learn_funcs._tts_synth_sem_acquire",

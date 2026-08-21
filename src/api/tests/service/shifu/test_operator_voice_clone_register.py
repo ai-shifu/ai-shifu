@@ -184,7 +184,8 @@ def _mock_volcengine_status(monkeypatch, status: int) -> None:
 
 def _forbid_minimax_synthesis(monkeypatch) -> None:
     def _fail(*_args, **_kwargs):
-        raise AssertionError("synthesize_text must not be called for volcengine")
+        message = "synthesize_text must not be called for volcengine"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         "flaskr.service.shifu.admin_operations.voice_clones.synthesize_text",

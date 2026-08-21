@@ -104,10 +104,11 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(ap
 def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkeypatch):
     class _DesyncedResult:
         def fetchall(self):
-            raise ResourceClosedError(
+            message = (
                 "This result object does not return rows. "
                 "It has been closed automatically."
             )
+            raise ResourceClosedError(message)
 
         def close(self):
             pass

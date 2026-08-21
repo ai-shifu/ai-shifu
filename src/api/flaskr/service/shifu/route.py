@@ -1958,7 +1958,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             NotImplementedError: This API endpoint is not yet implemented
 
         """
-        raise NotImplementedError("MDFlow run API is not yet implemented")
+        message = "MDFlow run API is not yet implemented"
+        raise NotImplementedError(message)
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)

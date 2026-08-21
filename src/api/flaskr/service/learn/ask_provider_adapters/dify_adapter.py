@@ -70,9 +70,10 @@ class DifyAskProviderAdapter:
         base_url = str(config.get("base_url") or "").strip()
         api_key = str(config.get("api_key") or "").strip()
         if not base_url or not api_key:
-            raise AskProviderConfigError(
+            exception_message = (
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
+            raise AskProviderConfigError(exception_message)
 
         contextual_query = _build_dify_query(user_query, messages)
         payload: dict[str, Any] = {
@@ -104,7 +105,8 @@ class DifyAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("dify request timeout") from exc
+            exception_message = "dify request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
         except requests.RequestException as exc:
             message = f"dify request failed: {exc}"
             raise AskProviderError(message) from exc

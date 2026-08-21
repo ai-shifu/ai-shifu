@@ -62,7 +62,8 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch):
 def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch):
     class _BrokenCacheProvider:
         def lock(self, *args, **kwargs):
-            raise RuntimeError("lock unavailable")
+            message = "lock unavailable"
+            raise RuntimeError(message)
 
     monkeypatch.setattr(order_funs, "cache_provider", _BrokenCacheProvider())
     app = DummyApp(prefix="unit-test")

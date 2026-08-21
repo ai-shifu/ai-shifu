@@ -149,10 +149,11 @@ def _ensure_healthy_db_connection(app: Flask) -> None:
         _discard_session_connection(app, source="db connection probe failure")
     if last_error is not None:
         raise last_error
-    raise RuntimeError(
+    message = (
         "db connection probe kept returning mismatched results; "
         "no healthy connection available"
     )
+    raise RuntimeError(message)
 
 
 def _get_max_parallel_ask_count(app: Flask) -> int:

@@ -422,7 +422,8 @@ def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
     for object_id in unique_object_ids:
         header_end = result.stdout.find(b"\n", offset)
         if header_end == -1:
-            raise OSError("git cat-file returned a truncated header")
+            error_message = "git cat-file returned a truncated header"
+            raise OSError(error_message)
         header = result.stdout[offset:header_end].split()
         if len(header) != 3 or header[1] != b"blob":
             message = f"git cat-file did not return blob {object_id}"
@@ -431,7 +432,8 @@ def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
         content_start = header_end + 1
         content_end = content_start + size
         if result.stdout[content_end : content_end + 1] != b"\n":
-            raise OSError("git cat-file returned a truncated blob")
+            error_message = "git cat-file returned a truncated blob"
+            raise OSError(error_message)
         objects[object_id] = result.stdout[content_start:content_end]
         offset = content_end + 1
     return objects
@@ -455,7 +457,8 @@ def find_violations(
 
     violations: list[IdentifierViolation] = []
     if paths is not None and staged:
-        raise ValueError("explicit paths cannot be combined with staged content")
+        message = "explicit paths cannot be combined with staged content"
+        raise ValueError(message)
 
     if paths is not None:
         candidates = [

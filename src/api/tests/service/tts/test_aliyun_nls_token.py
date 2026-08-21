@@ -14,9 +14,8 @@ def test_get_aliyun_nls_token_uses_override_when_configured(monkeypatch):
     monkeypatch.setenv("ALIYUN_TTS_TOKEN", "override-token")
 
     def fake_get(*args, **kwargs):
-        raise AssertionError(
-            "requests.get should not be called when override token exists"
-        )
+        message = "requests.get should not be called when override token exists"
+        raise AssertionError(message)
 
     monkeypatch.setattr(requests, "get", fake_get)
 
@@ -98,7 +97,8 @@ def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch):
 
     def fake_get(*args, **kwargs):
         captured["calls"] += 1
-        raise requests.RequestException("network down")
+        message = "network down"
+        raise requests.RequestException(message)
 
     monkeypatch.setattr(requests, "get", fake_get)
 

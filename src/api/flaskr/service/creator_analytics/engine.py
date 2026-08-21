@@ -70,7 +70,8 @@ def get_analytics_engine(app: Flask) -> Engine:
                 previous_engine.dispose()
         engine = _engine_state.engine
         if engine is None:  # pragma: no cover - guarded by the branch above
-            raise RuntimeError("Analytics engine initialization failed")
+            message = "Analytics engine initialization failed"
+            raise RuntimeError(message)
         return engine
 
 

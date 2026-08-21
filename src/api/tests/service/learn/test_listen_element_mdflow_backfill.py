@@ -15,7 +15,8 @@ def _install_litellm_stub() -> None:
 
     def get_model_info(*args, **kwargs):
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info

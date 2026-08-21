@@ -22,7 +22,8 @@ except Exception:  # pragma: no cover - exercised only when pydub is missing.
 
         @staticmethod
         def from_file(*_args, **_kwargs) -> None:
-            raise RuntimeError("audio decoder is not available")
+            message = "audio decoder is not available"
+            raise RuntimeError(message)
 
 
 import contextlib
@@ -154,28 +155,35 @@ def normalize_audio_blob(
     normalized_filename = str(filename or "").strip()
     extension = _extract_extension(normalized_filename)
     if extension not in _ALLOWED_INPUT_EXTENSIONS:
-        raise ValueError("unsupported audio file type")
+        message = "unsupported audio file type"
+        raise ValueError(message)
     if not audio_bytes:
-        raise ValueError("audio file is empty")
+        message = "audio file is empty"
+        raise ValueError(message)
 
     try:
         segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format=extension)
     except Exception as exc:
-        raise ValueError(
+        message = (
             "unable to decode audio; please record again or upload mp3, m4a, or wav"
-        ) from exc
+        )
+        raise ValueError(message) from exc
 
     duration_ms = len(segment)
     if purpose == "source":
         if duration_ms < _SOURCE_MIN_DURATION_MS:
-            raise ValueError("source audio must be at least 10 seconds")
+            message = "source audio must be at least 10 seconds"
+            raise ValueError(message)
         if duration_ms > _SOURCE_MAX_DURATION_MS:
-            raise ValueError("source audio must be no longer than 5 minutes")
+            message = "source audio must be no longer than 5 minutes"
+            raise ValueError(message)
     elif purpose == "prompt":
         if duration_ms > _PROMPT_MAX_DURATION_MS:
-            raise ValueError("prompt audio must be no longer than 8 seconds")
+            message = "prompt audio must be no longer than 8 seconds"
+            raise ValueError(message)
     else:
-        raise ValueError("invalid audio purpose")
+        message = "invalid audio purpose"
+        raise ValueError(message)
 
     output = io.BytesIO()
     segment.export(output, format="wav")
@@ -200,7 +208,8 @@ class MiniMaxVoiceCloneClient:
         self.api_key = str(get_config("MINIMAX_API_KEY") or "").strip()
         self.group_id = str(get_config("MINIMAX_GROUP_ID") or "").strip()
         if not self.api_key:
-            raise ValueError("MINIMAX_API_KEY is not configured")
+            message = "MINIMAX_API_KEY is not configured"
+            raise ValueError(message)
 
     def upload_clone_audio(
         self,
@@ -332,7 +341,8 @@ class MiniMaxVoiceCloneClient:
             or ""
         )
         if not file_id:
-            raise ValueError("MiniMax file upload did not return file_id")
+            error_message = "MiniMax file upload did not return file_id"
+            raise ValueError(error_message)
         extra_info = message.get("extra_info") or data.get("extra_info") or file_data
         return MiniMaxUploadedFile(
             file_id=file_id,
@@ -767,7 +777,8 @@ def _execute_clone_processing(
         prompt_file_id=prompt_file_id,
     )
     if clone_result.input_sensitive:
-        raise ValueError("MiniMax rejected the audio for sensitive content")
+        message = "MiniMax rejected the audio for sensitive content"
+        raise ValueError(message)
 
     with app.app_context():
         row = _load_voice_row(voice_bid)
@@ -1024,7 +1035,8 @@ def _delete_resource_object(app: Flask, resource_bid: str) -> None:
 def _read_resource_bytes(resource_bid: str) -> bytes:
     normalized = str(resource_bid or "").strip()
     if not normalized:
-        raise ValueError("audio resource is missing")
+        message = "audio resource is missing"
+        raise ValueError(message)
     if normalized in _PENDING_AUDIO_BLOBS:
         return _PENDING_AUDIO_BLOBS[normalized]
     temp_path = _temp_resource_path(normalized)
@@ -1039,7 +1051,8 @@ def _read_resource_bytes(resource_bid: str) -> bytes:
                 object_key=resource.oss_name,
                 bucket_name=resource.oss_bucket or "",
             )
-    raise ValueError("source audio is no longer available")
+    message = "source audio is no longer available"
+    raise ValueError(message)
 
 
 def _cleanup_raw_resources(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
@@ -1073,7 +1086,8 @@ def _enqueue_minimax_clone_task(app: Flask, *, voice_bid: str) -> bool:
     celery_app = get_celery_app(flask_app=app)
     task = celery_app.tasks.get("tts.minimax_clone_voice")
     if task is None:
-        raise RuntimeError("tts.minimax_clone_voice task is unavailable")
+        message = "tts.minimax_clone_voice task is unavailable"
+        raise RuntimeError(message)
     task.apply_async(kwargs={"voice_bid": voice_bid})
     return True
 

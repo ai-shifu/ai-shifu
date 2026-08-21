@@ -105,7 +105,8 @@ def create_app() -> Flask:
 
     plugin_manager = get_plugin_manager()
     if plugin_manager is None:
-        raise RuntimeError("Plugin manager is not enabled")
+        message = "Plugin manager is not enabled"
+        raise RuntimeError(message)
 
     load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
     try:

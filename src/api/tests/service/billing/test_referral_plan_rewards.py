@@ -965,7 +965,8 @@ def test_pingxx_renewal_event_preserves_paid_referral_reward_order(
     current_cycle_start = boundary_at - timedelta(days=30)
 
     def _fail_provider_sync(*_args, **_kwargs):
-        raise AssertionError("paid referral reward orders must not sync providers")
+        message = "paid referral reward orders must not sync providers"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",

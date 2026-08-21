@@ -17,7 +17,8 @@ class _Response:
 
     def json(self):
         if self._payload is None:
-            raise ValueError("no json")
+            message = "no json"
+            raise ValueError(message)
         return self._payload
 
 

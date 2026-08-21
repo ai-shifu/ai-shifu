@@ -221,4 +221,5 @@ def _require_matching_integration(
         or order.creator_bid != creator_bid
         or order.payment_integration_bid != integration_bid
     ):
-        raise RuntimeError("Payment integration does not match order")
+        message = "Payment integration does not match order"
+        raise RuntimeError(message)
