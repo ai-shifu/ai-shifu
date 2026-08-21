@@ -20,7 +20,7 @@ from flaskr.service.billing.cycle_transitions import (
 )
 
 
-def _raise_unexpected_call(*_args, **_kwargs):
+def _raise_unexpected_call(*_args: object, **_kwargs):
     message = "unexpected callback call"
     raise AssertionError(message)
 

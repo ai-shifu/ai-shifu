@@ -64,7 +64,7 @@ def bypass_token_validation(func):
     by_pass_login_func.append(func.__name__)
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: object, **kwargs):
         return func(*args, **kwargs)
 
     return wrapper

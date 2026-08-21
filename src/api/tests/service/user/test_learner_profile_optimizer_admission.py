@@ -16,7 +16,7 @@ class FakeRedis:
         self.in_flight_tokens: dict[str, str] = {}
         self.acquire_ttls: list[int] = []
 
-    def eval(self, script, numkeys, *args):
+    def eval(self, script, numkeys, *args: object):
         assert numkeys == 1
         key = str(args[0])
         token = str(args[1])
@@ -40,7 +40,7 @@ class FakeRedis:
 class ExplodingRedis:
     """Simulate a Redis failure for tests."""
 
-    def eval(self, *_args, **_kwargs):
+    def eval(self, *_args: object, **_kwargs):
         message = "redis unavailable"
         raise RuntimeError(message)
 

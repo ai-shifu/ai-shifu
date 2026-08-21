@@ -104,7 +104,7 @@ def _fail_after_pricing_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run the real pricing sync, then fail — simulating any late step error."""
     real_sync = order_funs._sync_order_campaign_pricing
 
-    def failing_sync(*args, **kwargs):
+    def failing_sync(*args: object, **kwargs):
         real_sync(*args, **kwargs)
         message = "boom after pricing sync"
         raise RuntimeError(message)

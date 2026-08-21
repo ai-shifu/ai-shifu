@@ -62,7 +62,7 @@ _original_asyncio_run = asyncio.run
 _background_asyncio_tasks: set[asyncio.Task] = set()
 
 
-def _safe_asyncio_run(coro, *args, **kwargs):
+def _safe_asyncio_run(coro, *args: object, **kwargs):
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:

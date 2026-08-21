@@ -58,7 +58,7 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
         }.get,
     )
 
-    def _fake_post(*_args, **kwargs):
+    def _fake_post(*_args: object, **kwargs):
         request_state["json"] = kwargs.get("json")
         return _FakeResponse(
             lines=[
@@ -114,7 +114,7 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
         }.get,
     )
 
-    def _raise_timeout(*_args, **_kwargs):
+    def _raise_timeout(*_args: object, **_kwargs):
         message = "timeout"
         raise requests.Timeout(message)
 
@@ -403,7 +403,7 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
 
     request_state = {}
 
-    def _fake_request(*_args, **kwargs):
+    def _fake_request(*_args: object, **kwargs):
         request_state["method"] = kwargs.get("method")
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["url"] = kwargs.get("url")
@@ -750,7 +750,7 @@ def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
 def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
-    def _raise_timeout(*_args, **_kwargs):
+    def _raise_timeout(*_args: object, **_kwargs):
         message = "timeout"
         raise requests.Timeout(message)
 

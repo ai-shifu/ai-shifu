@@ -316,7 +316,7 @@ def test_renewal_order_persists_before_provider_sync_crash(
     )
     dao.db.session.commit()
 
-    def crashing_sync(*_args, **_kwargs):
+    def crashing_sync(*_args: object, **_kwargs):
         message = "provider sync crash"
         raise RuntimeError(message)
 
@@ -952,7 +952,7 @@ def test_provider_guard_renews_lease_before_cross_transaction_sync(
 
     recovery_counts: list[int] = []
 
-    def fake_sync(*_args, **_kwargs):
+    def fake_sync(*_args: object, **_kwargs):
         recovery_counts.append(
             billing_tasks._recover_stale_processing_renewal_events(
                 stale_before=now_utc() - timedelta(minutes=30),

@@ -81,7 +81,7 @@ class FakeRedis:
         px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-        *args,
+        *args: object,
         **kwargs,
     ):
         _ = kwargs

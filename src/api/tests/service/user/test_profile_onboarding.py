@@ -11,7 +11,7 @@ from flaskr.service.user.repository import create_user_entity
 
 
 @contextmanager
-def nullcontext_admission(*_args, **_kwargs):
+def nullcontext_admission(*_args: object, **_kwargs):
     yield
 
 

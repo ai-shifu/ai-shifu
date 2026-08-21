@@ -38,7 +38,7 @@ class _FakeStripeResource:
         self.payload = payload
         self.calls = []
 
-    def retrieve(self, *args, **kwargs):
+    def retrieve(self, *args: object, **kwargs):
         self.calls.append({"args": args, "kwargs": kwargs})
         return _StripeObject(self.payload)
 
@@ -86,7 +86,7 @@ class _FakeStripe:
 
 
 class _FailingStripeResource:
-    def retrieve(self, *args, **kwargs):
+    def retrieve(self, *args: object, **kwargs):
         _ = (args, kwargs)
         message = "secret sk_test_should_not_leak"
         raise RuntimeError(message)

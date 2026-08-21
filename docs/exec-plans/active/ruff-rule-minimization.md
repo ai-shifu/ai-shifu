@@ -231,6 +231,12 @@ plan's progress update for that rule.
   and test-double keyword contracts through named helpers where required.
 - [ ] Merge or retarget ARG005 PR #2635 after ARG001 without combining it with
   the next rule unit.
+- [x] 2026-08-22: Rebuilt the ANN002 stage on `sunner/ruff-ann002`, stacked on
+  ARG005. Annotated every variadic positional parameter with its element type,
+  using narrow types for homogeneous forwarding and `object` for genuinely
+  heterogeneous compatibility boundaries.
+- [ ] Merge or retarget ANN002 PR #2636 after ARG005 without combining it with
+  the next rule unit.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

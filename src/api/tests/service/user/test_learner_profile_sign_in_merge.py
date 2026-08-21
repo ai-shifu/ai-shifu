@@ -47,7 +47,7 @@ class _FakeRedis:
     def get(self, _key):
         return None
 
-    def delete(self, *_keys):
+    def delete(self, *_keys: str):
         return None
 
 
@@ -66,10 +66,10 @@ class _FakeGoogleSession:
     def __init__(self, profile) -> None:
         self._profile = profile
 
-    def fetch_token(self, *_args, **_kwargs):
+    def fetch_token(self, *_args: object, **_kwargs):
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args, **_kwargs):
+    def get(self, *_args: object, **_kwargs):
         return _FakeGoogleResponse(self._profile)
 
 

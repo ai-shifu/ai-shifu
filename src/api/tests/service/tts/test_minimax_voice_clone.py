@@ -513,7 +513,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
                     in_context = True
                     return self
 
-                def __exit__(self, *_args) -> bool | None:
+                def __exit__(self, *_args: object) -> bool | None:
                     nonlocal in_context
                     in_context = False
                     return False

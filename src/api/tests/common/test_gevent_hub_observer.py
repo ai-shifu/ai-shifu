@@ -67,7 +67,7 @@ def test_logger_failure_never_blocks_the_original_handler():
     hub = _StubHub()
 
     class _BrokenLogger:
-        def error(self, *args, **kwargs):
+        def error(self, *args: object, **kwargs):
             _ = (args, kwargs)
             message = "logging backend down"
             raise RuntimeError(message)

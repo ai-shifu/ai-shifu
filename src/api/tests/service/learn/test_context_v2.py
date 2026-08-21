@@ -19,7 +19,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args, **kwargs):
+    def get_model_info(*args: object, **kwargs):
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -471,14 +471,14 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             deleted = _Column()
 
         class _FakeQuery:
-            def filter(self, *_args, **_kwargs):
+            def filter(self, *_args: object, **_kwargs):
                 return self
 
             def all(self):
                 return [("outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 pass
 
             def get_all_blocks(self):
@@ -540,7 +540,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         attend = types.SimpleNamespace(outline_item_bid="outline-1", block_position=0)
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 pass
 
             def get_all_blocks(self):
@@ -1140,11 +1140,11 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_ignores_visual_mode_when_api_missing(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 self.args = args
                 self.kwargs = kwargs
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1154,14 +1154,14 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_calls_visual_mode_when_api_exists(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.visual_mode = None
 
             def set_visual_mode(self, visual_mode):
                 self.visual_mode = visual_mode
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs):
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1171,7 +1171,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
     def test_init_uses_explicit_output_language_when_enabled(self):
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = (args, kwargs)
                 self.output_language = None
 
@@ -1835,17 +1835,17 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         captured = {}
 
         class _FakePreviewContextStore:
-            def __init__(self, *_args, **_kwargs) -> None:
+            def __init__(self, *_args: object, **_kwargs) -> None:
                 pass
 
-            def get_context(self, *_args, **_kwargs):
+            def get_context(self, *_args: object, **_kwargs):
                 return []
 
-            def replace_context(self, *_args, **_kwargs):
+            def replace_context(self, *_args: object, **_kwargs):
                 return None
 
         class _FakePreviewMdflowContext:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs) -> None:
                 _ = args, kwargs
 
             @staticmethod
@@ -1874,7 +1874,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 )
 
         class _FakePreviewAdapter:
-            def __init__(self, *_args, **_kwargs) -> None:
+            def __init__(self, *_args: object, **_kwargs) -> None:
                 pass
 
             def process(self, events):

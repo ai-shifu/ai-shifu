@@ -53,7 +53,7 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
 
     class _Operations:
         @contextmanager
-        def batch_alter_table(self, *_args, **_kwargs):
+        def batch_alter_table(self, *_args: object, **_kwargs):
             yield _BatchOperations()
 
         def execute(self, statement):
