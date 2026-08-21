@@ -19,9 +19,8 @@
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
-# - ISC004: every hit is the deliberate long-string wrapping idiom inside
-#   tuples/lists, not a missed comma. ISC001/ISC002 also conflict with the
-#   formatter.
+# - ISC001/ISC002: implicit concatenation outside collection literals conflicts
+#   with the formatter's standard multiline-string layout.
 # - COM812: ruff lists it as conflicting with the formatter. Applying its
 #   6k fixes adds magic trailing commas that make `ruff format` re-explode
 #   every affected call and signature one argument per line -- a repo-wide
@@ -43,6 +42,10 @@ select = [
     # --- Core correctness -------------------------------------------------
     "E",       # pycodestyle errors (E501 ignored below)
     "F",       # pyflakes
+    # Inside collection literals, an unparenthesized multiline string can look
+    # like two entries with a missing comma. Wrap an intentionally concatenated
+    # entry in its own parentheses so the collection boundary is explicit.
+    "ISC004",
     "W",       # pycodestyle warnings
     "I",       # import sorting and grouping
     "B",       # flake8-bugbear

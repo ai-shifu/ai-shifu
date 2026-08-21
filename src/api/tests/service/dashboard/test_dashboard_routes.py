@@ -1474,33 +1474,45 @@ class TestDashboardRoutes:
             ("/api/dashboard/entry?page_index=invalid&page_size=20", "page_index"),
             ("/api/dashboard/entry?page_index=1&page_size=invalid", "page_size"),
             (
-                "/api/dashboard/shifus/course-pagination-check/learners"
-                "?page_index=invalid&page_size=20",
+                (
+                    "/api/dashboard/shifus/course-pagination-check/learners"
+                    "?page_index=invalid&page_size=20"
+                ),
                 "page_index",
             ),
             (
-                "/api/dashboard/shifus/course-pagination-check/learners"
-                "?page_index=1&page_size=invalid",
+                (
+                    "/api/dashboard/shifus/course-pagination-check/learners"
+                    "?page_index=1&page_size=invalid"
+                ),
                 "page_size",
             ),
             (
-                "/api/dashboard/shifus/course-pagination-check/follow-ups"
-                "?page_index=invalid&page_size=20",
+                (
+                    "/api/dashboard/shifus/course-pagination-check/follow-ups"
+                    "?page_index=invalid&page_size=20"
+                ),
                 "page_index",
             ),
             (
-                "/api/dashboard/shifus/course-pagination-check/follow-ups"
-                "?page_index=1&page_size=invalid",
+                (
+                    "/api/dashboard/shifus/course-pagination-check/follow-ups"
+                    "?page_index=1&page_size=invalid"
+                ),
                 "page_size",
             ),
             (
-                "/api/dashboard/shifus/course-pagination-check/ratings"
-                "?page_index=invalid&page_size=20",
+                (
+                    "/api/dashboard/shifus/course-pagination-check/ratings"
+                    "?page_index=invalid&page_size=20"
+                ),
                 "page_index",
             ),
             (
-                "/api/dashboard/shifus/course-pagination-check/ratings"
-                "?page_index=1&page_size=invalid",
+                (
+                    "/api/dashboard/shifus/course-pagination-check/ratings"
+                    "?page_index=1&page_size=invalid"
+                ),
                 "page_size",
             ),
         ],

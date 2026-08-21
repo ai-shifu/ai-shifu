@@ -815,6 +815,30 @@ plan's progress update for that rule.
   architecture boundary ratchet, configured Ruff and format, pinned Ruff
   0.16.3 development-tool validation, and every repository pre-commit hook
   across all files.
+- [x] 2026-08-21 16:48 CST: Ready ANN202 PR
+  [#2617](https://github.com/ai-shifu/ai-shifu/pull/2617) passed every GitHub
+  check, including the 3,032-test backend job and runtime harness. Audited the
+  smaller complexity and boolean-signature candidates, then selected ISC004
+  because all 392 findings are intentional string wrapping in four files and
+  can be clarified without changing executable behavior or public interfaces.
+- [x] 2026-08-21 16:56 CST: Enabled ISC004 and wrapped every intentional
+  collection-literal string in explicit parentheses: 384 findings in the AI
+  collaboration generator, one in the knowledge-index generator, and seven in
+  URL-based parameterized tests. A semantic audit proves all four Python ASTs
+  are identical to the ANN202 parent, and regenerating 83 collaboration files
+  plus six knowledge indexes produces no generated-file diff.
+- [x] 2026-08-21 16:56 CST: All 48 directly affected dashboard and API golden
+  tests pass. Configured ISC004, repository Ruff, and format pass. The stable
+  census falls exactly 392 findings from 19,430 to 19,038, and the isolated
+  census falls from 33,563 to 33,171; all other rule counts, including E501,
+  remain unchanged.
+- [x] 2026-08-21 16:58 CST: The complete backend suite passes 3,032 tests with
+  17 skips and 733 existing warnings. Regenerated collaboration mirrors and
+  repository knowledge, then passed translation validation, the repository
+  harness, architecture boundary ratchet, compile checks, and the semantic AST
+  audit.
+- [x] 2026-08-21 17:00 CST: Pinned Ruff 0.16.3 development-tool validation and
+  every repository pre-commit hook pass across all files.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -1054,6 +1078,13 @@ plan's progress update for that rule.
   remain an exact immutable-history exception. Review Ruff's unsafe fix,
   preserve executable AST equality after removing annotation scaffolding, and
   run the complete backend suite for import and annotation consumers.
+- 2026-08-21: ISC004 is a collection-boundary ambiguity check, not a request to
+  split every adjacent string into separate elements. When concatenation is
+  intentional, preserve the exact string value and put the adjacent literals
+  inside explicit parentheses. Add a comma only when the collection contract
+  and its tests prove two entries were intended; do not use `+`, which creates
+  ISC003 debt. For mechanical adoption, prove AST equality, rerun generators
+  and parameterized consumers, and keep generated output byte-identical.
 
 ## Outcomes & Retrospective
 
@@ -1366,6 +1397,19 @@ helper exposed. The synchronized source-contract test passes three focused
 tests, and the complete backend suite passes 3,032 tests with 17 skips.
 Generated collaboration guidance, repository knowledge, translation,
 architecture, Ruff, format, development-tool, and pre-commit gates all pass.
+
+The ISC004 stage makes all 392 intentional multiline strings inside collection
+literals visually distinct from accidentally comma-less entries. Explicit
+parentheses preserve the constant values in two repository generators and two
+backend parameterized-test modules; a semantic audit matches all four Python
+ASTs to the ANN202 parent. Regenerating all 83 collaboration files and six
+knowledge indexes produces no output diff, and all 48 directly affected tests
+pass. Configured ISC004 is clean, while both the stable and isolated censuses
+fall exactly 392 to 19,038 and 33,171, with no other rule-count drift.
+The complete backend suite passes 3,032 tests with 17 skips, and repository
+generation, harness, architecture, translation, compile, Ruff, and format
+checks pass. Pinned development-tool validation and every repository
+pre-commit hook also pass.
 
 ## Context and Orientation
 

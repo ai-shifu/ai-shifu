@@ -177,8 +177,10 @@ def render_execplan_index(
         "",
         "# Execution Plans",
         "",
-        "Active and completed ExecPlans live here. The structure and required "
-        "sections are defined in [`PLANS.md`](../../PLANS.md).",
+        (
+            "Active and completed ExecPlans live here. The structure and required "
+            "sections are defined in [`PLANS.md`](../../PLANS.md)."
+        ),
         "",
         "## Active",
         "",

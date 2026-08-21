@@ -47,8 +47,10 @@ JSON_GOLDEN_CASES = [
     ("run_status", f"/api/learn/shifu/{GOLDEN_SHIFU_BID}/run/{GOLDEN_LESSON_BID}"),
     (
         "learn_records",
-        f"/api/learn/shifu/{GOLDEN_SHIFU_BID}/records/{GOLDEN_LESSON_BID}"
-        "?preview_mode=false",
+        (
+            f"/api/learn/shifu/{GOLDEN_SHIFU_BID}/records/{GOLDEN_LESSON_BID}"
+            "?preview_mode=false"
+        ),
     ),
     ("user_profile", f"/api/user/get_profile?course_id={GOLDEN_SHIFU_BID}"),
     ("onboarding_status", "/api/user/onboarding/status"),

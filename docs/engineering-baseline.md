@@ -411,6 +411,15 @@ doubles that deliberately accept heterogeneous named options. As with ANN002,
 do not replace `object` with `Any` or narrow the accepted keyword contract just
 to satisfy the lint rule.
 
+For `ISC004`, distinguish an intentionally wrapped string from two collection
+items that accidentally lost their comma. Keep the string's exact value and
+wrap the adjacent literals in their own parentheses inside the list, tuple, or
+set. Do not add a comma unless the collection contract and its tests prove that
+two entries were intended, and do not replace the literals with `+`, which
+creates `ISC003` debt. For mechanical adoption, require AST equality and rerun
+any generator or parameterized test that consumes the collection; generated
+outputs must remain byte-for-byte unchanged.
+
 For the `ARG` family, first remove an unused function, method, or lambda
 parameter when the callable and all callers are repository-owned. Preserve the
 exact parameter name when a base class, provider protocol, framework callback,
