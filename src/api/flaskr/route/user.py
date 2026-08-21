@@ -249,6 +249,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/info", methods=["GET"])
     def info():
         """Get user information.
+
         ---
         tags:
             - user
@@ -273,6 +274,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/ensure_admin_creator", methods=["POST"])
     def ensure_admin_creator():
         """Ensure admin creator permissions for the current user.
+
         ---
         tags:
             - user
@@ -330,6 +332,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_info", methods=["POST"])
     def update_info():
         """Update user information.
+
         ---
         tags:
             - user
@@ -383,6 +386,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
     def profile_onboarding_status_api():
         """Get platform-level profile onboarding state for current user.
+
         ---
         tags:
             - user
@@ -397,6 +401,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
     def complete_profile_onboarding_api():
         """Complete or skip platform-level profile onboarding.
+
         ---
         tags:
             - user
@@ -479,6 +484,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @with_shifu_context()
     def require_tmp():
         """Temp login user.
+
         ---
         tags:
             - user
@@ -516,8 +522,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     $ref: "#/components/schemas/UserToken"
             400:
                 description: parameter error
-
-
         """
         parsed_payload = request.get_json(silent=True)
         payload = parsed_payload if isinstance(parsed_payload, dict) else {}
@@ -543,6 +547,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def captcha_api():
         """Create image captcha.
+
         ---
         tags:
            - user
@@ -554,6 +559,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def captcha_verify_api():
         """Verify image captcha and return one-time ticket.
+
         ---
         tags:
            - user
@@ -578,6 +584,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @optional_token_validation
     def send_sms_code_api():
         """Send SMS Captcha.
+
         ---
         tags:
            - user
@@ -642,6 +649,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @optional_token_validation
     def console_send_sms_code_api():
         """Send SMS verification code for console clients without image captcha.
+
         ---
         tags:
            - user
@@ -665,6 +673,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @optional_token_validation
     def send_email_code_api():
         """Send email verification code.
+
         ---
         tags:
            - user
@@ -747,6 +756,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @optional_token_validation
     def login_sms_api():
         """Login through SMS verification code for web clients.
+
         ---
         tags:
            - user
@@ -756,6 +766,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():
         """Get user profile.
+
         ---
         tags:
             - user
@@ -781,7 +792,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: return message
                                 data:
                                     $ref: "#/components/schemas/UserProfileLabelDTO"
-
         """
         course_id = request.args.get("course_id", None)
         if not course_id:
@@ -793,6 +803,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_profile", methods=["POST"])
     def update_profile():
         """Update user profile.
+
         ---
         tags:
             - user
@@ -854,6 +865,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
     def upload_avatar():
         """Upload avatar.
+
         ---
         tags:
             - user
@@ -891,6 +903,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @with_shifu_context()
     def update_wechat_openid():
         """Update Wechat OpenID.
+
         ---
         summary: update wechat openid
         tags:
@@ -935,6 +948,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @optional_token_validation
     def sumbit_feedback_api():
         """Submit feedback.
+
         ---
         tags:
             - user
@@ -1071,6 +1085,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def login_password():
         """Login with password.
+
         ---
         tags:
             - user
@@ -1127,6 +1142,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/set_password", methods=["POST"])
     def set_password():
         """Set password for logged-in user (first time only).
+
         ---
         tags:
             - user
@@ -1209,6 +1225,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/change_password", methods=["POST"])
     def change_password():
         """Change password for logged-in user (requires old password).
+
         ---
         tags:
             - user
@@ -1243,6 +1260,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def reset_password():
         """Reset password via verification code.
+
         ---
         tags:
             - user

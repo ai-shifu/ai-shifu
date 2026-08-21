@@ -685,10 +685,7 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
 
 
 def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
-    """A deployment can ship the plugin package without configuring its
-    database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points
-    at an unreachable host, so customization reads must not touch it.
-    """
+    """A deployment can ship the plugin package without configuring its database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points at an unreachable host, so customization reads must not touch it."""
 
     class _ExplodingModule:
         def __getattr__(self, name) -> Any:

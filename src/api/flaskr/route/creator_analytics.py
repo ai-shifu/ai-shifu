@@ -13,6 +13,7 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/query", methods=["POST"])
     def creator_analytics_query():
         """Run a creator-analytics DSL query.
+
         ---
         tags:
             - creator-analytics

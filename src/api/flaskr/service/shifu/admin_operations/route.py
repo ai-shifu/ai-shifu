@@ -311,6 +311,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
     def admin_operations_courses():
         """Operator course list.
+
         ---
         tags:
             - Course
@@ -436,6 +437,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/courses/overview", methods=["GET"])
     def admin_operations_course_overview():
         """Operator course overview.
+
         ---
         tags:
             - Course
@@ -459,6 +461,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
     def admin_operations_users():
         """Operator user list.
+
         ---
         tags:
             - User
@@ -573,6 +576,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/users/overview", methods=["GET"])
     def admin_operations_user_overview():
         """Operator user overview.
+
         ---
         tags:
             - User
@@ -596,6 +600,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/voice-clones", methods=["GET"])
     def admin_operations_voice_clones():
         """Operator MiniMax cloned voice list.
+
         ---
         tags:
             - TTS
@@ -716,6 +721,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/voice-clones", methods=["POST"])
     def admin_operations_register_voice_clone():
         """Register a voice cloned on a provider console and assign it to a teacher.
+
         ---
         tags:
             - TTS
@@ -757,6 +763,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
     def admin_operations_orders():
         """Operator global order list.
+
         ---
         tags:
             - Order
@@ -858,6 +865,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/orders/overview", methods=["GET"])
     def admin_operations_order_overview():
         """Operator learning order overview.
+
         ---
         tags:
             - Order
@@ -1121,6 +1129,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_order_detail(order_bid: str):
         """Get operator order detail.
+
         ---
         tags:
             - Order
@@ -1142,6 +1151,7 @@ def register_admin_operations_routes(
     @app.route(path_prefix + "/admin/operations/orders/credits", methods=["GET"])
     def admin_operations_credit_orders():
         """Operator global credit order list.
+
         ---
         tags:
             - Order
@@ -1246,6 +1256,7 @@ def register_admin_operations_routes(
     )
     def admin_operations_credit_order_overview():
         """Operator credit order overview.
+
         ---
         tags:
             - Order
@@ -1685,6 +1696,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_credit_order_detail(bill_order_bid: str):
         """Get operator credit order detail.
+
         ---
         tags:
             - Order
@@ -1932,6 +1944,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_detail(user_bid: str):
         """Get operator user detail.
+
         ---
         tags:
             - User
@@ -1953,6 +1966,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_credits(user_bid: str):
         """Get operator user credits detail.
+
         ---
         tags:
             - User
@@ -2059,6 +2073,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_credit_usage_detail(user_bid: str, usage_bid: str):
         """Get operator user credit usage content detail.
+
         ---
         tags:
             - User
@@ -2092,6 +2107,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_credit_grant_bootstrap(user_bid: str):
         """Get operator user grant bootstrap.
+
         ---
         tags:
             - User
@@ -2119,6 +2135,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_credit_grant(user_bid: str):
         """Grant operator user credits.
+
         ---
         tags:
             - User
@@ -2161,6 +2178,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_user_package_grant(user_bid: str):
         """Grant operator user package.
+
         ---
         tags:
             - User
@@ -2213,6 +2231,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_detail(shifu_bid: str):
         """Get operator course detail.
+
         ---
         tags:
             - Shifu
@@ -2251,6 +2270,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_chapter_detail(shifu_bid: str, outline_item_bid: str):
         """Get operator course chapter detail.
+
         ---
         tags:
             - Shifu
@@ -2293,6 +2313,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_users(shifu_bid: str):
         """Get operator course users.
+
         ---
         tags:
             - Shifu
@@ -2369,6 +2390,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_credit_usages(shifu_bid: str):
         """Get operator course credit usage list.
+
         ---
         tags:
             - Shifu
@@ -2470,6 +2492,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_credit_usage_details(shifu_bid: str):
         """Get operator course credit usage detail list.
+
         ---
         tags:
             - Shifu
@@ -2506,6 +2529,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_ratings(shifu_bid: str):
         """Get operator course rating list.
+
         ---
         tags:
             - Shifu
@@ -2630,6 +2654,7 @@ def register_admin_operations_routes(
     )
     def admin_operation_course_follow_ups(shifu_bid: str):
         """Get operator course follow-up list.
+
         ---
         tags:
             - Shifu
@@ -2740,6 +2765,7 @@ def register_admin_operations_routes(
         generated_block_bid: str,
     ):
         """Get operator course follow-up detail.
+
         ---
         tags:
             - Shifu

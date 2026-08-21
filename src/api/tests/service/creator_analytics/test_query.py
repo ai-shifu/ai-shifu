@@ -274,9 +274,7 @@ def test_bill_usage_table_is_rejected(mock_request_user, test_client, app):
 def test_conversation_replay_returns_ordered_qa_pairs(
     mock_request_user, test_client, app, monkeypatch
 ):
-    """End-to-end: select user_bid + generated_content for a lesson's Q&A,
-    verify the rows come back chronologically and an audit log is emitted.
-    """
+    """End-to-end: select user_bid + generated_content for a lesson's Q&A, verify the rows come back chronologically and an audit log is emitted."""
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a")
@@ -817,10 +815,7 @@ def test_bill_daily_split_by_usage_type(mock_request_user, test_client, app):
 def test_bill_daily_creator_bid_grouping_shows_callers_own_wallet(
     mock_request_user, test_client, app
 ):
-    """The author can now group by creator_bid to confirm which wallet is
-    being deducted for the course; shifu_bid isolation guarantees the
-    grouping only returns the caller's own bid.
-    """
+    """The author can now group by creator_bid to confirm which wallet is being deducted for the course; shifu_bid isolation guarantees the grouping only returns the caller's own bid."""
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -872,10 +867,11 @@ def test_bill_daily_creator_bid_grouping_shows_callers_own_wallet(
 
 
 def test_followup_count_excludes_rerolled_history(mock_request_user, test_client, app):
-    """A learner can re-roll a follow-up question; the old block flips to
-    status=0. The PDF §6 trap is "status=0 history rows must not be
-    counted as live follow-ups". sql_builder auto-injects status=1, so
-    the count should stay at 2 even with a status=0 row present.
+    """A learner can re-roll a follow-up question; the old block flips to status=0.
+
+    The PDF §6 trap is "status=0 history rows must not be counted as live follow-ups".
+    sql_builder auto-injects status=1, so the count should stay at 2 even with a status=0
+    row present.
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -928,8 +924,9 @@ def test_followup_count_excludes_rerolled_history(mock_request_user, test_client
 
 def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, app):
     """Group by outline_item_bid answers "follow-up questions per lesson".
-    Requires both `outline_item_bid` selectable / filterable / groupable
-    AND aggregate count_distinct support — added in this round.
+
+    Requires both `outline_item_bid` selectable / filterable / groupable AND aggregate
+    count_distinct support — added in this round.
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -994,10 +991,10 @@ def test_followup_count_per_lesson_by_outline(mock_request_user, test_client, ap
 def test_shifu_published_returns_current_title_excluding_history(
     mock_request_user, test_client, app
 ):
-    """Rename scenario: the same shifu_bid has historical PublishedShifu
-    rows (deleted=1) plus the current row (deleted=0). The query must
-    return only the current row — historical titles must not be presented
-    as the course's "current name" (PDF §1 + §7 rules).
+    """Rename scenario: the same shifu_bid has historical PublishedShifu rows (deleted=1) plus the current row (deleted=0).
+
+    The query must return only the current row — historical titles must not be presented as
+    the course's "current name" (PDF §1 + §7 rules).
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -1040,9 +1037,11 @@ def test_shifu_published_returns_current_title_excluding_history(
 def test_shifu_published_excludes_other_creators_rows(
     mock_request_user, test_client, app
 ):
-    """Even if a co-author / shared user had view permission on the same
-    shifu_bid, the creator_scoped_column injection (created_user_bid =
-    :caller) ensures only the caller's own rows surface. Here we model
+    """Creator scoping excludes other creators' rows.
+
+    Even if a co-author or shared user had view permission on the same shifu_bid, the
+    creator_scoped_column injection (created_user_bid = :caller) ensures only the caller's own
+    rows surface. Here we model
     the simpler "two creators with the same shifu_bid title prefix" case
     — caller can see their own row and never the other creator's.
     """
@@ -1082,8 +1081,9 @@ def test_shifu_published_excludes_other_creators_rows(
 def test_shifu_meta_aggregate_rejected_at_http_layer(
     mock_request_user, test_client, app
 ):
-    """The DSL validator must reject aggregate on metadata tables before
-    SQL is built. Verifies the HTTP error code is the standard invalidDsl.
+    """The DSL validator must reject aggregate on metadata tables before SQL is built.
+
+    Verifies the HTTP error code is the standard invalidDsl.
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -1106,9 +1106,9 @@ def test_shifu_meta_aggregate_rejected_at_http_layer(
 def test_shifu_meta_title_like_searches_callers_courses(
     mock_request_user, test_client, app
 ):
-    """Title `like` with trailing-% is the canonical "find my course by
-    name" path. Combined with creator_scoped filtering, the caller only
-    sees their own matches.
+    """Title `like` with trailing-% is the canonical "find my course by name" path.
+
+    Combined with creator_scoped filtering, the caller only sees their own matches.
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():

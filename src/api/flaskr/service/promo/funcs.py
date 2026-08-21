@@ -88,11 +88,13 @@ def _app_context_scope(app: Flask):
 
 
 def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
-    """Timeout coupon code rollback
+    """Timeout coupon code rollback.
+
     Args:
         app: Flask app
         user_bid: User bid
         order_bid: Order bid.
+
     """
     with app.app_context():
         usage = CouponUsageModel.query.filter(

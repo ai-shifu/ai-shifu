@@ -83,9 +83,9 @@ def _seed_usage_with_ledger(
 
 
 def test_credit_detail_returns_summary_and_rows(mock_request_user, test_client, app):
-    """3 paired usage / ledger rows → summary aggregates them and rows
-    list each charge. amount stored as a negative number; API returns
-    the absolute value as `credits`.
+    """3 paired usage / ledger rows → summary aggregates them and rows list each charge.
+
+    amount stored as a negative number; API returns the absolute value as `credits`.
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -143,10 +143,11 @@ def test_credit_detail_returns_summary_and_rows(mock_request_user, test_client, 
 def test_credit_detail_excludes_non_usage_ledger_entries(
     mock_request_user, test_client, app
 ):
-    """A ledger entry with source_type != USAGE (e.g. subscription / topup)
-    must never appear in the result, even if its source_bid happens to
-    match an existing bill_usage.usage_bid (which would not happen in
-    production, but the filter must be defensive).
+    """A non-USAGE ledger entry must never appear in the result.
+
+    Entries such as subscription or topup must be excluded even if their source_bid happens to
+    match an existing bill_usage.usage_bid (which would not happen in production, but the
+    filter must be defensive).
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -186,12 +187,11 @@ def test_credit_detail_excludes_non_usage_ledger_entries(
 def test_credit_detail_summary_unique_wallets_counts_distinct_creators(
     mock_request_user, test_client, app
 ):
-    """Most courses bill against a single wallet (the author's), but
-    subscription / proxy-payment / sponsorship scenarios can split charges
-    across multiple wallets for the same shifu. The summary must surface
-    this as a distinct count so a caller does not treat the per-row
-    wallet_creator_bid as "the" wallet for the course (raised on PR #1771
-    review of the original `min(creator_bid)` aggregate).
+    """Most courses bill against a single wallet (the author's), but subscription / proxy-payment / sponsorship scenarios can split charges across multiple wallets for the same shifu.
+
+    The summary must surface this as a distinct count so a caller does not treat the per-row
+    wallet_creator_bid as "the" wallet for the course (raised on PR #1771 review of the
+    original `min(creator_bid)` aggregate).
     """
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -258,9 +258,7 @@ def test_credit_detail_user_cannot_query_other_shifu(
 def test_credit_detail_results_are_scoped_to_requested_shifu(
     mock_request_user, test_client, app
 ):
-    """Even when the caller owns multiple shifu, only the requested one's
-    rows surface — the join is anchored on bill_usage.shifu_bid.
-    """
+    """Even when the caller owns multiple shifu, only the requested one's rows surface — the join is anchored on bill_usage.shifu_bid."""
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -441,9 +439,7 @@ def test_credit_detail_pagination(mock_request_user, test_client, app):
 def test_credit_detail_empty_when_bill_usage_has_no_ledger_entries(
     mock_request_user, test_client, app
 ):
-    """If settlement failed for every usage row (no ledger entry exists),
-    the join collapses to zero rows — surfaces as empty summary.
-    """
+    """If settlement failed for every usage row (no ledger entry exists), the join collapses to zero rows — surfaces as empty summary."""
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -481,8 +477,7 @@ def test_credit_detail_rejects_limit_above_max(mock_request_user, test_client, a
 def test_credit_detail_emits_audit_log(
     mock_request_user, test_client, app, monkeypatch
 ):
-    """Each call must log user_id + shifu_bid + row count + filter summary
-    so retroactive auditing can reconstruct who hit credit-detail.
+    """Each call must log user_id + shifu_bid + row count + filter summary so retroactive auditing can reconstruct who hit credit-detail.
 
     Uses the same `monkeypatch app.logger.info` capture pattern as the
     user_users lookup audit test (see test_query.py) — pytest's caplog

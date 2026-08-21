@@ -194,8 +194,9 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
 
 
 def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
-    """If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
-    visual tag (e.g. `=== <iframe ...`), rewind start to include the marker.
+    """Rewind over a MarkdownFlow fixed marker before a visual tag.
+
+    For example, include the marker in `=== <iframe ...`.
     """
     if not raw or start_index <= 0:
         return start_index
@@ -215,9 +216,9 @@ def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
 
 
 def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
-    """If `raw` contains a trailing fixed marker suffix on the same line as a
-    visual close tag (e.g. `</iframe> ===`), extend end to include it (and one
-    trailing newline if present).
+    """Extend over a MarkdownFlow fixed marker after a visual close tag.
+
+    For example, include the marker and one trailing newline in `</iframe> ===`.
     """
     if not raw or end_index <= 0 or end_index >= len(raw):
         return end_index
