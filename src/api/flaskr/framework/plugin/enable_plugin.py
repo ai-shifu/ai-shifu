@@ -26,9 +26,9 @@ def enable_plugins(app: Flask):
 
     @plugin.command(name="add")
     @click.argument("repo_url")
-    def add(repo_url: object):
+    def add(repo_url: str):
         """Add a plugin by cloning the repository."""
-        repo_name = repo_url.split("/")[-1].replace(".git", "")
+        repo_name = repo_url.rsplit("/", maxsplit=1)[-1].replace(".git", "")
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if Path(dest_dir).exists():
             return
@@ -41,7 +41,7 @@ def enable_plugins(app: Flask):
 
     @plugin.command(name="delete")
     @click.argument("repo_name")
-    def delete(repo_name: object):
+    def delete(repo_name: str):
         """Delete a plugin by its repository name."""
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if not Path(dest_dir).exists():
