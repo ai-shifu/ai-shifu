@@ -308,6 +308,10 @@ plan's progress update for that rule.
   pre-content retry helper and Pingxx serialization decorator with a concrete
   stream generator and `ParamSpec` / `TypeVar` callable signatures. Runtime
   annotation-contract tests now cover both paths.
+- [x] 2026-08-22 12:35 CST: Added ANN202 to Ruff's selected rules and replaced
+  all 53 remaining private-return gaps with concrete `None`, Flask response,
+  string-response, tuple, plugin-list, and filtering-callback contracts. The
+  one deployed migration exception remains exact-file scoped.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
