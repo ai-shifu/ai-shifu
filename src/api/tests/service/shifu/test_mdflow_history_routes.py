@@ -7,13 +7,13 @@ from flaskr import dao
 from flaskr.service.common.models import ERROR_CODE
 
 
-def _get_models():
+def _get_models() -> object:
     from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
     return DraftShifu, DraftOutlineItem
 
 
-def _mock_user(monkeypatch: object, user_id: str, is_creator: bool = True):
+def _mock_user(monkeypatch: object, user_id: str, is_creator: bool = True) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,

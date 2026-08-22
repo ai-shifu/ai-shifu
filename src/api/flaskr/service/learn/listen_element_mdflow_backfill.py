@@ -256,7 +256,7 @@ def _make_adapter(
     outline_bid: str,
     user_bid: str,
     run_session_bid: str,
-):
+) -> object:
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
     return ListenElementRunAdapter(
@@ -271,7 +271,7 @@ def _make_adapter(
 def _iter_active_group_rows(
     progress_record_bid: str,
     generated_block_bid: str,
-):
+) -> object:
     return LearnGeneratedElement.query.filter(
         LearnGeneratedElement.progress_record_bid == progress_record_bid,
         LearnGeneratedElement.generated_block_bid == generated_block_bid,

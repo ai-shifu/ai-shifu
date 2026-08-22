@@ -168,7 +168,7 @@ class AICourseBuyRecordDTO:
     def __json__(self: object) -> dict:
         """Return the AI course buy record as JSON-compatible data."""
 
-        def format_decimal(value: object):
+        def format_decimal(value: object) -> object:
             # Convert to a string with two decimal places
             formatted_value = value if isinstance(value, str) else f"{value:.2f}"
             # If the decimal part is .00, remove it
@@ -677,7 +677,7 @@ def generate_charge(
     return None
 
 
-def _order_credential_scope(app: Flask, order: Order, context: object = None):
+def _order_credential_scope(app: Flask, order: Order, context: object = None) -> object:
     """Use the immutable credential version snapshotted on the order."""
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
@@ -1322,7 +1322,7 @@ def _update_stripe_order_snapshot(
     stripe_order: StripeOrder,
     session: dict[str, Any],
     intent: dict[str, Any] | None,
-):
+) -> None:
     if session:
         stripe_order.checkout_session_id = session.get(
             "id", stripe_order.checkout_session_id

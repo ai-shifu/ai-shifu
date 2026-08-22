@@ -243,7 +243,7 @@ def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items(
         updated_at=datetime(2025, 4, 3, 10, 0, 0),
     )
 
-    def attach_prompt_flags(model: object, rows: object):
+    def attach_prompt_flags(model: object, rows: object) -> None:
         for row in rows:
             row.has_course_prompt = model is PublishedShifu
 

@@ -64,7 +64,7 @@ class _StubRunContext:
             yield item
 
 
-def _patch_run_dependencies(monkeypatch: object, script: object):
+def _patch_run_dependencies(monkeypatch: object, script: object) -> object:
     session = _FakeSession()
 
     class _FakeDb:
@@ -102,7 +102,7 @@ def _patch_run_dependencies(monkeypatch: object, script: object):
     return session
 
 
-def _start_stream(app: object):
+def _start_stream(app: object) -> object:
     generator = run_script_inner(
         app=app,
         user_bid="user-1",

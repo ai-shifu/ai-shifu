@@ -43,13 +43,13 @@ def test_send_order_feishu_formats_notification(
             self._first_value = first_value
             self._count_value = count_value
 
-        def filter(self: object, *_args: object, **_kwargs: object):
+        def filter(self: object, *_args: object, **_kwargs: object) -> object:
             return self
 
-        def first(self: object):
+        def first(self: object) -> object:
             return self._first_value
 
-        def count(self: object):
+        def count(self: object) -> object:
             return self._count_value
 
     class FakeColumn:
@@ -75,7 +75,7 @@ def test_send_order_feishu_formats_notification(
 
     captured = {}
 
-    def fake_send_notify(_app: object, title: object, msgs: object):
+    def fake_send_notify(_app: object, title: object, msgs: object) -> None:
         captured["title"] = title
         captured["msgs"] = msgs
 

@@ -49,7 +49,7 @@ def recorder_app() -> Flask:
         dao.db.drop_all()
 
 
-def _seed_attend(progress_record_bid: str = "progress-recorder-0001"):
+def _seed_attend(progress_record_bid: str = "progress-recorder-0001") -> object:
     attend = LearnProgressRecord(
         progress_record_bid=progress_record_bid,
         shifu_bid=SHIFU_BID,
@@ -82,7 +82,7 @@ def _fail_next_flush(monkeypatch: object, exc: Exception) -> None:
     real_flush = dao.db.session.flush
     state = {"fired": False}
 
-    def _boom(*args: object, **kwargs: object):
+    def _boom(*args: object, **kwargs: object) -> object:
         if not state["fired"]:
             state["fired"] = True
             raise exc

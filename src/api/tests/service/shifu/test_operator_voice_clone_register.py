@@ -185,7 +185,7 @@ def _mock_volcengine_status(monkeypatch: object, status: int) -> None:
 
 
 def _forbid_minimax_synthesis(monkeypatch: object) -> None:
-    def _fail(*_args: object, **_kwargs: object):
+    def _fail(*_args: object, **_kwargs: object) -> None:
         message = "synthesize_text must not be called for volcengine"
         raise AssertionError(message)
 

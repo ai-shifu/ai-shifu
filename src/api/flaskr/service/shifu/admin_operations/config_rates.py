@@ -66,7 +66,7 @@ _CREDITS_PER_UNIT_MAX = Decimal("9999999999.9999999999")
 _ActiveRateIndex = dict[tuple[int, int, str, str], CreditUsageRate]
 
 
-def _rate_effective_now():
+def _rate_effective_now() -> object:
     # MySQL DATETIME columns in this schema do not keep fractional seconds.
     # Truncate before writing so a just-saved rate is immediately readable and
     # repeated saves in one second hit the same deterministic version.

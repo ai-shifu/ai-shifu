@@ -1116,7 +1116,7 @@ def _validate_audio_upload(data: bytes, *, filename: str, max_bytes: int) -> Non
         raise_param_error("unsupported audio file type")
 
 
-def _available_wallet_credits(app: Flask, creator_bid: str):
+def _available_wallet_credits(app: Flask, creator_bid: str) -> object:
     from flaskr.service.billing.models import CreditWallet
 
     with app.app_context():

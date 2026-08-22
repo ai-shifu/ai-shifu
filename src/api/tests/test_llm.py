@@ -22,10 +22,10 @@ def _install_litellm_stub() -> None:
     litellm_stub = types.ModuleType("litellm")
     litellm_stub.model_cost = {}
 
-    def register_model(model_map: object):
+    def register_model(model_map: object) -> None:
         litellm_stub.model_cost.update(model_map)
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -197,7 +197,7 @@ def _create_credit_rate(
     )
 
 
-def _configure_model_list(monkeypatch: object):
+def _configure_model_list(monkeypatch: object) -> None:
     available_models = [
         "qwen/deepseek-v4-flash",
         "ark/doubao-seed-2-0-lite-260428",
@@ -425,7 +425,7 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
 ) -> None:
     _configure_model_list(monkeypatch)
 
-    def raise_lookup(_app: object):
+    def raise_lookup(_app: object) -> None:
         message = "db unavailable"
         raise RuntimeError(message)
 
@@ -444,7 +444,7 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
 def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
     captured = {}
 
-    def fake_get(url: object, headers: object = None, timeout: object = None):
+    def fake_get(url: object, headers: object = None, timeout: object = None) -> object:
         captured["url"] = url
         captured["headers"] = headers
         captured["timeout"] = timeout
@@ -481,7 +481,7 @@ def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
 def test_deepseek_model_loader_falls_back_when_list_models_fails(
     monkeypatch: object,
 ) -> None:
-    def fake_get(*args: object, **kwargs: object):
+    def fake_get(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
         message = "network unavailable"
         raise RuntimeError(message)
@@ -508,7 +508,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 ) -> None:
     captured = {}
 
-    def fake_completion(model: object, *args: object, **kwargs: object):
+    def fake_completion(model: object, *args: object, **kwargs: object) -> object:
         _ = args
         captured["model"] = model
         captured["kwargs"] = kwargs
@@ -516,7 +516,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
-    def reload_qwen_params(model_id: object, temperature: object):
+    def reload_qwen_params(model_id: object, temperature: object) -> object:
         captured["reload_model"] = model_id
         return llm._reload_qwen_params(model_id, temperature)
 
@@ -681,7 +681,7 @@ def test_stream_litellm_completion_omits_unknown_limit(
 ) -> None:
     captured = {}
 
-    def raise_unknown(_model: object):
+    def raise_unknown(_model: object) -> None:
         message = "unknown model"
         raise ValueError(message)
 
@@ -778,7 +778,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 ) -> None:
     captured = {}
 
-    def fake_get_model_info(*, model: object, custom_llm_provider: object):
+    def fake_get_model_info(*, model: object, custom_llm_provider: object) -> object:
         captured["model"] = model
         captured["custom_llm_provider"] = custom_llm_provider
         return model_info
@@ -800,7 +800,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
     monkeypatch: object,
 ) -> None:
-    def raise_unknown(*args: object, **kwargs: object):
+    def raise_unknown(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -1271,7 +1271,7 @@ def test_litellm_195_native_adapter_contracts() -> None:
 def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> object:
         _ = args
         captured_kwargs["kwargs"] = kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
@@ -1343,11 +1343,11 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
 ) -> None:
     captured = {}
 
-    def reload_params(model_id: object, temperature: object):
+    def reload_params(model_id: object, temperature: object) -> object:
         captured["reload_model"] = model_id
         return {"temperature": temperature}
 
-    def fake_completion(model: object, *args: object, **kwargs: object):
+    def fake_completion(model: object, *args: object, **kwargs: object) -> object:
         _ = args
         captured["completion_model"] = model
         captured["completion_kwargs"] = kwargs
@@ -1398,7 +1398,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     class RepeatedChunkError(Exception):
         __module__ = "litellm.exceptions"
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> object:
         _ = (args, kwargs)
         yield FakeResponse("chunk-1", content="你好")
         message = "The model is repeating the same chunk = ！ ！ ."
@@ -1435,7 +1435,7 @@ def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
     captured_usage = {}
 
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> object:
         _ = args
         captured_kwargs["kwargs"] = kwargs
         chunks = [
@@ -1505,7 +1505,7 @@ def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
 def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
     monkeypatch: object, app: object, llm_method: object
 ) -> None:
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> object:
         _ = args, kwargs
         return iter(
             [
@@ -1609,7 +1609,7 @@ def test_extract_reasoning_delta_supports_litellm_fallback_fields(
 def test_chat_llm_falls_back_to_request_trace_id(
     monkeypatch: object, app: object
 ) -> None:
-    def fake_completion(*args: object, **kwargs: object):
+    def fake_completion(*args: object, **kwargs: object) -> object:
         _ = args, kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
 
@@ -1652,7 +1652,7 @@ class _FakeMidStreamFallbackError(Exception):
     """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
-def _stream_chunk(content: object):
+def _stream_chunk(content: object) -> object:
     return SimpleNamespace(
         choices=[
             SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=None)
@@ -1661,7 +1661,7 @@ def _stream_chunk(content: object):
     )
 
 
-def _reasoning_stream_chunk(reasoning_content: object):
+def _reasoning_stream_chunk(reasoning_content: object) -> object:
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -1675,7 +1675,7 @@ def _reasoning_stream_chunk(reasoning_content: object):
     )
 
 
-def _patch_retryable_stream_errors(monkeypatch: object):
+def _patch_retryable_stream_errors(monkeypatch: object) -> None:
     # Distinct classes per exception name: a resolver that silently drops one
     # of the names fails that class's parametrized retry test instead of
     # being masked by a shared class.
@@ -1690,7 +1690,7 @@ def _patch_retryable_stream_errors(monkeypatch: object):
     )
 
 
-def _patch_scripted_streams(monkeypatch: object, scripts: object):
+def _patch_scripted_streams(monkeypatch: object, scripts: object) -> object:
     """Each call to _stream_litellm_completion consumes the next script; a script is a list of chunks and/or exceptions raised in order."""
     calls = {"count": 0}
 
@@ -1701,11 +1701,11 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object):
         _messages: object,
         _params: object,
         _kwargs: object,
-    ):
+    ) -> object:
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
 
-        def _gen():
+        def _gen() -> object:
             for item in script:
                 if isinstance(item, BaseException):
                     raise item
@@ -1717,7 +1717,7 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object):
     return calls
 
 
-def _collect_retry_stream(app: object):
+def _collect_retry_stream(app: object) -> object:
     return list(
         llm._iter_stream_with_precontent_retry(
             app, "qwen/test-model", "test-model", [], {}, {}

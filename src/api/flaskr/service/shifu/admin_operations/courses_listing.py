@@ -143,7 +143,7 @@ def _build_operator_visible_course_filter(
     shifu_bid_column: object,
     title_column: object,
     created_user_bid_column: object,
-):
+) -> object:
     normalized_shifu_bid = db.func.trim(db.func.coalesce(shifu_bid_column, ""))
     normalized_title = db.func.trim(db.func.coalesce(title_column, ""))
     normalized_created_user_bid = db.func.trim(
@@ -174,7 +174,7 @@ def _build_latest_operator_course_rows_query(
     creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
-):
+) -> object:
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
     )
@@ -270,7 +270,7 @@ def _build_latest_operator_course_rows_subquery(
     start_time: datetime | None,
     end_time: datetime | None,
     alias_name: str,
-):
+) -> object:
     base_query = _build_latest_operator_course_rows_query(
         model,
         shifu_bid=shifu_bid,
@@ -296,7 +296,7 @@ def _build_operator_course_candidate_query(
     start_time: datetime | None,
     end_time: datetime | None,
     include_activity: bool = False,
-):
+) -> object:
     draft_rows_subquery = _build_latest_operator_course_rows_subquery(
         DraftShifu,
         shifu_bid=shifu_bid,
@@ -478,7 +478,7 @@ def _build_latest_outline_activity_subquery(
     candidate_bids_subquery: object,
     *,
     alias_name: str,
-):
+) -> object:
     latest_outline_rows_subquery = (
         db.session.query(
             model.shifu_bid.label("shifu_bid"),
@@ -537,7 +537,7 @@ def _build_operator_course_latest_activity_subquery(
     candidate_bids_subquery: object,
     draft_visible_subquery: object,
     published_visible_subquery: object,
-):
+) -> object:
     draft_outline_activity_subquery = _build_latest_outline_activity_subquery(
         DraftOutlineItem,
         candidate_bids_subquery,
@@ -620,7 +620,7 @@ def _build_latest_shifus_query(
     updated_start_time: datetime | None,
     updated_end_time: datetime | None,
     lightweight: bool = False,
-):
+) -> object:
     is_mapped_model = hasattr(model, "__mapper__")
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
@@ -730,7 +730,7 @@ def _load_latest_shifus(
     updated_end_time: datetime | None,
     attach_prompt_flags: bool = False,
     lightweight: bool = False,
-):
+) -> object:
     ordered_query = _build_latest_shifus_query(
         model,
         shifu_bid=shifu_bid,
@@ -886,7 +886,7 @@ def _apply_operator_course_list_filters(
     updated_start_time: datetime | None,
     updated_end_time: datetime | None,
     apply_updated_filters: bool,
-):
+) -> object:
     if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
         query = query.filter(candidate_subquery.c.course_status == course_status)
     if quick_filter:
@@ -1008,7 +1008,7 @@ def _load_recent_paid_order_course_bids(
     }
 
 
-def _build_latest_billing_order_subquery(*, creator_bid: str):
+def _build_latest_billing_order_subquery(*, creator_bid: str) -> object:
     normalized_creator_bid = str(creator_bid or "").strip()
     return (
         db.session.query(

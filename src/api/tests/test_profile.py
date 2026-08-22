@@ -25,12 +25,12 @@ def test_add_profile_item_quick_creates_definition(app: object) -> None:
 def test_hide_unused_profile_items_no_unused(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_unused(app: object, parent_id: object):
+    def fake_get_unused(app: object, parent_id: object) -> object:
         _ = app
         calls.append(("unused", parent_id))
         return []
 
-    def fake_get_defs(app: object, parent_id: object = None):
+    def fake_get_defs(app: object, parent_id: object = None) -> object:
         _ = app
         calls.append(("defs", parent_id))
         return ["defs"]
@@ -52,7 +52,7 @@ def test_hide_unused_profile_items_no_unused(monkeypatch: object) -> None:
 def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_unused(app: object, parent_id: object):
+    def fake_get_unused(app: object, parent_id: object) -> object:
         _ = app
         calls.append(("unused", parent_id))
         return ["v1", "v2"]
@@ -63,7 +63,7 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
         profile_keys: object,
         hidden: object,
         user_id: object,
-    ):
+    ) -> object:
         _ = app
         calls.append(("update", parent_id, tuple(profile_keys), hidden, user_id))
         return ["updated"]

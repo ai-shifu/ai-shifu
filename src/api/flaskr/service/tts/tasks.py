@@ -22,7 +22,7 @@ except ImportError:  # pragma: no cover - local fallback for non-Celery test env
         return decorator
 
 
-def _create_task_app():
+def _create_task_app() -> object:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     from app import create_app
 

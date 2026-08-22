@@ -62,7 +62,7 @@ def billing_cli_runner() -> object:
     app.testing = True
 
     @app.cli.group()
-    def console():
+    def console() -> None:
         """Test console root."""
 
     register_billing_commands(console)
@@ -87,7 +87,7 @@ def billing_cli_db_app() -> object:
     dao.db.init_app(app)
 
     @app.cli.group()
-    def console():
+    def console() -> None:
         """Test console root."""
 
     register_billing_commands(console)

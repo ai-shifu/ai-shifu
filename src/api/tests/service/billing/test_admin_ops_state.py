@@ -26,13 +26,15 @@ class _TrackingRedis:
         return _TrackingLock(self.events, key)
 
 
-def _patch_config_store(monkeypatch: object):
+def _patch_config_store(monkeypatch: object) -> object:
     store = {}
 
-    def fake_get_config(key: object, default: object = None):
+    def fake_get_config(key: object, default: object = None) -> object:
         return store.get(key, default)
 
-    def fake_update_config(_app: object, key: object, value: object, **kwargs: object):
+    def fake_update_config(
+        _app: object, key: object, value: object, **kwargs: object
+    ) -> object:
         store[key] = value
         store[(key, "meta")] = kwargs
         return True

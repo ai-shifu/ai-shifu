@@ -124,7 +124,7 @@ def test_yield_tts_synthesis_sheds_request_when_full(
 
     body_calls = {"n": 0}
 
-    def _body():
+    def _body() -> object:
         body_calls["n"] += 1
         yield "chunk"
 
@@ -155,7 +155,7 @@ def test_yield_tts_synthesis_runs_and_releases_slot(
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
-    def _body():
+    def _body() -> object:
         yield "a"
         yield "b"
 
@@ -186,7 +186,7 @@ def test_yield_tts_synthesis_bypass_does_not_release(
     monkeypatch.setattr(dao._redis_state, "client", boom)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
-    def _body():
+    def _body() -> object:
         yield "a"
 
     with app.app_context():

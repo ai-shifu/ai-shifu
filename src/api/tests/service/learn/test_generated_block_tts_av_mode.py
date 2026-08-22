@@ -28,7 +28,7 @@ def _patch_run_tts_processor(
     *,
     voice_settings: _FakeVoiceSettings | None = None,
     tts_model: str = "test-model",
-):
+) -> object:
     synthesized_texts = []
     resolved_voice_settings = voice_settings or _FakeVoiceSettings()
 
@@ -54,7 +54,7 @@ def _patch_run_tts_processor(
         lambda _provider: False,
     )
 
-    def _fake_synthesize_text(**kwargs: object):
+    def _fake_synthesize_text(**kwargs: object) -> object:
         synthesized_texts.append(kwargs["text"])
         return SimpleNamespace(
             audio_data=f"fake-audio:{kwargs['text']}".encode(),
@@ -935,7 +935,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
-        def _fail_sem_acquire(*_args: object, **_kwargs: object):
+        def _fail_sem_acquire(*_args: object, **_kwargs: object) -> None:
             message = "cache fast-path should not acquire the synthesis semaphore"
             raise AssertionError(message)
 
@@ -1159,7 +1159,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
-        def _fail_sem_acquire(*_args: object, **_kwargs: object):
+        def _fail_sem_acquire(*_args: object, **_kwargs: object) -> None:
             message = "markup-only blocks should not acquire the synthesis semaphore"
             raise AssertionError(message)
 

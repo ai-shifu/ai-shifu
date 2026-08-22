@@ -39,7 +39,7 @@ def _parse_optimized_profile(raw_response: str) -> str:
     return raw_response
 
 
-def _exception_chain(exc: BaseException):
+def _exception_chain(exc: BaseException) -> object:
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:

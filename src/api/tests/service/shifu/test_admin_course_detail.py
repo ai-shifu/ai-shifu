@@ -105,7 +105,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _pin_app_timezone_to_utc(app: object):
+def _pin_app_timezone_to_utc(app: object) -> object:
     original_tz = app.config.get("TZ")
     app.config["TZ"] = "UTC"
     try:
@@ -118,8 +118,8 @@ def _pin_app_timezone_to_utc(app: object):
 
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch: object):
-    def gensalt(rounds: object = 12):
+def _mock_bcrypt_module(monkeypatch: object) -> None:
+    def gensalt(rounds: object = 12) -> object:
         del rounds
         return b"salt"
 
@@ -135,7 +135,7 @@ def _mock_bcrypt_module(monkeypatch: object):
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app: object):
+def _isolate_tables(app: object) -> object:
     with app.app_context():
         _clear_tables()
     yield
@@ -2483,14 +2483,14 @@ def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     load_counts = {"llm": 0, "tts": 0}
 
-    def fake_get_current_models(_app: object):
+    def fake_get_current_models(_app: object) -> object:
         load_counts["llm"] += 1
         return [
             {"model": "gpt-known", "display_name": "GPT Known"},
             {"model": "shared-model", "display_name": "Shared Model"},
         ]
 
-    def fake_get_all_provider_configs():
+    def fake_get_all_provider_configs() -> object:
         load_counts["tts"] += 1
         return {
             "providers": [],

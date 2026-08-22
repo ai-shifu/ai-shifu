@@ -21,7 +21,7 @@ def test_authenticated_request_prefers_accept_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language")
-    def runtime_language():
+    def runtime_language() -> object:
         return jsonify({"language": get_current_language()})
 
     try:
@@ -48,7 +48,7 @@ def test_authenticated_request_normalizes_accept_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language")
-    def runtime_language():
+    def runtime_language() -> object:
         return jsonify({"language": get_current_language()})
 
     try:
@@ -75,7 +75,7 @@ def test_authenticated_request_reads_json_payload_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language", methods=["POST"])
-    def runtime_language():
+    def runtime_language() -> object:
         return jsonify({"language": get_current_language()})
 
     try:

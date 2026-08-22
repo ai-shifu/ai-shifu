@@ -33,7 +33,7 @@ def _seed_versions(count: int) -> list[int]:
     return sorted((int(row.id) for row in rows), reverse=True)
 
 
-def _cleanup():
+def _cleanup() -> None:
     DraftOutlineItem.query.filter(DraftOutlineItem.shifu_bid == SHIFU).delete()
     db.session.commit()
 

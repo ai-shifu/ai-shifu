@@ -95,7 +95,7 @@ class CreditNotificationRetryableError(RuntimeError):
     """Raised when the credit notification worker should use Celery autoretry."""
 
 
-def _create_task_app():
+def _create_task_app() -> object:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     from app import create_app
 
@@ -299,7 +299,7 @@ def _run_reconcile_provider_reference(
     provider_reference_id: str = "",
     bill_order_bid: str = "",
     session_id: str = "",
-):
+) -> object:
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)

@@ -43,20 +43,20 @@ class _FakeRedis:
         return lock
 
 
-def _clock(start: object = 1000.0):
+def _clock(start: object = 1000.0) -> object:
     now = {"value": float(start)}
 
-    def now_fn():
+    def now_fn() -> object:
         return now["value"]
 
-    def sleep_fn(seconds: object):
+    def sleep_fn(seconds: object) -> None:
         now["value"] += seconds
 
     return now_fn, sleep_fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_gate_state():
+def _reset_gate_state() -> object:
     rpm_gate._LOCAL_STATE.clear()
     rpm_gate._FALLBACK_WARNING_KEYS.clear()
     yield

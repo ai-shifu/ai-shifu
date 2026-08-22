@@ -1763,7 +1763,7 @@ class RunScriptContextV2:
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-    ):
+    ) -> object:
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
@@ -3414,7 +3414,7 @@ class RunScriptContextV2:
         def _switch_tts_processor(
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ):
+        ) -> None:
             nonlocal \
                 tts_processor, \
                 tts_enabled, \
@@ -3448,7 +3448,7 @@ class RunScriptContextV2:
             chunk_content: str,
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ):
+        ) -> object:
             nonlocal \
                 generated_content, \
                 tts_processor, \
@@ -3501,7 +3501,7 @@ class RunScriptContextV2:
             )
             _disable_all_tts()
 
-        def _drain_current_tts_ready_events():
+        def _drain_current_tts_ready_events() -> object:
             if not tts_processor:
                 return
             if not hasattr(tts_processor, "drain_ready_segments"):
@@ -3511,7 +3511,7 @@ class RunScriptContextV2:
             except Exception as exc:
                 _handle_current_tts_drain_error(exc)
 
-        def _drain_tts_ready_events():
+        def _drain_tts_ready_events() -> object:
             yield from tts_finalize_drainer.drain()
             yield from _drain_current_tts_ready_events()
             yield from tts_finalize_drainer.drain()

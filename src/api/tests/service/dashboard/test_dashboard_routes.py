@@ -56,7 +56,7 @@ def _clear_dashboard_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_dashboard_tables(app: object):
+def _isolate_dashboard_tables(app: object) -> object:
     if app is None:
         yield
         return
@@ -76,7 +76,7 @@ class TestDashboardRoutes:
 
     def _mock_request_user(
         self: object, monkeypatch: object, *, user_id: str = "teacher-1"
-    ):
+    ) -> None:
         dummy_user = SimpleNamespace(
             user_id=user_id,
             language="en-US",

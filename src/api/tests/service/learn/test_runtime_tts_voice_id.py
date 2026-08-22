@@ -36,7 +36,7 @@ def _patch_provider(
     monkeypatch: object,
     built_in: object = ("builtin-1",),
     default_voice_id: object = "default-voice",
-):
+) -> None:
     provider_config = SimpleNamespace(voices=[{"value": value} for value in built_in])
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.get_tts_provider",
@@ -54,7 +54,7 @@ def _add_clone(
     status: object,
     voice_bid: object,
     provider: object = "minimax",
-):
+) -> None:
     dao.db.session.add(
         TTSMiniMaxClonedVoice(
             voice_bid=voice_bid,

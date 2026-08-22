@@ -93,7 +93,9 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         raising=False,
     )
 
-    def _fake_record_tts_usage(app: object, context: object, **kwargs: object):
+    def _fake_record_tts_usage(
+        app: object, context: object, **kwargs: object
+    ) -> object:
         captured.append(
             {
                 "app": app,
@@ -155,7 +157,7 @@ def test_build_tts_preview_response_normalizes_removed_fields(
     app = Flask(__name__)
     captured: dict[str, object] = {}
 
-    def _fake_validate_tts_settings_strict(**kwargs: object):
+    def _fake_validate_tts_settings_strict(**kwargs: object) -> object:
         captured.update(kwargs)
         return SimpleNamespace(
             provider="fake",
@@ -253,7 +255,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(
 
     def _fake_guard(
         _app: object, *, provider: object, voice_id: object, owner_user_bid: object
-    ):
+    ) -> None:
         guard_calls.append(
             {
                 "provider": provider,
@@ -297,7 +299,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(
     ]
 
 
-def _stub_preview_pipeline(monkeypatch: object):
+def _stub_preview_pipeline(monkeypatch: object) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.validate_tts_settings_strict",
         lambda **_kwargs: SimpleNamespace(

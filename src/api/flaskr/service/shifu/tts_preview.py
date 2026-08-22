@@ -121,7 +121,7 @@ def build_tts_preview_response(
         audio_settings=safe_audio_settings,
     )
 
-    def event_stream():
+    def event_stream() -> object:
         total_duration_ms = 0
         total_word_count = 0
         total_output_chars = 0

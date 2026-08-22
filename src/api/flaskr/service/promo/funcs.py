@@ -55,7 +55,7 @@ def is_campaign_enabled_for_runtime(campaign: object) -> bool:
     )
 
 
-def _blank_legacy_bid_expression(column: object):
+def _blank_legacy_bid_expression(column: object) -> object:
     normalized = func.coalesce(column, "")
     normalized = func.replace(normalized, "\t", "")
     normalized = func.replace(normalized, "\n", "")
@@ -87,7 +87,7 @@ def build_campaign_enabled_expression(model_or_columns: object) -> object:
     )
 
 
-def _app_context_scope(app: Flask):
+def _app_context_scope(app: Flask) -> object:
     return nullcontext() if has_app_context() else app.app_context()
 
 

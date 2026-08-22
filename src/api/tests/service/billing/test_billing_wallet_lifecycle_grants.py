@@ -165,7 +165,7 @@ def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrit
     original_commit = dao.db.session.commit
     state = {"raised": False}
 
-    def _commit_once_with_duplicate():
+    def _commit_once_with_duplicate() -> object:
         if not state["raised"]:
             state["raised"] = True
             dao.db.session.rollback()

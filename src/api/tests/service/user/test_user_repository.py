@@ -11,12 +11,12 @@ def test_transactional_session_classifies_before_savepoint_rollback(
 
     events = []
 
-    def invalidate(*, source: object, session: object = None):
+    def invalidate(*, source: object, session: object = None) -> object:
         del session
         events.append(("invalidate", source))
         return True
 
-    def cleanup(exc: object, *, source: object, session: object = None):
+    def cleanup(exc: object, *, source: object, session: object = None) -> object:
         del exc, session
         events.append(("cleanup", source))
         return "rolled_back"
@@ -37,10 +37,10 @@ def test_transactional_session_classifies_before_savepoint_rollback(
             self.rollbacks = 0
             self.commits = 0
 
-        def rollback(self: object):
+        def rollback(self: object) -> None:
             self.rollbacks += 1
 
-        def commit(self: object):
+        def commit(self: object) -> None:
             self.commits += 1
 
     nested = _Nested()

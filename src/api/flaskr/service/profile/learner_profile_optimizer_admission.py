@@ -69,7 +69,7 @@ def _admission_key(app: Flask, *, user_id: str) -> str:
     )
 
 
-def _redis_client():
+def _redis_client() -> object:
     from flaskr.dao import get_redis_client
 
     return get_redis_client()

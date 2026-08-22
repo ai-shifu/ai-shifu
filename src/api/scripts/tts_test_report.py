@@ -114,7 +114,7 @@ def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
 
     cases: list[dict[str, str]] = []
 
-    def add_case(model_value: str, voice_value: str):
+    def add_case(model_value: str, voice_value: str) -> None:
         cases.append(
             {
                 "provider": provider_name,

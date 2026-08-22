@@ -62,7 +62,7 @@ _original_asyncio_run = asyncio.run
 _background_asyncio_tasks: set[asyncio.Task] = set()
 
 
-def _safe_asyncio_run(coro: object, *args: object, **kwargs: object):
+def _safe_asyncio_run(coro: object, *args: object, **kwargs: object) -> object:
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:
@@ -446,7 +446,7 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
-):
+) -> object:
     try:
         # Routed ids are the application-level identity. LiteLLM completion uses
         # the stripped provider model id, which can collide across routes (for
@@ -517,7 +517,7 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
-):
+) -> object:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
     The built-in openai/litellm retries only cover request setup; an

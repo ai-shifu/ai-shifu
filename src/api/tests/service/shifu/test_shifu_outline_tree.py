@@ -18,7 +18,9 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 from sqlalchemy import inspect as sa_inspect
 
 
-def _mk_item(shifu_bid: object, bid: object, position: object, parent_bid: object = ""):
+def _mk_item(
+    shifu_bid: object, bid: object, position: object, parent_bid: object = ""
+) -> object:
     item = DraftOutlineItem()
     item.outline_item_bid = bid
     item.shifu_bid = shifu_bid
