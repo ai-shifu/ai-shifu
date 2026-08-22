@@ -16,6 +16,13 @@ CLASS_DOCSTRING_SOURCE = '''"""Fixture module used to verify the D203 policy."""
 class Example:
     """Represent the formatter-compatible class-docstring layout."""
 '''
+CLASS_DOCSTRING_D211_VIOLATION_SOURCE = '''"""Fixture module used to verify the D203 policy."""
+
+
+class Example:
+
+    """Represent a class-docstring layout that D211 must reject."""
+'''
 
 
 class RuffD203PolicyTest(unittest.TestCase):
@@ -29,7 +36,9 @@ class RuffD203PolicyTest(unittest.TestCase):
             message = "ruff is not installed"
             raise unittest.SkipTest(message)
 
-    def run_ruff(self, *extra_args: str) -> subprocess.CompletedProcess[str]:
+    def run_ruff(
+        self, source: str, *extra_args: str
+    ) -> subprocess.CompletedProcess[str]:
         """Run the configured Ruff policy against a class-docstring fixture."""
         return subprocess.run(
             [
@@ -43,7 +52,7 @@ class RuffD203PolicyTest(unittest.TestCase):
                 "-",
             ],
             cwd=REPO_ROOT,
-            input=CLASS_DOCSTRING_SOURCE,
+            input=source,
             capture_output=True,
             text=True,
             check=False,
@@ -58,7 +67,7 @@ class RuffD203PolicyTest(unittest.TestCase):
         assert "D203" not in ignored_codes
         assert "D211" not in ignored_codes
 
-        configured_result = self.run_ruff()
+        configured_result = self.run_ruff(CLASS_DOCSTRING_SOURCE)
         assert configured_result.returncode == 0, (
             configured_result.stdout + configured_result.stderr
         )
@@ -66,11 +75,19 @@ class RuffD203PolicyTest(unittest.TestCase):
         assert "D203" in configured_output
         assert "D211" in configured_output
 
-        d203_result = self.run_ruff("--select", "D203")
+        configured_violation_result = self.run_ruff(
+            CLASS_DOCSTRING_D211_VIOLATION_SOURCE
+        )
+        assert configured_violation_result.returncode == 1, (
+            configured_violation_result.stdout + configured_violation_result.stderr
+        )
+        assert "D211" in configured_violation_result.stdout
+
+        d203_result = self.run_ruff(CLASS_DOCSTRING_SOURCE, "--select", "D203")
         assert d203_result.returncode == 1, d203_result.stdout + d203_result.stderr
         assert "D203" in d203_result.stdout
 
-        d211_result = self.run_ruff("--select", "D211")
+        d211_result = self.run_ruff(CLASS_DOCSTRING_SOURCE, "--select", "D211")
         assert d211_result.returncode == 0, d211_result.stdout + d211_result.stderr
 
 
