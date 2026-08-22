@@ -304,6 +304,10 @@ plan's progress update for that rule.
 - [x] 2026-08-22 12:10 CST: Annotated the private settlement-lock context manager
   as `Iterator[None]` and retained runtime availability of its iterator symbol.
   `ruff check .`, `ruff format --check .`, and focused annotation/cache tests pass.
+- [x] 2026-08-22 12:17 CST: Replaced ANN202 placeholder contracts on the LiteLLM
+  pre-content retry helper and Pingxx serialization decorator with a concrete
+  stream generator and `ParamSpec` / `TypeVar` callable signatures. Runtime
+  annotation-contract tests now cover both paths.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

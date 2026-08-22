@@ -20,6 +20,7 @@ os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
 import litellm
 from flask import Flask, current_app
+from litellm.types.utils import ModelResponseStream
 
 from flaskr.api.langfuse import (
     LangfuseObservationHandle,
@@ -517,7 +518,7 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
-) -> object:
+) -> Generator[ModelResponseStream, None, None]:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
     The built-in openai/litellm retries only cover request setup; an
