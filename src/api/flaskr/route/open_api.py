@@ -1,7 +1,9 @@
 """Open API routes for external partner course order management."""
 
 import hmac
+from collections.abc import Callable
 from functools import wraps
+from typing import ParamSpec, TypeVar
 
 from flask import Flask, request
 
@@ -14,12 +16,15 @@ from flaskr.service.order.open_api import (
 )
 from flaskr.service.user.models import UserInfo
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def require_api_key(f: object) -> object:
+
+def require_api_key(f: Callable[P, R]) -> Callable[P, R]:
     """Authenticate Open API requests via X-User-Uid + X-Api-Key headers."""
 
     @wraps(f)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         user_uid = request.headers.get("X-User-Uid", "").strip()
         api_key = request.headers.get("X-Api-Key", "").strip()
 

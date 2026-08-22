@@ -6,6 +6,8 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Self
+
 from flaskr.dao import db
 from flaskr.util.compare import compare_decimal
 from flaskr.util.datetime import now_utc
@@ -320,7 +322,7 @@ class DraftShifu(db.Model):
         comment="Last updater user business identifier",
     )
 
-    def clone(self: object) -> object:
+    def clone(self) -> Self:
         """Create a transient copy of this draft record for a new revision."""
         return DraftShifu(
             shifu_bid=self.shifu_bid,
@@ -522,7 +524,7 @@ class DraftOutlineItem(db.Model):
         comment="Last updater user business identifier",
     )
 
-    def clone(self: object) -> object:
+    def clone(self) -> Self:
         """Create a transient copy of this draft record for a new revision."""
         return DraftOutlineItem(
             outline_item_bid=self.outline_item_bid,

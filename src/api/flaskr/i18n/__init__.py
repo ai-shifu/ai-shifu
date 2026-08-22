@@ -301,7 +301,7 @@ def clear_language() -> None:
         delattr(_thread_local, "language")
 
 
-def get_i18n_list() -> object:
+def get_i18n_list() -> list[str]:
     """Return i18n list."""
     return list(_translations.keys())
 

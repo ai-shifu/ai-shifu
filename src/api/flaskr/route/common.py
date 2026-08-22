@@ -4,7 +4,9 @@ import datetime
 import decimal
 import json
 import traceback
+from collections.abc import Callable
 from functools import wraps
+from typing import ParamSpec, TypeVar
 
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
@@ -12,6 +14,9 @@ from werkzeug.exceptions import HTTPException
 from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import _, _translations, clear_language, set_language
 from flaskr.service.common import AppError
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 by_pass_login_func = [
     "flasgger.apispec_1",
@@ -60,12 +65,12 @@ def _extract_request_language() -> str | None:
 
 
 # Decorator that exempts a route from token validation
-def bypass_token_validation(func: object) -> object:
+def bypass_token_validation(func: Callable[P, R]) -> Callable[P, R]:
     """Mark a route as exempt from token validation."""
     by_pass_login_func.append(func.__name__)
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         return func(*args, **kwargs)
 
     return wrapper

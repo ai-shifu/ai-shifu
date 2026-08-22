@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import (
+    Iterator,  # noqa: TC003 - public annotation is resolved at runtime
+)
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -30,8 +33,6 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from flask import Flask
 
 logger = logging.getLogger(__name__)

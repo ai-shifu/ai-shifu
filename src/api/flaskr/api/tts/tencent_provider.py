@@ -15,13 +15,13 @@ import json
 import logging
 import time
 import unicodedata
+from collections.abc import (
+    Iterator,  # noqa: TC003 - public annotation is resolved at runtime
+)
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import requests
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 try:
     from pydub import AudioSegment as PydubAudioSegment

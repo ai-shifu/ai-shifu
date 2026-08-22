@@ -277,6 +277,10 @@ plan's progress update for that rule.
   contract and by preserving `retry_on_deadlock`, `inject`, and plugin decorator
   call signatures with `ParamSpec` / `TypeVar`. The annotation-contract and
   cache-lock regression tests pass.
+- [x] 2026-08-22 12:03 CST: Addressed remaining ANN201 review by retaining
+  concrete DTO, tuple, collection, clone, formatter, processor, route-decorator,
+  and iterator contracts. Public iterator annotations now resolve through
+  `get_type_hints`; the annotation-contract and cache-lock regression tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

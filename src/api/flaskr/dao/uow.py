@@ -34,13 +34,12 @@ from __future__ import annotations
 
 import contextvars
 import logging
+from collections.abc import (
+    Iterator,  # noqa: TC003 - public annotation is resolved at runtime
+)
 from contextlib import contextmanager, nullcontext
-from typing import TYPE_CHECKING
 
 from flask import has_app_context
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
