@@ -1,10 +1,15 @@
 """Coordinate Flask plugin registration and lifecycle."""
 
+from collections.abc import Callable, Generator, Iterable
 from functools import wraps
+from typing import ParamSpec, TypeVar, cast
 
 from flask import Flask
 
 from .hot_reload import PluginHotReloader
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class PluginManager:
@@ -85,7 +90,7 @@ class PluginManager:
         result: object,
         *args: object,
         **kwargs: object,
-    ) -> object:
+    ) -> Generator[object, None, object]:
         """Run registered generic extension callbacks for a completed generic operation."""
         self.app.logger.info("execute_extensible_generic: %s", func_name)
         if not self.is_enabled:
@@ -140,10 +145,12 @@ def disable_plugin_manager(app: Flask) -> object:
 
 
 # extensible decorator
-def extension(target_func_name: object) -> object:
+def extension(
+    target_func_name: object,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorate a function with registered extension callbacks."""
 
-    def decorator(func: object):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
@@ -154,10 +161,12 @@ def extension(target_func_name: object) -> object:
     return decorator
 
 
-def extensible_generic_register(func_name: object) -> object:
+def extensible_generic_register(
+    func_name: object,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Register a generic extension point."""
 
-    def decorator(func: object):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
@@ -169,22 +178,26 @@ def extensible_generic_register(func_name: object) -> object:
 
 
 # extensible decorator
-def extensible(func: object) -> object:
+def extensible(func: Callable[P, R]) -> Callable[P, R]:
     """Decorate a function as an extension point."""
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         result = func(*args, **kwargs)
         manager = get_plugin_manager()
         if manager is None:
             return result
-        return manager.execute_extensions(func.__name__, result, *args, **kwargs)
+        return cast(
+            "R", manager.execute_extensions(func.__name__, result, *args, **kwargs)
+        )
 
     return wrapper
 
 
 # extensible_generic decorator
-def extensible_generic(func: object) -> object:
+def extensible_generic(
+    func: Callable[P, Iterable[object] | None],
+) -> Callable[P, Generator[object, None, None]]:
     """Decorate a generic function as an extension point."""
     try:
         from flask import current_app, has_app_context
@@ -195,7 +208,7 @@ def extensible_generic(func: object) -> object:
         pass
 
     @wraps(func)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Generator[object, None, None]:
         result = func(*args, **kwargs)
         if result:
             yield from result

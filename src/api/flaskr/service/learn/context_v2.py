@@ -3741,7 +3741,7 @@ class RunScriptContextV2:
         reload_generated_block_bid: str,
         *,
         reload_element_bid: str | None = None,
-    ) -> object:
+    ) -> Generator[object, None, None]:
         """Regenerate from an anchor by rewinding progress and deactivating superseded persisted state."""
         with app.app_context():
             anchor_element = None

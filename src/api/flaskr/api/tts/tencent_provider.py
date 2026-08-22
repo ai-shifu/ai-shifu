@@ -16,9 +16,12 @@ import logging
 import time
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     from pydub import AudioSegment as PydubAudioSegment
@@ -1236,7 +1239,7 @@ class TencentTTSProvider(BaseTTSProvider):
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
-    ) -> object:
+    ) -> Iterator[TencentSSEStreamChunk]:
         """Stream synthesized speech from this provider."""
         if not self.is_configured():
             error_message = "Tencent TTS is not configured"

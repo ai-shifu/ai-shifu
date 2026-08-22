@@ -267,6 +267,11 @@ plan's progress update for that rule.
   plugin repository/name inputs as `str`, and removing redundant `self: object`
   annotations from the TTS base contract. `ruff check .` and
   `ruff format --check .` pass.
+- [x] 2026-08-22 11:33 CST: Addressed ANN201 follow-up review by replacing every
+  production generator still annotated as `object` with an iterator or generator
+  contract and by preserving `retry_on_deadlock`, `inject`, and plugin decorator
+  call signatures with `ParamSpec` / `TypeVar`. The annotation-contract and
+  cache-lock regression tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

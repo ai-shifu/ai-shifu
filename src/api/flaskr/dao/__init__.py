@@ -11,7 +11,9 @@ import select as select_module
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
 import sqlparse
 from flask import Flask
@@ -31,6 +33,9 @@ from sqlalchemy.exc import (
 from sqlalchemy.orm.exc import FlushError
 
 logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 # Session scope tokens must never repeat. Flask-SQLAlchemy's stock scope
 # function keys the scoped-session registry on id(app_ctx) - a CPython memory
@@ -515,7 +520,9 @@ def _rollback_quietly() -> bool:
         return True
 
 
-def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1) -> object:
+def retry_on_deadlock(
+    max_attempts: int = 3, backoff_seconds: float = 0.1
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Retry a transactional function when MySQL reports a deadlock (1213) or a lock wait timeout (1205).
 
     The failed transaction is rolled back on every caught error so the session is left
@@ -526,9 +533,9 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1) -> ob
     that connection.
     """
 
-    def decorator(func: object):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
-        def wrapper(*args: object, **kwargs: object):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             attempt = 0
             while True:
                 try:
