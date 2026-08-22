@@ -269,23 +269,62 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # would break `alembic` revision discovery. Applied migration history is
 # immutable, so its conventional `upgrade` / `downgrade` hooks retain D103.
 "src/api/migrations/**" = ["D103", "INP001"]
-# This applied no-op revision keeps a legacy `NOTE:` section in its module
-# docstring. Migration history is immutable, so D405 is scoped to this file.
-"src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
-# These trees are input fixtures for check_architecture_boundaries.py, not
-# importable code. Their deliberately minimal functions model boundary inputs.
-"scripts/testdata/**" = ["D103", "INP001"]
-"scripts/test_*.py" = ["D102", "D103", "S101"]
-"scripts/check_example_identifiers.py" = ["S101"]
-# These applied Alembic revisions are immutable history: their backfill
-# statements interpolate table names and cannot be rewritten after deployment.
-# Listed one by one so new revisions stay covered by S608.
-"src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
-"src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
-"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
-"src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
-"src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
-"src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
+# These files are the immutable Alembic revision inventory applied before
+# this policy. They must never be rewritten for a later lint rule. Exempt
+# each known revision from every Ruff rule, while deliberately using an
+# explicit inventory rather than a directory glob so newly authored
+# revisions remain linted before deployment.
+"src/api/migrations/versions/0a7c4d8e9f12_backfill_billing_product_plan_tier.py" = ["ALL"]
+"src/api/migrations/versions/0e9b8c7d6a5f_add_bid_to_learn_lesson_feedbacks.py" = ["ALL"]
+"src/api/migrations/versions/185e37df3252_initial_migration.py" = ["ALL"]
+"src/api/migrations/versions/1c8f4b7a9d2e_add_subtitle_cues_to_learn_generated_audios.py" = ["ALL"]
+"src/api/migrations/versions/1d8c4e7f9a2b_add_billing_campaign_tables.py" = ["ALL"]
+"src/api/migrations/versions/1f2e3d4c5b6a_add_is_operator_to_user_users.py" = ["ALL"]
+"src/api/migrations/versions/21a3e778ef01_add_sys_configs.py" = ["ALL"]
+"src/api/migrations/versions/2b7c9d1e4f6a_backfill_operator_for_first_verified_user.py" = ["ALL"]
+"src/api/migrations/versions/2f8c9a1d7e6b_add_minimax_cloned_voices.py" = ["ALL"]
+"src/api/migrations/versions/3ef04a9b5d37_add_position_to_learn_generated_audios.py" = ["ALL"]
+"src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["ALL"]
+"src/api/migrations/versions/4d9f6c7b8a1e_add_coupon_admin_fields.py" = ["ALL"]
+"src/api/migrations/versions/4f2b7d8e9c1a_add_billing_campaign_product_rule_columns.py" = ["ALL"]
+"src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["ALL"]
+"src/api/migrations/versions/5a6b7c8d9e10_add_referral_invitation_tables.py" = ["ALL"]
+"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["ALL"]
+"src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["ALL"]
+"src/api/migrations/versions/716efaaeb662_create_profile_variable_tables.py" = ["ALL"]
+"src/api/migrations/versions/7b3c5d9e1a2f_add_learn_generated_element_active_lookup_indexes.py" = ["ALL"]
+"src/api/migrations/versions/8c2d4e6f1a9b_drop_minimax_voice_id_unique_constraint.py" = ["ALL"]
+"src/api/migrations/versions/8f4c1a2b7d9e_drop_legacy_order_variable_active_tables.py" = ["ALL"]
+"src/api/migrations/versions/9a7c6d5e4f3b_merge_billing_campaign_and_notification_heads.py" = ["ALL"]
+"src/api/migrations/versions/9f3a0c3aebe0_add_hidden_profile_item.py" = ["ALL"]
+"src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["ALL"]
+"src/api/migrations/versions/a7c4e9f1b2d3_snapshot_creator_payment_config.py" = ["ALL"]
+"src/api/migrations/versions/a9c3d5e7f1b2_add_default_listen_mode_setting.py" = ["ALL"]
+"src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py" = ["ALL"]
+"src/api/migrations/versions/b2793bb43f97_add_bill_usage.py" = ["ALL"]
+"src/api/migrations/versions/b596b767bde5_add_api_key_field_to_user_users_table.py" = ["ALL"]
+"src/api/migrations/versions/b5f2d3a9c1e4_update_tts_ranges_and_provider_defaults.py" = ["ALL"]
+"src/api/migrations/versions/b8c1d2e3f4a5_merge_billing_campaign_and_plan_tier_heads.py" = ["ALL"]
+"src/api/migrations/versions/b8d5f0a2c3e4_add_generation_prompt_to_generated_blocks.py" = ["ALL"]
+"src/api/migrations/versions/c221d355ffb7_add_promo_campaign_tables.py" = ["ALL"]
+"src/api/migrations/versions/c3f101bbb462_add_active_table.py" = ["ALL"]
+"src/api/migrations/versions/c5d8e1f2a3b4_add_billing_order_expires_at.py" = ["ALL"]
+"src/api/migrations/versions/c6a4f8d9b2e1_add_user_onboarding_states.py" = ["ALL"]
+"src/api/migrations/versions/c7b9e1a2d4f6_add_billing_product_provider_prices.py" = ["ALL"]
+"src/api/migrations/versions/c8f1a2d3e4b5_add_learner_profile_to_users.py" = ["ALL"]
+"src/api/migrations/versions/c9c92880fc67_add_stripe_payment_channel.py" = ["ALL"]
+"src/api/migrations/versions/d2f4a7c9b8e1_add_native_payment_snapshots.py" = ["ALL"]
+"src/api/migrations/versions/d4e5f6a7b8c9_add_creator_activated_at.py" = ["ALL"]
+"src/api/migrations/versions/d7a8e2f1b3c9_add_use_learner_language.py" = ["ALL"]
+"src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["ALL"]
+"src/api/migrations/versions/e3b1c2d4f5a6_add_notification_records.py" = ["ALL"]
+"src/api/migrations/versions/e7b3c9d1f5a2_add_provider_to_tts_cloned_voices.py" = ["ALL"]
+"src/api/migrations/versions/e7f1a2b3c4d5_add_outline_shifu_outline_id_index.py" = ["ALL"]
+"src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["ALL"]
+"src/api/migrations/versions/f0c1e2d3a4b5_add_outline_lookup_composite_index.py" = ["ALL"]
+"src/api/migrations/versions/f4a6b8c2d9e1_add_notification_record_operator_indexes.py" = ["ALL"]
+"src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ALL"]
+"src/api/migrations/versions/f9a2b3c4d5e6_merge_learner_profile_and_tts_provider_heads.py" = ["ALL"]
 # Developer scripts and the backend inventory/harness tooling are console
 # programs: printing to stdout is their interface.
 "scripts/**" = ["S603", "S607", "T20"]
