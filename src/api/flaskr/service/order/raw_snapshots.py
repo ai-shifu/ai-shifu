@@ -120,10 +120,10 @@ def upsert_native_snapshot(
     shifu_bid: str = "",
     transaction_id: str = "",
     channel: str = "",
-    raw_request: Any | None = None,
-    raw_response: Any | None = None,
-    raw_notification: Any | None = None,
-    metadata: Any | None = None,
+    raw_request: object | None = None,
+    raw_response: object | None = None,
+    raw_notification: object | None = None,
+    metadata: object | None = None,
 ) -> AlipayOrder | WechatPayOrder:
     """Create or update native snapshot."""
     model = native_snapshot_model(payment_provider)
@@ -245,11 +245,11 @@ def upsert_billing_stripe_snapshot(
     amount: int,
     currency: str,
     raw_status: int,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     checkout_session_id: str = "",
-    checkout_object: Any | None = None,
+    checkout_object: object | None = None,
     payment_intent_id: str = "",
-    payment_object: Any | None = None,
+    payment_object: object | None = None,
     latest_charge_id: str = "",
     receipt_url: str = "",
     payment_method: str = "",
@@ -334,14 +334,14 @@ def upsert_billing_pingxx_snapshot(
     currency: str,
     raw_status: int,
     charge_id: str = "",
-    charge_object: Any | None = None,
+    charge_object: object | None = None,
     transaction_no: str = "",
     app_id: str = "",
     channel: str = "",
     subject: str = "",
     body: str = "",
     client_ip: str = "",
-    extra: Any | None = None,
+    extra: object | None = None,
 ) -> PingxxOrder:
     """Create or update billing pingxx snapshot."""
     snapshot = (
@@ -413,7 +413,7 @@ def upsert_billing_pingxx_snapshot(
     return snapshot
 
 
-def _extract_object_id(payload: Any, *, prefix: str) -> str:
+def _extract_object_id(payload: object, *, prefix: str) -> str:
     if not isinstance(payload, dict):
         return ""
     value = str(payload.get("id") or "")
@@ -422,13 +422,13 @@ def _extract_object_id(payload: Any, *, prefix: str) -> str:
     return ""
 
 
-def _extract_order_no(payload: Any) -> str:
+def _extract_order_no(payload: object) -> str:
     if not isinstance(payload, dict):
         return ""
     return str(payload.get("order_no") or "")
 
 
-def _extract_pingxx_app_id(payload: Any) -> str:
+def _extract_pingxx_app_id(payload: object) -> str:
     if not isinstance(payload, dict):
         return ""
     value = payload.get("app")
@@ -437,13 +437,13 @@ def _extract_pingxx_app_id(payload: Any) -> str:
     return str(value or "")
 
 
-def _extract_object_value(payload: Any, key: str) -> str:
+def _extract_object_value(payload: object, key: str) -> str:
     if not isinstance(payload, dict):
         return ""
     return str(payload.get(key) or "")
 
 
-def _parse_json_payload(value: Any) -> Any:
+def _parse_json_payload(value: object) -> object:
     if not value:
         return {}
     if isinstance(value, (dict, list)):
@@ -456,7 +456,7 @@ def _parse_json_payload(value: Any) -> Any:
     return value
 
 
-def _stringify_payload(payload: Any) -> str:
+def _stringify_payload(payload: object) -> str:
     if not payload:
         return "{}"
     if hasattr(payload, "to_dict"):
