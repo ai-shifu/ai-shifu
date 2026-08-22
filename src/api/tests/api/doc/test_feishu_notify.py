@@ -10,15 +10,15 @@ class _Logger:
         self.warnings = []
         self.exceptions = []
 
-    def info(self: object, *args: object, **kwargs: object):
+    def info(self: object, *args: object, **kwargs: object) -> None:
         _ = kwargs
         self.infos.append(args)
 
-    def warning(self: object, *args: object, **kwargs: object):
+    def warning(self: object, *args: object, **kwargs: object) -> None:
         _ = kwargs
         self.warnings.append(args)
 
-    def exception(self: object, *args: object, **kwargs: object):
+    def exception(self: object, *args: object, **kwargs: object) -> None:
         _ = kwargs
         self.exceptions.append(args)
 
@@ -41,7 +41,7 @@ class _Response:
         self._json_value = json_value
         self._json_exc = json_exc
 
-    def json(self: object):
+    def json(self: object) -> object:
         if self._json_exc is not None:
             raise self._json_exc
         return self._json_value
@@ -49,7 +49,7 @@ class _Response:
 
 def test_send_notify_returns_metadata_for_successful_non_json_response(
     monkeypatch: object,
-):
+) -> None:
     app = _App()
     monkeypatch.setattr(
         feishu,
@@ -70,7 +70,7 @@ def test_send_notify_returns_metadata_for_successful_non_json_response(
     assert app.logger.warnings == []
 
 
-def test_send_notify_returns_none_for_non_2xx_response(monkeypatch: object):
+def test_send_notify_returns_none_for_non_2xx_response(monkeypatch: object) -> None:
     app = _App()
     monkeypatch.setattr(
         feishu,
@@ -89,7 +89,7 @@ def test_send_notify_returns_none_for_non_2xx_response(monkeypatch: object):
     assert app.logger.warnings
 
 
-def test_send_notify_returns_none_for_request_error(monkeypatch: object):
+def test_send_notify_returns_none_for_request_error(monkeypatch: object) -> None:
     app = _App()
     monkeypatch.setattr(
         feishu,

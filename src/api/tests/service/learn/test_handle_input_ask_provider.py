@@ -90,21 +90,21 @@ class _DummyColumn:
 
 
 class _DummyOrderColumn(_DummyColumn):
-    def desc(self: object):
+    def desc(self: object) -> object:
         return self
 
 
 class _DummyQuery:
-    def filter(self: object, *_args: object, **_kwargs: object):
+    def filter(self: object, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def order_by(self: object, *_args: object, **_kwargs: object):
+    def order_by(self: object, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def limit(self: object, *_args: object, **_kwargs: object):
+    def limit(self: object, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def all(self: object):
+    def all(self: object) -> object:
         return []
 
 
@@ -118,10 +118,10 @@ class _DummyLearnGeneratedBlockModel:
 class _DummyNoneQuery:
     """Query that always returns None for .first()."""
 
-    def filter(self: object, *_args: object, **_kwargs: object):
+    def filter(self: object, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def first(self: object):
+    def first(self: object) -> None:
         return None
 
 
@@ -150,7 +150,7 @@ class _DummyGeneration:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self: object, **kwargs: object):
+    def end(self: object, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
@@ -164,23 +164,23 @@ class _DummySpan:
         self.end_kwargs = {}
         self.events = []
 
-    def generation(self: object, **kwargs: object):
+    def generation(self: object, **kwargs: object) -> object:
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self: object, **kwargs: object):
+    def span(self: object, **kwargs: object) -> object:
         self.span_calls.append(kwargs)
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self: object, **kwargs: object):
+    def update(self: object, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def event(self: object, **kwargs: object):
+    def event(self: object, **kwargs: object) -> None:
         self.events.append(kwargs)
 
-    def end(self: object, output: object = None, **kwargs: object):
+    def end(self: object, output: object = None, **kwargs: object) -> None:
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
@@ -191,11 +191,11 @@ class _DummyTrace:
         self.updated = {}
         self.last_span = None
 
-    def span(self: object, **_kwargs: object):
+    def span(self: object, **_kwargs: object) -> object:
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self: object, **kwargs: object):
+    def update(self: object, **kwargs: object) -> None:
         self.updated = kwargs
 
 
@@ -209,10 +209,10 @@ class _Context:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
-    def get_system_prompt(self: object, _outline_bid: str):
+    def get_system_prompt(self: object, _outline_bid: str) -> object:
         return "COURSE_PROMPT"
 
-    def append_langfuse_output(self: object, value: str):
+    def append_langfuse_output(self: object, value: str) -> None:
         self.langfuse_outputs.append(value)
 
 
@@ -300,7 +300,7 @@ def _collect_content_chunks(events: object):
 
 def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -371,7 +371,7 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
 
 def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -441,7 +441,7 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
 
 def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -516,7 +516,9 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     assert events[-1].type == GeneratedType.BREAK
 
 
-def test_handle_input_ask_provider_response_skips_llm(app: object, monkeypatch: object):
+def test_handle_input_ask_provider_response_skips_llm(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -584,7 +586,7 @@ def test_handle_input_ask_provider_response_skips_llm(app: object, monkeypatch: 
 
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
     from flaskr.service.learn import utils_v2
     from flaskr.service.learn.learner_profile_prompt import build_course_prompt
@@ -676,7 +678,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
 
 def test_handle_input_ask_formats_provider_prompt_with_request_language(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -770,7 +772,7 @@ def _setup_llm_only_patches(monkeypatch: object, module: object, llm_chunks: obj
     monkeypatch.setattr(module, "stream_ask_provider_response", _fake_stream)
 
 
-def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object):
+def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object) -> None:
     """All teacher-side CONTENT events should use answer block's bid (gb-2)."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -797,7 +799,7 @@ def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object):
         assert e.generated_block_bid == "gb-2"
 
 
-def test_ask_event_emitted(app: object, monkeypatch: object):
+def test_ask_event_emitted(app: object, monkeypatch: object) -> None:
     """An ASK event should be emitted with anchor_element_bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -825,7 +827,7 @@ def test_ask_event_emitted(app: object, monkeypatch: object):
     assert ask_events[0].anchor_element_bid == "elem_anchor_123"
 
 
-def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object):
+def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object) -> None:
     """ASK and teacher content both use the answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -856,7 +858,7 @@ def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object):
     assert content_events[0].generated_block_bid == "gb-2"
 
 
-def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object):
+def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object) -> None:
     """When guardrail triggers, CONTENT events should still use answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -895,7 +897,7 @@ def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object):
 
 def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -949,7 +951,7 @@ def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
 
 def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}

@@ -23,7 +23,7 @@ def _load_detector():
     return namespace["_gevent_worker_requested"]
 
 
-def test_worker_class_detection():
+def test_worker_class_detection() -> None:
     detect = _load_detector()
 
     assert detect(["gunicorn", "-k", "gevent", "app:app"]) is True
@@ -57,7 +57,7 @@ def test_worker_class_detection():
     assert detect(["gunicorn", "app:app"]) is False
 
 
-def test_observer_skips_unpatched_processes(monkeypatch: object):
+def test_observer_skips_unpatched_processes(monkeypatch: object) -> None:
     from flaskr.common.gevent_hub_observer import install_hub_error_observer
     from gevent import monkey
 

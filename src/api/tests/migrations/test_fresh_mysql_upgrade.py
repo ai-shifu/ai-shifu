@@ -24,7 +24,7 @@ def _get_expected_head() -> str:
     return ScriptDirectory.from_config(config).get_current_head()
 
 
-def test_alembic_migrations_have_single_head():
+def test_alembic_migrations_have_single_head() -> None:
     config = Config(str(API_ROOT / "migrations" / "alembic.ini"))
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
@@ -138,7 +138,7 @@ def _migration_subprocess_script() -> str:
     )
 
 
-def test_fresh_mysql_upgrade_reaches_head():
+def test_fresh_mysql_upgrade_reaches_head() -> None:
     base_uri = _get_base_mysql_uri()
     temp_uri, database_name = _create_temp_database(base_uri)
     expected_head = _get_expected_head()

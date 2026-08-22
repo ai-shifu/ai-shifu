@@ -87,7 +87,9 @@ def _payload(**overrides: object):
     return payload
 
 
-def test_operator_referral_campaign_create_list_detail_and_status(referral_app: object):
+def test_operator_referral_campaign_create_list_detail_and_status(
+    referral_app: object,
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
 
@@ -142,7 +144,7 @@ def test_operator_referral_campaign_create_list_detail_and_status(referral_app: 
 
 def test_operator_referral_campaign_normalizes_offset_datetimes_to_utc(
     referral_app: object,
-):
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
 
@@ -164,7 +166,7 @@ def test_operator_referral_campaign_normalizes_offset_datetimes_to_utc(
 
 def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
     referral_app: object,
-):
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         result = create_operator_referral_campaign(
@@ -240,7 +242,7 @@ def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
 
 def test_operator_referral_campaign_list_includes_invite_funnel_counts(
     referral_app: object,
-):
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         result = create_operator_referral_campaign(
@@ -343,7 +345,7 @@ def test_operator_referral_campaign_list_includes_invite_funnel_counts(
 
 def test_operator_referral_campaign_list_uses_null_for_missing_latest_invite_event_at(
     referral_app: object,
-):
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         create_operator_referral_campaign(
@@ -362,7 +364,9 @@ def test_operator_referral_campaign_list_uses_null_for_missing_latest_invite_eve
         assert listed["items"][0]["latest_invite_event_at"] is None
 
 
-def test_operator_referral_campaign_invitations_aggregate_events(referral_app: object):
+def test_operator_referral_campaign_invitations_aggregate_events(
+    referral_app: object,
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         result = create_operator_referral_campaign(
@@ -469,7 +473,7 @@ def test_operator_referral_campaign_invitations_aggregate_events(referral_app: o
         assert item["latest_event_at"] == "2026-06-10T09:04:00Z"
 
 
-def test_operator_referral_filters_accept_user_identifier(referral_app: object):
+def test_operator_referral_filters_accept_user_identifier(referral_app: object) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         result = create_operator_referral_campaign(
@@ -556,7 +560,7 @@ def test_operator_referral_filters_accept_user_identifier(referral_app: object):
 )
 def test_operator_referral_campaign_rejects_invalid_payload(
     referral_app: object, payload: object
-):
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         with pytest.raises(AppError) as exc_info:
@@ -573,7 +577,7 @@ def test_operator_referral_campaign_rejects_invalid_payload(
 
 def test_operator_referral_campaign_rejects_enabling_ended_campaign(
     referral_app: object,
-):
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         result = create_operator_referral_campaign(
@@ -599,7 +603,9 @@ def test_operator_referral_campaign_rejects_enabling_ended_campaign(
         )
 
 
-def test_operator_referral_campaign_duplicate_code_is_rejected(referral_app: object):
+def test_operator_referral_campaign_duplicate_code_is_rejected(
+    referral_app: object,
+) -> None:
     with referral_app.app_context():
         _seed_plan_product()
         create_operator_referral_campaign(

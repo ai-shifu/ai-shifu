@@ -16,7 +16,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def upgrade() -> None:
     op.create_table(
         "tts_minimax_cloned_voices",
         sa.Column("id", mysql.BIGINT(), autoincrement=True, nullable=False),
@@ -112,7 +112,7 @@ def upgrade():
     )
 
 
-def downgrade():
+def downgrade() -> None:
     op.drop_index(
         op.f("ix_tts_minimax_cloned_voices_voice_id"),
         table_name="tts_minimax_cloned_voices",

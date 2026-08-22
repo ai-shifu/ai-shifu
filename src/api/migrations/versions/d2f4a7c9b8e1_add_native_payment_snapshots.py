@@ -18,7 +18,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def upgrade() -> None:
     _create_provider_table(
         table_name="order_alipay_orders",
         provider_bid_column="alipay_order_bid",
@@ -31,7 +31,7 @@ def upgrade():
     )
 
 
-def downgrade():
+def downgrade() -> None:
     op.drop_index(
         "ix_order_wechatpay_orders_biz_domain_bill_order_bid",
         table_name="order_wechatpay_orders",

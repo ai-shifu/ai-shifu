@@ -22,7 +22,7 @@ from flaskr.service.billing.models import BillingDailyLedgerSummary, CreditLedge
 
 
 @pytest.fixture
-def billing_daily_ledger_app(tmp_path: object):
+def billing_daily_ledger_app(tmp_path: object) -> object:
     db_path = tmp_path / "billing-daily-ledger.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

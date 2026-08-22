@@ -3,7 +3,7 @@
 from flaskr.service.order.payment_providers.base import PaymentCreationResult
 
 
-def test_init_pingxx_uses_provider(app: object, monkeypatch: object):
+def test_init_pingxx_uses_provider(app: object, monkeypatch: object) -> None:
     from flaskr.service.order import pingxx_order
 
     class FakeProvider:
@@ -22,7 +22,7 @@ def test_init_pingxx_uses_provider(app: object, monkeypatch: object):
     assert provider.called is True
 
 
-def test_create_pingxx_order_builds_request(app: object, monkeypatch: object):
+def test_create_pingxx_order_builds_request(app: object, monkeypatch: object) -> None:
     from flaskr.service.order import pingxx_order
 
     captured = {}

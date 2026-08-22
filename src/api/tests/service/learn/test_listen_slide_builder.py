@@ -4,7 +4,7 @@ from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
 
-def test_build_visual_segments_with_boundary_and_pre_visual_text():
+def test_build_visual_segments_with_boundary_and_pre_visual_text() -> None:
     raw = "Before intro.\n\n<svg><text>Chart</text></svg>\n\nAfter chart."
     contract = build_av_segmentation_contract(raw, "block-1")
 
@@ -38,7 +38,7 @@ def test_build_visual_segments_with_boundary_and_pre_visual_text():
     assert mapping[1] == second.segment_id
 
 
-def test_build_visual_segments_for_text_only_content():
+def test_build_visual_segments_for_text_only_content() -> None:
     raw = "Pure narration without any visual."
     contract = build_av_segmentation_contract(raw, "block-2")
 
@@ -58,7 +58,7 @@ def test_build_visual_segments_for_text_only_content():
     assert segments[0].source_span == [0, len(raw)]
 
 
-def test_build_visual_segments_returns_empty_for_non_speakable_content():
+def test_build_visual_segments_returns_empty_for_non_speakable_content() -> None:
     raw = "<svg><text>Only visual</text></svg>"
     contract = build_av_segmentation_contract(raw, "block-3")
 

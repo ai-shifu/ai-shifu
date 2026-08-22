@@ -59,17 +59,17 @@ def _operational(errno: int) -> OperationalError:
         (_operational(1205), False),
     ],
 )
-def test_abnormal_termination_classification(exc: object, expected: object):
+def test_abnormal_termination_classification(exc: object, expected: object) -> None:
     assert is_abnormal_stream_termination(exc) is expected
 
 
-def test_protocol_interrupt_checks_orig_and_self():
+def test_protocol_interrupt_checks_orig_and_self() -> None:
     assert is_protocol_interrupt_error(_operational(2014)) is True
     assert is_protocol_interrupt_error(Exception(2013, "raw")) is True
     assert is_protocol_interrupt_error(_operational(1213)) is False
 
 
-def test_scoped_session_does_not_proxy_invalidate():
+def test_scoped_session_does_not_proxy_invalidate() -> None:
     # This gap is WHY invalidate_session must resolve the real Session via
     # the registry call form: db.session.invalidate() raises AttributeError
     # and, wrapped in a broad except, silently does nothing (the production
@@ -77,7 +77,9 @@ def test_scoped_session_does_not_proxy_invalidate():
     assert not hasattr(db.session, "invalidate")
 
 
-def test_invalidate_session_works_on_real_scoped_session(app: object, caplog: object):
+def test_invalidate_session_works_on_real_scoped_session(
+    app: object, caplog: object
+) -> None:
     with app.app_context():
         db.session.execute(text("SELECT 1"))
         with caplog.at_level(logging.WARNING):
@@ -85,7 +87,7 @@ def test_invalidate_session_works_on_real_scoped_session(app: object, caplog: ob
     assert "invalidate failed" not in caplog.text
 
 
-def test_invalidate_session_uses_fake_sessions_directly():
+def test_invalidate_session_uses_fake_sessions_directly() -> None:
     calls = []
 
     class _Fake:
@@ -96,7 +98,7 @@ def test_invalidate_session_uses_fake_sessions_directly():
     assert calls == [1]
 
 
-def test_cleanup_rolls_back_on_server_delivered_errors():
+def test_cleanup_rolls_back_on_server_delivered_errors() -> None:
     events = []
 
     class _Fake:
@@ -111,7 +113,7 @@ def test_cleanup_rolls_back_on_server_delivered_errors():
     assert events == ["rollback"]
 
 
-def test_cleanup_invalidates_on_interrupting_terminations():
+def test_cleanup_invalidates_on_interrupting_terminations() -> None:
     events = []
 
     class _Fake:
@@ -126,7 +128,7 @@ def test_cleanup_invalidates_on_interrupting_terminations():
     assert events == ["invalidate"]
 
 
-def test_cleanup_escalates_to_invalidate_when_rollback_fails():
+def test_cleanup_escalates_to_invalidate_when_rollback_fails() -> None:
     events = []
 
     class _Fake:
@@ -145,7 +147,7 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
 
 def test_teardown_hook_invalidates_before_session_removal(
     app: object, monkeypatch: object
-):
+) -> None:
     """The global teardown guard must fire on abnormal context exits and run BEFORE Flask-SQLAlchemy's remove (reverse registration order)."""
     from flaskr import dao
 
@@ -173,7 +175,9 @@ def test_teardown_hook_invalidates_before_session_removal(
     assert "remove" in order
 
 
-def test_teardown_hook_ignores_ordinary_exceptions(app: object, monkeypatch: object):
+def test_teardown_hook_ignores_ordinary_exceptions(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr import dao
 
     invalidations = []
@@ -192,7 +196,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app: object, monkeypatch: obj
 
 def test_release_session_classified_invalidates_during_propagating_interrupt(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr import dao
 
     order = []
@@ -245,7 +249,7 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
 
 def test_release_session_classified_ignores_ordinary_exceptions(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr import dao
 
     invalidations = []
@@ -268,7 +272,7 @@ def test_release_session_classified_ignores_ordinary_exceptions(
     assert invalidations == []
 
 
-def test_classifier_covers_driver_interface_and_socket_errors():
+def test_classifier_covers_driver_interface_and_socket_errors() -> None:
     class _DriverInterfaceError(Exception):
         pass
 

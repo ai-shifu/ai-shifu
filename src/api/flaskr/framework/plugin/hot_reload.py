@@ -23,19 +23,19 @@ class PluginHotReloader:
         self.watched_files = {}
         self.observer = Observer()
 
-    def start(self: object):
+    def start(self: object) -> None:
         """1111111."""
         event_handler = PluginFileHandler(self)
         self.observer.schedule(event_handler, self.plugin_dir, recursive=True)
         self.observer.start()
         self.app.logger.info("Plugin hot reload started")
 
-    def stop(self: object):
+    def stop(self: object) -> None:
         """Stop watching for hot reloads."""
         self.observer.stop()
         self.observer.join()
 
-    def reload_plugin(self: object, plugin_path: str):
+    def reload_plugin(self: object, plugin_path: str) -> None:
         """Reload a single plugin."""
         try:
             # 1. unload plugin
@@ -144,7 +144,7 @@ class PluginFileHandler(FileSystemEventHandler):
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads
 
-    def on_modified(self: object, event: object):
+    def on_modified(self: object, event: object) -> None:
         """Reload the plugin affected by a file change."""
         if event.is_directory:
             return

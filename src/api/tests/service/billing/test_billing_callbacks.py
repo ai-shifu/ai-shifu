@@ -39,7 +39,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
-def billing_callback_app():
+def billing_callback_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

@@ -16,7 +16,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def upgrade() -> None:
     op.add_column(
         "bill_campaign_products",
         sa.Column(
@@ -69,7 +69,7 @@ def upgrade():
     )
 
 
-def downgrade():
+def downgrade() -> None:
     op.drop_column("bill_campaign_products", "bonus_credit_amount")
     op.drop_column("bill_campaign_products", "campaign_price_amount")
     op.drop_column("bill_campaign_products", "discount_percent")

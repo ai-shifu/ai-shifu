@@ -26,7 +26,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     return any(column.get("name") == column_name for column in columns)
 
 
-def upgrade():
+def upgrade() -> None:
     if _column_exists("user_users", "creator_activated_at"):
         return
 
@@ -41,7 +41,7 @@ def upgrade():
         )
 
 
-def downgrade():
+def downgrade() -> None:
     if not _column_exists("user_users", "creator_activated_at"):
         return
 

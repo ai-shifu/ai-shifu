@@ -249,7 +249,7 @@ def _seed_course_variable(
     _clear_config_caches()
 
 
-def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object):
+def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
@@ -356,7 +356,7 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object):
 
 def test_copy_course_creates_missing_target_user_and_grants_creator_role(
     app: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -413,7 +413,7 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
         ]
 
 
-def test_copy_course_reuses_existing_google_creator_account(app: object):
+def test_copy_course_reuses_existing_google_creator_account(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -467,7 +467,9 @@ def test_copy_course_reuses_existing_google_creator_account(app: object):
         assert email_credential is not None
 
 
-def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app: object):
+def test_copy_course_skips_deleted_outlines_and_copies_course_variables(
+    app: object,
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     creator_email = _unique_email("variables-owner")
@@ -544,7 +546,7 @@ def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app: obj
         assert copied_variables[0].variable_bid
 
 
-def test_copy_course_rejects_builtin_demo_course(app: object):
+def test_copy_course_rejects_builtin_demo_course(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     target_email = _unique_email("demo-copy")
 
@@ -581,7 +583,7 @@ def test_copy_course_rejects_builtin_demo_course(app: object):
         assert DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).count() == 1
 
 
-def test_copy_course_requires_operator_user_bid(app: object):
+def test_copy_course_requires_operator_user_bid(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     creator_email = _unique_email("owner")
@@ -612,7 +614,7 @@ def test_copy_course_requires_operator_user_bid(app: object):
 
 def test_copy_course_route_for_operator(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("route-owner")
@@ -703,7 +705,7 @@ def test_copy_course_route_for_operator(
 
 def test_copy_course_route_rejects_non_object_payload(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("route-owner")
@@ -730,7 +732,7 @@ def test_copy_course_route_rejects_non_object_payload(
 
 def test_copy_course_risk_rejection_does_not_create_target_user(
     app: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"

@@ -1073,13 +1073,13 @@ class UnifiedMigrationTask:
 
         return "\n".join(report)
 
-    def close(self: object):
+    def close(self: object) -> None:
         """Close database connections."""
         if self.engine:
             self.engine.dispose()
 
 
-async def main():
+async def main() -> None:
     """Run the unified migration task."""
     import argparse
 

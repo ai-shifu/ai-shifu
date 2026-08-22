@@ -157,7 +157,7 @@ def _ensure_trial_billing_enabled(app: object, monkeypatch: object) -> None:
 
 def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
     app: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
@@ -230,7 +230,7 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
 
 def test_transfer_creator_promotes_unregistered_existing_user(
     app: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -278,7 +278,7 @@ def test_transfer_creator_promotes_unregistered_existing_user(
 
 def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
     app: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -312,7 +312,7 @@ def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
 
 def test_transfer_creator_skips_post_auth_when_target_already_creator(
     app: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -344,7 +344,7 @@ def test_transfer_creator_skips_post_auth_when_target_already_creator(
 
 def test_transfer_creator_route_for_operator(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -384,7 +384,7 @@ def test_transfer_creator_route_for_operator(
         assert latest_draft.updated_at > old_updated_at
 
 
-def test_transfer_creator_records_operator_history_entry(app: object):
+def test_transfer_creator_records_operator_history_entry(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -419,7 +419,7 @@ def test_transfer_creator_records_operator_history_entry(app: object):
 
 def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
     app: object, monkeypatch: object
-):
+) -> None:
     _ = monkeypatch
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
@@ -459,7 +459,7 @@ def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
         assert permission_map[shifu_bid] == {"view", "edit", "publish"}
 
 
-def test_transfer_creator_invalidates_cached_shifu_creator(app: object):
+def test_transfer_creator_invalidates_cached_shifu_creator(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -484,7 +484,7 @@ def test_transfer_creator_invalidates_cached_shifu_creator(app: object):
         assert _get_shifu_creator_bid_cached(app, shifu_bid) == target_user_bid
 
 
-def test_transfer_creator_preserves_existing_target_nickname(app: object):
+def test_transfer_creator_preserves_existing_target_nickname(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]

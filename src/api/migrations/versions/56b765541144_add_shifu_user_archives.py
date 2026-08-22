@@ -151,7 +151,7 @@ def _drop_legacy_archive_columns(table_name: str) -> None:
             batch_op.drop_column("archived")
 
 
-def upgrade():
+def upgrade() -> None:
     if not _table_exists("shifu_user_archives"):
         _create_shifu_user_archives_table()
 
@@ -163,7 +163,7 @@ def upgrade():
     _drop_legacy_archive_columns("shifu_draft_shifus")
 
 
-def downgrade():
+def downgrade() -> None:
     archived_column = sa.Column(
         "archived",
         sa.SmallInteger(),

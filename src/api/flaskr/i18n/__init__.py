@@ -247,7 +247,7 @@ def _load_python_translations(app: Flask, translations_dir: Path):
                                     )
 
 
-def load_translations(app: Flask, translations_dir: object = None):
+def load_translations(app: Flask, translations_dir: object = None) -> None:
     """Load translations."""
     if translations_dir:
         base_path = Path(translations_dir)
@@ -268,7 +268,7 @@ def load_translations(app: Flask, translations_dir: object = None):
     _load_python_translations(app, Path(__file__).resolve().parent)
 
 
-def translate_for_language(text: str, language: str | None = None):
+def translate_for_language(text: str, language: str | None = None) -> object:
     """Translate for language."""
     language = language or getattr(_thread_local, "language", "en-US")
     translations = _translations.get(language) or {}
@@ -286,22 +286,22 @@ def _(text: str):
     return translate_for_language(text)
 
 
-def get_current_language():
+def get_current_language() -> object:
     return getattr(_thread_local, "language", "en-US")
 
 
-def set_language(language: object):
+def set_language(language: object) -> None:
     """Set language."""
     _thread_local.language = language
 
 
-def clear_language():
+def clear_language() -> None:
     """Clear language."""
     if hasattr(_thread_local, "language"):
         delattr(_thread_local, "language")
 
 
-def get_i18n_list():
+def get_i18n_list() -> object:
     """Return i18n list."""
     return list(_translations.keys())
 

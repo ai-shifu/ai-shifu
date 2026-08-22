@@ -29,7 +29,7 @@ class TestStreamingTtsSubtitles:
 
     def test_streaming_tts_processor_persists_subtitle_cues(
         self: object, monkeypatch: object
-    ):
+    ) -> None:
         from types import SimpleNamespace
 
         from flaskr.dao import db

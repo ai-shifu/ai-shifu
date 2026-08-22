@@ -128,7 +128,7 @@ def _auth(monkeypatch: object, user_bid: str = "creator-route") -> None:
 
 def test_minimax_voice_clone_cost_is_zero_without_rate(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     _prepare_minimax_tables(app)
     _auth(monkeypatch)
     monkeypatch.setattr(
@@ -158,7 +158,7 @@ def test_minimax_voice_clone_cost_is_zero_without_rate(
 
 def test_minimax_validate_custom_voice_id_route(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     _prepare_minimax_tables(app)
     _auth(monkeypatch)
 
@@ -177,7 +177,7 @@ def test_minimax_voice_clone_submit_creates_queued_voice(
     app: object,
     test_client: object,
     monkeypatch: object,
-):
+) -> None:
     from flaskr.service.tts.models import (
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
         TTSMiniMaxClonedVoice,
@@ -246,7 +246,7 @@ def test_minimax_voice_clone_submit_rejects_insufficient_credits(
     app: object,
     test_client: object,
     monkeypatch: object,
-):
+) -> None:
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 
     _prepare_minimax_tables(app)
@@ -291,7 +291,7 @@ def test_minimax_voice_routes_only_expose_current_owner_voices(
     app: object,
     test_client: object,
     monkeypatch: object,
-):
+) -> None:
     from flaskr.service.tts.models import (
         TTS_MINIMAX_CLONE_STATUS_FAILED,
         TTS_MINIMAX_CLONE_STATUS_READY,

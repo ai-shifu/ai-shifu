@@ -71,17 +71,17 @@ def _stub_activation_order_side_effects(monkeypatch: object) -> None:
 )
 def test_normalize_mobile_handles_valid_edge_cases(
     input_phone: object, expected: object
-):
+) -> None:
     assert normalize_mobile(input_phone) == expected
 
 
 @pytest.mark.parametrize("input_phone", ["", None])
-def test_normalize_mobile_rejects_empty_values(input_phone: object):
+def test_normalize_mobile_rejects_empty_values(input_phone: object) -> None:
     with pytest.raises(AppError):
         normalize_mobile(input_phone)
 
 
-def test_parse_import_activation_entries_phone_multiple_numbers():
+def test_parse_import_activation_entries_phone_multiple_numbers() -> None:
     text = "12345678901 小明,13245678907,12345675432+美@美;"
     entries = parse_import_activation_entries(text, contact_type="phone")
 
@@ -92,7 +92,7 @@ def test_parse_import_activation_entries_phone_multiple_numbers():
     ]
 
 
-def test_parse_import_activation_entries_rejects_longer_digit_runs():
+def test_parse_import_activation_entries_rejects_longer_digit_runs() -> None:
     text = "123456789012"
     entries = parse_import_activation_entries(text, contact_type="phone")
 
@@ -114,7 +114,7 @@ def test_parse_import_activation_entries_rejects_longer_digit_runs():
 )
 def test_parse_import_activation_entries_email_with_nickname(
     text: object, expected: object
-):
+) -> None:
     entries = parse_import_activation_entries(text, contact_type="email")
 
     assert entries == expected
@@ -142,7 +142,7 @@ def test_import_activation_keeps_pre_profile_nickname_behavior(
     profile: object,
     canonical_nickname: object,
     has_state: object,
-):
+) -> None:
     _stub_activation_order_side_effects(monkeypatch)
 
     with app.app_context():
@@ -196,7 +196,7 @@ def test_import_activation_keeps_pre_profile_nickname_behavior(
 def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
     app: object,
     monkeypatch: object,
-):
+) -> None:
     import flaskr.service.order.admin as order_admin
 
     _stub_activation_order_side_effects(monkeypatch)
@@ -303,7 +303,7 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
     monkeypatch: object,
     contact_type: object,
     identifier: object,
-):
+) -> None:
     _stub_activation_order_side_effects(monkeypatch)
 
     with app.app_context():
@@ -342,7 +342,7 @@ def test_import_activation_identifier_fallback_is_not_profile_prefill(
     monkeypatch: object,
     contact_type: object,
     identifier: object,
-):
+) -> None:
     _stub_activation_order_side_effects(monkeypatch)
 
     with app.app_context():

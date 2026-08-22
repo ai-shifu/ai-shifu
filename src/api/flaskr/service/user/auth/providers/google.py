@@ -159,7 +159,7 @@ class GoogleAuthProvider(AuthProvider):
     def _resolve_userinfo_endpoint(self: object, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
-    def verify(self: object, app: object, request: object):
+    def verify(self: object, app: object, request: object) -> None:
         """Raise because Google authentication is supported only through OAuth flows."""
         message = "GoogleAuthProvider only supports OAuth flows"
         raise NotImplementedError(message)

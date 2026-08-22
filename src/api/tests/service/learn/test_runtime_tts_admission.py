@@ -142,7 +142,7 @@ def _mock_user(monkeypatch: object, user_id: str, *, is_creator: bool = False):
     return dummy_user
 
 
-def test_stream_passthrough_releases_request_db_session(monkeypatch: object):
+def test_stream_passthrough_releases_request_db_session(monkeypatch: object) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -173,7 +173,7 @@ def test_stream_passthrough_releases_request_db_session(monkeypatch: object):
 
 def test_stream_passthrough_ignores_request_db_session_remove_failure(
     monkeypatch: object,
-):
+) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -210,7 +210,7 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(
 
 def test_stream_sse_logs_business_errors_as_warning(
     monkeypatch: object, caplog: object
-):
+) -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
@@ -245,7 +245,7 @@ def test_stream_sse_logs_business_errors_as_warning(
 
 def test_stream_sse_keeps_unexpected_errors_at_error_level(
     monkeypatch: object, caplog: object
-):
+) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -276,7 +276,7 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(
 
 def test_stream_sse_emits_error_event_for_business_error_with_factory(
     monkeypatch: object, caplog: object
-):
+) -> None:
     from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
@@ -359,7 +359,7 @@ def test_run_route_passes_admission_payload_to_run_script() -> None:
 
 def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
     monkeypatch: object, test_client: object, app: object
-):
+) -> None:
     _ = app
     _mock_user(monkeypatch, "user-preview")
     monkeypatch.setattr(
@@ -404,7 +404,7 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
 
 def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
     monkeypatch: object, test_client: object
-):
+) -> None:
     _mock_user(monkeypatch, "user-run")
 
     monkeypatch.setattr(
@@ -441,7 +441,7 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
 
 def test_run_route_uses_payload_language_as_generation_snapshot(
     monkeypatch: object, test_client: object
-):
+) -> None:
     _mock_user(monkeypatch, "user-run-language")
     captured = {}
 

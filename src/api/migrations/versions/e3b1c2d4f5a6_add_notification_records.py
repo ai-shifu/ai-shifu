@@ -75,7 +75,7 @@ DEFAULT_POLICY = {
 }
 
 
-def upgrade():
+def upgrade() -> None:
     op.create_table(
         "notification_records",
         sa.Column(
@@ -553,7 +553,7 @@ def upgrade():
         )
 
 
-def downgrade():
+def downgrade() -> None:
     bind = op.get_bind()
     bind.execute(
         sa.text(

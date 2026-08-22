@@ -1236,7 +1236,7 @@ class TencentTTSProvider(BaseTTSProvider):
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
-    ):
+    ) -> object:
         """Stream synthesized speech from this provider."""
         if not self.is_configured():
             error_message = "Tencent TTS is not configured"

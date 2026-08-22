@@ -117,7 +117,7 @@ def send_feishu_coupon_code(
     discount_code: object,
     discount_name: object,
     discount_value: object,
-):
+) -> None:
     """Send feishu coupon code."""
     with app.app_context():
         user_info = load_user_aggregate(user_id)
@@ -143,7 +143,9 @@ def send_feishu_coupon_code(
         send_notify(app, title, msgs)
 
 
-def use_coupon_code(app: Flask, user_id: object, coupon_code: object, order_id: object):
+def use_coupon_code(
+    app: Flask, user_id: object, coupon_code: object, order_id: object
+) -> object:
     """Use coupon code.
 
     Args:

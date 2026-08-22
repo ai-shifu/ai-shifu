@@ -6,7 +6,9 @@ from types import SimpleNamespace
 from flaskr.api.tts import volcengine_provider
 
 
-def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch: object):
+def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
@@ -20,7 +22,9 @@ def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch: 
     assert resource_id == "seed-tts-2.0"
 
 
-def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch: object):
+def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(
+    monkeypatch: object,
+) -> None:
     monkeypatch.delenv("VOLCENGINE_TTS_APP_KEY", raising=False)
     monkeypatch.delenv("VOLCENGINE_TTS_ACCESS_KEY", raising=False)
     monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
@@ -34,7 +38,9 @@ def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch: objec
     assert resource_id == "seed-tts-1.0"
 
 
-def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch: object):
+def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.delenv("ARK_ACCESS_KEY_ID", raising=False)
@@ -47,7 +53,7 @@ def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch: objec
 
 def test_volcengine_ws_waits_for_session_started_before_task_request(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.setattr(volcengine_provider, "WEBSOCKET_AVAILABLE", True)

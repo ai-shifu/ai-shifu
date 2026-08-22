@@ -38,5 +38,5 @@ def load_billing_routes_module() -> ModuleType:
     return importlib.import_module(_BILLING_ROUTES_MODULE)
 
 
-def load_register_billing_routes():
+def load_register_billing_routes() -> object:
     return load_billing_routes_module().register_billing_routes

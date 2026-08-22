@@ -29,7 +29,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_google_public_url_config_cache():
+def clear_google_public_url_config_cache() -> object:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")
@@ -39,10 +39,10 @@ class _FakeGoogleResponse:
     def __init__(self: object, payload: object) -> None:
         self._payload = payload
 
-    def raise_for_status(self: object):
+    def raise_for_status(self: object) -> None:
         return None
 
-    def json(self: object):
+    def json(self: object) -> object:
         return self._payload
 
 
@@ -53,12 +53,12 @@ class _FakeGoogleSession:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 
-    def fetch_token(self: object, *_args: object, **_kwargs: object):
+    def fetch_token(self: object, *_args: object, **_kwargs: object) -> object:
         if self._fetch_token_error is not None:
             raise self._fetch_token_error
         return {"access_token": "fake-access-token"}
 
-    def get(self: object, *_args: object, **_kwargs: object):
+    def get(self: object, *_args: object, **_kwargs: object) -> object:
         return _FakeGoogleResponse(self._profile)
 
 
@@ -100,7 +100,7 @@ def _run_google_callback(
 
 def test_google_unverified_email_does_not_consume_first_account_bootstrap(
     app: object, monkeypatch: object
-):
+) -> None:
     first_email = f"{uuid.uuid4().hex[:10]}@example.com"
     second_email = f"{uuid.uuid4().hex[:10]}@example.com"
 
@@ -155,7 +155,7 @@ def test_google_unverified_email_does_not_consume_first_account_bootstrap(
 
 def test_google_verified_login_does_not_downgrade_paid_user(
     app: object, monkeypatch: object
-):
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -196,7 +196,7 @@ def test_google_verified_login_does_not_downgrade_paid_user(
 def test_google_existing_account_keeps_pre_profile_display_name_behavior(
     app: object,
     monkeypatch: object,
-):
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -258,7 +258,9 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             _reset_user_auth_tables()
 
 
-def test_google_oauth_token_fetch_failure_propagates(app: object, monkeypatch: object):
+def test_google_oauth_token_fetch_failure_propagates(
+    app: object, monkeypatch: object
+) -> None:
     with app.app_context():
         _reset_user_auth_tables()
         try:

@@ -15,8 +15,8 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN201/ANN202/ANN401 and the selected rules below) / SLF001 /
-#   PLC0415 / PLR2004
+# - ANN (except ANN202/ANN401 and the selected rules below) / SLF001 / PLC0415 /
+#   PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -173,8 +173,10 @@ select = [
     # parameter now names its input contract; `object` marks intentionally
     # heterogeneous values at dynamic boundaries. Variadic parameters name the
     # element/value type after the stars; use a concrete homogeneous type when
-    # known and `object` for intentionally heterogeneous forwarding. ANN205 is
-    # small enough to keep enforced, and a staticmethod is where a
+    # known and `object` for intentionally heterogeneous forwarding. Public
+    # functions also declare their result: `None` for side-effect-only work and
+    # `object` at intentionally dynamic boundaries. ANN205 is small enough to
+    # keep enforced, and a staticmethod is where a
     # missing return type hides the most, since there is no `self` to infer from.
     # ANN206 covers the classmethod counterpart, mostly alternative constructors
     # and frozen-clock `now()` doubles. ANN204 is the same bet for special
@@ -185,6 +187,7 @@ select = [
     "ANN001",  # missing type for function arguments
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
+    "ANN201",  # missing return type for a public function
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod

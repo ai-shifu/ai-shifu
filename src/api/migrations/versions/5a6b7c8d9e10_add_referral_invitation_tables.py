@@ -32,7 +32,7 @@ def _timestamps() -> tuple[sa.Column, sa.Column, sa.Column]:
     )
 
 
-def upgrade():
+def upgrade() -> None:
     deleted_column, created_at_column, updated_at_column = _timestamps()
     op.create_table(
         "referral_campaigns",
@@ -787,7 +787,7 @@ def upgrade():
     )
 
 
-def downgrade():
+def downgrade() -> None:
     op.drop_table("referral_invite_rewards")
     op.drop_table("referral_invite_relations")
     op.drop_table("referral_invite_events")

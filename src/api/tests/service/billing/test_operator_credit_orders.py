@@ -229,7 +229,7 @@ def _build_app() -> Flask:
     return app
 
 
-def test_build_operator_credit_orders_page_returns_operator_view():
+def test_build_operator_credit_orders_page_returns_operator_view() -> None:
     app = _build_app()
 
     result = build_operator_credit_orders_page(
@@ -254,7 +254,7 @@ def test_build_operator_credit_orders_page_returns_operator_view():
     assert result.items[0].valid_to is not None
 
 
-def test_build_operator_credit_orders_page_supports_product_keyword_search():
+def test_build_operator_credit_orders_page_supports_product_keyword_search() -> None:
     app = _build_app()
 
     result = build_operator_credit_orders_page(
@@ -268,7 +268,9 @@ def test_build_operator_credit_orders_page_supports_product_keyword_search():
     assert result.items[0].bill_order_bid == "bill-order-topup-1"
 
 
-def test_build_operator_credit_orders_page_filters_orders_with_available_credits():
+def test_build_operator_credit_orders_page_filters_orders_with_available_credits() -> (
+    None
+):
     app = _build_app()
 
     result = build_operator_credit_orders_page(
@@ -282,7 +284,7 @@ def test_build_operator_credit_orders_page_filters_orders_with_available_credits
     assert result.items[0].bill_order_bid == "bill-order-topup-1"
 
 
-def test_build_operator_credit_orders_page_supports_status_label_filter():
+def test_build_operator_credit_orders_page_supports_status_label_filter() -> None:
     app = _build_app()
 
     result = build_operator_credit_orders_page(
@@ -296,7 +298,7 @@ def test_build_operator_credit_orders_page_supports_status_label_filter():
     assert result.items[0].bill_order_bid == "bill-order-topup-1"
 
 
-def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
+def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products() -> None:
     app = _build_app()
 
     with app.app_context():
@@ -334,7 +336,9 @@ def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
     assert searched_result.items[0].product_code == "creator-topup-small"
 
 
-def test_build_operator_credit_orders_page_sorts_all_status_by_latest_created_at():
+def test_build_operator_credit_orders_page_sorts_all_status_by_latest_created_at() -> (
+    None
+):
     app = _build_app()
 
     with app.app_context():
@@ -390,7 +394,7 @@ def test_build_operator_credit_orders_page_sorts_all_status_by_latest_created_at
     ]
 
 
-def test_build_operator_credit_orders_overview_returns_aggregates():
+def test_build_operator_credit_orders_overview_returns_aggregates() -> None:
     app = _build_app()
 
     result = build_operator_credit_orders_overview(app)
@@ -408,7 +412,9 @@ def test_build_operator_credit_orders_overview_returns_aggregates():
     assert result.paid_amount_totals_by_currency == {"CNY": 19900}
 
 
-def test_build_operator_credit_orders_overview_uses_available_credits_and_currency_map():
+def test_build_operator_credit_orders_overview_uses_available_credits_and_currency_map() -> (
+    None
+):
     app = _build_app()
 
     with app.app_context():
@@ -474,7 +480,7 @@ def test_build_operator_credit_orders_overview_uses_available_credits_and_curren
     }
 
 
-def test_get_operator_credit_order_detail_returns_grant_and_metadata():
+def test_get_operator_credit_order_detail_returns_grant_and_metadata() -> None:
     app = _build_app()
 
     detail = get_operator_credit_order_detail(

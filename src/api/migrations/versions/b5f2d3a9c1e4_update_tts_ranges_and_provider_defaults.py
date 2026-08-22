@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def upgrade() -> None:
     op.create_table(
         "learn_generated_audios",
         sa.Column("id", mysql.BIGINT(), autoincrement=True, nullable=False),
@@ -339,7 +339,7 @@ def upgrade():
     )
 
 
-def downgrade():
+def downgrade() -> None:
     with op.batch_alter_table("shifu_published_shifus", schema=None) as batch_op:
         batch_op.drop_column("tts_emotion")
         batch_op.drop_column("tts_pitch")

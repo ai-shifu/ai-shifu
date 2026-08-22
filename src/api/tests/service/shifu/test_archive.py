@@ -57,7 +57,9 @@ def _seed_shifu(app: object, shifu_bid: str, owner_bid: str):
         dao.db.session.commit()
 
 
-def test_archive_then_unarchive_updates_both_tables(app: object, monkeypatch: object):
+def test_archive_then_unarchive_updates_both_tables(
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = "test-archive-toggle"
     owner_bid = "owner-123"
     _seed_shifu(app, shifu_bid, owner_bid)
@@ -112,7 +114,7 @@ def test_archive_then_unarchive_updates_both_tables(app: object, monkeypatch: ob
 
 def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(
     app: object, monkeypatch: object
-):
+) -> None:
     created_at = datetime(2026, 4, 21, 0, 0, 0)
     owner_bid = "owner-create-utc"
     draft_module = _get_draft_module()
@@ -155,7 +157,7 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(
 
 def test_create_shifu_draft_initializes_default_chapter_and_lesson(
     app: object, monkeypatch: object
-):
+) -> None:
     owner_bid = "owner-default-outline"
     draft_module = _get_draft_module()
     draft_outline_model, _, draft_struct_model, _ = _get_models()
@@ -217,7 +219,7 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(
 
 def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
     app: object, monkeypatch: object
-):
+) -> None:
     owner_bid = "owner-empty-struct-rebuild"
     now_time = datetime(2026, 7, 13, 12, 0, 0)
     draft_module = _get_draft_module()
@@ -313,7 +315,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
 
 def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
     app: object, monkeypatch: object
-):
+) -> None:
     owner_bid = "owner-skip-default-outline-risk"
     draft_module = _get_draft_module()
 
@@ -360,7 +362,7 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
 
 def test_create_shifu_draft_raises_when_default_outline_init_fails(
     app: object, monkeypatch: object
-):
+) -> None:
     owner_bid = "owner-outline-init-fail"
     draft_module = _get_draft_module()
 
@@ -395,7 +397,7 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(
         )
 
 
-def test_archive_requires_creator_permission(app: object):
+def test_archive_requires_creator_permission(app: object) -> None:
     shifu_bid = "test-archive-permission"
     creator = "creator-1"
     _seed_shifu(app, shifu_bid, creator)

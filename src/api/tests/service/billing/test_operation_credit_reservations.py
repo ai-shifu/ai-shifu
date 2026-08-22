@@ -36,7 +36,7 @@ from flaskr.service.metering.consts import (
 
 
 @pytest.fixture
-def operation_credit_app():
+def operation_credit_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

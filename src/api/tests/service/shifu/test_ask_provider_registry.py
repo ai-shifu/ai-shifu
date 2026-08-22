@@ -4,7 +4,7 @@ from flaskr.i18n import set_language
 from flaskr.service.shifu import ask_provider_registry as module
 
 
-def test_validate_dify_requires_shifu_level_base_url_and_api_key():
+def test_validate_dify_requires_shifu_level_base_url_and_api_key() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "dify", {"conversation_id": "conv-1"}
     )
@@ -13,7 +13,7 @@ def test_validate_dify_requires_shifu_level_base_url_and_api_key():
     assert field == "base_url"
 
 
-def test_validate_dify_shifu_level_config_success():
+def test_validate_dify_shifu_level_config_success() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "dify",
         {
@@ -27,7 +27,7 @@ def test_validate_dify_shifu_level_config_success():
     assert field is None
 
 
-def test_validate_coze_requires_api_key_and_bot_id():
+def test_validate_coze_requires_api_key_and_bot_id() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "coze",
         {
@@ -39,7 +39,7 @@ def test_validate_coze_requires_api_key_and_bot_id():
     assert field == "bot_id"
 
 
-def test_validate_coze_workflow_requires_api_key_and_workflow_id():
+def test_validate_coze_workflow_requires_api_key_and_workflow_id() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "coze_workflow",
         {
@@ -51,7 +51,7 @@ def test_validate_coze_workflow_requires_api_key_and_workflow_id():
     assert field == "workflow_id"
 
 
-def test_validate_coze_workflow_config_success():
+def test_validate_coze_workflow_config_success() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "coze_workflow",
         {
@@ -65,7 +65,7 @@ def test_validate_coze_workflow_config_success():
     assert field is None
 
 
-def test_validate_volc_knowledge_requires_account_credentials_and_collection():
+def test_validate_volc_knowledge_requires_account_credentials_and_collection() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "volc_knowledge",
         {
@@ -80,7 +80,7 @@ def test_validate_volc_knowledge_requires_account_credentials_and_collection():
     assert field == "sk"
 
 
-def test_validate_volc_knowledge_config_success():
+def test_validate_volc_knowledge_config_success() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "volc_knowledge",
         {
@@ -95,7 +95,7 @@ def test_validate_volc_knowledge_config_success():
     assert field is None
 
 
-def test_validate_get_biji_knowledge_requires_credentials_and_topic():
+def test_validate_get_biji_knowledge_requires_credentials_and_topic() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "get_biji_knowledge",
         {
@@ -109,7 +109,7 @@ def test_validate_get_biji_knowledge_requires_credentials_and_topic():
     assert field == "client_id"
 
 
-def test_validate_get_biji_knowledge_rejects_top_k_out_of_range():
+def test_validate_get_biji_knowledge_rejects_top_k_out_of_range() -> None:
     base_config = {
         "api_key": "gk-live-1",
         "client_id": "cli-1",
@@ -126,7 +126,7 @@ def test_validate_get_biji_knowledge_rejects_top_k_out_of_range():
         assert field == "top_k"
 
 
-def test_validate_get_biji_knowledge_accepts_top_k_boundaries():
+def test_validate_get_biji_knowledge_accepts_top_k_boundaries() -> None:
     base_config = {
         "api_key": "gk-live-1",
         "client_id": "cli-1",
@@ -143,7 +143,7 @@ def test_validate_get_biji_knowledge_accepts_top_k_boundaries():
         assert field is None
 
 
-def test_validate_get_biji_knowledge_config_success():
+def test_validate_get_biji_knowledge_config_success() -> None:
     is_valid, field = module.validate_ask_provider_specific_config(
         "get_biji_knowledge",
         {
@@ -158,7 +158,7 @@ def test_validate_get_biji_knowledge_config_success():
     assert field is None
 
 
-def test_ask_provider_metadata_contains_shifu_level_defaults():
+def test_ask_provider_metadata_contains_shifu_level_defaults() -> None:
     metadata = module.get_ask_provider_metadata()
     providers = {item["provider"]: item for item in metadata.get("providers", [])}
 
@@ -194,7 +194,7 @@ def test_ask_provider_metadata_contains_shifu_level_defaults():
     }
 
 
-def test_ask_provider_metadata_marks_api_key_as_password():
+def test_ask_provider_metadata_marks_api_key_as_password() -> None:
     metadata = module.get_ask_provider_metadata()
     providers = {item["provider"]: item for item in metadata.get("providers", [])}
 
@@ -243,7 +243,7 @@ def test_ask_provider_metadata_marks_api_key_as_password():
     assert get_biji_api_key.get("format") == "password"
 
 
-def test_ask_provider_metadata_includes_all_providers():
+def test_ask_provider_metadata_includes_all_providers() -> None:
     metadata = module.get_ask_provider_metadata()
     providers = {item["provider"] for item in metadata.get("providers", [])}
 
@@ -258,7 +258,7 @@ def test_ask_provider_metadata_includes_all_providers():
     }
 
 
-def test_ask_provider_metadata_exposes_minimal_schema_properties():
+def test_ask_provider_metadata_exposes_minimal_schema_properties() -> None:
     metadata = module.get_ask_provider_metadata()
     providers = {item["provider"]: item for item in metadata.get("providers", [])}
 
@@ -294,7 +294,7 @@ def test_ask_provider_metadata_exposes_minimal_schema_properties():
     assert set(get_biji_fields) == {"api_key", "client_id", "topic_id", "top_k"}
 
 
-def test_ask_provider_metadata_localizes_text_for_zh_cn(app: object):
+def test_ask_provider_metadata_localizes_text_for_zh_cn(app: object) -> None:
     _ = app
     set_language("zh-CN")
     try:

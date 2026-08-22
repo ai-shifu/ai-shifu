@@ -37,12 +37,12 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
-def upgrade():
+def upgrade() -> None:
     for table_name in LEGACY_TABLES:
         if _table_exists(table_name):
             op.drop_table(table_name)
 
 
-def downgrade():
+def downgrade() -> None:
     # Irreversible on purpose: legacy tables are removed permanently.
     pass

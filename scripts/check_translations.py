@@ -70,7 +70,7 @@ def flatten_translation(data: object, namespace: str) -> dict[str, str]:
     return _flatten(data, namespace)
 
 
-def validate_locale_files(locale_dirs: Iterable[Path]):
+def validate_locale_files(locale_dirs: Iterable[Path]) -> None:
     """Validate key parity and ICU placeholders across every locale."""
     files_per_locale: dict[str, dict[str, Path]] = {}
     flattened_per_locale: dict[str, dict[str, dict[str, str]]] = {}

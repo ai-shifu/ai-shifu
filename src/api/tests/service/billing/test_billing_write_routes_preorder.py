@@ -69,7 +69,7 @@ def test_mark_preorder_effective_applied_preserves_terminal_preorder_states() ->
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch: object):
+def billing_write_client(monkeypatch: object) -> object:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 

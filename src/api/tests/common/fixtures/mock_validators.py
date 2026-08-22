@@ -1,7 +1,7 @@
 """Mock validators for testing configuration validation."""
 
 
-def mock_port_validator(value: object):
+def mock_port_validator(value: object) -> object:
     """Mock port validator that accepts 1-65535."""
     try:
         port = int(value)
@@ -11,7 +11,7 @@ def mock_port_validator(value: object):
         return 1 <= port <= 65535
 
 
-def mock_email_validator(value: object):
+def mock_email_validator(value: object) -> object:
     """Mock email validator with simple regex."""
     import re
 
@@ -21,19 +21,19 @@ def mock_email_validator(value: object):
     return bool(re.match(pattern, str(value)))
 
 
-def always_fail_validator(value: object):
+def always_fail_validator(value: object) -> object:
     """Fail validation always (test helper)."""
     _ = value
     return False
 
 
-def always_pass_validator(value: object):
+def always_pass_validator(value: object) -> object:
     """Pass validation always (test helper)."""
     _ = value
     return True
 
 
-def range_validator(min_val: object, max_val: object):
+def range_validator(min_val: object, max_val: object) -> object:
     """Create a range validator for numeric values."""
 
     def validator(value: object):
@@ -47,7 +47,7 @@ def range_validator(min_val: object, max_val: object):
     return validator
 
 
-def string_length_validator(min_len: object = 0, max_len: object = 100):
+def string_length_validator(min_len: object = 0, max_len: object = 100) -> object:
     """Create a string length validator."""
 
     def validator(value: object):
@@ -59,7 +59,7 @@ def string_length_validator(min_len: object = 0, max_len: object = 100):
     return validator
 
 
-def regex_validator(pattern: object):
+def regex_validator(pattern: object) -> object:
     """Create a regex-based validator."""
     import re
 
@@ -73,7 +73,7 @@ def regex_validator(pattern: object):
     return validator
 
 
-def url_validator(value: object):
+def url_validator(value: object) -> object:
     """Mock URL validator."""
     import re
 
@@ -91,7 +91,7 @@ def url_validator(value: object):
     return bool(url_pattern.match(str(value)))
 
 
-def dependency_validator(depends_on_key: object):
+def dependency_validator(depends_on_key: object) -> object:
     """Create a validator that checks if another config key is set."""
     _ = depends_on_key
 

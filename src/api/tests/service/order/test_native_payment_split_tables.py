@@ -30,7 +30,7 @@ from sqlalchemy.exc import IntegrityError
 
 
 @pytest.fixture
-def native_payment_split_app():
+def native_payment_split_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

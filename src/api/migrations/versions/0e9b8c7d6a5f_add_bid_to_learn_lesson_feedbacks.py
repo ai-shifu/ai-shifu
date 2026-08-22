@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def upgrade() -> None:
     op.create_table(
         "learn_lesson_feedbacks",
         sa.Column("id", mysql.BIGINT(), autoincrement=True, nullable=False),
@@ -150,7 +150,7 @@ def upgrade():
         )
 
 
-def downgrade():
+def downgrade() -> None:
     with op.batch_alter_table("learn_lesson_feedbacks", schema=None) as batch_op:
         batch_op.drop_index("idx_learn_lesson_feedback_unique_active")
         batch_op.drop_index(batch_op.f("ix_learn_lesson_feedbacks_deleted"))

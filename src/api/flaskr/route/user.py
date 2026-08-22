@@ -185,7 +185,7 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
-def optional_token_validation(f: object):
+def optional_token_validation(f: object) -> object:
     """Allow a route to accept an optional authentication token."""
 
     @wraps(f)
