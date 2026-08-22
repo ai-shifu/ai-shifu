@@ -9,14 +9,15 @@ import { loginWithPhone } from './harness-auth';
 
 const authStatePath = 'playwright/.auth/runtime-harness-user.json';
 
-let diagnostics: RuntimeHarnessDiagnostics;
+let diagnostics: RuntimeHarnessDiagnostics | undefined;
 
 test.beforeEach(async ({ page }, testInfo) => {
+  diagnostics = undefined;
   diagnostics = await attachRuntimeHarnessDiagnostics(page, testInfo);
 });
 
 test.afterEach(async ({}, testInfo) => {
-  await diagnostics.captureFailure(testInfo);
+  await diagnostics?.captureFailure(testInfo);
 });
 
 test('runtime harness authenticates the shared test user', async ({ page }) => {

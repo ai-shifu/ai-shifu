@@ -22,15 +22,17 @@ const waitForLearnerBootstrap = (page: Page, courseId: string) => {
 
   return Promise.all([
     page.waitForResponse(
-      response => matchesCourseRequest(response.url(), 'false'),
+      response =>
+        matchesCourseRequest(response.url(), 'false') && response.ok(),
       { timeout: 20_000 },
     ),
     page.waitForResponse(
-      response => matchesCourseRequest(response.url(), 'true'),
+      response => matchesCourseRequest(response.url(), 'true') && response.ok(),
       { timeout: 20_000 },
     ),
     page.waitForResponse(
-      response => new URL(response.url()).pathname === outlinePath,
+      response =>
+        new URL(response.url()).pathname === outlinePath && response.ok(),
       { timeout: 20_000 },
     ),
   ]);

@@ -119,7 +119,13 @@ export const attachRuntimeHarnessDiagnostics = async (
 
       await mkdir(failedTestInfo.outputDir, { recursive: true });
       const screenshotPath = failedTestInfo.outputPath('failure.png');
-      await page.screenshot({ path: screenshotPath, fullPage: true });
+      let screenshotError: string | undefined;
+      try {
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+      } catch (error) {
+        screenshotError =
+          error instanceof Error ? error.message : String(error);
+      }
       const diagnosticsPath = failedTestInfo.outputPath(
         'harness-diagnostics.json',
       );
@@ -132,7 +138,8 @@ export const attachRuntimeHarnessDiagnostics = async (
             lastRequestId: lastObservedRequestId,
             console: consoleEntries,
             network: networkEntries.slice(-25),
-            screenshot: screenshotPath,
+            screenshot: screenshotError ? undefined : screenshotPath,
+            screenshotError,
             runtimeHarness: buildRuntimeHarnessHints(
               lastObservedRequestId,
               diagnosticsPath,
