@@ -4,11 +4,11 @@ import asyncio
 import logging
 import os
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Coroutine, Generator
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypeVar
 
 import requests
 
@@ -61,9 +61,12 @@ logger = logging.getLogger(__name__)
 _original_asyncio_run = asyncio.run
 # Strong references so fire-and-forget tasks are not garbage-collected mid-run.
 _background_asyncio_tasks: set[asyncio.Task] = set()
+T = TypeVar("T")
 
 
-def _safe_asyncio_run(coro: object, *args: object, **kwargs: object) -> object:
+def _safe_asyncio_run(
+    coro: Coroutine[object, object, T], *args: object, **kwargs: object
+) -> T | None:
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:

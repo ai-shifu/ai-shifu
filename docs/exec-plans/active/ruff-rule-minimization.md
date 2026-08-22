@@ -315,6 +315,9 @@ plan's progress update for that rule.
 - [x] 2026-08-22 12:58 CST: Restored the recursive translation helpers' exact
   `dict[str, str]` contracts and annotated TTS provider and locale generators
   with their yielded iterator types. Focused annotation/cache tests pass.
+- [x] 2026-08-22 13:35 CST: Restored private TTS iterator/callback, exception
+  chain, Celery crontab, wallet Decimal, rate-clock datetime, and patched
+  asyncio coroutine-result contracts. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

@@ -6,7 +6,7 @@ import logging
 import queue
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -873,7 +873,7 @@ def _yield_tts_segments(
     tts_model: str,
     voice_settings: object,
     audio_settings: object,
-) -> object:
+) -> Iterator[tuple[int, bytes, int, str, int, int, int]]:
     provider_name = (provider or "").strip().lower()
     if not provider_name:
         error_message = "TTS provider is required"
@@ -1005,8 +1005,8 @@ def _yield_with_tts_error_mapping(
     app: Flask,
     *,
     unknown_error_log: str,
-    body: object,
-) -> object:
+    body: Callable[[], Iterator[object]],
+) -> Iterator[object]:
     try:
         yield from body()
     except ValueError as exc:
@@ -1154,8 +1154,8 @@ def _yield_tts_synthesis(
     user_bid: str,
     outline_bid: str,
     unknown_error_log: str,
-    body: object,
-) -> object:
+    body: Callable[[], Iterator[object]],
+) -> Iterator[object]:
     """Run a TTS synthesis body under a per-(user, outline) concurrency slot.
 
     Cache-hit paths never reach here, so they do not consume a slot. When the
@@ -1450,7 +1450,7 @@ def _yield_stream_tts_audio_segments(
     stats: dict,
     position: int | None = None,
     av_contract: dict | None = None,
-) -> object:
+) -> Iterator[RunMarkdownFlowDTO]:
     for (
         index,
         audio_data,
@@ -1525,7 +1525,7 @@ def _yield_run_tts_audio_events(
     position: int | None = None,
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
-) -> object:
+) -> Iterator[RunMarkdownFlowDTO]:
     from flaskr.common.config import get_config
 
     max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS") or 300
