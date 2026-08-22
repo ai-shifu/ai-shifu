@@ -199,7 +199,7 @@ class VolcKnowledgeAskProviderAdapter:
     provider = ASK_PROVIDER_VOLC_KNOWLEDGE
 
     def stream_answer(
-        self,
+        self: object,
         app: Flask,
         user_id: str,
         user_query: str,

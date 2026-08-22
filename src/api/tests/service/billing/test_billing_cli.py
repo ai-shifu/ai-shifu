@@ -162,7 +162,7 @@ def _seed_billing_cli_course_auth(
 
 
 def test_billing_backfill_settlement_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "backfill-settlement"]
@@ -173,7 +173,7 @@ def test_billing_backfill_settlement_cli_requires_explicit_scope(
 
 
 def test_billing_backfill_settlement_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -207,7 +207,7 @@ def test_billing_backfill_settlement_cli_prints_helper_payload(
 
 
 def test_billing_backfill_trial_plans_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "backfill-trial-plans"]
@@ -218,7 +218,7 @@ def test_billing_backfill_trial_plans_cli_requires_explicit_scope(
 
 
 def test_billing_backfill_trial_plans_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -249,7 +249,7 @@ def test_billing_backfill_trial_plans_cli_prints_helper_payload(
 
 
 def test_billing_backfill_authoring_permission_creators_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "backfill-authoring-permission-creators"]
@@ -260,7 +260,7 @@ def test_billing_backfill_authoring_permission_creators_cli_requires_explicit_sc
 
 
 def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -293,7 +293,7 @@ def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payloa
 
 
 def test_billing_rebuild_wallets_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -324,7 +324,7 @@ def test_billing_rebuild_wallets_cli_prints_helper_payload(
 
 
 def test_billing_rebuild_wallets_cli_apply_persists_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -355,7 +355,7 @@ def test_billing_rebuild_wallets_cli_apply_persists_helper_payload(
 
 
 def test_billing_repair_topup_expiry_cli_requires_creator_bid(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-topup-expiry"]
@@ -366,7 +366,7 @@ def test_billing_repair_topup_expiry_cli_requires_creator_bid(
 
 
 def test_billing_repair_topup_expiry_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -395,7 +395,7 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
 
 
 def test_billing_restore_expired_topup_buckets_cli_requires_order_bid(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "restore-expired-topup-buckets"]
@@ -409,7 +409,7 @@ def test_billing_restore_expired_topup_buckets_cli_requires_order_bid(
 
 
 def test_billing_restore_expired_topup_buckets_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -441,7 +441,7 @@ def test_billing_restore_expired_topup_buckets_cli_prints_helper_payload(
 
 
 def test_billing_restore_expired_topup_buckets_cli_apply_persists_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -472,7 +472,7 @@ def test_billing_restore_expired_topup_buckets_cli_apply_persists_payload(
 
 
 def test_billing_repair_bucket_status_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-bucket-status"]
@@ -486,7 +486,7 @@ def test_billing_repair_bucket_status_cli_requires_explicit_scope(
 
 
 def test_billing_repair_bucket_status_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -515,7 +515,7 @@ def test_billing_repair_bucket_status_cli_prints_helper_payload(
 
 
 def test_billing_repair_expire_ledger_bucket_drift_cli_requires_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-expire-ledger-bucket-drift"]
@@ -529,7 +529,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_requires_scope(
 
 
 def test_billing_repair_expire_ledger_bucket_drift_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -560,7 +560,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_prints_helper_payload(
 
 
 def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -592,7 +592,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
 
 
 def test_billing_repair_renewal_state_drift_cli_requires_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-renewal-state-drift"]
@@ -605,7 +605,7 @@ def test_billing_repair_renewal_state_drift_cli_requires_scope(
 
 
 def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -636,7 +636,7 @@ def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(
 
 
 def test_billing_repair_renewal_state_drift_cli_apply_persists_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -668,7 +668,7 @@ def test_billing_repair_renewal_state_drift_cli_apply_persists_payload(
 
 
 def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-subscription-cycle"]
@@ -682,7 +682,7 @@ def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
 
 
 def test_billing_repair_subscription_cycle_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -711,7 +711,7 @@ def test_billing_repair_subscription_cycle_cli_prints_helper_payload(
 
 
 def test_billing_reconcile_order_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -742,7 +742,7 @@ def test_billing_reconcile_order_cli_prints_helper_payload(
 
 
 def test_billing_retry_renewal_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -770,7 +770,7 @@ def test_billing_retry_renewal_cli_prints_helper_payload(
 
 
 def test_billing_requeue_subscription_purchase_sms_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -800,7 +800,7 @@ def test_billing_requeue_subscription_purchase_sms_cli_prints_helper_payload(
 
 
 def test_billing_rebuild_daily_aggregates_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "rebuild-daily-aggregates"]
@@ -811,7 +811,7 @@ def test_billing_rebuild_daily_aggregates_cli_requires_explicit_scope(
 
 
 def test_billing_rebuild_daily_aggregates_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -2140,8 +2140,8 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
 
 @pytest.mark.parametrize("command", ["validate", "activate"])
 def test_billing_provider_price_cli_invalid_validation_exits_nonzero(
-    billing_cli_runner,
-    monkeypatch,
+    billing_cli_runner: object,
+    monkeypatch: object,
     command: str,
 ) -> None:
     def _invalid_payload(provider_price_bid: str) -> dict[str, object]:

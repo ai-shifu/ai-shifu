@@ -29,7 +29,7 @@ def check_text_with_llm_response(
     user_info: UserAggregate,
     log_script: LearnGeneratedBlock,
     user_input: str,
-    span,
+    span: object,
     outline_item_bid: str,
     shifu_bid: str,
     block_position: int,

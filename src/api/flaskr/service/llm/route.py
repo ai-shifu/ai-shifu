@@ -7,7 +7,7 @@ from flaskr.route.common import make_common_response
 
 
 @inject
-def register_llm_routes(app: Flask, path_prefix="/api/llm"):
+def register_llm_routes(app: Flask, path_prefix: object = "/api/llm"):
     """Register LLM routes."""
     app.logger.info("register llm routes %s", path_prefix)
 

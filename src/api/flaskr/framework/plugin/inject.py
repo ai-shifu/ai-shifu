@@ -4,7 +4,7 @@ from functools import wraps
 
 
 # inject app to function and set inject flag
-def inject(func):
+def inject(func: object):
     """Inject a plugin callback at the requested extension point."""
 
     @wraps(func)

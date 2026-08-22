@@ -70,7 +70,7 @@ class CredentialSummary:
     metadata: dict[str, str | None] = field(default_factory=dict)
 
     @property
-    def is_verified(self) -> bool:
+    def is_verified(self: object) -> bool:
         """Return whether the credential is verified."""
         return self.state == CREDENTIAL_STATE_VERIFIED
 
@@ -97,7 +97,7 @@ class UserAggregate:
     is_operator: bool = False
 
     def _preferred_identifier(
-        self, provider: str, *, prefer_verified: bool = True
+        self: object, provider: str, *, prefer_verified: bool = True
     ) -> CredentialSummary | None:
         matches = [c for c in self.credentials if c.provider == provider]
         if not matches:
@@ -109,7 +109,7 @@ class UserAggregate:
         return matches[0]
 
     @property
-    def email(self) -> str:
+    def email(self: object) -> str:
         """Return the preferred email address, if available."""
         credential = self._preferred_identifier("email")
         if credential:
@@ -119,7 +119,7 @@ class UserAggregate:
         return ""
 
     @property
-    def mobile(self) -> str:
+    def mobile(self: object) -> str:
         """Return the preferred mobile number, if available."""
         credential = self._preferred_identifier("phone")
         if credential:
@@ -129,7 +129,7 @@ class UserAggregate:
         return ""
 
     @property
-    def wechat_open_id(self) -> str:
+    def wechat_open_id(self: object) -> str:
         """Return the available WeChat open ID, if present."""
         for credential in self.credentials:
             if (
@@ -140,7 +140,7 @@ class UserAggregate:
         return ""
 
     @property
-    def wechat_union_id(self) -> str:
+    def wechat_union_id(self: object) -> str:
         """Return the available WeChat union ID, if present."""
         for credential in self.credentials:
             if (
@@ -151,7 +151,7 @@ class UserAggregate:
         return ""
 
     @property
-    def username(self) -> str:
+    def username(self: object) -> str:
         """Return the account username, if present."""
         if self.identify:
             return self.identify
@@ -162,17 +162,17 @@ class UserAggregate:
         return self.user_bid
 
     @property
-    def display_name(self) -> str:
+    def display_name(self: object) -> str:
         """Return the learner-facing display name."""
         return self.nickname
 
     @property
-    def user_language(self) -> str:
+    def user_language(self: object) -> str:
         """Return the learner's preferred language."""
         return self.language or "en-US"
 
     @property
-    def public_state(self) -> int:
+    def public_state(self: object) -> int:
         """Return the learner's public account state."""
         return STATE_TO_PUBLIC_STATE.get(self.state, 0)
 
@@ -182,31 +182,31 @@ class UserAggregate:
     # canonical ``user_users`` tables.
 
     @property
-    def user_id(self) -> str:  # pragma: no cover - trivial alias
+    def user_id(self: object) -> str:  # pragma: no cover - trivial alias
         """Return the persisted user business identifier."""
         return self.user_bid
 
     @property
-    def name(self) -> str:  # pragma: no cover - trivial alias
+    def name(self: object) -> str:  # pragma: no cover - trivial alias
         """Return the persisted user name."""
         return self.display_name
 
     @property
-    def user_state(self) -> int:  # pragma: no cover - trivial alias
+    def user_state(self: object) -> int:  # pragma: no cover - trivial alias
         """Return the persisted user state."""
         return self.state
 
     @property
-    def user_avatar(self) -> str:  # pragma: no cover - trivial alias
+    def user_avatar(self: object) -> str:  # pragma: no cover - trivial alias
         """Return the persisted avatar URL."""
         return self.avatar
 
     @property
-    def user_open_id(self) -> str:  # pragma: no cover - trivial alias
+    def user_open_id(self: object) -> str:  # pragma: no cover - trivial alias
         """Return the persisted user open ID."""
         return self.wechat_open_id
 
-    def to_user_info(self) -> UserInfo:
+    def to_user_info(self: object) -> UserInfo:
         """Convert the aggregate into public user information."""
         return UserInfo(
             user_id=self.user_bid,
@@ -619,7 +619,7 @@ VALID_USER_STATES = {
 }
 
 
-def _normalize_user_state(raw_state) -> int:
+def _normalize_user_state(raw_state: object) -> int:
     if raw_state is None:
         return USER_STATE_UNREGISTERED
 
@@ -653,7 +653,7 @@ class UserProfileSnapshot:
     legacy: dict[str, Any] = field(default_factory=dict)
     credentials: list[dict[str, str | None]] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Serialize this value as a dictionary."""
         return {
             "user_bid": self.user_bid,

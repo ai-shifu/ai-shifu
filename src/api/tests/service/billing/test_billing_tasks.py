@@ -63,7 +63,7 @@ from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
-def billing_task_integration_app(tmp_path):
+def billing_task_integration_app(tmp_path: object):
     db_path = tmp_path / "billing-task.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -90,7 +90,7 @@ def billing_task_integration_app(tmp_path):
 
 def _install_fake_app_module(
     monkeypatch: pytest.MonkeyPatch,
-    app,
+    app: object,
 ) -> None:
     monkeypatch.setitem(
         sys.modules,
@@ -107,7 +107,7 @@ def test_settle_usage_task_calls_settlement_engine(
 
     captured: dict[str, object] = {}
 
-    def _fake_settle_bill_usage(app, *, usage_bid: str = ""):
+    def _fake_settle_bill_usage(app: object, *, usage_bid: str = ""):
         captured["app"] = app
         captured["usage_bid"] = usage_bid
         return {
@@ -161,7 +161,7 @@ def test_aggregate_daily_usage_metrics_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_aggregate_daily_usage_metrics(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
@@ -208,7 +208,7 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_aggregate_daily_ledger_summary(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
@@ -258,7 +258,7 @@ def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
         return datetime(2026, 5, 22, 2, 0, 0)
 
     def _fake_finalize_daily_ledger_summary(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
@@ -299,7 +299,7 @@ def test_finalize_daily_ledger_summary_task_accepts_explicit_stat_date(
     captured: dict[str, object] = {}
 
     def _fake_finalize_daily_ledger_summary(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
@@ -342,7 +342,7 @@ def test_rebuild_daily_aggregates_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_rebuild_daily_aggregates(
-        app,
+        app: object,
         *,
         creator_bid: str = "",
         shifu_bid: str = "",
@@ -394,7 +394,7 @@ def test_verify_domain_binding_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_verify_domain_binding(
-        app,
+        app: object,
         *,
         creator_bid: str = "",
         domain_binding_bid: str = "",
@@ -444,7 +444,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 ) -> None:
     class _ThreadLock:
         def __init__(
-            self,
+            self: object,
             *,
             key: str,
             raw_lock: threading.Lock,
@@ -456,7 +456,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._events = events
             self._second_attempted = second_attempted
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(
+            self: object, blocking: bool = True, blocking_timeout: object = None
+        ):
             self._events.append(
                 {
                     "type": "attempt",
@@ -488,7 +490,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
                 )
             return acquired
 
-        def release(self) -> None:
+        def release(self: object) -> None:
             self._events.append(
                 {
                     "type": "released",
@@ -500,13 +502,18 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._raw_lock.release()
 
     class _ThreadLockCacheProvider:
-        def __init__(self) -> None:
+        def __init__(self: object) -> None:
             self._locks: dict[str, threading.Lock] = {}
             self._guard = threading.Lock()
             self.events: list[dict[str, object]] = []
             self.second_attempted = threading.Event()
 
-        def lock(self, key: str, timeout=None, blocking_timeout=None):
+        def lock(
+            self: object,
+            key: str,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ):
             del timeout, blocking_timeout
             with self._guard:
                 raw_lock = self._locks.setdefault(key, threading.Lock())
@@ -751,11 +758,11 @@ def test_replay_usage_settlement_task_calls_replay_helper(
     captured: dict[str, object] = {}
 
     def _fake_replay_bill_usage_settlement(
-        app,
+        app: object,
         *,
         creator_bid: str = "",
         usage_bid: str = "",
-        usage_id=None,
+        usage_id: object = None,
     ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
@@ -797,7 +804,9 @@ def test_expire_wallet_buckets_task_calls_wallet_helper(
 
     captured: dict[str, object] = {}
 
-    def _fake_expire_credit_wallet_buckets(app, *, creator_bid="", expire_before=None):
+    def _fake_expire_credit_wallet_buckets(
+        app: object, *, creator_bid: object = "", expire_before: object = None
+    ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["expire_before"] = expire_before
@@ -852,7 +861,9 @@ def test_expire_pending_orders_task_delegates_to_sync_flow(
 
     captured: dict[str, object] = {}
 
-    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+    def _fake_sync_billing_order(
+        app: object, creator_bid: str, bill_order_bid: str, payload: object
+    ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["bill_order_bid"] = bill_order_bid
@@ -921,7 +932,9 @@ def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
 
     captured: dict[str, object] = {}
 
-    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+    def _fake_sync_billing_order(
+        app: object, creator_bid: str, bill_order_bid: str, payload: object
+    ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["bill_order_bid"] = bill_order_bid
@@ -1035,19 +1048,24 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
     events: list[tuple[str, str]] = []
 
     class _RecordingLock:
-        def __init__(self, key: str) -> None:
+        def __init__(self: object, key: str) -> None:
             self._key = key
 
-        def acquire(self, blocking: bool = True) -> bool:
+        def acquire(self: object, blocking: bool = True) -> bool:
             _ = blocking
             events.append(("acquire", self._key))
             return True
 
-        def release(self) -> None:
+        def release(self: object) -> None:
             events.append(("release", self._key))
 
     class _RecordingCache:
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self: object,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ):
             _ = (timeout, blocking_timeout)
             return _RecordingLock(key)
 
@@ -1100,13 +1118,13 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     captured: dict[str, object] = {}
 
     def _fake_run_reconcile_provider_reference(
-        app,
+        app: object,
         *,
-        creator_bid="",
-        payment_provider="",
-        provider_reference_id="",
-        bill_order_bid="",
-        session_id="",
+        creator_bid: object = "",
+        payment_provider: object = "",
+        provider_reference_id: object = "",
+        bill_order_bid: object = "",
+        session_id: object = "",
     ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid
@@ -1172,7 +1190,7 @@ def test_send_low_balance_alert_task_preserves_legacy_name_and_delegates_scan(
 
 
 def test_dispatch_due_renewal_events_task_noops_when_disabled(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
@@ -1190,7 +1208,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
 
     called = {"apply_async": 0}
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs: object = None, **options: object):
         del kwargs, options
         called["apply_async"] += 1
 
@@ -1209,7 +1227,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
 
 
 def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
@@ -1332,7 +1350,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs: object = None, **options: object):
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1370,7 +1388,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
 
 
 def test_dispatch_due_renewal_events_recovers_stale_processing_events(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
@@ -1423,7 +1441,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs: object = None, **options: object):
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1464,7 +1482,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
 
 
 def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
@@ -1501,7 +1519,7 @@ def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options: object):
+    def _fake_apply_async(*, kwargs: object = None, **options: object):
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1610,13 +1628,13 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
     captured: dict[str, object] = {}
 
     def _fake_run_reconcile_provider_reference(
-        app,
+        app: object,
         *,
-        creator_bid="",
-        payment_provider="",
-        provider_reference_id="",
-        bill_order_bid="",
-        session_id="",
+        creator_bid: object = "",
+        payment_provider: object = "",
+        provider_reference_id: object = "",
+        bill_order_bid: object = "",
+        session_id: object = "",
     ):
         captured["app"] = app
         captured["creator_bid"] = creator_bid

@@ -3,7 +3,7 @@
 import decimal
 
 
-def compare_decimal(a, b):
+def compare_decimal(a: object, b: object):
     """Compare decimal."""
     a_temp = decimal.Decimal(str(a or 0)).quantize(
         decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN

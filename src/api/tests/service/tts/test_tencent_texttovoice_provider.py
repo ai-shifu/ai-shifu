@@ -33,7 +33,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
         ]
     )
 
-    def sign(key, msg):
+    def sign(key: object, msg: object):
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
     secret_date = sign(("TC3" + secret_key).encode("utf-8"), date)
@@ -50,7 +50,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
 
 
-def _patch_credentials(monkeypatch):
+def _patch_credentials(monkeypatch: object):
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     config = {
@@ -65,10 +65,10 @@ def _patch_credentials(monkeypatch):
 
 
 class _FakeResponse:
-    def __init__(self, body) -> None:
+    def __init__(self: object, body: object) -> None:
         self._body = body
 
-    def json(self):
+    def json(self: object):
         return self._body
 
 
@@ -169,13 +169,15 @@ def test_split_text_weighted_limits():
     assert _split_text("   ") == []
 
 
-def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
+def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch: object):
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
     captured_payloads = []
 
-    def _fake_post(url, data=None, headers=None, timeout=None):
+    def _fake_post(
+        url: object, data: object = None, headers: object = None, timeout: object = None
+    ):
         _ = (url, headers, timeout)
         captured_payloads.append(json.loads(data.decode("utf-8")))
         return _FakeResponse(
@@ -226,7 +228,7 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
     assert result.usage_characters == len(text)
 
 
-def test_synthesize_raises_on_api_error_with_code(monkeypatch):
+def test_synthesize_raises_on_api_error_with_code(monkeypatch: object):
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
@@ -256,7 +258,7 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     assert "req-err" in str(exc_info.value)
 
 
-def test_synthesize_raises_on_empty_audio(monkeypatch):
+def test_synthesize_raises_on_empty_audio(monkeypatch: object):
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
@@ -279,7 +281,7 @@ def test_synthesize_raises_on_empty_audio(monkeypatch):
     assert "No audio data received from Tencent TextToVoice" in str(exc_info.value)
 
 
-def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
+def test_synthesize_rejects_non_numeric_voice_id(monkeypatch: object):
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)

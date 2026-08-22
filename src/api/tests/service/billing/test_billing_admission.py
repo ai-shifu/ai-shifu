@@ -41,7 +41,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
-def billing_admission_app(monkeypatch):
+def billing_admission_app(monkeypatch: object):
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -84,8 +84,8 @@ def _create_bucket(
     *,
     category: int,
     available_credits: str,
-    effective_from=None,
-    effective_to=None,
+    effective_from: object = None,
+    effective_to: object = None,
     source_type: int = 0,
     source_bid: str | None = None,
 ) -> CreditWalletBucket:
@@ -112,8 +112,8 @@ def _create_active_subscription(
     creator_bid: str,
     *,
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    current_period_start_at=None,
-    current_period_end_at=None,
+    current_period_start_at: object = None,
+    current_period_end_at: object = None,
 ) -> BillingSubscription:
     now = now_utc()
     return BillingSubscription(
@@ -284,7 +284,7 @@ def test_admit_creator_usage_rejects_missing_credits(
 
 def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
     billing_admission_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     with billing_admission_app.app_context():
         dao.db.session.add(

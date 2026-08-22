@@ -11,12 +11,12 @@ from flaskr.service.profile import learner_profile_optimizer_admission as admiss
 class FakeRedis:
     """Simulate Redis behavior for tests."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Track in-flight admission tokens and requested acquisition TTLs."""
         self.in_flight_tokens: dict[str, str] = {}
         self.acquire_ttls: list[int] = []
 
-    def eval(self, script, numkeys, *args: object):
+    def eval(self: object, script: object, numkeys: object, *args: object):
         assert numkeys == 1
         key = str(args[0])
         token = str(args[1])
@@ -33,14 +33,14 @@ class FakeRedis:
             return 1
         return 0
 
-    def expire_in_flight(self) -> None:
+    def expire_in_flight(self: object) -> None:
         self.in_flight_tokens.clear()
 
 
 class ExplodingRedis:
     """Simulate a Redis failure for tests."""
 
-    def eval(self, *_args: object, **_kwargs: object):
+    def eval(self: object, *_args: object, **_kwargs: object):
         message = "redis unavailable"
         raise RuntimeError(message)
 
@@ -54,7 +54,7 @@ def reset_local_admission_state():
         admission._local_in_flight_state.clear()
 
 
-def _assert_admission_denied(app, *, user_id: str) -> None:
+def _assert_admission_denied(app: object, *, user_id: str) -> None:
     message = "denied admission must not enter the request body"
     with (
         pytest.raises(AppError) as raised,
@@ -67,7 +67,9 @@ def _assert_admission_denied(app, *, user_id: str) -> None:
     assert raised.value.code == 1023
 
 
-def test_admission_allows_only_one_in_flight_request_per_user(app, monkeypatch):
+def test_admission_allows_only_one_in_flight_request_per_user(
+    app: object, monkeypatch: object
+):
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -86,7 +88,7 @@ def test_admission_allows_only_one_in_flight_request_per_user(app, monkeypatch):
     assert fake_redis.acquire_ttls == [admission.IN_FLIGHT_TTL_SECONDS] * 3
 
 
-def test_admission_does_not_group_different_users(app, monkeypatch):
+def test_admission_does_not_group_different_users(app: object, monkeypatch: object):
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -97,7 +99,7 @@ def test_admission_does_not_group_different_users(app, monkeypatch):
         pass
 
 
-def test_admission_releases_slot_after_request_error(app, monkeypatch):
+def test_admission_releases_slot_after_request_error(app: object, monkeypatch: object):
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -118,7 +120,9 @@ def test_admission_releases_slot_after_request_error(app, monkeypatch):
         pass
 
 
-def test_expired_lease_release_cannot_remove_replacement_redis_slot(app, monkeypatch):
+def test_expired_lease_release_cannot_remove_replacement_redis_slot(
+    app: object, monkeypatch: object
+):
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
@@ -133,7 +137,7 @@ def test_expired_lease_release_cannot_remove_replacement_redis_slot(app, monkeyp
 
 
 def test_configured_redis_failure_denies_request_without_logging_identity(
-    app, monkeypatch, caplog
+    app: object, monkeypatch: object, caplog: object
 ):
     sentinel_identity = "SENSITIVE_ADMISSION_IDENTITY"
     monkeypatch.setattr(dao._redis_state, "client", ExplodingRedis())
@@ -148,7 +152,7 @@ def test_configured_redis_failure_denies_request_without_logging_identity(
     assert sentinel_identity not in caplog.text
 
 
-def test_missing_redis_uses_process_local_user_slot(app, monkeypatch):
+def test_missing_redis_uses_process_local_user_slot(app: object, monkeypatch: object):
     monkeypatch.setattr(dao._redis_state, "client", None)
 
     with admission.learner_profile_optimization_admission(

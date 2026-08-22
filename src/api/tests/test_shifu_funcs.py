@@ -3,13 +3,15 @@
 from flaskr.service.shifu import shifu_publish_funcs
 
 
-def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch):
+def test_run_summary_with_error_handling_logs_and_continues(
+    app: object, monkeypatch: object
+):
     called = {"apply": False, "summary": False}
 
-    def fake_apply(_snapshot):
+    def fake_apply(_snapshot: object):
         called["apply"] = True
 
-    def fake_summary(_app, _shifu_id):
+    def fake_summary(_app: object, _shifu_id: object):
         called["summary"] = True
         message = "boom"
         raise RuntimeError(message)

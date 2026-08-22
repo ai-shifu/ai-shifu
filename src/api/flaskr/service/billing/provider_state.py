@@ -95,12 +95,12 @@ class BillingOrderProviderUpdateResult:
         default_factory=BillingPaidOrderSideEffects
     )
 
-    def __bool__(self) -> bool:
+    def __bool__(self: object) -> bool:
         """Return whether the provider update was applied."""
         return self.applied
 
     def stage_after_state_changes(
-        self,
+        self: object,
         app: Flask,
         order: BillingOrder | None,
     ) -> None:
@@ -111,7 +111,7 @@ class BillingOrderProviderUpdateResult:
             previous_status=self.previous_status,
         )
 
-    def dispatch_after_commit(self, app: Flask) -> None:
+    def dispatch_after_commit(self: object, app: Flask) -> None:
         """Dispatch staged paid-order side effects after commit."""
         _dispatch_billing_paid_order_side_effects(
             app,

@@ -31,15 +31,17 @@ class TokenStoreProvider:
       as an accelerator for token lookups and sliding expiration.
     """
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Bind the shared cache provider used for token lookup acceleration."""
         self._cache = cache
 
-    def _cache_key(self, app: Flask, token: str) -> str:
+    def _cache_key(self: object, app: Flask, token: str) -> str:
         prefix = app.config.get("REDIS_KEY_PREFIX_USER", "ai-shifu:user:")
         return f"{prefix}{token}"
 
-    def save(self, app: Flask, *, user_id: str, token: str, ttl_seconds: int) -> None:
+    def save(
+        self: object, app: Flask, *, user_id: str, token: str, ttl_seconds: int
+    ) -> None:
         """Persist the current token value."""
         if not user_id or not token:
             return
@@ -73,7 +75,7 @@ class TokenStoreProvider:
             return
 
     def get_and_refresh(
-        self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
+        self: object, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
     ) -> TokenLookupResult | None:
         """Validate a token and return its user lookup result.
 

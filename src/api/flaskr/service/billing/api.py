@@ -68,17 +68,17 @@ def is_billing_enabled(*, default: bool = False) -> bool:
         return billing_primitives.is_billing_enabled()
 
 
-def quantize_credit_amount(value, *, precision: int | None = None):
+def quantize_credit_amount(value: object, *, precision: int | None = None):
     """Quantize credit amount."""
     return billing_primitives.quantize_credit_amount(value, precision=precision)
 
 
-def credit_decimal_to_number(value, *, precision: int | None = None):
+def credit_decimal_to_number(value: object, *, precision: int | None = None):
     """Convert a credit Decimal to an API-safe number."""
     return billing_primitives.credit_decimal_to_number(value, precision=precision)
 
 
-def to_decimal(value):
+def to_decimal(value: object):
     """Convert a value to the billing Decimal representation."""
     return billing_primitives.to_decimal(value)
 

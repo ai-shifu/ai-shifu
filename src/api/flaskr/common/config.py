@@ -35,7 +35,7 @@ class EnvVar:
     group: str = "general"
     depends_on: list[str] = field(default_factory=list)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self: object) -> None:
         """Validate EnvVar configuration after initialization."""
         if self.required and self.default is not None:
             message = (
@@ -44,13 +44,13 @@ class EnvVar:
             )
             raise ValueError(message)
 
-    def validate_value(self, value: Any) -> bool:
+    def validate_value(self: object, value: Any) -> bool:
         """Validate the environment variable value."""
         if self.validator:
             return self.validator(value)
         return True
 
-    def convert_type(self, value: Any) -> Any:
+    def convert_type(self: object, value: Any) -> Any:
         """Convert string value to the specified type."""
         # Trim whitespace from string values before conversion
         if isinstance(value, str):
@@ -1798,13 +1798,15 @@ REDIS_KEY_SUFFIXES: dict[str, str] = {
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: dict[str, EnvVar]) -> None:
+    def __init__(self: object, env_vars: dict[str, EnvVar]) -> None:
         """Register environment declarations with an empty, unvalidated cache."""
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
 
-    def validate_environment(self, allow_conversion_errors: bool = False) -> None:
+    def validate_environment(
+        self: object, allow_conversion_errors: bool = False
+    ) -> None:
         """Validate all required environment variables at startup."""
         errors = []
         missing_required = []
@@ -1876,7 +1878,7 @@ class EnhancedConfig:
             raise EnvironmentConfigError("\n\n".join(errors))
         self._validated = True
 
-    def get(self, key: str) -> Any:
+    def get(self: object, key: str) -> Any:
         """Get configuration value with type conversion."""
         if key in self._cache:
             return self._cache[key]
@@ -1911,12 +1913,12 @@ class EnhancedConfig:
         # Return None for unknown keys to allow fallback in Config class
         return None
 
-    def get_str(self, key: str) -> str:
+    def get_str(self: object, key: str) -> str:
         """Get string configuration value."""
         value = self.get(key)
         return str(value) if value is not None else ""
 
-    def get_int(self, key: str) -> int:
+    def get_int(self: object, key: str) -> int:
         """Get integer configuration value."""
         value = self.get(key)
         try:
@@ -1924,7 +1926,7 @@ class EnhancedConfig:
         except (TypeError, ValueError):
             return 0
 
-    def get_bool(self, key: str) -> bool:
+    def get_bool(self: object, key: str) -> bool:
         """Get boolean configuration value."""
         value = self.get(key)
         if isinstance(value, bool):
@@ -1933,7 +1935,7 @@ class EnhancedConfig:
             return value.lower() in ("true", "1", "yes", "on")
         return bool(value) if value is not None else False
 
-    def get_float(self, key: str) -> float:
+    def get_float(self: object, key: str) -> float:
         """Get float configuration value."""
         value = self.get(key)
         try:
@@ -1941,7 +1943,7 @@ class EnhancedConfig:
         except (TypeError, ValueError):
             return 0.0
 
-    def get_list(self, key: str) -> list[str]:
+    def get_list(self: object, key: str) -> list[str]:
         """Get list configuration value (comma-separated)."""
         value = self.get(key)
         if value is None:
@@ -1952,17 +1954,17 @@ class EnhancedConfig:
             return [item.strip() for item in value.split(",") if item.strip()]
         return []
 
-    def _interpolate(self, value: str) -> str:
+    def _interpolate(self: object, value: str) -> str:
         """Interpolate environment variables in format ${VAR_NAME}."""
         pattern = re.compile(r"\$\{([^}]+)\}")
 
-        def replacer(match):
+        def replacer(match: object):
             var_name = match.group(1)
             return os.environ.get(var_name, match.group(0))
 
         return pattern.sub(replacer, value)
 
-    def debug_print(self) -> None:
+    def debug_print(self: object) -> None:
         """Print all configuration values (excluding secrets) for debugging."""
         print("\n=== Configuration Values ===")  # noqa: T201
         groups = {}
@@ -1978,11 +1980,11 @@ class EnhancedConfig:
                 print(item)  # noqa: T201
         print("\n" + "=" * 30 + "\n")  # noqa: T201
 
-    def export_env_example(self) -> str:
+    def export_env_example(self: object) -> str:
         """Export full environment variable definitions as .env.example format."""
         return self.export_env_example_filtered(filter_type="all")
 
-    def export_env_example_filtered(self, filter_type: str = "all") -> str:
+    def export_env_example_filtered(self: object, filter_type: str = "all") -> str:
         """Export environment variable definitions as .env.example format with filtering.
 
         Args:
@@ -2114,7 +2116,7 @@ class Config(FlaskConfig):
 
     _instance: Config | None = None
 
-    def __init__(self, parent: FlaskConfig, app: Flask) -> None:
+    def __init__(self: object, parent: FlaskConfig, app: Flask) -> None:
         """Bind parent and environment config, then populate Redis prefixes."""
         self.parent = parent
         self.app = app
@@ -2132,11 +2134,11 @@ class Config(FlaskConfig):
             raise
         self._populate_redis_prefixes()
 
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self: object, key: Any) -> Any:
         """Get configuration value using enhanced config first, with fallback to parent."""
         return self.get(key)
 
-    def __getattr__(self, key: Any) -> Any:
+    def __getattr__(self: object, key: Any) -> Any:
         """Get configuration attribute using enhanced config first."""
         try:
             return self.enhanced.get(key)
@@ -2146,7 +2148,7 @@ class Config(FlaskConfig):
         except Exception:
             return getattr(self.parent, key)
 
-    def __setitem__(self, key: Any, value: Any) -> None:
+    def __setitem__(self: object, key: Any, value: Any) -> None:
         """Set configuration value."""
         self.parent.__setitem__(key, value)
         os.environ[key] = str(value)
@@ -2154,7 +2156,7 @@ class Config(FlaskConfig):
         if key in self.enhanced._cache:
             del self.enhanced._cache[key]
 
-    def _populate_redis_prefixes(self) -> None:
+    def _populate_redis_prefixes(self: object) -> None:
         """Populate derived Redis key prefixes from the global prefix."""
         base_prefix = self.enhanced.get_str("REDIS_KEY_PREFIX")
         for key, suffix in REDIS_KEY_SUFFIXES.items():
@@ -2166,7 +2168,7 @@ class Config(FlaskConfig):
             )
             self.parent.setdefault(key, derived_value)
 
-    def get(self, key: Any, default: Any = None) -> Any:
+    def get(self: object, key: Any, default: Any = None) -> Any:
         """Get configuration value with fallback to parent and optional default.
 
         This method maintains compatibility with Flask's Config.get() API.
@@ -2212,31 +2214,31 @@ class Config(FlaskConfig):
         # Return default if nothing found
         return default
 
-    def get_str(self, key: str) -> str:
+    def get_str(self: object, key: str) -> str:
         """Get string configuration value."""
         return self.enhanced.get_str(key)
 
-    def get_int(self, key: str) -> int:
+    def get_int(self: object, key: str) -> int:
         """Get integer configuration value."""
         return self.enhanced.get_int(key)
 
-    def get_bool(self, key: str) -> bool:
+    def get_bool(self: object, key: str) -> bool:
         """Get boolean configuration value."""
         return self.enhanced.get_bool(key)
 
-    def get_float(self, key: str) -> float:
+    def get_float(self: object, key: str) -> float:
         """Get float configuration value."""
         return self.enhanced.get_float(key)
 
-    def get_list(self, key: str) -> list[str]:
+    def get_list(self: object, key: str) -> list[str]:
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
+    def __call__(self: object, *args: Any, **kwds: Any) -> Any:
         """Delegate callable compatibility behavior to the parent config."""
         return self.parent.__call__(*args, **kwds)
 
-    def setdefault(self, key: Any, default: Any = None) -> Any:
+    def setdefault(self: object, key: Any, default: Any = None) -> Any:
         """Set default value if key doesn't exist.
 
         This method maintains compatibility with Flask's Config.setdefault() API.

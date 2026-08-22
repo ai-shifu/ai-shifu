@@ -272,7 +272,9 @@ def _build_user_keyword_query(keyword: str):
     )
 
 
-def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields: object):
+def _apply_keyword_filter(
+    query: object, keyword: str, user_bid_field: object, *text_fields: object
+):
     normalized = str(keyword or "").strip().lower()
     if not normalized:
         return query
@@ -640,7 +642,7 @@ def _find_course_bids_by_name(keyword: str) -> set[str]:
 
 
 def _list_promotion_coupons(
-    page: int, page_size: int, filters: dict, base_query
+    page: int, page_size: int, filters: dict, base_query: object
 ) -> AdminPromotionListResponseDTO:
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     query = base_query

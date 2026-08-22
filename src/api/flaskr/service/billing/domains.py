@@ -61,7 +61,7 @@ class DomainVerificationResult:
     action: str
     binding: BillingDomainBindingDTO
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self: object) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "creator_bid": self.creator_bid,
@@ -69,7 +69,7 @@ class DomainVerificationResult:
             "binding": self.binding.__json__(),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self: object, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

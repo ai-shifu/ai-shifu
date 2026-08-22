@@ -7,7 +7,7 @@ from flaskr.i18n import _
 
 
 def test_import_activation_orders_unexpected_failure_returns_specific_message(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     def raise_unexpected(*_args: object, **_kwargs: object):
         message = "boom"
@@ -33,7 +33,7 @@ def test_import_activation_orders_unexpected_failure_returns_specific_message(
 
 
 def test_import_activation_orders_from_entries_unexpected_failure_returns_specific_message(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     def raise_unexpected(*_args: object, **_kwargs: object):
         message = "boom"

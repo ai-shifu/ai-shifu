@@ -3,12 +3,14 @@
 import pytest
 
 
-def _require_app(app):
+def _require_app(app: object):
     if app is None:
         pytest.skip("App fixture disabled")
 
 
-def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch):
+def test_av_streaming_tts_processor_emits_av_contract_in_events(
+    app: object, monkeypatch: object
+):
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -20,13 +22,13 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
             self.av_contract = kwargs.get("av_contract")
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             if not (chunk or "").strip():
                 return
             yield RunMarkdownFlowDTO(
@@ -43,7 +45,7 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch
                 ),
             )
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             yield RunMarkdownFlowDTO(
                 outline_bid=self.outline_bid,
@@ -90,7 +92,9 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch
     assert [item["position"] for item in first_contract["speakable_segments"]] == [0, 1]
 
 
-def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch):
+def test_av_streaming_tts_processor_skips_chunked_markdown_image(
+    app: object, monkeypatch: object
+):
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
@@ -98,16 +102,16 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatc
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             if (chunk or "").strip():
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -146,7 +150,9 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatc
     assert "![" not in joined
 
 
-def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch):
+def test_av_streaming_tts_processor_skips_chunked_html_img_tag(
+    app: object, monkeypatch: object
+):
     _require_app(app)
 
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
@@ -154,16 +160,16 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch)
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             if (chunk or "").strip():
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -202,7 +208,7 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch)
 
 
 def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     _require_app(app)
 
@@ -211,17 +217,17 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
     captured_by_position: dict[int, list[str]] = {}
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             if chunk:
                 self._parts.append(chunk)
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             text = "".join(self._parts).strip()
             if text:
@@ -268,7 +274,7 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
 
 
 def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     _require_app(app)
 
@@ -280,18 +286,18 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _LenGateStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
             self._buffer = ""
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             self._buffer += chunk or ""
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             # Simulate provider behavior: very short text produces no audio completion.
             if len((self._buffer or "").strip()) < 2:
@@ -336,7 +342,9 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     assert audio_complete[0].content.position == 1
 
 
-def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch):
+def test_av_streaming_tts_processor_never_emits_new_slide_event(
+    app: object, monkeypatch: object
+):
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -347,12 +355,12 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             if not (chunk or "").strip():
                 return
             yield RunMarkdownFlowDTO(
@@ -368,7 +376,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch
                 ),
             )
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -400,7 +408,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch
 
 
 def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     _require_app(app)
 
@@ -408,15 +416,15 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _NoopStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             _ = chunk
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -457,7 +465,7 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
 
 
 def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     _require_app(app)
 
@@ -466,16 +474,16 @@ def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk):
+        def process_chunk(self: object, chunk: object):
             if chunk:
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield

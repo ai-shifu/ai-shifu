@@ -34,7 +34,7 @@ def _require_saas_config_plugin() -> None:
 
 
 def test_creator_integration_uses_encrypted_unified_config_and_versions(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
@@ -135,7 +135,7 @@ def test_creator_integration_uses_encrypted_unified_config_and_versions(
         assert edited_context.secret_config["secret_key"] == "sk_test_owner_2"
 
 
-def test_admin_creator_customization_draft_uses_short_saas_storage_keys(app):
+def test_admin_creator_customization_draft_uses_short_saas_storage_keys(app: object):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
@@ -198,7 +198,9 @@ def test_admin_creator_customization_draft_uses_short_saas_storage_keys(app):
         )
 
 
-def test_admin_creator_customization_draft_mobile_identity_fits_saas_storage(app):
+def test_admin_creator_customization_draft_mobile_identity_fits_saas_storage(
+    app: object,
+):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
@@ -224,7 +226,7 @@ def test_admin_creator_customization_draft_mobile_identity_fits_saas_storage(app
         assert all(len(row.user_bid) <= 36 for row in rows)
 
 
-def test_admin_draft_storage_identity_folds_email_case_only(monkeypatch):
+def test_admin_draft_storage_identity_folds_email_case_only(monkeypatch: object):
     """Email drafts key on the lowercased address; phone keys stay byte-identical."""
     monkeypatch.setattr(
         contact_identifiers,
@@ -260,7 +262,7 @@ def test_admin_draft_storage_identity_folds_email_case_only(monkeypatch):
 
 
 def test_admin_creator_customization_draft_email_identity_is_case_insensitive(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     """An overseas draft must reload no matter how the operator typed the email."""
     _require_saas_config_plugin()
@@ -294,7 +296,9 @@ def test_admin_creator_customization_draft_email_identity_is_case_insensitive(
         assert all(len(row.user_bid) <= 36 for row in rows)
 
 
-def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
+def test_expired_custom_payment_never_falls_back_to_platform(
+    app: object, monkeypatch: object
+):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
@@ -339,7 +343,7 @@ def test_expired_custom_payment_never_falls_back_to_platform(app, monkeypatch):
             raise AssertionError(message)
 
 
-def test_callback_token_requires_valid_integration_secret_key(app):
+def test_callback_token_requires_valid_integration_secret_key(app: object):
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = ""
     with pytest.raises(RuntimeError, match="CREATOR_INTEGRATION_ENCRYPTION_KEY"):
         customization._build_callback_token(app, "integration-1")
@@ -353,7 +357,7 @@ def test_callback_token_requires_valid_integration_secret_key(app):
     assert token.startswith("integration-1.")
 
 
-def test_stripe_credential_probe_rejects_fake_keys(app):
+def test_stripe_credential_probe_rejects_fake_keys(app: object):
     app.config["TESTING"] = True
 
     with pytest.raises(ValueError, match="Stripe publishable key"):
@@ -381,7 +385,7 @@ def test_stripe_credential_probe_rejects_fake_keys(app):
         )
 
 
-def test_creator_integration_requires_encryption_key(app, monkeypatch):
+def test_creator_integration_requires_encryption_key(app: object, monkeypatch: object):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = ""
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
@@ -408,7 +412,9 @@ def test_creator_integration_requires_encryption_key(app, monkeypatch):
             )
 
 
-def test_creator_integration_probe_failure_does_not_activate(app, monkeypatch):
+def test_creator_integration_probe_failure_does_not_activate(
+    app: object, monkeypatch: object
+):
     _require_saas_config_plugin()
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
@@ -449,7 +455,9 @@ def test_creator_integration_probe_failure_does_not_activate(app, monkeypatch):
         )
 
 
-def test_failed_integration_draft_keeps_existing_active_config(app, monkeypatch):
+def test_failed_integration_draft_keeps_existing_active_config(
+    app: object, monkeypatch: object
+):
     _require_saas_config_plugin()
     app.config["TESTING"] = True
     app.config["CREATOR_INTEGRATION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
@@ -579,7 +587,7 @@ def test_failed_integration_draft_keeps_existing_active_config(app, monkeypatch)
         assert context.secret_config["secret_key"] == "sk_test_current"
 
 
-def test_creator_branding_reuses_unified_config(app, monkeypatch):
+def test_creator_branding_reuses_unified_config(app: object, monkeypatch: object):
     _require_saas_config_plugin()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
     with app.app_context():
@@ -605,11 +613,13 @@ def test_creator_branding_reuses_unified_config(app, monkeypatch):
         }
 
 
-def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkeypatch):
+def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(
+    app: object, monkeypatch: object
+):
     _require_saas_config_plugin()
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
-    def fake_get_config(key, default=None):
+    def fake_get_config(key: object, default: object = None):
         if key == "ALIBABA_CLOUD_OSS_COURSES_URL":
             return "https://courses-oss.example.com"
         if key == "ALIBABA_CLOUD_OSS_BASE_URL":
@@ -618,7 +628,7 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkey
 
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app: object, **kwargs: object):
         uploaded.update(kwargs)
         return SimpleNamespace(
             url=f"https://courses-oss.example.com/{kwargs['object_key']}",
@@ -661,9 +671,9 @@ def test_creator_brand_logo_upload_uses_courses_oss_and_can_be_saved(app, monkey
 
 
 def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
-    def missing_plugin(name):
+    def missing_plugin(name: object):
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             raise ModuleNotFoundError(name=name)
         return import_module(name)
@@ -686,15 +696,17 @@ def test_unavailable_saas_plugin_keeps_optional_customization_reads_empty(
         )
 
 
-def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
+def test_installed_but_disabled_saas_plugin_falls_back(
+    app: object, monkeypatch: object
+):
     """A deployment can ship the plugin package without configuring its database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points at an unreachable host, so customization reads must not touch it."""
 
     class _ExplodingModule:
-        def __getattr__(self, name) -> Any:
+        def __getattr__(self: object, name: object) -> Any:
             message = "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
             raise AssertionError(message)
 
-    def fake_import(name):
+    def fake_import(name: object):
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             return _ExplodingModule()
         return import_module(name)
@@ -721,12 +733,14 @@ def test_installed_but_disabled_saas_plugin_falls_back(app, monkeypatch):
         )
 
 
-def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
+def test_creator_brand_favicon_upload_converts_png_to_ico(
+    app: object, monkeypatch: object
+):
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app: object, **kwargs: object):
         uploaded.update(kwargs)
         return SimpleNamespace(
             url=f"https://courses-oss.example.com/{kwargs['object_key']}",
@@ -795,7 +809,7 @@ def test_creator_brand_favicon_upload_converts_png_to_ico(app, monkeypatch):
             )
 
 
-def test_runtime_branding_falls_back_to_square_logo_for_favicon(app):
+def test_runtime_branding_falls_back_to_square_logo_for_favicon(app: object):
     from flaskr.service.billing import runtime_config as runtime_config_module
 
     with app.app_context():
@@ -819,10 +833,10 @@ def test_runtime_branding_falls_back_to_square_logo_for_favicon(app):
         assert branding.favicon_url == "/storage/brand/favicon.ico"
 
 
-def test_creator_branding_home_url_roundtrip(app, monkeypatch):
+def test_creator_branding_home_url_roundtrip(app: object, monkeypatch: object):
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
 
-    def missing_plugin(name):
+    def missing_plugin(name: object):
         if name.startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             raise ModuleNotFoundError(name=name)
         return import_module(name)
@@ -885,7 +899,9 @@ def test_creator_branding_home_url_roundtrip(app, monkeypatch):
             )
 
 
-def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monkeypatch):
+def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(
+    app: object, monkeypatch: object
+):
     monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
     with app.app_context():
         grant_creator_manual_entitlement(
@@ -916,10 +932,12 @@ def test_creator_brand_logo_upload_rejects_invalid_or_oversized_image(app, monke
                 raise AssertionError(message)
 
 
-def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch):
+def test_creator_brand_logo_upload_normalizes_square_variant(
+    app: object, monkeypatch: object
+):
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app: object, **kwargs: object):
         content = kwargs["file_content"].read()
         uploaded["content"] = content
         return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()
@@ -953,10 +971,12 @@ def test_creator_brand_logo_upload_normalizes_square_variant(app, monkeypatch):
         assert normalized.size == (96, 96)
 
 
-def test_creator_brand_logo_upload_preserves_wide_retina_variant(app, monkeypatch):
+def test_creator_brand_logo_upload_preserves_wide_retina_variant(
+    app: object, monkeypatch: object
+):
     uploaded = {}
 
-    def fake_upload_to_storage(_app, **kwargs: object):
+    def fake_upload_to_storage(_app: object, **kwargs: object):
         content = kwargs["file_content"].read()
         uploaded["content"] = content
         return type("UploadResult", (), {"url": "https://cdn.example.com/logo.png"})()
@@ -990,7 +1010,9 @@ def test_creator_brand_logo_upload_preserves_wide_retina_variant(app, monkeypatc
         assert normalized.size == (440, 64)
 
 
-def test_custom_wechat_identifiers_are_scoped_by_app_id(app, monkeypatch):
+def test_custom_wechat_identifiers_are_scoped_by_app_id(
+    app: object, monkeypatch: object
+):
     set_shifu_context("shifu-1", "creator-wechat-1")
     monkeypatch.setattr(
         user_service,
@@ -1007,7 +1029,7 @@ def test_custom_wechat_identifiers_are_scoped_by_app_id(app, monkeypatch):
 
 
 def test_custom_wechat_identifiers_fail_when_integration_resolution_fails(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     set_shifu_context("shifu-1", "creator-wechat-broken")
     monkeypatch.setattr(
@@ -1022,7 +1044,9 @@ def test_custom_wechat_identifiers_fail_when_integration_resolution_fails(
         clear_shifu_context()
 
 
-def test_custom_wechat_identifiers_require_custom_app_id(app, monkeypatch):
+def test_custom_wechat_identifiers_require_custom_app_id(
+    app: object, monkeypatch: object
+):
     set_shifu_context("shifu-1", "creator-wechat-missing-app")
     monkeypatch.setattr(
         user_service,

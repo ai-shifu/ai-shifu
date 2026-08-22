@@ -114,7 +114,7 @@ def _set_login_methods(monkeypatch: pytest.MonkeyPatch, methods: str) -> None:
 def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:
+        def now(cls: object, tz: object = None) -> datetime:
             current = cls(2026, 4, 6, 12, 0, 0)
             if tz is not None:
                 return current.replace(tzinfo=tz)
@@ -131,7 +131,7 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def admin_billing_client(monkeypatch):
+def admin_billing_client(monkeypatch: object):
     _freeze_billing_wall_clock(monkeypatch)
 
     app = Flask(__name__)
@@ -372,7 +372,7 @@ class TestAdminBillingRoutes:
     """Verify admin billing routes behavior."""
 
     def test_admin_bill_subscriptions_returns_wallet_and_renewal_context(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -394,7 +394,7 @@ class TestAdminBillingRoutes:
         assert first_item["latest_renewal_event"]["last_error"] == "card_declined"
 
     def test_admin_bill_subscriptions_support_attention_only_filter(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -411,7 +411,7 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"][0]["has_attention"] is True
 
     def test_admin_bill_subscriptions_support_creator_keyword_filter(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -425,7 +425,7 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"][0]["creator_bid"] == "creator-2"
 
     def test_admin_bill_subscriptions_creator_keyword_requires_exact_match(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -439,7 +439,7 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"] == []
 
     def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
         app = admin_billing_client["app"]
@@ -486,7 +486,7 @@ class TestAdminBillingRoutes:
             assert ledger_entry.metadata_json["note"] == "manual bonus"
 
     def test_admin_billing_ledger_adjust_negative_uses_bucket_consumption_order(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
         app = admin_billing_client["app"]
@@ -535,7 +535,7 @@ class TestAdminBillingRoutes:
             ]
 
     def test_admin_billing_ledger_adjust_supports_creator_mobile(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
         app = admin_billing_client["app"]
@@ -560,7 +560,7 @@ class TestAdminBillingRoutes:
             assert wallet.available_credits == Decimal("116.00")
 
     def test_admin_billing_ledger_adjust_rejects_more_than_two_decimals(
-        self, admin_billing_client
+        self: object, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -578,8 +578,8 @@ class TestAdminBillingRoutes:
         assert payload["message"]
 
     def test_admin_billing_campaign_routes_support_options_crud_and_status(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -680,8 +680,8 @@ class TestAdminBillingRoutes:
         assert status_payload["data"]["campaign"]["computed_status"] == "inactive"
 
     def test_admin_billing_campaign_create_returns_overlap_product_names(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -732,8 +732,8 @@ class TestAdminBillingRoutes:
         assert "Lite" in overlap_payload["message"]
 
     def test_admin_billing_campaign_create_ignores_ended_overlap(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -782,8 +782,8 @@ class TestAdminBillingRoutes:
         assert active_payload["data"]["campaign"]["computed_status"] == "active"
 
     def test_admin_billing_campaign_routes_require_operator(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -797,8 +797,8 @@ class TestAdminBillingRoutes:
         assert payload["message"] == _translations["en-US"]["server.shifu.noPermission"]
 
     def test_admin_billing_campaign_rejects_zero_campaign_price(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -826,8 +826,8 @@ class TestAdminBillingRoutes:
         assert "campaign_price_amount" in payload["message"]
 
     def test_admin_billing_campaign_update_locks_product_rules_after_hit(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
@@ -912,7 +912,9 @@ class TestAdminBillingRoutes:
             == _translations["en-US"]["server.billing.campaignLockedAfterHit"]
         )
 
-    def test_admin_billing_routes_require_operator(self, admin_billing_client) -> None:
+    def test_admin_billing_routes_require_operator(
+        self: object, admin_billing_client: object
+    ) -> None:
         client = admin_billing_client["client"]
 
         response = client.get(
@@ -925,8 +927,8 @@ class TestAdminBillingRoutes:
         assert payload["message"] == _translations["en-US"]["server.shifu.noPermission"]
 
     def test_admin_billing_entitlement_grant_accepts_creator_mobile(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
@@ -962,9 +964,9 @@ class TestAdminBillingRoutes:
             assert payload["data"]["creator_bid"] == entity.user_bid
 
     def test_admin_billing_entitlement_grant_accepts_creator_email_on_email_login(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         """Overseas deployments identify a course owner by email, not by phone."""
         app = admin_billing_client["app"]
@@ -1007,9 +1009,9 @@ class TestAdminBillingRoutes:
             assert credential.identifier == "teacher@example.com"
 
     def test_admin_billing_entitlement_grant_reuses_existing_email_account(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         _set_login_methods(monkeypatch, "google")
@@ -1042,9 +1044,9 @@ class TestAdminBillingRoutes:
         assert second["data"]["custom_domain_enabled"] is True
 
     def test_admin_billing_entitlement_grant_rejects_email_on_phone_login(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         """China stays phone-only: an email must not silently create an account."""
         app = admin_billing_client["app"]
@@ -1073,9 +1075,9 @@ class TestAdminBillingRoutes:
             )
 
     def test_admin_billing_entitlement_grant_rejects_invalid_email(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         _set_login_methods(monkeypatch, "google")
@@ -1094,8 +1096,8 @@ class TestAdminBillingRoutes:
         assert response.get_json(force=True)["code"] != 0
 
     def test_admin_billing_entitlements_can_filter_independent_configs(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1131,9 +1133,9 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"][0]["branding_enabled"] is True
 
     def test_admin_billing_customization_draft_routes_round_trip(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         monkeypatch.setattr(
@@ -1214,9 +1216,9 @@ class TestAdminBillingRoutes:
         assert put_payload["data"]["config_status"] == "in_progress"
 
     def test_admin_billing_customization_draft_delete_without_target_is_idempotent(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         monkeypatch.setattr(
@@ -1232,9 +1234,9 @@ class TestAdminBillingRoutes:
         assert payload["data"] == {"status": "deleted"}
 
     def test_admin_billing_customization_api_works_when_creator_customization_disabled(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1267,9 +1269,9 @@ class TestAdminBillingRoutes:
         assert payload["data"]["capabilities"]["branding"] is True
 
     def test_admin_billing_customization_branding_save_works_when_disabled(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         captured: dict[str, object] = {}
@@ -1285,7 +1287,9 @@ class TestAdminBillingRoutes:
             _resolve_existing_target,
         )
 
-        def _save_branding(_app, creator_bid, payload, **kwargs: object):
+        def _save_branding(
+            _app: object, creator_bid: object, payload: object, **kwargs: object
+        ):
             captured["creator_bid"] = creator_bid
             captured["payload"] = payload
             captured["kwargs"] = kwargs
@@ -1311,9 +1315,9 @@ class TestAdminBillingRoutes:
         assert captured["kwargs"] == {"allow_when_customization_disabled": True}
 
     def test_admin_billing_customization_branding_save_falls_back_without_saas(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
@@ -1375,9 +1379,9 @@ class TestAdminBillingRoutes:
         assert get_payload["data"]["capabilities"]["branding"] is True
 
     def test_admin_billing_customization_draft_save_gracefully_skips_when_saas_missing(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1414,9 +1418,9 @@ class TestAdminBillingRoutes:
         assert payload["data"]["branding_enabled"] is True
 
     def test_admin_billing_customization_draft_logo_upload_route(
-        self,
-        admin_billing_client,
-        monkeypatch,
+        self: object,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         monkeypatch.setattr(
@@ -1449,8 +1453,8 @@ class TestAdminBillingRoutes:
         )
 
     def test_admin_billing_entitlement_grant_upgrades_existing_phone_user(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
@@ -1497,8 +1501,8 @@ class TestAdminBillingRoutes:
             assert entity.state == 1102
 
     def test_admin_billing_public_builders_return_dto_instances(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
 
@@ -1550,8 +1554,8 @@ class TestAdminBillingRoutes:
             assert isinstance(value.__json__(), dict)
 
     def test_admin_billing_campaign_detail_builder_returns_dto_instance(
-        self,
-        admin_billing_client,
+        self: object,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
 

@@ -7,7 +7,9 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.common import validate_user
 
 
-def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(monkeypatch):
+def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(
+    monkeypatch: object,
+):
     app = Flask("validate-user-invalid-algorithm-tests")
     app.config["SECRET_KEY"] = "test-secret"
     app.config["ENVERIMENT"] = "prod"

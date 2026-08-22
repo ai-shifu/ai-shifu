@@ -41,7 +41,7 @@ from flask import has_app_context
 logger = logging.getLogger(__name__)
 
 
-def app_context_scope(app):
+def app_context_scope(app: object):
     """Reuse the caller's app context (and DB session) when one is active.
 
     Flask-SQLAlchemy 3.1 scopes the session to the innermost app context, so
@@ -64,7 +64,7 @@ def in_unit_of_work() -> bool:
     return _depth.get() > 0
 
 
-def on_commit(callback) -> None:
+def on_commit(callback: object) -> None:
     """Run ``callback()`` after the OUTERMOST unit of work commits.
 
     Use this for external side effects (notifications, webhooks) that must

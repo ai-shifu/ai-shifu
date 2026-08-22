@@ -120,7 +120,7 @@ def _create_user(
     return entity
 
 
-def test_load_user_aggregate_returns_expected_data(app, user_bid):
+def test_load_user_aggregate_returns_expected_data(app: object, user_bid: object):
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
         _create_user(user_bid, email, is_operator=True)
@@ -145,7 +145,9 @@ def test_load_user_aggregate_returns_expected_data(app, user_bid):
             db.session.commit()
 
 
-def test_load_user_aggregate_by_identifier_uses_credentials(app, user_bid):
+def test_load_user_aggregate_by_identifier_uses_credentials(
+    app: object, user_bid: object
+):
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
         _create_user(user_bid, email)
@@ -160,7 +162,9 @@ def test_load_user_aggregate_by_identifier_uses_credentials(app, user_bid):
             db.session.commit()
 
 
-def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(app):
+def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(
+    app: object,
+):
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     deleted_user_bid = uuid.uuid4().hex[:32]
     active_user_bid = uuid.uuid4().hex[:32]
@@ -197,7 +201,7 @@ def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(app
 
 
 def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credential(
-    app,
+    app: object,
 ):
     phone = "15500008888"
     user_bid = uuid.uuid4().hex[:32]
@@ -226,7 +230,7 @@ def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credentia
             db.session.commit()
 
 
-def test_upsert_user_entity_creates_and_updates_records(app):
+def test_upsert_user_entity_creates_and_updates_records(app: object):
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
@@ -251,7 +255,9 @@ def test_upsert_user_entity_creates_and_updates_records(app):
             db.session.commit()
 
 
-def test_get_first_verified_credential_created_at_prefers_earliest_verified(app):
+def test_get_first_verified_credential_created_at_prefers_earliest_verified(
+    app: object,
+):
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         create_user_entity(
@@ -293,7 +299,7 @@ def test_get_first_verified_credential_created_at_prefers_earliest_verified(app)
 
 
 def test_get_first_verified_credential_created_at_returns_none_without_verified(
-    app,
+    app: object,
 ):
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():

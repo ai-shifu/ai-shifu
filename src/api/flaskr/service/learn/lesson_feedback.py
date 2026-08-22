@@ -51,7 +51,7 @@ def _normalize_mode(mode: str | None) -> str:
     return normalized
 
 
-def _normalize_score(score) -> int:
+def _normalize_score(score: object) -> int:
     try:
         normalized = int(score)
     except (TypeError, ValueError):
@@ -122,7 +122,7 @@ def submit_lesson_feedback(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    score,
+    score: object,
     comment: str | None,
     mode: str | None,
 ) -> dict:

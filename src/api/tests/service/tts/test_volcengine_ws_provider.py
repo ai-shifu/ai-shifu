@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from flaskr.api.tts import volcengine_provider
 
 
-def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch):
+def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch: object):
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
@@ -20,7 +20,7 @@ def test_volcengine_ws_get_credentials_prefers_volcengine_tts_keys(monkeypatch):
     assert resource_id == "seed-tts-2.0"
 
 
-def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch):
+def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch: object):
     monkeypatch.delenv("VOLCENGINE_TTS_APP_KEY", raising=False)
     monkeypatch.delenv("VOLCENGINE_TTS_ACCESS_KEY", raising=False)
     monkeypatch.setenv("ARK_ACCESS_KEY_ID", "legacy-app")
@@ -34,7 +34,7 @@ def test_volcengine_ws_get_credentials_falls_back_to_ark_keys(monkeypatch):
     assert resource_id == "seed-tts-1.0"
 
 
-def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch):
+def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch: object):
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.delenv("ARK_ACCESS_KEY_ID", raising=False)
@@ -45,7 +45,9 @@ def test_volcengine_ws_is_configured_uses_volcengine_tts_keys(monkeypatch):
     assert provider.is_configured() is True
 
 
-def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch):
+def test_volcengine_ws_waits_for_session_started_before_task_request(
+    monkeypatch: object,
+):
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-access")
     monkeypatch.setattr(volcengine_provider, "WEBSOCKET_AVAILABLE", True)
@@ -53,25 +55,25 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
     captured = {}
 
     class FakeProtocol:
-        def encode_start_connection(self):
+        def encode_start_connection(self: object):
             return b"start_connection"
 
-        def encode_start_session(self, **kwargs: object):
+        def encode_start_session(self: object, **kwargs: object):
             captured["start_session_kwargs"] = kwargs
             return b"start_session"
 
-        def encode_task_request(self, session_id, text):
+        def encode_task_request(self: object, session_id: object, text: object):
             _ = (session_id, text)
             return b"task_request"
 
-        def encode_finish_session(self, session_id):
+        def encode_finish_session(self: object, session_id: object):
             _ = session_id
             return b"finish_session"
 
-        def encode_finish_connection(self):
+        def encode_finish_connection(self: object):
             return b"finish_connection"
 
-        def decode_frame(self, message):
+        def decode_frame(self: object, message: object):
             if message == b"connection_started":
                 return SimpleNamespace(
                     event=volcengine_provider.Event.CONNECTION_STARTED,
@@ -137,7 +139,13 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
 
     class FakeWebSocketApp:
         def __init__(
-            self, url, header, on_message, on_error, on_close, on_open
+            self: object,
+            url: object,
+            header: object,
+            on_message: object,
+            on_error: object,
+            on_close: object,
+            on_open: object,
         ) -> None:
             _ = (url, header, on_error)
             self.on_message = on_message
@@ -147,11 +155,11 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
             self.session_started_sent = False
             captured["ws"] = self
 
-        def run_forever(self, **kwargs: object):
+        def run_forever(self: object, **kwargs: object):
             _ = kwargs
             self.on_open(self)
 
-        def send(self, frame, opcode=None):
+        def send(self: object, frame: object, opcode: object = None):
             _ = opcode
             self.sent.append(frame)
             if frame == b"start_connection":
@@ -171,11 +179,11 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(monkeypatch
                 self.on_message(self, b"subtitle")
                 self.on_message(self, b"session_finished")
 
-        def _emit_session_started(self):
+        def _emit_session_started(self: object):
             self.session_started_sent = True
             self.on_message(self, b"session_started")
 
-        def close(self):
+        def close(self: object):
             self.on_close(self, None, None)
 
     fake_websocket = SimpleNamespace(

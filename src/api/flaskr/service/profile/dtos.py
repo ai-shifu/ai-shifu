@@ -12,16 +12,16 @@ class ColorSetting:
     color: str  # the background color of the profile item
     text_color: str  # the text color of the profile item
 
-    def __init__(self, color: str, text_color: str) -> None:
+    def __init__(self: object, color: str, text_color: str) -> None:
         """Capture profile foreground and background colors."""
         self.color = color
         self.text_color = text_color
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the color setting as JSON-compatible data."""
         return {"color": self.color, "text_color": self.text_color}
 
-    def __str__(self) -> str:
+    def __str__(self: object) -> str:
         """Return the color settings as JSON text."""
         return json.dumps(self.__json__(), ensure_ascii=True)
 
@@ -40,7 +40,7 @@ class ProfileItemDefinition:
     is_hidden: bool  # hidden flag for custom variables
 
     def __init__(
-        self,
+        self: object,
         profile_key: str,
         color_setting: ColorSetting,
         profile_type: str,
@@ -62,7 +62,7 @@ class ProfileItemDefinition:
         self.profile_id = profile_id
         self.is_hidden = is_hidden
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the profile item definition as JSON-compatible data."""
         return {
             "profile_key": self.profile_key,
@@ -76,7 +76,7 @@ class ProfileItemDefinition:
             "is_hidden": self.is_hidden,
         }
 
-    def __str__(self) -> str:
+    def __str__(self: object) -> str:
         """Return the profile definition mapping as text."""
         return str(self.__json__())
 
@@ -104,12 +104,12 @@ class ProfileValueDto:
     name: str
     value: str
 
-    def __init__(self, name: str, value: str) -> None:
+    def __init__(self: object, name: str, value: str) -> None:
         """Build a profile name-value payload."""
         self.name = name
         self.value = value
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the profile value as JSON-compatible data."""
         return {"name": self.name, "value": self.value}
 
@@ -122,12 +122,12 @@ class ProfileToSave:
     value: str
     bid: str
 
-    def __init__(self, key: str, value: str, bid: str) -> None:
+    def __init__(self: object, key: str, value: str, bid: str) -> None:
         """Capture a profile value pending persistence."""
         self.key = key
         self.value = value
         self.bid = bid
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the pending profile value as JSON-compatible data."""
         return {"key": self.key, "value": self.value, "bid": self.bid}

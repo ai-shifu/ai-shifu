@@ -22,7 +22,7 @@ def _install_litellm_stub() -> None:
     litellm_stub = types.ModuleType("litellm")
     litellm_stub.model_cost = {}
 
-    def register_model(model_map):
+    def register_model(model_map: object):
         litellm_stub.model_cost.update(model_map)
 
     def get_model_info(*args: object, **kwargs: object):
@@ -115,21 +115,23 @@ pytestmark = pytest.mark.no_mock_llm
 class DummySpan:
     """Simulate span behavior for tests."""
 
-    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
+    def __init__(
+        self: object, trace_id: object = "trace-1", span_id: object = "span-1"
+    ) -> None:
         """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
         self.end_args = None
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs: object):
+    def generation(self: object, **kwargs: object):
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs: object):
+    def end(self: object, **kwargs: object):
         self.end_args = kwargs
 
-    def update(self, **kwargs: object):
+    def update(self: object, **kwargs: object):
         self.update_args = kwargs
 
 
@@ -137,12 +139,12 @@ class FakeResponse:
     """Simulate response behavior for tests."""
 
     def __init__(
-        self,
-        chunk_id,
-        content=None,
-        finish_reason=None,
-        usage=None,
-        reasoning_content=None,
+        self: object,
+        chunk_id: object,
+        content: object = None,
+        finish_reason: object = None,
+        usage: object = None,
+        reasoning_content: object = None,
     ) -> None:
         """Capture streamed content, finish state, reasoning, and usage."""
         self.id = chunk_id
@@ -157,14 +159,14 @@ class FakeResponse:
 class FakeModelsResponse:
     """Simulate models response behavior for tests."""
 
-    def __init__(self, payload) -> None:
+    def __init__(self: object, payload: object) -> None:
         """Capture the payload returned by the fake models endpoint."""
         self.payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         return None
 
-    def json(self):
+    def json(self: object):
         return self.payload
 
 
@@ -195,7 +197,7 @@ def _create_credit_rate(
     )
 
 
-def _configure_model_list(monkeypatch):
+def _configure_model_list(monkeypatch: object):
     available_models = [
         "qwen/deepseek-v4-flash",
         "ark/doubao-seed-2-0-lite-260428",
@@ -251,7 +253,9 @@ def _configure_model_list(monkeypatch):
     )
 
 
-def test_get_current_models_adds_output_token_credit_multiplier(monkeypatch, app):
+def test_get_current_models_adds_output_token_credit_multiplier(
+    monkeypatch: object, app: object
+):
     _configure_model_list(monkeypatch)
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
@@ -327,7 +331,9 @@ def test_get_current_models_adds_output_token_credit_multiplier(monkeypatch, app
     )
 
 
-def test_get_current_models_uses_fixed_credit_1x_anchor(monkeypatch, app):
+def test_get_current_models_uses_fixed_credit_1x_anchor(
+    monkeypatch: object, app: object
+):
     _configure_model_list(monkeypatch)
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
@@ -373,7 +379,7 @@ def test_get_current_models_uses_fixed_credit_1x_anchor(monkeypatch, app):
 
 
 def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
-    monkeypatch, app
+    monkeypatch: object, app: object
 ):
     _configure_model_list(monkeypatch)
     missing_anchor_config = {
@@ -414,10 +420,12 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
     assert all(item.get("credit_multiplier_label") is None for item in models)
 
 
-def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(monkeypatch, app):
+def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
+    monkeypatch: object, app: object
+):
     _configure_model_list(monkeypatch)
 
-    def raise_lookup(_app):
+    def raise_lookup(_app: object):
         message = "db unavailable"
         raise RuntimeError(message)
 
@@ -433,10 +441,10 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(monkeypatch
     assert all(item["credit_multiplier"] is None for item in models)
 
 
-def test_deepseek_model_loader_lists_models(monkeypatch):
+def test_deepseek_model_loader_lists_models(monkeypatch: object):
     captured = {}
 
-    def fake_get(url, headers=None, timeout=None):
+    def fake_get(url: object, headers: object = None, timeout: object = None):
         captured["url"] = url
         captured["headers"] = headers
         captured["timeout"] = timeout
@@ -470,7 +478,7 @@ def test_deepseek_model_loader_lists_models(monkeypatch):
     assert captured["timeout"] == 20
 
 
-def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
+def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch: object):
     def fake_get(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "network unavailable"
@@ -493,10 +501,12 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch):
     assert models == llm.DEEPSEEK_FALLBACK_MODELS
 
 
-def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
+def test_qwen_prefixed_model_routes_without_fetched_alias(
+    monkeypatch: object, app: object
+):
     captured = {}
 
-    def fake_completion(model, *args: object, **kwargs: object):
+    def fake_completion(model: object, *args: object, **kwargs: object):
         _ = args
         captured["model"] = model
         captured["kwargs"] = kwargs
@@ -504,7 +514,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
 
-    def reload_qwen_params(model_id, temperature):
+    def reload_qwen_params(model_id: object, temperature: object):
         captured["reload_model"] = model_id
         return llm._reload_qwen_params(model_id, temperature)
 
@@ -549,7 +559,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(monkeypatch, app):
     assert captured["kwargs"]["max_tokens"] == 393216
 
 
-def test_load_and_register_model_max_output_tokens(monkeypatch):
+def test_load_and_register_model_max_output_tokens(monkeypatch: object):
     configured = {
         "qwen/deepseek-v4-flash": 393216,
         "ark/doubao-seed-2-0-lite-260428": 131072,
@@ -579,7 +589,7 @@ def test_load_and_register_model_max_output_tokens(monkeypatch):
     }
 
 
-def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch):
+def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch: object):
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -597,7 +607,9 @@ def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch):
     assert llm._load_and_register_model_max_output_tokens() == {}
 
 
-def test_stream_litellm_completion_falls_back_to_litellm_limit(monkeypatch, app):
+def test_stream_litellm_completion_falls_back_to_litellm_limit(
+    monkeypatch: object, app: object
+):
     captured = {}
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
     monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda _model: 8192)
@@ -626,10 +638,10 @@ def test_stream_litellm_completion_falls_back_to_litellm_limit(monkeypatch, app)
     [(None, 131072), (4096, 4096), (200000, 131072)],
 )
 def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
-    monkeypatch,
-    app,
-    requested_max_tokens,
-    expected_max_tokens,
+    monkeypatch: object,
+    app: object,
+    requested_max_tokens: object,
+    expected_max_tokens: object,
 ):
     captured = {}
     monkeypatch.setattr(
@@ -660,10 +672,12 @@ def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
     assert captured["max_tokens"] == expected_max_tokens
 
 
-def test_stream_litellm_completion_omits_unknown_limit(monkeypatch, app):
+def test_stream_litellm_completion_omits_unknown_limit(
+    monkeypatch: object, app: object
+):
     captured = {}
 
-    def raise_unknown(_model):
+    def raise_unknown(_model: object):
         message = "unknown model"
         raise ValueError(message)
 
@@ -710,8 +724,8 @@ def test_qwen_provider_config_keeps_prefix_fallback():
     ],
 )
 def test_provider_configs_use_expected_litellm_adapters(
-    provider_key,
-    expected_litellm_provider,
+    provider_key: object,
+    expected_litellm_provider: object,
 ):
     provider_config = next(
         config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == provider_key
@@ -753,14 +767,14 @@ def test_provider_configs_use_expected_litellm_adapters(
     ],
 )
 def test_openai_params_use_litellm_reasoning_capabilities(
-    monkeypatch,
-    model_info,
-    expected_effort,
-    expected_temperature,
+    monkeypatch: object,
+    model_info: object,
+    expected_effort: object,
+    expected_temperature: object,
 ):
     captured = {}
 
-    def fake_get_model_info(*, model, custom_llm_provider):
+    def fake_get_model_info(*, model: object, custom_llm_provider: object):
         captured["model"] = model
         captured["custom_llm_provider"] = custom_llm_provider
         return model_info
@@ -779,7 +793,9 @@ def test_openai_params_use_litellm_reasoning_capabilities(
     }
 
 
-def test_openai_params_fall_back_to_existing_policy_for_unknown_model(monkeypatch):
+def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
+    monkeypatch: object,
+):
     def raise_unknown(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
@@ -793,7 +809,9 @@ def test_openai_params_fall_back_to_existing_policy_for_unknown_model(monkeypatc
     }
 
 
-def test_openai_params_fall_back_when_capability_metadata_is_partial(monkeypatch):
+def test_openai_params_fall_back_when_capability_metadata_is_partial(
+    monkeypatch: object,
+):
     monkeypatch.setattr(
         llm.litellm,
         "get_model_info",
@@ -810,7 +828,7 @@ def test_openai_params_fall_back_when_capability_metadata_is_partial(monkeypatch
     "model_id",
     ["glm-4.5", "glm-4.6-air", "glm-4.7-flash", "glm-5.2"],
 )
-def test_glm_params_disable_thinking_for_supported_models(model_id):
+def test_glm_params_disable_thinking_for_supported_models(model_id: object):
     params = llm._reload_glm_params(model_id, 0.4)
 
     assert params == {
@@ -876,9 +894,9 @@ def test_provider_thinking_policy_removes_caller_conflicts():
     ],
 )
 def test_gemini_thinking_policy_removes_nested_caller_override(
-    generation_config_key,
-    thinking_config_key,
-    top_k_key,
+    generation_config_key: object,
+    thinking_config_key: object,
+    top_k_key: object,
 ):
     kwargs = {
         "extra_body": {
@@ -908,7 +926,7 @@ def test_gemini_thinking_policy_removes_nested_caller_override(
 
 @pytest.mark.parametrize("generation_config_key", llm._GEMINI_GENERATION_CONFIG_KEYS)
 def test_gemini_thinking_policy_removes_invalid_native_config(
-    generation_config_key,
+    generation_config_key: object,
 ):
     kwargs = {
         "extra_body": {
@@ -1246,7 +1264,7 @@ def test_litellm_195_native_adapter_contracts():
     }
 
 
-def test_chat_llm_disables_deepseek_thinking(monkeypatch, app):
+def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object):
     captured_kwargs = {}
 
     def fake_completion(*args: object, **kwargs: object):
@@ -1316,14 +1334,16 @@ def test_gemini_25_pro_params_use_lowest_supported_reasoning():
     assert params["reasoning_effort"] == "minimal"
 
 
-def test_invoke_llm_uses_actual_model_for_provider_params(monkeypatch, app):
+def test_invoke_llm_uses_actual_model_for_provider_params(
+    monkeypatch: object, app: object
+):
     captured = {}
 
-    def reload_params(model_id, temperature):
+    def reload_params(model_id: object, temperature: object):
         captured["reload_model"] = model_id
         return {"temperature": temperature}
 
-    def fake_completion(model, *args: object, **kwargs: object):
+    def fake_completion(model: object, *args: object, **kwargs: object):
         _ = args
         captured["completion_model"] = model
         captured["completion_kwargs"] = kwargs
@@ -1368,7 +1388,9 @@ def test_invoke_llm_uses_actual_model_for_provider_params(monkeypatch, app):
     assert captured["completion_kwargs"]["temperature"] == 0.4
 
 
-def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, app):
+def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
+    monkeypatch: object, app: object
+):
     class RepeatedChunkError(Exception):
         __module__ = "litellm.exceptions"
 
@@ -1405,7 +1427,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, ap
     assert [resp.result for resp in responses] == ["你好"]
 
 
-def test_chat_llm_streams(monkeypatch, app):
+def test_chat_llm_streams(monkeypatch: object, app: object):
     captured_kwargs = {}
     captured_usage = {}
 
@@ -1477,7 +1499,7 @@ def test_chat_llm_streams(monkeypatch, app):
 
 @pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
 def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
-    monkeypatch, app, llm_method
+    monkeypatch: object, app: object, llm_method: object
 ):
     def fake_completion(*args: object, **kwargs: object):
         _ = args, kwargs
@@ -1574,11 +1596,13 @@ def test_langfuse_reasoning_output_keeps_empty_content_key():
         ),
     ],
 )
-def test_extract_reasoning_delta_supports_litellm_fallback_fields(delta, expected):
+def test_extract_reasoning_delta_supports_litellm_fallback_fields(
+    delta: object, expected: object
+):
     assert llm._extract_reasoning_delta(delta) == expected
 
 
-def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app):
+def test_chat_llm_falls_back_to_request_trace_id(monkeypatch: object, app: object):
     def fake_completion(*args: object, **kwargs: object):
         _ = args, kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
@@ -1622,7 +1646,7 @@ class _FakeMidStreamFallbackError(Exception):
     """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
-def _stream_chunk(content):
+def _stream_chunk(content: object):
     return SimpleNamespace(
         choices=[
             SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=None)
@@ -1631,7 +1655,7 @@ def _stream_chunk(content):
     )
 
 
-def _reasoning_stream_chunk(reasoning_content):
+def _reasoning_stream_chunk(reasoning_content: object):
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -1645,7 +1669,7 @@ def _reasoning_stream_chunk(reasoning_content):
     )
 
 
-def _patch_retryable_stream_errors(monkeypatch):
+def _patch_retryable_stream_errors(monkeypatch: object):
     # Distinct classes per exception name: a resolver that silently drops one
     # of the names fails that class's parametrized retry test instead of
     # being masked by a shared class.
@@ -1660,11 +1684,18 @@ def _patch_retryable_stream_errors(monkeypatch):
     )
 
 
-def _patch_scripted_streams(monkeypatch, scripts):
+def _patch_scripted_streams(monkeypatch: object, scripts: object):
     """Each call to _stream_litellm_completion consumes the next script; a script is a list of chunks and/or exceptions raised in order."""
     calls = {"count": 0}
 
-    def _factory(_app, _requested, _invoke, _messages, _params, _kwargs):
+    def _factory(
+        _app: object,
+        _requested: object,
+        _invoke: object,
+        _messages: object,
+        _params: object,
+        _kwargs: object,
+    ):
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
 
@@ -1680,7 +1711,7 @@ def _patch_scripted_streams(monkeypatch, scripts):
     return calls
 
 
-def _collect_retry_stream(app):
+def _collect_retry_stream(app: object):
     return list(
         llm._iter_stream_with_precontent_retry(
             app, "qwen/test-model", "test-model", [], {}, {}
@@ -1692,7 +1723,7 @@ def _collect_retry_stream(app):
     "error_type", [_FakeAPIConnectionError, _FakeMidStreamFallbackError]
 )
 def test_stream_retries_connection_error_before_first_content(
-    monkeypatch, app, error_type
+    monkeypatch: object, app: object, error_type: object
 ):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
@@ -1709,7 +1740,9 @@ def test_stream_retries_connection_error_before_first_content(
     assert calls["count"] == 2
 
 
-def test_stream_retry_discards_reasoning_from_failed_attempt(monkeypatch, app):
+def test_stream_retry_discards_reasoning_from_failed_attempt(
+    monkeypatch: object, app: object
+):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1736,7 +1769,7 @@ def test_stream_retry_discards_reasoning_from_failed_attempt(monkeypatch, app):
     assert calls["count"] == 2
 
 
-def test_stream_error_after_content_is_not_retried(monkeypatch, app):
+def test_stream_error_after_content_is_not_retried(monkeypatch: object, app: object):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1749,7 +1782,7 @@ def test_stream_error_after_content_is_not_retried(monkeypatch, app):
     assert calls["count"] == 1
 
 
-def test_stream_retry_attempts_are_bounded(monkeypatch, app):
+def test_stream_retry_attempts_are_bounded(monkeypatch: object, app: object):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1765,7 +1798,9 @@ def test_stream_retry_attempts_are_bounded(monkeypatch, app):
     assert calls["count"] == 2
 
 
-def test_stream_non_retryable_error_raises_immediately(monkeypatch, app):
+def test_stream_non_retryable_error_raises_immediately(
+    monkeypatch: object, app: object
+):
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(monkeypatch, [[ValueError("business error")]])
 
@@ -1775,7 +1810,9 @@ def test_stream_non_retryable_error_raises_immediately(monkeypatch, app):
     assert calls["count"] == 1
 
 
-def test_stream_retry_noop_when_exception_types_unavailable(monkeypatch, app):
+def test_stream_retry_noop_when_exception_types_unavailable(
+    monkeypatch: object, app: object
+):
     """The litellm test stub has no exceptions submodule; the wrapper must degrade to raising instead of crashing on type resolution."""
     monkeypatch.delattr(llm.litellm, "exceptions", raising=False)
     calls = _patch_scripted_streams(

@@ -61,7 +61,7 @@ class ListenElementRunAdapter(
     """Transform legacy listen-mode SSE into scheme-B element events."""
 
     def __init__(
-        self,
+        self: object,
         app: Flask,
         *,
         shifu_bid: str,
@@ -95,7 +95,7 @@ class ListenElementRunAdapter(
         self._latest_element_snapshots: dict[str, object] = {}
 
     def process(
-        self, events: Iterable[RunMarkdownFlowDTO]
+        self: object, events: Iterable[RunMarkdownFlowDTO]
     ) -> Iterable[RunElementSSEMessageDTO]:
         """Adapt lesson run events into element SSE messages while advancing element state."""
         for event in events:

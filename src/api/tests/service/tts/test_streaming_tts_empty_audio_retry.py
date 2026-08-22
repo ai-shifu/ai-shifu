@@ -8,7 +8,7 @@ from flaskr.service.tts.streaming_tts import _is_retryable_empty_audio_error
     "provider",
     ["", "tencent", "tencent_texttovoice", "volcengine"],
 )
-def test_empty_audio_is_retryable_for_all_tts_providers(provider):
+def test_empty_audio_is_retryable_for_all_tts_providers(provider: object):
     error = ValueError(f"No audio data received from provider {provider or 'auto'}")
     assert _is_retryable_empty_audio_error(error, provider) is True
 

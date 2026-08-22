@@ -24,7 +24,7 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
 
-def test_parse_shifu_mdflow_returns_variables(app):
+def test_parse_shifu_mdflow_returns_variables(app: object):
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-mdflow-1",
@@ -44,7 +44,7 @@ def test_parse_shifu_mdflow_returns_variables(app):
 
 
 def _add_outline_version(
-    app,
+    app: object,
     shifu_bid: str,
     outline_bid: str,
     content: str,
@@ -81,7 +81,7 @@ def _add_outline_version(
         return int(item.id)
 
 
-def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
+def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app: object):
     shifu_bid = "shifu-mdflow-history-1"
     outline_bid = "outline-mdflow-history-1"
     user_1 = "user-mdflow-history-1"
@@ -124,7 +124,7 @@ def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
     assert [item["version_id"] for item in limited["items"]] == [id_5, id_3]
 
 
-def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
+def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app: object):
     shifu_bid = "shifu-mdflow-history-detail-1"
     outline_bid = "outline-mdflow-history-detail-1"
     user_bid = "user-mdflow-history-detail-1"
@@ -157,7 +157,7 @@ def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
     assert isinstance(detail["updated_at"], datetime)
 
 
-def test_get_shifu_mdflow_history_version_detail_raises_not_found(app):
+def test_get_shifu_mdflow_history_version_detail_raises_not_found(app: object):
     with pytest.raises(AppError):
         get_shifu_mdflow_history_version_detail(
             app,
@@ -167,7 +167,7 @@ def test_get_shifu_mdflow_history_version_detail_raises_not_found(app):
         )
 
 
-def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):
+def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app: object):
     _add_outline_version(
         app,
         "shifu-idor-owner",
@@ -187,7 +187,7 @@ def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):
         )
 
 
-def test_draft_meta_revision_stays_stable_for_metadata_only_updates(app):
+def test_draft_meta_revision_stays_stable_for_metadata_only_updates(app: object):
     shifu_bid = "shifu-mdflow-meta-1"
     outline_bid = "outline-mdflow-meta-1"
 
@@ -223,7 +223,7 @@ def test_draft_meta_revision_stays_stable_for_metadata_only_updates(app):
     assert meta["updated_user"]["user_bid"] == "user-meta-1"
 
 
-def test_save_shifu_mdflow_conflicts_when_outline_deleted(app):
+def test_save_shifu_mdflow_conflicts_when_outline_deleted(app: object):
     shifu_bid = "shifu-mdflow-delete-1"
     outline_bid = "outline-mdflow-delete-1"
     active_revision = _add_outline_version(
@@ -263,7 +263,7 @@ def test_save_shifu_mdflow_conflicts_when_outline_deleted(app):
     assert result["meta"]["revision"] == deleted_revision
 
 
-def test_save_shifu_mdflow_normalizes_none_content(app, monkeypatch):
+def test_save_shifu_mdflow_normalizes_none_content(app: object, monkeypatch: object):
     shifu_bid = "shifu-mdflow-none-content-1"
     outline_bid = "outline-mdflow-none-content-1"
 
@@ -307,7 +307,9 @@ def test_save_shifu_mdflow_normalizes_none_content(app, monkeypatch):
     assert get_shifu_mdflow(app, shifu_bid, outline_bid) == ""
 
 
-def test_save_shifu_mdflow_returns_outline_revision_not_history_log(app, monkeypatch):
+def test_save_shifu_mdflow_returns_outline_revision_not_history_log(
+    app: object, monkeypatch: object
+):
     shifu_bid = "shifu-mdflow-revision-1"
     outline_bid = "outline-mdflow-revision-1"
 
@@ -351,7 +353,9 @@ def test_save_shifu_mdflow_returns_outline_revision_not_history_log(app, monkeyp
     assert result["new_revision"] != 999999
 
 
-def test_save_shifu_mdflow_serializes_with_outline_structure_writes(app, monkeypatch):
+def test_save_shifu_mdflow_serializes_with_outline_structure_writes(
+    app: object, monkeypatch: object
+):
     shifu_bid = "shifu-mdflow-structure-lock-1"
     outline_bid = "outline-mdflow-structure-lock-1"
     lock_calls = []
@@ -433,7 +437,9 @@ def test_save_shifu_mdflow_serializes_with_outline_structure_writes(app, monkeyp
     assert latest.position == "0101"
 
 
-def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(app, monkeypatch):
+def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(
+    app: object, monkeypatch: object
+):
     shifu_bid = "shifu-mdflow-risk-commit-1"
     outline_bid = "outline-mdflow-risk-commit-1"
 
@@ -448,7 +454,9 @@ def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(app, monkey
         position="0105",
     )
 
-    def _risk_check_and_reorder(_app, _check_id, _user_id, _content):
+    def _risk_check_and_reorder(
+        _app: object, _check_id: object, _user_id: object, _content: object
+    ):
         with app.app_context():
             latest = (
                 DraftOutlineItem.query.filter_by(
@@ -511,7 +519,7 @@ def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(app, monkey
     assert latest.position == "0101"
 
 
-def test_cleanup_outline_history_preserves_content_anchor_revision(app):
+def test_cleanup_outline_history_preserves_content_anchor_revision(app: object):
     shifu_bid = "shifu-mdflow-cleanup-1"
     outline_bid = "outline-mdflow-cleanup-1"
 
@@ -548,7 +556,9 @@ def test_cleanup_outline_history_preserves_content_anchor_revision(app):
     assert get_shifu_draft_revision(app, shifu_bid, outline_bid) == anchor_revision
 
 
-def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
+def test_restore_shifu_mdflow_history_restores_content(
+    app: object, monkeypatch: object
+):
     shifu_bid = "shifu-mdflow-restore-1"
     outline_bid = "outline-mdflow-restore-1"
 
@@ -605,7 +615,9 @@ def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
         assert latest.content == "Old"
 
 
-def test_restore_shifu_mdflow_history_passes_base_revision(app, monkeypatch):
+def test_restore_shifu_mdflow_history_passes_base_revision(
+    app: object, monkeypatch: object
+):
     shifu_bid = "shifu-mdflow-restore-2"
     outline_bid = "outline-mdflow-restore-2"
 
@@ -617,12 +629,12 @@ def test_restore_shifu_mdflow_history_passes_base_revision(app, monkeypatch):
     captured: dict[str, int | None] = {"base_revision": None}
 
     def _fake_save(
-        _app,
-        _user_id,
-        _shifu_bid,
-        _outline_bid,
-        _content,
-        base_revision=None,
+        _app: object,
+        _user_id: object,
+        _shifu_bid: object,
+        _outline_bid: object,
+        _content: object,
+        base_revision: object = None,
     ):
         captured["base_revision"] = base_revision
         return {"conflict": True, "meta": {"revision": 99}}
@@ -644,7 +656,7 @@ def test_restore_shifu_mdflow_history_passes_base_revision(app, monkeypatch):
     assert result["conflict"] is True
 
 
-def test_restore_shifu_mdflow_history_deleted_outline_returns_deleted_flag(app):
+def test_restore_shifu_mdflow_history_deleted_outline_returns_deleted_flag(app: object):
     shifu_bid = "shifu-mdflow-restore-deleted-1"
     outline_bid = "outline-mdflow-restore-deleted-1"
     user_bid = "user-restore-deleted-1"
