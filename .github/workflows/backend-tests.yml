@@ -41,7 +41,7 @@ jobs:
           fi
 
           git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/backend-changed-files.txt
-          if grep -Eq '^(\.github/workflows/backend-tests\.yml$|src/api/)' /tmp/backend-changed-files.txt; then
+          if grep -Eq '^(\.github/workflows/backend-tests\.yml$|ruff\.toml$|src/api/)' /tmp/backend-changed-files.txt; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -215,6 +215,12 @@ jobs:
                   full_run = True
                   break
               if not path.startswith("src/api/"):
+                  if path == "ruff.toml":
+                      # Ruff policy tests use stdin fixtures, so they catch a
+                      # configuration-only regression without running the full
+                      # backend suite.
+                      targets.add("tests/scripts")
+                      continue
                   if path == ".github/workflows/backend-tests.yml":
                       continue
                   continue
