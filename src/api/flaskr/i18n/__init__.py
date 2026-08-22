@@ -268,7 +268,7 @@ def load_translations(app: Flask, translations_dir: object = None) -> None:
     _load_python_translations(app, Path(__file__).resolve().parent)
 
 
-def translate_for_language(text: str, language: str | None = None) -> object:
+def translate_for_language(text: str, language: str | None = None) -> str:
     """Translate for language."""
     language = language or getattr(_thread_local, "language", "en-US")
     translations = _translations.get(language) or {}

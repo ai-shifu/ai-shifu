@@ -137,7 +137,7 @@ def check_text_content(
     app: Flask,
     user_id: str,
     user_input: str,
-) -> object:
+) -> bool:
     """Check text content."""
     check_id = generate_id(app)
     res = check_text(app, check_id, user_input, user_id)

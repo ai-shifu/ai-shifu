@@ -386,7 +386,7 @@ class ShifuOutlineTreeNode:
         child.parent_node = None
         self.children.remove(child)
 
-    def get_new_position(self: object) -> object:
+    def get_new_position(self: object) -> str:
         """Get the new position of the node."""
         if not self.parent_node:
             return self.position

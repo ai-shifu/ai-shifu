@@ -289,6 +289,10 @@ plan's progress update for that rule.
   non-returning provider, resource helper, history JSON, snapshot query/model,
   and nested profile-label mapping contracts identified by the latest ANN201
   review. Focused annotation/cache tests pass.
+- [x] 2026-08-22 13:18 CST: Restored runtime-resolvable snapshot query, boolean
+  comparison/moderation, translation, outline-position, Langfuse tuple,
+  verification response, Swagger mapping, MarkdownFlow block, buy-record DTO,
+  and language-catalog mapping contracts. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

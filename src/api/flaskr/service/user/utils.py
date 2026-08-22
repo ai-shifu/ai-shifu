@@ -8,6 +8,7 @@ import string
 import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import TypedDict
 
 import jwt
 from flask import Flask, has_app_context
@@ -30,6 +31,12 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 
 from .models import UserVerifyCode
+
+
+class VerificationCodeResponse(TypedDict):
+    """Represent the verification-code expiry returned to API callers."""
+
+    expire_in: int
 
 
 def _redis_prefix(app: Flask, config_key: str) -> str:
@@ -234,7 +241,7 @@ def send_sms_code(
     ip: str | None = None,
     captcha_ticket: str | None = None,
     require_captcha: bool = True,
-) -> object:
+) -> VerificationCodeResponse:
     """Send and persist an SMS verification code for a phone number."""
     phone = normalize_phone_identifier(phone)
     with app.app_context():
@@ -311,7 +318,7 @@ def send_sms_code(
 
 def send_email_code(
     app: Flask, email: str, ip: str | None = None, language: str | None = None
-) -> object:
+) -> VerificationCodeResponse:
     """Send and persist an email verification code for an address."""
     with app.app_context():
         email = str(email or "").strip().lower()

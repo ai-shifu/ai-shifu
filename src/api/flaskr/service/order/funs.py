@@ -387,7 +387,7 @@ def _sync_order_campaign_pricing(
 @retry_on_deadlock()
 def init_buy_record(
     app: Flask, user_id: str, course_id: str, active_id: str | None = None
-) -> object:
+) -> AICourseBuyRecordDTO:
     """Initialize buy record."""
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)

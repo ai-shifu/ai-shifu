@@ -500,7 +500,7 @@ def create_trace_with_root_span(
     client: Any,
     trace_payload: dict[str, Any],
     root_span_payload: dict[str, Any],
-) -> object:
+) -> tuple[LangfuseTraceHandle, LangfuseObservationHandle]:
     """Create a trace facade and its root observation from caller payloads."""
     raw_trace_id = compact_langfuse_payload(trace_payload).get("id")
     trace_id = coerce_langfuse_trace_id(

@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterator
 from decimal import Decimal
 from typing import get_args, get_origin, get_type_hints
 
+from flask_sqlalchemy.query import Query
 from flaskr.api.tts.tencent_provider import TencentSSEStreamChunk, TencentTTSProvider
 from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import unit_of_work
@@ -14,6 +15,7 @@ from flaskr.service.billing.api import (
     quantize_credit_amount,
     to_decimal,
 )
+from flaskr.service.order.raw_snapshots import legacy_stripe_snapshot_query
 from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 from flaskr.service.user.repository import transactional_session
@@ -60,6 +62,11 @@ def test_billing_facade_annotations_preserve_numeric_contracts() -> None:
     assert get_type_hints(quantize_credit_amount)["return"] is Decimal
     assert get_type_hints(credit_decimal_to_number)["return"] == int | float
     assert get_type_hints(to_decimal)["return"] is Decimal
+
+
+def test_snapshot_query_annotation_is_runtime_resolvable() -> None:
+    """Expose the query factory's concrete type to runtime annotation tooling."""
+    assert get_type_hints(legacy_stripe_snapshot_query)["return"] is Query
 
 
 def test_context_manager_and_stream_annotations_are_runtime_resolvable() -> None:

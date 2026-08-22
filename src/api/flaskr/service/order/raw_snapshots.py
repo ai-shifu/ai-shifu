@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+from flask_sqlalchemy.query import (
+    Query,  # noqa: TC002 - public annotations resolve at runtime
+)
 
 from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
-
-if TYPE_CHECKING:
-    from flask_sqlalchemy.query import Query
 
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
