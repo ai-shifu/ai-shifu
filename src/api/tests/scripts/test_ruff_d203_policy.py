@@ -33,8 +33,8 @@ class RuffD203PolicyTest(unittest.TestCase):
         """Resolve the same Ruff executable used by local and CI checks."""
         cls.ruff = os.environ.get("RUFF_BIN") or shutil.which("ruff")
         if cls.ruff is None:
-            message = "ruff is not installed"
-            raise unittest.SkipTest(message)
+            message = "ruff is required to verify the D203 policy"
+            raise AssertionError(message)
 
     def run_ruff(
         self, source: str, *extra_args: str

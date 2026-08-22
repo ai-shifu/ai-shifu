@@ -3,3 +3,4 @@
 coverage==7.15.4
 pip==26.2.1
 pytest-testmon==2.2.0
+ruff==0.16.3
