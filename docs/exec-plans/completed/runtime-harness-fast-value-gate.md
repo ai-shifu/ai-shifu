@@ -10,15 +10,15 @@ The full observability stack and asynchronous workers are not deleted. They rema
 
 ## Progress
 
-- [x] 2026-08-22 11:00 CST: Inspected the current Runtime Harness workflow, Compose stack, browser smoke suite, and repository workflow rules.
-- [x] 2026-08-22 11:10 CST: Created this ExecPlan and selected a minimal, standalone Compose file rather than changing default local-development profiles.
-- [x] 2026-08-22 11:45 CST: Added reusable timeline and health-wait script with four focused standard-library tests.
-- [x] 2026-08-22 11:47 CST: Added the minimal API/web/MySQL/Redis/Nginx Compose configuration and wired it into the Runtime Harness workflow.
-- [x] 2026-08-22 11:48 CST: Extracted reusable phone login, added Playwright authenticated setup state, and changed read-only smoke assertions to reuse that state.
-- [x] 2026-08-22 11:51 CST: Regenerated knowledge documents and passed `lefthook run pre-commit --all-files` (all 20 checks).
-- [x] 2026-08-22 11:55 CST: Pushed branch and created PR #2643; the first remote run exposed a connection-reset retry defect in the new readiness helper.
-- [x] 2026-08-22 12:03 CST: Pushed retry fix; the minimal stack health check passed in the second remote run, which then exposed a shell-quoting error in Playwright version resolution.
-- [x] 2026-08-22 12:09 CST: Pushed the version-resolution fix and passed Runtime Harness run 32550726976 in 4m41s; it completed API/Web health checks, Playwright dependency setup, authentication setup, and all fast-value smoke scenarios.
+- [x] 2026-08-22T03:00:00Z: Inspected the current Runtime Harness workflow, Compose stack, browser smoke suite, and repository workflow rules.
+- [x] 2026-08-22T03:10:00Z: Created this ExecPlan and selected a minimal, standalone Compose file rather than changing default local-development profiles.
+- [x] 2026-08-22T03:45:00Z: Added reusable timeline and health-wait script with four focused standard-library tests.
+- [x] 2026-08-22T03:47:00Z: Added the minimal API/web/MySQL/Redis/Nginx Compose configuration and wired it into the Runtime Harness workflow.
+- [x] 2026-08-22T03:48:00Z: Extracted reusable phone login, added Playwright authenticated setup state, and changed read-only smoke assertions to reuse that state.
+- [x] 2026-08-22T03:51:00Z: Regenerated knowledge documents and passed `lefthook run pre-commit --all-files` (all 20 checks).
+- [x] 2026-08-22T03:55:00Z: Pushed branch and created PR #2643; the first remote run exposed a connection-reset retry defect in the new readiness helper.
+- [x] 2026-08-22T04:03:00Z: Pushed retry fix; the minimal stack health check passed in the second remote run, which then exposed a shell-quoting error in Playwright version resolution.
+- [x] 2026-08-22T04:09:00Z: Pushed the version-resolution fix and passed Runtime Harness run 32550726976 in 4m41s; it completed API/Web health checks, Playwright dependency setup, authentication setup, and all fast-value smoke scenarios.
 
 ## Surprises & Discoveries
 

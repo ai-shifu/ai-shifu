@@ -1,4 +1,4 @@
-name: Runtime Harness
+name: Critical Path Runtime Checks
 
 on:
   pull_request:
@@ -153,17 +153,32 @@ jobs:
             --status "$build_status" \
             --detail "outcome=$BUILD_OUTCOME"
 
-      - name: Start fast value stack
+      - name: Record fast value stack start
         run: |
           python scripts/harness/runtime_timeline.py mark \
             --output "$AI_SHIFU_RUNTIME_TIMELINE" \
             --name fast-value-stack \
             --status started
+
+      - name: Start fast value stack
+        id: start-fast-value-stack
+        run: |
           docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" up -d
+
+      - name: Record fast value stack outcome
+        if: always()
+        env:
+          STACK_OUTCOME: ${{ steps.start-fast-value-stack.outcome }}
+        run: |
+          stack_status=finished
+          if [ "$STACK_OUTCOME" != "success" ]; then
+            stack_status=failed
+          fi
           python scripts/harness/runtime_timeline.py mark \
             --output "$AI_SHIFU_RUNTIME_TIMELINE" \
             --name fast-value-stack \
-            --status finished
+            --status "$stack_status" \
+            --detail "outcome=$STACK_OUTCOME"
 
       - name: Wait for fast value endpoints
         run: |
