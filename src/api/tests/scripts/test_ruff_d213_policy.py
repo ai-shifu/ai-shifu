@@ -20,6 +20,17 @@ def public_function() -> int:
     """
     return 1
 '''
+SUMMARY_SECOND_LINE_SOURCE = '''"""Fixture module used to verify the D213 policy."""
+
+
+def public_function() -> int:
+    """
+    Return a fixture value with a summary that starts on the second line.
+
+    Preserve a detail line so both competing multiline rules are exercised.
+    """
+    return 1
+'''
 
 
 class RuffD213PolicyTest(unittest.TestCase):
@@ -33,7 +44,9 @@ class RuffD213PolicyTest(unittest.TestCase):
             message = "ruff is not installed"
             raise unittest.SkipTest(message)
 
-    def run_ruff(self, *extra_args: str) -> subprocess.CompletedProcess[str]:
+    def run_ruff(
+        self, source: str, *extra_args: str
+    ) -> subprocess.CompletedProcess[str]:
         """Run configured Ruff against a docstring-summary fixture."""
         return subprocess.run(
             [
@@ -47,7 +60,7 @@ class RuffD213PolicyTest(unittest.TestCase):
                 "-",
             ],
             cwd=REPO_ROOT,
-            input=SUMMARY_FIRST_SOURCE,
+            input=source,
             capture_output=True,
             text=True,
             check=False,
@@ -62,7 +75,7 @@ class RuffD213PolicyTest(unittest.TestCase):
         assert "D213" not in ignored_codes
         assert "D212" not in ignored_codes
 
-        configured_result = self.run_ruff()
+        configured_result = self.run_ruff(SUMMARY_FIRST_SOURCE)
         assert configured_result.returncode == 0, (
             configured_result.stdout + configured_result.stderr
         )
@@ -70,11 +83,17 @@ class RuffD213PolicyTest(unittest.TestCase):
         assert "D212" in configured_output
         assert "D213" in configured_output
 
-        d213_result = self.run_ruff("--select", "D213")
+        configured_violation_result = self.run_ruff(SUMMARY_SECOND_LINE_SOURCE)
+        assert configured_violation_result.returncode == 1, (
+            configured_violation_result.stdout + configured_violation_result.stderr
+        )
+        assert "D212" in configured_violation_result.stdout
+
+        d213_result = self.run_ruff(SUMMARY_FIRST_SOURCE, "--select", "D213")
         assert d213_result.returncode == 1, d213_result.stdout + d213_result.stderr
         assert "D213" in d213_result.stdout
 
-        d212_result = self.run_ruff("--select", "D212")
+        d212_result = self.run_ruff(SUMMARY_FIRST_SOURCE, "--select", "D212")
         assert d212_result.returncode == 0, d212_result.stdout + d212_result.stderr
 
 
