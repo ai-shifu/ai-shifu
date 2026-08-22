@@ -312,6 +312,9 @@ plan's progress update for that rule.
   all 53 remaining private-return gaps with concrete `None`, Flask response,
   string-response, tuple, plugin-list, and filtering-callback contracts. The
   one deployed migration exception remains exact-file scoped.
+- [x] 2026-08-22 12:58 CST: Restored the recursive translation helpers' exact
+  `dict[str, str]` contracts and annotated TTS provider and locale generators
+  with their yielded iterator types. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
