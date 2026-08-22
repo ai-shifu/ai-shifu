@@ -17,14 +17,6 @@ type NetworkEntry = {
 
 const DEFAULT_DEMO_SHIFU_BID =
   process.env.AI_SHIFU_DEMO_SHIFU_BID || 'b5d7844387e940ed9480a6f945a6db6a';
-const DEFAULT_GRAFANA_URL =
-  process.env.AI_SHIFU_GRAFANA_URL || 'http://127.0.0.1:3001';
-const DEFAULT_LOKI_URL =
-  process.env.AI_SHIFU_LOKI_URL || 'http://127.0.0.1:3100';
-const DEFAULT_TEMPO_URL =
-  process.env.AI_SHIFU_TEMPO_URL || 'http://127.0.0.1:3200';
-const DEFAULT_PROMETHEUS_URL =
-  process.env.AI_SHIFU_PROMETHEUS_URL || 'http://127.0.0.1:9090';
 const HARNESS_RUN_ID =
   process.env.AI_SHIFU_HARNESS_RUN_ID || `pw-run-${Date.now()}`;
 
@@ -35,21 +27,17 @@ const createRequestId = (testInfo: TestInfo) =>
     .replace(/^-|-$/g, '')
     .slice(0, 32)}`;
 
-const buildObservabilityHints = (
+const buildRuntimeHarnessHints = (
   requestId: string,
   harnessRunId: string,
-  diagnosticsPath?: string,
+  diagnosticsPath: string,
 ) => ({
-  grafana: DEFAULT_GRAFANA_URL,
-  loki: DEFAULT_LOKI_URL,
-  tempo: DEFAULT_TEMPO_URL,
-  prometheus: DEFAULT_PROMETHEUS_URL,
   requestId,
   harnessRunId,
-  diagnosticsCommand: `cd src/api && python scripts/harness_diagnostics.py --request-id ${requestId}`,
-  traceRunCommand: diagnosticsPath
-    ? `python scripts/harness/trace_run.py --run-id ${harnessRunId} --request-id ${requestId} --browser-diagnostics ${diagnosticsPath}`
-    : `python scripts/harness/trace_run.py --run-id ${harnessRunId} --request-id ${requestId}`,
+  browserDiagnostics: diagnosticsPath,
+  composeLog: 'artifacts/runtime-harness/compose.log',
+  composeStatus: 'artifacts/runtime-harness/compose-ps.json',
+  investigation: 'Review the uploaded runtime-harness-artifacts bundle.',
 });
 
 const waitForCourseData = async (page: Page, entries: NetworkEntry[]) => {
@@ -73,30 +61,22 @@ const waitForCourseData = async (page: Page, entries: NetworkEntry[]) => {
   );
 };
 
-const isAdminCourseResponse = (url: string) => {
-  const pathname = new URL(url).pathname;
-  return pathname.endsWith('/shifu/admin/operations/courses');
-};
+const ADMIN_BOOTSTRAP_PATHS = [
+  '/api/shifu/admin/operations/courses',
+  '/api/shifu/admin/operations/courses/overview',
+  '/api/llm/model-list',
+  '/api/shifu/tts/config',
+];
 
-const waitForAdminCourseData = async (page: Page, entries: NetworkEntry[]) => {
-  if (
-    entries.some(
-      entry =>
-        entry.status !== null &&
-        entry.url.includes('/api/') &&
-        isAdminCourseResponse(entry.url),
-    )
-  ) {
-    return;
-  }
-
-  await page.waitForResponse(
-    response => isAdminCourseResponse(response.url()),
-    {
-      timeout: 20_000,
-    },
+const waitForAdminBootstrap = (page: Page) =>
+  Promise.all(
+    ADMIN_BOOTSTRAP_PATHS.map(pathname =>
+      page.waitForResponse(
+        response => new URL(response.url()).pathname === pathname,
+        { timeout: 20_000 },
+      ),
+    ),
   );
-};
 
 const expectNoServerErrors = (serverErrorEntries: NetworkEntry[]) => {
   expect(serverErrorEntries).toEqual([]);
@@ -194,7 +174,7 @@ test.describe('agent-first smoke harness', () => {
           console: consoleEntries,
           network: networkEntries.slice(-25),
           screenshot: screenshotPath,
-          observability: buildObservabilityHints(
+          runtimeHarness: buildRuntimeHarnessHints(
             lastObservedRequestId,
             HARNESS_RUN_ID,
             diagnosticsPath,
@@ -210,11 +190,12 @@ test.describe('agent-first smoke harness', () => {
   test('authenticated admin operations page loads without server errors', async ({
     page,
   }) => {
+    const adminBootstrap = waitForAdminBootstrap(page);
     await page.goto('/admin/operations');
     await expect(page.getByTestId('admin-operations-page')).toBeVisible();
     await expect(page.getByTestId('admin-operations-header')).toBeVisible();
     await expect(page.getByTestId('admin-operations-filters')).toBeVisible();
-    await waitForAdminCourseData(page, networkEntries);
+    await adminBootstrap;
     expectNoServerErrors(serverErrorEntries);
   });
 

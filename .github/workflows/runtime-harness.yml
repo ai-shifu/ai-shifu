@@ -110,6 +110,12 @@ jobs:
             --name runtime-env \
             --status finished
 
+      - name: Validate runtime Compose configuration
+        run: |
+          docker compose --env-file docker/.env \
+            -p "$AI_SHIFU_COMPOSE_PROJECT" \
+            -f "$AI_SHIFU_COMPOSE_FILE" config --quiet
+
       - name: Record image build start
         run: |
           python scripts/harness/runtime_timeline.py mark \
@@ -203,11 +209,20 @@ jobs:
             --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
             --name fast-value-smoke \
             --status started
-          npm run test:e2e
+          set +e
+          npm run test:e2e -- --project=runtime-harness-smoke
+          exit_code=$?
+          set -e
+          smoke_status=finished
+          if [ "$exit_code" -ne 0 ]; then
+            smoke_status=failed
+          fi
           python ../../scripts/harness/runtime_timeline.py mark \
             --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
             --name fast-value-smoke \
-            --status finished
+            --status "$smoke_status" \
+            --detail "exit_code=$exit_code"
+          exit "$exit_code"
 
       - name: Capture service diagnostics
         if: always()
