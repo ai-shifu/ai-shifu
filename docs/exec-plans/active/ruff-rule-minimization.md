@@ -318,6 +318,9 @@ plan's progress update for that rule.
 - [x] 2026-08-22 13:35 CST: Restored private TTS iterator/callback, exception
   chain, Celery crontab, wallet Decimal, rate-clock datetime, and patched
   asyncio coroutine-result contracts. Focused annotation/cache tests pass.
+- [x] 2026-08-22 13:48 CST: Restored order credential-scope context-manager,
+  nested SSE stream iterator, admin pagination tuple, and pool diagnostics
+  logger contracts. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

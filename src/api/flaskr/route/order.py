@@ -92,7 +92,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> object:
             parsed = parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
 
-    def _parse_admin_pagination() -> object:
+    def _parse_admin_pagination() -> tuple[int, int]:
         page_index = request.args.get("page_index", 1)
         page_size = request.args.get("page_size", 20)
         try:

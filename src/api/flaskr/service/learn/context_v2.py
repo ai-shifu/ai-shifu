@@ -6,7 +6,7 @@ import inspect
 import json
 import queue
 import threading
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
@@ -3448,7 +3448,7 @@ class RunScriptContextV2:
             chunk_content: str,
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ) -> object:
+        ) -> Iterator[RunMarkdownFlowDTO]:
             nonlocal \
                 generated_content, \
                 tts_processor, \
@@ -3501,7 +3501,7 @@ class RunScriptContextV2:
             )
             _disable_all_tts()
 
-        def _drain_current_tts_ready_events() -> object:
+        def _drain_current_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
             if not tts_processor:
                 return
             if not hasattr(tts_processor, "drain_ready_segments"):
@@ -3511,7 +3511,7 @@ class RunScriptContextV2:
             except Exception as exc:
                 _handle_current_tts_drain_error(exc)
 
-        def _drain_tts_ready_events() -> object:
+        def _drain_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
             yield from tts_finalize_drainer.drain()
             yield from _drain_current_tts_ready_events()
             yield from tts_finalize_drainer.drain()

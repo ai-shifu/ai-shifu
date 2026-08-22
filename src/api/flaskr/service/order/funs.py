@@ -5,7 +5,7 @@ import decimal
 import json
 import re
 from collections.abc import Iterator
-from contextlib import contextmanager, nullcontext, suppress
+from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -677,7 +677,9 @@ def generate_charge(
     return None
 
 
-def _order_credential_scope(app: Flask, order: Order, context: object = None) -> object:
+def _order_credential_scope(
+    app: Flask, order: Order, context: object = None
+) -> AbstractContextManager[None]:
     """Use the immutable credential version snapshotted on the order."""
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:

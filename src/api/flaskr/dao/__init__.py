@@ -145,7 +145,7 @@ def _server_thread_id(dbapi_connection: object) -> object:
         return None
 
 
-def _pool_diagnostics_logger() -> object:
+def _pool_diagnostics_logger() -> logging.Logger:
     """Log through the app logger when available.
 
     The app logger carries the RequestFormatter (request-id / trace context)
