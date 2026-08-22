@@ -262,6 +262,11 @@ plan's progress update for that rule.
   added the narrow `src/api/migrations/versions/** = ["ANN001"]` exception.
   `ruff check .`, `ruff format --check .`, developer-tool verification, and
   every repository pre-commit gate pass.
+- [x] 2026-08-22 11:42 CST: Addressed ANN001 follow-up review by narrowing the
+  immutable-history exception to the two exact deployed revision files, typing
+  plugin repository/name inputs as `str`, and removing redundant `self: object`
+  annotations from the TTS base contract. `ruff check .` and
+  `ruff format --check .` pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
