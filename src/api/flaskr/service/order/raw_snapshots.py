@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
+
+if TYPE_CHECKING:
+    from flask_sqlalchemy.query import Query
 
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
@@ -29,7 +32,7 @@ _NATIVE_PAYMENT_BID_ATTRS = {
 }
 
 
-def legacy_stripe_snapshot_query() -> object:
+def legacy_stripe_snapshot_query() -> Query:
     """Return legacy stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
@@ -37,7 +40,7 @@ def legacy_stripe_snapshot_query() -> object:
     )
 
 
-def legacy_pingxx_snapshot_query() -> object:
+def legacy_pingxx_snapshot_query() -> Query:
     """Return legacy pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
@@ -45,7 +48,7 @@ def legacy_pingxx_snapshot_query() -> object:
     )
 
 
-def billing_stripe_snapshot_query() -> object:
+def billing_stripe_snapshot_query() -> Query:
     """Return billing stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
@@ -53,7 +56,7 @@ def billing_stripe_snapshot_query() -> object:
     )
 
 
-def billing_pingxx_snapshot_query() -> object:
+def billing_pingxx_snapshot_query() -> Query:
     """Return billing pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
@@ -61,7 +64,9 @@ def billing_pingxx_snapshot_query() -> object:
     )
 
 
-def native_snapshot_model(payment_provider: str) -> object:
+def native_snapshot_model(
+    payment_provider: str,
+) -> type[AlipayOrder | WechatPayOrder]:
     """Return native snapshot model."""
     provider = str(payment_provider or "").strip().lower()
     model = _NATIVE_PAYMENT_MODELS.get(provider)
@@ -81,7 +86,7 @@ def native_snapshot_bid_attr(payment_provider: str) -> str:
     return attr
 
 
-def native_snapshot_query(payment_provider: str, biz_domain: str) -> object:
+def native_snapshot_query(payment_provider: str, biz_domain: str) -> Query:
     """Return native snapshot query."""
     model = native_snapshot_model(payment_provider)
     return model.query.filter(

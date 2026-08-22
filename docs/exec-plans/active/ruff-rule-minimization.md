@@ -285,6 +285,10 @@ plan's progress update for that rule.
   annotation resolution and restored the public billing facade's `Decimal` and
   API-safe number return contracts. The annotation-contract regression test
   now covers both API surfaces.
+- [x] 2026-08-22 12:51 CST: Restored context-manager, deterministic model,
+  non-returning provider, resource helper, history JSON, snapshot query/model,
+  and nested profile-label mapping contracts identified by the latest ANN201
+  review. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

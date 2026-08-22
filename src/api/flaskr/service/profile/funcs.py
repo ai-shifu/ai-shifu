@@ -155,7 +155,11 @@ def check_text_content(
     return res.check_result != CHECK_RESULT_REJECT
 
 
-def get_profile_labels() -> object:
+ProfileLabel = dict[str, object]
+ProfileLabels = dict[str, ProfileLabel]
+
+
+def get_profile_labels() -> ProfileLabels:
     """Return profile labels."""
     return {
         "sys_user_nickname": {

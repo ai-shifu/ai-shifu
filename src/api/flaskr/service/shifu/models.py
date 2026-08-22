@@ -355,7 +355,7 @@ class DraftShifu(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def eq(self: object, other: object) -> object:
+    def eq(self: Self, other: Self) -> bool:
         """Compare the persisted fields relevant to draft equality."""
         return (
             self.shifu_bid == other.shifu_bid
@@ -383,7 +383,7 @@ class DraftShifu(db.Model):
             and self.use_learner_language == other.use_learner_language
         )
 
-    def get_str_to_check(self: object) -> object:
+    def get_str_to_check(self: Self) -> str:
         """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.keywords} {self.description} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
@@ -550,7 +550,7 @@ class DraftOutlineItem(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def eq(self: object, other: object) -> object:
+    def eq(self: Self, other: Self) -> bool:
         """Compare the persisted fields relevant to draft equality."""
         return (
             self.outline_item_bid == other.outline_item_bid
@@ -571,7 +571,7 @@ class DraftOutlineItem(db.Model):
             and self.content == other.content
         )
 
-    def get_str_to_check(self: object) -> object:
+    def get_str_to_check(self: Self) -> str:
         """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
