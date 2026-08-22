@@ -9,25 +9,31 @@ import {
 const DEFAULT_DEMO_SHIFU_BID =
   process.env.AI_SHIFU_DEMO_SHIFU_BID || 'b5d7844387e940ed9480a6f945a6db6a';
 
-const waitForCourseData = async (page: Page, entries: NetworkEntry[]) => {
-  if (
-    entries.some(
-      entry =>
-        entry.url.includes('/api/') &&
-        (entry.url.includes('/shifu/') || entry.url.includes('/learn/')) &&
-        entry.status !== null,
-    )
-  ) {
-    return;
-  }
+const waitForLearnerBootstrap = (page: Page, courseId: string) => {
+  const coursePath = `/api/learn/shifu/${courseId}`;
+  const outlinePath = `${coursePath}/outline-item-tree`;
+  const matchesCourseRequest = (url: string, previewMode: string) => {
+    const parsedUrl = new URL(url);
+    return (
+      parsedUrl.pathname === coursePath &&
+      parsedUrl.searchParams.get('preview_mode') === previewMode
+    );
+  };
 
-  await page.waitForResponse(
-    response =>
-      response.url().includes('/api/') &&
-      (response.url().includes('/shifu/') ||
-        response.url().includes('/learn/')),
-    { timeout: 20_000 },
-  );
+  return Promise.all([
+    page.waitForResponse(
+      response => matchesCourseRequest(response.url(), 'false'),
+      { timeout: 20_000 },
+    ),
+    page.waitForResponse(
+      response => matchesCourseRequest(response.url(), 'true'),
+      { timeout: 20_000 },
+    ),
+    page.waitForResponse(
+      response => new URL(response.url()).pathname === outlinePath,
+      { timeout: 20_000 },
+    ),
+  ]);
 };
 
 const ADMIN_BOOTSTRAP_PATHS = [
@@ -77,10 +83,13 @@ test.describe('agent-first smoke harness', () => {
   test('learner course shell loads its first data request without server errors', async ({
     page,
   }) => {
-    const coursePath = `/c/${DEFAULT_DEMO_SHIFU_BID}`;
-    await page.goto(coursePath);
+    const learnerBootstrap = waitForLearnerBootstrap(
+      page,
+      DEFAULT_DEMO_SHIFU_BID,
+    );
+    await page.goto(`/c/${DEFAULT_DEMO_SHIFU_BID}`);
     await expect(page.getByTestId('course-chat-page')).toBeVisible();
-    await waitForCourseData(page, diagnostics.networkEntries);
+    await learnerBootstrap;
     expectNoServerErrors(diagnostics.serverErrorEntries);
   });
 });

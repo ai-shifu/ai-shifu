@@ -125,6 +125,7 @@ jobs:
             --status started
 
       - name: Build runtime images with cache
+        id: build-runtime-images
         uses: docker/bake-action@v7
         with:
           source: docker
@@ -137,12 +138,20 @@ jobs:
             ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web
             ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min
 
-      - name: Record image build finish
+      - name: Record image build outcome
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build-runtime-images.outcome }}
         run: |
+          build_status=finished
+          if [ "$BUILD_OUTCOME" != "success" ]; then
+            build_status=failed
+          fi
           python scripts/harness/runtime_timeline.py mark \
             --output "$AI_SHIFU_RUNTIME_TIMELINE" \
             --name image-build \
-            --status finished
+            --status "$build_status" \
+            --detail "outcome=$BUILD_OUTCOME"
 
       - name: Start fast value stack
         run: |
