@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
@@ -92,7 +92,7 @@ def _build_result(
     message: str | None = None,
     notification_status: str | None = None,
     enqueued: bool | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     payload = {
         "status": status,
         "bill_order_bid": bill_order_bid,
@@ -122,7 +122,7 @@ def load_creator_mobile_snapshot(creator_bid: str) -> str:
     return _normalize_bid(getattr(aggregate, "mobile", ""))
 
 
-def _read_order_metadata(order: BillingOrder) -> dict[str, Any]:
+def _read_order_metadata(order: BillingOrder) -> dict[str, object]:
     if isinstance(order.metadata_json, dict):
         return deepcopy(order.metadata_json)
     return {}
@@ -131,7 +131,7 @@ def _read_order_metadata(order: BillingOrder) -> dict[str, Any]:
 def _read_notification_payload_by_key(
     order: BillingOrder,
     notification_key: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     metadata = _read_order_metadata(order)
     notifications = metadata.get(_NOTIFICATIONS_KEY)
     if not isinstance(notifications, dict):
@@ -145,7 +145,7 @@ def _read_notification_payload_by_key(
 def _write_notification_payload_by_key(
     order: BillingOrder,
     notification_key: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> None:
     metadata = _read_order_metadata(order)
     notifications = metadata.get(_NOTIFICATIONS_KEY)
@@ -156,13 +156,13 @@ def _write_notification_payload_by_key(
     order.metadata_json = metadata
 
 
-def _read_notification_payload(order: BillingOrder) -> dict[str, Any]:
+def _read_notification_payload(order: BillingOrder) -> dict[str, object]:
     return _read_notification_payload_by_key(order, _SUBSCRIPTION_PURCHASE_SMS_KEY)
 
 
 def _write_notification_payload(
     order: BillingOrder,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> None:
     _write_notification_payload_by_key(
         order,
@@ -237,7 +237,7 @@ def enqueue_subscription_purchase_sms(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Enqueue the subscription purchase SMS worker after commit."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -286,7 +286,7 @@ def requeue_subscription_purchase_sms(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Re-enqueue one pending or provider-failed subscription purchase SMS."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -413,7 +413,7 @@ def _build_feishu_result(
     message: str | None = None,
     notification_status: str | None = None,
     enqueued: bool | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     payload = {
         "status": status,
         "bill_order_bid": bill_order_bid,
@@ -433,7 +433,7 @@ def enqueue_billing_paid_feishu(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Enqueue the billing paid Feishu worker after commit."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -489,7 +489,7 @@ def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
     )
 
 
-def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
+def _format_minor_currency_amount(currency: str | None, amount: object) -> str:
     try:
         major_amount = Decimal(str(amount or 0)) / Decimal(100)
     except (InvalidOperation, TypeError, ValueError):
@@ -497,7 +497,7 @@ def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
     return f"{_normalize_bid(currency) or 'CNY'} {major_amount:.2f}"
 
 
-def _format_credit_amount(amount: Any) -> str:
+def _format_credit_amount(amount: object) -> str:
     try:
         credit_amount = Decimal(str(amount or 0))
     except (InvalidOperation, TypeError, ValueError):
@@ -556,7 +556,7 @@ def _build_billing_paid_feishu_message(
     app: Flask,
     order: BillingOrder,
     *,
-    aggregate: Any,
+    aggregate: object,
     product: BillingProduct | None,
     product_name: str,
 ) -> tuple[str, list[str]]:
@@ -645,7 +645,7 @@ def deliver_billing_paid_feishu(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Send one billing paid Feishu notification if the order is pending."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -792,7 +792,7 @@ def deliver_subscription_purchase_sms(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Send one subscription purchase SMS if the billing order is pending."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:

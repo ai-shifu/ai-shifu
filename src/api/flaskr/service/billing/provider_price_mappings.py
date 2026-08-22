@@ -55,7 +55,7 @@ class ProviderPriceMappingValidationSummary:
 
 def serialize_provider_price_mapping(
     mapping: BillingProductProviderPrice | None,
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     """Serialize an optional provider-price mapping for an API or CLI payload."""
     if mapping is None:
         return None
@@ -177,7 +177,7 @@ def upsert_provider_price_mapping(
     provider_price_id: str,
     livemode: bool,
     provider: str = PROVIDER_STRIPE,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> tuple[BillingProductProviderPrice, bool]:
     """Create or update a draft provider-price mapping for a billing product."""
     product = _load_product(product_bid)

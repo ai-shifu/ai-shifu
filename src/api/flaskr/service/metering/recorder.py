@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
@@ -130,7 +130,7 @@ def record_llm_usage(
     latency_ms: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: dict[str, Any] | None = None,
+    extra: dict[str, object] | None = None,
 ) -> str:
     """Record LLM usage."""
     usage_bid = generate_id(app)
@@ -228,7 +228,7 @@ def record_tts_usage(
     segment_count: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: dict[str, Any] | None = None,
+    extra: dict[str, object] | None = None,
     enqueue_settlement: bool = True,
 ) -> str:
     """Record TTS usage."""

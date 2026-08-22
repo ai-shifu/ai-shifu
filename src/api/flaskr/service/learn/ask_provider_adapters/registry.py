@@ -1,7 +1,6 @@
 """Ask provider adapter registry and routing entrypoints."""
 
 from collections.abc import Generator
-from typing import Any
 
 from flask import Flask
 
@@ -50,8 +49,8 @@ def stream_ask_provider_response(
     provider: str,
     user_id: str,
     user_query: str,
-    messages: list[dict[str, Any]],
-    provider_config: dict[str, Any],
+    messages: list[dict[str, object]],
+    provider_config: dict[str, object],
     runtime: AskProviderRuntime | None = None,
 ) -> Generator[AskProviderChunk, None, None]:
     """Stream ask provider response."""

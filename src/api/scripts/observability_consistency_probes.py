@@ -86,7 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def json_safe(value: Any) -> Any:
+def json_safe(value: object) -> object:
     """Convert a probe value to a JSON-compatible scalar."""
     if isinstance(value, datetime):
         return value.isoformat()
@@ -95,12 +95,12 @@ def json_safe(value: Any) -> Any:
     return value
 
 
-def row_to_dict(row: Any) -> dict[str, Any]:
+def row_to_dict(row: object) -> dict[str, object]:
     """Convert a database result row to a dictionary."""
     return {key: json_safe(value) for key, value in dict(row).items()}
 
 
-def table_has_columns(inspector: Any, table_name: str, columns: set[str]) -> bool:
+def table_has_columns(inspector: object, table_name: str, columns: set[str]) -> bool:
     """Return whether a database table exposes every required column."""
     if table_name not in set(inspector.get_table_names()):
         return False
@@ -108,7 +108,7 @@ def table_has_columns(inspector: Any, table_name: str, columns: set[str]) -> boo
     return columns.issubset(existing)
 
 
-def skipped_probe(name: str, description: str, reason: str) -> dict[str, Any]:
+def skipped_probe(name: str, description: str, reason: str) -> dict[str, object]:
     """Build a skipped consistency-probe result."""
     return {
         "name": name,
@@ -125,10 +125,10 @@ def rows_probe(
     *,
     name: str,
     description: str,
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, object]],
     severity: str = "warning",
     status_when_found: str = "warning",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build a probe result from the supplied finding rows."""
     return {
         "name": name,
@@ -140,7 +140,9 @@ def rows_probe(
     }
 
 
-def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+def execute_rows(
+    db: object, sql: str, params: dict[str, object]
+) -> list[dict[str, object]]:
     """Execute rows."""
     statement = text(sql)
     decimal_params = [
@@ -155,12 +157,12 @@ def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, An
 
 
 def probe_usage_ledger(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Probe usage ledger."""
     _ = now
     description = (
@@ -218,12 +220,12 @@ def probe_usage_ledger(
 
 
 def probe_wallet_snapshot(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Probe wallet snapshot."""
     _ = since
     description = (
@@ -357,12 +359,12 @@ def probe_wallet_snapshot(
 
 
 def probe_bucket_expiration(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Probe bucket expiration."""
     _ = since
     description = (
@@ -421,12 +423,12 @@ def probe_bucket_expiration(
 
 
 def probe_model_override_inventory(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Probe model override inventory."""
     _ = (now, since)
     description = (
@@ -500,12 +502,12 @@ def probe_model_override_inventory(
 
 
 def probe_sms_send_failures(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Probe SMS send failures."""
     _ = now
     description = "Recent SMS verification-code rows that were created but not sent."
@@ -542,12 +544,12 @@ def probe_sms_send_failures(
 
 
 def probe_notification_template_sync(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Probe notification template sync."""
     _ = (now, since)
     description = "Notification templates whose latest provider sync is not successful."
@@ -621,7 +623,7 @@ def selected_probe_names(raw_names: list[str]) -> list[str]:
     return deduped
 
 
-def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize(probes: list[dict[str, object]]) -> dict[str, object]:
     """Summarize consistency-probe statuses and finding counts."""
     statuses = [str(probe.get("status") or "") for probe in probes]
     finding_count = sum(int(probe.get("findings_count") or 0) for probe in probes)
@@ -642,7 +644,7 @@ def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run_report(args: argparse.Namespace) -> dict[str, Any]:
+def run_report(args: argparse.Namespace) -> dict[str, object]:
     """Run report."""
     import pymysql
     from dotenv import load_dotenv

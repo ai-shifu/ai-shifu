@@ -321,6 +321,11 @@ plan's progress update for that rule.
 - [x] 2026-08-22 13:48 CST: Restored order credential-scope context-manager,
   nested SSE stream iterator, admin pagination tuple, and pool diagnostics
   logger contracts. Focused annotation/cache tests pass.
+- [x] 2026-08-22 14:02 CST: Rebuilt the ANN401 final stage on `ruff/ann401`
+  for [#2647](https://github.com/ai-shifu/ai-shifu/pull/2647). ANN401 is
+  selected explicitly; its sole deployed migration exception is exact-file
+  scoped. External payment payloads use `object` at the dynamic boundary while
+  query factories retain runtime-resolvable `Query` annotations.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

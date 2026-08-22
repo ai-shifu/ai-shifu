@@ -55,7 +55,7 @@ def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     return wrapped
 
 
-def _get_pingpp_client() -> Any:
+def _get_pingpp_client() -> object:
     with _pingpp_client_state.lock:
         if _pingpp_client_state.client is not None:
             return _pingpp_client_state.client
@@ -77,7 +77,7 @@ class PingxxProvider(PaymentProvider):
 
     channel = "pingxx"
 
-    def _ensure_client(self: object, app: Flask) -> Any:
+    def _ensure_client(self: object, app: Flask) -> object:
         """Configure pingpp for the current owner context."""
         try:
             client = _get_pingpp_client()
@@ -102,7 +102,7 @@ class PingxxProvider(PaymentProvider):
         app.logger.info("Pingxx client initialized")
         return client
 
-    def ensure_client(self: object, app: Flask) -> Any:
+    def ensure_client(self: object, app: Flask) -> object:
         """Public wrapper for configuring the pingpp client."""
         return self._ensure_client(app)
 
@@ -122,7 +122,7 @@ class PingxxProvider(PaymentProvider):
             return text
         return cls._NON_BMP_RE.sub("", text).strip()
 
-    def _sanitize_extra(self: object, extra: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_extra(self: object, extra: dict[str, object]) -> dict[str, object]:
         """Recursively sanitize string values in charge extra dict."""
         sanitized: dict[str, Any] = {}
         for k, v in extra.items():
@@ -245,7 +245,7 @@ class PingxxProvider(PaymentProvider):
         )
 
     def handle_notification(
-        self: object, *, payload: dict[str, Any], app: Flask
+        self: object, *, payload: dict[str, object], app: Flask
     ) -> PaymentNotificationResult:
         """Verify, when needed, and normalize a Pingxx provider notification."""
         if "raw_body" in payload:

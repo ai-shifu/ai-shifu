@@ -33,7 +33,9 @@ def _is_sensitive_provider_config_key(key: str) -> bool:
     return normalized.endswith(("_key", "_secret", "_token", "_password"))
 
 
-def sanitize_provider_config_for_langfuse(value: Any, key: str | None = None) -> Any:
+def sanitize_provider_config_for_langfuse(
+    value: object, key: str | None = None
+) -> object:
     """Redact provider secrets before recording configuration in Langfuse."""
     if key and _is_sensitive_provider_config_key(key):
         return "[REDACTED]"
@@ -52,9 +54,9 @@ def sanitize_provider_config_for_langfuse(value: Any, key: str | None = None) ->
 def _build_provider_generation_input(
     *,
     user_query: str,
-    messages: list[dict[str, Any]],
-    provider_config: dict[str, Any],
-) -> dict[str, Any]:
+    messages: list[dict[str, object]],
+    provider_config: dict[str, object],
+) -> dict[str, object]:
     return {
         "user_query": user_query,
         "messages": messages,
@@ -65,9 +67,9 @@ def _build_provider_generation_input(
 def _build_provider_generation_metadata(
     *,
     provider_name: str,
-    provider_config: dict[str, Any],
+    provider_config: dict[str, object],
     error: Exception | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     metadata: dict[str, Any] = {
         "provider": provider_name,
         "provider_mode": str(provider_config.get("mode") or ""),
@@ -82,15 +84,15 @@ def _build_provider_generation_metadata(
 
 def stream_provider_with_langfuse(
     *,
-    provider_stream: Iterable[Any],
-    span: Any,
+    provider_stream: Iterable[object],
+    span: object,
     app: Flask | None,
     provider_name: str,
     generation_name: str,
     user_query: str,
-    messages: list[dict[str, Any]],
-    provider_config: dict[str, Any],
-) -> Generator[Any, None, None]:
+    messages: list[dict[str, object]],
+    provider_config: dict[str, object],
+) -> Generator[object, None, None]:
     """Stream provider with langfuse."""
     generation_input = _build_provider_generation_input(
         user_query=user_query,

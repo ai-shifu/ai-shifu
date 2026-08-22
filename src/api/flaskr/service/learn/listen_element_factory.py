@@ -58,7 +58,7 @@ def _element_payload_from_segment(
     )
 
 
-def _text_for_speakable_segment(raw_content: str, segment: dict[str, Any]) -> str:
+def _text_for_speakable_segment(raw_content: str, segment: dict[str, object]) -> str:
     source_span = normalize_source_span(segment.get("source_span"))
     text = slice_source_by_span(raw_content, source_span).strip()
     if text:
@@ -99,7 +99,7 @@ def _build_text_element(
     element_index: int,
     content_text: str,
     audio: ElementAudioDTO | None = None,
-    audio_segments: list[dict[str, Any]] | None = None,
+    audio_segments: list[dict[str, object]] | None = None,
 ) -> ElementDTO:
     audio_segments = _normalize_audio_segments_for_element(audio_segments)
     return ElementDTO(
@@ -131,10 +131,10 @@ def _build_final_elements_for_av_contract(
     generated_block_bid: str,
     role: str,
     raw_content: str,
-    av_contract: dict[str, Any] | None,
+    av_contract: dict[str, object] | None,
     visual_segments: list[VisualSegment],
     audio_by_position: dict[int, ElementAudioDTO],
-    audio_segments_by_position: dict[int, list[dict[str, Any]]],
+    audio_segments_by_position: dict[int, list[dict[str, object]]],
     position_to_segment_id: dict[int, str] | None = None,
     element_index_offset: int = 0,
 ) -> list[ElementDTO]:

@@ -23,7 +23,7 @@ from .common import (
 from .consts import ASK_PROVIDER_DIFY
 
 
-def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
+def _build_dify_query(user_query: str, messages: list[dict[str, object]]) -> str:
     if not isinstance(messages, list) or not messages:
         return user_query
 
@@ -58,8 +58,8 @@ class DifyAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.billing.api import (
@@ -300,7 +300,7 @@ def get_operator_user_credits(
     user_bid: str,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any] | None = None,
+    filters: dict[str, object] | None = None,
 ) -> AdminOperationUserCreditLedgerPageDTO:
     """Return operator user credits."""
     with app.app_context():

@@ -511,7 +511,7 @@ class BuyRecordDTO:
         channel: object,
         qr_url: object,
         payment_channel: str = "",
-        payment_payload: dict[str, Any] | None = None,
+        payment_payload: dict[str, object] | None = None,
     ) -> None:
         """Build the buy record payload."""
         self.order_id = record_id
@@ -1322,8 +1322,8 @@ def sync_native_payment_order(
 def _update_stripe_order_snapshot(
     *,
     stripe_order: StripeOrder,
-    session: dict[str, Any],
-    intent: dict[str, Any] | None,
+    session: dict[str, object],
+    intent: dict[str, object] | None,
 ) -> None:
     if session:
         stripe_order.checkout_session_id = session.get(
@@ -1355,7 +1355,7 @@ def _update_stripe_order_snapshot(
 
 
 def _is_stripe_payment_successful(
-    *, session: dict[str, Any] | None, intent: dict[str, Any] | None
+    *, session: dict[str, object] | None, intent: dict[str, object] | None
 ) -> bool:
     if session:
         if session.get("payment_status") == "paid":
@@ -1367,7 +1367,7 @@ def _is_stripe_payment_successful(
 
 def _apply_native_snapshot_update(
     *,
-    snapshot: Any,
+    snapshot: object,
     provider: str,
     notification: PaymentNotificationResult,
     source: str,
@@ -1396,7 +1396,7 @@ def _apply_native_snapshot_update(
 
 def _native_raw_status(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     fallback: str = "",
 ) -> str:
     return extract_native_trade_status(provider, payload) or str(fallback or "")
@@ -1404,7 +1404,7 @@ def _native_raw_status(
 
 def _native_snapshot_status(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     raw_status: str,
 ) -> int:
     if raw_status and not extract_native_trade_status(provider, payload):
@@ -1418,7 +1418,7 @@ def _native_snapshot_status(
 
 def _is_native_payment_successful(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> bool:
     raw_status = _native_raw_status(provider, payload)
     return _native_snapshot_status(provider, payload, raw_status) == 1
@@ -1426,7 +1426,7 @@ def _is_native_payment_successful(
 
 def _extract_native_notification_amount(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
@@ -1470,7 +1470,7 @@ def _inject_order_query(url: str, order_id: str) -> str:
     )
 
 
-def _stringify_payload(payload: Any) -> str:
+def _stringify_payload(payload: object) -> str:
     if not payload:
         return "{}"
     if hasattr(payload, "to_dict"):
@@ -1478,7 +1478,7 @@ def _stringify_payload(payload: Any) -> str:
     return json.dumps(payload)
 
 
-def _parse_json_payload(value: Any) -> Any:
+def _parse_json_payload(value: object) -> object:
     if not value:
         return {}
     if isinstance(value, (dict, list)):
@@ -1497,7 +1497,7 @@ def handle_stripe_webhook(
     sig_header: str,
     *,
     expected_integration_bid: str = "",
-) -> tuple[dict[str, Any], int]:
+) -> tuple[dict[str, object], int]:
     """Handle stripe webhook."""
     provider = get_payment_provider("stripe")
     try:
@@ -1640,7 +1640,7 @@ def refund_order_payment(
     order_bid: str,
     amount: int | None = None,
     reason: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Refund order payment."""
     with _app_context_scope(app), unit_of_work():
         order = Order.query.filter(Order.order_bid == order_bid).first()
@@ -1708,7 +1708,7 @@ def refund_order_payment(
     }
 
 
-def get_payment_details(app: Flask, order_bid: str) -> dict[str, Any]:
+def get_payment_details(app: Flask, order_bid: str) -> dict[str, object]:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
     """Return payment details."""

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.util.datetime import now_utc, to_utc_iso
 
@@ -35,7 +35,7 @@ _ACTIVE_PREORDER_STATES = {PREORDER_STATE_PENDING_EFFECTIVE}
 _ACTIVE_PREORDER_ORDER_STATUSES = {BILLING_ORDER_STATUS_PAID}
 
 
-def normalize_checkout_action(value: Any) -> str:
+def normalize_checkout_action(value: object) -> str:
     """Normalize checkout action."""
     return str(value or CHECKOUT_ACTION_UPGRADE_IMMEDIATE).strip().lower()
 
@@ -111,7 +111,7 @@ def build_preorder_order_metadata(
     effective_at: datetime,
     cycle_end_at: datetime,
     checkout_started: bool = True,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build preorder order metadata."""
     return _normalize_json_object(
         {

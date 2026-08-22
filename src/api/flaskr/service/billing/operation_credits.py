@@ -119,7 +119,7 @@ def reserve_operation_credits(
     amount: Decimal,
     operation_type: str,
     operation_bid: str,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> OperationCreditReservationResult:
     """Reserve operation credits."""
     normalized_creator_bid = _require_bid(creator_bid, "creator_bid")
@@ -235,7 +235,7 @@ def capture_reserved_operation_credits(
     *,
     reservation_bid: str,
     usage_bid: str,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> OperationCreditCaptureResult:
     """Capture reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
@@ -516,7 +516,7 @@ def _reservation_result_from_hold(
     )
 
 
-def _bucket_breakdown_from_hold(hold: CreditLedgerEntry) -> list[dict[str, Any]]:
+def _bucket_breakdown_from_hold(hold: CreditLedgerEntry) -> list[dict[str, object]]:
     metadata = hold.metadata_json if isinstance(hold.metadata_json, dict) else {}
     breakdown = metadata.get("bucket_breakdown")
     if isinstance(breakdown, list):
@@ -618,5 +618,5 @@ def _iter_hold_buckets(
     return []
 
 
-def _credit_to_string(value: Any) -> str:
+def _credit_to_string(value: object) -> str:
     return str(billing_primitives.quantize_credit_amount(value))

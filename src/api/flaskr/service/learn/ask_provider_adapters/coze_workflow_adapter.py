@@ -50,7 +50,7 @@ def _parse_output_fields(raw_text: str) -> dict[str, str]:
     return fields
 
 
-def _format_workflow_item(item: Any) -> str:
+def _format_workflow_item(item: object) -> str:
     if isinstance(item, str):
         return item.strip()
 
@@ -79,7 +79,7 @@ def _format_workflow_item(item: Any) -> str:
     return title or summary or json.dumps(item, ensure_ascii=False)
 
 
-def _format_workflow_payload(payload: Any) -> str:
+def _format_workflow_payload(payload: object) -> str:
     if isinstance(payload, str):
         return payload.strip()
 
@@ -143,7 +143,7 @@ def _format_workflow_payload(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
-def _extract_workflow_text(response_payload: dict[str, Any]) -> str:
+def _extract_workflow_text(response_payload: dict[str, object]) -> str:
     data = response_payload.get("data")
     parsed_data: Any = data
 
@@ -160,7 +160,7 @@ def _extract_workflow_text(response_payload: dict[str, Any]) -> str:
     return text.strip()
 
 
-def _build_workflow_error_message(response_payload: dict[str, Any]) -> str:
+def _build_workflow_error_message(response_payload: dict[str, object]) -> str:
     code = response_payload.get("code")
     message = (
         str(
@@ -187,8 +187,8 @@ class CozeWorkflowAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""

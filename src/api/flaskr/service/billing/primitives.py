@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
 
 from flask import has_app_context
 from flaskr.common.config import get_config as get_common_config
@@ -29,12 +28,12 @@ MAX_BILL_CREDIT_PRECISION = 10
 DEFAULT_BILL_ENABLED = False
 
 
-def normalize_bid(value: Any) -> str:
+def normalize_bid(value: object) -> str:
     """Normalize BID."""
     return str(value or "").strip()
 
 
-def to_decimal(value: Any) -> Decimal:
+def to_decimal(value: object) -> Decimal:
     """Convert a value to the billing Decimal representation."""
     if isinstance(value, Decimal):
         return value
@@ -43,7 +42,7 @@ def to_decimal(value: Any) -> Decimal:
     return Decimal(str(value))
 
 
-def safe_int(value: Any) -> int | None:
+def safe_int(value: object) -> int | None:
     """Convert a value to an integer, returning None when invalid."""
     try:
         return int(value)
@@ -52,7 +51,7 @@ def safe_int(value: Any) -> int | None:
 
 
 def clamp_billing_credit_precision(
-    value: Any,
+    value: object,
     *,
     default: int = DEFAULT_BILL_CREDIT_PRECISION,
 ) -> int:
@@ -94,7 +93,7 @@ def build_credit_quantizer(*, precision: int | None = None) -> Decimal:
 
 
 def quantize_credit_amount(
-    value: Any,
+    value: object,
     *,
     precision: int | None = None,
 ) -> Decimal:
@@ -106,7 +105,7 @@ def quantize_credit_amount(
 
 
 def credit_decimal_to_number(
-    value: Any,
+    value: object,
     *,
     precision: int | None = None,
 ) -> int | float:
@@ -117,7 +116,7 @@ def credit_decimal_to_number(
     return float(normalized)
 
 
-def decimal_to_number(value: Any) -> int | float:
+def decimal_to_number(value: object) -> int | float:
     """Convert a numeric value to an API-safe integer or float."""
     if value is None:
         return 0
@@ -136,7 +135,7 @@ def decimal_to_number(value: Any) -> int | float:
     return float(normalized)
 
 
-def coerce_bool(value: Any, *, default: bool = False) -> bool:
+def coerce_bool(value: object, *, default: bool = False) -> bool:
     """Coerce bool."""
     if value in (None, ""):
         return default
@@ -148,7 +147,7 @@ def coerce_bool(value: Any, *, default: bool = False) -> bool:
     return normalized in {"1", "true", "yes", "on"}
 
 
-def safe_to_positive_int(value: Any, *, default: int) -> int:
+def safe_to_positive_int(value: object, *, default: int) -> int:
     """Return a positive integer or the supplied default."""
     candidate = safe_int(value)
     if candidate is None or candidate <= 0:
@@ -156,7 +155,7 @@ def safe_to_positive_int(value: Any, *, default: int) -> int:
     return candidate
 
 
-def coerce_datetime(value: Any) -> datetime | None:
+def coerce_datetime(value: object) -> datetime | None:
     """Coerce datetime."""
     if value in (None, ""):
         return None
@@ -190,7 +189,7 @@ def normalize_mysql_datetime(value: datetime) -> datetime:
     return value.replace(microsecond=0)
 
 
-def normalize_json_value(value: Any) -> Any:
+def normalize_json_value(value: object) -> object:
     """Normalize JSON value."""
     if isinstance(value, Decimal):
         return decimal_to_number(value)
@@ -223,7 +222,7 @@ def normalize_json_value(value: Any) -> Any:
     return value
 
 
-def normalize_json_object(value: Any) -> JsonObjectMap:
+def normalize_json_object(value: object) -> JsonObjectMap:
     """Normalize JSON object."""
     normalized = normalize_json_value(value)
     if isinstance(normalized, JsonObjectMap):

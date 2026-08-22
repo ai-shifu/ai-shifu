@@ -146,7 +146,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _normalize_stream_number(value: Any) -> int | None:
+def _normalize_stream_number(value: object) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
@@ -154,7 +154,7 @@ def _normalize_stream_number(value: Any) -> int | None:
 
 
 def _iter_llm_result_content_parts(
-    llm_result: Any,
+    llm_result: object,
 ) -> Generator[tuple[str, str, int | None], None, None]:
     if llm_result is None:
         return
@@ -267,7 +267,7 @@ class RUNLLMProvider(LLMProvider):
         app: Flask,
         llm_settings: LLMSettings,
         trace: LangfuseTraceHandle,
-        parent_observation: Any,
+        parent_observation: object,
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
@@ -1262,7 +1262,7 @@ class RunScriptPreviewContextV2:
         generated_block_bid: str,
         content: str,
         stream_type: str,
-        stream_number: Any,
+        stream_number: object,
     ) -> RunMarkdownFlowDTO:
         event = RunMarkdownFlowDTO(
             outline_bid=outline_bid,
@@ -1711,8 +1711,8 @@ class RunScriptContextV2:
             raise GeneratorExit
 
     def _iter_until_active(
-        self: object, items: Iterable[Any]
-    ) -> Generator[Any, None, None]:
+        self: object, items: Iterable[object]
+    ) -> Generator[object, None, None]:
         for item in items:
             self._stop_if_requested()
             yield item
@@ -1724,7 +1724,7 @@ class RunScriptContextV2:
             return None
         return context_local.current_context
 
-    def append_langfuse_output(self: object, value: Any) -> None:
+    def append_langfuse_output(self: object, value: object) -> None:
         """Buffer output content for active Langfuse trace finalization."""
         if not hasattr(self, "_langfuse_output_chunks"):
             self._langfuse_output_chunks = []
@@ -1888,11 +1888,11 @@ class RunScriptContextV2:
 
     def _iter_stream_result_with_idle_callback(
         self: object,
-        stream_result: Generator[Any, None, None],
+        stream_result: Generator[object, None, None],
         *,
-        idle_callback: Callable[[], Iterable[Any]] | None = None,
+        idle_callback: Callable[[], Iterable[object]] | None = None,
         idle_poll_interval: float = 0.05,
-    ) -> Generator[tuple[str, Any], None, None]:
+    ) -> Generator[tuple[str, object], None, None]:
         """Poll a blocking stream generator while allowing idle side-channel output."""
         result_queue: queue.Queue = queue.Queue()
         parent_language = get_current_language()

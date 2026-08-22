@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -59,7 +59,7 @@ def _serialize_datetime(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _parse_rollout_threshold(value: Any) -> datetime | None:
+def _parse_rollout_threshold(value: object) -> datetime | None:
     text = str(value or "").strip()
     if not text:
         return None
@@ -162,7 +162,7 @@ def _build_scene_status(
 
 def build_onboarding_status(
     app: Flask, user_bid: str, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build onboarding status."""
     with app.app_context():
         user = _load_user_entity(user_bid)
@@ -209,7 +209,7 @@ def complete_onboarding_scene(
     version: str,
     trigger_source: str,
     status: str = STATUS_COMPLETED,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Complete onboarding scene."""
     normalized_user_bid = str(user_bid or "").strip()
     normalized_scene_key = str(scene_key or "").strip()

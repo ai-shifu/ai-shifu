@@ -192,6 +192,7 @@ select = [
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+    "ANN401",  # dynamically typed expressions (Any)
 
     # --- Boolean arguments ------------------------------------------------
     # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
@@ -298,7 +299,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # These listed revisions are already-applied deployment history; keep their
 # legacy `upgrade` / `downgrade` return contracts unchanged while ANN201
 # remains enforced for every future migration revision.
-"src/api/migrations/versions/0a7c4d8e9f12_backfill_billing_product_plan_tier.py" = ["ANN201"]
+"src/api/migrations/versions/0a7c4d8e9f12_backfill_billing_product_plan_tier.py" = ["ANN201", "ANN401"]
 "src/api/migrations/versions/0e9b8c7d6a5f_add_bid_to_learn_lesson_feedbacks.py" = ["ANN201"]
 "src/api/migrations/versions/185e37df3252_initial_migration.py" = ["ANN201"]
 "src/api/migrations/versions/1c8f4b7a9d2e_add_subtitle_cues_to_learn_generated_audios.py" = ["ANN201"]

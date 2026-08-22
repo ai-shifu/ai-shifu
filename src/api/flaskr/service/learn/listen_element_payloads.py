@@ -96,7 +96,7 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     )
 
 
-def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
+def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, object]:
     payload = {
         "position": int(getattr(audio_segment, "position", 0) or 0),
         "segment_index": int(audio_segment.segment_index or 0),
@@ -113,9 +113,9 @@ def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
 
 
 def _upsert_audio_segment_payload(
-    audio_segments: list[dict[str, Any]] | None,
-    incoming_segment: dict[str, Any] | None,
-) -> list[dict[str, Any]]:
+    audio_segments: list[dict[str, object]] | None,
+    incoming_segment: dict[str, object] | None,
+) -> list[dict[str, object]]:
     normalized = _clone_audio_segments(audio_segments)
     if not isinstance(incoming_segment, dict):
         return normalized
@@ -170,8 +170,8 @@ def _upsert_audio_segment_payload(
 
 
 def _clone_audio_segments(
-    audio_segments: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
+    audio_segments: list[dict[str, object]] | None,
+) -> list[dict[str, object]]:
     cloned: list[dict[str, Any]] = []
     for item in list(audio_segments or []):
         if not isinstance(item, dict):
@@ -188,8 +188,8 @@ def _clone_audio_segments(
 
 
 def _normalize_audio_segments_for_element(
-    audio_segments: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
+    audio_segments: list[dict[str, object]] | None,
+) -> list[dict[str, object]]:
     normalized = _clone_audio_segments(audio_segments)
     if not normalized:
         return []
@@ -200,25 +200,25 @@ def _normalize_audio_segments_for_element(
 
 
 def _preserve_audio_segments_for_element(
-    audio_segments: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
+    audio_segments: list[dict[str, object]] | None,
+) -> list[dict[str, object]]:
     return _clone_audio_segments(audio_segments)
 
 
 def _prepare_audio_segments_for_element(
-    audio_segments: list[dict[str, Any]] | None,
+    audio_segments: list[dict[str, object]] | None,
     *,
     is_final: bool,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     if is_final:
         return _normalize_audio_segments_for_element(audio_segments)
     return _preserve_audio_segments_for_element(audio_segments)
 
 
 def _mark_last_audio_segment_final(
-    audio_segments_by_position: dict[int, list[dict[str, Any]]],
+    audio_segments_by_position: dict[int, list[dict[str, object]]],
     position: int,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     segments = audio_segments_by_position.get(position, [])
     if not segments:
         return []
@@ -229,10 +229,10 @@ def _mark_last_audio_segment_final(
 
 
 def _sanitize_audio_segments_for_storage(
-    audio_segments: list[dict[str, Any]] | None,
+    audio_segments: list[dict[str, object]] | None,
     *,
     is_final: bool,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     sanitized: list[dict[str, Any]] = [
         {
             "position": int(item.get("position", 0) or 0),
@@ -251,7 +251,7 @@ def _sanitize_audio_segments_for_storage(
 
 def _pick_default_audio_position(
     audio_by_position: dict[int, ElementAudioDTO],
-    audio_segments_by_position: dict[int, list[dict[str, Any]]],
+    audio_segments_by_position: dict[int, list[dict[str, object]]],
 ) -> int | None:
     if len(audio_by_position) == 1:
         return next(iter(audio_by_position))

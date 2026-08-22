@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -72,7 +72,7 @@ def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
     }
 
 
-def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
+def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, object]:
     """Return profile onboarding status."""
     config_payload = load_profile_onboarding_config_payload()
     enabled = bool(config_payload.get("enabled")) and bool(
@@ -89,7 +89,7 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     }
 
 
-def _normalize_submitted_variables(raw_variables: Any) -> dict[str, str]:
+def _normalize_submitted_variables(raw_variables: object) -> dict[str, str]:
     if raw_variables is None:
         return {}
     if not isinstance(raw_variables, dict):
@@ -111,8 +111,8 @@ def complete_profile_onboarding(
     *,
     user_id: str,
     skipped: bool,
-    variables: dict[str, Any] | None,
-) -> dict[str, Any]:
+    variables: dict[str, object] | None,
+) -> dict[str, object]:
     """Complete profile onboarding."""
     config_payload = load_profile_onboarding_config_payload()
     normalized_variables = _normalize_submitted_variables(variables)
