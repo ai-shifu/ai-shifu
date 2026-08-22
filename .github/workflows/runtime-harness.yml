@@ -46,6 +46,7 @@ jobs:
       AI_SHIFU_COMPOSE_PROJECT: ai-shifu-runtime-harness
       AI_SHIFU_COMPOSE_FILE: docker/docker-compose.runtime-harness.yml
       AI_SHIFU_RUNTIME_TIMELINE: artifacts/runtime-harness/timeline.json
+      AI_SHIFU_HARNESS_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
       AI_SHIFU_API_PORT: "5800"
       AI_SHIFU_WEB_PORT: "8080"
       AI_SHIFU_MYSQL_PORT: "3306"
@@ -195,12 +196,24 @@ jobs:
             --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
             --name frontend-test-dependencies \
             --status started
+          set +e
           npm ci
-          npx playwright install --with-deps chromium
+          exit_code=$?
+          if [ "$exit_code" -eq 0 ]; then
+            npx playwright install --with-deps chromium
+            exit_code=$?
+          fi
+          set -e
+          dependency_status=finished
+          if [ "$exit_code" -ne 0 ]; then
+            dependency_status=failed
+          fi
           python ../../scripts/harness/runtime_timeline.py mark \
             --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
             --name frontend-test-dependencies \
-            --status finished
+            --status "$dependency_status" \
+            --detail "exit_code=$exit_code"
+          exit "$exit_code"
 
       - name: Run fast value smoke harness
         working-directory: src/cook-web
