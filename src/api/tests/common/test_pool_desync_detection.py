@@ -72,7 +72,7 @@ def test_pool_discards_connection_desynced_during_use(sock_pair: object) -> None
     ]
     made = []
 
-    def _creator():
+    def _creator() -> object:
         conn = connections[len(made) % len(connections)]
         made.append(conn)
         return conn
@@ -107,7 +107,7 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(
     connections = [dirty_conn, _FakePyMySQLConnection(clean_sock_a)]
     made = []
 
-    def _creator():
+    def _creator() -> object:
         conn = connections[len(made) % len(connections)]
         made.append(conn)
         return conn
@@ -146,7 +146,7 @@ def test_probe_timeout_waits_for_in_flight_data(sock_pair: object) -> None:
     # Zero-timeout probe sees nothing yet.
     assert dao._socket_has_unread_data(conn) is False
 
-    def _late_send():
+    def _late_send() -> None:
         time_module.sleep(0.001)
         right.sendall(b"\x05late-owed-response")
 

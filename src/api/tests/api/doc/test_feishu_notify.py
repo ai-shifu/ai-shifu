@@ -97,7 +97,7 @@ def test_send_notify_returns_none_for_request_error(monkeypatch: object) -> None
         lambda key, default=None: "https://example.test/webhook",  # noqa: ARG005 -- preserve get_config keyword contract
     )
 
-    def _raise(*args: object, **kwargs: object):
+    def _raise(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         message = "network down"
         raise requests.RequestException(message)

@@ -24,14 +24,14 @@ ENDPOINT = "/api/creator-analytics/query"
 
 
 @pytest.fixture(autouse=True)
-def _reset_analytics_engine_singleton():
+def _reset_analytics_engine_singleton() -> object:
     """Ensure each test starts with the cached fallback engine cleared."""
     analytics_engine.reset_for_tests()
     yield
     analytics_engine.reset_for_tests()
 
 
-def _post(test_client: object, body: object):
+def _post(test_client: object, body: object) -> object:
     return test_client.post(ENDPOINT, json=body)
 
 
@@ -707,7 +707,7 @@ def test_dedicated_engine_replacement_disposes_previous_owner(
 
     created: list[_FakeEngine] = []
 
-    def fake_create_engine(uri: object, **_kwargs: object):
+    def fake_create_engine(uri: object, **_kwargs: object) -> object:
         engine = _FakeEngine(uri)
         created.append(engine)
         return engine

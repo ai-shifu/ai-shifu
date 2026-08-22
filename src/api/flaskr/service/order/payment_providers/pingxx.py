@@ -6,10 +6,13 @@ import base64
 import json
 import re
 import threading
+from collections.abc import (
+    Callable,  # noqa: TC003 - decorator annotation is resolved at runtime
+)
 from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -27,6 +30,9 @@ from .base import (
 if TYPE_CHECKING:
     from flask import Flask
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
 _PINGPP_CONFIG_LOCK = threading.RLock()
 
 
@@ -40,9 +46,9 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func: object):
+def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     @wraps(func)
-    def wrapped(*args: object, **kwargs: object):
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
         with _PINGPP_CONFIG_LOCK:
             return func(*args, **kwargs)
 

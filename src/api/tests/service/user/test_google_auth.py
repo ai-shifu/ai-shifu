@@ -62,7 +62,7 @@ class _FakeGoogleSession:
         return _FakeGoogleResponse(self._profile)
 
 
-def _reset_user_auth_tables():
+def _reset_user_auth_tables() -> None:
     UserTokenModel.query.delete()
     AuthCredential.query.delete()
     UserEntity.query.delete()
@@ -75,7 +75,7 @@ def _run_google_callback(
     profile: object,
     *,
     fetch_token_error: object = None,
-):
+) -> object:
     monkeypatch.setenv("HOST_URL", "http://localhost")
     _reset_config_cache("HOST_URL")
     provider = GoogleAuthProvider()
@@ -217,7 +217,7 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             original_first = query_type.first
             reads: list[tuple[str, str, bool, bool]] = []
 
-            def track_first(query: object):
+            def track_first(query: object) -> object:
                 statement = str(query.statement)
                 parameters = query.statement.compile().params
                 table = (

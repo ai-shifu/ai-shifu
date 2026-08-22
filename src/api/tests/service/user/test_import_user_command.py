@@ -141,7 +141,7 @@ def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
         read_order: list[tuple[str, str, bool, bool]] = []
         reads_before_ensure: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query: object):
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             lookup_value = str(
@@ -166,7 +166,7 @@ def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
 
         original_ensure_user = import_user_module.ensure_user_for_identifier
 
-        def track_ensure_user(*args: object, **kwargs: object):
+        def track_ensure_user(*args: object, **kwargs: object) -> object:
             reads_before_ensure.extend(read_order)
             return original_ensure_user(*args, **kwargs)
 

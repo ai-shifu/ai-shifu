@@ -161,7 +161,7 @@ def _acquire_local_slot(
         )
 
 
-def _get_redis_client():
+def _get_redis_client() -> object:
     from flaskr.dao import get_redis_client
 
     redis_client = get_redis_client()

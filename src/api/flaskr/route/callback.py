@@ -28,7 +28,7 @@ def register_callback_handler(app: Flask, path_prefix: str) -> object:
 
     @app.route("/api/order/webhooks/<provider_name>/<callback_token>", methods=["POST"])
     @bypass_token_validation
-    def scoped_payment_webhook(provider_name: str, callback_token: str):
+    def scoped_payment_webhook(provider_name: str, callback_token: str) -> object:
         context = resolve_provider_credential_context(
             app,
             provider=provider_name,
@@ -87,7 +87,7 @@ def register_callback_handler(app: Flask, path_prefix: str) -> object:
     # pingxx支付回调
     @app.route(path_prefix + "/pingxx-callback", methods=["POST"])
     @bypass_token_validation
-    def pingxx_callback():
+    def pingxx_callback() -> object:
         body = request.get_json()
         app.logger.info("pingxx-callback: %s", body)
         event_type = body.get("type", "")
@@ -107,7 +107,7 @@ def register_callback_handler(app: Flask, path_prefix: str) -> object:
 
     @app.route(path_prefix + "/alipay-notify", methods=["POST"])
     @bypass_token_validation
-    def alipay_notify():
+    def alipay_notify() -> object:
         form_payload = request.form.to_dict(flat=True)
         app.logger.info("alipay-notify: %s", form_payload)
         provider = get_payment_provider("alipay")
@@ -144,7 +144,7 @@ def register_callback_handler(app: Flask, path_prefix: str) -> object:
 
     @app.route(path_prefix + "/wechatpay-notify", methods=["POST"])
     @bypass_token_validation
-    def wechatpay_notify():
+    def wechatpay_notify() -> object:
         raw_body = request.get_data() or b""
         app.logger.info("wechatpay-notify: %s", raw_body)
         provider = get_payment_provider("wechatpay")
@@ -183,7 +183,7 @@ def register_callback_handler(app: Flask, path_prefix: str) -> object:
     return app
 
 
-def _plain_text_response(value: str):
+def _plain_text_response(value: str) -> object:
     response = make_response(value)
     response.mimetype = "text/plain"
     return response

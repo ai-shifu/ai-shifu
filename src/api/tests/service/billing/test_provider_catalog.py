@@ -102,7 +102,7 @@ class _FakeStripeAdapter(StripeCatalogReadAdapter):
     def __init__(self: object, stripe: object) -> None:
         self.stripe = stripe
 
-    def _client_options(self: object, app: object):
+    def _client_options(self: object, app: object) -> object:
         _ = app
         return self.stripe, build_stripe_request_options()
 
@@ -205,7 +205,7 @@ def _snapshot(
         )
 
 
-def _validate(product: BillingProduct, snapshot: ProviderCatalogSnapshot):
+def _validate(product: BillingProduct, snapshot: ProviderCatalogSnapshot) -> object:
     return validate_provider_price_mapping(
         product,
         snapshot,

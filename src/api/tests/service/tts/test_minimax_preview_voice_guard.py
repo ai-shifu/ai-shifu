@@ -20,7 +20,7 @@ _BUILT_IN_VOICE_ID = "female-shaonv"
 
 
 @pytest.fixture(autouse=True)
-def _fake_minimax_provider(monkeypatch: object):
+def _fake_minimax_provider(monkeypatch: object) -> None:
     """Isolate the guard from real provider config/credentials."""
     provider = SimpleNamespace(
         get_provider_config=lambda: SimpleNamespace(
@@ -47,7 +47,7 @@ def _seed_clone(
     status: str,
     deleted: int = 0,
     provider: str = "minimax",
-):
+) -> None:
     with app.app_context():
         db.session.add(
             TTSMiniMaxClonedVoice(

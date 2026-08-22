@@ -293,6 +293,34 @@ plan's progress update for that rule.
   comparison/moderation, translation, outline-position, Langfuse tuple,
   verification response, Swagger mapping, MarkdownFlow block, buy-record DTO,
   and language-catalog mapping contracts. Focused annotation/cache tests pass.
+- [x] 2026-08-22 11:24 CST: Rebuilt the ANN202 stage on `ruff/ann202` for
+  [#2646](https://github.com/ai-shifu/ai-shifu/pull/2646). Restored the applied
+  private migration helper changed by the original sweep and extended the same
+  immutable-history exception through ANN202. The focused cache-lock regression
+  test, `ruff check .`, and `ruff format --check .` pass.
+- [x] 2026-08-22 11:52 CST: Replaced the ANN202 migration directory exception
+  with the single deployed revision that has an unannotated private helper.
+  `ruff check .` and the focused annotation/cache regression tests pass.
+- [x] 2026-08-22 12:10 CST: Annotated the private settlement-lock context manager
+  as `Iterator[None]` and retained runtime availability of its iterator symbol.
+  `ruff check .`, `ruff format --check .`, and focused annotation/cache tests pass.
+- [x] 2026-08-22 12:17 CST: Replaced ANN202 placeholder contracts on the LiteLLM
+  pre-content retry helper and Pingxx serialization decorator with a concrete
+  stream generator and `ParamSpec` / `TypeVar` callable signatures. Runtime
+  annotation-contract tests now cover both paths.
+- [x] 2026-08-22 12:35 CST: Added ANN202 to Ruff's selected rules and replaced
+  all 53 remaining private-return gaps with concrete `None`, Flask response,
+  string-response, tuple, plugin-list, and filtering-callback contracts. The
+  one deployed migration exception remains exact-file scoped.
+- [x] 2026-08-22 12:58 CST: Restored the recursive translation helpers' exact
+  `dict[str, str]` contracts and annotated TTS provider and locale generators
+  with their yielded iterator types. Focused annotation/cache tests pass.
+- [x] 2026-08-22 13:35 CST: Restored private TTS iterator/callback, exception
+  chain, Celery crontab, wallet Decimal, rate-clock datetime, and patched
+  asyncio coroutine-result contracts. Focused annotation/cache tests pass.
+- [x] 2026-08-22 13:48 CST: Restored order credential-scope context-manager,
+  nested SSE stream iterator, admin pagination tuple, and pool diagnostics
+  logger contracts. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

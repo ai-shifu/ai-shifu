@@ -1,10 +1,11 @@
 """Protect callable and streaming annotations used by typed consumers."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from decimal import Decimal
 from typing import get_args, get_origin, get_type_hints
 
 from flask_sqlalchemy.query import Query
+from flaskr.api.llm import _iter_stream_with_precontent_retry
 from flaskr.api.tts.tencent_provider import TencentSSEStreamChunk, TencentTTSProvider
 from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import unit_of_work
@@ -15,10 +16,12 @@ from flaskr.service.billing.api import (
     quantize_credit_amount,
     to_decimal,
 )
+from flaskr.service.order.payment_providers.pingxx import _serialized_pingpp_config
 from flaskr.service.order.raw_snapshots import legacy_stripe_snapshot_query
 from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 from flaskr.service.user.repository import transactional_session
+from litellm import ModelResponseStream
 
 
 def test_retry_decorator_keeps_callable_annotation_and_behavior() -> None:
@@ -67,6 +70,25 @@ def test_billing_facade_annotations_preserve_numeric_contracts() -> None:
 def test_snapshot_query_annotation_is_runtime_resolvable() -> None:
     """Expose the query factory's concrete type to runtime annotation tooling."""
     assert get_type_hints(legacy_stripe_snapshot_query)["return"] is Query
+
+
+def test_litellm_retry_stream_annotation_is_runtime_resolvable() -> None:
+    """Retain the LiteLLM chunk type across pre-content retry attempts."""
+    stream_return = get_type_hints(_iter_stream_with_precontent_retry)["return"]
+
+    assert get_origin(stream_return) is Generator
+    assert get_args(stream_return) == (ModelResponseStream, None, None)
+
+
+def test_pingxx_serialization_decorator_keeps_callable_contract() -> None:
+    """Retain the wrapped payment helper's signature through serialization."""
+
+    @_serialized_pingpp_config
+    def double(value: int) -> int:
+        return value * 2
+
+    assert double(2) == 4
+    assert get_origin(get_type_hints(_serialized_pingpp_config)["return"]) is Callable
 
 
 def test_context_manager_and_stream_annotations_are_runtime_resolvable() -> None:

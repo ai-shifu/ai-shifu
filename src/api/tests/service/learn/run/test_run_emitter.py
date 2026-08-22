@@ -196,11 +196,11 @@ class EmitterContextSeamTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress: object):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress: object):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -222,7 +222,7 @@ class EmitterContextSeamTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress: object):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 

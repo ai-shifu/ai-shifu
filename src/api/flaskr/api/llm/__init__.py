@@ -4,11 +4,11 @@ import asyncio
 import logging
 import os
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Coroutine, Generator
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypeVar
 
 import requests
 
@@ -20,6 +20,7 @@ os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
 import litellm
 from flask import Flask, current_app
+from litellm.types.utils import ModelResponseStream
 
 from flaskr.api.langfuse import (
     LangfuseObservationHandle,
@@ -60,9 +61,12 @@ logger = logging.getLogger(__name__)
 _original_asyncio_run = asyncio.run
 # Strong references so fire-and-forget tasks are not garbage-collected mid-run.
 _background_asyncio_tasks: set[asyncio.Task] = set()
+T = TypeVar("T")
 
 
-def _safe_asyncio_run(coro: object, *args: object, **kwargs: object):
+def _safe_asyncio_run(
+    coro: Coroutine[object, object, T], *args: object, **kwargs: object
+) -> T | None:
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:
@@ -446,7 +450,7 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
-):
+) -> object:
     try:
         # Routed ids are the application-level identity. LiteLLM completion uses
         # the stripped provider model id, which can collide across routes (for
@@ -517,7 +521,7 @@ def _iter_stream_with_precontent_retry(
     messages: list,
     params: dict,
     kwargs: dict,
-):
+) -> Generator[ModelResponseStream, None, None]:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
     The built-in openai/litellm retries only cover request setup; an

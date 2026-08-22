@@ -14,6 +14,7 @@ The provider can be selected per-Shifu configuration.
 import contextlib
 import json
 import logging
+from collections.abc import Iterator
 from decimal import Decimal, InvalidOperation
 
 from flask import has_request_context, request
@@ -119,7 +120,9 @@ def _resolve_provider_name(provider_name: str = "") -> str:
     return normalized or _auto_detect_provider_name()
 
 
-def _iter_provider_classes(*, include_explicit_only: bool = True):
+def _iter_provider_classes(
+    *, include_explicit_only: bool = True
+) -> Iterator[tuple[str, type[BaseTTSProvider]]]:
     provider_priority = (
         _PROVIDER_PRIORITY if include_explicit_only else _AUTO_DETECT_PROVIDER_PRIORITY
     )
@@ -297,7 +300,7 @@ def _parse_tts_display_names() -> dict:
     return normalized
 
 
-def _iter_tts_display_language_candidates():
+def _iter_tts_display_language_candidates() -> Iterator[str]:
     if has_request_context():
         for value in (
             request.args.get("language"),

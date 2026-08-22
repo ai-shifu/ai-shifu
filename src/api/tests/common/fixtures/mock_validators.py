@@ -36,7 +36,7 @@ def always_pass_validator(value: object) -> object:
 def range_validator(min_val: object, max_val: object) -> object:
     """Create a range validator for numeric values."""
 
-    def validator(value: object):
+    def validator(value: object) -> object:
         try:
             num = float(value)
         except (ValueError, TypeError):
@@ -50,7 +50,7 @@ def range_validator(min_val: object, max_val: object) -> object:
 def string_length_validator(min_len: object = 0, max_len: object = 100) -> object:
     """Create a string length validator."""
 
-    def validator(value: object):
+    def validator(value: object) -> object:
         if value is None:
             return False
         s = str(value)
@@ -65,7 +65,7 @@ def regex_validator(pattern: object) -> object:
 
     compiled = re.compile(pattern)
 
-    def validator(value: object):
+    def validator(value: object) -> object:
         if value is None:
             return False
         return bool(compiled.match(str(value)))
@@ -95,7 +95,7 @@ def dependency_validator(depends_on_key: object) -> object:
     """Create a validator that checks if another config key is set."""
     _ = depends_on_key
 
-    def validator(value: object):
+    def validator(value: object) -> object:
         # In real usage, this would check if depends_on_key is configured
         # For testing, we just check if value is not empty
         return bool(value)

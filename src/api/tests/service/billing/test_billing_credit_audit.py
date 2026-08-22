@@ -45,7 +45,7 @@ def billing_credit_audit_app() -> object:
     dao.db.init_app(app)
 
     @app.cli.group()
-    def console():
+    def console() -> None:
         """Test console root."""
 
     register_billing_commands(console)

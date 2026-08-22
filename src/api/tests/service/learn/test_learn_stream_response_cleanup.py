@@ -28,7 +28,7 @@ def invalidations(monkeypatch: object) -> object:
     return calls
 
 
-def _iter_stream(app: object, helper: object, iter_factory: object):
+def _iter_stream(app: object, helper: object, iter_factory: object) -> object:
     with app.test_request_context("/"):
         response = helper(
             app,
@@ -40,7 +40,7 @@ def _iter_stream(app: object, helper: object, iter_factory: object):
 
 
 def test_sse_close_invalidates_session(app: object, invalidations: object) -> None:
-    def factory():
+    def factory() -> object:
         yield {"type": "chunk"}
         yield {"type": "chunk2"}
 
@@ -61,7 +61,7 @@ def test_sse_close_invalidates_session(app: object, invalidations: object) -> No
 def test_sse_protocol_error_invalidates_session(
     app: object, invalidations: object
 ) -> None:
-    def factory():
+    def factory() -> object:
         yield {"type": "chunk"}
         message = "desynced"
         raise ResourceClosedError(message)
@@ -84,7 +84,7 @@ def test_sse_protocol_error_invalidates_session(
 def test_sse_business_error_does_not_invalidate(
     app: object, invalidations: object
 ) -> None:
-    def factory():
+    def factory() -> object:
         yield {"type": "chunk"}
         message = "business"
         raise ValueError(message)
@@ -107,7 +107,7 @@ def test_sse_business_error_does_not_invalidate(
 def test_passthrough_close_invalidates_session(
     app: object, invalidations: object
 ) -> None:
-    def factory():
+    def factory() -> object:
         yield "data: 1\n\n"
         yield "data: 2\n\n"
 
@@ -128,7 +128,7 @@ def test_passthrough_close_invalidates_session(
 def test_passthrough_close_disguised_as_runtime_error(
     app: object, invalidations: object
 ) -> None:
-    def factory():
+    def factory() -> object:
         yield "data: 1\n\n"
         message = "generator ignored GeneratorExit"
         raise RuntimeError(message)
@@ -151,7 +151,7 @@ def test_passthrough_close_disguised_as_runtime_error(
 def test_passthrough_normal_exhaustion_does_not_invalidate(
     app: object, invalidations: object
 ) -> None:
-    def factory():
+    def factory() -> object:
         yield "data: 1\n\n"
 
     with app.test_request_context("/"):

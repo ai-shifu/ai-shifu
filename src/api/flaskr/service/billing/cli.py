@@ -374,7 +374,7 @@ def register_billing_commands(console: object) -> None:
     """Register offline billing maintenance commands under ``flask console``."""
 
     @console.group(name="billing")
-    def billing_group():
+    def billing_group() -> None:
         """Billing maintenance commands for offline repair and replay."""
 
     @billing_group.command(name="seed-bootstrap-data")

@@ -114,7 +114,7 @@ def _setup_handle_input_ask_test_doubles(
     ask_provider_config: object,
     *,
     patch_generated_blocks: bool = True,
-):
+) -> None:
     from flaskr.service.learn.ask_provider_adapters import AskProviderError
 
     class _DummyLLMSettings:
@@ -178,7 +178,7 @@ def _setup_handle_input_ask_test_doubles(
 
         call_counter = {"index": 0}
 
-        def _fake_init_generated_block(*_args: object, **_kwargs: object):
+        def _fake_init_generated_block(*_args: object, **_kwargs: object) -> object:
             call_counter["index"] += 1
             return types.SimpleNamespace(
                 generated_block_bid=f"gb-{call_counter['index']}",
@@ -261,7 +261,7 @@ class TestElementType:
 class TestElementDTONewFields:
     """Verify element DTO new fields behavior."""
 
-    def _make_dto(self: object, **overrides: object):
+    def _make_dto(self: object, **overrides: object) -> object:
         from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
 
         defaults = {
@@ -584,7 +584,7 @@ class TestVisualKindMapping:
 # ---------------------------------------------------------------------------
 
 
-def _require_app(app: object):
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
@@ -2499,7 +2499,7 @@ class TestHandleAskAdapter:
                 patch_generated_blocks=False,
             )
 
-            def _raise_provider_error(**_kwargs: object):
+            def _raise_provider_error(**_kwargs: object) -> object:
                 if False:
                     yield None
                 message = "provider failed"

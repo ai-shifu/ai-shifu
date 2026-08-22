@@ -82,7 +82,7 @@ class CacheUnavailableError(RuntimeError):
 
 
 class _DynamicRedisCacheProvider:
-    def _client(self: object):
+    def _client(self: object) -> object:
         try:
             from flaskr.dao import get_redis_client
         except Exception as exc:  # pragma: no cover - defensive
@@ -323,7 +323,7 @@ class FallbackCacheProvider:
         self._primary = primary
         self._fallback = fallback
 
-    def _call(self: object, method: str, *args: object, **kwargs: object):
+    def _call(self: object, method: str, *args: object, **kwargs: object) -> object:
         primary_fn = getattr(self._primary, method)
         fallback_fn = getattr(self._fallback, method)
         try:

@@ -55,7 +55,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_creator_analytics_tables(app: object):
+def _isolate_creator_analytics_tables(app: object) -> object:
     if app is None:
         yield
         return

@@ -26,11 +26,11 @@ class _FakeGreenletExit(BaseException):
     pass
 
 
-def _make_conn(sock: object, ping_exc: object = None):
+def _make_conn(sock: object, ping_exc: object = None) -> object:
     class _Conn:
         _sock = sock
 
-        def ping(self: object, reconnect: object):
+        def ping(self: object, reconnect: object) -> None:
             assert reconnect is False
             if ping_exc is not None:
                 raise ping_exc

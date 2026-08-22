@@ -9,7 +9,7 @@ def test_run_with_redis_executes_once(app: object, monkeypatch: object) -> None:
     fake_redis = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake_redis)
 
-    def add_one(value: object):
+    def add_one(value: object) -> object:
         return value + 1
 
     result = dao.run_with_redis(app, "lock-key", 10, add_one, [1])

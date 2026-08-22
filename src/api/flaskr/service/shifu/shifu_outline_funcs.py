@@ -692,7 +692,7 @@ def reorder_outline_tree(
             parent_position: object = "",
             parent_bid: object = "",
             history_infos: list[HistoryItem] | None = None,
-        ):
+        ) -> None:
             if history_infos is None:
                 history_infos = []
             for i, outline_dto in enumerate(outline_dtos):

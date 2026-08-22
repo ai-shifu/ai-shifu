@@ -584,7 +584,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app: object) -> None:
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
-        def merge_then_fail():
+        def merge_then_fail() -> None:
             with transactional_session():
                 merge_learner_profile_for_sign_in(
                     source_user_id=source.user_bid,
@@ -622,7 +622,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(
         original_first = query_type.first
         read_order: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query: object):
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             user_bid = str(parameters.get("user_bid_1", ""))

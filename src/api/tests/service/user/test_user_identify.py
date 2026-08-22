@@ -16,7 +16,7 @@ class _FakeRedis:
         return len(keys)
 
 
-def _reset_user_auth_tables():
+def _reset_user_auth_tables() -> None:
     from flaskr.dao import db
     from flaskr.service.user.models import (
         AuthCredential,
@@ -198,17 +198,19 @@ def test_send_email_code_stores_lowercase_identifier(
         def __init__(self: object, *_args: object, **_kwargs: object) -> None:
             pass
 
-        def starttls(self: object):
+        def starttls(self: object) -> None:
             return None
 
-        def login(self: object, *_args: object):
+        def login(self: object, *_args: object) -> None:
             return None
 
-        def sendmail(self: object, _sender: object, recipient: object, message: object):
+        def sendmail(
+            self: object, _sender: object, recipient: object, message: object
+        ) -> None:
             type(self).sent_to = recipient
             type(self).sent_message = message
 
-        def quit(self: object):
+        def quit(self: object) -> None:
             return None
 
     fake_redis = FakeRedis()
@@ -289,18 +291,18 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
         def __init__(self: object, *_args: object, **_kwargs: object) -> None:
             pass
 
-        def starttls(self: object):
+        def starttls(self: object) -> None:
             return None
 
-        def login(self: object, *_args: object):
+        def login(self: object, *_args: object) -> None:
             return None
 
         def sendmail(
             self: object, _sender: object, _recipient: object, message: object
-        ):
+        ) -> None:
             type(self).sent_message = message
 
-        def quit(self: object):
+        def quit(self: object) -> None:
             return None
 
     fake_redis = FakeRedis()

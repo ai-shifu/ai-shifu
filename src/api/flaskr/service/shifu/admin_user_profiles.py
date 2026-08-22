@@ -247,7 +247,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr():
+def _build_course_order_amount_expr() -> object:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),
@@ -353,7 +353,7 @@ def _resolve_operator_user_role(
     )[0]
 
 
-def _build_learner_user_bid_subquery():
+def _build_learner_user_bid_subquery() -> object:
     order_query = db.session.query(Order.user_bid.label("user_bid")).filter(
         Order.deleted == 0,
         Order.status == ORDER_STATUS_SUCCESS,
@@ -377,7 +377,7 @@ def _build_recent_learning_active_user_bid_subquery(
     *,
     since: datetime,
     until: datetime,
-):
+) -> object:
     activity_at = db.func.coalesce(
         LearnProgressRecord.updated_at,
         LearnProgressRecord.created_at,
@@ -400,7 +400,7 @@ def _build_recent_paid_user_bid_subquery(
     *,
     since: datetime,
     until: datetime,
-):
+) -> object:
     return (
         db.session.query(Order.user_bid.label("user_bid"))
         .filter(
@@ -415,7 +415,7 @@ def _build_recent_paid_user_bid_subquery(
     )
 
 
-def _build_registered_user_timestamp_subquery():
+def _build_registered_user_timestamp_subquery() -> object:
     registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
     credential_subquery = (
         db.session.query(

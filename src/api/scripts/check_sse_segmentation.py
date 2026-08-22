@@ -146,13 +146,13 @@ def _simulate_observed_segments(
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
-        def process_chunk(self: object, chunk: object):
+        def process_chunk(self: object, chunk: object) -> object:
             if chunk:
                 self._parts.append(chunk)
             return
             yield
 
-        def finalize(self: object, commit: object = True):
+        def finalize(self: object, commit: object = True) -> object:
             _ = commit
             text = "".join(self._parts).strip()
             if text:

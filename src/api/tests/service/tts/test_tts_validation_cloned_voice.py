@@ -16,10 +16,10 @@ from flaskr.service.tts.validation import validate_tts_settings_strict
 
 
 @pytest.fixture(autouse=True)
-def _fake_providers(monkeypatch: object):
+def _fake_providers(monkeypatch: object) -> None:
     """Serve static voice/model lists without real provider credentials."""
 
-    def _fake_get_tts_provider(name: object):
+    def _fake_get_tts_provider(name: object) -> object:
         if name == "volcengine":
             cfg = SimpleNamespace(
                 voices=[{"value": "zh_female_vv_uranus_bigtts"}],
@@ -67,7 +67,7 @@ def _seed_ready_clone(app: object, *, provider: str, voice_id: str) -> None:
         db.session.commit()
 
 
-def _validate(provider: str, model: str, voice_id: str):
+def _validate(provider: str, model: str, voice_id: str) -> object:
     return validate_tts_settings_strict(
         provider=provider,
         model=model,

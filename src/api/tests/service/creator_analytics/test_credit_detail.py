@@ -30,13 +30,13 @@ ENDPOINT = "/api/creator-analytics/credit-detail"
 
 
 @pytest.fixture(autouse=True)
-def _reset_analytics_engine_singleton():
+def _reset_analytics_engine_singleton() -> object:
     analytics_engine.reset_for_tests()
     yield
     analytics_engine.reset_for_tests()
 
 
-def _post(test_client: object, body: object):
+def _post(test_client: object, body: object) -> object:
     return test_client.post(ENDPOINT, json=body)
 
 

@@ -61,7 +61,7 @@ _ACTIVE_SUBSCRIPTION_STATUSES = (
 _TRIAL_WELCOME_ACK_KEY = "welcome_trial_dialog_acknowledged_at"
 
 
-def _maybe_app_context(app: Flask):
+def _maybe_app_context(app: Flask) -> object:
     return nullcontext() if has_app_context() else app.app_context()
 
 

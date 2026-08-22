@@ -52,7 +52,7 @@ def billing_domain_client(monkeypatch: object) -> object:
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -68,7 +68,7 @@ def billing_domain_client(monkeypatch: object) -> object:
 
     @app.route("/_domain-context", methods=["GET"])
     @with_shifu_context()
-    def _domain_context():
+    def _domain_context() -> object:
         return jsonify({"creator_bid": get_shifu_creator_bid()})
 
     monkeypatch.setattr(
@@ -182,7 +182,7 @@ class TestBillingDomains:
             verification_token="verify-token",
         )
 
-        def fake_resolve(name: object, record_type: object, lifetime: object):
+        def fake_resolve(name: object, record_type: object, lifetime: object) -> object:
             assert lifetime == 5
             if record_type == "TXT":
                 assert name == "_ai-shifu-verification.learn.example.com"

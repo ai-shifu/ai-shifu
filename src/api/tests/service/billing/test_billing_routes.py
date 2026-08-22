@@ -113,7 +113,7 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
 
-def _seed_products_with_yearly_entitlements():
+def _seed_products_with_yearly_entitlements() -> object:
     return build_bill_products(
         overrides_by_bid={
             "bill-product-plan-yearly": {
@@ -150,7 +150,7 @@ def billing_test_client(monkeypatch: object) -> object:
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -1222,7 +1222,7 @@ class TestBillingRoutes:
 
             def _count_order_selects(
                 _conn: object, _cursor: object, statement: object, *_args: object
-            ):
+            ) -> None:
                 nonlocal order_select_count
                 if "bill_orders" in statement.lower():
                     order_select_count += 1
@@ -1693,7 +1693,7 @@ class TestBillingRoutes:
 
         def _count_order_selects(
             _conn: object, _cursor: object, statement: object, *_args: object
-        ):
+        ) -> None:
             nonlocal order_select_count
             if "bill_orders" in statement.lower():
                 order_select_count += 1

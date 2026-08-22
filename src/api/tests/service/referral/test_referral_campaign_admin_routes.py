@@ -28,7 +28,7 @@ from flaskr.service.referral.models import (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_referral_campaign_tables(app: object):
+def _isolate_referral_campaign_tables(app: object) -> object:
     with app.app_context():
         db.session.query(ReferralInviteEvent).delete()
         db.session.query(ReferralInviteReward).delete()
@@ -83,7 +83,7 @@ def _seed_plan_product() -> None:
     db.session.commit()
 
 
-def _payload():
+def _payload() -> object:
     return {
         "campaign_code": "domestic_creator_invite_202606",
         "campaign_name": "Domestic creator invite",

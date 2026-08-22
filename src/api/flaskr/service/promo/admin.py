@@ -240,7 +240,7 @@ def _build_like_pattern(keyword: str) -> str:
     return f"%{escaped}%"
 
 
-def _build_user_keyword_query(keyword: str):
+def _build_user_keyword_query(keyword: str) -> object:
     like_pattern = _build_like_pattern(keyword)
     return (
         db.session.query(UserEntity.user_bid)
@@ -274,7 +274,7 @@ def _build_user_keyword_query(keyword: str):
 
 def _apply_keyword_filter(
     query: object, keyword: str, user_bid_field: object, *text_fields: object
-):
+) -> object:
     normalized = str(keyword or "").strip().lower()
     if not normalized:
         return query
@@ -287,7 +287,7 @@ def _apply_keyword_filter(
     return query.filter(or_(*keyword_filters))
 
 
-def _build_coupon_status_filter(status: str):
+def _build_coupon_status_filter(status: str) -> object:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
@@ -315,7 +315,7 @@ def _build_coupon_status_filter(status: str):
     return None
 
 
-def _build_campaign_status_filter(status: str):
+def _build_campaign_status_filter(status: str) -> object:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None

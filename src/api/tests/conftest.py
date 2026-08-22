@@ -82,12 +82,12 @@ set_plugin_manager(_TestPluginManager())
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object):
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object):
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "INTEGER"
 
 

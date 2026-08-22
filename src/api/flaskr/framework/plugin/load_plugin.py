@@ -25,7 +25,9 @@ def load_plugins_from_dir(
     plugins = []
     app.logger.info("load modules from: %s", plugins_dir)
 
-    def load_from_directory(directory: object, plugin_manager: PluginManager = None):
+    def load_from_directory(
+        directory: object, plugin_manager: PluginManager = None
+    ) -> None:
         files = [path.name for path in Path(directory).iterdir()]
         plugin_obj = None
         if SRC_DIR in files:

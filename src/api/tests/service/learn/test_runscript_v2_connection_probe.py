@@ -57,7 +57,7 @@ class _FakeSession:
         self.rollbacks += 1
 
 
-def _patch_session(monkeypatch: object, behaviours: object):
+def _patch_session(monkeypatch: object, behaviours: object) -> object:
     session = _FakeSession(behaviours)
 
     class _FakeDb:

@@ -119,7 +119,7 @@ def extract_referral_post_auth_fields(
     }
 
 
-def _with_app_context(app: Flask):
+def _with_app_context(app: Flask) -> object:
     return app.app_context() if not has_app_context() else _NullContext()
 
 

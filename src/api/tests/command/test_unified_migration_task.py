@@ -37,7 +37,7 @@ class _FakeSession:
         pass
 
 
-def _task_with_session(session: object):
+def _task_with_session(session: object) -> object:
     task = UnifiedMigrationTask.__new__(UnifiedMigrationTask)
     task.SessionClass = lambda: session
     return task
@@ -118,13 +118,13 @@ def test_migrate_table_logs_formatted_batch_progress(caplog: object) -> None:
     task = UnifiedMigrationTask.__new__(UnifiedMigrationTask)
     task.config = MigrationConfig(batch_size=10)
 
-    async def table_exists(_table_name: object):
+    async def table_exists(_table_name: object) -> object:
         return True
 
-    async def table_count(_table_name: object):
+    async def table_count(_table_name: object) -> object:
         return 20
 
-    async def process_batch(*_args: object):
+    async def process_batch(*_args: object) -> object:
         return {"synced": 5, "errors": 0, "error_messages": []}
 
     task._table_exists_async = table_exists

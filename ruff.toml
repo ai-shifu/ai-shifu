@@ -188,6 +188,7 @@ select = [
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
     "ANN201",  # missing return type for a public function
+    "ANN202",  # missing return type for a private function
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
@@ -290,7 +291,7 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 "src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608", "ANN201"]
 "src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608", "ANN201"]
 "src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["ANN001", "S608", "ANN201"]
-"src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ANN001", "ANN201"]
+"src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ANN001", "ANN201", "ANN202"]
 "src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608", "ANN201"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608", "ANN201"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608", "ANN201"]

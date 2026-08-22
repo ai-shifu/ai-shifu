@@ -15,7 +15,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 
 
 @pytest.fixture(autouse=True)
-def _stub_reorder_side_effects(monkeypatch: object):
+def _stub_reorder_side_effects(monkeypatch: object) -> None:
     monkeypatch.setattr(
         shifu_outline_funcs,
         "cleanup_outline_history_versions",
