@@ -165,18 +165,22 @@
     },
     "providerPrices": {
       "actions": {
-        "activate": "启用",
+        "activate": "上架",
         "cancel": "取消",
         "configure": "配置价格",
         "create": "新增价格",
-        "retire": "停用",
+        "retire": "下架",
         "saveDraft": "保存草稿",
         "validate": "校验",
         "viewIssues": "查看问题"
       },
+      "billingLabel": {
+        "monthly": "月付",
+        "yearly": "年付"
+      },
       "confirm": {
-        "activate": "确认启用这个收款价格？启用后，该商品后续支付将使用这个价格。",
-        "retire": "确认停用这个收款价格？停用后，该商品将暂时无法使用固定价格支付。"
+        "activate": "确认上架 {productName}？上架后，该商品后续支付将使用这个收款价格。",
+        "retire": "确认下架 {productName}？下架后，该商品将暂时无法使用固定价格支付。"
       },
       "description": "管理海外套餐和积分包的收款价格，确保用户看到的价格、实际支付金额和到账权益一致。",
       "dialog": {
@@ -197,12 +201,12 @@
         "status": "状态"
       },
       "health": {
-        "active": "已启用",
+        "active": "已上架",
         "draft": "待启用",
         "healthy": "正常",
         "invalid": "校验失败",
         "missing": "未配置",
-        "retired": "已停用",
+        "retired": "已下架",
         "warning": "需确认"
       },
       "interval": {
@@ -267,17 +271,11 @@
         "topup": "积分包"
       },
       "status": {
-        "active": "已启用",
+        "active": "已上架",
         "all": "全部状态",
         "draft": "待启用",
         "invalid": "校验失败",
-        "retired": "已停用"
-      },
-      "summary": {
-        "active": "已启用",
-        "invalid": "需处理",
-        "needsAction": "待配置",
-        "total": "可配置商品"
+        "retired": "已下架"
       },
       "table": {
         "actions": "操作",
@@ -291,12 +289,12 @@
       },
       "title": "套餐管理",
       "toast": {
-        "activateFailed": "价格启用失败",
-        "activateSuccess": "价格已启用",
+        "activateFailed": "价格上架失败",
+        "activateSuccess": "价格已上架",
         "createFailed": "价格保存失败",
         "createSuccess": "价格已保存",
-        "retireFailed": "价格停用失败",
-        "retireSuccess": "价格已停用",
+        "retireFailed": "价格下架失败",
+        "retireSuccess": "价格已下架",
         "validateFailed": "价格校验失败",
         "validateSuccess": "价格校验已完成"
       }

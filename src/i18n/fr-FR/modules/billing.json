@@ -165,18 +165,22 @@
     },
     "providerPrices": {
       "actions": {
-        "activate": "Activer",
+        "activate": "Mettre en ligne",
         "cancel": "Annuler",
         "configure": "Configurer",
         "create": "Ajouter un prix",
-        "retire": "Désactiver",
+        "retire": "Retirer",
         "saveDraft": "Enregistrer le brouillon",
         "validate": "Contrôler",
         "viewIssues": "Voir problèmes"
       },
+      "billingLabel": {
+        "monthly": "Mensuel",
+        "yearly": "Annuel"
+      },
       "confirm": {
-        "activate": "Activer ce prix de paiement ? Les prochains paiements de ce produit l’utiliseront.",
-        "retire": "Désactiver ce prix de paiement ? Le produit n’aura temporairement plus de checkout à prix fixe."
+        "activate": "Mettre {productName} en ligne ? Les prochains paiements de ce produit utiliseront ce prix.",
+        "retire": "Retirer {productName} ? Le produit n’aura temporairement plus de checkout à prix fixe."
       },
       "description": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et droits accordés.",
       "dialog": {
@@ -197,12 +201,12 @@
         "status": "Statut"
       },
       "health": {
-        "active": "Activé",
+        "active": "En ligne",
         "draft": "Non activé",
         "healthy": "Sain",
         "invalid": "Échec du contrôle",
         "missing": "Non configuré",
-        "retired": "Désactivé",
+        "retired": "Retiré",
         "warning": "À vérifier"
       },
       "interval": {
@@ -267,17 +271,11 @@
         "topup": "Pack crédits"
       },
       "status": {
-        "active": "Actif",
+        "active": "En ligne",
         "all": "Tous les statuts",
         "draft": "Brouillon",
         "invalid": "Invalide",
         "retired": "Retiré"
-      },
-      "summary": {
-        "active": "Activés",
-        "invalid": "À traiter",
-        "needsAction": "À configurer",
-        "total": "Produits"
       },
       "table": {
         "actions": "Actions",
@@ -291,12 +289,12 @@
       },
       "title": "Gestion des offres",
       "toast": {
-        "activateFailed": "Échec de l’activation",
-        "activateSuccess": "Prix activé",
+        "activateFailed": "Échec de la mise en ligne du prix",
+        "activateSuccess": "Prix mis en ligne",
         "createFailed": "Échec de l’enregistrement",
         "createSuccess": "Prix enregistré",
-        "retireFailed": "Échec de la désactivation",
-        "retireSuccess": "Prix désactivé",
+        "retireFailed": "Échec du retrait du prix",
+        "retireSuccess": "Prix retiré",
         "validateFailed": "Échec du contrôle",
         "validateSuccess": "Contrôle du prix terminé"
       }

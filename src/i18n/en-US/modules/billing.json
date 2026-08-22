@@ -165,18 +165,22 @@
     },
     "providerPrices": {
       "actions": {
-        "activate": "Enable",
+        "activate": "List",
         "cancel": "Cancel",
         "configure": "Configure",
         "create": "Add price",
-        "retire": "Disable",
+        "retire": "Unlist",
         "saveDraft": "Save draft",
         "validate": "Check",
         "viewIssues": "View issues"
       },
+      "billingLabel": {
+        "monthly": "Monthly",
+        "yearly": "Yearly"
+      },
       "confirm": {
-        "activate": "Enable this payment price? Future checkout for this product will use it.",
-        "retire": "Disable this payment price? The product will temporarily have no fixed-price checkout."
+        "activate": "List {productName}? Future checkout for this product will use this payment price.",
+        "retire": "Unlist {productName}? The product will temporarily have no fixed-price checkout."
       },
       "description": "Manage payment prices for overseas plans and credit packs so displayed prices, checkout amounts, and granted benefits stay aligned.",
       "dialog": {
@@ -197,12 +201,12 @@
         "status": "Status"
       },
       "health": {
-        "active": "Enabled",
+        "active": "Listed",
         "draft": "Not enabled",
         "healthy": "Healthy",
         "invalid": "Check failed",
         "missing": "Not configured",
-        "retired": "Disabled",
+        "retired": "Unlisted",
         "warning": "Needs review"
       },
       "interval": {
@@ -267,17 +271,11 @@
         "topup": "Credit pack"
       },
       "status": {
-        "active": "Active",
+        "active": "Listed",
         "all": "All statuses",
         "draft": "Draft",
         "invalid": "Invalid",
-        "retired": "Retired"
-      },
-      "summary": {
-        "active": "Enabled",
-        "invalid": "Needs action",
-        "needsAction": "To configure",
-        "total": "Products"
+        "retired": "Unlisted"
       },
       "table": {
         "actions": "Actions",
@@ -291,12 +289,12 @@
       },
       "title": "Package Management",
       "toast": {
-        "activateFailed": "Failed to enable price",
-        "activateSuccess": "Price enabled",
+        "activateFailed": "Failed to list price",
+        "activateSuccess": "Price listed",
         "createFailed": "Failed to save price",
         "createSuccess": "Price saved",
-        "retireFailed": "Failed to disable price",
-        "retireSuccess": "Price disabled",
+        "retireFailed": "Failed to unlist price",
+        "retireSuccess": "Price unlisted",
         "validateFailed": "Price check failed",
         "validateSuccess": "Price check finished"
       }

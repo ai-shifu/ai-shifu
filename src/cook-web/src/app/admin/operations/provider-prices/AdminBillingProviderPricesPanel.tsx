@@ -8,6 +8,16 @@ import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -70,6 +80,16 @@ type DraftMappingForm = {
   product_bid: string;
   provider_product_id: string;
   provider_price_id: string;
+};
+
+type CreateMappingResult = {
+  mapping?: AdminBillingProviderPriceMapping | null;
+};
+
+type ConfirmMappingAction = {
+  action: 'activate' | 'retire';
+  mapping: AdminBillingProviderPriceMapping;
+  productName: string;
 };
 
 const DEFAULT_FORM: DraftMappingForm = {
@@ -149,14 +169,24 @@ function parseValidationIssueCodes(value?: string | null): string[] {
   return [normalizedValue];
 }
 
-function resolveProductBenefit(
+function resolveProductShortBenefit(
   t: (key: string, options?: Record<string, unknown>) => string,
   product: AdminBillingProviderPriceProduct,
 ): string {
   if (product.product_type === 'topup') {
-    return t('module.billing.admin.providerPrices.productCredits', {
-      credits: formatBillingCreditAmount(product.credit_amount),
-    });
+    return '';
+  }
+  if (
+    product.billing_interval === 'month' &&
+    Number(product.billing_interval_count || 1) === 1
+  ) {
+    return t('module.billing.admin.providerPrices.billingLabel.monthly');
+  }
+  if (
+    product.billing_interval === 'year' &&
+    Number(product.billing_interval_count || 1) === 1
+  ) {
+    return t('module.billing.admin.providerPrices.billingLabel.yearly');
   }
   return resolveProductBillingMeta(t, product);
 }
@@ -194,12 +224,14 @@ function buildProductOptionLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
   product: AdminBillingProviderPriceProduct,
 ): string {
-  return `${resolveAdminBillingProductName(
+  const productName = resolveAdminBillingProductName(
     t,
     product.display_name,
     product.product_code,
     { credits: formatBillingCreditAmount(product.credit_amount) },
-  )} · ${resolveProductBenefit(t, product)}`;
+  );
+  const shortBenefit = resolveProductShortBenefit(t, product);
+  return shortBenefit ? `${productName} ${shortBenefit}` : productName;
 }
 
 export function AdminBillingProviderPricesPanel() {
@@ -210,6 +242,8 @@ export function AdminBillingProviderPricesPanel() {
   const [form, setForm] = React.useState<DraftMappingForm>(DEFAULT_FORM);
   const [issueMapping, setIssueMapping] =
     React.useState<AdminBillingProviderPriceMapping | null>(null);
+  const [confirmAction, setConfirmAction] =
+    React.useState<ConfirmMappingAction | null>(null);
   const [actionLoading, setActionLoading] = React.useState('');
   const clearLabel = t('common.core.close');
 
@@ -257,41 +291,6 @@ export function AdminBillingProviderPricesPanel() {
     statusFilter,
   ]);
 
-  const summaryItems = React.useMemo(() => {
-    const activeCount = products.filter(
-      product => data?.active_by_product?.[product.product_bid],
-    ).length;
-    const needsActionCount = products.length - activeCount;
-    const invalidCount = products.filter(product => {
-      const mapping = data?.active_by_product?.[product.product_bid];
-      return Boolean(
-        mapping?.validation_error || mapping?.status_label === 'invalid',
-      );
-    }).length;
-    return [
-      {
-        key: 'total',
-        label: t('module.billing.admin.providerPrices.summary.total'),
-        value: products.length,
-      },
-      {
-        key: 'active',
-        label: t('module.billing.admin.providerPrices.summary.active'),
-        value: activeCount,
-      },
-      {
-        key: 'needsAction',
-        label: t('module.billing.admin.providerPrices.summary.needsAction'),
-        value: needsActionCount,
-      },
-      {
-        key: 'invalid',
-        label: t('module.billing.admin.providerPrices.summary.invalid'),
-        value: invalidCount,
-      },
-    ];
-  }, [data?.active_by_product, products, t]);
-
   const resetFilters = React.useCallback(() => {
     setProductFilter(ALL_PRODUCTS);
     setStatusFilter(ALL_STATUSES);
@@ -317,14 +316,6 @@ export function AdminBillingProviderPricesPanel() {
       action: 'validate' | 'activate' | 'retire',
       mapping: AdminBillingProviderPriceMapping,
     ) => {
-      if (
-        (action === 'activate' || action === 'retire') &&
-        !window.confirm(
-          t(`module.billing.admin.providerPrices.confirm.${action}`),
-        )
-      ) {
-        return;
-      }
       const loadingKey = `${action}:${mapping.provider_price_bid}`;
       setActionLoading(loadingKey);
       try {
@@ -370,6 +361,21 @@ export function AdminBillingProviderPricesPanel() {
     [mutate, t],
   );
 
+  const requestAction = React.useCallback(
+    (
+      action: 'validate' | 'activate' | 'retire',
+      mapping: AdminBillingProviderPriceMapping,
+      productName = '',
+    ) => {
+      if (action === 'validate') {
+        void runAction(action, mapping);
+        return;
+      }
+      setConfirmAction({ action, mapping, productName });
+    },
+    [runAction],
+  );
+
   const canSubmitDraft = Boolean(
     form.product_bid.trim() &&
     form.provider_product_id.trim() &&
@@ -382,14 +388,49 @@ export function AdminBillingProviderPricesPanel() {
     }
     setActionLoading('create');
     try {
-      await api.createAdminBillingProviderPrice({
+      const createResult = (await api.createAdminBillingProviderPrice({
         product_bid: form.product_bid,
         provider_product_id: form.provider_product_id.trim(),
         provider_price_id: form.provider_price_id.trim(),
-      });
-      toast({
-        title: t('module.billing.admin.providerPrices.toast.createSuccess'),
-      });
+      })) as CreateMappingResult;
+      const providerPriceBid = createResult.mapping?.provider_price_bid || '';
+      if (providerPriceBid) {
+        try {
+          const validationResult = (await api.validateAdminBillingProviderPrice(
+            {
+              provider_price_bid: providerPriceBid,
+            },
+          )) as AdminBillingProviderPriceValidationResult;
+          const issueText =
+            validationResult?.valid === false
+              ? formatIssues(t, validationResult.errors)
+              : formatIssues(t, validationResult.warnings);
+          toast({
+            title: t(
+              `module.billing.admin.providerPrices.toast.${
+                validationResult?.valid === false
+                  ? 'validateFailed'
+                  : 'validateSuccess'
+              }`,
+            ),
+            description: issueText || undefined,
+            variant:
+              validationResult?.valid === false ? 'destructive' : undefined,
+          });
+        } catch (err) {
+          toast({
+            title: t(
+              'module.billing.admin.providerPrices.toast.validateFailed',
+            ),
+            description: err instanceof Error ? err.message : undefined,
+            variant: 'destructive',
+          });
+        }
+      } else {
+        toast({
+          title: t('module.billing.admin.providerPrices.toast.createSuccess'),
+        });
+      }
       setDialogOpen(false);
       await mutate();
     } catch (err) {
@@ -467,20 +508,6 @@ export function AdminBillingProviderPricesPanel() {
 
   return (
     <>
-      <div className='mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4'>
-        {summaryItems.map(item => (
-          <div
-            key={item.key}
-            className='rounded-xl border border-border bg-white px-4 py-3 shadow-sm'
-          >
-            <div className='text-xs text-muted-foreground'>{item.label}</div>
-            <div className='mt-1 text-2xl font-semibold text-foreground'>
-              {item.value}
-            </div>
-          </div>
-        ))}
-      </div>
-
       <div className='mb-4 rounded-xl border border-border bg-white p-5 shadow-sm'>
         <div className='flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between'>
           <AdminFilter
@@ -535,21 +562,18 @@ export function AdminBillingProviderPricesPanel() {
         loading={isLoading && !data}
         isEmpty={!visibleProducts.length}
         emptyContent={t('module.billing.admin.providerPrices.empty')}
-        emptyColSpan={8}
+        emptyColSpan={7}
         containerClassName='min-h-0 flex-1'
         tableWrapperClassName='max-h-[calc(100vh-22rem)] overflow-auto'
         table={emptyRow => (
-          <Table className='min-w-[1080px] table-fixed'>
+          <Table className='min-w-[980px] table-fixed'>
             <TableHeader>
               <TableRow>
-                <TableHead className='w-[300px]'>
+                <TableHead className='w-[330px]'>
                   {t('module.billing.admin.providerPrices.table.product')}
                 </TableHead>
                 <TableHead className='w-[86px]'>
                   {t('module.billing.admin.providerPrices.table.productType')}
-                </TableHead>
-                <TableHead className='w-[112px]'>
-                  {t('module.billing.admin.providerPrices.table.benefit')}
                 </TableHead>
                 <TableHead className='w-[118px]'>
                   {t('module.billing.admin.providerPrices.table.localPrice')}
@@ -581,21 +605,27 @@ export function AdminBillingProviderPricesPanel() {
                   t,
                   product,
                 );
+                const productName = resolveAdminBillingProductName(
+                  t,
+                  product.display_name,
+                  product.product_code,
+                  {
+                    credits: formatBillingCreditAmount(product.credit_amount),
+                  },
+                );
+                const productShortBenefit = resolveProductShortBenefit(
+                  t,
+                  product,
+                );
+                const productDisplayName = productShortBenefit
+                  ? `${productName} ${productShortBenefit}`
+                  : productName;
                 return (
                   <TableRow key={product.product_bid}>
                     <TableCell className='align-top'>
                       <div className='space-y-2'>
                         <div className='font-medium text-foreground'>
-                          {resolveAdminBillingProductName(
-                            t,
-                            product.display_name,
-                            product.product_code,
-                            {
-                              credits: formatBillingCreditAmount(
-                                product.credit_amount,
-                              ),
-                            },
-                          )}
+                          {productDisplayName}
                         </div>
                         {productDescription ? (
                           <div className='line-clamp-2 text-xs text-muted-foreground'>
@@ -617,9 +647,6 @@ export function AdminBillingProviderPricesPanel() {
                               'module.billing.admin.providerPrices.productType.plan',
                             )}
                       </Badge>
-                    </TableCell>
-                    <TableCell className='align-top text-sm text-muted-foreground'>
-                      {resolveProductBenefit(t, product)}
                     </TableCell>
                     <TableCell className='align-top text-sm'>
                       {formatBillingPrice(
@@ -695,7 +722,7 @@ export function AdminBillingProviderPricesPanel() {
                                   `validate:${latestMapping.provider_price_bid}`
                                 }
                                 onSelect={() =>
-                                  runAction('validate', latestMapping)
+                                  requestAction('validate', latestMapping)
                                 }
                               >
                                 {t(
@@ -711,7 +738,11 @@ export function AdminBillingProviderPricesPanel() {
                                   `activate:${latestMapping.provider_price_bid}`
                                 }
                                 onSelect={() =>
-                                  runAction('activate', latestMapping)
+                                  requestAction(
+                                    'activate',
+                                    latestMapping,
+                                    productDisplayName,
+                                  )
                                 }
                               >
                                 {t(
@@ -727,7 +758,11 @@ export function AdminBillingProviderPricesPanel() {
                                   `retire:${activeMapping.provider_price_bid}`
                                 }
                                 onSelect={() =>
-                                  runAction('retire', activeMapping)
+                                  requestAction(
+                                    'retire',
+                                    activeMapping,
+                                    productDisplayName,
+                                  )
                                 }
                               >
                                 {t(
@@ -832,7 +867,7 @@ export function AdminBillingProviderPricesPanel() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       >
-        <DialogContent className='max-w-xl'>
+        <DialogContent className='sm:max-w-[560px]'>
           <DialogHeader>
             <DialogTitle>
               {t('module.billing.admin.providerPrices.dialog.title')}
@@ -891,7 +926,7 @@ export function AdminBillingProviderPricesPanel() {
               {t('module.billing.admin.providerPrices.dialog.autoDetectHint')}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className='mt-4 gap-2'>
             <Button
               type='button'
               variant='outline'
@@ -909,6 +944,57 @@ export function AdminBillingProviderPricesPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(confirmAction)}
+        onOpenChange={open => {
+          if (!open) {
+            setConfirmAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction
+                ? t(
+                    `module.billing.admin.providerPrices.actions.${confirmAction.action}`,
+                  )
+                : ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction
+                ? t(
+                    `module.billing.admin.providerPrices.confirm.${confirmAction.action}`,
+                    {
+                      productName:
+                        confirmAction.productName ||
+                        confirmAction.mapping.provider_price_id,
+                    },
+                  )
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t('module.billing.admin.providerPrices.actions.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={event => {
+                event.preventDefault();
+                if (!confirmAction) {
+                  return;
+                }
+                const pendingAction = confirmAction;
+                setConfirmAction(null);
+                void runAction(pendingAction.action, pendingAction.mapping);
+              }}
+            >
+              {t('common.core.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
