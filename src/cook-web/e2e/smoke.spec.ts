@@ -15,9 +15,6 @@ type NetworkEntry = {
   harnessRunId: string;
 };
 
-const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
-const DEFAULT_OTP = process.env.AI_SHIFU_TEST_OTP || '1024';
-const DEFAULT_CAPTCHA = process.env.AI_SHIFU_TEST_CAPTCHA || '0000';
 const DEFAULT_DEMO_SHIFU_BID =
   process.env.AI_SHIFU_DEMO_SHIFU_BID || 'b5d7844387e940ed9480a6f945a6db6a';
 const DEFAULT_GRAFANA_URL =
@@ -38,25 +35,6 @@ const createRequestId = (testInfo: TestInfo) =>
     .replace(/^-|-$/g, '')
     .slice(0, 32)}`;
 
-const ensurePhoneLoginVisible = async (page: Page) => {
-  const phoneInput = page.locator('#phone');
-  if (await phoneInput.isVisible()) {
-    return phoneInput;
-  }
-
-  const tabs = page.getByRole('tab');
-  const tabCount = await tabs.count();
-  for (let index = 0; index < tabCount; index += 1) {
-    await tabs.nth(index).click();
-    if (await phoneInput.isVisible().catch(() => false)) {
-      return phoneInput;
-    }
-  }
-
-  await expect(phoneInput).toBeVisible();
-  return phoneInput;
-};
-
 const buildObservabilityHints = (
   requestId: string,
   harnessRunId: string,
@@ -73,43 +51,6 @@ const buildObservabilityHints = (
     ? `python scripts/harness/trace_run.py --run-id ${harnessRunId} --request-id ${requestId} --browser-diagnostics ${diagnosticsPath}`
     : `python scripts/harness/trace_run.py --run-id ${harnessRunId} --request-id ${requestId}`,
 });
-
-const loginWithPhone = async (page: Page, redirectPath: string) => {
-  await page.goto(`/login?redirect=${encodeURIComponent(redirectPath)}`);
-  await expect(page.getByTestId('login-page')).toBeVisible();
-
-  const phoneInput = await ensurePhoneLoginVisible(page);
-  await phoneInput.fill(DEFAULT_PHONE);
-
-  const termsCheckbox = page.locator('#terms');
-  if (await termsCheckbox.isVisible()) {
-    await termsCheckbox.click();
-  }
-
-  const captchaInput = page.getByTestId('captcha-input');
-  await expect(captchaInput).toBeVisible();
-  await captchaInput.fill(DEFAULT_CAPTCHA);
-
-  const sendOtpButton = page
-    .locator('#otp')
-    .locator('xpath=ancestor::div[1]/following-sibling::button[1]');
-  await sendOtpButton.click();
-
-  const otpInput = page.locator('#otp');
-  if (
-    await page
-      .getByRole('alertdialog')
-      .isVisible()
-      .catch(() => false)
-  ) {
-    const buttons = page.getByRole('alertdialog').getByRole('button');
-    await buttons.last().click();
-  }
-
-  await expect(otpInput).toBeEnabled();
-  await otpInput.fill(DEFAULT_OTP);
-  await otpInput.press('Enter');
-};
 
 const waitForCourseData = async (page: Page, entries: NetworkEntry[]) => {
   if (
@@ -132,14 +73,45 @@ const waitForCourseData = async (page: Page, entries: NetworkEntry[]) => {
   );
 };
 
+const isAdminCourseResponse = (url: string) => {
+  const pathname = new URL(url).pathname;
+  return pathname.endsWith('/shifu/admin/operations/courses');
+};
+
+const waitForAdminCourseData = async (page: Page, entries: NetworkEntry[]) => {
+  if (
+    entries.some(
+      entry =>
+        entry.status !== null &&
+        entry.url.includes('/api/') &&
+        isAdminCourseResponse(entry.url),
+    )
+  ) {
+    return;
+  }
+
+  await page.waitForResponse(
+    response => isAdminCourseResponse(response.url()),
+    {
+      timeout: 20_000,
+    },
+  );
+};
+
+const expectNoServerErrors = (serverErrorEntries: NetworkEntry[]) => {
+  expect(serverErrorEntries).toEqual([]);
+};
+
 test.describe('agent-first smoke harness', () => {
   let consoleEntries: ConsoleEntry[] = [];
   let networkEntries: NetworkEntry[] = [];
+  let serverErrorEntries: NetworkEntry[] = [];
   let lastObservedRequestId = '';
 
   test.beforeEach(async ({ page }, testInfo) => {
     consoleEntries = [];
     networkEntries = [];
+    serverErrorEntries = [];
 
     const requestId = createRequestId(testInfo);
     lastObservedRequestId = requestId;
@@ -162,27 +134,25 @@ test.describe('agent-first smoke harness', () => {
       }
     });
 
-    page.on('response', async response => {
+    page.on('response', response => {
       const request = response.request();
-      let headers: Record<string, string> = {};
-      try {
-        headers = await request.allHeaders();
-      } catch {
-        // Response callbacks can still settle while Playwright is closing the page.
-        headers = {};
-      }
+      const headers = request.headers();
       const requestIdHeader = headers['x-request-id'];
       if (requestIdHeader) {
         lastObservedRequestId = requestIdHeader;
       }
-      networkEntries.push({
+      const entry = {
         method: request.method(),
         resourceType: request.resourceType(),
         status: response.status(),
         url: response.url(),
         requestId: requestIdHeader || lastObservedRequestId,
         harnessRunId: headers['x-harness-run-id'] || HARNESS_RUN_ID,
-      });
+      };
+      networkEntries.push(entry);
+      if (entry.url.includes('/api/') && entry.status >= 500) {
+        serverErrorEntries.push(entry);
+      }
       if (networkEntries.length > 60) {
         networkEntries = networkEntries.slice(-60);
       }
@@ -237,26 +207,24 @@ test.describe('agent-first smoke harness', () => {
     );
   });
 
-  test('login flow reaches the admin main flow', async ({ page }) => {
-    await loginWithPhone(page, '/admin/operations');
-    await page.waitForURL('**/admin/operations');
+  test('authenticated admin operations page loads without server errors', async ({
+    page,
+  }) => {
+    await page.goto('/admin/operations');
     await expect(page.getByTestId('admin-operations-page')).toBeVisible();
-  });
-
-  test('admin operations page loads', async ({ page }) => {
-    await loginWithPhone(page, '/admin/operations');
-    await page.waitForURL('**/admin/operations');
     await expect(page.getByTestId('admin-operations-header')).toBeVisible();
     await expect(page.getByTestId('admin-operations-filters')).toBeVisible();
+    await waitForAdminCourseData(page, networkEntries);
+    expectNoServerErrors(serverErrorEntries);
   });
 
-  test('learner chat shell renders and completes the first key request', async ({
+  test('learner course shell loads its first data request without server errors', async ({
     page,
   }) => {
     const coursePath = `/c/${DEFAULT_DEMO_SHIFU_BID}`;
-    await loginWithPhone(page, coursePath);
-    await page.waitForURL(`**${coursePath}`);
+    await page.goto(coursePath);
     await expect(page.getByTestId('course-chat-page')).toBeVisible();
     await waitForCourseData(page, networkEntries);
+    expectNoServerErrors(serverErrorEntries);
   });
 });
