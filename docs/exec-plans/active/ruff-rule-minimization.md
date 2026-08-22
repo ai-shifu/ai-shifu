@@ -256,6 +256,13 @@ plan's progress update for that rule.
   normalized AST audit found no executable differences; the D103 policy and
   Swagger regressions pass, followed by the full backend suite at 3,042 passed
   with 17 skipped and every applicable repository pre-commit gate.
+- [x] 2026-08-22: Prepared the D203 policy stage on
+  `sunner/ruff-d203-rebuild`, stacked on D103. The direct D203 census reports
+  730 formatter-fixable findings while selected D211 is clean, proving their
+  mutually exclusive class-docstring layouts. Ruff automatically ignores D203
+  when the D prefix selects both rules, so this stage removes the redundant
+  global ignore, documents the formatter-compatible D211 convention, and
+  protects the built-in resolution with a focused Ruff policy test.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

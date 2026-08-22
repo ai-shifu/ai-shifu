@@ -425,6 +425,14 @@ consumers before bulk work, prove executable AST equality after removing only
 the new function docstrings, and run focused Swagger or CLI regressions for the
 affected surfaces.
 
+For `D203`, retain `D211` and the Ruff formatter's class-docstring layout:
+place a class docstring immediately after the class definition, without a blank
+line. `D203` requires the inverse layout, and Ruff automatically ignores it
+when both incompatible rules are selected; do not add it to `ignore`. Do not
+insert a blank line before a class docstring, disable `D211`, or add a local
+`noqa` to work around the pair; use the formatter-compatible `D211` form for
+every new class.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,
