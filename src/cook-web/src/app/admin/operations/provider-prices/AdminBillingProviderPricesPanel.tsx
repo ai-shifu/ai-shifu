@@ -92,6 +92,12 @@ type ConfirmMappingAction = {
   productName: string;
 };
 
+type ProductMappingRow = {
+  key: string;
+  product: AdminBillingProviderPriceProduct;
+  mapping: AdminBillingProviderPriceMapping | null;
+};
+
 const DEFAULT_FORM: DraftMappingForm = {
   product_bid: '',
   provider_product_id: '',
@@ -109,18 +115,6 @@ function statusClass(status: string): string {
     return 'border-slate-200 bg-slate-100 text-slate-600';
   }
   return 'border-amber-200 bg-amber-50 text-amber-700';
-}
-
-function resolveProductStatus(
-  mapping?: AdminBillingProviderPriceMapping | null,
-): string {
-  if (!mapping) {
-    return 'missing';
-  }
-  if (mapping.status_label === 'active' && !mapping.validation_error) {
-    return 'active';
-  }
-  return String(mapping.status_label || 'missing');
 }
 
 function resolveIssueLabel(
@@ -234,6 +228,29 @@ function buildProductOptionLabel(
   return shortBenefit ? `${productName} ${shortBenefit}` : productName;
 }
 
+function getMappingStatus(
+  mapping: AdminBillingProviderPriceMapping | null,
+): string {
+  return mapping?.status_label || 'missing';
+}
+
+function getActiveProductMapping(
+  mappings: AdminBillingProviderPriceMapping[],
+): AdminBillingProviderPriceMapping | null {
+  return mappings.find(mapping => mapping.status_label === 'active') || null;
+}
+
+function formatMappingScope(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  mapping: AdminBillingProviderPriceMapping,
+): string {
+  const mode = t(
+    `module.billing.admin.providerPrices.environment.${mapping.livemode ? 'live' : 'test'}`,
+  );
+  const account = String(mapping.provider_account_id || '').trim();
+  return account ? `${mode} · ${account}` : mode;
+}
+
 export function AdminBillingProviderPricesPanel() {
   const { t, i18n } = useTranslation();
   const [productFilter, setProductFilter] = React.useState(ALL_PRODUCTS);
@@ -267,29 +284,39 @@ export function AdminBillingProviderPricesPanel() {
       ),
     [products],
   );
-  const visibleProducts = React.useMemo(() => {
-    return products.filter(product => {
+  const visibleRows = React.useMemo<ProductMappingRow[]>(() => {
+    return products.flatMap<ProductMappingRow>(product => {
       if (
         productFilter !== ALL_PRODUCTS &&
         product.product_bid !== productFilter
       ) {
-        return false;
+        return [];
       }
-      if (statusFilter === ALL_STATUSES) {
-        return true;
+      const mappings = data?.history_by_product?.[product.product_bid] || [];
+      if (!mappings.length) {
+        return statusFilter === ALL_STATUSES || statusFilter === 'missing'
+          ? [
+              {
+                key: `${product.product_bid}:missing`,
+                product,
+                mapping: null,
+              },
+            ]
+          : [];
       }
-      const activeMapping = data?.active_by_product?.[product.product_bid];
-      const latestMapping =
-        activeMapping || data?.history_by_product?.[product.product_bid]?.[0];
-      return latestMapping?.status_label === statusFilter;
+      return mappings
+        .filter(
+          mapping =>
+            statusFilter === ALL_STATUSES ||
+            mapping.status_label === statusFilter,
+        )
+        .map(mapping => ({
+          key: mapping.provider_price_bid,
+          product,
+          mapping,
+        }));
     });
-  }, [
-    data?.active_by_product,
-    data?.history_by_product,
-    productFilter,
-    products,
-    statusFilter,
-  ]);
+  }, [data?.history_by_product, productFilter, products, statusFilter]);
 
   const resetFilters = React.useCallback(() => {
     setProductFilter(ALL_PRODUCTS);
@@ -297,18 +324,22 @@ export function AdminBillingProviderPricesPanel() {
   }, []);
 
   const openConfigDialog = React.useCallback(
-    (product?: AdminBillingProviderPriceProduct) => {
-      const activeMapping = product
-        ? data?.active_by_product?.[product.product_bid]
-        : null;
+    (
+      product?: AdminBillingProviderPriceProduct,
+      mapping?: AdminBillingProviderPriceMapping | null,
+    ) => {
+      const productMappings = product
+        ? data?.history_by_product?.[product.product_bid] || []
+        : [];
+      const sourceMapping = mapping || getActiveProductMapping(productMappings);
       setForm({
         product_bid: product?.product_bid || '',
-        provider_product_id: activeMapping?.provider_product_id || '',
-        provider_price_id: activeMapping?.provider_price_id || '',
+        provider_product_id: sourceMapping?.provider_product_id || '',
+        provider_price_id: sourceMapping?.provider_price_id || '',
       });
       setDialogOpen(true);
     },
-    [data?.active_by_product],
+    [data?.history_by_product],
   );
 
   const runAction = React.useCallback(
@@ -489,14 +520,16 @@ export function AdminBillingProviderPricesPanel() {
               <SelectItem value={ALL_STATUSES}>
                 {t('module.billing.admin.providerPrices.status.all')}
               </SelectItem>
-              {['draft', 'active', 'invalid', 'retired'].map(status => (
-                <SelectItem
-                  key={status}
-                  value={status}
-                >
-                  {t(`module.billing.admin.providerPrices.status.${status}`)}
-                </SelectItem>
-              ))}
+              {['missing', 'draft', 'active', 'invalid', 'retired'].map(
+                status => (
+                  <SelectItem
+                    key={status}
+                    value={status}
+                  >
+                    {t(`module.billing.admin.providerPrices.status.${status}`)}
+                  </SelectItem>
+                ),
+              )}
             </SelectContent>
           </Select>
         ),
@@ -560,7 +593,7 @@ export function AdminBillingProviderPricesPanel() {
 
       <AdminTableShell
         loading={isLoading && !data}
-        isEmpty={!visibleProducts.length}
+        isEmpty={!visibleRows.length}
         emptyContent={t('module.billing.admin.providerPrices.empty')}
         emptyColSpan={7}
         containerClassName='min-h-0 flex-1'
@@ -594,13 +627,8 @@ export function AdminBillingProviderPricesPanel() {
             </TableHeader>
             <TableBody>
               {emptyRow}
-              {visibleProducts.map(product => {
-                const activeMapping =
-                  data?.active_by_product?.[product.product_bid];
-                const history =
-                  data?.history_by_product?.[product.product_bid] || [];
-                const latestMapping = activeMapping || history[0] || null;
-                const status = resolveProductStatus(latestMapping);
+              {visibleRows.map(({ key, product, mapping }) => {
+                const status = getMappingStatus(mapping);
                 const productDescription = resolveProductDescription(
                   t,
                   product,
@@ -620,8 +648,12 @@ export function AdminBillingProviderPricesPanel() {
                 const productDisplayName = productShortBenefit
                   ? `${productName} ${productShortBenefit}`
                   : productName;
+                const canActivateMapping =
+                  mapping &&
+                  (mapping.status_label === 'draft' ||
+                    mapping.status_label === 'invalid');
                 return (
-                  <TableRow key={product.product_bid}>
+                  <TableRow key={key}>
                     <TableCell className='align-top'>
                       <div className='space-y-2'>
                         <div className='font-medium text-foreground'>
@@ -656,14 +688,17 @@ export function AdminBillingProviderPricesPanel() {
                       )}
                     </TableCell>
                     <TableCell className='align-top text-sm'>
-                      {latestMapping ? (
+                      {mapping ? (
                         <div className='space-y-1'>
                           <div className='font-medium text-foreground'>
                             {formatBillingPrice(
-                              latestMapping.unit_amount,
-                              latestMapping.currency,
+                              mapping.unit_amount,
+                              mapping.currency,
                               i18n.language,
                             )}
+                          </div>
+                          <div className='break-all text-xs text-muted-foreground'>
+                            {mapping.provider_price_id}
                           </div>
                         </div>
                       ) : (
@@ -673,19 +708,26 @@ export function AdminBillingProviderPricesPanel() {
                       )}
                     </TableCell>
                     <TableCell className='align-top'>
-                      <Badge
-                        variant='outline'
-                        className={statusClass(status)}
-                      >
-                        {t(
-                          `module.billing.admin.providerPrices.health.${status}`,
-                        )}
-                      </Badge>
+                      <div className='space-y-1.5'>
+                        <Badge
+                          variant='outline'
+                          className={statusClass(status)}
+                        >
+                          {t(
+                            `module.billing.admin.providerPrices.health.${status}`,
+                          )}
+                        </Badge>
+                        {mapping ? (
+                          <div className='break-all text-xs text-muted-foreground'>
+                            {formatMappingScope(t, mapping)}
+                          </div>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className='align-top text-sm text-muted-foreground'>
-                      {latestMapping?.validated_at
+                      {mapping?.validated_at
                         ? formatBillingDateTime(
-                            latestMapping.validated_at,
+                            mapping.validated_at,
                             i18n.language,
                           )
                         : resolveBillingEmptyLabel(t)}
@@ -709,20 +751,22 @@ export function AdminBillingProviderPricesPanel() {
                             className='min-w-[132px]'
                           >
                             <DropdownMenuItem
-                              onSelect={() => openConfigDialog(product)}
+                              onSelect={() =>
+                                openConfigDialog(product, mapping)
+                              }
                             >
                               {t(
                                 'module.billing.admin.providerPrices.actions.configure',
                               )}
                             </DropdownMenuItem>
-                            {latestMapping ? (
+                            {mapping && mapping.status_label !== 'retired' ? (
                               <DropdownMenuItem
                                 disabled={
                                   actionLoading ===
-                                  `validate:${latestMapping.provider_price_bid}`
+                                  `validate:${mapping.provider_price_bid}`
                                 }
                                 onSelect={() =>
-                                  requestAction('validate', latestMapping)
+                                  requestAction('validate', mapping)
                                 }
                               >
                                 {t(
@@ -730,17 +774,16 @@ export function AdminBillingProviderPricesPanel() {
                                 )}
                               </DropdownMenuItem>
                             ) : null}
-                            {latestMapping &&
-                            latestMapping.status_label !== 'active' ? (
+                            {canActivateMapping ? (
                               <DropdownMenuItem
                                 disabled={
                                   actionLoading ===
-                                  `activate:${latestMapping.provider_price_bid}`
+                                  `activate:${mapping.provider_price_bid}`
                                 }
                                 onSelect={() =>
                                   requestAction(
                                     'activate',
-                                    latestMapping,
+                                    mapping,
                                     productDisplayName,
                                   )
                                 }
@@ -750,17 +793,17 @@ export function AdminBillingProviderPricesPanel() {
                                 )}
                               </DropdownMenuItem>
                             ) : null}
-                            {activeMapping ? (
+                            {mapping?.status_label === 'active' ? (
                               <DropdownMenuItem
                                 className='text-destructive focus:text-destructive'
                                 disabled={
                                   actionLoading ===
-                                  `retire:${activeMapping.provider_price_bid}`
+                                  `retire:${mapping.provider_price_bid}`
                                 }
                                 onSelect={() =>
                                   requestAction(
                                     'retire',
-                                    activeMapping,
+                                    mapping,
                                     productDisplayName,
                                   )
                                 }
@@ -770,9 +813,9 @@ export function AdminBillingProviderPricesPanel() {
                                 )}
                               </DropdownMenuItem>
                             ) : null}
-                            {latestMapping?.validation_error ? (
+                            {mapping?.validation_error ? (
                               <DropdownMenuItem
-                                onSelect={() => setIssueMapping(latestMapping)}
+                                onSelect={() => setIssueMapping(mapping)}
                               >
                                 {t(
                                   'module.billing.admin.providerPrices.actions.viewIssues',

@@ -173,19 +173,27 @@ const MainInterface = ({
   const paymentChannels = useEnvStore(
     (state: EnvStoreState) => state.paymentChannels,
   );
+  const billingEnabled = useEnvStore(
+    (state: EnvStoreState) => state.billingEnabled === 'true',
+  );
+  const stripeEnabled = useEnvStore(
+    (state: EnvStoreState) => state.stripeEnabled === 'true',
+  );
   const normalizedPaymentChannels = useMemo(
     () => (Array.isArray(paymentChannels) ? paymentChannels : []),
     [paymentChannels],
   );
   const showPackageManagement = useMemo(
     () =>
+      billingEnabled &&
+      stripeEnabled &&
       normalizedPaymentChannels.some(
         channel =>
           String(channel || '')
             .trim()
             .toLowerCase() === 'stripe',
       ),
-    [normalizedPaymentChannels],
+    [billingEnabled, normalizedPaymentChannels, stripeEnabled],
   );
 
   const menuItems = useMemo(
@@ -204,9 +212,6 @@ const MainInterface = ({
     isLoading: billingOverviewLoading,
     mutate: mutateBillingOverview,
   } = useBillingOverview();
-  const billingEnabled = useEnvStore(
-    (state: EnvStoreState) => state.billingEnabled === 'true',
-  );
   const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
     useCreatorOnboardingStatus(menuReady);
   const adminHomeSceneStatus = onboardingStatus?.scenes.admin_home_onboarding;

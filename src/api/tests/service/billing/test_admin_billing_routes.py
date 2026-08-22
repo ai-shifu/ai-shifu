@@ -1613,9 +1613,9 @@ class TestAdminBillingRoutes:
         product_bids = {item["product_bid"] for item in payload["data"]["products"]}
         assert "bill-product-plan-monthly" in product_bids
         assert (
-            payload["data"]["active_by_product"]["bill-product-plan-monthly"][
-                "provider_price_id"
-            ]
+            payload["data"]["active_by_scope"][
+                "bill-product-plan-monthly:stripe:acct_test:test"
+            ]["provider_price_id"]
             == "price_plan_month"
         )
         assert (

@@ -189,6 +189,10 @@
         "title": "Configurer le prix de paiement"
       },
       "empty": "Aucune offre ou recharge disponible pour configuration.",
+      "environment": {
+        "live": "Live",
+        "test": "Test"
+      },
       "fields": {
         "priceId": "ID prix Stripe",
         "product": "Produit",
@@ -254,6 +258,8 @@
         "provider_price_unit_amount_missing": "Le prix Stripe n’a pas de montant fixe",
         "provider_product_inactive": "Le produit Stripe est inactif",
         "provider_product_mismatch": "L’ID produit Stripe ne correspond pas à cet article",
+        "retired_mapping_cannot_be_activated": "Un prix retiré ne peut pas être remis en ligne",
+        "retired_mapping_cannot_be_validated": "Un prix retiré ne peut pas être revérifié",
         "stripe_catalog_reference_missing": "ID produit ou prix Stripe manquant",
         "stripe_catalog_retrieve_failed": "Impossible de lire le produit ou le prix dans Stripe",
         "topup_requires_one_time_price": "Les packs crédits doivent utiliser un prix Stripe unique",
@@ -275,6 +281,7 @@
         "all": "Tous les statuts",
         "draft": "Brouillon",
         "invalid": "Invalide",
+        "missing": "Non configuré",
         "retired": "Retiré"
       },
       "table": {

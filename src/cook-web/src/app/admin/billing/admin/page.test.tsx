@@ -180,7 +180,7 @@ describe('AdminBillingOperationsConsole', () => {
         },
       ],
       mappings: [],
-      active_by_product: {},
+      active_by_scope: {},
       history_by_product: {},
       status_options: [],
     });

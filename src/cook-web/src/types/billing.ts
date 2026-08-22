@@ -23,7 +23,8 @@ export type AdminBillingProviderPriceStatus =
   | 'draft'
   | 'active'
   | 'retired'
-  | 'invalid';
+  | 'invalid'
+  | 'missing';
 
 export type AdminBillingProviderPriceProduct = {
   product_bid: string;
@@ -65,7 +66,7 @@ export type AdminBillingProviderPriceMapping = {
 export type AdminBillingProviderPricesPage = {
   products: AdminBillingProviderPriceProduct[];
   mappings: AdminBillingProviderPriceMapping[];
-  active_by_product: Record<string, AdminBillingProviderPriceMapping>;
+  active_by_scope: Record<string, AdminBillingProviderPriceMapping>;
   history_by_product: Record<string, AdminBillingProviderPriceMapping[]>;
   status_options: Array<{
     value: AdminBillingProviderPriceStatus | string;

@@ -189,6 +189,10 @@
         "title": "配置收款价格"
       },
       "empty": "暂无可配置的套餐或积分包。",
+      "environment": {
+        "live": "正式",
+        "test": "测试"
+      },
       "fields": {
         "priceId": "Stripe 价格 ID",
         "product": "商品",
@@ -254,6 +258,8 @@
         "provider_price_unit_amount_missing": "Stripe 价格缺少固定金额",
         "provider_product_inactive": "Stripe 商品已停用",
         "provider_product_mismatch": "Stripe 商品 ID 与当前配置不一致",
+        "retired_mapping_cannot_be_activated": "已下架价格不能重新上架",
+        "retired_mapping_cannot_be_validated": "已下架价格不能重新校验",
         "stripe_catalog_reference_missing": "缺少 Stripe 商品 ID 或价格 ID",
         "stripe_catalog_retrieve_failed": "无法从 Stripe 读取商品或价格",
         "topup_requires_one_time_price": "积分包必须绑定 Stripe 一次性价格",
@@ -275,6 +281,7 @@
         "all": "全部状态",
         "draft": "待启用",
         "invalid": "校验失败",
+        "missing": "未配置",
         "retired": "已下架"
       },
       "table": {

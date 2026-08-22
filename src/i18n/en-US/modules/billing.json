@@ -189,6 +189,10 @@
         "title": "Configure payment price"
       },
       "empty": "No plans or credit packs are available for configuration.",
+      "environment": {
+        "live": "Live",
+        "test": "Test"
+      },
       "fields": {
         "priceId": "Stripe price ID",
         "product": "Product",
@@ -254,6 +258,8 @@
         "provider_price_unit_amount_missing": "Stripe price is missing a fixed amount",
         "provider_product_inactive": "Stripe product is inactive",
         "provider_product_mismatch": "Stripe product ID does not match this item",
+        "retired_mapping_cannot_be_activated": "Unlisted prices cannot be listed again",
+        "retired_mapping_cannot_be_validated": "Unlisted prices cannot be validated again",
         "stripe_catalog_reference_missing": "Stripe product ID or price ID is missing",
         "stripe_catalog_retrieve_failed": "Unable to read the product or price from Stripe",
         "topup_requires_one_time_price": "Credit packs must use a one-time Stripe price",
@@ -275,6 +281,7 @@
         "all": "All statuses",
         "draft": "Draft",
         "invalid": "Invalid",
+        "missing": "Missing",
         "retired": "Unlisted"
       },
       "table": {

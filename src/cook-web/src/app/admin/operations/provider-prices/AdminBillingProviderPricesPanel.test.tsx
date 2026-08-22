@@ -168,6 +168,8 @@ const mockCreateAdminBillingProviderPrice =
   api.createAdminBillingProviderPrice as jest.Mock;
 const mockValidateAdminBillingProviderPrice =
   api.validateAdminBillingProviderPrice as jest.Mock;
+const mockActivateAdminBillingProviderPrice =
+  api.activateAdminBillingProviderPrice as jest.Mock;
 const mockRetireAdminBillingProviderPrice =
   api.retireAdminBillingProviderPrice as jest.Mock;
 
@@ -184,6 +186,7 @@ describe('AdminBillingProviderPricesPanel', () => {
     mockGetAdminBillingProviderPrices.mockReset();
     mockCreateAdminBillingProviderPrice.mockReset();
     mockValidateAdminBillingProviderPrice.mockReset();
+    mockActivateAdminBillingProviderPrice.mockReset();
     mockRetireAdminBillingProviderPrice.mockReset();
     mockGetAdminBillingProviderPrices.mockResolvedValue({
       products: [
@@ -203,7 +206,7 @@ describe('AdminBillingProviderPricesPanel', () => {
         },
       ],
       mappings: [],
-      active_by_product: {},
+      active_by_scope: {},
       history_by_product: {},
       status_options: [],
     });
@@ -214,6 +217,12 @@ describe('AdminBillingProviderPricesPanel', () => {
       },
     });
     mockValidateAdminBillingProviderPrice.mockResolvedValue({
+      valid: true,
+      errors: [],
+      warnings: [],
+      mapping: null,
+    });
+    mockActivateAdminBillingProviderPrice.mockResolvedValue({
       valid: true,
       errors: [],
       warnings: [],
@@ -257,14 +266,113 @@ describe('AdminBillingProviderPricesPanel', () => {
         provider_product_id: 'prod_V6Dk7DvFyxIfOI',
         provider_price_id: 'price_1U61JKJC2CFSg110ua1P6afH',
       });
+      expect(mockValidateAdminBillingProviderPrice).toHaveBeenCalledWith({
+        provider_price_bid: 'provider-price-1',
+      });
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.billing.admin.providerPrices.toast.validateSuccess',
+        description: undefined,
+        variant: undefined,
+      });
     });
-    expect(mockValidateAdminBillingProviderPrice).toHaveBeenCalledWith({
-      provider_price_bid: 'provider-price-1',
+  });
+
+  test('keeps a draft price visible when the product already has an active price', async () => {
+    mockGetAdminBillingProviderPrices.mockResolvedValue({
+      products: [
+        {
+          product_bid: 'bill-product-global-scale-monthly',
+          product_code: 'creator-global-scale-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.scale.title',
+          description: '',
+          currency: 'USD',
+          price_amount: 9900,
+          credit_amount: 100,
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          plan_tier: 'scale',
+          sort_order: 10,
+        },
+      ],
+      mappings: [],
+      active_by_scope: {
+        'bill-product-global-scale-monthly:stripe:acct_1:test': {
+          provider_price_bid: 'provider-price-active',
+          product_bid: 'bill-product-global-scale-monthly',
+          provider: 'stripe',
+          provider_account_id: 'acct_1',
+          provider_product_id: 'prod_active',
+          provider_price_id: 'price_active',
+          livemode: false,
+          currency: 'USD',
+          unit_amount: 9900,
+          billing_mode: 0,
+          billing_interval: 0,
+          billing_interval_count: 1,
+          status: 0,
+          status_label: 'active',
+        },
+      },
+      history_by_product: {
+        'bill-product-global-scale-monthly': [
+          {
+            provider_price_bid: 'provider-price-draft',
+            product_bid: 'bill-product-global-scale-monthly',
+            provider: 'stripe',
+            provider_account_id: 'acct_1',
+            provider_product_id: 'prod_draft',
+            provider_price_id: 'price_draft',
+            livemode: false,
+            currency: 'USD',
+            unit_amount: 9900,
+            billing_mode: 0,
+            billing_interval: 0,
+            billing_interval_count: 1,
+            status: 0,
+            status_label: 'draft',
+          },
+          {
+            provider_price_bid: 'provider-price-active',
+            product_bid: 'bill-product-global-scale-monthly',
+            provider: 'stripe',
+            provider_account_id: 'acct_1',
+            provider_product_id: 'prod_active',
+            provider_price_id: 'price_active',
+            livemode: false,
+            currency: 'USD',
+            unit_amount: 9900,
+            billing_mode: 0,
+            billing_interval: 0,
+            billing_interval_count: 1,
+            status: 0,
+            status_label: 'active',
+          },
+        ],
+      },
+      status_options: [],
     });
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.billing.admin.providerPrices.toast.validateSuccess',
-      description: undefined,
-      variant: undefined,
+
+    renderPanel();
+
+    expect(await screen.findByText('price_draft')).toBeInTheDocument();
+    expect(screen.getByText('price_active')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.billing.admin.providerPrices.actions.activate',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockActivateAdminBillingProviderPrice).toHaveBeenCalledWith({
+        provider_price_bid: 'provider-price-draft',
+      });
     });
   });
 
@@ -288,8 +396,8 @@ describe('AdminBillingProviderPricesPanel', () => {
         },
       ],
       mappings: [],
-      active_by_product: {
-        'bill-product-global-scale-monthly': {
+      active_by_scope: {
+        'bill-product-global-scale-monthly:stripe:acct_1:test': {
           provider_price_bid: 'provider-price-active',
           product_bid: 'bill-product-global-scale-monthly',
           provider: 'stripe',
@@ -306,7 +414,26 @@ describe('AdminBillingProviderPricesPanel', () => {
           status_label: 'active',
         },
       },
-      history_by_product: {},
+      history_by_product: {
+        'bill-product-global-scale-monthly': [
+          {
+            provider_price_bid: 'provider-price-active',
+            product_bid: 'bill-product-global-scale-monthly',
+            provider: 'stripe',
+            provider_account_id: 'acct_1',
+            provider_product_id: 'prod_1',
+            provider_price_id: 'price_1',
+            livemode: false,
+            currency: 'USD',
+            unit_amount: 9900,
+            billing_mode: 0,
+            billing_interval: 0,
+            billing_interval_count: 1,
+            status: 0,
+            status_label: 'active',
+          },
+        ],
+      },
       status_options: [],
     });
 

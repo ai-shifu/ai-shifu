@@ -238,6 +238,72 @@ def test_provider_price_mapping_rejects_retired_rebind(app) -> None:
         assert mapping.provider_product_id == "prod_growth"
 
 
+def test_provider_price_validate_keeps_retired_mapping_terminal(app) -> None:
+    product_bid = "bill-product-mapping-validate-retired"
+    with app.app_context():
+        product = _product(product_bid)
+        db.session.add(product)
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_validate_retired",
+        )
+        retired_at = now_utc()
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        mapping.retired_at = retired_at
+        mapping.validation_error = ""
+        db.session.commit()
+
+        result = validate_provider_price_mapping_by_bid(
+            mapping.provider_price_bid,
+            adapter=_FakeStripeCatalogAdapter(
+                _snapshot(
+                    price_id="price_validate_retired",
+                    unit_amount=6900,
+                    product_code=product.product_code,
+                )
+            ),
+        )
+        db.session.commit()
+
+        assert result.valid is False
+        assert {issue["code"] for issue in result.errors} == {
+            "retired_mapping_cannot_be_validated"
+        }
+        assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        assert mapping.retired_at == retired_at
+        assert mapping.validation_error == ""
+
+
+def test_provider_price_activation_rejects_retired_mapping(app) -> None:
+    product_bid = "bill-product-mapping-activate-retired"
+    with app.app_context():
+        product = _product(product_bid)
+        db.session.add(product)
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_activate_retired",
+        )
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        mapping.retired_at = now_utc()
+        db.session.commit()
+
+        with pytest.raises(ProviderPriceMappingError) as exc_info:
+            activate_provider_price_mapping(
+                mapping.provider_price_bid,
+                adapter=_FakeStripeCatalogAdapter(
+                    _snapshot(
+                        price_id="price_activate_retired",
+                        product_code=product.product_code,
+                    )
+                ),
+            )
+
+        assert exc_info.value.code == "retired_mapping_cannot_be_activated"
+        assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_RETIRED
+
+
 def test_provider_price_mapping_rejects_rebinding_price_to_different_product(
     app,
 ) -> None:

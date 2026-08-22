@@ -109,7 +109,6 @@ def list_provider_price_mappings(
         query = query.filter(BillingProductProviderPrice.status == int(status))
     return query.order_by(
         BillingProductProviderPrice.product_bid.asc(),
-        BillingProductProviderPrice.status.asc(),
         BillingProductProviderPrice.updated_at.desc(),
         BillingProductProviderPrice.id.desc(),
     ).all()
@@ -281,6 +280,18 @@ def validate_provider_price_mapping_by_bid(
     adapter: StripeCatalogReadAdapter | None = None,
 ) -> ProviderPriceMappingValidationSummary:
     mapping = _load_mapping(provider_price_bid)
+    if int(mapping.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        return ProviderPriceMappingValidationSummary(
+            valid=False,
+            errors=[
+                {
+                    "code": "retired_mapping_cannot_be_validated",
+                    "message": "Retired provider price mappings cannot be validated",
+                }
+            ],
+            warnings=[],
+            mapping=serialize_provider_price_mapping(mapping),
+        )
     summary, snapshot = validate_provider_price_mapping_row(mapping, adapter=adapter)
     _apply_validation_result(mapping, summary, snapshot)
     db.session.flush()
@@ -294,6 +305,12 @@ def activate_provider_price_mapping(
     adapter: StripeCatalogReadAdapter | None = None,
 ) -> ProviderPriceMappingValidationSummary:
     mapping = _load_mapping(provider_price_bid)
+    if int(mapping.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        raise ProviderPriceMappingError(
+            "retired_mapping_cannot_be_activated",
+            "Retired provider price mappings cannot be activated",
+            {"provider_price_bid": mapping.provider_price_bid},
+        )
     summary, snapshot = validate_provider_price_mapping_row(mapping, adapter=adapter)
     if not summary.valid:
         mapping.validated_at = now_utc()

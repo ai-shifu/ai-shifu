@@ -60,7 +60,7 @@ def build_admin_billing_provider_prices_page(
             for row in mappings
             if row.product_bid in product_bid_set or normalize_bid(product_bid)
         ]
-        active_by_product: dict[str, dict[str, Any]] = {}
+        active_by_scope: dict[str, dict[str, Any]] = {}
         history_by_product: dict[str, list[dict[str, Any]]] = {}
         for mapping in visible_mappings:
             if not mapping:
@@ -68,18 +68,30 @@ def build_admin_billing_provider_prices_page(
             product_key = str(mapping.get("product_bid") or "")
             history_by_product.setdefault(product_key, []).append(mapping)
             if mapping.get("status_label") == "active":
-                active_by_product[product_key] = mapping
+                active_by_scope[_provider_price_mapping_scope_key(mapping)] = mapping
 
         return {
             "products": products,
             "mappings": visible_mappings,
-            "active_by_product": active_by_product,
+            "active_by_scope": active_by_scope,
             "history_by_product": history_by_product,
             "status_options": [
                 {"value": label, "code": code}
                 for code, label in BILLING_PROVIDER_PRICE_STATUS_LABELS.items()
             ],
         }
+
+
+def _provider_price_mapping_scope_key(mapping: dict[str, Any]) -> str:
+    livemode = "live" if mapping.get("livemode") else "test"
+    return ":".join(
+        [
+            str(mapping.get("product_bid") or ""),
+            str(mapping.get("provider") or ""),
+            str(mapping.get("provider_account_id") or ""),
+            livemode,
+        ]
+    )
 
 
 def create_admin_billing_provider_price_mapping(
