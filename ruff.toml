@@ -273,6 +273,11 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # treats generated migration code as immutable history, so later Ruff
 # adoption must not require rewriting any revision in this directory.
 "src/api/migrations/versions/**" = ["ALL"]
+# These trees are input fixtures for check_architecture_boundaries.py, not
+# importable code. Their deliberately minimal functions model boundary inputs.
+"scripts/testdata/**" = ["D103", "INP001"]
+"scripts/test_*.py" = ["D102", "D103", "S101"]
+"scripts/check_example_identifiers.py" = ["S101"]
 # Developer scripts and the backend inventory/harness tooling are console
 # programs: printing to stdout is their interface.
 "scripts/**" = ["S603", "S607", "T20"]
