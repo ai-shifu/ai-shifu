@@ -261,6 +261,10 @@ plan's progress update for that rule.
   confirmed by the maintainers, treats every Alembic-generated revision as
   immutable history, including subsequently generated revisions; later Ruff
   adoption must never require rewriting migration code.
+- [x] 2026-08-22: Enabled ANN001 in a dedicated stack unit and added parameter
+  annotations for repository-owned callables. The generated migration directory
+  remains governed solely by the confirmed directory-level `ALL` policy; Ruff,
+  format, and focused annotation-contract validation pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
