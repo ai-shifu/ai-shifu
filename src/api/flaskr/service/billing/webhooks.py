@@ -116,7 +116,7 @@ class BillingWebhookResult:
     charge_id: str | None = None
     order_no: str | None = None
 
-    def to_response_dict(self: object) -> dict[str, Any]:
+    def to_response_dict(self: object) -> dict[str, object]:
         """Serialize this result for an API response."""
         payload = {
             "status": self.status,
@@ -131,11 +131,11 @@ class BillingWebhookResult:
             payload["message"] = self.message
         return payload
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self: object, key: str) -> object:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 
-    def __iter__(self: object) -> Iterator[Any]:
+    def __iter__(self: object) -> Iterator[object]:
         """Yield the response payload and status code for unpacking."""
         yield self.to_response_dict()
         yield self.status_code
@@ -323,7 +323,7 @@ def apply_billing_stripe_notification(
 
 def handle_billing_pingxx_webhook(
     app: Flask,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingWebhookResult:
     """Handle Pingxx billing callbacks using the shared billing state machine."""
     event_type = str((payload or {}).get("type", "") or "")
@@ -409,7 +409,7 @@ def handle_billing_pingxx_webhook(
 
 def handle_billing_alipay_webhook(
     app: Flask,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingWebhookResult:
     """Handle billing alipay webhook."""
     provider = get_payment_provider("alipay")
@@ -530,7 +530,7 @@ def apply_billing_native_notification(
         )
 
 
-def _native_target_status(provider: str, payload: dict[str, Any]) -> int | None:
+def _native_target_status(provider: str, payload: dict[str, object]) -> int | None:
     return _BILLING_STATUS_BY_NATIVE_STATE.get(
         resolve_native_payment_state(provider, payload)
     )
@@ -552,7 +552,7 @@ def _native_raw_snapshot_status(
     return 0
 
 
-def _extract_native_amount(provider: str, payload: dict[str, Any]) -> int | None:
+def _extract_native_amount(provider: str, payload: dict[str, object]) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
         value = (

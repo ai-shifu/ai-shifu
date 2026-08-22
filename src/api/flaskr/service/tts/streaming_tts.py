@@ -287,7 +287,7 @@ class StreamingTTSProcessor:
         tts_model: str = "",
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: dict[str, Any] | None = None,
+        av_contract: dict[str, object] | None = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ) -> None:
         """Initialize configuration and buffered synthesis state for one TTS block.
@@ -793,7 +793,7 @@ class StreamingTTSProcessor:
         audio_data: bytes,
         duration_ms: int,
         is_final: bool = False,
-        subtitle_cues: list[dict[str, Any]] | None = None,
+        subtitle_cues: list[dict[str, object]] | None = None,
     ) -> RunMarkdownFlowDTO:
         base64_audio = base64.b64encode(audio_data).decode("utf-8")
         return RunMarkdownFlowDTO(
@@ -820,7 +820,7 @@ class StreamingTTSProcessor:
         duration_ms: int,
         offset_ms: int,
         segment_text: str,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         raw_cues = normalize_subtitle_cues(
             self._segment_subtitle_cues.get(segment_index) or []
         )
@@ -875,7 +875,7 @@ class StreamingTTSProcessor:
 
     def _build_segment_subtitle_cues(
         self: object, all_segments: list[tuple]
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         subtitle_cues: list[dict[str, Any]] = []
         for segment_index, _audio_data, duration_ms, segment_text in all_segments:
             provider_cues = self._build_provider_segment_subtitle_cues(
@@ -937,7 +937,7 @@ class StreamingTTSProcessor:
         return parts
 
     @staticmethod
-    def _minimax_subtitle_text(raw_item: dict[str, Any]) -> str:
+    def _minimax_subtitle_text(raw_item: dict[str, object]) -> str:
         for key in ("text", "content", "sentence"):
             text = str(raw_item.get(key, "") or "").strip()
             if text:
@@ -946,7 +946,7 @@ class StreamingTTSProcessor:
 
     @staticmethod
     def _minimax_subtitle_time_ms(
-        raw_item: dict[str, Any],
+        raw_item: dict[str, object],
         keys: tuple[str, ...],
         *,
         default_ms: int = 0,
@@ -965,7 +965,7 @@ class StreamingTTSProcessor:
 
     @classmethod
     def _minimax_raw_subtitle_key(
-        cls: object, raw_item: dict[str, Any]
+        cls: object, raw_item: dict[str, object]
     ) -> tuple[str, int]:
         text = cls._minimax_subtitle_text(raw_item)
         start_ms = cls._minimax_subtitle_time_ms(
@@ -976,8 +976,8 @@ class StreamingTTSProcessor:
 
     def _extend_unique_minimax_subtitles(
         self: object,
-        target: list[dict[str, Any]],
-        incoming: list[dict[str, Any]],
+        target: list[dict[str, object]],
+        incoming: list[dict[str, object]],
     ) -> None:
         seen_indexes = {
             self._minimax_raw_subtitle_key(item): index
@@ -1022,7 +1022,7 @@ class StreamingTTSProcessor:
 
     def _subtitle_cues_cover_text(
         self: object,
-        subtitle_cues: list[dict[str, Any]],
+        subtitle_cues: list[dict[str, object]],
         text: str,
     ) -> bool:
         normalized_units = [
@@ -1046,7 +1046,7 @@ class StreamingTTSProcessor:
         *,
         duration_ms: int,
         offset_ms: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         units = self._sentence_units_for_tts(text)
         units = [unit.strip() for unit in units if unit.strip()]
         if not units:
@@ -1088,7 +1088,7 @@ class StreamingTTSProcessor:
         return cues
 
     @staticmethod
-    def _subtitle_cues_end_ms(subtitle_cues: list[dict[str, Any]]) -> int:
+    def _subtitle_cues_end_ms(subtitle_cues: list[dict[str, object]]) -> int:
         normalized_cues = normalize_subtitle_cues(subtitle_cues)
         if not normalized_cues:
             return 0
@@ -1097,9 +1097,9 @@ class StreamingTTSProcessor:
     def _build_minimax_provider_subtitle_cues(
         self: object,
         *,
-        request_subtitles: list[dict[str, Any]],
+        request_subtitles: list[dict[str, object]],
         subtitle_offset_ms: int,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         return normalize_subtitle_cues(
             self._minimax_subtitles_to_cues(
                 request_subtitles,
@@ -1109,10 +1109,10 @@ class StreamingTTSProcessor:
 
     def _minimax_subtitles_to_cues(
         self: object,
-        subtitles: list[dict[str, Any]],
+        subtitles: list[dict[str, object]],
         *,
         offset_ms: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         cues: list[dict[str, Any]] = []
         for raw_item in subtitles or []:
             if not isinstance(raw_item, dict):
@@ -1150,17 +1150,17 @@ class StreamingTTSProcessor:
         return cues
 
     @staticmethod
-    def _subtitle_cue_text(cue: dict[str, Any]) -> str:
+    def _subtitle_cue_text(cue: dict[str, object]) -> str:
         return str(cue.get("text", "") or "").strip()
 
     def _scale_minimax_cues_to_live_request(
         self: object,
-        subtitle_cues: list[dict[str, Any]],
+        subtitle_cues: list[dict[str, object]],
         *,
         provider_offset_ms: int,
         live_offset_ms: int,
         live_request_end_ms: int,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         normalized_cues = normalize_subtitle_cues(subtitle_cues)
         if not normalized_cues or live_request_end_ms <= 0:
             return []
@@ -1211,9 +1211,9 @@ class StreamingTTSProcessor:
 
     def _merge_minimax_live_request_cues(
         self: object,
-        previous_live_cues: list[dict[str, Any]],
-        incoming_live_cues: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
+        previous_live_cues: list[dict[str, object]],
+        incoming_live_cues: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
         previous = normalize_subtitle_cues(previous_live_cues)
         incoming = normalize_subtitle_cues(incoming_live_cues)
         if not previous:
@@ -1261,11 +1261,11 @@ class StreamingTTSProcessor:
 
     def _normalize_minimax_live_request_cues(
         self: object,
-        live_cues: list[dict[str, Any]],
+        live_cues: list[dict[str, object]],
         *,
         live_offset_ms: int,
         live_request_end_ms: int,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         normalized_cues = normalize_subtitle_cues(live_cues)
         if not normalized_cues:
             return []
@@ -1308,13 +1308,13 @@ class StreamingTTSProcessor:
 
     def _build_minimax_live_request_subtitle_cues(
         self: object,
-        subtitle_cues: list[dict[str, Any]],
+        subtitle_cues: list[dict[str, object]],
         *,
         provider_offset_ms: int,
         live_offset_ms: int,
         live_request_end_ms: int,
-        previous_live_cues: list[dict[str, Any]] | None = None,
-    ) -> list[dict[str, Any]]:
+        previous_live_cues: list[dict[str, object]] | None = None,
+    ) -> list[dict[str, object]]:
         incoming_live_cues = self._scale_minimax_cues_to_live_request(
             subtitle_cues,
             provider_offset_ms=provider_offset_ms,
@@ -1337,7 +1337,7 @@ class StreamingTTSProcessor:
         audio_data: bytes,
         duration_ms: int,
         text: str,
-        subtitle_cues: list[dict[str, Any]] | None = None,
+        subtitle_cues: list[dict[str, object]] | None = None,
     ) -> tuple[int, RunMarkdownFlowDTO]:
         with self._lock:
             segment_index = self._segment_index
@@ -1364,8 +1364,8 @@ class StreamingTTSProcessor:
         raw_text: str,
         cleaned_text: str,
         cleaned_text_length: int,
-        subtitle_cues: list[dict[str, Any]] | None = None,
-        event_subtitle_cues: list[dict[str, Any]] | None = None,
+        subtitle_cues: list[dict[str, object]] | None = None,
+        event_subtitle_cues: list[dict[str, object]] | None = None,
         commit: bool = True,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not all_segments:
@@ -1879,8 +1879,8 @@ class StreamingTTSProcessor:
         )
 
     def _apply_subtitle_context(
-        self: object, subtitle_cues: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+        self: object, subtitle_cues: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
         contextualized: list[dict[str, Any]] = []
         for index, cue in enumerate(normalize_subtitle_cues(subtitle_cues)):
             item = dict(cue)

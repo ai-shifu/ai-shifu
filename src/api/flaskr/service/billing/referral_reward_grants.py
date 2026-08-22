@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -59,7 +59,7 @@ REFERRAL_REWARD_GRANT_SOURCE = "reward"
 REFERRAL_REWARD_VALIDITY_PRESET = "1m"
 
 
-def _normalize_referral_reward_amount(value: Any) -> Decimal:
+def _normalize_referral_reward_amount(value: object) -> Decimal:
     normalized = str(value or "").strip()
     if not normalized or not normalized.isdigit():
         raise_param_error("amount")
@@ -76,7 +76,7 @@ def _serialize_metadata_datetime(value: datetime | None) -> str:
     return value.isoformat() if value is not None else ""
 
 
-def _is_referral_reward_metadata(metadata: Any) -> bool:
+def _is_referral_reward_metadata(metadata: object) -> bool:
     if not isinstance(metadata, dict):
         return False
     return str(metadata.get("grant_type") or "").strip() == REFERRAL_REWARD_GRANT_TYPE

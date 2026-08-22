@@ -30,7 +30,7 @@ class StripeProvider(PaymentProvider):
     def _ensure_client(self: object, app: Flask) -> object:
         return get_stripe_client_options(app)[0]
 
-    def _client_options(self: object, app: Flask) -> tuple[Any, dict[str, Any]]:
+    def _client_options(self: object, app: Flask) -> tuple[object, dict[str, object]]:
         return get_stripe_client_options(app)
 
     def create_payment(
@@ -245,21 +245,21 @@ class StripeProvider(PaymentProvider):
 
     def retrieve_checkout_session(
         self: object, *, session_id: str, app: Flask
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Retrieve a Stripe checkout session."""
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
     def retrieve_payment_intent(
         self: object, *, intent_id: str, app: Flask
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Retrieve a Stripe payment intent."""
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
         self: object, *, subscription_id: str, app: Flask
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Retrieve a Stripe subscription."""
         stripe, request_options = self._client_options(app)
         return stripe.Subscription.retrieve(subscription_id, **request_options)
@@ -297,7 +297,7 @@ class StripeProvider(PaymentProvider):
         return self._build_notification_from_event(event)
 
     def handle_notification(
-        self: object, *, payload: dict[str, Any], app: Flask
+        self: object, *, payload: dict[str, object], app: Flask
     ) -> PaymentNotificationResult:
         """Verify and normalize a Stripe provider notification."""
         headers = dict(payload.get("headers", {}) or {})
@@ -404,7 +404,7 @@ class StripeProvider(PaymentProvider):
         )
 
     def _build_notification_from_event(
-        self: object, event: dict[str, Any]
+        self: object, event: dict[str, object]
     ) -> PaymentNotificationResult:
         data_object = event.get("data", {}).get("object", {}) or {}
         metadata = data_object.get("metadata", {}) or {}

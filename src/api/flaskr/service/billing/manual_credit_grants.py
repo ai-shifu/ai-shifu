@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
@@ -52,7 +52,7 @@ MANUAL_CREDIT_VALIDITY_PRESETS = (
 )
 
 
-def _normalize_credit_amount(value: Any) -> Decimal:
+def _normalize_credit_amount(value: object) -> Decimal:
     normalized = str(value or "").strip()
     if not normalized:
         raise_param_error("amount")

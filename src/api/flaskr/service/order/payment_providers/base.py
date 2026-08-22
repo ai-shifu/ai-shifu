@@ -123,7 +123,7 @@ class PaymentProvider(ABC):
         raise NotImplementedError(message)
 
     def handle_notification(
-        self: object, *, payload: dict[str, Any], app: object
+        self: object, *, payload: dict[str, object], app: object
     ) -> PaymentNotificationResult:
         """Process provider webhook payloads."""
         return self.verify_webhook(

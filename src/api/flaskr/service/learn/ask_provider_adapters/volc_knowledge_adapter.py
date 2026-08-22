@@ -31,7 +31,7 @@ def _hmac_sha256(key: bytes, content: str) -> bytes:
     return hmac.new(key, content.encode("utf-8"), hashlib.sha256).digest()
 
 
-def _normalize_query(params: dict[str, Any] | None) -> str:
+def _normalize_query(params: dict[str, object] | None) -> str:
     if not params:
         return ""
 
@@ -47,7 +47,7 @@ def _normalize_query(params: dict[str, Any] | None) -> str:
     return "&".join(encoded_parts)
 
 
-def _normalize_header_value(value: Any) -> str:
+def _normalize_header_value(value: object) -> str:
     return " ".join(str(value).strip().split())
 
 
@@ -55,7 +55,7 @@ def _build_volc_signature_headers(
     *,
     method: str,
     path: str,
-    query_params: dict[str, Any] | None,
+    query_params: dict[str, object] | None,
     headers: dict[str, str],
     body: str,
     ak: str,
@@ -113,7 +113,7 @@ def _build_volc_signature_headers(
     }
 
 
-def _to_positive_int(value: Any, default: int) -> int:
+def _to_positive_int(value: object, default: int) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -124,8 +124,8 @@ def _to_positive_int(value: Any, default: int) -> int:
 
 
 def _normalize_pre_processing(
-    config_value: Any, user_query: str
-) -> dict[str, Any] | None:
+    config_value: object, user_query: str
+) -> dict[str, object] | None:
     if not isinstance(config_value, dict):
         return None
     pre_processing = copy.deepcopy(config_value)
@@ -150,11 +150,11 @@ def _normalize_pre_processing(
     return pre_processing
 
 
-def _collect_text_chunks(payload: Any) -> list[str]:
+def _collect_text_chunks(payload: object) -> list[str]:
     chunks: list[str] = []
     seen: set[str] = set()
 
-    def _append(value: Any) -> None:
+    def _append(value: object) -> None:
         text = extract_text(value)
         if text and text not in seen:
             seen.add(text)
@@ -203,8 +203,8 @@ class VolcKnowledgeAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""

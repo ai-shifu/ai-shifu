@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
 
-
-def normalize_source_span(raw: Any) -> list[int]:
+def normalize_source_span(raw: object) -> list[int]:
     """Normalize source span."""
     if not isinstance(raw, list) or len(raw) < 2:
         return []

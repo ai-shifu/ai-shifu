@@ -6,7 +6,7 @@ import json
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
@@ -68,8 +68,8 @@ def list_operator_referral_campaigns(
     *,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any],
-) -> dict[str, Any]:
+    filters: dict[str, object],
+) -> dict[str, object]:
     """Return operator referral campaigns."""
     with app.app_context():
         safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -161,7 +161,7 @@ def get_operator_referral_campaign_detail(
     app: Flask,
     *,
     campaign_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Return operator referral campaign detail."""
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
@@ -191,8 +191,8 @@ def get_operator_referral_campaign_detail(
 def create_operator_referral_campaign(
     app: Flask,
     operator_user_bid: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+    payload: dict[str, object],
+) -> dict[str, object]:
     """Create operator referral campaign."""
     with app.app_context():
         data = _normalize_payload(payload, is_create=True)
@@ -242,8 +242,8 @@ def update_operator_referral_campaign(
     app: Flask,
     operator_user_bid: str,
     campaign_bid: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+    payload: dict[str, object],
+) -> dict[str, object]:
     """Update operator referral campaign."""
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
@@ -307,7 +307,7 @@ def update_operator_referral_campaign_status(
     operator_user_bid: str,
     campaign_bid: str,
     enabled: object,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Update operator referral campaign status."""
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
@@ -419,7 +419,7 @@ def _parse_positive_decimal(value: object, field_name: str) -> Decimal:
     return parsed
 
 
-def _parse_json_object(value: object, field_name: str) -> dict[str, Any]:
+def _parse_json_object(value: object, field_name: str) -> dict[str, object]:
     if value is None or value == "":
         return {}
     if isinstance(value, dict):
@@ -436,11 +436,11 @@ def _parse_json_object(value: object, field_name: str) -> dict[str, Any]:
 
 
 def _normalize_payload(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     is_create: bool,
     existing: ReferralCampaign | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     campaign_code = _normalize_text(payload.get("campaign_code"))
     if is_create and not campaign_code:
         raise_param_error("campaign_code")
@@ -528,7 +528,7 @@ def _build_rule(
     app: Flask,
     *,
     campaign_bid: str,
-    data: dict[str, Any],
+    data: dict[str, object],
     status: int,
 ) -> ReferralCampaignRewardRule:
     rule = ReferralCampaignRewardRule(
@@ -545,7 +545,7 @@ def _build_rule(
     return rule
 
 
-def _apply_rule(rule: ReferralCampaignRewardRule, data: dict[str, Any]) -> None:
+def _apply_rule(rule: ReferralCampaignRewardRule, data: dict[str, object]) -> None:
     rule.rule_code = data["rule_code"]
     rule.reward_product_code = data["reward_product_code"]
     rule.reward_cycle_count = data["reward_cycle_count"]
@@ -621,7 +621,7 @@ def _count_by_campaign(model: object, campaign_bids: list[str]) -> dict[str, int
 
 def _invite_event_stats_by_campaign(
     campaign_bids: list[str],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     if not campaign_bids:
         return {}
     rows = (
@@ -746,7 +746,7 @@ def _serialize_campaign(
     invite_event_count: int,
     latest_invite_event_at: datetime | None,
     now: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     return {
         "campaign_bid": campaign.campaign_bid,
         "campaign_code": campaign.campaign_code,

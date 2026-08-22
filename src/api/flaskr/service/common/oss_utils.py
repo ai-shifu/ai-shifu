@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import requests
 
@@ -129,7 +129,7 @@ def get_image_content_type(filename: str) -> str:
     return None
 
 
-def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
+def warm_up_cdn(app: object, url: str, config: OSSConfig) -> bool:
     """Warm up a CDN URL."""
     try:
         from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
@@ -216,9 +216,9 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
 
 
 def upload_to_oss(
-    app: Any,
+    app: object,
     *,
-    file_content: Any,
+    file_content: object,
     file_id: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,

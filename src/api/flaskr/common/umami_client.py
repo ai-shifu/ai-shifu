@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
@@ -44,7 +44,7 @@ def build_course_visit_event_name(shifu_bid: str) -> str:
     return COURSE_VISIT_EVENT_PREFIX + normalized[:suffix_limit]
 
 
-def _decode_cache_bytes(raw: Any) -> str:
+def _decode_cache_bytes(raw: object) -> str:
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -104,7 +104,7 @@ def _get_access_token_cache_key() -> str:
 def _cache_setex_best_effort(
     cache_key: str,
     ttl_seconds: int,
-    value: Any,
+    value: object,
     *,
     operation: str,
 ) -> None:

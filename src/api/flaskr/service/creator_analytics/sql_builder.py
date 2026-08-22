@@ -163,7 +163,7 @@ def _compile_filter(column: Column, filt: Filter, index: int) -> ColumnElement[b
     raise ValueError(message)
 
 
-def _compile_aggregate(table: object, agg: Aggregate) -> ColumnElement[Any]:
+def _compile_aggregate(table: object, agg: Aggregate) -> ColumnElement[object]:
     if agg.fn == "count":
         if agg.field is None:
             expr = func.count()
@@ -191,7 +191,7 @@ def _compile_order_by(
     table: object,
     order_by: Sequence[OrderBy],
     aggregates: Sequence[Aggregate],
-) -> list[ColumnElement[Any]]:
+) -> list[ColumnElement[object]]:
     aggregate_aliases = {agg.alias for agg in aggregates}
     compiled: list[ColumnElement[Any]] = []
     for item in order_by:
@@ -207,7 +207,7 @@ def _compile_order_by(
 
 def _aggregate_expression_by_alias(
     table: object, aggregates: Sequence[Aggregate], alias: str
-) -> ColumnElement[Any]:
+) -> ColumnElement[object]:
     for agg in aggregates:
         if agg.alias == alias:
             return _compile_aggregate(table, agg)

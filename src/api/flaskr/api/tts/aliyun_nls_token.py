@@ -20,7 +20,6 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -60,14 +59,14 @@ class AliyunNlsToken:
         return self.expire_time <= int(now_ts)
 
 
-def _percent_encode(value: Any) -> str:
+def _percent_encode(value: object) -> str:
     """RFC3986 percent encoding compatible with Aliyun POP signing rules."""
     if value is None:
         value = ""
     return quote(str(value), safe="-_.~")
 
 
-def _canonicalized_query(params: dict[str, Any]) -> str:
+def _canonicalized_query(params: dict[str, object]) -> str:
     """Build canonicalized query string from params (excluding Signature)."""
     parts: list[str] = [
         f"{_percent_encode(key)}={_percent_encode(params[key])}"
@@ -110,7 +109,7 @@ def _get_lock_key() -> str:
     return f"{prefix}tts:aliyun:nls_token:lock"
 
 
-def _decode_cache_value(raw: Any) -> AliyunNlsToken | None:
+def _decode_cache_value(raw: object) -> AliyunNlsToken | None:
     if raw is None:
         return None
     if isinstance(raw, bytes):

@@ -48,7 +48,7 @@ class ReferralPlanRewardResult:
     ledger_bid: str = ""
     reused_existing_reward: bool = False
 
-    def to_dict(self: object) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, object]:
         """Serialize this value as a dictionary."""
         return {
             "inviter_user_bid": self.inviter_user_bid,
@@ -198,7 +198,7 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     )
 
 
-def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def _extract_order_metadata_datetime(metadata: object, key: str) -> datetime | None:
     from .queries import extract_order_metadata_datetime
 
     return extract_order_metadata_datetime(metadata, key)
@@ -352,7 +352,7 @@ def _resolve_order_shape(
     request: ReferralPlanRewardRequest,
     product: object,
     now: datetime,
-) -> tuple[object, int, datetime, datetime, dict[str, Any]]:
+) -> tuple[object, int, datetime, datetime, dict[str, object]]:
     consts = _billing_consts()
     models = _billing_models()
     active_subscription = _load_primary_active_subscription(

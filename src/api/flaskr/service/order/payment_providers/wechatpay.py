@@ -7,7 +7,7 @@ import json
 import secrets
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import requests
@@ -168,7 +168,7 @@ class WechatPayProvider(PaymentProvider):
 
     def _build_transaction_body(
         self: object, request: PaymentRequest
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         notify_url = (
             str(get_config("WECHATPAY_WEBHOOK_URL", "") or "")
             or build_wechatpay_notify_url()
@@ -192,7 +192,7 @@ class WechatPayProvider(PaymentProvider):
         path: str,
         body: str,
         app: Flask,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         timestamp = str(int(time.time()))
         nonce = secrets.token_hex(16)
         signature = self._sign_request(
@@ -289,8 +289,8 @@ class WechatPayProvider(PaymentProvider):
 
     def _decrypt_notification_resource(
         self: object,
-        resource: dict[str, Any],
-    ) -> dict[str, Any]:
+        resource: dict[str, object],
+    ) -> dict[str, object]:
         if not resource:
             error_message = "WeChat Pay notification resource missing"
             raise RuntimeError(error_message)

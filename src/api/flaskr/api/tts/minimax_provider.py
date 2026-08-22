@@ -102,7 +102,7 @@ def _build_minimax_voice_setting(
     voice_settings: VoiceSettings,
     *,
     model: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     voice_setting_dict: dict[str, Any] = {
         "voice_id": voice_settings.voice_id,
         "speed": voice_settings.speed,
@@ -216,14 +216,14 @@ def _build_minimax_tts_url() -> str:
     return f"{MINIMAX_TTS_API_URL}?{urlencode({'GroupId': group_id})}"
 
 
-def _ensure_minimax_base_resp(message: dict[str, Any], prefix: str) -> None:
+def _ensure_minimax_base_resp(message: dict[str, object], prefix: str) -> None:
     base_resp = message.get("base_resp") or {}
     status_code = int(base_resp.get("status_code") or 0)
     if status_code != 0:
         raise ValueError(_format_minimax_error(message, prefix))
 
 
-def _format_minimax_error(message: dict[str, Any], prefix: str) -> str:
+def _format_minimax_error(message: dict[str, object], prefix: str) -> str:
     base_resp = message.get("base_resp") or {}
     status_code = base_resp.get("status_code", "unknown")
     status_msg = base_resp.get("status_msg", "Unknown error")
@@ -232,7 +232,7 @@ def _format_minimax_error(message: dict[str, Any], prefix: str) -> str:
     return f"{prefix}: {status_code} - {status_msg}{trace_suffix}"
 
 
-def _fetch_minimax_subtitle_file(url: str) -> list[dict[str, Any]]:
+def _fetch_minimax_subtitle_file(url: str) -> list[dict[str, object]]:
     if not url:
         return []
     try:
@@ -259,7 +259,7 @@ def _fetch_minimax_subtitle_file(url: str) -> list[dict[str, Any]]:
     return []
 
 
-def _looks_like_subtitle_item(value: dict[str, Any]) -> bool:
+def _looks_like_subtitle_item(value: dict[str, object]) -> bool:
     if not str(value.get("text", "") or "").strip():
         return False
     return any(
@@ -277,7 +277,7 @@ def _looks_like_subtitle_item(value: dict[str, Any]) -> bool:
     )
 
 
-def _collect_subtitle_items(value: Any) -> list[dict[str, Any]]:
+def _collect_subtitle_items(value: object) -> list[dict[str, object]]:
     if isinstance(value, list):
         return [item for item in value if isinstance(item, dict)]
     if isinstance(value, dict):
@@ -292,7 +292,7 @@ def _collect_subtitle_items(value: Any) -> list[dict[str, Any]]:
     return []
 
 
-def _extract_minimax_subtitles(message: dict[str, Any]) -> list[dict[str, Any]]:
+def _extract_minimax_subtitles(message: dict[str, object]) -> list[dict[str, object]]:
     for container in (
         message.get("data"),
         message.get("extra_info"),
@@ -550,7 +550,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         output_format: str = "hex",
         model: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Call Minimax TTS API.
 
         Args:

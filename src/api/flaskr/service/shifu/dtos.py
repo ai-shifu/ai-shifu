@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Resolve demo course for language."""
     from flaskr.service.shifu.demo_courses import (
         resolve_demo_course_for_language as _resolve_demo_course_for_language,
@@ -216,7 +216,7 @@ class ShifuDetailDto(BaseModel):
         ask_model: str = "",
         ask_temperature: float = 0.0,
         ask_system_prompt: str = "",
-        ask_provider_config: dict[str, Any] | None = None,
+        ask_provider_config: dict[str, object] | None = None,
     ) -> None:
         """Build the shifu detail payload."""
         super().__init__(
