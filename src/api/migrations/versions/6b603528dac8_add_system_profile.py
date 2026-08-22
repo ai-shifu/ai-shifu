@@ -71,7 +71,7 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
-def _now_expr(bind: object) -> str:
+def _now_expr(bind) -> str:
     return "NOW()" if bind.dialect.name == "mysql" else "CURRENT_TIMESTAMP"
 
 
@@ -81,7 +81,7 @@ def _profile_id_for_key(profile_key: str) -> str:
     ).hex
 
 
-def _next_profile_index(bind: object) -> int:
+def _next_profile_index(bind) -> int:
     result = bind.execute(
         sa.text(
             """
@@ -95,7 +95,7 @@ def _next_profile_index(bind: object) -> int:
     return int(result or 0)
 
 
-def _find_profile_item_id(bind: object, profile_key: str) -> str | None:
+def _find_profile_item_id(bind, profile_key: str) -> str | None:
     return bind.execute(
         sa.text(
             """
@@ -114,7 +114,7 @@ def _find_profile_item_id(bind: object, profile_key: str) -> str | None:
     ).scalar()
 
 
-def _ensure_profile_item(bind: object, profile_key: str) -> str:
+def _ensure_profile_item(bind, profile_key: str) -> str:
     profile_id = _find_profile_item_id(bind, profile_key)
     now_expr = _now_expr(bind)
 
@@ -200,7 +200,7 @@ def _ensure_profile_item(bind: object, profile_key: str) -> str:
 
 
 def _ensure_profile_i18n(
-    bind: object,
+    bind,
     *,
     profile_id: str,
     language: str,

@@ -271,6 +271,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # would break `alembic` revision discovery. Applied migration history is
 # immutable, so its conventional `upgrade` / `downgrade` hooks retain D103.
 "src/api/migrations/**" = ["D103", "INP001"]
+# Applied revision files are immutable deployment history, so their legacy
+# public hooks remain exempt from the argument annotation rollout.
+"src/api/migrations/versions/**" = ["ANN001"]
 # This applied no-op revision keeps a legacy `NOTE:` section in its module
 # docstring. Migration history is immutable, so D405 is scoped to this file.
 "src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
