@@ -41,7 +41,7 @@ class CacheProvider(Protocol):
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -105,7 +105,7 @@ class _DynamicRedisCacheProvider:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -225,7 +225,7 @@ class InMemoryCacheProvider:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
@@ -339,7 +339,7 @@ class FallbackCacheProvider:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,
