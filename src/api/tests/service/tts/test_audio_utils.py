@@ -10,13 +10,13 @@ from flaskr.service.tts import audio_utils
 class _FakeSegment:
     append_crossfades: ClassVar[list[int]] = []
 
-    def __init__(self, duration_ms: int) -> None:
+    def __init__(self: object, duration_ms: int) -> None:
         self.duration_ms = duration_ms
 
-    def __len__(self) -> int:
+    def __len__(self: object) -> int:
         return self.duration_ms
 
-    def append(self, other, crossfade=100):
+    def append(self: object, other: object, crossfade: object = 100):
         _FakeSegment.append_crossfades.append(crossfade)
         if crossfade > len(self):
             message = (
@@ -32,14 +32,19 @@ class _FakeSegment:
             raise ValueError(message)
         return _FakeSegment(self.duration_ms + len(other) - crossfade)
 
-    def __getitem__(self, key) -> "_FakeSegment":
+    def __getitem__(self: object, key: object) -> "_FakeSegment":
         if isinstance(key, slice):
             start = int(key.start or 0)
             stop = int(key.stop if key.stop is not None else self.duration_ms)
             return _FakeSegment(max(stop - start, 0))
         return self
 
-    def export(self, output_io, format="mp3", bitrate="128k"):  # noqa: A002 - mirrors the pydub API
+    def export(
+        self: object,
+        output_io: object,
+        format: object = "mp3",  # noqa: A002 - mirrors the pydub API
+        bitrate: object = "128k",
+    ):
         _ = (format, bitrate)
         output_io.write(f"duration={self.duration_ms}".encode())
 
@@ -65,12 +70,14 @@ class _RecordingAudioSegment:
     from_file_formats: ClassVar[list[str]] = []
 
     @staticmethod
-    def from_file(segment_io: io.BytesIO, format="mp3") -> "_FakeSegment":  # noqa: A002 - mirrors the pydub API
+    def from_file(segment_io: io.BytesIO, format: object = "mp3") -> "_FakeSegment":  # noqa: A002 - mirrors the pydub API
         _RecordingAudioSegment.from_file_formats.append(format)
         return _FakeSegment(int(segment_io.getvalue().decode("utf-8")))
 
 
-def test_try_get_audio_duration_ms_decodes_with_the_requested_format(monkeypatch):
+def test_try_get_audio_duration_ms_decodes_with_the_requested_format(
+    monkeypatch: object,
+):
     _RecordingAudioSegment.from_file_formats.clear()
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _RecordingAudioSegment, raising=False
@@ -81,7 +88,7 @@ def test_try_get_audio_duration_ms_decodes_with_the_requested_format(monkeypatch
     assert _RecordingAudioSegment.from_file_formats == ["wav"]
 
 
-def test_get_audio_duration_ms_estimates_when_decoding_fails(monkeypatch):
+def test_get_audio_duration_ms_estimates_when_decoding_fails(monkeypatch: object):
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -92,7 +99,7 @@ def test_get_audio_duration_ms_estimates_when_decoding_fails(monkeypatch):
     )
 
 
-def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
+def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch: object):
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
@@ -103,7 +110,9 @@ def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
     assert output == b"duration=182"
 
 
-def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(monkeypatch):
+def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(
+    monkeypatch: object,
+):
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
@@ -114,7 +123,7 @@ def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(monkeypatch
     assert output == b"duration=130"
 
 
-def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
+def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch: object):
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -125,7 +134,7 @@ def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
 
 
 def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failure(
-    monkeypatch,
+    monkeypatch: object,
 ):
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
@@ -137,7 +146,7 @@ def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failur
     assert output == b"duration=180"
 
 
-def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch):
+def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch: object):
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -148,7 +157,9 @@ def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch):
     assert output == b""
 
 
-def test_concat_audio_best_effort_drops_undecodable_multiple_segments(monkeypatch):
+def test_concat_audio_best_effort_drops_undecodable_multiple_segments(
+    monkeypatch: object,
+):
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -160,7 +171,7 @@ def test_concat_audio_best_effort_drops_undecodable_multiple_segments(monkeypatc
 
 
 def test_export_audio_range_does_not_return_invalid_bytes_after_decode_failure(
-    monkeypatch,
+    monkeypatch: object,
 ):
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False

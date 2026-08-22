@@ -48,7 +48,7 @@ def _load_user_route_handlers():
 register_user_handler, register_common_handler = _load_user_route_handlers()
 
 
-def _post_json(client, path: str, payload: dict, headers: dict | None = None):
+def _post_json(client: object, path: str, payload: dict, headers: dict | None = None):
     return client.post(
         path,
         data=json.dumps(payload),
@@ -58,7 +58,7 @@ def _post_json(client, path: str, payload: dict, headers: dict | None = None):
 
 
 @pytest.fixture
-def user_trial_client(monkeypatch, tmp_path):
+def user_trial_client(monkeypatch: object, tmp_path: object):
     import flaskr.service.billing.auth_hooks as _billing_auth_hooks  # noqa: F401
     import flaskr.service.user.utils as user_utils
     from flaskr.service.user import email_flow, phone_flow
@@ -116,7 +116,7 @@ def user_trial_client(monkeypatch, tmp_path):
 
 
 def _seed_registered_user(
-    app,
+    app: object,
     *,
     identifier: str,
     provider_name: str,
@@ -171,7 +171,7 @@ def _assert_trial_bootstrapped(user_bid: str) -> None:
 
 
 def test_sms_login_admin_login_bootstraps_trial_once(
-    user_trial_client,
+    user_trial_client: object,
 ):
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
@@ -213,7 +213,7 @@ def test_sms_login_admin_login_bootstraps_trial_once(
 
 
 def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
-    user_trial_client,
+    user_trial_client: object,
 ):
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
@@ -254,7 +254,7 @@ def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
 
 
 def test_password_login_existing_creator_does_not_bootstrap_trial_again(
-    user_trial_client,
+    user_trial_client: object,
 ):
     app = user_trial_client.application
     email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -304,7 +304,7 @@ def test_password_login_existing_creator_does_not_bootstrap_trial_again(
 
 
 def test_password_login_non_creator_does_not_grant_trial(
-    user_trial_client,
+    user_trial_client: object,
 ):
     app = user_trial_client.application
     email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -350,7 +350,7 @@ def test_password_login_non_creator_does_not_grant_trial(
 
 
 def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
-    user_trial_client,
+    user_trial_client: object,
 ):
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
@@ -367,7 +367,7 @@ def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
         token = generate_token(app, user_bid)
         dao.db.session.commit()
 
-    def _failing_post_auth_handler(_context, *, app):
+    def _failing_post_auth_handler(_context: object, *, app: object):
         _ = app
         message = "boom"
         raise RuntimeError(message)

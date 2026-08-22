@@ -727,11 +727,11 @@ class BaiduTTSProvider(BaseTTSProvider):
     """TTS provider using Baidu Short Text Online Synthesis API."""
 
     @property
-    def provider_name(self) -> str:
+    def provider_name(self: object) -> str:
         """Return the provider's stable configuration name."""
         return "baidu"
 
-    def _get_credentials(self) -> tuple:
+    def _get_credentials(self: object) -> tuple:
         """Get Baidu TTS credentials.
 
         Returns:
@@ -742,12 +742,12 @@ class BaiduTTSProvider(BaseTTSProvider):
         secret_key = get_config("BAIDU_TTS_SECRET_KEY") or ""
         return api_key, secret_key
 
-    def is_configured(self) -> bool:
+    def is_configured(self: object) -> bool:
         """Check if Baidu TTS is properly configured."""
         api_key, secret_key = self._get_credentials()
         return bool(api_key and secret_key)
 
-    def get_default_voice_settings(self) -> VoiceSettings:
+    def get_default_voice_settings(self: object) -> VoiceSettings:
         """Get default voice settings.
 
         Notes:
@@ -763,7 +763,7 @@ class BaiduTTSProvider(BaseTTSProvider):
             volume=5,  # 0-15, default 5
         )
 
-    def get_default_audio_settings(self) -> AudioSettings:
+    def get_default_audio_settings(self: object) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
             # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
@@ -773,12 +773,12 @@ class BaiduTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> list[dict]:
+    def get_supported_voices(self: object) -> list[dict]:
         """Get list of supported voices."""
         return BAIDU_VOICES
 
     def synthesize(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -933,7 +933,7 @@ class BaiduTTSProvider(BaseTTSProvider):
             message = f"Baidu TTS request failed: {e}"
             raise ValueError(message) from e
 
-    def get_provider_config(self) -> ProviderConfig:
+    def get_provider_config(self: object) -> ProviderConfig:
         """Get Baidu provider configuration for frontend."""
         return ProviderConfig(
             name="baidu",

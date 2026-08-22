@@ -37,12 +37,12 @@ def test_convert_accepts_empty_list():
 
 
 @pytest.mark.parametrize("bad_value", [None, {}, "outlines", 42])
-def test_convert_rejects_non_list_top_level(bad_value):
+def test_convert_rejects_non_list_top_level(bad_value: object):
     with pytest.raises(AppError):
         convert_outline_to_reorder_outline_item_dto(bad_value)
 
 
 @pytest.mark.parametrize("bad_item", ["not-a-dict", 1, ["nested"], None])
-def test_convert_rejects_non_dict_items(bad_item):
+def test_convert_rejects_non_dict_items(bad_item: object):
     with pytest.raises(AppError):
         convert_outline_to_reorder_outline_item_dto([bad_item])

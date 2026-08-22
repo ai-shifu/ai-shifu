@@ -38,7 +38,7 @@ class PasswordAuthProvider(AuthProvider):
     provider_name = "password"
     supports_challenge = False
 
-    def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+    def verify(self: object, app: Flask, request: VerificationRequest) -> AuthResult:
         """Verify the supplied authentication credential."""
         raw_identifier = request.identifier.strip()
         identifier = (

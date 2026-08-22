@@ -90,23 +90,23 @@ class AuthProvider(ABC):
     supports_oauth: bool = False
 
     def send_challenge(
-        self, app: Flask, request: ChallengeRequest
+        self: object, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
         """Dispatch a verification challenge to the user."""
         message = f"Provider '{self.provider_name}' does not issue challenges"
         raise NotImplementedError(message)
 
     @abstractmethod
-    def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+    def verify(self: object, app: Flask, request: VerificationRequest) -> AuthResult:
         """Validate a user based on the incoming verification request."""
 
-    def begin_oauth(self, app: Flask, metadata: dict[str, Any]) -> Any:
+    def begin_oauth(self: object, app: Flask, metadata: dict[str, Any]) -> Any:
         """Initiate an OAuth flow (optional)."""
         message = f"Provider '{self.provider_name}' does not support OAuth begin"
         raise NotImplementedError(message)
 
     def handle_oauth_callback(
-        self, app: Flask, request: OAuthCallbackRequest
+        self: object, app: Flask, request: OAuthCallbackRequest
     ) -> AuthResult:
         """Complete an OAuth flow and produce an authentication result."""
         message = f"Provider '{self.provider_name}' does not support OAuth callbacks"

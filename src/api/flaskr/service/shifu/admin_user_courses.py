@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 
 def _build_operator_user_course_summary(
-    course,
+    course: object,
     published_bids: set[str],
     *,
     completed_lesson_count: int = 0,

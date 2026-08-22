@@ -256,6 +256,17 @@ plan's progress update for that rule.
   normalized AST audit found no executable differences; the D103 policy and
   Swagger regressions pass, followed by the full backend suite at 3,042 passed
   with 17 skipped and every applicable repository pre-commit gate.
+- [x] 2026-08-22 11:17 CST: Rebuilt the ANN001 stage on `ruff/ann001` for
+  [#2644](https://github.com/ai-shifu/ai-shifu/pull/2644). Restored the two
+  applied Alembic revisions changed by the mechanical annotation sweep and
+  added the narrow `src/api/migrations/versions/** = ["ANN001"]` exception.
+  `ruff check .`, `ruff format --check .`, developer-tool verification, and
+  every repository pre-commit gate pass.
+- [x] 2026-08-22 11:42 CST: Addressed ANN001 follow-up review by narrowing the
+  immutable-history exception to the two exact deployed revision files, typing
+  plugin repository/name inputs as `str`, and removing redundant `self: object`
+  annotations from the TTS base contract. `ruff check .` and
+  `ruff format --check .` pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

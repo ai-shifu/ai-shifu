@@ -55,7 +55,7 @@ class _CreditRange:
     minimum: Decimal
     maximum: Decimal
 
-    def to_numbers(self) -> tuple[int | float, int | float]:
+    def to_numbers(self: object) -> tuple[int | float, int | float]:
         return (
             credit_decimal_to_number(self.minimum),
             credit_decimal_to_number(self.maximum),
@@ -504,7 +504,7 @@ def _build_mode(
 def build_operator_course_estimated_credit_cost(
     app: Flask,
     *,
-    course,
+    course: object,
     outline_items: list[DraftOutlineItem | PublishedOutlineItem],
     visible_leaf_outline_bids: list[str] | set[str],
 ) -> AdminOperationEstimatedCreditCostDTO:

@@ -15,11 +15,11 @@ class FakeRedis:
     Distinguishes acquire (key, max, ttl) from release (key) by arg count.
     """
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Initialize semaphore counters keyed by synthesis slot."""
         self.counters: dict[str, int] = {}
 
-    def eval(self, _script, _numkeys, *args: object):
+    def eval(self: object, _script: object, _numkeys: object, *args: object):
         key = args[0]
         if len(args) >= 3:  # acquire: key, max_count, ttl
             max_count = int(args[1])
@@ -38,17 +38,19 @@ class FakeRedis:
 class ExplodingRedis:
     """Redis stub whose .eval always raises, to exercise the fail-open path."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Reset the count of intentionally failing Redis calls."""
         self.calls = 0
 
-    def eval(self, *_args: object, **_kwargs: object):
+    def eval(self: object, *_args: object, **_kwargs: object):
         self.calls += 1
         message = "redis down"
         raise RuntimeError(message)
 
 
-def test_tts_synth_semaphore_caps_at_limit_and_releases(app, monkeypatch):
+def test_tts_synth_semaphore_caps_at_limit_and_releases(
+    app: object, monkeypatch: object
+):
     fake = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 2
@@ -66,7 +68,7 @@ def test_tts_synth_semaphore_caps_at_limit_and_releases(app, monkeypatch):
     assert learn_funcs._tts_synth_sem_acquire(app, "u1", "o2") == _TTS_SLOT_ACQUIRED
 
 
-def test_tts_synth_semaphore_bypasses_without_redis(app, monkeypatch):
+def test_tts_synth_semaphore_bypasses_without_redis(app: object, monkeypatch: object):
     monkeypatch.setattr(dao._redis_state, "client", None)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
 
@@ -75,7 +77,7 @@ def test_tts_synth_semaphore_bypasses_without_redis(app, monkeypatch):
     assert learn_funcs._tts_synth_sem_acquire(app, "u", "o") == _TTS_SLOT_BYPASS
 
 
-def test_tts_synth_semaphore_bypasses_on_redis_error(app, monkeypatch):
+def test_tts_synth_semaphore_bypasses_on_redis_error(app: object, monkeypatch: object):
     boom = ExplodingRedis()
     monkeypatch.setattr(dao._redis_state, "client", boom)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
@@ -84,7 +86,7 @@ def test_tts_synth_semaphore_bypasses_on_redis_error(app, monkeypatch):
     assert boom.calls == 1
 
 
-def test_tts_synth_semaphore_disabled_when_zero(app, monkeypatch):
+def test_tts_synth_semaphore_disabled_when_zero(app: object, monkeypatch: object):
     fake = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 0
@@ -94,7 +96,7 @@ def test_tts_synth_semaphore_disabled_when_zero(app, monkeypatch):
     assert fake.counters == {}
 
 
-def test_tts_synth_semaphore_ignores_incomplete_key(app, monkeypatch):
+def test_tts_synth_semaphore_ignores_incomplete_key(app: object, monkeypatch: object):
     fake = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
@@ -105,7 +107,7 @@ def test_tts_synth_semaphore_ignores_incomplete_key(app, monkeypatch):
     assert fake.counters == {}
 
 
-def test_yield_tts_synthesis_sheds_request_when_full(app, monkeypatch):
+def test_yield_tts_synthesis_sheds_request_when_full(app: object, monkeypatch: object):
     fake = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
@@ -136,7 +138,7 @@ def test_yield_tts_synthesis_sheds_request_when_full(app, monkeypatch):
     assert fake.counters.get(key) == 1
 
 
-def test_yield_tts_synthesis_runs_and_releases_slot(app, monkeypatch):
+def test_yield_tts_synthesis_runs_and_releases_slot(app: object, monkeypatch: object):
     fake = FakeRedis()
     monkeypatch.setattr(dao._redis_state, "client", fake)
     app.config["MAX_PARALLEL_TTS_SYNTH_COUNT"] = 1
@@ -162,7 +164,7 @@ def test_yield_tts_synthesis_runs_and_releases_slot(app, monkeypatch):
     assert fake.counters.get(key, 0) == 0
 
 
-def test_yield_tts_synthesis_bypass_does_not_release(app, monkeypatch):
+def test_yield_tts_synthesis_bypass_does_not_release(app: object, monkeypatch: object):
     # Redis errors on acquire -> bypass (fail open); the finally must NOT call
     # release, otherwise it would decrement a slot that was never reserved and
     # could steal another request's slot.

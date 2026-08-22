@@ -40,12 +40,12 @@ from flaskr.util.datetime import now_utc
 
 
 class _FakeStripeCatalogAdapter(StripeCatalogReadAdapter):
-    def __init__(self, snapshot: ProviderCatalogSnapshot) -> None:
+    def __init__(self: object, snapshot: ProviderCatalogSnapshot) -> None:
         self.snapshot = snapshot
         self.calls: list[dict[str, str]] = []
 
     def retrieve_mapping_snapshot(
-        self,
+        self: object,
         app: Flask,
         *,
         provider_product_id: str,
@@ -142,7 +142,7 @@ def _bind_mapping(
     return mapping
 
 
-def test_provider_price_mapping_upsert_is_idempotent(app) -> None:
+def test_provider_price_mapping_upsert_is_idempotent(app: object) -> None:
     product_bid = "bill-product-mapping-idempotent"
     with app.app_context():
         db.session.add(_product(product_bid))
@@ -178,7 +178,9 @@ def test_provider_price_mapping_upsert_is_idempotent(app) -> None:
         )
 
 
-def test_provider_price_mapping_rebind_resets_invalid_lifecycle_state(app) -> None:
+def test_provider_price_mapping_rebind_resets_invalid_lifecycle_state(
+    app: object,
+) -> None:
     product_bid = "bill-product-mapping-rebind-invalid"
     with app.app_context():
         db.session.add(_product(product_bid))
@@ -216,7 +218,7 @@ def test_provider_price_mapping_rebind_resets_invalid_lifecycle_state(app) -> No
         assert rebound.metadata_json == {"source": "rebound"}
 
 
-def test_provider_price_mapping_rejects_retired_rebind(app) -> None:
+def test_provider_price_mapping_rejects_retired_rebind(app: object) -> None:
     product_bid = "bill-product-mapping-rebind-retired"
     with app.app_context():
         db.session.add(_product(product_bid))
@@ -245,7 +247,7 @@ def test_provider_price_mapping_rejects_retired_rebind(app) -> None:
 
 
 def test_provider_price_mapping_rejects_rebinding_price_to_different_product(
-    app,
+    app: object,
 ) -> None:
     first_product_bid = "bill-product-mapping-price-original"
     second_product_bid = "bill-product-mapping-price-other"
@@ -274,7 +276,7 @@ def test_provider_price_mapping_rejects_rebinding_price_to_different_product(
         assert mapping.provider_product_id == "prod_growth"
 
 
-def test_provider_price_activation_retires_existing_active_mapping(app) -> None:
+def test_provider_price_activation_retires_existing_active_mapping(app: object) -> None:
     product_bid = "bill-product-mapping-activate"
     with app.app_context():
         product = _product(product_bid)
@@ -319,7 +321,7 @@ def test_provider_price_activation_retires_existing_active_mapping(app) -> None:
 
 
 def test_provider_price_activation_failure_preserves_existing_active_mapping(
-    app,
+    app: object,
 ) -> None:
     product_bid = "bill-product-mapping-activate-failure"
     with app.app_context():
@@ -365,7 +367,7 @@ def test_provider_price_activation_failure_preserves_existing_active_mapping(
         )
 
 
-def test_provider_price_validate_keeps_valid_draft_as_draft(app) -> None:
+def test_provider_price_validate_keeps_valid_draft_as_draft(app: object) -> None:
     product_bid = "bill-product-mapping-validate"
     with app.app_context():
         product = _product(product_bid)
@@ -394,7 +396,9 @@ def test_provider_price_validate_keeps_valid_draft_as_draft(app) -> None:
         assert mapping.validation_error == ""
 
 
-def test_active_provider_price_validate_failure_invalidates_mapping(app) -> None:
+def test_active_provider_price_validate_failure_invalidates_mapping(
+    app: object,
+) -> None:
     product_bid = "bill-product-mapping-active-invalid"
     with app.app_context():
         product = _product(product_bid)

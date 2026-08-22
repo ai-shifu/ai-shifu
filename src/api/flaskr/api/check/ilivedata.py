@@ -128,7 +128,13 @@ def ilivedata_check(
     )
 
 
-def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):
+def send(
+    querystring: object,
+    signature: object,
+    time_stamp: object,
+    pid: object,
+    timeout: object = DEFAULT_TIMEOUT_SECONDS,
+):
     """Send the content-safety request to the configured provider."""
     headers = {
         "X-AppId": pid,

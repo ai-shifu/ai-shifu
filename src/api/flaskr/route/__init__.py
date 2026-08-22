@@ -1,7 +1,7 @@
 """Route package entrypoints."""
 
 
-def register_route(app):
+def register_route(app: object):
     """Register every API route group on the Flask application."""
     from flaskr.service.referral.routes import register_referral_routes
 

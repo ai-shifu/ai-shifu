@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import jwt
 
 
-def _post_json(client, path: str, payload: dict, headers: dict | None = None):
+def _post_json(client: object, path: str, payload: dict, headers: dict | None = None):
     resp = client.post(
         path,
         data=json.dumps(payload),
@@ -17,7 +17,7 @@ def _post_json(client, path: str, payload: dict, headers: dict | None = None):
     return resp, json.loads(resp.data)
 
 
-def test_reset_password_does_not_create_new_user(test_client, app):
+def test_reset_password_does_not_create_new_user(test_client: object, app: object):
     from flaskr.service.user.models import UserInfo as UserEntity
 
     phone = "15500009999"
@@ -43,7 +43,9 @@ def test_reset_password_does_not_create_new_user(test_client, app):
         assert UserEntity.query.filter_by(user_identify=phone).count() == 0
 
 
-def test_set_password_requires_login_and_verification_code(test_client, app):
+def test_set_password_requires_login_and_verification_code(
+    test_client: object, app: object
+):
     from flaskr.service.user import phone_flow
 
     phone = "15500001111"
@@ -87,7 +89,7 @@ def test_set_password_requires_login_and_verification_code(test_client, app):
     assert body2["code"] == 1017  # server.user.passwordAlreadySet
 
 
-def test_password_login_after_setting_password(test_client, app):
+def test_password_login_after_setting_password(test_client: object, app: object):
     from flaskr.service.user import phone_flow
 
     phone = "15500002222"
@@ -119,7 +121,9 @@ def test_password_login_after_setting_password(test_client, app):
     assert body["data"]["userInfo"]["mobile"] == phone
 
 
-def test_password_login_merges_authenticated_guest_learner_profile(test_client, app):
+def test_password_login_merges_authenticated_guest_learner_profile(
+    test_client: object, app: object
+):
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
@@ -246,7 +250,9 @@ def test_password_login_merges_authenticated_guest_learner_profile(test_client, 
         assert target_state.trigger_source == "settings"
 
 
-def test_password_login_never_merges_from_a_registered_account(test_client, app):
+def test_password_login_never_merges_from_a_registered_account(
+    test_client: object, app: object
+):
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
@@ -295,7 +301,9 @@ def test_password_login_never_merges_from_a_registered_account(test_client, app)
         assert stored_target.nickname == "Existing target"
 
 
-def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client, app):
+def test_password_login_ignores_invalid_and_expired_optional_tokens(
+    test_client: object, app: object
+):
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
@@ -355,7 +363,7 @@ def test_password_login_ignores_invalid_and_expired_optional_tokens(test_client,
         assert stored_target.nickname == "Stable target"
 
 
-def test_sms_login_route_logs_in_with_phone_code(test_client):
+def test_sms_login_route_logs_in_with_phone_code(test_client: object):
     phone = "15500003333"
 
     resp, body = _post_json(
@@ -375,7 +383,9 @@ def test_sms_login_route_logs_in_with_phone_code(test_client):
     assert body["data"]["userInfo"]["mobile"] == phone
 
 
-def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client, app):
+def test_sms_login_route_does_not_rebind_authenticated_account_phone(
+    test_client: object, app: object
+):
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential
     from flaskr.service.user.models import UserInfo as UserEntity
@@ -421,7 +431,7 @@ def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client
         ]
 
 
-def test_sms_login_route_normalizes_cn_prefix(test_client, app):
+def test_sms_login_route_normalizes_cn_prefix(test_client: object, app: object):
     from flaskr.service.user.models import AuthCredential
     from flaskr.service.user.models import UserInfo as UserEntity
 

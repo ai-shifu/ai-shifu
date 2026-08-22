@@ -140,7 +140,7 @@ class IdentifierViolation:
     line: int
     message: str
 
-    def __str__(self) -> str:
+    def __str__(self: object) -> str:
         """Return the violation in path-and-line form."""
         return f"{self.path}:{self.line}: {self.message}"
 

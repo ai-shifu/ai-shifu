@@ -66,11 +66,11 @@ def validate_user(app: Flask, token: str) -> UserInfo:
 def update_user_info(
     app: Flask,
     user: UserInfo,
-    name,
-    email=None,
-    mobile=None,
-    language=None,
-    avatar=None,
+    name: object,
+    email: object = None,
+    mobile: object = None,
+    language: object = None,
+    avatar: object = None,
 ) -> UserInfo:
     """Update user info."""
     with app.app_context():
@@ -150,7 +150,7 @@ def update_user_info(
 
 def verify_sms_code(
     app: Flask,
-    user_id,
+    user_id: object,
     phone: str,
     chekcode: str,
     course_id: str | None = None,

@@ -54,7 +54,7 @@ class DifyAskProviderAdapter:
     provider = ASK_PROVIDER_DIFY
 
     def stream_answer(
-        self,
+        self: object,
         app: Flask,
         user_id: str,
         user_query: str,

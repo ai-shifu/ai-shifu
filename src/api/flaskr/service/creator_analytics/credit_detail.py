@@ -161,7 +161,7 @@ class _Params:
     )
 
     def __init__(
-        self,
+        self: object,
         *,
         shifu_bid: str,
         start_date: date | None,

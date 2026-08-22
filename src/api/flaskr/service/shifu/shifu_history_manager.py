@@ -61,12 +61,12 @@ class HistoryItem(BaseModel, Generic[T]):
     children: list["HistoryItem"] = []
     child_count: int = 0
 
-    def to_json(self):
+    def to_json(self: object):
         """To json."""
         return self.model_dump_json()
 
     @classmethod
-    def from_json(cls, json: str) -> "HistoryItem":
+    def from_json(cls: object, json: str) -> "HistoryItem":
         """From json to history item."""
         return cls.model_validate_json(json)
 
@@ -188,7 +188,7 @@ def _mask_contact_identifier(identifier: str | None) -> str:
     return _mask_phone_identifier(identifier)
 
 
-def _build_draft_meta(latest) -> dict:
+def _build_draft_meta(latest: object) -> dict:
     if not latest:
         return {
             "revision": 0,
@@ -251,7 +251,7 @@ def get_shifu_draft_meta(
         return _build_draft_meta(latest)
 
 
-def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
+def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
     """Get shifu history.
 
     Args:

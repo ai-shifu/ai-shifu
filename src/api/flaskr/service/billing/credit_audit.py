@@ -56,7 +56,7 @@ class CreditAuditIssue:
     message: str = ""
     details: dict[str, Any] = field(default_factory=dict)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self: object) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         payload: dict[str, Any] = {
             "code": self.code,
@@ -94,7 +94,7 @@ class CreditAuditReport:
     truncated: bool
     issues: list[CreditAuditIssue]
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self: object) -> dict[str, Any]:
         """Serialize this result for the billing credit-audit CLI report."""
         counts_by_code: dict[str, int] = {}
         for issue in self.issues:

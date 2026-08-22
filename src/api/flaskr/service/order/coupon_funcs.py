@@ -112,7 +112,11 @@ def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) ->
 
 
 def send_feishu_coupon_code(
-    app: Flask, user_id, discount_code, discount_name, discount_value
+    app: Flask,
+    user_id: object,
+    discount_code: object,
+    discount_name: object,
+    discount_value: object,
 ):
     """Send feishu coupon code."""
     with app.app_context():
@@ -139,7 +143,7 @@ def send_feishu_coupon_code(
         send_notify(app, title, msgs)
 
 
-def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
+def use_coupon_code(app: Flask, user_id: object, coupon_code: object, order_id: object):
     """Use coupon code.
 
     Args:

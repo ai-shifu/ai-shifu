@@ -110,7 +110,7 @@ class LowBalanceAlertCandidate:
     wallet_available_credits: Any
     alerts: list[Any]
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self: object) -> dict[str, Any]:
         """Serialize this result for task processing."""
         serialized_alerts: list[Any] = []
         for alert in self.alerts:
@@ -137,7 +137,7 @@ class LowBalanceAlertTaskResult:
     creators: list[LowBalanceAlertCandidate]
     task_name: str = "billing.send_low_balance_alert"
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self: object) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -219,7 +219,7 @@ def _recover_stale_processing_renewal_events(
 
 
 def dispatch_due_renewal_events(
-    app,
+    app: object,
 ) -> dict[str, Any]:
     """Find due renewal events and enqueue the existing runner task."""
     with app.app_context():
@@ -292,7 +292,7 @@ def dispatch_due_renewal_events(
 
 
 def _run_reconcile_provider_reference(
-    app,
+    app: object,
     *,
     creator_bid: str = "",
     payment_provider: str = "",
@@ -342,7 +342,7 @@ def _collect_low_balance_creator_bids() -> list[str]:
 
 
 def _expire_pending_billing_orders(
-    app,
+    app: object,
     *,
     creator_bid: str = "",
     expire_before: Any = None,

@@ -48,7 +48,7 @@ def _create_user(
     return user
 
 
-def _allow_profile_safety(monkeypatch) -> list[tuple[str, str]]:
+def _allow_profile_safety(monkeypatch: object) -> list[tuple[str, str]]:
     checked: list[tuple[str, str]] = []
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
@@ -78,12 +78,12 @@ def _add_profile_value(
     return row
 
 
-def _track_profile_lock_reads(monkeypatch) -> list[tuple[str, str, bool, bool]]:
+def _track_profile_lock_reads(monkeypatch: object) -> list[tuple[str, str, bool, bool]]:
     query_type = type(UserInfo.query)
     original_first = query_type.first
     read_order: list[tuple[str, str, bool, bool]] = []
 
-    def track_first(query):
+    def track_first(query: object):
         statement = str(query.statement)
         parameters = query.statement.compile().params
         table = (
@@ -107,7 +107,7 @@ def _track_profile_lock_reads(monkeypatch) -> list[tuple[str, str, bool, bool]]:
     return read_order
 
 
-def test_repository_aggregate_exposes_learner_profile(app):
+def test_repository_aggregate_exposes_learner_profile(app: object):
     with app.app_context():
         _create_user("profile-aggregate", learner_profile="偏好图表和简洁表达")
         aggregate = load_user_aggregate("profile-aggregate")
@@ -117,7 +117,9 @@ def test_repository_aggregate_exposes_learner_profile(app):
     _assert_orm_utc(aggregate.learner_profile_updated_at, PROFILE_UPDATED_AT)
 
 
-def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(app):
+def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(
+    app: object,
+):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
@@ -188,11 +190,11 @@ def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(
     ],
 )
 def test_legacy_nickname_account_identifier_filter_is_exact(
-    app,
-    identifier,
-    legacy_nickname,
-    suffix,
-    expected_nickname,
+    app: object,
+    identifier: object,
+    legacy_nickname: object,
+    suffix: object,
+    expected_nickname: object,
 ):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
@@ -221,10 +223,10 @@ def test_legacy_nickname_account_identifier_filter_is_exact(
     ],
 )
 def test_identifier_shaped_canonical_nickname_for_different_value_is_prefilled(
-    app,
-    identifier,
-    nickname,
-    suffix,
+    app: object,
+    identifier: object,
+    nickname: object,
+    suffix: object,
 ):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
@@ -246,10 +248,10 @@ def test_identifier_shaped_canonical_nickname_for_different_value_is_prefilled(
     ],
 )
 def test_credential_identifier_filter_is_exact(
-    app,
-    nickname,
-    suffix,
-    expected_nickname,
+    app: object,
+    nickname: object,
+    suffix: object,
+    expected_nickname: object,
 ):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
@@ -274,7 +276,7 @@ def test_credential_identifier_filter_is_exact(
     assert loaded["nickname"] == (nickname if expected_nickname else "")
 
 
-def test_identifier_fallback_prefers_explicit_legacy_nickname(app):
+def test_identifier_fallback_prefers_explicit_legacy_nickname(app: object):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
@@ -294,7 +296,7 @@ def test_identifier_fallback_prefers_explicit_legacy_nickname(app):
     assert loaded["legacy_profile_values"]["sys_user_nickname"] == "小林"
 
 
-def test_identifier_fallback_does_not_revive_cleared_legacy_nickname(app):
+def test_identifier_fallback_does_not_revive_cleared_legacy_nickname(app: object):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
@@ -319,7 +321,7 @@ def test_identifier_fallback_does_not_revive_cleared_legacy_nickname(app):
     assert "sys_user_nickname" not in loaded["legacy_profile_values"]
 
 
-def test_user_bid_fallback_is_not_profile_prefill_after_identifier_changes(app):
+def test_user_bid_fallback_is_not_profile_prefill_after_identifier_changes(app: object):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
@@ -336,7 +338,7 @@ def test_user_bid_fallback_is_not_profile_prefill_after_identifier_changes(app):
     assert "sys_user_nickname" not in loaded["legacy_profile_values"]
 
 
-def test_empty_legacy_values_do_not_revive_older_prefill_values(app):
+def test_empty_legacy_values_do_not_revive_older_prefill_values(app: object):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
@@ -367,7 +369,7 @@ def test_empty_legacy_values_do_not_revive_older_prefill_values(app):
     assert loaded["legacy_profile_values"] == {}
 
 
-def test_canonical_profile_does_not_expose_legacy_prefill_values(app):
+def test_canonical_profile_does_not_expose_legacy_prefill_values(app: object):
     from flaskr.service.profile.learner_profile import get_learner_profile
 
     with app.app_context():
@@ -387,7 +389,7 @@ def test_canonical_profile_does_not_expose_legacy_prefill_values(app):
     assert loaded["legacy_profile_values"] == {}
 
 
-def test_replace_and_clear_learner_profile(app, monkeypatch):
+def test_replace_and_clear_learner_profile(app: object, monkeypatch: object):
     from flaskr.service.profile.learner_profile import (
         clear_learner_profile,
         get_learner_profile,
@@ -436,7 +438,9 @@ def test_replace_and_clear_learner_profile(app, monkeypatch):
     "value",
     [None, 1, "🙂" * 1001],
 )
-def test_replace_rejects_invalid_profile_without_overwriting(app, monkeypatch, value):
+def test_replace_rejects_invalid_profile_without_overwriting(
+    app: object, monkeypatch: object, value: object
+):
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
         replace_learner_profile,
@@ -457,7 +461,9 @@ def test_replace_rejects_invalid_profile_without_overwriting(app, monkeypatch, v
     assert loaded["learner_profile"] == "existing profile"
 
 
-def test_replace_accepts_exactly_1000_unicode_code_points(app, monkeypatch):
+def test_replace_accepts_exactly_1000_unicode_code_points(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import replace_learner_profile
 
     _allow_profile_safety(monkeypatch)
@@ -472,7 +478,7 @@ def test_replace_accepts_exactly_1000_unicode_code_points(app, monkeypatch):
     assert len(result["learner_profile"]) == 1000
 
 
-def test_replace_atomically_saves_explicit_nickname(app, monkeypatch):
+def test_replace_atomically_saves_explicit_nickname(app: object, monkeypatch: object):
     from flaskr.service.profile.learner_profile import replace_learner_profile
 
     _allow_profile_safety(monkeypatch)
@@ -492,7 +498,9 @@ def test_replace_atomically_saves_explicit_nickname(app, monkeypatch):
     assert stored.nickname == "小雨"
 
 
-def test_replace_without_nickname_preserves_display_name(app, monkeypatch):
+def test_replace_without_nickname_preserves_display_name(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import replace_learner_profile
 
     _allow_profile_safety(monkeypatch)
@@ -509,7 +517,9 @@ def test_replace_without_nickname_preserves_display_name(app, monkeypatch):
     assert stored.nickname == "Test learner"
 
 
-def test_replace_explicit_empty_nickname_clears_display_name(app, monkeypatch):
+def test_replace_explicit_empty_nickname_clears_display_name(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import replace_learner_profile
 
     checked = _allow_profile_safety(monkeypatch)
@@ -531,7 +541,9 @@ def test_replace_explicit_empty_nickname_clears_display_name(app, monkeypatch):
     assert checked == []
 
 
-def test_replace_empty_profile_can_save_nickname_and_handled_state(app, monkeypatch):
+def test_replace_empty_profile_can_save_nickname_and_handled_state(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import replace_learner_profile
 
     checked = _allow_profile_safety(monkeypatch)
@@ -555,7 +567,7 @@ def test_replace_empty_profile_can_save_nickname_and_handled_state(app, monkeypa
 
 @pytest.mark.parametrize("nickname", [1, "🙂" * 65])
 def test_replace_rejects_invalid_nickname_without_overwriting(
-    app, monkeypatch, nickname
+    app: object, monkeypatch: object, nickname: object
 ):
     from flaskr.service.profile.learner_profile import replace_learner_profile
 
@@ -576,7 +588,7 @@ def test_replace_rejects_invalid_nickname_without_overwriting(
     assert stored.nickname == "Test learner"
 
 
-def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
+def test_safety_rejection_preserves_existing_profile(app: object, monkeypatch: object):
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
         replace_learner_profile,
@@ -611,7 +623,7 @@ def test_safety_rejection_preserves_existing_profile(app, monkeypatch):
     ],
 )
 def test_profile_moderation_allows_every_non_reject_result(
-    app, monkeypatch, check_result
+    app: object, monkeypatch: object, check_result: object
 ):
     from flaskr.api.check.dto import CheckResultDTO
     from flaskr.service.profile.learner_profile import (
@@ -648,7 +660,9 @@ def test_profile_moderation_allows_every_non_reject_result(
     assert state is not None
 
 
-def test_profile_moderation_rejects_only_explicit_reject(app, monkeypatch):
+def test_profile_moderation_rejects_only_explicit_reject(
+    app: object, monkeypatch: object
+):
     from flaskr.api.check.dto import CheckResultDTO
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
@@ -686,7 +700,9 @@ def test_profile_moderation_rejects_only_explicit_reject(app, monkeypatch):
     assert state is None
 
 
-def test_nickname_rejection_rolls_back_profile_nickname_and_state(app, monkeypatch):
+def test_nickname_rejection_rolls_back_profile_nickname_and_state(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
         replace_learner_profile,
@@ -694,7 +710,7 @@ def test_nickname_rejection_rolls_back_profile_nickname_and_state(app, monkeypat
 
     checked: list[str] = []
 
-    def reject_nickname(_app, _user_id, text):
+    def reject_nickname(_app: object, _user_id: object, text: object):
         checked.append(text)
         return text != "Rejected nickname"
 
@@ -724,7 +740,7 @@ def test_nickname_rejection_rolls_back_profile_nickname_and_state(app, monkeypat
     assert state is None
 
 
-def test_profile_moderation_allows_save_when_provider_is_unavailable(app):
+def test_profile_moderation_allows_save_when_provider_is_unavailable(app: object):
     from flaskr.service.profile.learner_profile import (
         get_learner_profile,
         replace_learner_profile,
@@ -750,7 +766,9 @@ def test_profile_moderation_allows_save_when_provider_is_unavailable(app):
     assert state is not None
 
 
-def test_profile_safety_audit_records_text_and_provider_response(app, monkeypatch):
+def test_profile_safety_audit_records_text_and_provider_response(
+    app: object, monkeypatch: object
+):
     from flaskr.api.check.dto import CHECK_RESULT_PASS, CheckResultDTO
     from flaskr.service.check_risk.models import RiskControlResult
     from flaskr.service.profile.learner_profile import replace_learner_profile
@@ -758,7 +776,7 @@ def test_profile_safety_audit_records_text_and_provider_response(app, monkeypatc
     profile = "称呼：小明\n职业背景：医疗产品经理"
     checked: dict[str, str] = {}
 
-    def fake_check_text(_app, check_id, text, user_id):
+    def fake_check_text(_app: object, check_id: object, text: object, user_id: object):
         checked.update(check_id=check_id, text=text, user_id=user_id)
         return CheckResultDTO(
             check_result=CHECK_RESULT_PASS,
@@ -793,7 +811,9 @@ def test_profile_safety_audit_records_text_and_provider_response(app, monkeypatc
     )
 
 
-def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(app, monkeypatch):
+def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile import onboarding as onboarding_module
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
@@ -844,7 +864,9 @@ def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(app, monkey
     }
 
 
-def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch):
+def test_complete_atomically_writes_profile_and_fixed_v2_state(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
@@ -896,11 +918,11 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(app, monkeypatch)
     ],
 )
 def test_save_moderates_only_changed_nonempty_fields(
-    app,
-    monkeypatch,
-    learner_profile,
-    nickname,
-    expected_checked,
+    app: object,
+    monkeypatch: object,
+    learner_profile: object,
+    nickname: object,
+    expected_checked: object,
 ):
     from flaskr.service.profile.learner_profile import save_learner_profile
 
@@ -924,7 +946,9 @@ def test_save_moderates_only_changed_nonempty_fields(
     assert checked == [(user_bid, value) for value in expected_checked]
 
 
-def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
+def test_save_locks_user_then_state_before_writing_profile(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import save_learner_profile
 
     with app.app_context():
@@ -933,7 +957,7 @@ def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
         read_order = _track_profile_lock_reads(monkeypatch)
         reads_when_moderated: list[tuple[str, str, bool, bool]] = []
 
-        def allow_after_user_lock(_app, _user_id, _text):
+        def allow_after_user_lock(_app: object, _user_id: object, _text: object):
             reads_when_moderated.extend(read_order)
             return True
 
@@ -966,17 +990,19 @@ def test_save_locks_user_then_state_before_writing_profile(app, monkeypatch):
     assert result["learner_profile"] == "Please call me Locked Learner."
 
 
-def test_save_moderates_once_when_state_creation_retries(app, monkeypatch):
+def test_save_moderates_once_when_state_creation_retries(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile import learner_profile
 
     moderation_calls: list[str] = []
     operation_calls = 0
 
-    def allow_once(_app, _user_id, text):
+    def allow_once(_app: object, _user_id: object, text: object):
         moderation_calls.append(text)
         return True
 
-    def run_twice(operation, *, user_id):
+    def run_twice(operation: object, *, user_id: object):
         nonlocal operation_calls
         assert user_id == "profile-save-moderation-retry"
         operation()
@@ -1007,7 +1033,9 @@ def test_save_moderates_once_when_state_creation_retries(app, monkeypatch):
     assert result["learner_profile"] == "Please call me Retry Learner."
 
 
-def test_clear_locks_user_then_state_before_clearing_profile(app, monkeypatch):
+def test_clear_locks_user_then_state_before_clearing_profile(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import clear_learner_profile
 
     with app.app_context():
@@ -1029,7 +1057,9 @@ def test_clear_locks_user_then_state_before_clearing_profile(app, monkeypatch):
     assert result["learner_profile"] == ""
 
 
-def test_complete_preserves_legacy_variable_values_for_old_courses(app, monkeypatch):
+def test_complete_preserves_legacy_variable_values_for_old_courses(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import save_learner_profile
 
     _allow_profile_safety(monkeypatch)
@@ -1088,7 +1118,7 @@ def test_complete_preserves_legacy_variable_values_for_old_courses(app, monkeypa
     }
 
 
-def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(app):
+def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(app: object):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
@@ -1156,7 +1186,9 @@ def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(app):
     }
 
 
-def test_empty_profile_save_returns_legacy_prefill_on_next_get(app, monkeypatch):
+def test_empty_profile_save_returns_legacy_prefill_on_next_get(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_VERSION,
@@ -1210,7 +1242,9 @@ def test_empty_profile_save_returns_legacy_prefill_on_next_get(app, monkeypatch)
     assert checked == []
 
 
-def test_repeated_completion_preserves_profile_and_state_timestamps(app, monkeypatch):
+def test_repeated_completion_preserves_profile_and_state_timestamps(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import save_learner_profile
 
     _allow_profile_safety(monkeypatch)
@@ -1233,7 +1267,9 @@ def test_repeated_completion_preserves_profile_and_state_timestamps(app, monkeyp
     assert second["completed_at"] == first["completed_at"]
 
 
-def test_complete_rolls_back_profile_and_state_together(app, monkeypatch):
+def test_complete_rolls_back_profile_and_state_together(
+    app: object, monkeypatch: object
+):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         save_learner_profile,
@@ -1278,7 +1314,7 @@ def test_complete_rolls_back_profile_and_state_together(app, monkeypatch):
     assert legacy_background.deleted == 0
 
 
-def test_clear_rolls_back_profile_and_state_together(app, monkeypatch):
+def test_clear_rolls_back_profile_and_state_together(app: object, monkeypatch: object):
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
         clear_learner_profile,

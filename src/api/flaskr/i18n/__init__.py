@@ -43,7 +43,7 @@ def _shared_json_root() -> Path:
     return Path(__file__).resolve().parents[2] / "i18n"
 
 
-def _flatten_dict(data, prefix: str = ""):
+def _flatten_dict(data: object, prefix: str = ""):
     if not isinstance(data, dict):
         key = prefix or ""
         return {key: data} if key else {}
@@ -59,7 +59,7 @@ def _flatten_dict(data, prefix: str = ""):
     return flattened
 
 
-def _store_translation(lang: str, key: str, value):
+def _store_translation(lang: str, key: str, value: object):
     if value is None:
         return
     _translations[lang][key] = value
@@ -247,7 +247,7 @@ def _load_python_translations(app: Flask, translations_dir: Path):
                                     )
 
 
-def load_translations(app: Flask, translations_dir=None):
+def load_translations(app: Flask, translations_dir: object = None):
     """Load translations."""
     if translations_dir:
         base_path = Path(translations_dir)
@@ -290,7 +290,7 @@ def get_current_language():
     return getattr(_thread_local, "language", "en-US")
 
 
-def set_language(language):
+def set_language(language: object):
     """Set language."""
     _thread_local.language = language
 

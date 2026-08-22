@@ -174,7 +174,9 @@ def test_course_prompt_can_personalize_with_only_an_explicit_nickname():
 
 
 @pytest.mark.parametrize("nickname", ["learner@example.com", "+8613800138000"])
-def test_course_prompt_does_not_expose_account_identifier_as_a_nickname(nickname):
+def test_course_prompt_does_not_expose_account_identifier_as_a_nickname(
+    nickname: object,
+):
     course_prompt = "COURSE RULE"
 
     assert (

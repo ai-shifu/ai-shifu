@@ -127,7 +127,7 @@ def iter_locale_dirs() -> Iterable[Path]:
             yield entry
 
 
-def flatten_translation(data, namespace: str) -> dict[str, str]:
+def flatten_translation(data: object, namespace: str) -> dict[str, str]:
     """Flatten translation."""
     if isinstance(data, dict):
         items: dict[str, str] = {}

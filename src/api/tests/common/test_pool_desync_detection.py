@@ -16,15 +16,15 @@ from sqlalchemy.pool import QueuePool
 class _FakePyMySQLConnection:
     """Minimal stand-in exposing the pymysql `_sock` attribute."""
 
-    def __init__(self, sock) -> None:
+    def __init__(self: object, sock: object) -> None:
         self._sock = sock
         self.closed = False
 
     # QueuePool reset/close hooks
-    def rollback(self):
+    def rollback(self: object):
         pass
 
-    def close(self):
+    def close(self: object):
         self.closed = True
         self._sock.close()
 
@@ -38,7 +38,7 @@ def sock_pair():
     right.close()
 
 
-def test_unread_data_detected(sock_pair):
+def test_unread_data_detected(sock_pair: object):
     left, right = sock_pair
     conn = _FakePyMySQLConnection(left)
     assert dao._socket_has_unread_data(conn) is False
@@ -62,7 +62,7 @@ def test_unusable_socket_object_is_ignored():
     assert dao._socket_has_unread_data(_BadSock()) is False
 
 
-def test_pool_discards_connection_desynced_during_use(sock_pair):
+def test_pool_discards_connection_desynced_during_use(sock_pair: object):
     left, right = sock_pair
     dirty_conn = _FakePyMySQLConnection(left)
     clean_sock_a, clean_sock_b = socket.socketpair()
@@ -98,7 +98,7 @@ def test_pool_discards_connection_desynced_during_use(sock_pair):
         clean_sock_b.close()
 
 
-def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
+def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair: object):
     left, right = sock_pair
     dirty_conn = _FakePyMySQLConnection(left)
     clean_sock_a, clean_sock_b = socket.socketpair()
@@ -128,7 +128,7 @@ def test_checkout_rejects_connection_that_became_dirty_in_pool(sock_pair):
         clean_sock_b.close()
 
 
-def test_probe_timeout_waits_for_in_flight_data(sock_pair):
+def test_probe_timeout_waits_for_in_flight_data(sock_pair: object):
     """A timed probe must catch data that arrives DURING the wait window: the zero-timeout probe misses an owed response still in flight, which is exactly how a just-interrupted exchange poisons the pool.
 
     A generous test window (far larger than any CI scheduler delay) keeps this
@@ -171,11 +171,11 @@ def test_checkin_grace_window_is_a_short_positive_interval():
 class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
     """Fake with a healthy ping - the pymysql-shaped checkout path."""
 
-    def __init__(self, sock) -> None:
+    def __init__(self: object, sock: object) -> None:
         super().__init__(sock)
         self.pings = 0
 
-    def ping(self, reconnect):
+    def ping(self: object, reconnect: object):
         _ = reconnect
         self.pings += 1
 

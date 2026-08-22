@@ -30,14 +30,14 @@ class FollowUpInfo:
     ask_provider_config: dict
 
     def __init__(
-        self,
-        ask_model,
-        ask_prompt,
-        ask_history_count,
-        ask_limit_count,
-        model_args,
-        ask_mode,
-        ask_provider_config=None,
+        self: object,
+        ask_model: object,
+        ask_prompt: object,
+        ask_history_count: object,
+        ask_limit_count: object,
+        model_args: object,
+        ask_mode: object,
+        ask_provider_config: object = None,
     ) -> None:
         """Capture follow-up model, prompt, and limit settings."""
         self.ask_model = ask_model
@@ -48,7 +48,7 @@ class FollowUpInfo:
         self.ask_mode = ask_mode
         self.ask_provider_config = ask_provider_config or {}
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the follow-up info as JSON-compatible data."""
         return {
             "ask_model": self.ask_model,
@@ -80,7 +80,7 @@ def safe_format_template(template: str, variables: dict) -> str:
     # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
-    def replacer(match):
+    def replacer(match: object):
         _, var, _ = match.groups()
         var_name = var.strip()
         # Only process variable names with letters, digits, underscore, hyphen

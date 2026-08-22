@@ -29,7 +29,7 @@ def run(
 class PrettierCheckChangedTest(unittest.TestCase):
     """Verify prettier check changed behavior."""
 
-    def setUp(self) -> None:
+    def setUp(self: object) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.repo = Path(self.tempdir.name)
         self.cook_web = self.repo / "src/cook-web"
@@ -54,22 +54,22 @@ class PrettierCheckChangedTest(unittest.TestCase):
         )
         (self.fake_bin / "npx").chmod(0o755)
 
-    def tearDown(self) -> None:
+    def tearDown(self: object) -> None:
         self.tempdir.cleanup()
 
-    def script_env(self) -> dict[str, str]:
+    def script_env(self: object) -> dict[str, str]:
         env = os.environ.copy()
         env["PATH"] = f"{self.fake_bin}{os.pathsep}{env['PATH']}"
         env["FAKE_NPX_ARGS"] = str(self.args_file)
         return env
 
-    def commit_changes(self, message: str) -> str:
+    def commit_changes(self: object, message: str) -> str:
         run(["git", "add", "."], self.repo)
         result = run(["git", "commit", "-m", message], self.repo)
         assert result.returncode == 0, result.stderr
         return run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
 
-    def test_checks_only_changed_cook_web_files(self) -> None:
+    def test_checks_only_changed_cook_web_files(self: object) -> None:
         (self.cook_web / "src/existing.ts").write_text("const value = 2;\n")
         (self.cook_web / "docs").mkdir()
         (self.cook_web / "docs/notes.md").write_text("# Notes\n")
@@ -87,7 +87,7 @@ class PrettierCheckChangedTest(unittest.TestCase):
         assert args[:4] == ["prettier", "--check", "--ignore-unknown", "--"]
         assert sorted(args[4:]) == sorted(["docs/notes.md", "src/existing.ts"])
 
-    def test_skips_prettier_when_no_cook_web_files_changed(self) -> None:
+    def test_skips_prettier_when_no_cook_web_files_changed(self: object) -> None:
         (self.repo / "src/api/app.py").write_text("print('outside only')\n")
         head = self.commit_changes("change backend only")
 

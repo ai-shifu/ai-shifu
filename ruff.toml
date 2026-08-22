@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN002/ANN003/ANN204/ANN205/ANN206, see `select`) / SLF001 /
+# - ANN (except ANN201/ANN202/ANN401 and the selected rules below) / SLF001 /
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
@@ -169,11 +169,12 @@ select = [
     "S",
 
     # --- Type annotations -------------------------------------------------
-    # flake8-annotations is otherwise off (see the header): annotating every
-    # argument and return in the repo is a separate project. Variadic parameters
-    # name the element/value type after the stars; use a concrete homogeneous
-    # type when known and `object` for intentionally heterogeneous forwarding.
-    # ANN205 is small enough to keep enforced, and a staticmethod is where a
+    # flake8-annotations is otherwise off (see the header). Every callable
+    # parameter now names its input contract; `object` marks intentionally
+    # heterogeneous values at dynamic boundaries. Variadic parameters name the
+    # element/value type after the stars; use a concrete homogeneous type when
+    # known and `object` for intentionally heterogeneous forwarding. ANN205 is
+    # small enough to keep enforced, and a staticmethod is where a
     # missing return type hides the most, since there is no `self` to infer from.
     # ANN206 covers the classmethod counterpart, mostly alternative constructors
     # and frozen-clock `now()` doubles. ANN204 is the same bet for special
@@ -181,6 +182,7 @@ select = [
     # so the return type is never a judgement call and writing it down keeps the
     # serialization dunders (`__json__` returning a dict vs an enum value's str)
     # readable at a glance.
+    "ANN001",  # missing type for function arguments
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
     "ANN204",  # missing return type on a special method
@@ -269,6 +271,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # would break `alembic` revision discovery. Applied migration history is
 # immutable, so its conventional `upgrade` / `downgrade` hooks retain D103.
 "src/api/migrations/**" = ["D103", "INP001"]
+# Only the two already-applied revisions listed below retain ANN001 exceptions;
+# future revisions must annotate their own nonstandard hook parameters.
 # This applied no-op revision keeps a legacy `NOTE:` section in its module
 # docstring. Migration history is immutable, so D405 is scoped to this file.
 "src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
@@ -282,7 +286,8 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # Listed one by one so new revisions stay covered by S608.
 "src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
 "src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
-"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
+"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["ANN001", "S608"]
+"src/api/migrations/versions/f6b2a4d8c9e0_remove_legacy_timestamp_server_defaults.py" = ["ANN001"]
 "src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
 "src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
 "src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]

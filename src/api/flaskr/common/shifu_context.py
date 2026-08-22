@@ -68,7 +68,7 @@ def apply_shifu_context_snapshot(snapshot: dict[str, Any] | None) -> None:
         _context_local.shifu_creator_bid = snapshot.get("shifu_creator_bid")
 
 
-def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
+def _get_shifu_creator_bid_cached(app: object, shifu_bid: str) -> str | None:
     """Resolve creator bid for a shifu with a lightweight Redis cache.
 
     The mapping (shifu_bid -> creator_bid) is effectively immutable, so we can
@@ -132,7 +132,7 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
         return get_shifu_creator_bid(app, shifu_bid)
 
 
-def _resolve_host_creator_bid(app, host: str) -> str | None:
+def _resolve_host_creator_bid(app: object, host: str) -> str | None:
     """Resolve creator_bid from a verified custom domain host."""
     normalized_host = str(host or "").strip()
     if not normalized_host:
@@ -149,7 +149,7 @@ def _resolve_host_creator_bid(app, host: str) -> str | None:
         return None
 
 
-def _extract_request_host(request) -> str | None:
+def _extract_request_host(request: object) -> str | None:
     forwarded_host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
     if forwarded_host:
         return forwarded_host.split(",", 1)[0].strip()

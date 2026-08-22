@@ -12,7 +12,7 @@ _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocke
 class _FakeObservation:
     """Mimics a Langfuse SDK v4 observation object."""
 
-    def __init__(self, kind: str = "span", **kwargs: object) -> None:
+    def __init__(self: object, kind: str = "span", **kwargs: object) -> None:
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
@@ -24,7 +24,7 @@ class _FakeObservation:
         self.span_calls = []
         self.last_span = None
 
-    def start_observation(self, as_type="span", **kwargs: object):
+    def start_observation(self: object, as_type: object = "span", **kwargs: object):
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
@@ -33,17 +33,17 @@ class _FakeObservation:
             self.last_span = child
         return child
 
-    def update(self, **kwargs: object):
+    def update(self: object, **kwargs: object):
         self.updates.append(kwargs)
 
-    def set_trace_as_public(self):
+    def set_trace_as_public(self: object):
         self.public = True
 
-    def end(self):
+    def end(self: object):
         self.ended = True
 
     @property
-    def end_kwargs(self):
+    def end_kwargs(self: object):
         merged = {}
         for item in self.updates:
             merged.update(item)
@@ -51,10 +51,15 @@ class _FakeObservation:
 
 
 class _FakeLangfuseClient:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.traces = []
 
-    def start_observation(self, as_type="span", trace_context=None, **kwargs: object):
+    def start_observation(
+        self: object,
+        as_type: object = "span",
+        trace_context: object = None,
+        **kwargs: object,
+    ):
         root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
@@ -62,7 +67,7 @@ class _FakeLangfuseClient:
 
 
 def _mock_authenticated_user(
-    monkeypatch,
+    monkeypatch: object,
     user_bid: str = "preview-user-1",
     *,
     is_creator: bool = False,
@@ -85,7 +90,9 @@ def _auth_headers(token: str = _PREVIEW_TOKEN) -> dict[str, str]:
     return {"Token": token}
 
 
-def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
+def test_ask_preview_route_success_with_provider(
+    monkeypatch: object, test_client: object
+):
     _mock_authenticated_user(monkeypatch)
     fake_langfuse = _FakeLangfuseClient()
 
@@ -145,7 +152,7 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert trace.end_kwargs["output"] == "provider result"
 
 
-def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
+def test_ask_preview_route_fallbacks_to_llm(monkeypatch: object, test_client: object):
     _mock_authenticated_user(monkeypatch)
 
     def fake_stream_ask_provider_response(*args: object, **kwargs: object):
@@ -194,7 +201,9 @@ def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
     )
 
 
-def test_ask_preview_route_rejects_empty_query(monkeypatch, test_client):
+def test_ask_preview_route_rejects_empty_query(
+    monkeypatch: object, test_client: object
+):
     _mock_authenticated_user(monkeypatch)
 
     resp = test_client.post(
@@ -217,7 +226,7 @@ def test_ask_preview_route_rejects_empty_query(monkeypatch, test_client):
 
 
 def test_ask_preview_route_provider_only_does_not_require_ask_model(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ):
     _mock_authenticated_user(monkeypatch)
 
@@ -260,7 +269,7 @@ def test_ask_preview_route_provider_only_does_not_require_ask_model(
 
 
 def test_ask_preview_route_provider_only_accepts_coze_workflow(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ):
     _mock_authenticated_user(monkeypatch)
 
@@ -303,7 +312,7 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
 
 
 def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ):
     _mock_authenticated_user(monkeypatch)
     captured: dict[str, object] = {}
@@ -353,7 +362,9 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
     assert runtime.llm_context_stream_factory is not None
 
 
-def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_client):
+def test_ask_preview_route_surfaces_friendly_provider_error(
+    monkeypatch: object, test_client: object
+):
     _mock_authenticated_user(monkeypatch)
 
     def fake_stream_ask_provider_response(*args: object, **kwargs: object):
@@ -400,7 +411,7 @@ def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_cl
 
 
 def test_ask_preview_route_falls_back_to_generic_provider_error(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ):
     _mock_authenticated_user(monkeypatch)
 
@@ -441,7 +452,7 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
 
 
 def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ):
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
@@ -516,7 +527,7 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
 
 
 def test_ask_preview_route_passes_debug_usage_context_for_creator(
-    monkeypatch, test_client
+    monkeypatch: object, test_client: object
 ):
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 class _StreamTTSFinalizeJob:
     def __init__(
-        self,
+        self: object,
         *,
         event_queue: queue.Queue,
         thread: threading.Thread,
@@ -34,7 +34,7 @@ class _StreamTTSFinalizeJob:
 class StreamTTSFinalizeDrainer:
     """Finalize switched-out text TTS without blocking mdflow visual chunks."""
 
-    def __init__(self, run_context: Any, *, log_prefix: str) -> None:
+    def __init__(self: object, run_context: Any, *, log_prefix: str) -> None:
         """Bind run finalization dependencies and create an empty job queue.
 
         Stores the run context, its Flask app, and the log prefix used by deferred
@@ -45,7 +45,7 @@ class StreamTTSFinalizeDrainer:
         self._log_prefix = log_prefix
         self._jobs: list[_StreamTTSFinalizeJob] = []
 
-    def submit(self, processor) -> None:
+    def submit(self: object, processor: object) -> None:
         """Submit a streaming TTS finalization job."""
         if not processor:
             return
@@ -91,7 +91,9 @@ class StreamTTSFinalizeDrainer:
         self._jobs.append(_StreamTTSFinalizeJob(event_queue=event_queue, thread=thread))
         thread.start()
 
-    def drain(self, *, wait: bool = False) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def drain(
+        self: object, *, wait: bool = False
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Drain once without waiting, or wait for all jobs when requested."""
         while self._jobs:
             for job in list(self._jobs):
@@ -102,13 +104,13 @@ class StreamTTSFinalizeDrainer:
             if not wait:
                 break
 
-    def close(self) -> None:
+    def close(self: object) -> None:
         """Make a short, best-effort join attempt for active finalizer jobs."""
         for job in list(self._jobs):
             job.thread.join(timeout=0.1)
 
     def _drain_job(
-        self,
+        self: object,
         job: _StreamTTSFinalizeJob,
         *,
         wait: bool,

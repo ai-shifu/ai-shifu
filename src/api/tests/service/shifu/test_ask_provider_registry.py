@@ -294,7 +294,7 @@ def test_ask_provider_metadata_exposes_minimal_schema_properties():
     assert set(get_biji_fields) == {"api_key", "client_id", "topic_id", "top_k"}
 
 
-def test_ask_provider_metadata_localizes_text_for_zh_cn(app):
+def test_ask_provider_metadata_localizes_text_for_zh_cn(app: object):
     _ = app
     set_language("zh-CN")
     try:

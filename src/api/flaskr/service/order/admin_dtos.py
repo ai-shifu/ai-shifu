@@ -43,7 +43,7 @@ class OrderAdminOverviewDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the operator order overview as JSON-compatible data."""
         return {
             "total_order_count": self.total_order_count,
@@ -88,7 +88,7 @@ class OrderAdminSummaryDTO(BaseModel):
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
-        self,
+        self: object,
         order_bid: str,
         shifu_bid: str,
         shifu_name: str,
@@ -132,7 +132,7 @@ class OrderAdminSummaryDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the operator order summary as JSON-compatible data."""
         return {
             "order_bid": self.order_bid,
@@ -170,7 +170,7 @@ class OrderAdminActivityDTO(BaseModel):
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
-        self,
+        self: object,
         active_id: str,
         active_name: str,
         price: str,
@@ -190,7 +190,7 @@ class OrderAdminActivityDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the operator order activity as JSON-compatible data."""
         return {
             "active_id": self.active_id,
@@ -221,7 +221,7 @@ class OrderAdminCouponDTO(BaseModel):
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
-        self,
+        self: object,
         coupon_bid: str,
         code: str,
         name: str,
@@ -247,7 +247,7 @@ class OrderAdminCouponDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the operator order coupon as JSON-compatible data."""
         return {
             "coupon_bid": self.coupon_bid,
@@ -297,7 +297,7 @@ class OrderAdminPaymentDTO(BaseModel):
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
-        self,
+        self: object,
         payment_channel: str,
         payment_channel_key: str,
         status: int,
@@ -335,7 +335,7 @@ class OrderAdminPaymentDTO(BaseModel):
             updated_at=updated_at,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the operator order payment as JSON-compatible data."""
         return {
             "payment_channel": self.payment_channel,
@@ -375,7 +375,7 @@ class OrderAdminDetailDTO(BaseModel):
     )
 
     def __init__(
-        self,
+        self: object,
         order: OrderAdminSummaryDTO,
         activities: list[OrderAdminActivityDTO],
         coupons: list[OrderAdminCouponDTO],
@@ -389,7 +389,7 @@ class OrderAdminDetailDTO(BaseModel):
             payment=payment,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the operator order detail as JSON-compatible data."""
         return {
             "order": self.order,

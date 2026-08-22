@@ -537,7 +537,7 @@ def resolve_domain_binding_status_filter(value: str) -> int | None:
 
 
 def build_page_payload(
-    query, *, page_index: int, page_size: int, serializer
+    query: object, *, page_index: int, page_size: int, serializer: object
 ) -> PageWindow[Any]:
     """Build page payload."""
     total = query.order_by(None).count()

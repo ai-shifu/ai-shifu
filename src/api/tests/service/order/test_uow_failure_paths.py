@@ -130,7 +130,7 @@ def _seed_order(**overrides: object) -> str:
 def test_init_buy_record_late_failure_persists_nothing(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
+    stub_shifu: object,
 ):
     """(a) A late failure in init_buy_record must not leave partial rows.
 
@@ -139,7 +139,7 @@ def test_init_buy_record_late_failure_persists_nothing(
     """
     _ = stub_shifu
 
-    def fake_apply_promo(_app, **kwargs: object):
+    def fake_apply_promo(_app: object, **kwargs: object):
         application = PromoRedemption(
             redemption_bid="uow-redemption-1",
             promo_bid="uow-promo-1",
@@ -167,8 +167,8 @@ def test_init_buy_record_late_failure_persists_nothing(
 def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-    stub_promo_side_sessions,
+    stub_shifu: object,
+    stub_promo_side_sessions: object,
 ):
     """(b) Clean run: the timeout flip and the new order commit together."""
     _ = stub_shifu
@@ -191,8 +191,8 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
 def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-    stub_promo_side_sessions,
+    stub_shifu: object,
+    stub_promo_side_sessions: object,
 ):
     """(b) Failure run: the timeout flip joins the caller's transaction.
 
@@ -222,7 +222,7 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
 def test_discount_refresh_failure_keeps_coupon_pricing_untouched(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
+    stub_shifu: object,
 ):
     """(c) A failure after the discount recalculation leaves pricing intact.
 
@@ -271,7 +271,7 @@ def test_discount_refresh_failure_keeps_coupon_pricing_untouched(
 def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
+    stub_shifu: object,
 ):
     """The key migration property: self-committing at top level, joining when nested — legacy callers (coupon_funcs, admin) and migrated owners both stay correct."""
     _ = stub_shifu

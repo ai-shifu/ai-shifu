@@ -115,7 +115,7 @@ def load_existing_outline_items(
 
 
 def build_outline_tree_from_items(
-    app, outline_items: list[DraftOutlineItem]
+    app: object, outline_items: list[DraftOutlineItem]
 ) -> list[ShifuOutlineTreeNode]:
     """Build outline tree from items."""
     sorted_items = sorted(outline_items, key=lambda x: (len(x.position), x.position))
@@ -166,7 +166,7 @@ def build_outline_tree_from_items(
 
 
 def build_outline_tree(
-    app, shifu_bid: str, *, include_content: bool = True
+    app: object, shifu_bid: str, *, include_content: bool = True
 ) -> list[ShifuOutlineTreeNode]:
     """Build outline tree.
 
@@ -186,7 +186,7 @@ def build_outline_tree(
 
 
 def assert_outline_items_publishable(
-    app, shifu_bid: str, outline_items: list[DraftOutlineItem]
+    app: object, shifu_bid: str, outline_items: list[DraftOutlineItem]
 ) -> None:
     """Validate that the outline structure can be published without silent data loss.
 
@@ -217,7 +217,7 @@ def assert_outline_items_publishable(
         raise_error("server.shifu.outlineStructureBroken")
 
 
-def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
+def assert_outline_tree_publishable(app: object, shifu_bid: str) -> None:
     """Validate that the outline structure can be published without silent data loss."""
     existing_items = load_existing_outline_items(shifu_bid, include_content=False)
     assert_outline_items_publishable(app, shifu_bid, existing_items)
@@ -259,7 +259,9 @@ def get_outline_tree_dto(
     return result
 
 
-def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto]:
+def get_outline_tree(
+    app: object, user_id: str, shifu_bid: str
+) -> list[SimpleOutlineDto]:
     """Get the current draft outline tree.
 
     Build the tree from the stored outline items.
@@ -311,7 +313,7 @@ def __normalize_outline_name(outline_name: str) -> str:
 
 
 def __insert_outline_locked(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     parent_id: str,
@@ -319,7 +321,7 @@ def __insert_outline_locked(
     outline_type: str,
     system_prompt: str,
     is_hidden: bool,
-    now_time,
+    now_time: object,
     outline_bid: str,
     persist_history: bool = True,
 ) -> SimpleOutlineDto:
@@ -415,7 +417,7 @@ def __insert_outline_locked(
 
 
 def create_outline(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     parent_id: str,
@@ -466,12 +468,12 @@ def create_outline(
 
 
 def create_default_outlines_for_new_shifu(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     chapter_name: str,
     lesson_name: str,
-    now_time,
+    now_time: object,
     shifu_db_id: int | None = None,
 ) -> tuple[SimpleOutlineDto, SimpleOutlineDto]:
     """Create the default chapter/lesson pair for a brand-new shifu draft.
@@ -565,7 +567,7 @@ def _build_outline_history_tree(
 
 
 def create_outlines_batch(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     outlines: list,
@@ -654,7 +656,7 @@ def create_outlines_batch(
 
 
 def reorder_outline_tree(
-    app, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
+    app: object, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
 ):
     """Reorder outline tree.
 
@@ -687,8 +689,8 @@ def reorder_outline_tree(
         # rebuild positions
         def rebuild_positions(
             outline_dtos: list[ReorderOutlineItemDto],
-            parent_position="",
-            parent_bid="",
+            parent_position: object = "",
+            parent_bid: object = "",
             history_infos: list[HistoryItem] | None = None,
         ):
             if history_infos is None:
@@ -749,7 +751,7 @@ def reorder_outline_tree(
         return True
 
 
-def get_unit_by_id(app, user_id: str, unit_id: str):
+def get_unit_by_id(app: object, user_id: str, unit_id: str):
     """Get unit by id.
 
     Args:
@@ -794,7 +796,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
 
 
 def modify_unit(
-    app,
+    app: object,
     user_id: str,
     unit_id: str,
     unit_name: str | None = None,
@@ -887,7 +889,7 @@ def modify_unit(
         )
 
 
-def delete_unit(app, user_id: str, unit_id: str):
+def delete_unit(app: object, user_id: str, unit_id: str):
     """Delete unit.
 
     Args:

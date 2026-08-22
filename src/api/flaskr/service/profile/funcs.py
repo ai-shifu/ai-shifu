@@ -78,7 +78,7 @@ def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
 
 
 def _update_aggregate_field(
-    aggregate: UserAggregate | None, mapping: str, value
+    aggregate: UserAggregate | None, mapping: str, value: object
 ) -> None:
     if not aggregate:
         return
@@ -92,7 +92,7 @@ def _update_aggregate_field(
         aggregate.birthday = value
 
 
-def _normalize_core_value(mapping: str, value):
+def _normalize_core_value(mapping: str, value: object):
     if mapping == "user_birth":
         if isinstance(value, datetime.date):
             return value
@@ -105,7 +105,7 @@ def _normalize_core_value(mapping: str, value):
     return value or ""
 
 
-def _apply_core_mapping(user_id: str, mapping: str, value):
+def _apply_core_mapping(user_id: str, mapping: str, value: object):
     entity = ensure_user_entity(user_id)
     normalized = _normalize_core_value(mapping, value)
     if mapping == "name":

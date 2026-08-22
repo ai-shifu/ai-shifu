@@ -68,12 +68,14 @@ class RunEventEmitter:
     reference with explicit state/recorder dependencies.
     """
 
-    def __init__(self, context: "RunScriptContextV2") -> None:
+    def __init__(self: object, context: "RunScriptContextV2") -> None:
         """Bind the event emitter to its run context."""
         self._context = context
 
     def render_outline_updates(
-        self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
+        self: object,
+        outline_updates: list[OutlineItemUpdateDTO],
+        new_chapter: bool = False,
     ) -> Generator[str, None, None]:
         """Render outline-update events while persisting progress and current outline state."""
         ctx = self._context
@@ -169,7 +171,7 @@ class RunEventEmitter:
                 )
 
     def emit_next_chapter_interaction(
-        self,
+        self: object,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Persist and emit the standardized `_sys_next_chapter` interaction when a lesson completes so the frontend can advance automatically."""
@@ -218,7 +220,7 @@ class RunEventEmitter:
         )
 
     def emit_lesson_feedback_interaction(
-        self,
+        self: object,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Persist and emit the lesson-end feedback interaction before next chapter."""
@@ -268,7 +270,9 @@ class RunEventEmitter:
             content=feedback_md,
         )
 
-    def is_access_gate_blocking_interaction(self, parsed_interaction: dict) -> bool:
+    def is_access_gate_blocking_interaction(
+        self: object, parsed_interaction: dict
+    ) -> bool:
         """Return whether an access gate blocks progress."""
         ctx = self._context
         is_logged_in = bool(
@@ -285,7 +289,7 @@ class RunEventEmitter:
         return False
 
     def maybe_emit_feedback_after_access_gate(
-        self,
+        self: object,
         *,
         parsed_interaction: dict,
         progress_record: LearnProgressRecord,
@@ -302,7 +306,7 @@ class RunEventEmitter:
         yield from ctx._emit_lesson_feedback_interaction(progress_record)
 
     def emit_feedback_after_exception_gate(
-        self,
+        self: object,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Emit feedback after an exception gate."""
         ctx = self._context
@@ -343,7 +347,7 @@ class RunEventEmitter:
         yield from ctx._emit_lesson_feedback_interaction(latest_completed_progress)
 
     def ensure_current_attend_for_gate_interaction(
-        self,
+        self: object,
     ) -> LearnProgressRecord | None:
         """Ensure gate interactions have an attendance record."""
         ctx = self._context
@@ -382,7 +386,7 @@ class RunEventEmitter:
         return current_attend
 
     def emit_current_progress_gate_interaction(
-        self,
+        self: object,
         content: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Emit the gate interaction for current progress."""
@@ -418,7 +422,7 @@ class RunEventEmitter:
         )
 
     def emit_completion_tail_interactions(
-        self,
+        self: object,
         *,
         progress_record: LearnProgressRecord,
         current_outline_completed: bool,

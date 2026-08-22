@@ -28,7 +28,7 @@ from flaskr.service.user.repository import (
 PROFILE_UPDATED_AT = datetime(2026, 8, 12, 8, 30, tzinfo=UTC)
 
 
-def _stub_activation_order_side_effects(monkeypatch) -> None:
+def _stub_activation_order_side_effects(monkeypatch: object) -> None:
     import flaskr.service.order.admin as order_admin
 
     order = SimpleNamespace(
@@ -69,12 +69,14 @@ def _stub_activation_order_side_effects(monkeypatch) -> None:
         ("  +8613800138004  ", "13800138004"),
     ],
 )
-def test_normalize_mobile_handles_valid_edge_cases(input_phone, expected):
+def test_normalize_mobile_handles_valid_edge_cases(
+    input_phone: object, expected: object
+):
     assert normalize_mobile(input_phone) == expected
 
 
 @pytest.mark.parametrize("input_phone", ["", None])
-def test_normalize_mobile_rejects_empty_values(input_phone):
+def test_normalize_mobile_rejects_empty_values(input_phone: object):
     with pytest.raises(AppError):
         normalize_mobile(input_phone)
 
@@ -110,7 +112,9 @@ def test_parse_import_activation_entries_rejects_longer_digit_runs():
         ),
     ],
 )
-def test_parse_import_activation_entries_email_with_nickname(text, expected):
+def test_parse_import_activation_entries_email_with_nickname(
+    text: object, expected: object
+):
     entries = parse_import_activation_entries(text, contact_type="email")
 
     assert entries == expected
@@ -131,13 +135,13 @@ def test_parse_import_activation_entries_email_with_nickname(text, expected):
     ids=["phone-profile", "email-cleared-state"],
 )
 def test_import_activation_keeps_pre_profile_nickname_behavior(
-    app,
-    monkeypatch,
-    contact_type,
-    identifier,
-    profile,
-    canonical_nickname,
-    has_state,
+    app: object,
+    monkeypatch: object,
+    contact_type: object,
+    identifier: object,
+    profile: object,
+    canonical_nickname: object,
+    has_state: object,
 ):
     _stub_activation_order_side_effects(monkeypatch)
 
@@ -190,8 +194,8 @@ def test_import_activation_keeps_pre_profile_nickname_behavior(
 
 
 def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
-    app,
-    monkeypatch,
+    app: object,
+    monkeypatch: object,
 ):
     import flaskr.service.order.admin as order_admin
 
@@ -233,7 +237,7 @@ def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
         read_order: list[tuple[str, str, bool, bool]] = []
         reads_before_ensure: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query):
+        def track_first(query: object):
             statement = str(query.statement)
             parameters = query.statement.compile().params
             lookup_value = str(
@@ -295,10 +299,10 @@ def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
     ],
 )
 def test_import_activation_keeps_nickname_behavior_for_new_users(
-    app,
-    monkeypatch,
-    contact_type,
-    identifier,
+    app: object,
+    monkeypatch: object,
+    contact_type: object,
+    identifier: object,
 ):
     _stub_activation_order_side_effects(monkeypatch)
 
@@ -334,10 +338,10 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
     ],
 )
 def test_import_activation_identifier_fallback_is_not_profile_prefill(
-    app,
-    monkeypatch,
-    contact_type,
-    identifier,
+    app: object,
+    monkeypatch: object,
+    contact_type: object,
+    identifier: object,
 ):
     _stub_activation_order_side_effects(monkeypatch)
 

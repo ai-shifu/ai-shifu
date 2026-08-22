@@ -88,7 +88,7 @@ class ListenElementRunStreamMixin:
         return normalize_subtitle_cues(getattr(previous_audio, "subtitle_cues", None))
 
     def _freeze_live_audio_payload(
-        self,
+        self: object,
         state: BlockState,
         *,
         position: int,
@@ -129,7 +129,7 @@ class ListenElementRunStreamMixin:
         return frozen_audio.model_copy(deep=True)
 
     def _freeze_live_audio_map(
-        self,
+        self: object,
         state: BlockState,
         *,
         prefer_positions: list[int] | None = None,
@@ -161,7 +161,7 @@ class ListenElementRunStreamMixin:
         return frozen_audio_by_position
 
     def _make_retire_element_message(
-        self,
+        self: object,
         *,
         generated_block_bid: str,
         element_bid: str,
@@ -200,11 +200,13 @@ class ListenElementRunStreamMixin:
         )
 
     def _formatted_parts_from_event(
-        self, event: RunMarkdownFlowDTO
+        self: object, event: RunMarkdownFlowDTO
     ) -> list[tuple[str, str, int]]:
         return event.get_mdflow_stream_parts()
 
-    def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
+    def _build_fallback_element(
+        self: object, state: BlockState, role: str
+    ) -> ElementDTO:
         if not state.fallback_element_bid:
             state.fallback_element_bid = _new_element_bid(self.app)
             self._max_element_index += 1
@@ -245,7 +247,7 @@ class ListenElementRunStreamMixin:
         )
 
     def _retire_fallback_element(
-        self, state: BlockState, *, emit_notification: bool = True
+        self: object, state: BlockState, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
@@ -266,7 +268,7 @@ class ListenElementRunStreamMixin:
         )
 
     def _build_audio_patch_element(
-        self,
+        self: object,
         element_bid: str,
         audio_segments: list[dict[str, Any]] | None = None,
         *,
@@ -315,7 +317,7 @@ class ListenElementRunStreamMixin:
         )
 
     def _build_audio_segment_patch_message(
-        self,
+        self: object,
         element_bid: str,
         audio_segments: list[dict[str, Any]] | None = None,
         *,
@@ -331,7 +333,7 @@ class ListenElementRunStreamMixin:
         return self._element_message(patch_element)
 
     def _resolve_or_buffer_audio_target_element_bid(
-        self,
+        self: object,
         state: BlockState,
         *,
         position: int,
@@ -362,7 +364,7 @@ class ListenElementRunStreamMixin:
             return None
         return _resolve_audio_target_element_bid(state, position)
 
-    def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
+    def _backfill_audio_url(self: object, element_bid: str, audio_url: str) -> None:
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.run_session_bid == self.run_session_bid,
             LearnGeneratedElement.element_bid == element_bid,
@@ -373,7 +375,7 @@ class ListenElementRunStreamMixin:
         db.session.flush()
 
     def _build_stream_element_message(
-        self,
+        self: object,
         *,
         state: BlockState,
         role: str,
@@ -396,7 +398,7 @@ class ListenElementRunStreamMixin:
         )
 
     def _build_stream_element(
-        self,
+        self: object,
         *,
         state: BlockState,
         role: str,
@@ -450,7 +452,7 @@ class ListenElementRunStreamMixin:
         )
 
     def _handle_formatted_content(
-        self, event: RunMarkdownFlowDTO, parts: list[tuple[str, str, int]]
+        self: object, event: RunMarkdownFlowDTO, parts: list[tuple[str, str, int]]
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
         state = self._ensure_block_state(generated_block_bid)
@@ -536,7 +538,7 @@ class ListenElementRunStreamMixin:
             )
 
     def _retire_stream_elements(
-        self, state: BlockState, *, emit_notification: bool = True
+        self: object, state: BlockState, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return
@@ -560,7 +562,7 @@ class ListenElementRunStreamMixin:
             )
 
     def _finalize_stream_elements(
-        self, state: BlockState, *, emit: bool = True
+        self: object, state: BlockState, *, emit: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return
@@ -585,7 +587,7 @@ class ListenElementRunStreamMixin:
                 self._persist_element(element)
 
     def _handle_content(
-        self, event: RunMarkdownFlowDTO
+        self: object, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
         ask_element_bid = self._resolve_ask_element_bid_for_block(
@@ -613,7 +615,7 @@ class ListenElementRunStreamMixin:
         yield self._element_message(self._build_fallback_element(state, meta.role))
 
     def _handle_audio_complete(
-        self, event: RunMarkdownFlowDTO
+        self: object, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
         content = event.content
@@ -671,7 +673,7 @@ class ListenElementRunStreamMixin:
             self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
 
     def _handle_audio_segment(
-        self, event: RunMarkdownFlowDTO
+        self: object, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
         content = event.content
@@ -742,7 +744,7 @@ class ListenElementRunStreamMixin:
             self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
 
     def _finalize_block(
-        self, generated_block_bid: str
+        self: object, generated_block_bid: str
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not generated_block_bid:
             return

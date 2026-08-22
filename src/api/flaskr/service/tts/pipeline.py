@@ -686,7 +686,7 @@ class SynthesizeToOssResult:
     audio_url: str
     elapsed_seconds: float
 
-    def to_html_audio(self) -> str:
+    def to_html_audio(self: object) -> str:
         """Return an embeddable HTML audio player snippet."""
         url = html.escape(self.audio_url, quote=True)
         return f'<audio controls preload="none" src="{url}"></audio>'

@@ -270,7 +270,7 @@ class StreamingTTSProcessor:
     """
 
     def __init__(
-        self,
+        self: object,
         app: Flask,
         generated_block_bid: str,
         outline_bid: str,
@@ -366,7 +366,9 @@ class StreamingTTSProcessor:
                 tts_provider or "(unset)",
             )
 
-    def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def process_chunk(
+        self: object, chunk: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Process a chunk of streaming content.
 
         Submits TTS tasks to background threads and yields completed segments.
@@ -388,11 +390,11 @@ class StreamingTTSProcessor:
         # Yield any segments that are ready
         yield from self._yield_ready_segments()
 
-    def drain_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def drain_ready_segments(self: object) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield already-synthesized segments without submitting new text."""
         yield from self._yield_ready_segments()
 
-    def _try_submit_tts_task(self):
+    def _try_submit_tts_task(self: object):
         """Submit all complete sentences currently available in the stream buffer."""
         if not self._buffer:
             return
@@ -473,7 +475,7 @@ class StreamingTTSProcessor:
                 lo = mid + 1
         return best
 
-    def _submit_tts_task(self, text: str):
+    def _submit_tts_task(self: object, text: str):
         """Submit a TTS synthesis task to the background thread pool."""
         with self._lock:
             segment_index = self._segment_index
@@ -499,7 +501,7 @@ class StreamingTTSProcessor:
         self._pending_futures.append(future)
 
     def _submit_remaining_text_in_segments(
-        self,
+        self: object,
         remaining_text: str,
         *,
         include_trailing_fragment: bool = True,
@@ -544,7 +546,7 @@ class StreamingTTSProcessor:
                 )
 
     def _synthesize_text_with_retry(
-        self,
+        self: object,
         *,
         text: str,
         voice_settings: VoiceSettings,
@@ -611,7 +613,7 @@ class StreamingTTSProcessor:
         return result
 
     def _synthesize_in_thread(
-        self,
+        self: object,
         segment: TTSSegment,
         voice_settings: VoiceSettings,
         audio_settings: AudioSettings,
@@ -716,7 +718,9 @@ class StreamingTTSProcessor:
 
         return segment
 
-    def _yield_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def _yield_ready_segments(
+        self: object,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield segments that are ready in order."""
         segments_yielded = 0
         while True:
@@ -783,7 +787,7 @@ class StreamingTTSProcessor:
                 segments_yielded += 1
 
     def _yield_audio_segment_event(
-        self,
+        self: object,
         *,
         segment_index: int,
         audio_data: bytes,
@@ -810,7 +814,7 @@ class StreamingTTSProcessor:
         )
 
     def _build_provider_segment_subtitle_cues(
-        self,
+        self: object,
         *,
         segment_index: int,
         duration_ms: int,
@@ -870,7 +874,7 @@ class StreamingTTSProcessor:
         return normalize_subtitle_cues(fitted_cues)
 
     def _build_segment_subtitle_cues(
-        self, all_segments: list[tuple]
+        self: object, all_segments: list[tuple]
     ) -> list[dict[str, Any]]:
         subtitle_cues: list[dict[str, Any]] = []
         for segment_index, _audio_data, duration_ms, segment_text in all_segments:
@@ -892,7 +896,7 @@ class StreamingTTSProcessor:
             )
         return subtitle_cues
 
-    def _sentence_units_for_tts(self, text: str) -> list[str]:
+    def _sentence_units_for_tts(self: object, text: str) -> list[str]:
         units: list[str] = []
         cursor = 0
         for match in SENTENCE_ENDINGS.finditer(text or ""):
@@ -906,7 +910,7 @@ class StreamingTTSProcessor:
             units.append(tail)
         return units or ([text.strip()] if (text or "").strip() else [])
 
-    def _split_minimax_http_stream_text(self, text: str) -> list[str]:
+    def _split_minimax_http_stream_text(self: object, text: str) -> list[str]:
         parts: list[str] = []
         current = ""
         for unit in self._sentence_units_for_tts(text):
@@ -960,7 +964,9 @@ class StreamingTTSProcessor:
         return int(default_ms or 0)
 
     @classmethod
-    def _minimax_raw_subtitle_key(cls, raw_item: dict[str, Any]) -> tuple[str, int]:
+    def _minimax_raw_subtitle_key(
+        cls: object, raw_item: dict[str, Any]
+    ) -> tuple[str, int]:
         text = cls._minimax_subtitle_text(raw_item)
         start_ms = cls._minimax_subtitle_time_ms(
             raw_item,
@@ -969,7 +975,7 @@ class StreamingTTSProcessor:
         return text, start_ms
 
     def _extend_unique_minimax_subtitles(
-        self,
+        self: object,
         target: list[dict[str, Any]],
         incoming: list[dict[str, Any]],
     ) -> None:
@@ -1015,7 +1021,7 @@ class StreamingTTSProcessor:
         return "".join(str(text or "").lower().split())
 
     def _subtitle_cues_cover_text(
-        self,
+        self: object,
         subtitle_cues: list[dict[str, Any]],
         text: str,
     ) -> bool:
@@ -1035,7 +1041,7 @@ class StreamingTTSProcessor:
         return all(unit in subtitle_blob for unit in normalized_units)
 
     def _build_minimax_fallback_subtitle_cues(
-        self,
+        self: object,
         text: str,
         *,
         duration_ms: int,
@@ -1089,7 +1095,7 @@ class StreamingTTSProcessor:
         return max(int(cue.get("end_ms", 0) or 0) for cue in normalized_cues)
 
     def _build_minimax_provider_subtitle_cues(
-        self,
+        self: object,
         *,
         request_subtitles: list[dict[str, Any]],
         subtitle_offset_ms: int,
@@ -1102,7 +1108,7 @@ class StreamingTTSProcessor:
         )
 
     def _minimax_subtitles_to_cues(
-        self,
+        self: object,
         subtitles: list[dict[str, Any]],
         *,
         offset_ms: int = 0,
@@ -1148,7 +1154,7 @@ class StreamingTTSProcessor:
         return str(cue.get("text", "") or "").strip()
 
     def _scale_minimax_cues_to_live_request(
-        self,
+        self: object,
         subtitle_cues: list[dict[str, Any]],
         *,
         provider_offset_ms: int,
@@ -1204,7 +1210,7 @@ class StreamingTTSProcessor:
         return live_cues
 
     def _merge_minimax_live_request_cues(
-        self,
+        self: object,
         previous_live_cues: list[dict[str, Any]],
         incoming_live_cues: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
@@ -1254,7 +1260,7 @@ class StreamingTTSProcessor:
         return [*frozen_prefix, previous_tail, *remaining]
 
     def _normalize_minimax_live_request_cues(
-        self,
+        self: object,
         live_cues: list[dict[str, Any]],
         *,
         live_offset_ms: int,
@@ -1301,7 +1307,7 @@ class StreamingTTSProcessor:
         return normalize_subtitle_cues(bounded)
 
     def _build_minimax_live_request_subtitle_cues(
-        self,
+        self: object,
         subtitle_cues: list[dict[str, Any]],
         *,
         provider_offset_ms: int,
@@ -1326,7 +1332,7 @@ class StreamingTTSProcessor:
         )
 
     def _store_stream_audio_segment(
-        self,
+        self: object,
         *,
         audio_data: bytes,
         duration_ms: int,
@@ -1352,7 +1358,7 @@ class StreamingTTSProcessor:
         )
 
     def _yield_audio_complete_from_segments(
-        self,
+        self: object,
         *,
         all_segments: list[tuple],
         raw_text: str,
@@ -1481,7 +1487,7 @@ class StreamingTTSProcessor:
             cleanup_session_after(e, source="streaming tts finalize")
 
     def _synthesize_minimax_complete_fallback(
-        self,
+        self: object,
         provider: MinimaxTTSProvider,
         *,
         request_text: str,
@@ -1533,7 +1539,7 @@ class StreamingTTSProcessor:
         )
 
     def _finalize_minimax_http_stream(
-        self,
+        self: object,
         *,
         raw_text: str,
         cleaned_text: str,
@@ -1873,7 +1879,7 @@ class StreamingTTSProcessor:
         )
 
     def _apply_subtitle_context(
-        self, subtitle_cues: list[dict[str, Any]]
+        self: object, subtitle_cues: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         contextualized: list[dict[str, Any]] = []
         for index, cue in enumerate(normalize_subtitle_cues(subtitle_cues)):
@@ -1884,7 +1890,7 @@ class StreamingTTSProcessor:
         return normalize_subtitle_cues(contextualized)
 
     def _finalize_volcengine_timestamp_stream(
-        self,
+        self: object,
         *,
         raw_text: str,
         cleaned_text: str,
@@ -1993,7 +1999,7 @@ class StreamingTTSProcessor:
         )
 
     def finalize(
-        self, *, commit: bool = True
+        self: object, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Finalize TTS processing after content streaming is complete."""
         raw_text = self._buffer
@@ -2100,7 +2106,7 @@ class AVStreamingTTSProcessor:
     """
 
     def __init__(
-        self,
+        self: object,
         *,
         app: Flask,
         generated_block_bid: str,
@@ -2154,7 +2160,7 @@ class AVStreamingTTSProcessor:
             # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
 
-    def _update_av_contract(self):
+    def _update_av_contract(self: object):
         try:
             self._av_contract = build_av_segmentation_contract(
                 self._raw_full_content, self.generated_block_bid
@@ -2162,7 +2168,7 @@ class AVStreamingTTSProcessor:
         except Exception:
             self._av_contract = None
 
-    def _ensure_processor(self) -> StreamingTTSProcessor:
+    def _ensure_processor(self: object) -> StreamingTTSProcessor:
         if self._current_processor is not None:
             return self._current_processor
         self._current_processor = StreamingTTSProcessor(
@@ -2187,23 +2193,23 @@ class AVStreamingTTSProcessor:
         return self._current_processor
 
     def _process_processor_chunk(
-        self, processor: StreamingTTSProcessor, chunk: str
+        self: object, processor: StreamingTTSProcessor, chunk: str
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if (chunk or "").strip():
             self._current_segment_has_speakable_text = True
         yield from processor.process_chunk(chunk)
 
     @property
-    def next_element_index(self) -> int:
+    def next_element_index(self: object) -> int:
         """Return the next element index for AV output."""
         return int(self._next_element_index or self.element_index_offset)
 
     @property
-    def has_pending_visual_boundary(self) -> bool:
+    def has_pending_visual_boundary(self: object) -> bool:
         """Return whether an unfinished visual boundary remains."""
         return bool(self._skip_mode)
 
-    def _refresh_next_element_index_from_contract(self):
+    def _refresh_next_element_index_from_contract(self: object):
         segments, _ = build_visual_segments_for_block(
             app=self.app,
             raw_content=self._raw_full_content,
@@ -2218,7 +2224,7 @@ class AVStreamingTTSProcessor:
         )
 
     def _finalize_current(
-        self, *, commit: bool
+        self: object, *, commit: bool
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if self._current_processor is None:
             return
@@ -2233,10 +2239,14 @@ class AVStreamingTTSProcessor:
         if did_complete or had_speakable_text:
             self._position_cursor += 1
 
-    def _find_next_boundary(self, raw: str) -> tuple[str, int, int, bool] | None:
+    def _find_next_boundary(
+        self: object, raw: str
+    ) -> tuple[str, int, int, bool] | None:
         return _find_next_av_boundary(raw, include_partial_md_image=True)
 
-    def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def process_chunk(
+        self: object, chunk: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Process the next streaming content chunk."""
         if not chunk:
             yield from self.drain_ready_segments()
@@ -2296,14 +2306,14 @@ class AVStreamingTTSProcessor:
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]
 
-    def drain_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def drain_ready_segments(self: object) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield already-ready audio events for the current speakable segment."""
         if self._current_processor is None:
             return
         yield from self._current_processor.drain_ready_segments()
 
     def finalize(
-        self, *, commit: bool = True
+        self: object, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         # Ignore any trailing non-speakable content if we are mid-boundary.
         """Finalize pending streaming TTS output."""

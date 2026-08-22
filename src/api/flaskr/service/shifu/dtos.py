@@ -58,7 +58,7 @@ class ShifuDto(BaseModel):
     )
 
     def __init__(
-        self,
+        self: object,
         shifu_id: str,
         shifu_name: str,
         shifu_description: str,
@@ -86,7 +86,7 @@ class ShifuDto(BaseModel):
             is_guide_course=is_guide_course,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the shifu as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -186,7 +186,7 @@ class ShifuDetailDto(BaseModel):
     )
 
     def __init__(
-        self,
+        self: object,
         shifu_id: str,
         shifu_name: str,
         shifu_description: str,
@@ -252,7 +252,7 @@ class ShifuDetailDto(BaseModel):
             ask_provider_config=ask_provider_config or {},
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the shifu detail as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -306,7 +306,7 @@ class SimpleOutlineDto(BaseModel):
     )
 
     def __init__(
-        self,
+        self: object,
         bid: str,
         position: str,
         name: str,
@@ -340,7 +340,7 @@ class SimpleOutlineDto(BaseModel):
             is_hidden=is_hidden,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the simple outline as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -364,7 +364,7 @@ class SimpleOutlineDto(BaseModel):
 class ShifuOutlineTreeNode:
     """Shifu outline tree node."""
 
-    def __init__(self, outline_item: DraftOutlineItem) -> None:
+    def __init__(self: object, outline_item: DraftOutlineItem) -> None:
         """Build a tree node from a draft outline item."""
         self.outline = outline_item
         self.children = []
@@ -376,17 +376,17 @@ class ShifuOutlineTreeNode:
             self.position = ""
         self.parent_node = None
 
-    def add_child(self, child: "ShifuOutlineTreeNode"):
+    def add_child(self: object, child: "ShifuOutlineTreeNode"):
         """Add a child to the node."""
         self.children.append(child)
         child.parent_node = self
 
-    def remove_child(self, child: "ShifuOutlineTreeNode"):
+    def remove_child(self: object, child: "ShifuOutlineTreeNode"):
         """Remove a child from the node."""
         child.parent_node = None
         self.children.remove(child)
 
-    def get_new_position(self):
+    def get_new_position(self: object):
         """Get the new position of the node."""
         if not self.parent_node:
             return self.position
@@ -410,7 +410,7 @@ class OutlineDto(BaseModel):
     is_hidden: bool = Field(..., description="outline is hidden", required=False)
 
     def __init__(
-        self,
+        self: object,
         bid: str | None = None,
         position: str | None = None,
         name: str | None = None,
@@ -432,7 +432,7 @@ class OutlineDto(BaseModel):
             is_hidden=is_hidden,
         )
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the outline as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -453,12 +453,14 @@ class ReorderOutlineItemDto:
     bid: str
     children: list["ReorderOutlineItemDto"]
 
-    def __init__(self, bid: str, children: list["ReorderOutlineItemDto"]) -> None:
+    def __init__(
+        self: object, bid: str, children: list["ReorderOutlineItemDto"]
+    ) -> None:
         """Init reorder outline item dto."""
         self.bid = bid
         self.children = children
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the reorder outline item as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -480,11 +482,11 @@ class MdflowDTOParseResult(BaseModel):
     variables: list[str] = Field(..., description="variables", required=True)
     blocks_count: int = Field(..., description="blocks count", required=True)
 
-    def __init__(self, variables: list[str], blocks_count: int) -> None:
+    def __init__(self: object, variables: list[str], blocks_count: int) -> None:
         """Capture parsed MarkdownFlow variables and block count."""
         super().__init__(variables=variables, blocks_count=blocks_count)
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return parsed MarkdownFlow metadata as JSON-compatible data."""
         return {
             "variables": self.variables,

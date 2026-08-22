@@ -104,7 +104,14 @@ class PayItemDto:
     is_discount: bool
     discount_code: str
 
-    def __init__(self, name, price_name, price, is_discount, discount_code) -> None:
+    def __init__(
+        self: object,
+        name: object,
+        price_name: object,
+        price: object,
+        is_discount: object,
+        discount_code: object,
+    ) -> None:
         """Build the pay item payload."""
         self.name = name
         self.price_name = price_name
@@ -112,7 +119,7 @@ class PayItemDto:
         self.is_discount = is_discount
         self.discount_code = discount_code
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the pay item as JSON-compatible data."""
         return {
             "name": self.name,
@@ -137,15 +144,15 @@ class AICourseBuyRecordDTO:
     price_item: list[PayItemDto]
 
     def __init__(
-        self,
-        record_id,
-        user_id,
-        course_id,
-        price,
-        status,
-        discount,
-        price_item,
-        payment_channel="",
+        self: object,
+        record_id: object,
+        user_id: object,
+        course_id: object,
+        price: object,
+        status: object,
+        discount: object,
+        price_item: object,
+        payment_channel: object = "",
     ) -> None:
         """Build the AI course buy record payload."""
         self.order_id = record_id
@@ -158,10 +165,10 @@ class AICourseBuyRecordDTO:
         self.price_item = price_item
         self.payment_channel = payment_channel
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the AI course buy record as JSON-compatible data."""
 
-        def format_decimal(value):
+        def format_decimal(value: object):
             # Convert to a string with two decimal places
             formatted_value = value if isinstance(value, str) else f"{value:.2f}"
             # If the decimal part is .00, remove it
@@ -497,12 +504,12 @@ class BuyRecordDTO:
     qr_url: str  # 二维码地址
 
     def __init__(
-        self,
-        record_id,
-        user_id,
-        price,
-        channel,
-        qr_url,
+        self: object,
+        record_id: object,
+        user_id: object,
+        price: object,
+        channel: object,
+        qr_url: object,
         payment_channel: str = "",
         payment_payload: dict[str, Any] | None = None,
     ) -> None:
@@ -515,7 +522,7 @@ class BuyRecordDTO:
         self.payment_channel = payment_channel
         self.payment_payload = payment_payload or {}
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the buy record as JSON-compatible data."""
         return {
             "order_id": self.order_id,
@@ -670,7 +677,7 @@ def generate_charge(
     return None
 
 
-def _order_credential_scope(app: Flask, order: Order, context=None):
+def _order_credential_scope(app: Flask, order: Order, context: object = None):
     """Use the immutable credential version snapshotted on the order."""
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
@@ -1982,7 +1989,7 @@ class DiscountInfo:
     discount_value: str
     items: list[PayItemDto]
 
-    def __init__(self, discount_value, items) -> None:
+    def __init__(self: object, discount_value: object, items: object) -> None:
         """Capture the discount value and affected payment items."""
         self.discount_value = discount_value
         self.items = items

@@ -59,7 +59,7 @@ def _operational(errno: int) -> OperationalError:
         (_operational(1205), False),
     ],
 )
-def test_abnormal_termination_classification(exc, expected):
+def test_abnormal_termination_classification(exc: object, expected: object):
     assert is_abnormal_stream_termination(exc) is expected
 
 
@@ -77,7 +77,7 @@ def test_scoped_session_does_not_proxy_invalidate():
     assert not hasattr(db.session, "invalidate")
 
 
-def test_invalidate_session_works_on_real_scoped_session(app, caplog):
+def test_invalidate_session_works_on_real_scoped_session(app: object, caplog: object):
     with app.app_context():
         db.session.execute(text("SELECT 1"))
         with caplog.at_level(logging.WARNING):
@@ -89,7 +89,7 @@ def test_invalidate_session_uses_fake_sessions_directly():
     calls = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self: object):
             calls.append(1)
 
     assert invalidate_session(source="test fake", session=_Fake()) is True
@@ -100,10 +100,10 @@ def test_cleanup_rolls_back_on_server_delivered_errors():
     events = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self: object):
             events.append("invalidate")
 
-        def rollback(self):
+        def rollback(self: object):
             events.append("rollback")
 
     outcome = cleanup_session_after(ValueError("business"), source="t", session=_Fake())
@@ -115,10 +115,10 @@ def test_cleanup_invalidates_on_interrupting_terminations():
     events = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self: object):
             events.append("invalidate")
 
-        def rollback(self):
+        def rollback(self: object):
             events.append("rollback")
 
     outcome = cleanup_session_after(GeneratorExit(), source="t", session=_Fake())
@@ -130,10 +130,10 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
     events = []
 
     class _Fake:
-        def invalidate(self):
+        def invalidate(self: object):
             events.append("invalidate")
 
-        def rollback(self):
+        def rollback(self: object):
             events.append("rollback")
             message = "rollback broke"
             raise RuntimeError(message)
@@ -143,7 +143,9 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
     assert events == ["rollback", "invalidate"]
 
 
-def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
+def test_teardown_hook_invalidates_before_session_removal(
+    app: object, monkeypatch: object
+):
     """The global teardown guard must fire on abnormal context exits and run BEFORE Flask-SQLAlchemy's remove (reverse registration order)."""
     from flaskr import dao
 
@@ -171,7 +173,7 @@ def test_teardown_hook_invalidates_before_session_removal(app, monkeypatch):
     assert "remove" in order
 
 
-def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
+def test_teardown_hook_ignores_ordinary_exceptions(app: object, monkeypatch: object):
     from flaskr import dao
 
     invalidations = []
@@ -189,7 +191,7 @@ def test_teardown_hook_ignores_ordinary_exceptions(app, monkeypatch):
 
 
 def test_release_session_classified_invalidates_during_propagating_interrupt(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     from flaskr import dao
 
@@ -241,7 +243,9 @@ def test_release_session_classified_invalidates_during_propagating_interrupt(
         assert order == ["invalidate", "remove"]
 
 
-def test_release_session_classified_ignores_ordinary_exceptions(app, monkeypatch):
+def test_release_session_classified_ignores_ordinary_exceptions(
+    app: object, monkeypatch: object
+):
     from flaskr import dao
 
     invalidations = []
