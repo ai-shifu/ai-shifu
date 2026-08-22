@@ -309,12 +309,13 @@ plan's progress update for that rule.
   learner-route specifications contain invalid YAML; the new parser test
   freezes their exact identities without changing them in this rule PR, while
   rejecting any additional unparseable specification.
-- D203 and D213 conflict with the formatter-compatible D211 and D212 layouts.
-  When the `D` prefix selects each pair, Ruff emits its incompatibility warning
-  and resolves D203/D213 in favor of D211/D212. The project deliberately
-  accepts that built-in resolution instead of retaining redundant global
-  ignores; focused policy tests run the normal configuration against violating
-  fixtures so D211 and D212 cannot silently stop being enforced.
+- D203 conflicts with the formatter-compatible D211 layout. When the `D`
+  prefix selects that pair, Ruff emits its incompatibility warning and resolves
+  D203 in favor of D211. The project deliberately accepts that built-in
+  resolution instead of retaining a redundant global ignore; the focused D203
+  policy test runs the normal configuration against a violating fixture so
+  D211 cannot silently stop being enforced. The following D213 stage owns the
+  corresponding D212/D213 confirmation.
 - Adding the final D107 docstring to the no-op Langfuse client made its old
   `pass` statement redundant under the already-selected PIE790 rule. Removing
   that no-op preserves the configured baseline and runtime behavior; it does
