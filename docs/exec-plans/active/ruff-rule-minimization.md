@@ -256,6 +256,10 @@ plan's progress update for that rule.
   normalized AST audit found no executable differences; the D103 policy and
   Swagger regressions pass, followed by the full backend suite at 3,042 passed
   with 17 skipped and every applicable repository pre-commit gate.
+- [x] 2026-08-22: Replaced seven rule-specific exceptions for the known immutable
+  Alembic revision inventory with 51 exact-file `ALL` exceptions. This policy
+  protects applied history from every future Ruff rule without using a directory
+  glob, so a newly authored migration remains linted until explicitly frozen.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
