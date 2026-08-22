@@ -59,7 +59,7 @@ HEADING_PATTERN = re.compile(r"^#{1,6}\s+(.*)$", re.MULTILINE)
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
-    """Parse frontmatter."""
+    """Return trimmed leading-frontmatter metadata, skipping missing or malformed entries."""
     text = path.read_text(encoding="utf-8")
     match = FRONTMATTER_PATTERN.match(text)
     if not match:
@@ -75,7 +75,7 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
 
 
 def extract_title(path: Path) -> str:
-    """Extract title."""
+    """Return a Markdown file's first heading or a title derived from its filename."""
     text = path.read_text(encoding="utf-8")
     match = HEADING_PATTERN.search(text)
     if match:
@@ -84,7 +84,7 @@ def extract_title(path: Path) -> str:
 
 
 def build_frontmatter_records(category_dir: Path, category: str) -> list[DocRecord]:
-    """Build frontmatter records."""
+    """Build category-tagged records for non-index Markdown files in one metadata directory."""
     records: list[DocRecord] = []
     for path in sorted(category_dir.glob("*.md")):
         if path.name == "index.md":
@@ -106,7 +106,7 @@ def build_frontmatter_records(category_dir: Path, category: str) -> list[DocReco
 
 
 def build_reference_records() -> list[DocRecord]:
-    """Build reference records."""
+    """Build canonical reference records for Markdown files under docs/references."""
     records: list[DocRecord] = []
     for path in sorted((DOCS_ROOT / "references").glob("*.md")):
         if path.name == "index.md":
@@ -126,7 +126,7 @@ def build_reference_records() -> list[DocRecord]:
 
 
 def build_execplan_records(subdir: str, status: str) -> list[DocRecord]:
-    """Build execplan records."""
+    """Build status-tagged records for every Markdown ExecPlan in one plan directory."""
     plan_dir = DOCS_ROOT / "exec-plans" / subdir
     records: list[DocRecord] = [
         DocRecord(
@@ -149,7 +149,7 @@ def rel_doc(path: Path) -> str:
 
 
 def render_section_index(title: str, intro: str, records: list[DocRecord]) -> str:
-    """Render section index."""
+    """Render a generated category index that links each supplied document record."""
     lines = [GENERATED_COMMENT, "", f"# {title}", "", intro, ""]
     if not records:
         lines.extend(["No documents are currently indexed here.", ""])
@@ -171,7 +171,7 @@ def render_section_index(title: str, intro: str, records: list[DocRecord]) -> st
 def render_execplan_index(
     active: list[DocRecord], completed: list[DocRecord], tracker: Path
 ) -> str:
-    """Render execplan index."""
+    """Render links for active and completed ExecPlans plus their supporting tracker."""
     lines = [
         GENERATED_COMMENT,
         "",
@@ -210,7 +210,7 @@ def render_execplan_index(
 
 
 def render_inventory(records: list[DocRecord]) -> str:
-    """Render inventory."""
+    """Render a Markdown table that inventories the supplied repository document records."""
     lines = [
         GENERATED_COMMENT,
         "",
@@ -240,7 +240,7 @@ def render_inventory(records: list[DocRecord]) -> str:
 
 
 def load_boundary_baseline() -> tuple[int, dict[str, int]]:
-    """Load boundary baseline."""
+    """Return boundary-baseline totals and per-rule counts, or empty defaults when absent."""
     if not BOUNDARY_BASELINE_PATH.exists():
         return 0, {}
     payload = json.loads(BOUNDARY_BASELINE_PATH.read_text(encoding="utf-8"))
@@ -262,7 +262,7 @@ def render_harness_health_report(
     active_plans: list[DocRecord],
     completed_plans: list[DocRecord],
 ) -> str:
-    """Render harness health report."""
+    """Render health metrics for document inventories, boundaries, and required runtime assets."""
     baseline_count, baseline_breakdown = load_boundary_baseline()
     lines = [
         GENERATED_COMMENT,
@@ -298,7 +298,7 @@ def render_harness_health_report(
 
 
 def build_knowledge_docs() -> dict[Path, str]:
-    """Build knowledge docs."""
+    """Build generated repository knowledge documents as a path-to-Markdown-content mapping."""
     design_records = build_frontmatter_records(DOCS_ROOT / "design-docs", "design-doc")
     product_records = build_frontmatter_records(
         DOCS_ROOT / "product-specs", "product-spec"
@@ -433,7 +433,7 @@ def build_knowledge_docs() -> dict[Path, str]:
 
 
 def write_documents() -> int:
-    """Write documents."""
+    """Write generated knowledge documents to their owned paths and return their count."""
     docs = build_knowledge_docs()
     for path, content in sorted(docs.items()):
         path.parent.mkdir(parents=True, exist_ok=True)
