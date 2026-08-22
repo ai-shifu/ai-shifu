@@ -190,6 +190,7 @@ select = [
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod
+    "ANN401",  # dynamically typed expressions (Any)
 
     # --- Boolean arguments ------------------------------------------------
     # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
