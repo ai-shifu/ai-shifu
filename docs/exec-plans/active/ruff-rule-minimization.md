@@ -293,6 +293,14 @@ plan's progress update for that rule.
   comparison/moderation, translation, outline-position, Langfuse tuple,
   verification response, Swagger mapping, MarkdownFlow block, buy-record DTO,
   and language-catalog mapping contracts. Focused annotation/cache tests pass.
+- [x] 2026-08-22 11:24 CST: Rebuilt the ANN202 stage on `ruff/ann202` for
+  [#2646](https://github.com/ai-shifu/ai-shifu/pull/2646). Restored the applied
+  private migration helper changed by the original sweep and extended the same
+  immutable-history exception through ANN202. The focused cache-lock regression
+  test, `ruff check .`, and `ruff format --check .` pass.
+- [x] 2026-08-22 11:52 CST: Replaced the ANN202 migration directory exception
+  with the single deployed revision that has an unannotated private helper.
+  `ruff check .` and the focused annotation/cache regression tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
