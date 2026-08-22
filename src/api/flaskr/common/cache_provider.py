@@ -14,7 +14,7 @@ class CacheLock(Protocol):
 
     def acquire(
         self: object, blocking: bool = True, blocking_timeout: int | None = None
-    ) -> None:
+    ) -> object:
         """Acquire this cache lock."""
         raise NotImplementedError
 
@@ -27,13 +27,13 @@ class CacheLock(Protocol):
 class CacheProvider(Protocol):
     """Define the cache operations used by application services."""
 
-    def get(self: object, key: str) -> None:
+    def get(self: object, key: str) -> object:
         """Return the stored value for a key."""
         raise NotImplementedError
 
     def getex(
         self: object, key: str, ex: int | None = None, px: int | None = None
-    ) -> None:
+    ) -> object:
         """Return a cached value and refresh expiration only when a TTL is supplied."""
         raise NotImplementedError
 
@@ -47,11 +47,11 @@ class CacheProvider(Protocol):
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ) -> None:
+    ) -> object:
         """Store a value when NX/XX constraints permit and return the outcome."""
         raise NotImplementedError
 
-    def setex(self: object, key: str, time_in_seconds: int, value: Any) -> None:
+    def setex(self: object, key: str, time_in_seconds: int, value: Any) -> object:
         """Store a cached value with an expiration."""
         raise NotImplementedError
 
@@ -59,7 +59,7 @@ class CacheProvider(Protocol):
         """Delete values for the supplied keys."""
         raise NotImplementedError
 
-    def incr(self: object, key: str, amount: int = 1) -> None:
+    def incr(self: object, key: str, amount: int = 1) -> object:
         """Increment the integer stored under a cache key."""
         raise NotImplementedError
 
@@ -72,7 +72,7 @@ class CacheProvider(Protocol):
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ) -> None:
+    ) -> object:
         """Create a lock for the supplied key."""
         raise NotImplementedError
 
