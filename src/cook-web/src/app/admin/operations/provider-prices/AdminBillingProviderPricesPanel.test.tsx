@@ -261,14 +261,20 @@ describe('AdminBillingProviderPricesPanel', () => {
     );
 
     await waitFor(() => {
-      expect(mockCreateAdminBillingProviderPrice).toHaveBeenCalledWith({
-        product_bid: 'bill-product-global-scale-monthly',
-        provider_product_id: 'prod_V6Dk7DvFyxIfOI',
-        provider_price_id: 'price_1U61JKJC2CFSg110ua1P6afH',
-      });
-      expect(mockValidateAdminBillingProviderPrice).toHaveBeenCalledWith({
-        provider_price_bid: 'provider-price-1',
-      });
+      expect(mockCreateAdminBillingProviderPrice).toHaveBeenCalledWith(
+        {
+          product_bid: 'bill-product-global-scale-monthly',
+          provider_product_id: 'prod_V6Dk7DvFyxIfOI',
+          provider_price_id: 'price_1U61JKJC2CFSg110ua1P6afH',
+        },
+        { skipErrorToast: true },
+      );
+      expect(mockValidateAdminBillingProviderPrice).toHaveBeenCalledWith(
+        {
+          provider_price_bid: 'provider-price-1',
+        },
+        { skipErrorToast: true },
+      );
       expect(mockToast).toHaveBeenCalledWith({
         title: 'module.billing.admin.providerPrices.toast.validateSuccess',
         description: undefined,
@@ -370,9 +376,12 @@ describe('AdminBillingProviderPricesPanel', () => {
     );
 
     await waitFor(() => {
-      expect(mockActivateAdminBillingProviderPrice).toHaveBeenCalledWith({
-        provider_price_bid: 'provider-price-draft',
-      });
+      expect(mockActivateAdminBillingProviderPrice).toHaveBeenCalledWith(
+        {
+          provider_price_bid: 'provider-price-draft',
+        },
+        { skipErrorToast: true },
+      );
     });
   });
 
@@ -459,9 +468,12 @@ describe('AdminBillingProviderPricesPanel', () => {
     );
 
     await waitFor(() => {
-      expect(mockRetireAdminBillingProviderPrice).toHaveBeenCalledWith({
-        provider_price_bid: 'provider-price-active',
-      });
+      expect(mockRetireAdminBillingProviderPrice).toHaveBeenCalledWith(
+        {
+          provider_price_bid: 'provider-price-active',
+        },
+        { skipErrorToast: true },
+      );
     });
     confirmSpy.mockRestore();
   });

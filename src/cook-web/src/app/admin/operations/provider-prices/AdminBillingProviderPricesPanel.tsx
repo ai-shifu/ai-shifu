@@ -355,12 +355,17 @@ export function AdminBillingProviderPricesPanel() {
           action === 'validate'
             ? ((await api.validateAdminBillingProviderPrice(
                 params,
+                PASSIVE_REQUEST_CONFIG,
               )) as AdminBillingProviderPriceValidationResult)
             : action === 'activate'
               ? ((await api.activateAdminBillingProviderPrice(
                   params,
+                  PASSIVE_REQUEST_CONFIG,
                 )) as AdminBillingProviderPriceValidationResult)
-              : await api.retireAdminBillingProviderPrice(params);
+              : await api.retireAdminBillingProviderPrice(
+                  params,
+                  PASSIVE_REQUEST_CONFIG,
+                );
         const validationResult =
           result as AdminBillingProviderPriceValidationResult;
         const issueText =
@@ -419,11 +424,14 @@ export function AdminBillingProviderPricesPanel() {
     }
     setActionLoading('create');
     try {
-      const createResult = (await api.createAdminBillingProviderPrice({
-        product_bid: form.product_bid,
-        provider_product_id: form.provider_product_id.trim(),
-        provider_price_id: form.provider_price_id.trim(),
-      })) as CreateMappingResult;
+      const createResult = (await api.createAdminBillingProviderPrice(
+        {
+          product_bid: form.product_bid,
+          provider_product_id: form.provider_product_id.trim(),
+          provider_price_id: form.provider_price_id.trim(),
+        },
+        PASSIVE_REQUEST_CONFIG,
+      )) as CreateMappingResult;
       const providerPriceBid = createResult.mapping?.provider_price_bid || '';
       if (providerPriceBid) {
         try {
@@ -431,6 +439,7 @@ export function AdminBillingProviderPricesPanel() {
             {
               provider_price_bid: providerPriceBid,
             },
+            PASSIVE_REQUEST_CONFIG,
           )) as AdminBillingProviderPriceValidationResult;
           const issueText =
             validationResult?.valid === false
