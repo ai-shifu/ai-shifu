@@ -28,6 +28,7 @@ _VALID_MODES = {"read", "listen"}
 
 
 def build_lesson_feedback_interaction_md() -> str:
+    """Build lesson feedback interaction md."""
     placeholder = _("server.learn.lessonFeedbackCommentPlaceholder")
     return (
         f"?[%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
@@ -36,6 +37,7 @@ def build_lesson_feedback_interaction_md() -> str:
 
 
 def is_lesson_feedback_interaction(content: str | None) -> bool:
+    """Return whether lesson feedback interaction."""
     marker = f"%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
     return bool(content and marker in content)
 
@@ -124,6 +126,7 @@ def submit_lesson_feedback(
     comment: str | None,
     mode: str | None,
 ) -> dict:
+    """Submit lesson feedback."""
     normalized_score = _normalize_score(score)
     normalized_comment = _normalize_comment(comment)
     normalized_mode = _normalize_mode(mode)
@@ -237,6 +240,7 @@ def list_lesson_feedbacks(
     page_index: int = 1,
     page_size: int = 20,
 ) -> dict:
+    """Return lesson feedbacks."""
     safe_page_index = max(int(page_index or 1), 1)
     safe_page_size = min(max(int(page_size or 20), 1), 100)
 

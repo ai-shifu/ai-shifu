@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_course_visit_event_name(shifu_bid: str) -> str:
+    """Build course visit event name."""
     normalized = "".join(
         ch
         if ("0" <= ch <= "9")
@@ -246,6 +247,7 @@ def _fetch_distinct_ids_for_event(
 
 
 def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
+    """Return course visit count 30d."""
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         return 0

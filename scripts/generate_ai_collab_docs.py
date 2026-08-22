@@ -2005,6 +2005,7 @@ def write_documents() -> int:
 
 
 def main() -> int:
+    """Regenerate AI collaboration instruction mirrors."""
     return write_documents()
 
 

@@ -78,6 +78,7 @@ def gen_signature(params=None):
 def yidun_check(
     app: Flask, data_id: str, content: str, user_id: str | None = None
 ) -> CheckResultDTO:
+    """Check text with the YiDun content-safety provider."""
     if not YIDUN_SECRET_ID or not YIDUN_SECRET_KEY or not YIDUN_BUSINESS_ID:
         app.logger.warning(
             "YIDUN_SECRET_ID, YIDUN_SECRET_KEY, YIDUN_BUSINESS_ID not configured"

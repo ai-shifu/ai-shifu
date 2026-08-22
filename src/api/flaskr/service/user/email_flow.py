@@ -86,6 +86,7 @@ def verify_email_code(
     language: str | None = None,
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
+    """Verify email code."""
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
         update_user_profile_with_lable,

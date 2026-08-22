@@ -915,6 +915,7 @@ def persist_credit_wallet_snapshot(
 
 
 def resolve_bucket_source_type_for_category(bucket_category: int | None) -> int:
+    """Resolve bucket source type for category."""
     normalized_category = resolve_runtime_credit_bucket_category(
         bucket_category=bucket_category
     )
@@ -928,6 +929,7 @@ def load_primary_credit_bucket_by_category(
     *,
     bucket_category: int,
 ) -> CreditWalletBucket | None:
+    """Load primary credit bucket by category."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_category = resolve_runtime_credit_bucket_category(
         bucket_category=bucket_category
@@ -1003,6 +1005,7 @@ def load_or_create_credit_bucket_by_category(
     effective_from: datetime | None = None,
     effective_to: datetime | None = None,
 ) -> CreditWalletBucket:
+    """Load or create credit bucket by category."""
     normalized_category = resolve_runtime_credit_bucket_category(
         bucket_category=bucket_category
     )

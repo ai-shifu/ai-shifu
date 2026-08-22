@@ -28,6 +28,7 @@ from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
 
 
 def get_ask_provider_adapter(provider: str) -> AskProviderAdapter | None:
+    """Return ask provider adapter."""
     provider = (provider or "").strip().lower()
     if provider == ASK_PROVIDER_LLM:
         return LlmAskProviderAdapter()
@@ -53,6 +54,7 @@ def stream_ask_provider_response(
     provider_config: dict[str, Any],
     runtime: AskProviderRuntime | None = None,
 ) -> Generator[AskProviderChunk, None, None]:
+    """Stream ask provider response."""
     adapter = get_ask_provider_adapter(provider)
     if not adapter:
         message = f"unsupported provider: {provider}"

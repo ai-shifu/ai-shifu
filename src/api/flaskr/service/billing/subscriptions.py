@@ -166,6 +166,7 @@ SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
 
 def is_self_managed_billing_provider(provider: str | None) -> bool:
+    """Return whether self managed billing provider."""
     return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
 
 
@@ -318,6 +319,7 @@ def load_effective_topup_subscription(
     *,
     as_of: datetime | None = None,
 ) -> BillingSubscription | None:
+    """Load effective topup subscription."""
     return _load_primary_active_subscription(creator_bid, as_of=as_of)
 
 
@@ -500,6 +502,7 @@ def ensure_subscription_renewal_order(
     renewal_event_bid: str = "",
     scheduled_at: datetime | None = None,
 ) -> BillingOrder | None:
+    """Ensure subscription renewal order."""
     cycle_start_at = scheduled_at or subscription.current_period_end_at
     provider_name = _normalize_bid(subscription.billing_provider)
     if provider_name == "pingxx" and subscription.current_period_end_at is not None:
@@ -1793,6 +1796,7 @@ def repair_topup_grant_expiries(
     *,
     creator_bid: str,
 ) -> TopupExpiryRepairResult:
+    """Repair topup grant expiries."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return TopupExpiryRepairResult(
@@ -1942,6 +1946,7 @@ def repair_subscription_cycle_mismatches(
     creator_bid: str = "",
     subscription_bid: str = "",
 ) -> SubscriptionCycleRepairResult:
+    """Repair subscription cycle mismatches."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_subscription_bid = _normalize_bid(subscription_bid)
 

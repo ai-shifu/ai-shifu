@@ -73,6 +73,7 @@ def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
 
 
 def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
+    """Return profile onboarding status."""
     config_payload = load_profile_onboarding_config_payload()
     enabled = bool(config_payload.get("enabled")) and bool(
         str(config_payload.get("markdownflow") or "").strip()
@@ -112,6 +113,7 @@ def complete_profile_onboarding(
     skipped: bool,
     variables: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    """Complete profile onboarding."""
     config_payload = load_profile_onboarding_config_payload()
     normalized_variables = _normalize_submitted_variables(variables)
     if not skipped:

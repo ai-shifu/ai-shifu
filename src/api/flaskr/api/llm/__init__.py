@@ -985,6 +985,7 @@ class LLMStreamResponse:
 
 
 def get_litellm_params_and_model(model: str):
+    """Return litellm params and model."""
     requested_model = model
     provider_key, invoke_model = _resolve_provider_for_model(model)
     if provider_key:
@@ -1020,6 +1021,7 @@ def invoke_llm(
     usage_metadata: dict[str, Any] | None = None,
     **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
+    """Invoke LLM."""
     stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
     usage_scene = (
@@ -1203,6 +1205,7 @@ def chat_llm(
     usage_metadata: dict[str, Any] | None = None,
     **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
+    """Send a chat request through the configured LLM provider."""
     app.logger.info(
         "chat_llm [%s] %s ,json:%s ,kwargs:%s", model, messages, json, kwargs
     )
@@ -1541,6 +1544,7 @@ def _attach_credit_multipliers(
 
 
 def get_current_models(app: Flask) -> list[dict[str, Any]]:
+    """Return current models."""
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)
@@ -1549,5 +1553,6 @@ def get_current_models(app: Flask) -> list[dict[str, Any]]:
 
 
 def get_allowed_models() -> list[str]:
+    """Return allowed models."""
     allowed, _ = _resolve_allowed_model_config()
     return allowed

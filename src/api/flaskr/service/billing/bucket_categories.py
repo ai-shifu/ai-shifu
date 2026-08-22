@@ -47,6 +47,7 @@ _SUBSCRIPTION_ORDER_TYPES = {
 
 
 def resolve_credit_bucket_priority(category: int | None) -> int:
+    """Resolve credit bucket priority."""
     normalized_category = normalize_runtime_credit_bucket_category(category)
     return _BUCKET_PRIORITY_BY_CATEGORY.get(
         normalized_category,
@@ -55,6 +56,7 @@ def resolve_credit_bucket_priority(category: int | None) -> int:
 
 
 def normalize_runtime_credit_bucket_category(category: int | None) -> int:
+    """Normalize runtime credit bucket category."""
     return (
         CREDIT_BUCKET_CATEGORY_TOPUP
         if int(category or 0) == CREDIT_BUCKET_CATEGORY_TOPUP
@@ -63,6 +65,7 @@ def normalize_runtime_credit_bucket_category(category: int | None) -> int:
 
 
 def resolve_bucket_category_from_order_type(order_type: int | None) -> int:
+    """Resolve bucket category from order type."""
     if int(order_type or 0) == BILLING_ORDER_TYPE_TOPUP:
         return CREDIT_BUCKET_CATEGORY_TOPUP
     if int(order_type or 0) in _SUBSCRIPTION_ORDER_TYPES:
@@ -78,6 +81,7 @@ def resolve_runtime_credit_bucket_category(
     metadata: Any | None = None,
     load_order_type: OrderTypeLoader | None = None,
 ) -> int:
+    """Resolve runtime credit bucket category."""
     current_bucket_category = int(bucket_category or 0)
     current_source_type = int(source_type or 0)
 
@@ -112,6 +116,7 @@ def resolve_wallet_bucket_runtime_category(
     *,
     load_order_type: OrderTypeLoader | None = None,
 ) -> int:
+    """Resolve wallet bucket runtime category."""
     return resolve_runtime_credit_bucket_category(
         bucket_category=int(bucket.bucket_category or 0),
         source_type=int(bucket.source_type or 0),
@@ -126,6 +131,7 @@ def wallet_bucket_requires_active_subscription(
     *,
     load_order_type: OrderTypeLoader | None = None,
 ) -> bool:
+    """Return whether wallet bucket requires an active subscription."""
     runtime_category = resolve_wallet_bucket_runtime_category(
         bucket,
         load_order_type=load_order_type,
@@ -147,6 +153,7 @@ def build_wallet_bucket_runtime_sort_key(
     *,
     load_order_type: OrderTypeLoader | None = None,
 ) -> tuple[int, bool, datetime, datetime, int]:
+    """Build wallet bucket runtime sort key."""
     normalized_category = resolve_wallet_bucket_runtime_category(
         bucket,
         load_order_type=load_order_type,
@@ -161,6 +168,7 @@ def build_wallet_bucket_runtime_sort_key(
 
 
 def load_billing_order_type_by_bid(bill_order_bid: str) -> int | None:
+    """Load billing order type by BID."""
     order = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,

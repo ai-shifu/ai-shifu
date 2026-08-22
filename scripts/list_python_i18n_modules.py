@@ -10,6 +10,7 @@ I18N_DIR = ROOT / "src" / "api" / "flaskr" / "i18n"
 
 
 def find_python_modules() -> list[str]:
+    """Find python modules."""
     modules: list[str] = []
     if not I18N_DIR.exists():
         return modules
@@ -24,6 +25,7 @@ def find_python_modules() -> list[str]:
 
 
 def main() -> None:
+    """Run the list python i18n modules command-line workflow."""
     modules = find_python_modules()
     if not modules:
         print("No Python translation modules remaining.")

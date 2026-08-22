@@ -29,6 +29,7 @@ _config_override_local = threading.local()
 
 @contextmanager
 def config_overrides(values: dict[str, object]):
+    """Return config overrides."""
     previous = getattr(_config_override_local, "values", None)
     merged = dict(previous) if previous is not None else {}
     merged.update(values or {})
@@ -44,6 +45,7 @@ def config_overrides(values: dict[str, object]):
 
 
 def has_config_override(key: str) -> bool:
+    """Return whether config override."""
     return key in getattr(_config_override_local, "values", {})
 
 

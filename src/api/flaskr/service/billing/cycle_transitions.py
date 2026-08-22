@@ -28,6 +28,7 @@ def resolve_order_effective_from(
     default_effective_from: datetime,
     load_subscription_by_bid: Callable[[str], Any | None],
 ) -> datetime:
+    """Resolve order effective from."""
     if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return default_effective_from
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
@@ -55,6 +56,7 @@ def resolve_order_effective_to(
     calculate_provider_cycle_end: Callable[[Any, datetime], datetime | None],
     calculate_self_managed_cycle_end: Callable[[Any, datetime], datetime | None],
 ) -> datetime | None:
+    """Resolve order effective to."""
     if order.order_type == BILLING_ORDER_TYPE_TOPUP:
         return resolve_topup_effective_to(order.creator_bid, effective_from)
 

@@ -53,6 +53,7 @@ class OSSConfig:
 
 
 def get_oss_config(profile: str = OSS_PROFILE_DEFAULT) -> OSSConfig:
+    """Return OSS config."""
     profile = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
     keys = _OSS_CONFIG_KEYS.get(profile)
     if not keys:
@@ -101,6 +102,7 @@ def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
 
 
 def create_oss_bucket(config: OSSConfig) -> oss2.Bucket:
+    """Create OSS bucket."""
     if oss2 is None:  # pragma: no cover
         message = "oss2 dependency is not installed"
         raise RuntimeError(message)
@@ -109,11 +111,13 @@ def create_oss_bucket(config: OSSConfig) -> oss2.Bucket:
 
 
 def build_oss_url(config: OSSConfig, object_key: str) -> str:
+    """Build OSS URL."""
     base = (config.base_url or "").rstrip("/")
     return f"{base}/{object_key}"
 
 
 def get_image_content_type(filename: str) -> str:
+    """Return image content type."""
     extension = filename.rsplit(".", 1)[1].lower()
     if extension in ["jpg", "jpeg"]:
         return "image/jpeg"
@@ -222,6 +226,7 @@ def upload_to_oss(
     bucket: oss2.Bucket | None = None,
     warm_up: bool = True,
 ) -> tuple[str, str]:
+    """Upload to OSS."""
     resolved_config = config or get_oss_config(profile)
     resolved_bucket = bucket or create_oss_bucket(resolved_config)
 

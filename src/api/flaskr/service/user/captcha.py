@@ -188,6 +188,7 @@ def _render_captcha_png(code: str) -> bytes:
 
 
 def create_captcha_challenge(app: Flask) -> dict[str, Any]:
+    """Create captcha challenge."""
     expire_seconds = int(app.config.get("CAPTCHA_EXPIRE_TIME", 300))
     code = _generate_code(app)
     captcha_id = secrets.token_urlsafe(18)
@@ -211,6 +212,7 @@ def create_captcha_challenge(app: Flask) -> dict[str, Any]:
 def verify_captcha_code(
     app: Flask, captcha_id: str, captcha_code: str
 ) -> dict[str, Any]:
+    """Verify captcha code."""
     payload = _load_captcha_payload(app, captcha_id)
     if payload is None:
         raise_error("server.user.checkCodeExpired")
@@ -240,6 +242,7 @@ def verify_captcha_code(
 
 
 def consume_captcha_ticket(app: Flask, captcha_ticket: str | None) -> None:
+    """Consume captcha ticket."""
     if not captcha_ticket:
         raise_error("server.user.checkCodeError")
 

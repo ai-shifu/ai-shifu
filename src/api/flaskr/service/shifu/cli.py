@@ -10,6 +10,8 @@ from .repair import repair_shifu_outline_structure
 
 
 def register_shifu_commands(console, app) -> None:
+    """Register course-maintenance commands on the console group."""
+
     @console.group(name="shifu")
     def shifu_group() -> None:
         """Shifu maintenance commands for offline repair work."""

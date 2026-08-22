@@ -22,6 +22,7 @@ _CONFIG_STATUS_VALUES = {"pending", "in_progress", "completed", "exception"}
 
 
 def build_admin_billing_ops_state(app: Flask) -> dict[str, Any]:
+    """Build admin billing ops state."""
     with app.app_context():
         return {
             "config_status": _read_map(_CONFIG_STATUS_KEY),
@@ -34,6 +35,7 @@ def update_admin_billing_config_status(
     creator_bid: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Update admin billing config status."""
     normalized_creator_bid = normalize_bid(creator_bid)
     if not normalized_creator_bid:
         raise_param_error("creator_bid")

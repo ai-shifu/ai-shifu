@@ -45,6 +45,7 @@ def has_speakable_text(text: str) -> bool:
 
 
 def resolve_tts_billable_chars(text: str, usage_characters: int = 0) -> int:
+    """Resolve TTS billable chars."""
     provider_usage_characters = int(usage_characters or 0)
     if provider_usage_characters > 0:
         return provider_usage_characters

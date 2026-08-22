@@ -30,6 +30,7 @@ _NATIVE_PAYMENT_BID_ATTRS = {
 
 
 def legacy_stripe_snapshot_query():
+    """Return legacy stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
         StripeOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
@@ -37,6 +38,7 @@ def legacy_stripe_snapshot_query():
 
 
 def legacy_pingxx_snapshot_query():
+    """Return legacy pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
@@ -44,6 +46,7 @@ def legacy_pingxx_snapshot_query():
 
 
 def billing_stripe_snapshot_query():
+    """Return billing stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
         StripeOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
@@ -51,6 +54,7 @@ def billing_stripe_snapshot_query():
 
 
 def billing_pingxx_snapshot_query():
+    """Return billing pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
@@ -58,6 +62,7 @@ def billing_pingxx_snapshot_query():
 
 
 def native_snapshot_model(payment_provider: str):
+    """Return native snapshot model."""
     provider = str(payment_provider or "").strip().lower()
     model = _NATIVE_PAYMENT_MODELS.get(provider)
     if model is None:
@@ -67,6 +72,7 @@ def native_snapshot_model(payment_provider: str):
 
 
 def native_snapshot_bid_attr(payment_provider: str) -> str:
+    """Return native snapshot BID attr."""
     provider = str(payment_provider or "").strip().lower()
     attr = _NATIVE_PAYMENT_BID_ATTRS.get(provider)
     if attr is None:
@@ -76,6 +82,7 @@ def native_snapshot_bid_attr(payment_provider: str) -> str:
 
 
 def native_snapshot_query(payment_provider: str, biz_domain: str):
+    """Return native snapshot query."""
     model = native_snapshot_model(payment_provider)
     return model.query.filter(
         model.deleted == 0,
@@ -84,10 +91,12 @@ def native_snapshot_query(payment_provider: str, biz_domain: str):
 
 
 def legacy_native_snapshot_query(payment_provider: str):
+    """Return legacy native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_ORDER)
 
 
 def billing_native_snapshot_query(payment_provider: str):
+    """Return billing native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_BILLING)
 
 
@@ -113,6 +122,7 @@ def upsert_native_snapshot(
     raw_notification: Any | None = None,
     metadata: Any | None = None,
 ) -> AlipayOrder | WechatPayOrder:
+    """Create or update native snapshot."""
     model = native_snapshot_model(payment_provider)
     provider_bid_attr = native_snapshot_bid_attr(payment_provider)
     provider_bid_value = str(native_payment_order_bid or "").strip()
@@ -217,6 +227,7 @@ def should_update_native_snapshot_status(
     existing_status: int | None,
     incoming_status: int | None,
 ) -> bool:
+    """Return whether to update native snapshot status."""
     existing = int(existing_status or 0)
     incoming = int(incoming_status or 0)
     return _NATIVE_STATUS_PRECEDENCE.get(incoming, 0) >= _NATIVE_STATUS_PRECEDENCE.get(
@@ -240,6 +251,7 @@ def upsert_billing_stripe_snapshot(
     receipt_url: str = "",
     payment_method: str = "",
 ) -> StripeOrder:
+    """Create or update billing stripe snapshot."""
     snapshot = (
         billing_stripe_snapshot_query()
         .filter(StripeOrder.bill_order_bid == bill_order_bid)
@@ -328,6 +340,7 @@ def upsert_billing_pingxx_snapshot(
     client_ip: str = "",
     extra: Any | None = None,
 ) -> PingxxOrder:
+    """Create or update billing pingxx snapshot."""
     snapshot = (
         billing_pingxx_snapshot_query()
         .filter(PingxxOrder.bill_order_bid == bill_order_bid)

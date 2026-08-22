@@ -105,6 +105,7 @@ def activate_reserved_renewal_grants_for_cycle(
     effective_to: datetime | None,
     expire_bucket_balance_for_transition: ExpireBucketBalanceForTransition,
 ) -> tuple[ReservedActivationTarget, ...]:
+    """Activate reserved renewal grants for the supplied billing cycle."""
     cycle_orders = _load_sorted_paid_subscription_renewal_orders_for_cycle(
         order=order,
         effective_from=effective_from,
@@ -166,6 +167,7 @@ def sync_activated_reserved_renewal_ledger_balances(
     targets: tuple[ReservedActivationTarget, ...],
     final_balance_after: Decimal,
 ) -> None:
+    """Synchronize activated reserved renewal ledger balances."""
     if not targets:
         return
 
@@ -191,6 +193,7 @@ def sync_activated_reserved_renewal_ledger_balances(
 
 
 def load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry | None:
+    """Load grant ledger entry for order."""
     return (
         CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,
@@ -205,6 +208,7 @@ def load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry 
 def load_campaign_bonus_ledger_entry_for_order(
     order: BillingOrder,
 ) -> CreditLedgerEntry | None:
+    """Load campaign bonus ledger entry for order."""
     return (
         CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,

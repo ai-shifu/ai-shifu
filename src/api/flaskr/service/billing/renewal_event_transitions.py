@@ -64,6 +64,7 @@ def bind_renewal_event_claim(
     *,
     attempt_count: int,
 ) -> None:
+    """Bind renewal event claim."""
     setattr(event, _CLAIM_ATTEMPT_ATTR, int(attempt_count or 0))
 
 
@@ -89,6 +90,7 @@ def assert_renewal_event_claim_current(
     now: datetime | None = None,
     touch: bool = False,
 ) -> None:
+    """Assert renewal event claim current."""
     values: dict[str, Any] = {}
     if touch and now is not None:
         values["updated_at"] = now
@@ -118,6 +120,7 @@ def _update_processing_renewal_event(
 
 
 def release_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
+    """Release renewal event."""
     return _update_processing_renewal_event(
         event,
         {
@@ -128,6 +131,7 @@ def release_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
 
 
 def complete_renewal_event(event: BillingRenewalEvent, *, now: datetime) -> None:
+    """Complete renewal event."""
     return _update_processing_renewal_event(
         event,
         {
@@ -145,6 +149,7 @@ def fail_renewal_event(
     now: datetime,
     error: str,
 ) -> None:
+    """Mark as failed renewal event."""
     return _update_processing_renewal_event(
         event,
         {
@@ -159,6 +164,7 @@ def fail_renewal_event(
 def build_subscription_renewal_event_payload(
     subscription: BillingSubscription,
 ) -> dict[str, Any]:
+    """Build subscription renewal event payload."""
     return _normalize_json_object(
         {
             "subscription_bid": subscription.subscription_bid,
@@ -246,6 +252,7 @@ def upsert_subscription_renewal_event(
     event_type: int,
     scheduled_at: datetime,
 ) -> None:
+    """Create or update subscription renewal event."""
     normalized_scheduled_at = _normalize_mysql_datetime(scheduled_at)
     payload = build_subscription_renewal_event_payload(subscription)
     event = _load_subscription_renewal_event(
@@ -293,6 +300,7 @@ def cancel_stale_subscription_renewal_events(
     event_type: int,
     keep_scheduled_at: datetime,
 ) -> None:
+    """Cancel stale subscription renewal events."""
     now = now_utc()
     BillingRenewalEvent.query.filter(
         BillingRenewalEvent.deleted == 0,
@@ -315,6 +323,7 @@ def cancel_subscription_renewal_events(
     *,
     event_types: tuple[int, ...] = MANAGED_RENEWAL_EVENT_TYPES,
 ) -> None:
+    """Cancel subscription renewal events."""
     now = now_utc()
     BillingRenewalEvent.query.filter(
         BillingRenewalEvent.deleted == 0,

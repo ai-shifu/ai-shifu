@@ -16,6 +16,7 @@ def build_admin_operation_course_summary(
     course_status: str,
     activity: dict[str, Any] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
+    """Build admin operation course summary."""
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
     llm_model = str(course.llm or "").strip()

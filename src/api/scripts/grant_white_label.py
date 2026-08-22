@@ -56,6 +56,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Grant white-label access to the requested teacher account."""
     args = _build_parser().parse_args()
 
     branding = {

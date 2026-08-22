@@ -61,6 +61,7 @@ def _extract_request_language() -> str | None:
 
 # Decorator that exempts a route from token validation
 def bypass_token_validation(func):
+    """Mark a route as exempt from token validation."""
     by_pass_login_func.append(func.__name__)
 
     @wraps(func)
@@ -71,6 +72,8 @@ def bypass_token_validation(func):
 
 
 def register_common_handler(app: Flask) -> Flask:
+    """Register the common routes on the Flask application."""
+
     @app.errorhandler(AppError)
     def handle_invalid_usage(error: AppError):
         response = jsonify({"code": error.code, "message": error.message})
@@ -106,6 +109,7 @@ def register_common_handler(app: Flask) -> Flask:
 
 
 def fmt(o):
+    """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime.datetime):
         # Single serialization choke point for datetimes returned by APIs.
         # Stored values are UTC (see now_utc()); treat naive values as UTC and
@@ -122,6 +126,7 @@ def fmt(o):
 
 
 def make_common_response(data):
+    """Build common response."""
     if data is None:
         data = {}
     return json.dumps(

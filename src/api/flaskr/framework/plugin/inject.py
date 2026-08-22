@@ -5,6 +5,8 @@ from functools import wraps
 
 # inject app to function and set inject flag
 def inject(func):
+    """Inject a plugin callback at the requested extension point."""
+
     @wraps(func)
     def wrapper(*args: object, **kwargs: object):
         app = kwargs.get("app")

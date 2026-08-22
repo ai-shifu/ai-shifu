@@ -252,6 +252,7 @@ def get_operator_course_detail(
     *,
     shifu_bid: str,
 ) -> AdminOperationCourseDetailDTO:
+    """Return operator course detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -388,6 +389,7 @@ def get_operator_course_prompt(
     *,
     shifu_bid: str,
 ) -> AdminOperationCoursePromptDTO:
+    """Return operator course prompt."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -409,6 +411,7 @@ def get_operator_course_chapter_detail(
     shifu_bid: str,
     outline_item_bid: str,
 ) -> AdminOperationCourseChapterDetailDTO:
+    """Return operator course chapter detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_outline_item_bid = str(outline_item_bid or "").strip()

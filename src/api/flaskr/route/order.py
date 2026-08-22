@@ -43,6 +43,8 @@ from flaskr.util.datetime import parse_naive_utc
 
 
 def register_order_handler(app: Flask, path_prefix: str):
+    """Register the order routes on the Flask application."""
+
     def _require_creator():
         if not request.user.is_creator:
             raise_error("server.shifu.noPermission")

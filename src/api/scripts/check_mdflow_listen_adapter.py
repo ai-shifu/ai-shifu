@@ -94,6 +94,7 @@ class AnalysisResult:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the MarkdownFlow listen-adapter check."""
     parser = argparse.ArgumentParser(
         description="Check markdown-flow 0.2.55 stream parts against ListenElementRunAdapter."
     )
@@ -722,6 +723,7 @@ def _print_summary(
 
 
 def main() -> int:
+    """Check the MarkdownFlow listen adapter against captured fixtures."""
     args = parse_args()
     input_path = Path(args.input)
     if not input_path.exists():

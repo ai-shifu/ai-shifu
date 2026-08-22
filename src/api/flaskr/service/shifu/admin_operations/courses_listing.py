@@ -1166,6 +1166,7 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
 
 
 def get_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewDTO:
+    """Return operator course overview."""
     with app.app_context():
         return _build_operator_course_overview(app)
 
@@ -1441,6 +1442,7 @@ def list_operator_courses(
     page_size: int,
     filters: dict | None = None,
 ) -> AdminOperationCourseListDTO:
+    """Return operator courses."""
     with app.app_context():
         if not _can_use_operator_course_sql_optimization(app):
             return _list_operator_courses_legacy(app, page_index, page_size, filters)

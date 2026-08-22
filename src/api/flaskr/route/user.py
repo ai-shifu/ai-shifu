@@ -186,6 +186,8 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
 
 
 def optional_token_validation(f):
+    """Allow a route to accept an optional authentication token."""
+
     @wraps(f)
     def decorated_function(*args: object, **kwargs: object):
         token = request.cookies.get("token", None)
@@ -219,6 +221,8 @@ def _best_effort_password_login_user(app: Flask):
 
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the user routes on the Flask application."""
+
     @app.before_request
     def before_request():
         if request.path.startswith("/internal/"):

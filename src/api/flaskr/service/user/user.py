@@ -73,6 +73,7 @@ def _try_delete_local_file_by_url(app: Flask, url: str) -> None:
 def generate_temp_user(
     app: Flask, temp_id: str, user_source="web", wx_code=None, language="en-US"
 ) -> UserToken:
+    """Generate temp user."""
     with app.app_context():
         convert_user = UserConversion.query.filter(
             UserConversion.conversion_id == temp_id,
@@ -164,6 +165,7 @@ def generate_temp_user(
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
+    """Update user open ID."""
     app.logger.info("update_user_open_id user_id: %s wx_code: %s", user_id, wx_code)
     with app.app_context():
         aggregate = load_user_aggregate(user_id)
@@ -227,6 +229,7 @@ def _wechat_identifiers(app: Flask, open_id: str, union_id: str) -> tuple[str, s
 
 
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
+    """Upload user avatar."""
     with app.app_context():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:

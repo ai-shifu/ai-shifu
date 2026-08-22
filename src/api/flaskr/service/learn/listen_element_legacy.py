@@ -97,6 +97,7 @@ def build_listen_elements_from_legacy_record(
     *,
     prefer_persisted_final_elements: bool = True,
 ) -> LearnElementRecordDTO:
+    """Build listen elements from legacy record."""
     elements: list[ElementDTO] = []
     max_index = -1
     last_anchor_element_bid: str = ""
@@ -288,6 +289,7 @@ def backfill_learn_generated_elements_for_progress(
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> LearnElementsBackfillStats:
+    """Backfill learn generated elements for progress."""
     progress_record = (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.progress_record_bid == progress_record_bid,

@@ -220,6 +220,7 @@ def backfill_authoring_permission_creators(
     limit: int | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
+    """Backfill authoring permission creators."""
     normalized_course_bid = _normalize_cli_bid(course_bid)
     normalized_user_bid = _normalize_cli_bid(user_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
@@ -1349,6 +1350,7 @@ def register_billing_commands(console) -> None:
 
 
 def seed_billing_bootstrap_data() -> dict[str, Any]:
+    """Seed billing bootstrap data."""
     rate_result = _upsert_bootstrap_rows(
         model=CreditUsageRate,
         key_field="rate_bid",
@@ -1369,6 +1371,7 @@ def seed_billing_bootstrap_data() -> dict[str, Any]:
 
 
 def seed_sample_exception_orders() -> dict[str, Any]:
+    """Seed sample exception orders."""
     current_time = now_utc().replace(microsecond=0)
     plan_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_PLAN)
     topup_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_TOPUP)
@@ -1631,6 +1634,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
 
 
 def seed_sample_focus_teachers() -> dict[str, Any]:
+    """Seed sample focus teachers."""
     current_time = now_utc().replace(microsecond=0)
     today = current_time.date()
 
@@ -1914,6 +1918,7 @@ def upsert_billing_product(
     entitlement_json: str,
     metadata_json: str,
 ) -> dict[str, Any]:
+    """Create or update billing product."""
     payload = {
         "product_bid": str(product_bid or "").strip(),
         "product_code": str(product_code or "").strip(),
@@ -1981,6 +1986,7 @@ def bind_provider_price_mapping(
     livemode: bool,
     metadata_json: str,
 ) -> dict[str, Any]:
+    """Bind a provider price to a billing product and return its payload."""
     try:
         with unit_of_work():
             mapping, created = upsert_provider_price_mapping(
@@ -2005,6 +2011,7 @@ def bind_provider_price_mapping(
 
 
 def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    """Activate a provider-price mapping and return its validation result."""
     try:
         with unit_of_work():
             summary = activate_provider_price_mapping(provider_price_bid)
@@ -2018,6 +2025,7 @@ def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, An
 
 
 def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    """Retire a provider-price mapping and return its serialized payload."""
     try:
         with unit_of_work():
             mapping = retire_provider_price_mapping(provider_price_bid)
@@ -2031,6 +2039,7 @@ def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]
 
 
 def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    """Validate a provider-price mapping and return its validation result."""
     try:
         with unit_of_work():
             summary = validate_provider_price_mapping_by_bid(provider_price_bid)
@@ -2050,6 +2059,7 @@ def list_cli_provider_price_mappings(
     status_label: str,
     livemode: bool | None,
 ) -> dict[str, Any]:
+    """List provider-price mappings matching the requested CLI filters."""
     normalized_status = str(status_label or "").strip().lower()
     rows = list_provider_price_mappings(
         product_bid=product_bid,
@@ -2069,6 +2079,7 @@ def list_cli_provider_price_mappings(
 
 
 def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+    """Return a provider-price mapping and its active mapping in the same scope."""
     try:
         mapping = get_provider_price_mapping(provider_price_bid)
         active_mapping = get_active_provider_price_mapping(
@@ -2121,6 +2132,7 @@ def grant_billing_plan_by_identify(
     effective_to: str = "",
     note: str = "",
 ) -> dict[str, Any]:
+    """Grant billing plan by identify."""
     normalized_identify = str(identify or "").strip()
     if not normalized_identify:
         error_message = "--identify is required."
@@ -2353,6 +2365,7 @@ def grant_operator_credits_by_cli(
     note: str = "",
     operator_user_bid: str = "",
 ) -> dict[str, Any]:
+    """Grant operator credits by CLI."""
     normalized_identify = str(identify or "").strip()
     normalized_user_bid = str(user_bid or "").strip()
     if bool(normalized_identify) == bool(normalized_user_bid):

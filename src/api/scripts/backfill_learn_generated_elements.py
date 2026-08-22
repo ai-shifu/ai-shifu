@@ -56,6 +56,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Backfill generated lesson elements from legacy progress."""
     parser = _build_parser()
     args = parser.parse_args()
 

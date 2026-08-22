@@ -245,6 +245,7 @@ def list_operator_voice_clones(
     page_size: int,
     filters: dict[str, Any],
 ) -> dict[str, Any]:
+    """Return operator voice clones."""
     with app.app_context():
         page_index = max(int(page_index or 1), 1)
         page_size = min(

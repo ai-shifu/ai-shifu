@@ -223,6 +223,7 @@ def _build_draft_meta(latest) -> dict:
 def get_shifu_draft_revision(
     app: Flask, shifu_bid: str, outline_bid: str | None = None
 ) -> int:
+    """Return shifu draft revision."""
     with app.app_context():
         if outline_bid:
             latest = _get_latest_outline_content_log(shifu_bid, outline_bid)
@@ -241,6 +242,7 @@ def get_shifu_draft_meta(
     shifu_bid: str,
     outline_bid: str | None = None,
 ) -> dict:
+    """Return shifu draft meta."""
     with app.app_context():
         if outline_bid:
             latest = _get_latest_outline_content_log(shifu_bid, outline_bid)

@@ -184,6 +184,7 @@ class AICourseBuyRecordDTO:
 
 # to do : add to plugins
 def send_order_feishu(app: Flask, record_id: str):
+    """Send order feishu."""
     order_info = query_buy_record(app, record_id)
     if order_info is None:
         return
@@ -242,6 +243,7 @@ def send_order_feishu(app: Flask, record_id: str):
 
 
 def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
+    """Send revoke feishu."""
     order: Order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         return
@@ -379,6 +381,7 @@ def _sync_order_campaign_pricing(
 def init_buy_record(
     app: Flask, user_id: str, course_id: str, active_id: str | None = None
 ):
+    """Initialize buy record."""
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, preview_mode=False)
@@ -1164,6 +1167,7 @@ def sync_stripe_checkout_session(
     session_id: str | None = None,
     expected_user: str | None = None,
 ):
+    """Synchronize stripe checkout session."""
     with _app_context_scope(app), unit_of_work():
         order = (
             Order.query.filter(
@@ -1229,6 +1233,7 @@ def sync_native_payment_order(
     expected_user: str | None = None,
     payment_channel: str | None = None,
 ):
+    """Synchronize native payment order."""
     with _app_context_scope(app), unit_of_work():
         order = (
             Order.query.filter(
@@ -1484,6 +1489,7 @@ def handle_stripe_webhook(
     *,
     expected_integration_bid: str = "",
 ) -> tuple[dict[str, Any], int]:
+    """Handle stripe webhook."""
     provider = get_payment_provider("stripe")
     try:
         notification: PaymentNotificationResult = provider.verify_webhook(
@@ -1626,6 +1632,7 @@ def refund_order_payment(
     amount: int | None = None,
     reason: str | None = None,
 ) -> dict[str, Any]:
+    """Refund order payment."""
     with _app_context_scope(app), unit_of_work():
         order = Order.query.filter(Order.order_bid == order_bid).first()
         if not order:
@@ -1695,6 +1702,7 @@ def refund_order_payment(
 def get_payment_details(app: Flask, order_bid: str) -> dict[str, Any]:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
+    """Return payment details."""
     with _app_context_scope(app):
         order = Order.query.filter(Order.order_bid == order_bid).first()
         if not order:
@@ -1786,6 +1794,7 @@ def success_buy_record_from_native(
     provider_name: str,
     notification: PaymentNotificationResult,
 ) -> bool:
+    """Apply a successful native-payment notification to the purchase record."""
     with _app_context_scope(app):
         provider = str(provider_name or "").strip().lower()
         if provider not in {"alipay", "wechatpay"}:
@@ -2111,6 +2120,7 @@ def calculate_discount_value(
 def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
+    """Query buy record."""
     with _app_context_scope(app):
         app.logger.info('query buy record:"%s"', record_id)
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()

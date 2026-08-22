@@ -445,6 +445,7 @@ def _validate_policy_for_save(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_credit_notification_policy() -> dict[str, Any]:
+    """Load credit notification policy."""
     try:
         raw_config = get_config(BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG, "")
     except KeyError:
@@ -568,6 +569,7 @@ def _resolve_credit_notification_policy_list_items(
 
 
 def load_credit_notification_policy_for_operator() -> dict[str, Any]:
+    """Load credit notification policy for operator."""
     policy = load_credit_notification_policy()
     policy["resolved_lists"] = {
         "blacklist": {
@@ -591,6 +593,7 @@ def save_credit_notification_policy(
     preserve_opt_out: bool = False,
     updated_by: str = "system",
 ) -> dict[str, Any]:
+    """Persist credit notification policy."""
     if not isinstance(payload, dict):
         raise_param_error("policy")
     policy = _validate_policy_for_save(payload)
@@ -894,6 +897,7 @@ def sync_credit_notification_template(
     notification_type: str,
     template_code: str,
 ) -> dict[str, Any]:
+    """Synchronize credit notification template."""
     normalized_type = str(notification_type or "").strip()
     _supported_template_placeholders(normalized_type)
     normalized_template_code = str(template_code or "").strip()
@@ -1007,6 +1011,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
     # is a DB-free read-only call, so keeping it inside the transaction
     # cannot interleave another session; no retry_on_deadlock because a
     # replay would re-issue the provider call.
+    """Return credit notification templates."""
     with _maybe_app_context(app), unit_of_work():
         if not _aliyun_sms_credentials_configured(app):
             return {
@@ -1183,16 +1188,19 @@ def _estimated_sms_cost(policy: dict[str, Any], count: int) -> str:
 
 
 def build_credit_granted_dedupe_key(ledger_bid: str) -> str:
+    """Build credit granted dedupe key."""
     return f"{CREDIT_NOTIFICATION_TYPE_GRANTED}:{_normalize_bid(ledger_bid)}"
 
 
 def build_credit_expiring_dedupe_key(wallet_bucket_bid: str, window: str) -> str:
+    """Build credit expiring dedupe key."""
     return f"{CREDIT_NOTIFICATION_TYPE_EXPIRING}:{_normalize_bid(wallet_bucket_bid)}:{_normalize_bid(window)}"
 
 
 def build_credit_expiring_creator_dedupe_key(
     creator_bid: str, window: str, day: date
 ) -> str:
+    """Build credit expiring creator dedupe key."""
     return (
         f"{CREDIT_NOTIFICATION_TYPE_EXPIRING}:"
         f"{_normalize_bid(creator_bid)}:{_normalize_bid(window)}:{day.isoformat()}"
@@ -1200,6 +1208,7 @@ def build_credit_expiring_creator_dedupe_key(
 
 
 def build_low_balance_dedupe_key(creator_bid: str, threshold: str, day: date) -> str:
+    """Build low balance dedupe key."""
     return (
         f"{CREDIT_NOTIFICATION_TYPE_LOW_BALANCE}:"
         f"{_normalize_bid(creator_bid)}:{str(threshold or '').strip()}:{day.isoformat()}"
@@ -1213,6 +1222,7 @@ def build_low_balance_estimated_days_dedupe_key(
     lookback_days: int,
     day: date,
 ) -> str:
+    """Build low balance estimated days dedupe key."""
     return (
         f"{CREDIT_NOTIFICATION_TYPE_LOW_BALANCE}:"
         f"{_normalize_bid(creator_bid)}:estimated_days:{int(days)}:"
@@ -1601,6 +1611,7 @@ def stage_credit_granted_notification(
     commit: bool = True,
     enqueue: bool = True,
 ) -> dict[str, Any]:
+    """Stage credit granted notification."""
     normalized_ledger_bid = _normalize_bid(ledger_bid)
     if not normalized_ledger_bid:
         return CreditNotificationStageResult(status="invalid_ledger_bid").to_payload()
@@ -1680,6 +1691,7 @@ def stage_credit_granted_notification_for_order(
     commit: bool = False,
     enqueue: bool = False,
 ) -> dict[str, Any]:
+    """Stage credit granted notification for order."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_creator_bid or not normalized_bill_order_bid:
@@ -1821,6 +1833,7 @@ def scan_credit_expiring_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
+    """Scan expiring credits and create or preview eligible notifications."""
     scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
@@ -2187,6 +2200,7 @@ def scan_low_balance_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
+    """Scan low balances and create or preview eligible notifications."""
     scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with _maybe_app_context(app):
@@ -2698,6 +2712,7 @@ def deliver_credit_notification(
     *,
     notification_bid: str,
 ) -> dict[str, Any]:
+    """Deliver credit notification."""
     normalized_notification_bid = _normalize_bid(notification_bid)
     if not normalized_notification_bid:
         return {"status": "invalid_notification_bid", "notification_bid": None}
@@ -2936,6 +2951,7 @@ def deliver_credit_notification(
 
 
 def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[str, Any]:
+    """Enqueue credit notification."""
     normalized_notification_bid = _normalize_bid(notification_bid)
     if not normalized_notification_bid:
         return {"status": "invalid_notification_bid", "enqueued": False}
@@ -2982,6 +2998,7 @@ def requeue_credit_notification(
     notification_bid: str,
     operator_user_bid: str = "",
 ) -> dict[str, Any]:
+    """Requeue credit notification."""
     normalized_notification_bid = _normalize_bid(notification_bid)
     normalized_operator_user_bid = _normalize_bid(operator_user_bid)
     if not normalized_notification_bid:
@@ -3169,6 +3186,7 @@ def _notification_skip_reason_condition(skip_reason: str):
 
 
 def get_operator_credit_notification_overview(app: Flask) -> dict[str, int]:
+    """Return operator credit notification overview."""
     with app.app_context():
         rows = (
             db.session.query(
@@ -3200,6 +3218,7 @@ def list_credit_notifications(
     page_size: int = 20,
     filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Return credit notifications."""
     safe_page_index = _parse_positive_int(page_index, 1)
     safe_page_size = min(100, _parse_positive_int(page_size, 20))
     normalized_filters = filters or {}
@@ -3321,6 +3340,7 @@ def get_credit_notification_detail(
     *,
     notification_bid: str,
 ) -> dict[str, Any]:
+    """Return credit notification detail."""
     normalized_notification_bid = _normalize_bid(notification_bid)
     if not normalized_notification_bid:
         raise_param_error("notification_bid")
@@ -3360,6 +3380,7 @@ def get_credit_notification_detail(
 
 
 def math_ceil(total: int, page_size: int) -> int:
+    """Return the mathematical ceiling of the supplied value."""
     return int((total + page_size - 1) // page_size) if total > 0 else 0
 
 
@@ -3444,6 +3465,7 @@ def dry_run_credit_notifications(
     notification_type: str = "",
     creator_bid: str = "",
 ) -> dict[str, Any]:
+    """Preview credit notifications."""
     normalized_type = _normalize_bid(notification_type)
     if normalized_type == CREDIT_NOTIFICATION_TYPE_EXPIRING:
         return scan_credit_expiring_notifications(
@@ -3496,6 +3518,7 @@ def dry_run_credit_notifications(
 
 
 def resolve_creator_limit_state(app: Flask, creator_bid: str) -> dict[str, Any]:
+    """Resolve creator limit state."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid or not is_billing_enabled():
         return {
@@ -3519,6 +3542,7 @@ def resolve_creator_limit_state(app: Flask, creator_bid: str) -> dict[str, Any]:
 def build_creator_limit_state_for_available_credits(
     available_credits: Decimal,
 ) -> dict[str, Any]:
+    """Build creator limit state for available credits."""
     available = _to_decimal(available_credits)
     policy = load_credit_notification_policy()
     softlimit = policy.get("softlimit")
@@ -3549,6 +3573,7 @@ def build_creator_limit_state_for_available_credits(
 
 
 def assert_creator_debug_allowed(app: Flask, creator_bid: str) -> None:
+    """Assert creator debug allowed."""
     state = resolve_creator_limit_state(app, creator_bid)
     if not bool(state.get("debug_allowed", True)):
         raise_error("server.billing.debugDisabledBySoftLimit")

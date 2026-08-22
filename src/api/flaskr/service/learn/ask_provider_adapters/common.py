@@ -119,6 +119,7 @@ def apply_knowledge_to_messages(
 
 
 def provider_timeout_seconds() -> int:
+    """Return provider timeout seconds."""
     raw = get_config("ASK_PROVIDER_TIMEOUT_SECONDS")
     try:
         value = int(raw)
@@ -128,6 +129,7 @@ def provider_timeout_seconds() -> int:
 
 
 def iter_sse_payloads(response: requests.Response) -> Iterable[str]:
+    """Yield SSE payloads."""
     for line in response.iter_lines(decode_unicode=True):
         if not line:
             continue
@@ -139,6 +141,7 @@ def iter_sse_payloads(response: requests.Response) -> Iterable[str]:
 
 
 def extract_text(payload: Any) -> str:
+    """Extract text."""
     if isinstance(payload, str):
         return payload
     if isinstance(payload, list):
@@ -174,6 +177,7 @@ def extract_text(payload: Any) -> str:
 def raise_for_provider_response(
     response: requests.Response, provider: str
 ) -> requests.Response:
+    """Raise for provider response."""
     try:
         response.raise_for_status()
     except requests.HTTPError as exc:

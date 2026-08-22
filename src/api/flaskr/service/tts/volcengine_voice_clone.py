@@ -41,6 +41,7 @@ _STATUS_TIMEOUT = (10, 60)
 
 
 def is_valid_volcengine_custom_voice_id(value: str) -> bool:
+    """Return whether valid volcengine custom voice ID."""
     return is_volcengine_cloned_speaker_id(value)
 
 

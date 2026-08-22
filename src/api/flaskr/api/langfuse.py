@@ -86,10 +86,12 @@ _langfuse_state = _LangfuseState()
 
 
 def get_langfuse_client():
+    """Return the configured Langfuse client."""
     return _langfuse_state.client
 
 
 def get_request_id() -> str:
+    """Return the current request identifier, if one is available."""
     request_id = getattr(thread_local, "request_id", "") or ""
     if request_id:
         return request_id
@@ -106,6 +108,7 @@ def coerce_langfuse_trace_id(raw: str | None = None) -> str:
     # The SDK only accepts W3C trace ids (32 lowercase hex). Non-conforming
     # request ids are mapped deterministically via create_trace_id(seed=...)
     # so the same request always lands on the same Langfuse trace.
+    """Return a W3C-compatible trace identifier for an optional source value."""
     if isinstance(raw, str) and _TRACE_ID_RE.match(raw):
         return raw
     if isinstance(raw, str) and raw:
@@ -114,6 +117,7 @@ def coerce_langfuse_trace_id(raw: str | None = None) -> str:
 
 
 def get_request_trace_id() -> str:
+    """Return the current request trace identifier or create one."""
     return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
@@ -123,6 +127,7 @@ def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> 
     # (including ``trace_id``); using that object as the trace id later breaks the
     # bill_usage insert ("Data too long for column 'trace_id'"), which rolls back
     # the whole request transaction and silently drops user profile writes.
+    """Resolve a usable trace identifier from explicit and observation values."""
     if isinstance(trace_id, str) and trace_id:
         return trace_id
     observation_trace_id = getattr(observation, "trace_id", "")
@@ -136,6 +141,7 @@ def build_langfuse_observation_link(
 ) -> dict[str, str]:
     # Kept for logging/correlation. The handle classes drop these keys before
     # calling into the SDK, where the span hierarchy already encodes the link.
+    """Build correlation identifiers for a Langfuse observation."""
     observation_link: dict[str, str] = {}
     resolved_trace_id = resolve_langfuse_trace_id(observation, trace_id)
     parent_observation_id = (
@@ -154,6 +160,7 @@ PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
 
 
 def init_langfuse(app: Flask):
+    """Initialize the process-local Langfuse client for a Flask application."""
     if os.environ.get(PRELOAD_MASTER_ENV):
         # Running inside the gunicorn preload master. Creating a real client
         # here starts the Langfuse/OTel BatchProcessor worker thread in the
@@ -214,6 +221,7 @@ def _parse_langfuse_text_value(value: str) -> Any:
 
 
 def normalize_langfuse_input_value(value: Any) -> str | None:
+    """Normalize a Langfuse input value into displayable text."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -242,6 +250,7 @@ def normalize_langfuse_input_value(value: Any) -> str | None:
 
 
 def normalize_langfuse_output_value(value: Any) -> str | None:
+    """Normalize a Langfuse output value into displayable text."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -272,6 +281,7 @@ def normalize_langfuse_output_value(value: Any) -> str | None:
 
 
 def compact_langfuse_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """Return a payload without values Langfuse should omit."""
     if not payload:
         return {}
     return {key: value for key, value in payload.items() if _has_langfuse_value(value)}
@@ -490,6 +500,7 @@ def create_trace_with_root_span(
     trace_payload: dict[str, Any],
     root_span_payload: dict[str, Any],
 ):
+    """Create a trace facade and its root observation from caller payloads."""
     raw_trace_id = compact_langfuse_payload(trace_payload).get("id")
     trace_id = coerce_langfuse_trace_id(
         raw_trace_id if isinstance(raw_trace_id, str) else None
@@ -521,6 +532,7 @@ def create_trace_with_root_span(
 def update_langfuse_trace(
     trace: Any, payload: dict[str, Any] | None = None, **kwargs: object
 ):
+    """Apply non-empty attributes to a Langfuse trace facade."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
         trace.update(**update_payload)
@@ -532,6 +544,7 @@ def update_langfuse_observation(
     payload: dict[str, Any] | None = None,
     **kwargs: object,
 ):
+    """Apply non-empty attributes to a Langfuse observation."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
         observation.update(**update_payload)
@@ -547,6 +560,7 @@ def finalize_langfuse_trace(
 ):
     # Update trace attributes before ending the root span: the attributes are
     # written through the (still open) root span.
+    """Apply final attributes and end the root observation when present."""
     update_langfuse_trace(trace, payload=trace_payload)
     if root_span is not None:
         root_span.end(**compact_langfuse_payload(root_span_payload))

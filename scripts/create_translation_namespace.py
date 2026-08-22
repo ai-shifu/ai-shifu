@@ -13,6 +13,7 @@ LOCALES_FILE = I18N_DIR / "locales.json"
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for translation-namespace creation."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "namespace",
@@ -33,6 +34,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def iter_locale_dirs() -> list[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
         message = f"Translation directory not found: {I18N_DIR}"
         raise RuntimeError(message)
@@ -45,11 +47,13 @@ def iter_locale_dirs() -> list[Path]:
 
 
 def namespace_to_path(namespace: str) -> Path:
+    """Return namespace to path."""
     relative = namespace.replace(".", "/").replace("\\", "/")
     return Path(relative)
 
 
 def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) -> None:
+    """Ensure namespace files."""
     relative_path = namespace_to_path(namespace)
     locale_dirs = iter_locale_dirs()
 
@@ -72,6 +76,7 @@ def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) 
 
 
 def update_locales_metadata(namespace: str) -> None:
+    """Update locales metadata."""
     data = {"locales": {}, "namespaces": []}
     if LOCALES_FILE.exists():
         try:
@@ -91,6 +96,7 @@ def update_locales_metadata(namespace: str) -> None:
 
 
 def main() -> int:
+    """Create a shared translation namespace in every locale."""
     args = parse_args()
     try:
         ensure_namespace_files(args.namespace, args.keys, args.force)

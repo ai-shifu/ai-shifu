@@ -15,6 +15,7 @@ class StripeClientConfigError(RuntimeError):
 
 
 def ensure_stripe_client(app: Flask):
+    """Ensure stripe client."""
     try:
         import stripe  # type: ignore[import-untyped]
     except ImportError as exc:  # pragma: no cover - surfaced during runtime
@@ -25,6 +26,7 @@ def ensure_stripe_client(app: Flask):
 
 
 def build_stripe_request_options() -> dict[str, Any]:
+    """Build stripe request options."""
     secret_key = get_config("STRIPE_SECRET_KEY")
     if not secret_key:
         message = "STRIPE_SECRET_KEY must be configured for Stripe"
@@ -38,4 +40,5 @@ def build_stripe_request_options() -> dict[str, Any]:
 
 
 def get_stripe_client_options(app: Flask) -> tuple[Any, dict[str, Any]]:
+    """Return stripe client options."""
     return ensure_stripe_client(app), build_stripe_request_options()

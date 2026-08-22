@@ -53,6 +53,7 @@ def to_utc_iso(value: datetime | None) -> str | None:
 
 
 def get_now_time(app: Flask):
+    """Return the current time in the application's configured timezone."""
     timezone_str = app.config.get("DEFAULT_TIMEZONE", "Asia/Shanghai")
     tz = pytz.timezone(timezone_str)
     return datetime.now(tz)

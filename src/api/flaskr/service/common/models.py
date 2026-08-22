@@ -58,10 +58,12 @@ ERROR_CODE = _load_error_codes()
 
 
 def register_error(error_name, error_code):
+    """Register error."""
     ERROR_CODE[error_name] = error_code
 
 
 def raise_param_error(param_message):
+    """Raise a localized invalid-parameter application error."""
     raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
         ERROR_CODE["server.common.paramsError"],
@@ -69,6 +71,7 @@ def raise_param_error(param_message):
 
 
 def raise_error(error_name):
+    """Raise a localized application error for the supplied key."""
     raise AppError(
         _(error_name),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
@@ -76,6 +79,7 @@ def raise_error(error_name):
 
 
 def raise_error_with_args(error_name, **kwargs: object):
+    """Raise error with args."""
     raise AppError(
         _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),

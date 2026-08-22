@@ -245,10 +245,12 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
 
 
 def get_billing_capability_definitions() -> tuple[BillingCapabilityDefinition, ...]:
+    """Return billing capability definitions."""
     return _CAPABILITIES
 
 
 def iter_billing_capabilities() -> list[BillingCapabilityDTO]:
+    """Yield billing capabilities."""
     payload: list[BillingCapabilityDTO] = []
     for capability in _CAPABILITIES:
         entry_points = [

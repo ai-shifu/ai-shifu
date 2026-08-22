@@ -70,6 +70,8 @@ def _extract_request_host() -> str:
 
 
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the config routes on the Flask application."""
+
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()

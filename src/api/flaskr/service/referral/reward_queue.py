@@ -236,6 +236,7 @@ def build_referral_reward_queue(
     include_billing_artifacts: bool,
     include_invitee_user_bid: bool,
 ) -> list[dict[str, Any]]:
+    """Build referral reward queue."""
     normalized_inviter = _normalize_text(inviter_user_bid)
     if not normalized_inviter:
         return []

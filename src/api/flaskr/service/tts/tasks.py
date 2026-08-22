@@ -13,6 +13,7 @@ try:  # pragma: no cover - exercised indirectly when Celery is installed.
 except ImportError:  # pragma: no cover - local fallback for non-Celery test envs.
 
     def shared_task(*args: object, **kwargs: object):
+        """Register a Celery task with the configured application context."""
         _ = (args, kwargs)
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -30,6 +31,7 @@ def _create_task_app():
 
 @shared_task(name="tts.minimax_clone_voice")
 def minimax_clone_voice_task(*, voice_bid: str) -> dict[str, Any]:
+    """Run the Minimax voice-clone background task."""
     from flaskr.service.tts.api import run_minimax_voice_clone
 
     app = _create_task_app()

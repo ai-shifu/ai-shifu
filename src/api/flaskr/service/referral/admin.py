@@ -190,6 +190,7 @@ def list_operator_referrals(
     page_size: int,
     filters: dict[str, Any],
 ) -> dict[str, Any]:
+    """Return operator referrals."""
     with app.app_context():
         safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
         query = ReferralInviteRelation.query.filter(ReferralInviteRelation.deleted == 0)
@@ -269,6 +270,7 @@ def list_operator_referral_campaign_invitations(
     page_size: int,
     filters: dict[str, Any],
 ) -> dict[str, Any]:
+    """Return operator referral campaign invitations."""
     with app.app_context():
         normalized_campaign_bid = _normalize_text(campaign_bid)
         _load_campaign_or_404(normalized_campaign_bid)
@@ -341,6 +343,7 @@ def list_operator_referral_campaign_invitations(
 
 
 def get_operator_referral_detail(app: Flask, *, relation_bid: str) -> dict[str, Any]:
+    """Return operator referral detail."""
     with app.app_context():
         relation = (
             ReferralInviteRelation.query.filter(
@@ -372,6 +375,7 @@ def get_operator_referral_detail(app: Flask, *, relation_bid: str) -> dict[str, 
 
 
 def get_operator_referral_overview(app: Flask) -> dict[str, int]:
+    """Return operator referral overview."""
     with app.app_context():
         total_relations = ReferralInviteRelation.query.filter(
             ReferralInviteRelation.deleted == 0
@@ -400,6 +404,7 @@ def update_operator_referral_status(
     operator_user_bid: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Update operator referral status."""
     with app.app_context():
         relation = (
             ReferralInviteRelation.query.filter(

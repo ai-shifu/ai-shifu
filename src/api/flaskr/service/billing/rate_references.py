@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
+    """Return rate unit cost."""
     if rate is None:
         return None
     try:
@@ -24,6 +25,7 @@ def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
 
 
 def format_credit_multiplier(value: Decimal | None) -> str | None:
+    """Format credit multiplier."""
     if value is None or value <= 0:
         return None
     rounded = value.quantize(Decimal("0.01"))
@@ -43,6 +45,7 @@ def load_default_llm_reference_cost(default_model: str | None = None) -> Decimal
 
 
 def resolve_llm_rate_identity(model: str) -> tuple[str, list[str]]:
+    """Resolve LLM rate identity."""
     normalized = str(model or "").strip()
     if not normalized:
         return "", []

@@ -281,6 +281,7 @@ def _build_user_aggregate(
 def get_user_entity_by_bid(
     user_bid: str, *, include_deleted: bool = False
 ) -> UserEntity | None:
+    """Return user entity by BID."""
     query = UserEntity.query.filter_by(user_bid=user_bid)
     if not include_deleted:
         query = query.filter_by(deleted=0)
@@ -354,6 +355,7 @@ def load_user_aggregate(
     include_deleted: bool = False,
     with_credentials: bool = True,
 ) -> UserAggregate | None:
+    """Load user aggregate."""
     entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
@@ -368,6 +370,7 @@ def load_user_aggregate_by_identifier(
     *,
     providers: list[str] | None = None,
 ) -> UserAggregate | None:
+    """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
     if not normalized:
         return None
@@ -511,6 +514,7 @@ def create_user_entity(
     state: int | None = None,
     birthday: date | None = None,
 ) -> UserEntity:
+    """Create user entity."""
     entity = UserEntity(
         user_bid=user_bid,
         user_identify=_normalize_identifier("", identify) or user_bid,
@@ -544,6 +548,7 @@ def update_user_entity_fields(
     birthday: date | None = None,
     deleted: bool | None = None,
 ) -> UserEntity:
+    """Update user entity fields."""
     if identify is not None:
         entity.user_identify = _normalize_identifier("", identify)
     if nickname is not None:
@@ -571,6 +576,7 @@ def upsert_user_entity(
     user_bid: str,
     defaults: dict[str, Any] | None = None,
 ) -> tuple[UserEntity, bool]:
+    """Create or update user entity."""
     defaults = dict(defaults or {})
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     created = False
@@ -601,6 +607,7 @@ def set_user_state(user_bid: str, state: int) -> None:
 
 
 def build_user_info_from_aggregate(user: UserAggregate) -> UserInfo:
+    """Build user info from aggregate."""
     return user.to_user_info()
 
 
@@ -658,6 +665,7 @@ class UserProfileSnapshot:
 def build_user_profile_snapshot_from_aggregate(
     aggregate: UserAggregate,
 ) -> UserProfileSnapshot:
+    """Build user profile snapshot from aggregate."""
     legacy_summary = {
         "user_id": aggregate.user_bid,
         "username": aggregate.username,
@@ -692,12 +700,14 @@ def build_user_profile_snapshot_from_aggregate(
 
 
 def serialize_raw_profile(provider_name: str, metadata: dict[str, str | None]) -> str:
+    """Serialize raw profile."""
     return json.dumps(
         {"provider": provider_name, "metadata": metadata}, ensure_ascii=False
     )
 
 
 def deserialize_raw_profile(record: AuthCredential) -> dict[str, str | None]:
+    """Deserialize raw profile."""
     if not record.raw_profile:
         return {}
     try:
@@ -743,6 +753,7 @@ def upsert_credential(
     metadata: dict[str, str | None],
     verified: bool,
 ) -> AuthCredential:
+    """Create or update credential."""
     raw_identifier = (identifier or "").strip()
     subject_id = _normalize_identifier(provider_name, subject_id)
     identifier = _normalize_identifier(provider_name, identifier)
@@ -790,6 +801,7 @@ def upsert_credential(
 def find_credential(
     *, provider_name: str, identifier: str, user_bid: str | None = None
 ) -> AuthCredential | None:
+    """Find credential."""
     raw_identifier = (identifier or "").strip()
     identifier = _normalize_identifier(provider_name, identifier)
     lookup_identifiers = [identifier]
@@ -808,6 +820,7 @@ def find_credential(
 def list_credentials(
     *, user_bid: str, provider_name: str | None = None
 ) -> list[AuthCredential]:
+    """Return credentials."""
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
@@ -815,6 +828,7 @@ def list_credentials(
 
 
 def get_first_verified_credential_created_at(*, user_bid: str) -> datetime | None:
+    """Return first verified credential created at."""
     row = (
         AuthCredential.query.filter(
             AuthCredential.deleted == 0,
@@ -841,6 +855,7 @@ def upsert_wechat_credentials(
     metadata: dict[str, str | None] | None = None,
     verified: bool = True,
 ) -> list[AuthCredential]:
+    """Create or update wechat credentials."""
     metadata = metadata or {}
     credentials: list[AuthCredential] = []
 
@@ -881,6 +896,7 @@ def transactional_session():
     # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
     # any classification could run, which is exactly what must not happen on
     # a connection whose exchange was interrupted.
+    """Provide a transactional database session."""
     nested = db.session.begin_nested()
     try:
         yield

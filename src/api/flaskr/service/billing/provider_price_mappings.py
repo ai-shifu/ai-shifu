@@ -56,6 +56,7 @@ class ProviderPriceMappingValidationSummary:
 def serialize_provider_price_mapping(
     mapping: BillingProductProviderPrice | None,
 ) -> dict[str, Any] | None:
+    """Serialize an optional provider-price mapping for an API or CLI payload."""
     if mapping is None:
         return None
     metadata = normalize_json_object(mapping.metadata_json or {})
@@ -92,6 +93,7 @@ def list_provider_price_mappings(
     livemode: bool | None = None,
     status: int | None = None,
 ) -> list[BillingProductProviderPrice]:
+    """Return non-deleted provider-price mappings matching the supplied filters."""
     query = BillingProductProviderPrice.query.filter(
         BillingProductProviderPrice.deleted == 0,
         BillingProductProviderPrice.provider == _normalize_provider(provider),
@@ -123,6 +125,7 @@ def list_provider_price_mappings(
 def get_provider_price_mapping(
     provider_price_bid: str,
 ) -> BillingProductProviderPrice:
+    """Return the non-deleted provider-price mapping for a business identifier."""
     return _load_mapping(provider_price_bid)
 
 
@@ -133,6 +136,7 @@ def get_active_provider_price_mapping(
     provider_account_id: str,
     livemode: bool,
 ) -> BillingProductProviderPrice | None:
+    """Return the sole active mapping for a product and provider scope."""
     rows = (
         BillingProductProviderPrice.query.filter(
             BillingProductProviderPrice.deleted == 0,
@@ -175,6 +179,7 @@ def upsert_provider_price_mapping(
     provider: str = PROVIDER_STRIPE,
     metadata: dict[str, Any] | None = None,
 ) -> tuple[BillingProductProviderPrice, bool]:
+    """Create or update a draft provider-price mapping for a billing product."""
     product = _load_product(product_bid)
     normalized_provider = _normalize_provider(provider)
     normalized_account_id = _require_value(provider_account_id, "provider_account_id")
@@ -250,6 +255,7 @@ def validate_provider_price_mapping_row(
     *,
     adapter: StripeCatalogReadAdapter | None = None,
 ) -> tuple[ProviderPriceMappingValidationSummary, ProviderCatalogSnapshot | None]:
+    """Validate one mapping against the provider catalog and return its snapshot."""
     product = _load_product(mapping.product_bid)
     reader = adapter or StripeCatalogReadAdapter()
     try:
@@ -289,6 +295,7 @@ def validate_provider_price_mapping_by_bid(
     *,
     adapter: StripeCatalogReadAdapter | None = None,
 ) -> ProviderPriceMappingValidationSummary:
+    """Validate and persist the status of a provider-price mapping by identifier."""
     mapping = _load_mapping(provider_price_bid)
     summary, snapshot = validate_provider_price_mapping_row(mapping, adapter=adapter)
     _apply_validation_result(mapping, summary, snapshot)
@@ -302,6 +309,7 @@ def activate_provider_price_mapping(
     *,
     adapter: StripeCatalogReadAdapter | None = None,
 ) -> ProviderPriceMappingValidationSummary:
+    """Validate, activate, and serialize a provider-price mapping by identifier."""
     mapping = _load_mapping(provider_price_bid)
     summary, snapshot = validate_provider_price_mapping_row(mapping, adapter=adapter)
     if not summary.valid:
@@ -340,6 +348,7 @@ def activate_provider_price_mapping(
 def retire_provider_price_mapping(
     provider_price_bid: str,
 ) -> BillingProductProviderPrice:
+    """Retire a provider-price mapping and return its persisted record."""
     mapping = _load_mapping(provider_price_bid)
     if int(mapping.status or 0) != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
         mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
