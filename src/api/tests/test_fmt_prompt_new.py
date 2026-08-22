@@ -1,7 +1,7 @@
 """Verify double-brace prompt variables and invalid names."""
 
 
-def test_fmt_prompt_replaces_double_braces(app: object, monkeypatch: object):
+def test_fmt_prompt_replaces_double_braces(app: object, monkeypatch: object) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(
@@ -16,7 +16,9 @@ def test_fmt_prompt_replaces_double_braces(app: object, monkeypatch: object):
         assert fmt_prompt == "Hello, Alice!"
 
 
-def test_fmt_prompt_ignores_invalid_variable_names(app: object, monkeypatch: object):
+def test_fmt_prompt_ignores_invalid_variable_names(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(

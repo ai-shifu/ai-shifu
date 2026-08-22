@@ -26,7 +26,7 @@ def collect_json_files(dir_path: Path) -> list[Path]:
     return files
 
 
-def read_json(path: Path):
+def read_json(path: Path) -> dict[str, object]:
     """Read JSON."""
     return json.loads(path.read_text(encoding="utf-8"))
 

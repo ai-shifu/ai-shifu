@@ -27,7 +27,7 @@ class TestBuildListenElementsFromLegacyRecord:
         with cls.app.app_context():
             dao.db.create_all()
 
-    def test_prefers_persisted_text_elements_for_audio_positions(self: object):
+    def test_prefers_persisted_text_elements_for_audio_positions(self: object) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
@@ -164,7 +164,7 @@ class TestBuildListenElementsFromLegacyRecord:
 
     def test_skips_blank_persisted_text_elements_when_binding_audio_positions(
         self: object,
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
@@ -335,7 +335,9 @@ class TestBuildListenElementsFromLegacyRecord:
             "audio-skip-blank-1",
         ]
 
-    def test_emits_ask_and_answer_with_anchor_for_follow_up_blocks(self: object):
+    def test_emits_ask_and_answer_with_anchor_for_follow_up_blocks(
+        self: object,
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             BlockType,
@@ -401,7 +403,7 @@ class TestBuildListenElementsFromLegacyRecord:
         assert result.elements[1].payload.anchor_element_bid == anchor_bid
         assert result.elements[2].payload.anchor_element_bid == anchor_bid
 
-    def test_drops_follow_up_blocks_without_any_prior_anchor(self: object):
+    def test_drops_follow_up_blocks_without_any_prior_anchor(self: object) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             BlockType,

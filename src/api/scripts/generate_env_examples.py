@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from flaskr.common.config import ENV_VARS, EnhancedConfig
 
 
-def generate_env_examples():
+def generate_env_examples() -> None:
     """Generate the .env.example.full file."""
     # Create EnhancedConfig instance
     config = EnhancedConfig(ENV_VARS)

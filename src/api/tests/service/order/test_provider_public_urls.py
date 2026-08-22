@@ -19,7 +19,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_provider_public_url_config_cache():
+def clear_provider_public_url_config_cache() -> object:
     keys = (
         "HOST_URL",
         "PATH_PREFIX",
@@ -31,7 +31,7 @@ def clear_provider_public_url_config_cache():
     _reset_config_cache(*keys)
 
 
-def test_alipay_precreate_uses_host_url_notify_url(monkeypatch: object):
+def test_alipay_precreate_uses_host_url_notify_url(monkeypatch: object) -> None:
     monkeypatch.setenv("HOST_URL", "https://pay.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -88,7 +88,7 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch: object):
     assert result.extra["raw_request"]["notify_url"] == captured["notify_url"]
 
 
-def test_wechatpay_native_uses_host_url_notify_url(monkeypatch: object):
+def test_wechatpay_native_uses_host_url_notify_url(monkeypatch: object) -> None:
     monkeypatch.setenv("HOST_URL", "https://pay.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     monkeypatch.setenv("WECHATPAY_APP_ID", "wx-app-1")
@@ -135,7 +135,7 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch: object):
 
 def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempotency(
     monkeypatch: object,
-):
+) -> None:
     captured_coupon: dict[str, object] = {}
     captured_session: dict[str, object] = {}
 
@@ -215,7 +215,7 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
 
 def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
     monkeypatch: object,
-):
+) -> None:
     deleted: list[str] = []
 
     class FakeCoupon:

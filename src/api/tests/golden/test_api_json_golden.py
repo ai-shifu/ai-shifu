@@ -67,7 +67,7 @@ def test_json_endpoint_golden(
     golden_shifu: object,
     fixture_key: object,
     path: object,
-):
+) -> None:
     _ = golden_shifu
     seed_golden_user(app, JSON_USER_BID)
     mock_validate_user(monkeypatch, JSON_USER_BID)

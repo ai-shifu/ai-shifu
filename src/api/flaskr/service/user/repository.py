@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import (
+    Iterator,  # noqa: TC003 - public annotation is resolved at runtime
+)
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -891,7 +894,7 @@ def upsert_wechat_credentials(
 
 
 @contextmanager
-def transactional_session():
+def transactional_session() -> Iterator[None]:
     # Managed manually instead of ``with begin_nested()``: the context
     # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
     # any classification could run, which is exactly what must not happen on

@@ -66,7 +66,7 @@ def _positions(shifu_bid: str) -> list[str]:
     return [r.position for r in rows]
 
 
-def test_batch_assigns_unique_sequential_positions(app: object):
+def test_batch_assigns_unique_sequential_positions(app: object) -> None:
     shifu_bid = "shifu_batch_1"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -95,7 +95,7 @@ def test_batch_assigns_unique_sequential_positions(app: object):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_of_many_siblings_never_collides(app: object):
+def test_batch_of_many_siblings_never_collides(app: object) -> None:
     shifu_bid = "shifu_batch_many"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -112,7 +112,7 @@ def test_batch_of_many_siblings_never_collides(app: object):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_nested_under_existing_parent(app: object):
+def test_batch_nested_under_existing_parent(app: object) -> None:
     shifu_bid = "shifu_batch_parent"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -130,7 +130,7 @@ def test_batch_nested_under_existing_parent(app: object):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_sequential_single_creates_still_increment(app: object):
+def test_sequential_single_creates_still_increment(app: object) -> None:
     shifu_bid = "shifu_single_seq"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -142,7 +142,7 @@ def test_sequential_single_creates_still_increment(app: object):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_risk_checks_every_node(app: object, monkeypatch: object):
+def test_batch_risk_checks_every_node(app: object, monkeypatch: object) -> None:
     """Every node (including nested children) is risk-checked exactly once.
 
     The check runs before the per-shifu lock is taken, so no external network
@@ -171,7 +171,7 @@ def test_batch_risk_checks_every_node(app: object, monkeypatch: object):
     assert len(checked) == 4
 
 
-def test_batch_rejects_empty_payload(app: object):
+def test_batch_rejects_empty_payload(app: object) -> None:
     shifu_bid = "shifu_batch_empty"
     with app.app_context():
         _seed_shifu(shifu_bid)

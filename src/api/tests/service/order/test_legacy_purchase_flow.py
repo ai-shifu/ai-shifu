@@ -31,14 +31,14 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_legacy_order_url_config_cache():
+def clear_legacy_order_url_config_cache() -> object:
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
     yield
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
 
 @pytest.fixture
-def legacy_order_app():
+def legacy_order_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -201,7 +201,9 @@ class _FakeSaasConfigFuncs:
     ) -> str:
         return self._by_user_key.get((user_bid, key), default)
 
-    def get_saas_user_config_value_by_bid(self: object, app: object, config_bid: str):
+    def get_saas_user_config_value_by_bid(
+        self: object, app: object, config_bid: str
+    ) -> object:
         del app
         record = self._by_bid.get(config_bid)
         return None if record is None else record["value"]
@@ -252,7 +254,7 @@ class _FakeSaasQuery:
     def order_by(self: object, *_args: object) -> _FakeSaasQuery:
         return self
 
-    def first(self: object):
+    def first(self: object) -> object:
         rows = sorted(
             self._fake_saas._by_bid.values(),
             key=lambda row: int(row["id"]),

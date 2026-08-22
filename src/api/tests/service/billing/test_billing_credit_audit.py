@@ -30,7 +30,7 @@ from sqlalchemy import event
 
 
 @pytest.fixture
-def billing_credit_audit_app():
+def billing_credit_audit_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

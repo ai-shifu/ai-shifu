@@ -34,7 +34,7 @@ class _FakeResponse:
         self.status_code = status_code
         self.text = ""
 
-    def json(self: object):
+    def json(self: object) -> object:
         return self._payload
 
 

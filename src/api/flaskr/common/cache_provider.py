@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 
 @runtime_checkable
@@ -14,7 +14,7 @@ class CacheLock(Protocol):
 
     def acquire(
         self: object, blocking: bool = True, blocking_timeout: int | None = None
-    ):
+    ) -> bool:
         """Acquire this cache lock."""
         raise NotImplementedError
 
@@ -27,11 +27,13 @@ class CacheLock(Protocol):
 class CacheProvider(Protocol):
     """Define the cache operations used by application services."""
 
-    def get(self: object, key: str):
+    def get(self: object, key: str) -> object:
         """Return the stored value for a key."""
         raise NotImplementedError
 
-    def getex(self: object, key: str, ex: int | None = None, px: int | None = None):
+    def getex(
+        self: object, key: str, ex: int | None = None, px: int | None = None
+    ) -> object:
         """Return a cached value and refresh expiration only when a TTL is supplied."""
         raise NotImplementedError
 
@@ -45,11 +47,11 @@ class CacheProvider(Protocol):
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> object:
         """Store a value when NX/XX constraints permit and return the outcome."""
         raise NotImplementedError
 
-    def setex(self: object, key: str, time_in_seconds: int, value: Any):
+    def setex(self: object, key: str, time_in_seconds: int, value: Any) -> object:
         """Store a cached value with an expiration."""
         raise NotImplementedError
 
@@ -57,7 +59,7 @@ class CacheProvider(Protocol):
         """Delete values for the supplied keys."""
         raise NotImplementedError
 
-    def incr(self: object, key: str, amount: int = 1):
+    def incr(self: object, key: str, amount: int = 1) -> object:
         """Increment the integer stored under a cache key."""
         raise NotImplementedError
 
@@ -70,7 +72,7 @@ class CacheProvider(Protocol):
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ):
+    ) -> CacheLock:
         """Create a lock for the supplied key."""
         raise NotImplementedError
 
@@ -93,10 +95,12 @@ class _DynamicRedisCacheProvider:
             raise CacheUnavailableError(message)
         return redis_client
 
-    def get(self: object, key: str):
+    def get(self: object, key: str) -> object:
         return self._client().get(key)
 
-    def getex(self: object, key: str, ex: int | None = None, px: int | None = None):
+    def getex(
+        self: object, key: str, ex: int | None = None, px: int | None = None
+    ) -> object:
         return self._client().getex(key, ex=ex, px=px)
 
     def set(
@@ -109,19 +113,19 @@ class _DynamicRedisCacheProvider:
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> object:
         if ex is None and args:
             ex = args[0]
             args = ()
         return self._client().set(key, value, ex=ex, px=px, nx=nx, xx=xx, **kwargs)
 
-    def setex(self: object, key: str, time_in_seconds: int, value: Any):
+    def setex(self: object, key: str, time_in_seconds: int, value: Any) -> object:
         return self._client().setex(key, time_in_seconds, value)
 
     def delete(self: object, *keys: str) -> int:
         return int(self._client().delete(*keys))
 
-    def incr(self: object, key: str, amount: int = 1):
+    def incr(self: object, key: str, amount: int = 1) -> object:
         return self._client().incr(key, amount)
 
     def ttl(self: object, key: str) -> int:
@@ -132,9 +136,12 @@ class _DynamicRedisCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ):
-        return self._client().lock(
-            key, timeout=timeout, blocking_timeout=blocking_timeout
+    ) -> CacheLock:
+        return cast(
+            "CacheLock",
+            self._client().lock(
+                key, timeout=timeout, blocking_timeout=blocking_timeout
+            ),
         )
 
 
@@ -151,7 +158,7 @@ class _InMemoryLock:
 
     def acquire(
         self: object, blocking: bool = True, blocking_timeout: int | None = None
-    ):
+    ) -> bool:
         if not blocking:
             acquired = self._lock.acquire(blocking=False)
         elif blocking_timeout is None:
@@ -199,14 +206,16 @@ class InMemoryCacheProvider:
         if entry.expires_at <= self._now():
             self._store.pop(key, None)
 
-    def get(self: object, key: str):
+    def get(self: object, key: str) -> object:
         """Return the stored value for a key."""
         with self._mu:
             self._purge_if_expired(key)
             entry = self._store.get(key)
             return entry.value if entry is not None else None
 
-    def getex(self: object, key: str, ex: int | None = None, px: int | None = None):
+    def getex(
+        self: object, key: str, ex: int | None = None, px: int | None = None
+    ) -> object:
         """Return a cached value and update its expiration."""
         with self._mu:
             self._purge_if_expired(key)
@@ -229,7 +238,7 @@ class InMemoryCacheProvider:
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> object:
         """Store a value under a cache key."""
         _ = kwargs
         with self._mu:
@@ -250,7 +259,7 @@ class InMemoryCacheProvider:
             )
             return True
 
-    def setex(self: object, key: str, time_in_seconds: int, value: Any):
+    def setex(self: object, key: str, time_in_seconds: int, value: Any) -> object:
         """Store a cached value with an expiration."""
         return self.set(key, value, ex=time_in_seconds)
 
@@ -265,7 +274,7 @@ class InMemoryCacheProvider:
                     self._store.pop(key, None)
         return deleted
 
-    def incr(self: object, key: str, amount: int = 1):
+    def incr(self: object, key: str, amount: int = 1) -> object:
         """Increment the integer stored under a cache key."""
         with self._mu:
             self._purge_if_expired(key)
@@ -295,7 +304,7 @@ class InMemoryCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ):
+    ) -> CacheLock:
         """Create a process-local fallback lock for the supplied key."""
         _ = (timeout, blocking_timeout)
         with self._mu:
@@ -325,11 +334,13 @@ class FallbackCacheProvider:
             # Redis connectivity errors should not break core flows.
             return fallback_fn(*args, **kwargs)
 
-    def get(self: object, key: str):
+    def get(self: object, key: str) -> object:
         """Return the stored value for a key."""
         return self._call("get", key)
 
-    def getex(self: object, key: str, ex: int | None = None, px: int | None = None):
+    def getex(
+        self: object, key: str, ex: int | None = None, px: int | None = None
+    ) -> object:
         """Return a cached value and update its expiration."""
         return self._call("getex", key, ex=ex, px=px)
 
@@ -343,7 +354,7 @@ class FallbackCacheProvider:
         xx: bool = False,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> object:
         """Store a value under a cache key."""
         return self._call(
             "set",
@@ -357,7 +368,7 @@ class FallbackCacheProvider:
             **kwargs,
         )
 
-    def setex(self: object, key: str, time_in_seconds: int, value: Any):
+    def setex(self: object, key: str, time_in_seconds: int, value: Any) -> object:
         """Store a cached value with an expiration."""
         return self._call("setex", key, time_in_seconds, value)
 
@@ -365,7 +376,7 @@ class FallbackCacheProvider:
         """Delete values for the supplied keys."""
         return int(self._call("delete", *keys))
 
-    def incr(self: object, key: str, amount: int = 1):
+    def incr(self: object, key: str, amount: int = 1) -> object:
         """Increment the integer stored under a cache key."""
         return self._call("incr", key, amount)
 
@@ -378,10 +389,11 @@ class FallbackCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ):
+    ) -> CacheLock:
         """Create a lock, falling back to process-local scope without Redis."""
-        return self._call(
-            "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
+        return cast(
+            "CacheLock",
+            self._call("lock", key, timeout=timeout, blocking_timeout=blocking_timeout),
         )
 
 

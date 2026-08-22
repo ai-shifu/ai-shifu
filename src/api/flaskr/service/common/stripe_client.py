@@ -14,7 +14,7 @@ class StripeClientConfigError(RuntimeError):
     """Raised when Stripe SDK or credentials are unavailable."""
 
 
-def ensure_stripe_client(app: Flask):
+def ensure_stripe_client(app: Flask) -> object:
     """Ensure stripe client."""
     try:
         import stripe  # type: ignore[import-untyped]

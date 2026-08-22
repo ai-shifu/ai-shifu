@@ -58,18 +58,20 @@ class LearnRecordLoadTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self: object):
+    def setUp(self: object) -> None:
         self.ctx = self.app.app_context()
         self.ctx.push()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
         dao.db.session.commit()
 
-    def tearDown(self: object):
+    def tearDown(self: object) -> None:
         dao.db.session.remove()
         self.ctx.pop()
 
-    def test_learn_record_loads_generated_and_input_content_separately(self: object):
+    def test_learn_record_loads_generated_and_input_content_separately(
+        self: object,
+    ) -> None:
         """Ensure learn record loading uses generated content and real user input."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
@@ -154,7 +156,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         # Interaction blocks should not carry like status in API responses.
         assert interaction_record.like_status == LikeStatus.NONE
 
-    def test_mdflow_context_loads_generated_and_user_inputs(self: object):
+    def test_mdflow_context_loads_generated_and_user_inputs(self: object) -> None:
         """Verify mdflow run uses generated content for context and real user input values."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-ctx",
@@ -313,7 +315,9 @@ class LearnRecordLoadTests(unittest.TestCase):
             not in FakeMarkdownFlow.last_context[1]["content"]
         )
 
-    def test_run_progresses_across_content_blocks_until_interaction(self: object):
+    def test_run_progresses_across_content_blocks_until_interaction(
+        self: object,
+    ) -> None:
         """A single run should keep advancing through content blocks and stop at interaction."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-run-continue",
@@ -459,7 +463,7 @@ class LearnRecordLoadTests(unittest.TestCase):
 
     def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(
         self: object,
-    ):
+    ) -> None:
         """Avoid replaying an already generated fixed output after interaction submit."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-skip-dup",
@@ -593,7 +597,9 @@ class LearnRecordLoadTests(unittest.TestCase):
             == 1
         )
 
-    def test_run_inner_realigns_index_to_pending_interaction_after_submit(self: object):
+    def test_run_inner_realigns_index_to_pending_interaction_after_submit(
+        self: object,
+    ) -> None:
         """If index drifts to content, realign to pending interaction before consuming input."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-realign",
@@ -723,7 +729,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert ctx._run_type == RunType.INPUT
         assert ctx._can_continue
 
-    def test_run_inner_does_not_realign_on_empty_auto_input(self: object):
+    def test_run_inner_does_not_realign_on_empty_auto_input(self: object) -> None:
         """Empty auto-run input should not be treated as a real interaction submit."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-empty-input",

@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from flask_sqlalchemy.query import (
+    Query,  # noqa: TC002 - public annotations resolve at runtime
+)
+
 from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
 
 RAW_BIZ_DOMAIN_ORDER = "order"
@@ -29,7 +33,7 @@ _NATIVE_PAYMENT_BID_ATTRS = {
 }
 
 
-def legacy_stripe_snapshot_query():
+def legacy_stripe_snapshot_query() -> Query:
     """Return legacy stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
@@ -37,7 +41,7 @@ def legacy_stripe_snapshot_query():
     )
 
 
-def legacy_pingxx_snapshot_query():
+def legacy_pingxx_snapshot_query() -> Query:
     """Return legacy pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
@@ -45,7 +49,7 @@ def legacy_pingxx_snapshot_query():
     )
 
 
-def billing_stripe_snapshot_query():
+def billing_stripe_snapshot_query() -> Query:
     """Return billing stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
@@ -53,7 +57,7 @@ def billing_stripe_snapshot_query():
     )
 
 
-def billing_pingxx_snapshot_query():
+def billing_pingxx_snapshot_query() -> Query:
     """Return billing pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
@@ -61,7 +65,9 @@ def billing_pingxx_snapshot_query():
     )
 
 
-def native_snapshot_model(payment_provider: str):
+def native_snapshot_model(
+    payment_provider: str,
+) -> type[AlipayOrder | WechatPayOrder]:
     """Return native snapshot model."""
     provider = str(payment_provider or "").strip().lower()
     model = _NATIVE_PAYMENT_MODELS.get(provider)
@@ -81,7 +87,7 @@ def native_snapshot_bid_attr(payment_provider: str) -> str:
     return attr
 
 
-def native_snapshot_query(payment_provider: str, biz_domain: str):
+def native_snapshot_query(payment_provider: str, biz_domain: str) -> Query:
     """Return native snapshot query."""
     model = native_snapshot_model(payment_provider)
     return model.query.filter(
@@ -90,12 +96,12 @@ def native_snapshot_query(payment_provider: str, biz_domain: str):
     )
 
 
-def legacy_native_snapshot_query(payment_provider: str):
+def legacy_native_snapshot_query(payment_provider: str) -> object:
     """Return legacy native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_ORDER)
 
 
-def billing_native_snapshot_query(payment_provider: str):
+def billing_native_snapshot_query(payment_provider: str) -> object:
     """Return billing native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_BILLING)
 

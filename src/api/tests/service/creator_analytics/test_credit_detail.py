@@ -84,7 +84,7 @@ def _seed_usage_with_ledger(
 
 def test_credit_detail_returns_summary_and_rows(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     """3 paired usage / ledger rows → summary aggregates them and rows list each charge.
 
     amount stored as a negative number; API returns the absolute value as `credits`.
@@ -144,7 +144,7 @@ def test_credit_detail_returns_summary_and_rows(
 
 def test_credit_detail_excludes_non_usage_ledger_entries(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     """A non-USAGE ledger entry must never appear in the result.
 
     Entries such as subscription or topup must be excluded even if their source_bid happens to
@@ -188,7 +188,7 @@ def test_credit_detail_excludes_non_usage_ledger_entries(
 
 def test_credit_detail_summary_unique_wallets_counts_distinct_creators(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     """Most courses bill against a single wallet (the author's), but subscription / proxy-payment / sponsorship scenarios can split charges across multiple wallets for the same shifu.
 
     The summary must surface this as a distinct count so a caller does not treat the per-row
@@ -239,7 +239,7 @@ def test_credit_detail_summary_unique_wallets_counts_distinct_creators(
 
 def test_credit_detail_user_cannot_query_other_shifu(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-mine", user_id="teacher-1")
@@ -259,7 +259,7 @@ def test_credit_detail_user_cannot_query_other_shifu(
 
 def test_credit_detail_results_are_scoped_to_requested_shifu(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     """Even when the caller owns multiple shifu, only the requested one's rows surface — the join is anchored on bill_usage.shifu_bid."""
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -293,7 +293,7 @@ def test_credit_detail_results_are_scoped_to_requested_shifu(
 
 def test_credit_detail_filters_by_usage_scene(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -322,7 +322,7 @@ def test_credit_detail_filters_by_usage_scene(
 
 def test_credit_detail_filters_by_usage_type(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -351,7 +351,7 @@ def test_credit_detail_filters_by_usage_type(
 
 def test_credit_detail_filters_by_date_range(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     """start_date and end_date are inclusive bounds on bill_usage.created_at."""
     mock_request_user(user_id="teacher-1")
     today = datetime(2026, 5, 16, 10, 0, 0)
@@ -393,7 +393,7 @@ def test_credit_detail_filters_by_date_range(
 
 def test_credit_detail_rejects_invalid_scene_value(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -405,7 +405,7 @@ def test_credit_detail_rejects_invalid_scene_value(
 
 def test_credit_detail_rejects_end_before_start(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -428,7 +428,7 @@ def test_credit_detail_rejects_end_before_start(
 
 def test_credit_detail_pagination(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -452,7 +452,7 @@ def test_credit_detail_pagination(
 
 def test_credit_detail_empty_when_bill_usage_has_no_ledger_entries(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     """If settlement failed for every usage row (no ledger entry exists), the join collapses to zero rows — surfaces as empty summary."""
     mock_request_user(user_id="teacher-1")
     with app.app_context():
@@ -475,7 +475,7 @@ def test_credit_detail_empty_when_bill_usage_has_no_ledger_entries(
 
 def test_credit_detail_rejects_limit_above_max(
     mock_request_user: object, test_client: object, app: object
-):
+) -> None:
     mock_request_user(user_id="teacher-1")
     with app.app_context():
         seed_owned_course(shifu_bid="shifu-a", user_id="teacher-1")
@@ -492,7 +492,7 @@ def test_credit_detail_rejects_limit_above_max(
 
 def test_credit_detail_emits_audit_log(
     mock_request_user: object, test_client: object, app: object, monkeypatch: object
-):
+) -> None:
     """Each call must log user_id + shifu_bid + row count + filter summary so retroactive auditing can reconstruct who hit credit-detail.
 
     Uses the same `monkeypatch app.logger.info` capture pattern as the

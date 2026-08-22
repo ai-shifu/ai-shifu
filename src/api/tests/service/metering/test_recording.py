@@ -18,7 +18,7 @@ _BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
 
 
 @pytest.fixture
-def metering_app():
+def metering_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -38,7 +38,7 @@ def metering_app():
         dao.db.drop_all()
 
 
-def test_record_llm_usage_persists(metering_app: object):
+def test_record_llm_usage_persists(metering_app: object) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-1",
@@ -71,7 +71,7 @@ def test_record_llm_usage_persists(metering_app: object):
 def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -97,7 +97,7 @@ def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
     assert captured == [usage_bid]
 
 
-def test_record_tts_usage_preview_defaults_to_billable_on(metering_app: object):
+def test_record_tts_usage_preview_defaults_to_billable_on(metering_app: object) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-2",
@@ -153,7 +153,7 @@ def test_record_tts_usage_preview_defaults_to_billable_on(metering_app: object):
 def test_record_tts_usage_only_enqueues_root_billable_record(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -204,7 +204,7 @@ def test_record_tts_usage_only_enqueues_root_billable_record(
 
 def test_record_debug_usage_respects_explicit_non_billable_override(
     metering_app: object,
-):
+) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-3",
@@ -231,7 +231,7 @@ def test_record_debug_usage_respects_explicit_non_billable_override(
 def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -261,7 +261,7 @@ def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
 def test_record_llm_usage_marks_builtin_demo_course_non_billable(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -299,7 +299,7 @@ def test_record_llm_usage_marks_builtin_demo_course_non_billable(
 def test_record_tts_usage_marks_builtin_demo_course_non_billable(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -341,7 +341,7 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
 
 def test_persist_cleanup_targets_failed_session_inside_context(
     app: object, monkeypatch: object
-):
+) -> None:
     """Cleanup must run inside the pushed context (targeting the session that failed) and classify the failure: ordinary errors roll back, protocol interrupts invalidate."""
     from flask import current_app
     from flaskr.service.metering import recorder as recorder_module
@@ -377,7 +377,7 @@ def test_persist_cleanup_targets_failed_session_inside_context(
 
 def test_persist_invalidates_on_base_exception_interrupt(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.metering import recorder as recorder_module
 
     invalidations = []

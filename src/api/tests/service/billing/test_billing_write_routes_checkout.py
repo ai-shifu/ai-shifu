@@ -36,7 +36,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch: object):
+def billing_write_client(monkeypatch: object) -> object:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 

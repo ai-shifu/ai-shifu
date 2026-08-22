@@ -9,11 +9,11 @@ class _TrackingLock:
         self._events = events
         self._key = key
 
-    def acquire(self: object, **_kwargs: object):
+    def acquire(self: object, **_kwargs: object) -> object:
         self._events.append(("acquire", self._key))
         return True
 
-    def release(self: object):
+    def release(self: object) -> None:
         self._events.append(("release", self._key))
 
 
@@ -21,7 +21,7 @@ class _TrackingRedis:
     def __init__(self: object) -> None:
         self.events = []
 
-    def lock(self: object, key: object, **_kwargs: object):
+    def lock(self: object, key: object, **_kwargs: object) -> object:
         self.events.append(("lock", key))
         return _TrackingLock(self.events, key)
 
@@ -44,7 +44,7 @@ def _patch_config_store(monkeypatch: object):
 
 def test_admin_billing_ops_state_updates_under_redis_lock(
     app: object, monkeypatch: object
-):
+) -> None:
     redis = _TrackingRedis()
     store = _patch_config_store(monkeypatch)
     monkeypatch.setattr(dao._redis_state, "client", redis)

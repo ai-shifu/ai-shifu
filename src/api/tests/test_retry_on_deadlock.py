@@ -18,7 +18,7 @@ def _operational_error(errno: object):
     return OperationalError("SELECT 1", {}, _FakeOrigError(errno, "boom"))
 
 
-def test_retries_deadlock_then_succeeds():
+def test_retries_deadlock_then_succeeds() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
@@ -32,7 +32,7 @@ def test_retries_deadlock_then_succeeds():
     assert calls["n"] == 3
 
 
-def test_retries_lock_wait_timeout():
+def test_retries_lock_wait_timeout() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=2, backoff_seconds=0)
@@ -46,7 +46,7 @@ def test_retries_lock_wait_timeout():
     assert calls["n"] == 2
 
 
-def test_reraises_after_exhausting_attempts():
+def test_reraises_after_exhausting_attempts() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
@@ -59,7 +59,7 @@ def test_reraises_after_exhausting_attempts():
     assert calls["n"] == 3
 
 
-def test_does_not_retry_non_retryable_operational_error():
+def test_does_not_retry_non_retryable_operational_error() -> None:
     calls = {"n": 0}
 
     @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
@@ -72,7 +72,7 @@ def test_does_not_retry_non_retryable_operational_error():
     assert calls["n"] == 1
 
 
-def test_rolls_back_session_on_every_caught_error(monkeypatch: object):
+def test_rolls_back_session_on_every_caught_error(monkeypatch: object) -> None:
     """Session must be rolled back on each catch, including retries and the final failed attempt, so the broken session is not reused later."""
     fake_db = MagicMock()
     monkeypatch.setattr(dao, "db", fake_db)
@@ -87,7 +87,7 @@ def test_rolls_back_session_on_every_caught_error(monkeypatch: object):
     assert fake_db.session.rollback.call_count == 3
 
 
-def test_rolls_back_session_on_non_retryable_error(monkeypatch: object):
+def test_rolls_back_session_on_non_retryable_error(monkeypatch: object) -> None:
     fake_db = MagicMock()
     monkeypatch.setattr(dao, "db", fake_db)
 
@@ -100,7 +100,7 @@ def test_rolls_back_session_on_non_retryable_error(monkeypatch: object):
     assert fake_db.session.rollback.call_count == 1
 
 
-def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch: object):
+def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch: object) -> None:
     from flaskr import dao
 
     invalidations = []
@@ -123,7 +123,7 @@ def test_protocol_interrupt_invalidates_and_does_not_retry(monkeypatch: object):
     assert invalidations == ["retry_on_deadlock protocol interrupt"]
 
 
-def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch: object):
+def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch: object) -> None:
     from flaskr import dao
 
     invalidations = []

@@ -137,7 +137,7 @@ def check_text_content(
     app: Flask,
     user_id: str,
     user_input: str,
-):
+) -> bool:
     """Check text content."""
     check_id = generate_id(app)
     res = check_text(app, check_id, user_input, user_id)
@@ -155,7 +155,11 @@ def check_text_content(
     return res.check_result != CHECK_RESULT_REJECT
 
 
-def get_profile_labels():
+ProfileLabel = dict[str, object]
+ProfileLabels = dict[str, ProfileLabel]
+
+
+def get_profile_labels() -> ProfileLabels:
     """Return profile labels."""
     return {
         "sys_user_nickname": {
@@ -494,7 +498,7 @@ def update_user_profile_with_lable(
     profiles: list,
     update_all: bool = False,
     course_id: str | None = None,
-):
+) -> object:
     """Update user profile with lable."""
     app.logger.info("update user profile with lable:%s", course_id)
     profile_labels = get_profile_labels()

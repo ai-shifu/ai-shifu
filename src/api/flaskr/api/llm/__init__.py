@@ -995,7 +995,13 @@ class LLMStreamResponse:
         self.usage = LLMStreamaUsage(**usage) if usage else None
 
 
-def get_litellm_params_and_model(model: str):
+def get_litellm_params_and_model(
+    model: str,
+) -> tuple[
+    dict[str, str] | None,
+    str,
+    Callable[[str, float], dict[str, Any]] | None,
+]:
     """Return litellm params and model."""
     requested_model = model
     provider_key, invoke_model = _resolve_provider_for_model(model)

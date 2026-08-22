@@ -12,7 +12,9 @@ def _require_app(app: object):
         pytest.skip("App fixture disabled")
 
 
-def test_get_listen_element_record_returns_latest_elements_and_events(app: object):
+def test_get_listen_element_record_returns_latest_elements_and_events(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -244,7 +246,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app: objec
         assert result_with_events.events[2].content.variable_name == "sys_user_nickname"
 
 
-def test_get_listen_element_record_serializes_progress_time_as_utc(app: object):
+def test_get_listen_element_record_serializes_progress_time_as_utc(app: object) -> None:
     _require_app(app)
 
     from datetime import datetime
@@ -319,7 +321,9 @@ def test_get_listen_element_record_serializes_progress_time_as_utc(app: object):
     assert result.last_progress_updated_at == "2026-06-30T11:57:03Z"
 
 
-def test_get_listen_element_record_treats_naive_progress_time_as_utc(app: object):
+def test_get_listen_element_record_treats_naive_progress_time_as_utc(
+    app: object,
+) -> None:
     _require_app(app)
 
     from datetime import datetime
@@ -396,7 +400,7 @@ def test_get_listen_element_record_treats_naive_progress_time_as_utc(app: object
 
 def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -521,7 +525,7 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
 
 def test_get_listen_element_record_returns_all_persisted_elements_across_progress_records(
     app: object, monkeypatch: object
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -650,7 +654,7 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
 
 def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_indexes(
     app: object, monkeypatch: object
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -793,7 +797,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
 
 def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1032,7 +1036,7 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
 
 def test_get_listen_element_record_dedupes_older_progress_records_with_same_block_position(
     app: object, monkeypatch: object
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1153,7 +1157,7 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
 
 def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
     app: object, monkeypatch: object
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1311,7 +1315,7 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
         }
 
 
-def test_listen_run_persists_content_block_before_element_rows(app: object):
+def test_listen_run_persists_content_block_before_element_rows(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1501,7 +1505,7 @@ def test_listen_run_persists_content_block_before_element_rows(app: object):
     assert {row.content_text for row in rows} == {"Persisted content block"}
 
 
-def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
+def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1825,7 +1829,9 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
     assert first_audio_patch_seq < later_text_seq
 
 
-def test_listen_run_persists_exception_gate_block_before_element_rows(app: object):
+def test_listen_run_persists_exception_gate_block_before_element_rows(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1921,7 +1927,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app: objec
     assert rows[0].generated_block_bid == generated_blocks[0].generated_block_bid
 
 
-def test_get_record_api_returns_element_payload_by_default(app: object):
+def test_get_record_api_returns_element_payload_by_default(app: object) -> None:
     _require_app(app)
 
     from flask import request
@@ -1993,7 +1999,7 @@ def test_get_record_api_returns_element_payload_by_default(app: object):
 
 def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2113,7 +2119,7 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(
 
 def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2260,7 +2266,9 @@ def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(
     assert latest_row.content_text == "updated"
 
 
-def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app: object):
+def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2496,7 +2504,9 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app: 
         assert json.loads(persisted_rows[1].payload)["previous_visuals"] == []
 
 
-def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app: object):
+def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -2603,7 +2613,9 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app: object)
         assert payload["previous_visuals"] == []
 
 
-def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app: object):
+def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2822,7 +2834,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app: 
         assert persisted_segments == []
 
 
-def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app: object):
+def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2949,7 +2961,9 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app: object):
         assert element_events[4].target_element_bid in ("", None)
 
 
-def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app: object):
+def test_listen_adapter_keeps_html_stream_as_single_element_on_break(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3062,7 +3076,9 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app: object
         assert result.elements[0].is_new is True
 
 
-def test_listen_adapter_preserves_structural_fragment_without_html_target(app: object):
+def test_listen_adapter_preserves_structural_fragment_without_html_target(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3152,7 +3168,9 @@ def test_listen_adapter_preserves_structural_fragment_without_html_target(app: o
         assert "<style>*{box-sizing:border-box}</style>" in element_events[0].content
 
 
-def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app: object):
+def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3254,7 +3272,9 @@ def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app: 
         assert len({item.element_bid for item in element_events}) == 3
 
 
-def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(app: object):
+def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3350,7 +3370,9 @@ def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(app: object
         assert element_events[0].element_bid != element_events[2].element_bid
 
 
-def test_audio_segments_stick_to_first_target_element_without_av_contract(app: object):
+def test_audio_segments_stick_to_first_target_element_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3606,7 +3628,9 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app: o
         ]
 
 
-def test_late_audio_positions_bind_to_latest_text_without_av_contract(app: object):
+def test_late_audio_positions_bind_to_latest_text_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3935,7 +3959,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app: objec
         ]
 
 
-def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object):
+def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4140,7 +4164,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object):
         )
 
 
-def test_audio_stream_number_binding_overrides_position_guessing(app: object):
+def test_audio_stream_number_binding_overrides_position_guessing(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4330,7 +4354,9 @@ def test_audio_stream_number_binding_overrides_position_guessing(app: object):
         ]
 
 
-def test_html_only_stream_does_not_absorb_audio_without_av_contract(app: object):
+def test_html_only_stream_does_not_absorb_audio_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4471,7 +4497,9 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(app: object)
         assert all(row.audio_url == "" for row in persisted_html_rows)
 
 
-def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(app: object):
+def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4636,7 +4664,9 @@ def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(app: objec
         ]
 
 
-def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app: object):
+def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4767,7 +4797,7 @@ def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app: object
 
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -4861,7 +4891,7 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(
 
 def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_elements(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -5080,7 +5110,7 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
 
 def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -5118,7 +5148,7 @@ def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(
 
 def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -5303,7 +5333,7 @@ def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
 
 def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_active_rows(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -5410,7 +5440,7 @@ def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_activ
 
 def test_backfill_learn_generated_elements_for_progress_overwrite_dry_run_rebuilds_without_stale_rows(
     app: object,
-):
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db

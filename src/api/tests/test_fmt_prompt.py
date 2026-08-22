@@ -1,7 +1,7 @@
 """Verify prompt variables resolve without mutating learner profiles."""
 
 
-def test_fmt_prompt_replaces_known_variables(app: object, monkeypatch: object):
+def test_fmt_prompt_replaces_known_variables(app: object, monkeypatch: object) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(
@@ -16,7 +16,7 @@ def test_fmt_prompt_replaces_known_variables(app: object, monkeypatch: object):
         assert fmt_prompt == "Hello, Alice!"
 
 
-def test_fmt_prompt_keeps_unknown_variables(app: object, monkeypatch: object):
+def test_fmt_prompt_keeps_unknown_variables(app: object, monkeypatch: object) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(
@@ -31,7 +31,9 @@ def test_fmt_prompt_keeps_unknown_variables(app: object, monkeypatch: object):
         assert fmt_prompt == "Hello, {unknown}!"
 
 
-def test_fmt_prompt_uses_input_when_template_empty(app: object, monkeypatch: object):
+def test_fmt_prompt_uses_input_when_template_empty(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(
@@ -49,7 +51,7 @@ def test_fmt_prompt_uses_input_when_template_empty(app: object, monkeypatch: obj
 
 def test_fmt_prompt_prefers_request_overrides_without_mutating_profiles(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import utils_v2
 
     stored_profiles = {

@@ -21,6 +21,7 @@ from flaskr.service.tts.minimax_voice_clone import (
 )
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
 from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
+from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
@@ -32,10 +33,10 @@ from flaskr.service.tts.volcengine_voice_clone import (
 from flaskr.util.deprecation import deprecated_alias_getattr
 
 
-def create_streaming_tts_processor(**kwargs: object):
+def create_streaming_tts_processor(
+    **kwargs: object,
+) -> StreamingTTSProcessor:
     """Create streaming TTS processor."""
-    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
-
     return StreamingTTSProcessor(**kwargs)
 
 

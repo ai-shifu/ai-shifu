@@ -35,7 +35,7 @@ def _utc_epoch(value: datetime) -> int:
 
 
 @pytest.fixture
-def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
+def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

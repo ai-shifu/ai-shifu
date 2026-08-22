@@ -67,7 +67,7 @@ def _isolate_creator_analytics_tables(app: object):
 
 
 @pytest.fixture
-def mock_request_user(monkeypatch: object):
+def mock_request_user(monkeypatch: object) -> object:
     """Return a helper that installs a fake authenticated user."""
 
     def _install(user_id: str = "teacher-1", is_creator: bool = True) -> None:

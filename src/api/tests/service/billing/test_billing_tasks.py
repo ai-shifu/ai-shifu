@@ -63,7 +63,7 @@ from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
-def billing_task_integration_app(tmp_path: object):
+def billing_task_integration_app(tmp_path: object) -> object:
     db_path = tmp_path / "billing-task.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

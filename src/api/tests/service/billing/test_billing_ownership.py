@@ -19,7 +19,7 @@ from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 
 
 @pytest.fixture
-def billing_ownership_app():
+def billing_ownership_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

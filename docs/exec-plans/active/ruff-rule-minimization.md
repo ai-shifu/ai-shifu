@@ -267,6 +267,32 @@ plan's progress update for that rule.
   plugin repository/name inputs as `str`, and removing redundant `self: object`
   annotations from the TTS base contract. `ruff check .` and
   `ruff format --check .` pass.
+- [x] 2026-08-22 11:48 CST: Rebuilt the ANN201 stage on `ruff/ann201` for
+  [#2645](https://github.com/ai-shifu/ai-shifu/pull/2645). Its 51 immutable
+  revision files now receive exact-file ANN201 exceptions rather than a
+  directory-wide glob, while all future revisions remain subject to the rule.
+  The cache-lock regression test and repository Ruff checks pass.
+- [x] 2026-08-22 11:33 CST: Addressed ANN201 follow-up review by replacing every
+  production generator still annotated as `object` with an iterator or generator
+  contract and by preserving `retry_on_deadlock`, `inject`, and plugin decorator
+  call signatures with `ParamSpec` / `TypeVar`. The annotation-contract and
+  cache-lock regression tests pass.
+- [x] 2026-08-22 12:03 CST: Addressed remaining ANN201 review by retaining
+  concrete DTO, tuple, collection, clone, formatter, processor, route-decorator,
+  and iterator contracts. Public iterator annotations now resolve through
+  `get_type_hints`; the annotation-contract and cache-lock regression tests pass.
+- [x] 2026-08-22 12:27 CST: Exposed the streaming TTS processor to runtime
+  annotation resolution and restored the public billing facade's `Decimal` and
+  API-safe number return contracts. The annotation-contract regression test
+  now covers both API surfaces.
+- [x] 2026-08-22 12:51 CST: Restored context-manager, deterministic model,
+  non-returning provider, resource helper, history JSON, snapshot query/model,
+  and nested profile-label mapping contracts identified by the latest ANN201
+  review. Focused annotation/cache tests pass.
+- [x] 2026-08-22 13:18 CST: Restored runtime-resolvable snapshot query, boolean
+  comparison/moderation, translation, outline-position, Langfuse tuple,
+  verification response, Swagger mapping, MarkdownFlow block, buy-record DTO,
+  and language-catalog mapping contracts. Focused annotation/cache tests pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

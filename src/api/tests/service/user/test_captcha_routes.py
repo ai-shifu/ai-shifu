@@ -42,7 +42,7 @@ def _get_ticket(client: object, app: object):
     return body["data"]["captcha_ticket"]
 
 
-def test_get_captcha_returns_image_payload(test_client: object, app: object):
+def test_get_captcha_returns_image_payload(test_client: object, app: object) -> None:
     captcha = _get_captcha(test_client, app)
 
     assert captcha["captcha_id"]
@@ -54,7 +54,7 @@ def test_get_captcha_returns_image_payload(test_client: object, app: object):
     assert captcha["expires_in"] == app.config["CAPTCHA_EXPIRE_TIME"]
 
 
-def test_captcha_verify_rejects_wrong_code(test_client: object, app: object):
+def test_captcha_verify_rejects_wrong_code(test_client: object, app: object) -> None:
     captcha = _get_captcha(test_client, app)
 
     response, body = _post_json(
@@ -70,7 +70,9 @@ def test_captcha_verify_rejects_wrong_code(test_client: object, app: object):
     assert body["code"] == 1009
 
 
-def test_captcha_verify_localizes_wrong_code_message(test_client: object, app: object):
+def test_captcha_verify_localizes_wrong_code_message(
+    test_client: object, app: object
+) -> None:
     captcha = _get_captcha(test_client, app)
 
     response = test_client.post(
@@ -91,7 +93,9 @@ def test_captcha_verify_localizes_wrong_code_message(test_client: object, app: o
     assert body["message"] == "图形验证码错误"
 
 
-def test_captcha_verify_deletes_after_attempt_limit(test_client: object, app: object):
+def test_captcha_verify_deletes_after_attempt_limit(
+    test_client: object, app: object
+) -> None:
     original_attempts = app.config.get("CAPTCHA_MAX_VERIFY_ATTEMPTS")
     app.config["CAPTCHA_MAX_VERIFY_ATTEMPTS"] = 1
     try:
@@ -122,7 +126,9 @@ def test_captcha_verify_deletes_after_attempt_limit(test_client: object, app: ob
         app.config["CAPTCHA_MAX_VERIFY_ATTEMPTS"] = original_attempts
 
 
-def test_send_sms_code_requires_captcha_ticket(test_client: object, app: object):
+def test_send_sms_code_requires_captcha_ticket(
+    test_client: object, app: object
+) -> None:
     _ = app
     response, body = _post_json(
         test_client,
@@ -134,7 +140,7 @@ def test_send_sms_code_requires_captcha_ticket(test_client: object, app: object)
     assert body["code"] == 1009
 
 
-def test_send_sms_code_swagger_parameters_stay_valid_yaml(app: object):
+def test_send_sms_code_swagger_parameters_stay_valid_yaml(app: object) -> None:
     view = app.view_functions["send_sms_code_api"]
 
     _summary, _description, specification = parse_docstring(
@@ -152,7 +158,7 @@ def test_send_sms_code_swagger_parameters_stay_valid_yaml(app: object):
 
 def test_send_sms_code_localizes_missing_captcha_ticket_message(
     test_client: object, app: object
-):
+) -> None:
     _ = app
     response, body = _post_json(
         test_client,
@@ -167,7 +173,7 @@ def test_send_sms_code_localizes_missing_captcha_ticket_message(
 
 def test_send_sms_code_consumes_ticket_once(
     test_client: object, app: object, monkeypatch: object
-):
+) -> None:
     import flaskr.service.user.utils as user_utils
 
     monkeypatch.setattr(
@@ -203,7 +209,7 @@ def test_send_sms_code_consumes_ticket_once(
 
 def test_console_send_sms_code_does_not_require_captcha_ticket(
     test_client: object, monkeypatch: object
-):
+) -> None:
     import flaskr.service.user.utils as user_utils
 
     monkeypatch.setattr(
@@ -225,7 +231,7 @@ def test_console_send_sms_code_does_not_require_captcha_ticket(
 
 def test_console_send_sms_code_normalizes_cn_prefix(
     test_client: object, app: object, monkeypatch: object
-):
+) -> None:
     import flaskr.service.user.utils as user_utils
     from flaskr.service.user.models import UserVerifyCode
 

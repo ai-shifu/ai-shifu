@@ -60,7 +60,7 @@ os.environ["AI_SHIFU_PRELOAD_MASTER"] = "1"
 preload_app = True
 
 
-def post_fork(server: object, worker: object):
+def post_fork(server: object, worker: object) -> None:
     """Reset per-process resources that must not be shared across fork.
 
     SQLAlchemy connection pools created in the master (the DB init in

@@ -6,6 +6,8 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Self
+
 from flaskr.dao import db
 from flaskr.util.compare import compare_decimal
 from flaskr.util.datetime import now_utc
@@ -320,7 +322,7 @@ class DraftShifu(db.Model):
         comment="Last updater user business identifier",
     )
 
-    def clone(self: object):
+    def clone(self) -> Self:
         """Create a transient copy of this draft record for a new revision."""
         return DraftShifu(
             shifu_bid=self.shifu_bid,
@@ -353,7 +355,7 @@ class DraftShifu(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def eq(self: object, other: object):
+    def eq(self: Self, other: Self) -> bool:
         """Compare the persisted fields relevant to draft equality."""
         return (
             self.shifu_bid == other.shifu_bid
@@ -381,7 +383,7 @@ class DraftShifu(db.Model):
             and self.use_learner_language == other.use_learner_language
         )
 
-    def get_str_to_check(self: object):
+    def get_str_to_check(self: Self) -> str:
         """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.keywords} {self.description} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
@@ -522,7 +524,7 @@ class DraftOutlineItem(db.Model):
         comment="Last updater user business identifier",
     )
 
-    def clone(self: object):
+    def clone(self) -> Self:
         """Create a transient copy of this draft record for a new revision."""
         return DraftOutlineItem(
             outline_item_bid=self.outline_item_bid,
@@ -548,7 +550,7 @@ class DraftOutlineItem(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def eq(self: object, other: object):
+    def eq(self: Self, other: Self) -> bool:
         """Compare the persisted fields relevant to draft equality."""
         return (
             self.outline_item_bid == other.outline_item_bid
@@ -569,7 +571,7 @@ class DraftOutlineItem(db.Model):
             and self.content == other.content
         )
 
-    def get_str_to_check(self: object):
+    def get_str_to_check(self: Self) -> str:
         """Return concatenated draft fields for comparison without normalization."""
         return f"{self.title} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 

@@ -183,7 +183,7 @@ def _probe(env: object, *, now: datetime):
     )
 
 
-def test_wallet_snapshot_probe_uses_current_consumable_bucket_total():
+def test_wallet_snapshot_probe_uses_current_consumable_bucket_total() -> None:
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(
@@ -211,7 +211,7 @@ def test_wallet_snapshot_probe_uses_current_consumable_bucket_total():
     assert result["sample"][0]["current_consumable_bucket_available_credits"] == 0
 
 
-def test_wallet_snapshot_probe_allows_manual_grants_without_subscription():
+def test_wallet_snapshot_probe_allows_manual_grants_without_subscription() -> None:
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(
@@ -237,7 +237,7 @@ def test_wallet_snapshot_probe_allows_manual_grants_without_subscription():
     assert result["findings_count"] == 0
 
 
-def test_wallet_snapshot_probe_counts_reserved_future_buckets_separately():
+def test_wallet_snapshot_probe_counts_reserved_future_buckets_separately() -> None:
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(
@@ -265,7 +265,9 @@ def test_wallet_snapshot_probe_counts_reserved_future_buckets_separately():
     assert result["findings_count"] == 0
 
 
-def test_wallet_snapshot_probe_allows_subscription_and_topup_with_active_subscription():
+def test_wallet_snapshot_probe_allows_subscription_and_topup_with_active_subscription() -> (
+    None
+):
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(

@@ -20,7 +20,7 @@ SRC_DIR = "src"
 
 def load_plugins_from_dir(
     app: Flask, plugins_dir: str, plugin_manager: PluginManager = None
-):
+) -> object:
     """Load plugins from dir."""
     plugins = []
     app.logger.info("load modules from: %s", plugins_dir)

@@ -44,7 +44,7 @@ def _normalize_audio(data: bytes, filename: str, purpose: str) -> SimpleNamespac
 
 
 @pytest.fixture
-def minimax_clone_app(monkeypatch: object):
+def minimax_clone_app(monkeypatch: object) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -519,7 +519,7 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
 
 def test_execute_clone_processing_uses_row_values_inside_app_context(
     monkeypatch: object,
-):
+) -> None:
     from flaskr.service.tts import minimax_voice_clone
 
     in_context = False

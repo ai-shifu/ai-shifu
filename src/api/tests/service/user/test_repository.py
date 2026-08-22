@@ -26,7 +26,7 @@ from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
-def app():
+def app() -> object:
     app = Flask(__name__)
     app.config.update(
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -120,7 +120,9 @@ def _create_user(
     return entity
 
 
-def test_load_user_aggregate_returns_expected_data(app: object, user_bid: object):
+def test_load_user_aggregate_returns_expected_data(
+    app: object, user_bid: object
+) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
         _create_user(user_bid, email, is_operator=True)
@@ -147,7 +149,7 @@ def test_load_user_aggregate_returns_expected_data(app: object, user_bid: object
 
 def test_load_user_aggregate_by_identifier_uses_credentials(
     app: object, user_bid: object
-):
+) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
         _create_user(user_bid, email)
@@ -164,7 +166,7 @@ def test_load_user_aggregate_by_identifier_uses_credentials(
 
 def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(
     app: object,
-):
+) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     deleted_user_bid = uuid.uuid4().hex[:32]
     active_user_bid = uuid.uuid4().hex[:32]
@@ -202,7 +204,7 @@ def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(
 
 def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credential(
     app: object,
-):
+) -> None:
     phone = "15500008888"
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
@@ -230,7 +232,7 @@ def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credentia
             db.session.commit()
 
 
-def test_upsert_user_entity_creates_and_updates_records(app: object):
+def test_upsert_user_entity_creates_and_updates_records(app: object) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
@@ -257,7 +259,7 @@ def test_upsert_user_entity_creates_and_updates_records(app: object):
 
 def test_get_first_verified_credential_created_at_prefers_earliest_verified(
     app: object,
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         create_user_entity(
@@ -300,7 +302,7 @@ def test_get_first_verified_credential_created_at_prefers_earliest_verified(
 
 def test_get_first_verified_credential_created_at_returns_none_without_verified(
     app: object,
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         create_user_entity(

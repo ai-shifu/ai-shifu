@@ -10,7 +10,7 @@ from flaskr.service.shifu.models import PublishedShifu
 
 
 @pytest.fixture
-def demo_course_app():
+def demo_course_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

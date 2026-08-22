@@ -3,7 +3,9 @@
 import pytest
 
 
-def test_unit_of_work_invalidates_on_base_exception(app: object, monkeypatch: object):
+def test_unit_of_work_invalidates_on_base_exception(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr import dao
     from flaskr.dao.uow import unit_of_work
 
@@ -23,7 +25,9 @@ def test_unit_of_work_invalidates_on_base_exception(app: object, monkeypatch: ob
     assert invalidations == ["unit_of_work interrupt"]
 
 
-def test_unit_of_work_classifies_desync_exceptions(app: object, monkeypatch: object):
+def test_unit_of_work_classifies_desync_exceptions(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr import dao
     from flaskr.dao.uow import unit_of_work
 

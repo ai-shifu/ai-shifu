@@ -62,12 +62,12 @@ def _load_error_codes() -> dict[str, int]:
 ERROR_CODE = _load_error_codes()
 
 
-def register_error(error_name: object, error_code: object):
+def register_error(error_name: object, error_code: object) -> None:
     """Register error."""
     ERROR_CODE[error_name] = error_code
 
 
-def raise_param_error(param_message: object):
+def raise_param_error(param_message: object) -> None:
     """Raise a localized invalid-parameter application error."""
     raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
@@ -75,7 +75,7 @@ def raise_param_error(param_message: object):
     )
 
 
-def raise_error(error_name: object):
+def raise_error(error_name: object) -> None:
     """Raise a localized application error for the supplied key."""
     raise AppError(
         _(error_name),
@@ -83,7 +83,7 @@ def raise_error(error_name: object):
     )
 
 
-def raise_error_with_args(error_name: object, **kwargs: object):
+def raise_error_with_args(error_name: object, **kwargs: object) -> None:
     """Raise error with args."""
     raise AppError(
         _(error_name).format(**kwargs),

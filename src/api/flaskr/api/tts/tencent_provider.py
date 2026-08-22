@@ -15,6 +15,9 @@ import json
 import logging
 import time
 import unicodedata
+from collections.abc import (
+    Iterator,  # noqa: TC003 - public annotation is resolved at runtime
+)
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -1236,7 +1239,7 @@ class TencentTTSProvider(BaseTTSProvider):
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
-    ):
+    ) -> Iterator[TencentSSEStreamChunk]:
         """Stream synthesized speech from this provider."""
         if not self.is_configured():
             error_message = "Tencent TTS is not configured"

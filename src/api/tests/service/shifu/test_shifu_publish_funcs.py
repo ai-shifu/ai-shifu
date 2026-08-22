@@ -99,23 +99,25 @@ class _FakeObservation:
         self.id = f"fake-{kind}-id"
         self.generations = []
 
-    def start_observation(self: object, as_type: object = "span", **kwargs: object):
+    def start_observation(
+        self: object, as_type: object = "span", **kwargs: object
+    ) -> object:
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
         return child
 
-    def update(self: object, **kwargs: object):
+    def update(self: object, **kwargs: object) -> None:
         self.updates.append(kwargs)
 
-    def set_trace_as_public(self: object):
+    def set_trace_as_public(self: object) -> None:
         self.public = True
 
-    def end(self: object):
+    def end(self: object) -> None:
         self.ended = True
 
     @property
-    def end_kwargs(self: object):
+    def end_kwargs(self: object) -> object:
         merged = {}
         for item in self.updates:
             merged.update(item)
@@ -131,14 +133,14 @@ class _FakeLangfuseClient:
         as_type: object = "span",
         trace_context: object = None,
         **kwargs: object,
-    ):
+    ) -> object:
         root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
         return root
 
 
-def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
+def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders() -> None:
     from flaskr.service.shifu import shifu_publish_funcs as module
     from flaskr.util.prompt_loader import load_prompt_template
 
@@ -162,7 +164,7 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
     assert "<knowledge>" not in result
 
 
-def test_get_summary_updates_trace_and_span_output(monkeypatch: object):
+def test_get_summary_updates_trace_and_span_output(monkeypatch: object) -> None:
     from flaskr.api import langfuse as langfuse_module
     from flaskr.service.shifu import shifu_publish_funcs as module
 
@@ -214,7 +216,7 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch: object):
     assert trace.ended
 
 
-def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch: object):
+def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch: object) -> None:
     from unittest.mock import MagicMock
 
     from flaskr.service.shifu import shifu_publish_funcs as module
@@ -242,7 +244,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch: object):
     error_mock.assert_not_called()
 
 
-def test_run_summary_logs_error_for_other_failures(monkeypatch: object):
+def test_run_summary_logs_error_for_other_failures(monkeypatch: object) -> None:
     from unittest.mock import MagicMock
 
     from flaskr.service.shifu import shifu_publish_funcs as module
@@ -269,7 +271,7 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch: object):
 
 def test_publish_shifu_draft_preserves_outline_updated_at(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)

@@ -16,7 +16,7 @@ def _make_context_stub(app: object):
     return stub
 
 
-def test_stream_producer_stops_when_consumer_exits_early(app: object):
+def test_stream_producer_stops_when_consumer_exits_early(app: object) -> None:
     stop_streaming = threading.Event()
 
     def endless_stream():
@@ -49,7 +49,7 @@ def test_stream_producer_stops_when_consumer_exits_early(app: object):
 
 def test_early_consumer_exit_invalidates_producer_session(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import context_v2
 
     invalidations = []
@@ -85,7 +85,7 @@ def test_early_consumer_exit_invalidates_producer_session(
 
 def test_natural_exhaustion_does_not_invalidate_producer_session(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import context_v2
 
     invalidations = []
@@ -114,7 +114,9 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(
     assert invalidations == []
 
 
-def test_tts_finalize_failure_runs_classified_cleanup(app: object, monkeypatch: object):
+def test_tts_finalize_failure_runs_classified_cleanup(
+    app: object, monkeypatch: object
+) -> None:
     """A DB failure swallowed by the TTS finalize wrapper must still run the classified cleanup so an interrupted exchange discards the connection."""
     import types
 

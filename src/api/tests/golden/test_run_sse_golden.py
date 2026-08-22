@@ -58,7 +58,7 @@ def _prepare_user(app: object, monkeypatch: object, user_bid: str) -> None:
 
 def test_run_fresh_start_golden(
     app: object, test_client: object, monkeypatch: object, golden_shifu: object
-):
+) -> None:
     user_bid = "golden-user-fresh-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -90,7 +90,7 @@ def test_run_fresh_start_golden(
 
 def test_run_continue_golden(
     app: object, test_client: object, monkeypatch: object, golden_shifu: object
-):
+) -> None:
     user_bid = "golden-user-continue-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -115,7 +115,7 @@ def test_run_continue_golden(
 
 def test_run_interaction_input_golden(
     app: object, test_client: object, monkeypatch: object, golden_shifu: object
-):
+) -> None:
     user_bid = "golden-user-interact-0001"
     _prepare_user(app, monkeypatch, user_bid)
 
@@ -154,7 +154,7 @@ def test_run_interaction_input_golden(
 
 def test_run_ask_flow_golden(
     app: object, test_client: object, monkeypatch: object, golden_shifu: object
-):
+) -> None:
     user_bid = "golden-user-ask-0001"
     _prepare_user(app, monkeypatch, user_bid)
 

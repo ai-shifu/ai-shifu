@@ -30,16 +30,16 @@ class _FakeSession:
         self.invalidations = 0
         self.removed = 0
 
-    def rollback(self: object):
+    def rollback(self: object) -> None:
         self.rollbacks += 1
 
-    def commit(self: object):
+    def commit(self: object) -> None:
         self.commits += 1
 
-    def invalidate(self: object):
+    def invalidate(self: object) -> None:
         self.invalidations += 1
 
-    def remove(self: object):
+    def remove(self: object) -> None:
         self.removed += 1
 
 
@@ -51,13 +51,13 @@ class _StubRunContext:
     def __init__(self: object, **_kwargs: object) -> None:
         self._steps = iter([True, False])
 
-    def set_input(self: object, *_args: object, **_kwargs: object):
+    def set_input(self: object, *_args: object, **_kwargs: object) -> None:
         pass
 
-    def has_next(self: object):
+    def has_next(self: object) -> object:
         return next(self._steps, False)
 
-    def run(self: object, _app: object):
+    def run(self: object, _app: object) -> object:
         for item in type(self).script:
             if isinstance(item, BaseException):
                 raise item
@@ -116,7 +116,7 @@ def _start_stream(app: object):
 
 def test_generator_exit_invalidates_connection_instead_of_rollback(
     app: object, monkeypatch: object
-):
+) -> None:
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -130,7 +130,7 @@ def test_generator_exit_invalidates_connection_instead_of_rollback(
 
 def test_desync_error_invalidates_connection_instead_of_rollback(
     app: object, monkeypatch: object
-):
+) -> None:
     session = _patch_run_dependencies(
         monkeypatch,
         [
@@ -158,7 +158,7 @@ def test_desync_error_invalidates_connection_instead_of_rollback(
 
 def test_ordinary_error_still_rolls_back_pooled_connection(
     app: object, monkeypatch: object
-):
+) -> None:
     session = _patch_run_dependencies(
         monkeypatch, ["chunk-1", ValueError("business failure")]
     )
@@ -173,7 +173,7 @@ def test_ordinary_error_still_rolls_back_pooled_connection(
     assert session.removed == 1
 
 
-def test_desync_error_classifier_covers_symptom_family():
+def test_desync_error_classifier_covers_symptom_family() -> None:
     assert _is_protocol_desync_error(ResourceClosedError("no rows"))
     wrapped_2013 = OperationalError(
         "INSERT ...",
@@ -192,7 +192,7 @@ def test_desync_error_classifier_covers_symptom_family():
 
 def test_stop_event_cancellation_invalidates_instead_of_rollback(
     app: object, monkeypatch: object
-):
+) -> None:
     import threading
 
     session = _patch_run_dependencies(monkeypatch, ["chunk-1"])
@@ -228,7 +228,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(
     assert session.rollbacks == 0
 
 
-def test_natural_exhaustion_never_invalidates(app: object, monkeypatch: object):
+def test_natural_exhaustion_never_invalidates(app: object, monkeypatch: object) -> None:
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -241,7 +241,9 @@ def test_natural_exhaustion_never_invalidates(app: object, monkeypatch: object):
     assert session.commits >= 1
 
 
-def test_discard_helper_works_on_real_scoped_session(app: object, caplog: object):
+def test_discard_helper_works_on_real_scoped_session(
+    app: object, caplog: object
+) -> None:
     import logging
 
     from flaskr.service.learn.runscript_v2 import _discard_session_connection
