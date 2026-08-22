@@ -87,4 +87,22 @@ describe('buildAdminMenuItems', () => {
       ],
     });
   });
+
+  test('shows package management for Stripe operator environments', () => {
+    const menuItems = buildAdminMenuItems({
+      t,
+      isOperator: true,
+      showPackageManagement: true,
+    });
+
+    expect(menuItems.at(-1)?.children).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'operations-package-management',
+          label: 'common.core.packageManagement',
+          href: '/admin/operations/provider-prices',
+        },
+      ]),
+    );
+  });
 });

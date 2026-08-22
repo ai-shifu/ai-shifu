@@ -20,12 +20,14 @@ type BuildAdminMenuItemsOptions = {
   t: (key: string) => string;
   isOperator: boolean;
   showReferralInvite?: boolean;
+  showPackageManagement?: boolean;
 };
 
 export const buildAdminMenuItems = ({
   t,
   isOperator,
   showReferralInvite = true,
+  showPackageManagement = false,
 }: BuildAdminMenuItemsOptions): AdminMenuItem[] => {
   const items: AdminMenuItem[] = [
     {
@@ -108,6 +110,15 @@ export const buildAdminMenuItems = ({
           label: t('common.core.brandPaymentsManagement'),
           href: '/admin/operations/billing',
         },
+        ...(showPackageManagement
+          ? [
+              {
+                id: 'operations-package-management',
+                label: t('common.core.packageManagement'),
+                href: '/admin/operations/provider-prices',
+              },
+            ]
+          : []),
       ],
     });
   }

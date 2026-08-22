@@ -163,6 +163,149 @@
       "page": "Page {page} / {pageCount} · {total} enregistrements",
       "total": "{total} enregistrements"
     },
+    "providerPrices": {
+      "actions": {
+        "activate": "Mettre en ligne",
+        "cancel": "Annuler",
+        "configure": "Configurer",
+        "create": "Ajouter un prix",
+        "retire": "Retirer",
+        "saveDraft": "Enregistrer le brouillon",
+        "validate": "Contrôler",
+        "viewIssues": "Voir problèmes"
+      },
+      "billingLabel": {
+        "monthly": "Mensuel",
+        "yearly": "Annuel"
+      },
+      "confirm": {
+        "activate": "Mettre {productName} en ligne ? Les prochains paiements de ce produit utiliseront ce prix.",
+        "retire": "Retirer {productName} ? Le produit n’aura temporairement plus de checkout à prix fixe."
+      },
+      "description": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et droits accordés.",
+      "dialog": {
+        "autoDetectHint": "Le système vérifie automatiquement montant, devise, période et mode. Activez le prix après validation.",
+        "description": "Copiez l’ID produit et l’ID prix depuis Stripe. Le système lira automatiquement les détails du prix.",
+        "title": "Configurer le prix de paiement"
+      },
+      "empty": "Aucune offre ou recharge disponible pour configuration.",
+      "environment": {
+        "live": "Live",
+        "test": "Test"
+      },
+      "fields": {
+        "priceId": "ID prix Stripe",
+        "product": "Produit",
+        "productId": "ID produit Stripe",
+        "productPlaceholder": "Sélectionner un produit"
+      },
+      "filters": {
+        "allProducts": "Tous les produits",
+        "product": "Produit",
+        "status": "Statut"
+      },
+      "health": {
+        "active": "En ligne",
+        "draft": "Non activé",
+        "healthy": "Sain",
+        "invalid": "Échec du contrôle",
+        "missing": "Non configuré",
+        "retired": "Retiré",
+        "warning": "À vérifier"
+      },
+      "interval": {
+        "day": "Tous les {count} jours",
+        "month": "Tous les {count} mois",
+        "oneTime": "Paiement unique",
+        "year": "Tous les {count} ans"
+      },
+      "issueDrawer": {
+        "description": "Affiche les raisons lisibles par l’équipe opérations et conserve les codes bruts pour le diagnostic technique.",
+        "issues": "Raisons du problème",
+        "noIssues": "Aucun détail disponible",
+        "priceId": "ID prix Stripe",
+        "raw": "Détails bruts",
+        "title": "Problèmes de validation du prix"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "Le nombre de périodes ne correspond pas à l’article local",
+        "billing_interval_mismatch": "La période de facturation ne correspond pas à l’article local",
+        "currency_mismatch": "La devise ne correspond pas à l’article local",
+        "local_plan_billing_mode_invalid": "Le mode de facturation local de l’abonnement est invalide",
+        "local_topup_billing_interval_count_invalid": "Le nombre de périodes du pack crédits doit être 0",
+        "local_topup_billing_interval_invalid": "Les packs crédits ne doivent pas utiliser de période récurrente",
+        "local_topup_billing_mode_invalid": "Le mode de facturation local du pack crédits est invalide",
+        "plan_requires_licensed_recurring_price": "Les abonnements doivent utiliser une tarification récurrente licensed",
+        "plan_requires_recurring_price": "Les abonnements doivent utiliser un prix Stripe récurrent",
+        "price_livemode_mismatch": "Le mode du prix Stripe ne correspond pas",
+        "price_metadata_billing_interval_mismatch": "La metadata de période du prix Stripe ne correspond pas",
+        "price_metadata_billing_interval_missing": "Le prix Stripe n’a pas de metadata de période",
+        "price_metadata_credit_amount_mismatch": "La metadata de crédits du prix Stripe ne correspond pas",
+        "price_metadata_credit_amount_missing": "Le prix Stripe n’a pas de metadata de crédits",
+        "price_metadata_product_code_mismatch": "La metadata de code produit du prix Stripe ne correspond pas",
+        "price_metadata_product_code_missing": "Le prix Stripe n’a pas de metadata de code produit",
+        "price_product_mismatch": "Le prix Stripe n’est pas rattaché à ce produit",
+        "product_livemode_mismatch": "Le mode du produit Stripe ne correspond pas",
+        "product_metadata_market_mismatch": "La metadata de marché du produit Stripe ne correspond pas",
+        "product_metadata_market_missing": "Le produit Stripe n’a pas de metadata de marché",
+        "product_metadata_plan_tier_mismatch": "La metadata de niveau du produit Stripe ne correspond pas",
+        "product_metadata_plan_tier_missing": "Le produit Stripe n’a pas de metadata de niveau",
+        "product_metadata_product_type_mismatch": "La metadata de type produit Stripe ne correspond pas",
+        "product_metadata_product_type_missing": "Le produit Stripe n’a pas de metadata de type produit",
+        "provider_account_mismatch": "Le compte Stripe ne correspond pas",
+        "provider_price_inactive": "Le prix Stripe est inactif",
+        "provider_price_mismatch": "L’ID prix Stripe ne correspond pas à cet article",
+        "provider_price_unit_amount_missing": "Le prix Stripe n’a pas de montant fixe",
+        "provider_product_inactive": "Le produit Stripe est inactif",
+        "provider_product_mismatch": "L’ID produit Stripe ne correspond pas à cet article",
+        "retired_mapping_cannot_be_activated": "Un prix retiré ne peut pas être remis en ligne",
+        "retired_mapping_cannot_be_validated": "Un prix retiré ne peut pas être revérifié",
+        "stripe_catalog_reference_missing": "ID produit ou prix Stripe manquant",
+        "stripe_catalog_retrieve_failed": "Impossible de lire le produit ou le prix dans Stripe",
+        "topup_requires_one_time_price": "Les packs crédits doivent utiliser un prix Stripe unique",
+        "unit_amount_mismatch": "Le montant encaissé ne correspond pas au prix affiché",
+        "unknown": "Problème inconnu",
+        "unsupported_product_type": "Ce type d’article ne peut pas être lié à un prix de paiement"
+      },
+      "loadError": "Impossible de charger les paramètres de prix pour le moment.",
+      "loading": "Chargement des prix...",
+      "menuTitle": "Gestion des offres",
+      "pageDescription": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et rapprochement.",
+      "productCredits": "{credits} crédits",
+      "productType": {
+        "plan": "Abonnement",
+        "topup": "Pack crédits"
+      },
+      "status": {
+        "active": "En ligne",
+        "all": "Tous les statuts",
+        "draft": "Brouillon",
+        "invalid": "Invalide",
+        "missing": "Non configuré",
+        "retired": "Retiré"
+      },
+      "table": {
+        "actions": "Actions",
+        "benefit": "Droits",
+        "localPrice": "Prix affiché",
+        "product": "Produit",
+        "productType": "Type",
+        "status": "Statut",
+        "stripePrice": "Prix paiement",
+        "validatedAt": "Dernier contrôle"
+      },
+      "title": "Gestion des offres",
+      "toast": {
+        "activateFailed": "Échec de la mise en ligne du prix",
+        "activateSuccess": "Prix mis en ligne",
+        "createFailed": "Échec de l’enregistrement",
+        "createSuccess": "Prix enregistré",
+        "retireFailed": "Échec du retrait du prix",
+        "retireSuccess": "Prix retiré",
+        "validateFailed": "Échec du contrôle",
+        "validateSuccess": "Contrôle du prix terminé"
+      }
+    },
     "reports": {
       "actions": {
         "viewOrders": "Voir les commandes"
