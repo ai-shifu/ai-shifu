@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flask import current_app
 from flaskr.service.user.models import AuthCredential
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-def coerce_operator_datetime(value: Any) -> datetime | None:
+def coerce_operator_datetime(value: object) -> datetime | None:
     """Coerce operator datetime."""
     if value is None:
         return None
@@ -46,7 +46,7 @@ def coerce_operator_datetime(value: Any) -> datetime | None:
     return None
 
 
-def format_operator_datetime(value: Any) -> str:
+def format_operator_datetime(value: object) -> str:
     """Format operator datetime."""
     normalized_value = coerce_operator_datetime(value)
     if not normalized_value:

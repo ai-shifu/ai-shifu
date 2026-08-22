@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager, suppress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import get_config, update_config
@@ -21,7 +21,7 @@ _CONFIG_STATUS_KEY = "ADMIN_BILLING.CONFIG_STATUS"
 _CONFIG_STATUS_VALUES = {"pending", "in_progress", "completed", "exception"}
 
 
-def build_admin_billing_ops_state(app: Flask) -> dict[str, Any]:
+def build_admin_billing_ops_state(app: Flask) -> dict[str, object]:
     """Build admin billing ops state."""
     with app.app_context():
         return {
@@ -33,8 +33,8 @@ def update_admin_billing_config_status(
     app: Flask,
     *,
     creator_bid: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+    payload: dict[str, object],
+) -> dict[str, object]:
     """Update admin billing config status."""
     normalized_creator_bid = normalize_bid(creator_bid)
     if not normalized_creator_bid:
@@ -88,12 +88,12 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
             lock.release()
 
 
-def _read_map(key: str) -> dict[str, Any]:
+def _read_map(key: str) -> dict[str, object]:
     payload = _load_json(get_config(key, "{}"))
     return payload if isinstance(payload, dict) else {}
 
 
-def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
+def _write_map(app: Flask, key: str, value: dict[str, object]) -> None:
     update_config(
         app,
         key,
@@ -104,7 +104,7 @@ def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
     )
 
 
-def _load_json(value: Any) -> dict[str, Any]:
+def _load_json(value: object) -> dict[str, object]:
     try:
         payload = json.loads(str(value or "{}"))
     except (TypeError, ValueError, json.JSONDecodeError):

@@ -242,7 +242,7 @@ class TencentTTSError(ValueError):
     def __init__(
         self,
         *,
-        code: Any,
+        code: object,
         message: str = "",
         request_id: str = "",
         message_id: str = "",
@@ -265,7 +265,7 @@ class TencentTTSError(ValueError):
         self.message_id = message_id
 
 
-def _tencent_codec(value: Any = None) -> str:
+def _tencent_codec(value: object = None) -> str:
     codec = str(value or TENCENT_DEFAULT_CODEC).lower()
     if codec != TENCENT_DEFAULT_CODEC:
         logger.warning(
@@ -314,7 +314,7 @@ def _export_tencent_pcm_to_mp3(audio_data: bytes, *, sample_rate: int) -> bytes:
     return output.getvalue()
 
 
-def _coerce_app_id(app_id: Any) -> int:
+def _coerce_app_id(app_id: object) -> int:
     try:
         return int(app_id)
     except (TypeError, ValueError) as exc:
@@ -326,7 +326,7 @@ def _clamp_float(value: float, minimum: float, maximum: float) -> float:
     return min(max(float(value), minimum), maximum)
 
 
-def _tencent_flow_speed(value: Any) -> float:
+def _tencent_flow_speed(value: object) -> float:
     try:
         legacy_speed = float(value or 0)
     except (TypeError, ValueError):
@@ -338,7 +338,7 @@ def _tencent_flow_speed(value: Any) -> float:
     return round(_clamp_float(mapped, 0.5, 2.0), 2)
 
 
-def _tencent_flow_volume(value: Any) -> float:
+def _tencent_flow_volume(value: object) -> float:
     try:
         volume = float(value or 0)
     except (TypeError, ValueError):
@@ -356,7 +356,7 @@ def _tencent_voice_language(voice_id: str) -> str:
     return "zh"
 
 
-def _normalize_tencent_voice_id(voice_id: Any) -> str:
+def _normalize_tencent_voice_id(voice_id: object) -> str:
     normalized_voice_id = str(voice_id or "").strip()
     if not normalized_voice_id:
         return TENCENT_DEFAULT_VOICE_ID
@@ -371,7 +371,7 @@ def _resolve_tencent_model(model: str | None, emotion: str = "") -> str:
     return TENCENT_DEFAULT_MODEL
 
 
-def _normalize_tencent_emotion(emotion: Any) -> str:
+def _normalize_tencent_emotion(emotion: object) -> str:
     normalized = str(emotion or "").strip()
     emotion_aliases = {
         "fear": "fearful",
@@ -389,12 +389,12 @@ def _normalize_tencent_emotion(emotion: Any) -> str:
 
 def build_tencent_sse_payload(
     *,
-    app_id: Any,
+    app_id: object,
     text: str,
     voice_settings: VoiceSettings,
     audio_settings: AudioSettings,
     model: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build tencent SSE payload."""
     voice_id = _normalize_tencent_voice_id(
         getattr(voice_settings, "voice_id", "") or TENCENT_DEFAULT_VOICE_ID
@@ -431,7 +431,7 @@ def build_tencent_sse_payload(
     return params
 
 
-def encode_tencent_sse_payload(payload: dict[str, Any]) -> str:
+def encode_tencent_sse_payload(payload: dict[str, object]) -> str:
     """Encode tencent SSE payload."""
     return json.dumps(
         payload,
@@ -592,8 +592,8 @@ def _tencent_speech_weight(text: str) -> int:
 
 
 def _normalize_tencent_grouping_cues(
-    cues: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    cues: list[dict[str, object]],
+) -> list[dict[str, object]]:
     normalized: list[dict[str, Any]] = []
     for raw_item in list(cues or []):
         if not isinstance(raw_item, dict):
@@ -631,10 +631,10 @@ def _normalize_tencent_grouping_cues(
 
 
 def _group_tencent_subtitle_cues_by_source_indices(
-    cues: list[dict[str, Any]],
+    cues: list[dict[str, object]],
     *,
     source_text: str,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     sentence_ranges = _split_tencent_sentence_units_with_ranges(source_text)
     indexed_cues = [
         cue
@@ -675,10 +675,10 @@ def _group_tencent_subtitle_cues_by_source_indices(
 
 
 def _group_tencent_subtitle_cues_by_source_text(
-    cues: list[dict[str, Any]],
+    cues: list[dict[str, object]],
     *,
     source_text: str,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     normalized_cues = _normalize_tencent_grouping_cues(cues)
     sentence_units = _split_tencent_sentence_units(source_text)
     if not normalized_cues or not sentence_units:
@@ -791,7 +791,7 @@ def _group_tencent_subtitle_cues_by_source_text(
     return normalize_subtitle_cues(grouped)
 
 
-def _tencent_subtitle_text(raw_item: dict[str, Any]) -> str:
+def _tencent_subtitle_text(raw_item: dict[str, object]) -> str:
     for key in ("Text", "text", "Word", "word", "Sentence", "sentence"):
         text = str(raw_item.get(key, "") or "").strip()
         if text:
@@ -800,7 +800,7 @@ def _tencent_subtitle_text(raw_item: dict[str, Any]) -> str:
 
 
 def _tencent_subtitle_time_ms(
-    raw_item: dict[str, Any], keys: tuple[str, ...], default_ms: int = 0
+    raw_item: dict[str, object], keys: tuple[str, ...], default_ms: int = 0
 ) -> int:
     for key in keys:
         if key not in raw_item:
@@ -816,7 +816,7 @@ def _tencent_subtitle_time_ms(
 
 
 def _tencent_subtitle_index(
-    raw_item: dict[str, Any], keys: tuple[str, ...]
+    raw_item: dict[str, object], keys: tuple[str, ...]
 ) -> int | None:
     for key in keys:
         if key not in raw_item:
@@ -832,13 +832,13 @@ def _tencent_subtitle_index(
 
 
 def normalize_tencent_subtitle_cues(
-    subtitles: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
+    subtitles: list[dict[str, object]] | tuple[dict[str, object], ...] | None,
     *,
     offset_ms: int = 0,
     segment_index: int = 0,
     position: int = 0,
     source_text: str = "",
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Normalize tencent subtitle cues."""
     cues: list[dict[str, Any]] = []
     seen_cue_keys: set[tuple[str, int, int, int | None, int | None]] = set()
@@ -928,8 +928,8 @@ def normalize_tencent_subtitle_cues(
 
 
 def _group_tencent_subtitle_cues_by_sentence(
-    cues: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    cues: list[dict[str, object]],
+) -> list[dict[str, object]]:
     grouped: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
 
@@ -965,14 +965,14 @@ def _group_tencent_subtitle_cues_by_sentence(
     return normalize_subtitle_cues(grouped)
 
 
-def _coerce_int(value: Any, default: int = 0) -> int:
+def _coerce_int(value: object, default: int = 0) -> int:
     try:
         return int(value)
     except (TypeError, ValueError):
         return int(default or 0)
 
 
-def _coerce_bool(value: Any) -> bool:
+def _coerce_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if value is None:
@@ -982,14 +982,14 @@ def _coerce_bool(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
-def _get_first_present(payload: dict[str, Any], *keys: str) -> Any:
+def _get_first_present(payload: dict[str, object], *keys: str) -> object:
     for key in keys:
         if key in payload:
             return payload.get(key)
     return None
 
 
-def _is_nonzero_tencent_code(value: Any) -> bool:
+def _is_nonzero_tencent_code(value: object) -> bool:
     if value is None:
         return False
     if isinstance(value, (int, float)):
@@ -998,24 +998,24 @@ def _is_nonzero_tencent_code(value: Any) -> bool:
     return bool(normalized) and normalized != "0"
 
 
-def _unwrap_tencent_sse_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def _unwrap_tencent_sse_payload(payload: dict[str, object]) -> dict[str, object]:
     response = payload.get("Response") or payload.get("response")
     if isinstance(response, dict):
         return response
     return payload
 
 
-def _decode_tencent_sse_line(raw_line: Any) -> str:
+def _decode_tencent_sse_line(raw_line: object) -> str:
     if isinstance(raw_line, bytes):
         return raw_line.decode("utf-8", errors="replace").strip()
     return str(raw_line or "").strip()
 
 
 def _extract_tencent_sse_subtitles(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     request_text: str,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     result = payload.get("Result") or payload.get("result") or {}
     subtitle_items = payload.get("Subtitles") or payload.get("subtitles")
     if subtitle_items is None and isinstance(result, dict):
@@ -1079,7 +1079,7 @@ def _extract_tencent_sse_subtitles(
 
 
 def parse_tencent_sse_message(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     request_text: str,
 ) -> TencentSSEStreamChunk | None:
@@ -1447,7 +1447,7 @@ class TencentTTSProvider(BaseTTSProvider):
         )
 
     @staticmethod
-    def _subtitle_cues_end_ms(subtitle_cues: list[dict[str, Any]]) -> int:
+    def _subtitle_cues_end_ms(subtitle_cues: list[dict[str, object]]) -> int:
         normalized = normalize_subtitle_cues(subtitle_cues)
         if not normalized:
             return 0

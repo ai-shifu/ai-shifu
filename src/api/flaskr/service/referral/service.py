@@ -103,7 +103,7 @@ def hash_referral_context(value: object) -> str:
 
 
 def extract_referral_post_auth_fields(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     client_ip: object = "",
     user_agent: object = "",
@@ -388,8 +388,8 @@ def mask_identifier_snapshot(value: str) -> str:
 
 
 def _mask_reward_queue_mobile_snapshots(
-    reward_queue: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    reward_queue: list[dict[str, object]],
+) -> list[dict[str, object]]:
     masked_queue: list[dict[str, Any]] = []
     for item in reward_queue:
         next_item = dict(item)
@@ -632,7 +632,7 @@ def grant_referral_plan_reward(
     app: Flask,
     *,
     reward: ReferralInviteReward,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Grant referral plan reward."""
     request = ReferralPlanRewardRequest(
         reward_bid=reward.reward_bid,
@@ -665,7 +665,7 @@ def _mark_reward_grant_succeeded(
     *,
     relation_bid: str,
     reward_bid: str,
-    billing_artifacts: dict[str, Any],
+    billing_artifacts: dict[str, object],
 ) -> None:
     relation = ReferralInviteRelation.query.filter(
         ReferralInviteRelation.deleted == 0,
@@ -707,7 +707,7 @@ def retry_pending_referral_rewards(
     *,
     limit: int = 100,
     dry_run: bool = True,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Retry generated referral rewards that do not yet have billing artifacts."""
     with _with_app_context(app):
         safe_limit = max(min(int(limit or 100), 500), 1)
@@ -777,7 +777,7 @@ def retry_pending_referral_rewards(
 
 def process_referral_post_auth(
     app: Flask,
-    context: Any,
+    context: object,
 ) -> ReferralPostAuthResult:
     """Process referral post auth."""
     with _with_app_context(app):

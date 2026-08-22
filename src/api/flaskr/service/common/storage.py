@@ -7,7 +7,7 @@ import os
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_COURSES,
@@ -113,7 +113,7 @@ def build_local_storage_url(profile: str, object_key: str) -> str:
     return f"{path_prefix}/storage/{resolved_profile}/{resolved_key}"
 
 
-def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
+def _coerce_to_binary_stream(file_content: object) -> io.BufferedReader:
     if file_content is None:
         message = "file_content is required"
         raise ValueError(message)
@@ -131,7 +131,7 @@ def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
 
 def _upload_to_local(
     *,
-    file_content: Any,
+    file_content: object,
     object_key: str,
     profile: str,
 ) -> StorageUploadResult:
@@ -158,7 +158,7 @@ def _upload_to_local(
 def _upload_to_oss(
     app: Flask,
     *,
-    file_content: Any,
+    file_content: object,
     object_key: str,
     content_type: str,
     profile: str,
@@ -186,7 +186,7 @@ def _upload_to_oss(
 def upload_to_storage(
     app: Flask,
     *,
-    file_content: Any,
+    file_content: object,
     object_key: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,

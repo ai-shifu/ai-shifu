@@ -30,7 +30,7 @@ class PageWindow(Generic[T]):
         }
 
 
-def _serialize_json_value(value: Any) -> Any:
+def _serialize_json_value(value: object) -> object:
     if isinstance(value, JsonObjectMap):
         return value.to_metadata_json()
     if isinstance(value, list):

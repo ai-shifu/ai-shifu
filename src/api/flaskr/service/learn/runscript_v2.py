@@ -10,7 +10,7 @@ import traceback
 import uuid
 from collections.abc import Generator
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
@@ -692,7 +692,7 @@ def run_script(
     reload_element_bid: str | None = None,
     listen: bool = False,
     preview_mode: bool = False,
-    shifu_context_snapshot: dict[str, Any] | None = None,
+    shifu_context_snapshot: dict[str, object] | None = None,
     language: str | None = None,
 ) -> Generator[str, None, None]:
     """Run script."""

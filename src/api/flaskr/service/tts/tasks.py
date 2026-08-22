@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - local fallback for non-Celery test env
         """Register a Celery task with the configured application context."""
         _ = (args, kwargs)
 
-        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def decorator(func: Callable[..., object]) -> Callable[..., object]:
             return func
 
         return decorator
@@ -32,7 +32,7 @@ def _create_task_app() -> Flask:
 
 
 @shared_task(name="tts.minimax_clone_voice")
-def minimax_clone_voice_task(*, voice_bid: str) -> dict[str, Any]:
+def minimax_clone_voice_task(*, voice_bid: str) -> dict[str, object]:
     """Run the Minimax voice-clone background task."""
     from flaskr.service.tts.api import run_minimax_voice_clone
 

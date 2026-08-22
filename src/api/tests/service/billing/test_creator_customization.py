@@ -4,7 +4,6 @@ import hashlib
 from importlib import import_module
 from io import BytesIO
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 from cryptography.fernet import Fernet

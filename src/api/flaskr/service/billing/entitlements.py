@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -111,7 +110,7 @@ def grant_creator_manual_entitlement(
     custom_domain_enabled: bool | None = None,
     custom_wechat_enabled: bool | None = None,
     custom_payment_enabled: bool | None = None,
-    branding: dict[str, Any] | None = None,
+    branding: dict[str, object] | None = None,
     home_url: str | None = None,
     commit: bool = True,
 ) -> CreatorEntitlementState:
@@ -334,7 +333,7 @@ def _serialize_entitlement_row_state(
 
 def _apply_entitlement_payload(
     base_state: CreatorEntitlementState,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> CreatorEntitlementState:
     branding_enabled = _to_bool(
         payload.get("branding_enabled"),
@@ -392,7 +391,7 @@ def _apply_entitlement_payload(
 
 
 def _resolve_labeled_value(
-    value: Any,
+    value: object,
     *,
     labels: dict[int, str],
     default: str,
@@ -412,7 +411,7 @@ def _resolve_labeled_value(
         return default
 
 
-def _normalize_feature_payload(value: Any) -> JsonObjectMap:
+def _normalize_feature_payload(value: object) -> JsonObjectMap:
     if not isinstance(value, dict):
         return JsonObjectMap()
     return JsonObjectMap(values={str(key): item for key, item in value.items()})
@@ -425,7 +424,7 @@ def _coalesce_datetime(
     return value or fallback
 
 
-def _to_bool(value: Any, *, default: bool = False) -> bool:
+def _to_bool(value: object, *, default: bool = False) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):

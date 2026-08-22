@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import queue
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,

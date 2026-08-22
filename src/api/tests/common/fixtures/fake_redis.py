@@ -78,7 +78,7 @@ class FakeRedis:
     def set(
         self,
         key: str,
-        value: Any,
+        value: object,
         ex: int | None = None,
         px: int | None = None,
         nx: bool = False,

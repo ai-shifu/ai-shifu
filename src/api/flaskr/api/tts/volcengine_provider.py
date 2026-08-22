@@ -45,14 +45,14 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
 
 
-def _timestamp_seconds_to_ms(value: Any) -> int:
+def _timestamp_seconds_to_ms(value: object) -> int:
     try:
         return max(round(float(value) * 1000), 0)
     except (TypeError, ValueError):
         return 0
 
 
-def _volcengine_time_ms(item: dict[str, Any], keys: tuple[str, ...]) -> int:
+def _volcengine_time_ms(item: dict[str, object], keys: tuple[str, ...]) -> int:
     for key in keys:
         if key not in item:
             continue
@@ -69,11 +69,11 @@ def _volcengine_time_ms(item: dict[str, Any], keys: tuple[str, ...]) -> int:
 
 
 def _volcengine_words_to_sentence_cue(
-    words: list[Any],
+    words: list[object],
     *,
     text: str = "",
     segment_index: int = 0,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     normalized_words = [item for item in words if isinstance(item, dict)]
     if not normalized_words:
         return []
@@ -103,10 +103,10 @@ def _volcengine_words_to_sentence_cue(
 
 
 def _extract_volcengine_subtitle_cues(
-    payload: Any,
+    payload: object,
     *,
     segment_index: int = 0,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     if not isinstance(payload, dict):
         return []
 

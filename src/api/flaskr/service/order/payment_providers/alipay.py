@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs
 
 from flaskr.common.public_urls import build_alipay_notify_url
@@ -280,7 +280,9 @@ def _format_cny_amount(amount: int) -> str:
     return format(yuan, "f")
 
 
-def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, Any]:
+def _parse_alipay_response(
+    raw_response: object, response_key: str
+) -> dict[str, object]:
     if hasattr(raw_response, "to_dict"):
         raw_response = raw_response.to_dict()
     if isinstance(raw_response, str):
@@ -295,7 +297,7 @@ def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, An
     return raw_response
 
 
-def _parse_form_payload(raw_body: bytes | str) -> dict[str, Any]:
+def _parse_form_payload(raw_body: bytes | str) -> dict[str, object]:
     if isinstance(raw_body, bytes):
         raw_body = raw_body.decode("utf-8")
     raw_body = str(raw_body or "")

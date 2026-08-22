@@ -6,7 +6,6 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,

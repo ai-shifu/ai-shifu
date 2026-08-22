@@ -659,7 +659,7 @@ def _load_operator_user_contact_map(
     *,
     users: Sequence[UserEntity] | None = None,
     credential_rows: Sequence[AuthCredential] | None = None,
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     if not user_bids:
         return {}
 
@@ -759,13 +759,13 @@ def _find_matching_user_bids_by_identifier(keyword: str) -> set[str] | None:
 
 def _build_operator_user_summary(
     user: UserEntity,
-    contact_map: dict[str, dict[str, Any]],
+    contact_map: dict[str, dict[str, object]],
     learner_user_bids: set[str],
     registration_source_map: dict[str, str],
     last_login_map: dict[str, datetime],
     total_paid_amount_map: dict[str, Decimal],
     last_learning_map: dict[str, datetime],
-    credit_summary_map: dict[str, dict[str, Any]],
+    credit_summary_map: dict[str, dict[str, object]],
     *,
     learning_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]]
     | None = None,

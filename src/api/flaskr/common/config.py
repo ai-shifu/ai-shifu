@@ -84,7 +84,7 @@ class EnvVar:
             return str(value)
 
 
-def _is_valid_rpm_limits_json(value: Any) -> bool:
+def _is_valid_rpm_limits_json(value: object) -> bool:
     """Validate the MINIMAX_TTS_RPM_LIMITS override map.
 
     Empty is allowed (no overrides). A non-empty value must be a JSON object
@@ -109,7 +109,7 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
-def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
+def parse_llm_model_max_output_tokens(value: object) -> dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
     if value in (None, ""):
         return {}
@@ -146,7 +146,7 @@ def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
     return parsed
 
 
-def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
+def _is_valid_llm_model_max_output_tokens_json(value: object) -> bool:
     try:
         parse_llm_model_max_output_tokens(value)
     except ValueError:
@@ -1994,7 +1994,7 @@ class EnhancedConfig:
         """
 
         # Format values for .env output, handling lists as comma-separated strings
-        def format_value(env_var: EnvVar, value: Any) -> str:
+        def format_value(env_var: EnvVar, value: object) -> str:
             if value is None:
                 return ""
             if env_var.type is list:
@@ -2253,7 +2253,7 @@ class Config(FlaskConfig):
         return self.parent.setdefault(key, default)
 
 
-def get_config(key: str, default: Any = None) -> Any:
+def get_config(key: str, default: object = None) -> object:
     """Get configuration value.
 
     Args:

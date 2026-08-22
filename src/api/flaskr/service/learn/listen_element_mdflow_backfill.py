@@ -333,7 +333,7 @@ def _count_current_run_active_rows(
     ).count()
 
 
-def _reset_adapter_runtime(adapter: Any, generated_block_bid: str) -> None:
+def _reset_adapter_runtime(adapter: object, generated_block_bid: str) -> None:
     adapter._block_states.pop(generated_block_bid, None)
     adapter._current_element_bid = None
     adapter._current_ask_anchor_bid = None
@@ -341,7 +341,7 @@ def _reset_adapter_runtime(adapter: Any, generated_block_bid: str) -> None:
     adapter._current_answer_element_bid = None
 
 
-def _latest_anchor_bid_from_messages(messages: list[Any]) -> str:
+def _latest_anchor_bid_from_messages(messages: list[object]) -> str:
     for message in reversed(messages):
         content = getattr(message, "content", None)
         if getattr(message, "type", "") != "element" or content is None:
@@ -363,9 +363,9 @@ def _latest_anchor_bid_from_messages(messages: list[Any]) -> str:
 
 
 def _emit_content_group(
-    adapter: Any,
+    adapter: object,
     block: LearnGeneratedBlock,
-) -> list[Any]:
+) -> list[object]:
     messages: list[Any] = []
     content = str(block.generated_content or "")
     for item in format_content(content):
@@ -381,9 +381,9 @@ def _emit_content_group(
 
 
 def _emit_interaction_group(
-    adapter: Any,
+    adapter: object,
     block: LearnGeneratedBlock,
-) -> list[Any]:
+) -> list[object]:
     event = RunMarkdownFlowDTO(
         outline_bid=block.outline_item_bid or "",
         generated_block_bid=block.generated_block_bid or "",
@@ -394,12 +394,12 @@ def _emit_interaction_group(
 
 
 def _emit_follow_up_group(
-    adapter: Any,
+    adapter: object,
     *,
     ask_block: LearnGeneratedBlock,
     answer_block: LearnGeneratedBlock,
     anchor_element_bid: str,
-) -> list[Any]:
+) -> list[object]:
     messages: list[Any] = []
     generated_block_bid = answer_block.generated_block_bid or ""
     ask_event = RunMarkdownFlowDTO(

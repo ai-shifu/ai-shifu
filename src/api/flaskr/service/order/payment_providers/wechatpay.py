@@ -7,7 +7,7 @@ import json
 import secrets
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import requests
@@ -194,7 +194,7 @@ class WechatPayProvider(PaymentProvider):
         path: str,
         body: str,
         app: Flask,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         timestamp = str(int(time.time()))
         nonce = secrets.token_hex(16)
         signature = self._sign_request(

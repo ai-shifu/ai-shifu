@@ -236,7 +236,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
     return None
 
 
-def _normalize_order_status_filter(value: Any) -> int | None:
+def _normalize_order_status_filter(value: object) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -248,7 +248,7 @@ def _normalize_order_status_filter(value: Any) -> int | None:
 
 
 def _normalize_order_datetime_filter(
-    value: Any, *, is_end: bool = False
+    value: object, *, is_end: bool = False
 ) -> datetime | None:
     if isinstance(value, datetime):
         return value
@@ -772,7 +772,7 @@ def import_activation_orders(
     course_id: str,
     user_nick_name: str | None = None,
     contact_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Bulk import activation orders from a list of phone/email identifiers."""
     results: dict[str, Any] = {"success": [], "failed": []}
     for mobile in mobiles:
@@ -818,7 +818,7 @@ def import_activation_orders_from_entries(
     entries: list[dict[str, str]],
     course_id: str,
     contact_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Bulk import activation orders from parsed phone/email+nickname entries."""
     results: dict[str, Any] = {"success": [], "failed": []}
     for entry in entries:
@@ -868,7 +868,7 @@ def list_orders(
     user_id: str,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any] | None = None,
+    filters: dict[str, object] | None = None,
 ) -> PageNationDTO:
     """List orders visible to the current operator with optional filters."""
     with app.app_context():
@@ -962,7 +962,7 @@ def list_operator_orders(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any] | None = None,
+    filters: dict[str, object] | None = None,
 ) -> PageNationDTO:
     """List global orders for operator views with cross-course filters."""
     with app.app_context():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
@@ -123,7 +123,7 @@ def _build_notification_extension_payload(
     requested_at: datetime,
     operator_user_bid: str,
     grant_channel: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     return {
         "status": _NOTIFICATION_STATUS_TEMPLATE_PENDING,
         "requested_at": requested_at.isoformat(),

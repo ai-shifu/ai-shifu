@@ -54,7 +54,7 @@ def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     return wrapped
 
 
-def _get_pingpp_client() -> Any:
+def _get_pingpp_client() -> object:
     with _pingpp_client_state.lock:
         if _pingpp_client_state.client is not None:
             return _pingpp_client_state.client

@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from celery import Celery, Task
 from celery.schedules import crontab
@@ -66,7 +66,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     resolved_flask_app = flask_app or _load_flask_app()
 
     @worker_process_init.connect(weak=False)
-    def _dispose_db_pools_after_fork(**_kwargs: Any) -> None:
+    def _dispose_db_pools_after_fork(**_kwargs: object) -> None:
         try:
             dispose_inherited_db_pools(resolved_flask_app)
         except Exception:  # pragma: no cover - never kill a booting worker
@@ -100,7 +100,7 @@ def get_celery_app(flask_app: Flask | None = None) -> Celery:
     return _celery_state.app
 
 
-def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
+def _build_celery_config(flask_app: Flask) -> dict[str, object]:
     default_broker_url = "memory://" if flask_app.testing else _DEFAULT_BROKER_URL
     default_result_backend = "cache+memory://" if flask_app.testing else None
     # The CELERY_* keys are declared in flaskr/common/config.py, but this
@@ -137,7 +137,7 @@ def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
     }
 
 
-def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
+def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, object]:
     return {
         "billing.dispatch_due_renewal_events.schedule": {
             "task": "billing.dispatch_due_renewal_events",
@@ -255,7 +255,7 @@ def _register_default_tasks() -> None:
     importlib.import_module("flaskr.service.billing.tasks")
 
 
-def _to_bool(value: Any) -> bool:
+def _to_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):

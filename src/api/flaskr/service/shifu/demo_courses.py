@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
@@ -35,7 +35,7 @@ def load_demo_shifu_bids() -> set[str]:
 
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Resolve demo course for language."""
     normalized_language = str(language or "").strip().lower()
     preferred_key = (

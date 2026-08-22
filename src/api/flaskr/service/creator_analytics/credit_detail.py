@@ -82,7 +82,7 @@ _ALLOWED_USAGE_TYPES = frozenset({1101, 1102})
 _DEFAULT_LIMIT = 100
 
 
-def run(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
+def run(app: Flask, user_id: str, payload: object) -> dict[str, object]:
     """Execute the credit-detail query for ``user_id``.
 
     Validates the payload, enforces the per-shifu permission check, then
@@ -182,7 +182,7 @@ class _Params:
         self.offset = offset
 
 
-def _parse_payload(payload: Any, limit_max: int) -> _Params:
+def _parse_payload(payload: object, limit_max: int) -> _Params:
     if not isinstance(payload, dict):
         _raise(ERR_INVALID_DSL, "payload must be a JSON object")
 
@@ -221,7 +221,7 @@ def _parse_payload(payload: Any, limit_max: int) -> _Params:
     )
 
 
-def _parse_optional_date(raw: Any, field_name: str) -> date | None:
+def _parse_optional_date(raw: object, field_name: str) -> date | None:
     if raw is None or raw == "":
         return None
     if not isinstance(raw, str):
@@ -238,7 +238,7 @@ def _parse_optional_date(raw: Any, field_name: str) -> date | None:
 
 
 def _parse_int_set(
-    raw: Any, field_name: str, allowed: Iterable[int]
+    raw: object, field_name: str, allowed: Iterable[int]
 ) -> tuple[int, ...] | None:
     if raw is None:
         return None
@@ -263,7 +263,7 @@ def _parse_int_set(
     return tuple(out)
 
 
-def _parse_int(raw: Any, field_name: str, *, default: int) -> int:
+def _parse_int(raw: object, field_name: str, *, default: int) -> int:
     if raw is None:
         return default
     if isinstance(raw, bool) or not isinstance(raw, int):
@@ -388,14 +388,14 @@ def _build_summary_statement(params: _Params) -> Select:
 # ---------------------------------------------------------------------------
 
 
-def _row_to_dict(columns: Sequence[str], values: Sequence[Any]) -> dict[str, Any]:
+def _row_to_dict(columns: Sequence[str], values: Sequence[object]) -> dict[str, object]:
     row: dict[str, Any] = {}
     for col, val in zip(columns, values, strict=False):
         row[col] = _coerce_value(val)
     return row
 
 
-def _summary_row_to_dict(summary_row: Any) -> dict[str, Any]:
+def _summary_row_to_dict(summary_row: object) -> dict[str, object]:
     if summary_row is None:
         return {
             "total_records": 0,
@@ -423,7 +423,7 @@ def _summary_row_to_dict(summary_row: Any) -> dict[str, Any]:
     }
 
 
-def _coerce_value(value: Any) -> Any:
+def _coerce_value(value: object) -> object:
     """Coerce non-JSON-friendly values (Decimal, datetime) to strings.
 
     The HTTP response wrapper turns the dict into JSON; SQLAlchemy returns

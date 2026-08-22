@@ -83,7 +83,7 @@ def _parse_model_output(raw_model_text: str) -> str:
     return raw_model_text
 
 
-def _parse_codex_events(stdout: str) -> dict[str, Any]:
+def _parse_codex_events(stdout: str) -> dict[str, object]:
     item_types: set[str] = set()
     warnings: list[str] = []
     usage: dict[str, Any] | None = None
@@ -138,7 +138,7 @@ def _run_codex(
     user_message: str,
     model: str,
     timeout_seconds: int,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, object]]:
     with tempfile.TemporaryDirectory(
         prefix="learner-profile-prompt-eval-", dir="/private/tmp"
     ) as temporary_dir:
@@ -234,7 +234,7 @@ def _default_output_path() -> Path:
     return Path(output_path)
 
 
-def _write_private_report(path: Path, report: dict[str, Any]) -> None:
+def _write_private_report(path: Path, report: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
@@ -248,7 +248,7 @@ def _write_private_report(path: Path, report: dict[str, Any]) -> None:
             os.close(descriptor)
 
 
-def _load_cases(path: Path) -> tuple[dict[str, Any], list[dict[str, str]]]:
+def _load_cases(path: Path) -> tuple[dict[str, object], list[dict[str, str]]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     cases = payload.get("cases")
     if not isinstance(cases, list) or not cases:
@@ -293,7 +293,7 @@ def _evaluate_case(
     system_prompt: str,
     model: str,
     timeout_seconds: int,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     source = case["learner_profile"]
     result: dict[str, Any] = {
         "case_id": case["id"],
@@ -337,7 +337,7 @@ def _evaluate_task(
     system_prompt: str,
     model: str,
     timeout_seconds: int,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     case, run_number = task
     return _evaluate_case(
         case=case,

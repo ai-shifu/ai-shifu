@@ -16,7 +16,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 )
 
 
-def get_default_ask_provider_config() -> dict[str, Any]:
+def get_default_ask_provider_config() -> dict[str, object]:
     """Return default ask provider config."""
     return {
         "provider": ASK_PROVIDER_LLM,
@@ -316,8 +316,8 @@ def _localize_mode_title(mode: str, fallback: str) -> str:
 
 
 def _localize_provider_schema(
-    provider: str, schema: dict[str, Any] | None
-) -> dict[str, Any]:
+    provider: str, schema: dict[str, object] | None
+) -> dict[str, object]:
     if not isinstance(schema, dict):
         return {}
 
@@ -349,7 +349,7 @@ def _localize_provider_schema(
     return localized_schema
 
 
-def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
+def get_ask_provider_schema_registry() -> dict[str, dict[str, object]]:
     """Return schema metadata for all supported ask providers."""
     return {
         ASK_PROVIDER_LLM: {
@@ -526,7 +526,7 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
 
 
 def validate_ask_provider_specific_config(
-    provider: str, config: Any
+    provider: str, config: object
 ) -> tuple[bool, str | None]:
     """Lightweight validation against provider schema required fields."""
     registry = get_ask_provider_schema_registry()
@@ -569,12 +569,12 @@ def validate_ask_provider_specific_config(
     return True, None
 
 
-def get_effective_ask_provider_config(raw_config: Any) -> dict[str, Any]:
+def get_effective_ask_provider_config(raw_config: object) -> dict[str, object]:
     """Normalize persisted ask provider config."""
     return normalize_ask_provider_config(raw_config)
 
 
-def get_ask_provider_metadata() -> dict[str, Any]:
+def get_ask_provider_metadata() -> dict[str, object]:
     """Metadata endpoint payload for ask provider schema-driven UI."""
     registry = get_ask_provider_schema_registry()
 

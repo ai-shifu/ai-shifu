@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.contact_identifiers import (
     resolve_contact_lookup_providers,
@@ -139,13 +139,13 @@ def _resolve_creator_contact(creator_contact: str) -> tuple[str, str]:
     return contact_type, normalized_creator_contact
 
 
-def _user_repository() -> Any:
+def _user_repository() -> object:
     return import_module("flaskr.service.user.repository")
 
 
-def _user_utils() -> Any:
+def _user_utils() -> object:
     return import_module("flaskr.service.user.utils")
 
 
-def _user_consts() -> Any:
+def _user_consts() -> object:
     return import_module("flaskr.service.user.consts")

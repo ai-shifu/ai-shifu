@@ -99,7 +99,7 @@ def assert_renewal_event_claim_current(
 
 def _update_processing_renewal_event(
     event: BillingRenewalEvent,
-    values: dict[str, Any],
+    values: dict[str, object],
 ) -> None:
     expected_attempt_count = _expected_claim_attempt_count(event)
     query = BillingRenewalEvent.query.filter(
@@ -163,7 +163,7 @@ def fail_renewal_event(
 
 def build_subscription_renewal_event_payload(
     subscription: BillingSubscription,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build subscription renewal event payload."""
     return _normalize_json_object(
         {
@@ -202,7 +202,7 @@ def _reset_subscription_renewal_event(
     event: BillingRenewalEvent,
     subscription: BillingSubscription,
     *,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> None:
     BillingRenewalEvent.query.filter(
         BillingRenewalEvent.deleted == 0,
@@ -229,7 +229,7 @@ def _build_subscription_renewal_event(
     *,
     event_type: int,
     scheduled_at: datetime,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingRenewalEvent:
     return BillingRenewalEvent(
         renewal_event_bid=generate_id(app),

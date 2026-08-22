@@ -647,5 +647,5 @@ def _resolve_stat_date_range(
     return start_date, end_date
 
 
-def _quantize_decimal(value: Any) -> Decimal:
+def _quantize_decimal(value: object) -> Decimal:
     return _quantize_credit_amount(value)

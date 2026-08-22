@@ -143,7 +143,7 @@ def _log_warning(message: str) -> None:
     _log("warning", message)
 
 
-def _extract_usage_value(usage: Any, key: str) -> int:
+def _extract_usage_value(usage: object, key: str) -> int:
     if usage is None:
         return 0
     if isinstance(usage, dict):
@@ -151,7 +151,7 @@ def _extract_usage_value(usage: Any, key: str) -> int:
     return int(getattr(usage, key, 0) or 0)
 
 
-def _extract_input_cache(usage: Any) -> int:
+def _extract_input_cache(usage: object) -> int:
     if usage is None:
         return 0
     if isinstance(usage, dict):
@@ -177,9 +177,9 @@ def _extract_input_cache(usage: Any) -> int:
 
 
 def _attach_usage_output_text(
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     response_text: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Store a bounded response excerpt for operator usage detail summaries."""
     normalized_response_text = str(response_text or "").strip()
     if not normalized_response_text or "output_text" in metadata:
@@ -191,15 +191,15 @@ def _attach_usage_output_text(
     return next_metadata
 
 
-def _extract_reasoning_delta(delta: Any) -> str:
+def _extract_reasoning_delta(delta: object) -> str:
     """Return provider reasoning from a normalized LiteLLM stream delta."""
 
-    def _get(value: Any, key: str) -> Any:
+    def _get(value: object, key: str) -> object:
         if isinstance(value, dict):
             return value.get(key)
         return getattr(value, key, None)
 
-    def _normalize(value: Any) -> str | None:
+    def _normalize(value: object) -> str | None:
         if isinstance(value, str) and value.strip():
             return value
         return normalize_langfuse_output_value(value)
@@ -250,7 +250,7 @@ def _build_langfuse_llm_output(
     }
 
 
-def _normalize_model_config(value: Any) -> list[str]:
+def _normalize_model_config(value: object) -> list[str]:
     if not value:
         return []
     if isinstance(value, str):
@@ -655,7 +655,7 @@ DEEPSEEK_FALLBACK_MODELS = [
 ]
 
 
-def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_openai_params(model_id: str, temperature: float) -> dict[str, object]:
     if model_id.startswith("gpt-5"):
         try:
             model_info = litellm.get_model_info(
@@ -722,7 +722,7 @@ def _reload_openai_params(model_id: str, temperature: float) -> dict[str, Any]:
     }
 
 
-def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, object]:
     # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
     # Gemini model ids are not included in LiteLLM's supported-params table yet,
     # so explicitly allow reasoning_effort for Gemini requests.
@@ -744,7 +744,7 @@ def _reload_gemini_params(model_id: str, temperature: float) -> dict[str, Any]:
     return params
 
 
-def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_ark_params(model_id: str, temperature: float) -> dict[str, object]:
     _ = model_id
     return {
         "temperature": temperature,
@@ -755,7 +755,7 @@ def _reload_ark_params(model_id: str, temperature: float) -> dict[str, Any]:
     }
 
 
-def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, object]:
     _ = model_id
     return {
         "temperature": temperature,
@@ -763,7 +763,7 @@ def _reload_silicon_params(model_id: str, temperature: float) -> dict[str, Any]:
     }
 
 
-def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, object]:
     _ = model_id
     return {
         "temperature": temperature,
@@ -771,7 +771,7 @@ def _reload_qwen_params(model_id: str, temperature: float) -> dict[str, Any]:
     }
 
 
-def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_deepseek_params(model_id: str, temperature: float) -> dict[str, object]:
     _ = model_id
     return {
         "temperature": temperature,
@@ -791,7 +791,7 @@ _GEMINI_GENERATION_CONFIG_KEYS = ("generation_config", "generationConfig")
 _GEMINI_THINKING_CONFIG_KEYS = ("thinkingConfig", "thinking_config")
 
 
-def _reload_glm_params(model_id: str, temperature: float) -> dict[str, Any]:
+def _reload_glm_params(model_id: str, temperature: float) -> dict[str, object]:
     params: dict[str, Any] = {
         "temperature": temperature,
         # LiteLLM's ZAI adapter currently gates thinking on model metadata and
@@ -809,7 +809,7 @@ def _reload_glm_params(model_id: str, temperature: float) -> dict[str, Any]:
 
 
 def _apply_provider_params(
-    kwargs: dict[str, Any], provider_params: dict[str, Any]
+    kwargs: dict[str, object], provider_params: dict[str, object]
 ) -> None:
     provider_extra_body = provider_params.get("extra_body")
     has_thinking_policy = any(
@@ -1036,7 +1036,7 @@ def invoke_llm(
     billable: int | None = None,
     request_id: str | None = None,
     trace_id: str | None = None,
-    usage_metadata: dict[str, Any] | None = None,
+    usage_metadata: dict[str, object] | None = None,
     **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
     """Invoke LLM."""
@@ -1220,7 +1220,7 @@ def chat_llm(
     billable: int | None = None,
     request_id: str | None = None,
     trace_id: str | None = None,
-    usage_metadata: dict[str, Any] | None = None,
+    usage_metadata: dict[str, object] | None = None,
     **kwargs: object,
 ) -> Generator[LLMStreamResponse, None, None]:
     """Send a chat request through the configured LLM provider."""
@@ -1395,7 +1395,7 @@ def chat_llm(
 
 def _build_model_options(
     app: Flask, available_models: list[str]
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     allowed, display_names = _resolve_allowed_model_config()
 
     if not allowed:
@@ -1513,8 +1513,8 @@ def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
 
 
 def _attach_credit_multipliers(
-    app: Flask, options: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+    app: Flask, options: list[dict[str, object]]
+) -> list[dict[str, object]]:
     default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
     if not options:
         return [{**option, "credit_multiplier": None} for option in options]
@@ -1561,7 +1561,7 @@ def _attach_credit_multipliers(
         return enriched
 
 
-def get_current_models(app: Flask) -> list[dict[str, Any]]:
+def get_current_models(app: Flask) -> list[dict[str, object]]:
     """Return current models."""
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():

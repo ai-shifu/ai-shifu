@@ -18,7 +18,6 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # Ensure `/app` (repo root for src/api) is on sys.path when executed as a file path.
 _API_ROOT = Path(__file__).resolve().parents[1]
@@ -86,7 +85,7 @@ class ReportRow:
         return f'<audio controls preload="none" src="{url}"></audio>'
 
 
-def _safe_str(value: Any) -> str:
+def _safe_str(value: object) -> str:
     return ("" if value is None else str(value)).strip()
 
 
@@ -254,7 +253,7 @@ def _render_html(rows: list[ReportRow], *, output_path: str) -> str:
     return str(out.resolve())
 
 
-def _escape_markdown_cell(value: Any) -> str:
+def _escape_markdown_cell(value: object) -> str:
     cell = _safe_str(value)
     if not cell:
         return ""

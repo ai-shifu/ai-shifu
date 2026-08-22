@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
 
 HEX_ID_RE = re.compile(r"\b[0-9a-f]{32}\b")
 UUID_RE = re.compile(
@@ -115,7 +114,9 @@ def normalize_sse_transcript(
     return "\n".join(lines) + "\n"
 
 
-def normalize_json_payload(payload: Any, normalizer: IdNormalizer | None = None) -> str:
+def normalize_json_payload(
+    payload: object, normalizer: IdNormalizer | None = None
+) -> str:
     """Normalize a JSON response payload into a stable pretty-printed string."""
     normalizer = normalizer or IdNormalizer()
     normalized = normalizer.normalize_value(payload)

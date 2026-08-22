@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import Any
 
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.billing.dtos import BillingPlanDTO

@@ -419,7 +419,7 @@ class VolcengineProtocol:
         serialization: SerializationMethod,
         compression: CompressionMethod,
         event: Event | None = None,
-        payload: dict[str, Any] | None = None,
+        payload: dict[str, object] | None = None,
     ) -> bytes:
         """Encode a frame without session/connection ID."""
         frame = bytearray()
@@ -471,7 +471,7 @@ class VolcengineProtocol:
         compression: CompressionMethod,
         event: Event,
         session_id: str,
-        payload: dict[str, Any] | None = None,
+        payload: dict[str, object] | None = None,
     ) -> bytes:
         """Encode a frame with session ID."""
         frame = bytearray()

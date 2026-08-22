@@ -460,11 +460,11 @@ def _normalize_optional_metadata_bid(value: object) -> str:
     return "" if normalized.lower() == "null" else normalized
 
 
-def _normalize_json_dict(payload: object) -> dict[str, Any]:
+def _normalize_json_dict(payload: object) -> dict[str, object]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _json_extract_text(column: Any, path: str) -> Any:
+def _json_extract_text(column: object, path: str) -> object:
     bind = db.session.get_bind()
     dialect_name = bind.dialect.name.lower() if bind is not None else ""
     extracted = func.json_extract(column, path)
@@ -473,7 +473,7 @@ def _json_extract_text(column: Any, path: str) -> Any:
     return extracted
 
 
-def _sql_null_if_empty_or_json_null(value: Any) -> Any:
+def _sql_null_if_empty_or_json_null(value: object) -> object:
     text = func.trim(func.coalesce(value, ""))
     return case(
         (func.lower(text) == "null", None),
@@ -618,13 +618,13 @@ def _load_overdue_reserved_paid_order_records(
     return records
 
 
-def _normalize_bucket_credit_state(value: Any) -> str:
+def _normalize_bucket_credit_state(value: object) -> str:
     state = str(value or "").strip().lower()
     return "" if state == "null" else state
 
 
 def _extract_ledger_bill_order_bid(
-    ledger: CreditLedgerEntry, metadata: dict[str, Any] | None = None
+    ledger: CreditLedgerEntry, metadata: dict[str, object] | None = None
 ) -> str:
     normalized_metadata = _normalize_json_dict(metadata or ledger.metadata_json)
     return _normalize_optional_metadata_bid(
@@ -863,10 +863,10 @@ def refresh_credit_wallet_snapshot(
 def persist_credit_wallet_snapshot(
     wallet: CreditWallet,
     *,
-    available_credits: Decimal | Any,
-    reserved_credits: Decimal | Any,
-    lifetime_granted_credits: Decimal | Any | None = None,
-    lifetime_consumed_credits: Decimal | Any | None = None,
+    available_credits: Decimal | object,
+    reserved_credits: Decimal | object,
+    lifetime_granted_credits: Decimal | object | None = None,
+    lifetime_consumed_credits: Decimal | object | None = None,
     last_settled_usage_id: int | None = None,
     updated_at: datetime | None = None,
 ) -> CreditWallet:
@@ -1001,7 +1001,7 @@ def load_or_create_credit_bucket_by_category(
     creator_bid: str,
     bucket_category: int,
     source_bid: str,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
     effective_from: datetime | None = None,
     effective_to: datetime | None = None,
 ) -> CreditWalletBucket:
@@ -1406,7 +1406,7 @@ def repair_credit_bucket_runtime_statuses(
     *,
     creator_bid: str = "",
     wallet_bucket_bid: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Repair buckets whose runtime status no longer matches their live balance."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
@@ -1485,9 +1485,9 @@ def grant_refund_return_credits(
     app: Flask,
     *,
     creator_bid: str,
-    amount: Decimal | Any,
+    amount: Decimal | object,
     refund_bid: str,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
     effective_from: datetime | None = None,
 ) -> RefundReturnCreditsResult:
     """Grant refunded credits back as a new subscription/topup bucket."""
@@ -1628,7 +1628,7 @@ def adjust_credit_wallet_balance(
     app: Flask,
     *,
     creator_bid: str,
-    amount: Decimal | Any,
+    amount: Decimal | object,
     note: str = "",
     operator_user_bid: str = "",
 ) -> BillingLedgerAdjustResultDTO:
@@ -1803,12 +1803,12 @@ def grant_manual_credit_wallet_balance(
     app: Flask,
     *,
     creator_bid: str,
-    amount: Decimal | Any,
+    amount: Decimal | object,
     source_bid: str = "",
     effective_from: datetime | None = None,
     effective_to: datetime | None = None,
-    metadata: dict[str, Any] | None = None,
-    ledger_metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
+    ledger_metadata: dict[str, object] | None = None,
     idempotency_key: str = "",
 ) -> ManualCreditGrantResult:
     """Create a dedicated manual-grant bucket and matching ledger row."""
@@ -2456,13 +2456,13 @@ def _build_expired_credit_pack_restore_record(
     creator_bid: str | None = None,
     wallet_bid: str | None = None,
     wallet_bucket_bid: str | None = None,
-    previous_available_credits: Decimal | Any = _ZERO,
-    available_credits: Decimal | Any = _ZERO,
-    previous_expired_credits: Decimal | Any = _ZERO,
-    expired_credits: Decimal | Any = _ZERO,
+    previous_available_credits: Decimal | object = _ZERO,
+    available_credits: Decimal | object = _ZERO,
+    previous_expired_credits: Decimal | object = _ZERO,
+    expired_credits: Decimal | object = _ZERO,
     previous_status: int | None = None,
     status: int | None = None,
-    restored_credits: Decimal | Any = _ZERO,
+    restored_credits: Decimal | object = _ZERO,
     repair_action: str,
     repair_reason: str,
     changed: bool = False,

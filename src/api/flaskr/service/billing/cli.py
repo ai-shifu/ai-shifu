@@ -219,7 +219,7 @@ def backfill_authoring_permission_creators(
     user_bid: str = "",
     limit: int | None = None,
     dry_run: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Backfill authoring permission creators."""
     normalized_course_bid = _normalize_cli_bid(course_bid)
     normalized_user_bid = _normalize_cli_bid(user_bid)
@@ -1349,7 +1349,7 @@ def register_billing_commands(console: object) -> None:
         _echo_payload(payload)
 
 
-def seed_billing_bootstrap_data() -> dict[str, Any]:
+def seed_billing_bootstrap_data() -> dict[str, object]:
     """Seed billing bootstrap data."""
     rate_result = _upsert_bootstrap_rows(
         model=CreditUsageRate,
@@ -1370,7 +1370,7 @@ def seed_billing_bootstrap_data() -> dict[str, Any]:
     }
 
 
-def seed_sample_exception_orders() -> dict[str, Any]:
+def seed_sample_exception_orders() -> dict[str, object]:
     """Seed sample exception orders."""
     current_time = now_utc().replace(microsecond=0)
     plan_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_PLAN)
@@ -1633,7 +1633,7 @@ def seed_sample_exception_orders() -> dict[str, Any]:
     }
 
 
-def seed_sample_focus_teachers() -> dict[str, Any]:
+def seed_sample_focus_teachers() -> dict[str, object]:
     """Seed sample focus teachers."""
     current_time = now_utc().replace(microsecond=0)
     today = current_time.date()
@@ -1917,7 +1917,7 @@ def upsert_billing_product(
     sort_order: int,
     entitlement_json: str,
     metadata_json: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Create or update billing product."""
     payload = {
         "product_bid": str(product_bid or "").strip(),
@@ -1985,7 +1985,7 @@ def bind_provider_price_mapping(
     provider_price_id: str,
     livemode: bool,
     metadata_json: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Bind a provider price to a billing product and return its payload."""
     try:
         with unit_of_work():
@@ -2010,7 +2010,7 @@ def bind_provider_price_mapping(
     return payload
 
 
-def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
     """Activate a provider-price mapping and return its validation result."""
     try:
         with unit_of_work():
@@ -2024,7 +2024,7 @@ def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, An
     return payload
 
 
-def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
     """Retire a provider-price mapping and return its serialized payload."""
     try:
         with unit_of_work():
@@ -2038,7 +2038,7 @@ def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]
     return payload
 
 
-def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
     """Validate a provider-price mapping and return its validation result."""
     try:
         with unit_of_work():
@@ -2058,7 +2058,7 @@ def list_cli_provider_price_mappings(
     provider_account_id: str,
     status_label: str,
     livemode: bool | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """List provider-price mappings matching the requested CLI filters."""
     normalized_status = str(status_label or "").strip().lower()
     rows = list_provider_price_mappings(
@@ -2078,7 +2078,7 @@ def list_cli_provider_price_mappings(
     }
 
 
-def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
     """Return a provider-price mapping and its active mapping in the same scope."""
     try:
         mapping = get_provider_price_mapping(provider_price_bid)
@@ -2097,7 +2097,7 @@ def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any
     }
 
 
-def _provider_price_validation_payload(summary: object) -> dict[str, Any]:
+def _provider_price_validation_payload(summary: object) -> dict[str, object]:
     return {
         "valid": summary.valid,
         "errors": summary.errors,
@@ -2131,7 +2131,7 @@ def grant_billing_plan_by_identify(
     product_code: str = "",
     effective_to: str = "",
     note: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Grant billing plan by identify."""
     normalized_identify = str(identify or "").strip()
     if not normalized_identify:
@@ -2364,7 +2364,7 @@ def grant_operator_credits_by_cli(
     display_name: str = "",
     note: str = "",
     operator_user_bid: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Grant operator credits by CLI."""
     normalized_identify = str(identify or "").strip()
     normalized_user_bid = str(user_bid or "").strip()
@@ -2464,7 +2464,7 @@ def _upsert_bootstrap_rows(
     *,
     model: object,
     key_field: str,
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, object]],
 ) -> dict[str, int]:
     inserted = 0
     updated = 0
@@ -2484,7 +2484,7 @@ def _upsert_bootstrap_row(
     *,
     model: object,
     key_field: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> bool:
     key_value = payload[key_field]
     instance = (
@@ -2503,7 +2503,7 @@ def _upsert_bootstrap_row(
 
 def _parse_optional_json_object(
     raw_value: str, *, option_name: str
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     normalized_value = str(raw_value or "").strip()
     if not normalized_value:
         return None
@@ -2712,7 +2712,7 @@ def _enforce_manual_subscription_expire_event(
     db.session.add(expire_event)
 
 
-def _serialize_cli_payload(payload: Any) -> Any:
+def _serialize_cli_payload(payload: object) -> object:
     if hasattr(payload, "to_task_payload"):
         return payload.to_task_payload()
     if hasattr(payload, "to_payload"):
@@ -2724,7 +2724,7 @@ def _serialize_cli_payload(payload: Any) -> Any:
     return payload
 
 
-def _echo_payload(payload: Any) -> None:
+def _echo_payload(payload: object) -> None:
     click.echo(
         json.dumps(
             _serialize_cli_payload(payload),
@@ -2735,7 +2735,7 @@ def _echo_payload(payload: Any) -> None:
     )
 
 
-def _serialize_json_value(value: Any) -> Any:
+def _serialize_json_value(value: object) -> object:
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, Decimal):

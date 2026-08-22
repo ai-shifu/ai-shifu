@@ -856,7 +856,7 @@ def _build_course_summary(
     course: object,
     user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: dict[str, Any] | None = None,
+    activity: dict[str, object] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     return build_admin_operation_course_summary(
         course,
@@ -958,7 +958,7 @@ def _resolve_created_last_7d_window(
 def _load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     return load_course_activity_map(drafts, published)
 
 
@@ -1059,11 +1059,11 @@ def _find_operator_course_bids_by_name(course_name: str) -> set[str]:
 
 
 def _build_operator_course_query_filter(
-    shifu_bid_column: Any,
+    shifu_bid_column: object,
     course_query: str,
     *,
     matching_course_bids: set[str] | None = None,
-) -> Any | None:
+) -> object | None:
     normalized_course_query = str(course_query or "").strip()
     if not normalized_course_query:
         return None
@@ -1315,7 +1315,7 @@ def _list_operator_courses_legacy(
     )
     activity_map = _load_course_activity_map(draft_rows, published_rows)
 
-    def resolve_activity(course: object) -> dict[str, Any]:
+    def resolve_activity(course: object) -> dict[str, object]:
         return activity_map.get(str(course.shifu_bid or "").strip(), {})
 
     def resolve_updated_at(course: object) -> datetime | None:
@@ -1554,7 +1554,7 @@ def list_operator_courses(
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
 
-        def resolve_activity(course: object) -> dict[str, Any]:
+        def resolve_activity(course: object) -> dict[str, object]:
             return {
                 "updated_at": course.activity_updated_at or course.updated_at,
                 "updated_user_bid": course.activity_updated_user_bid

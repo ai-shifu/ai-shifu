@@ -8,7 +8,6 @@ import uuid
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 import colorlog
 import pytz

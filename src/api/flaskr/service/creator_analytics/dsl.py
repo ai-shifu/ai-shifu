@@ -155,7 +155,7 @@ class QueryDSL:
 # ---------------------------------------------------------------------------
 
 
-def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
+def parse_dsl(payload: object, limit_max: int, user_id: str = "") -> QueryDSL:
     """Validate ``payload`` and return a :class:`QueryDSL`.
 
     ``limit_max`` is the upper bound for the DSL ``limit`` field (typically
@@ -236,7 +236,7 @@ def parse_dsl(payload: Any, limit_max: int, user_id: str = "") -> QueryDSL:
 # ---------------------------------------------------------------------------
 
 
-def _parse_select(raw: Any, spec: TableSpec) -> list[str]:
+def _parse_select(raw: object, spec: TableSpec) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -254,7 +254,7 @@ def _parse_select(raw: Any, spec: TableSpec) -> list[str]:
     return list(raw)
 
 
-def _parse_group_by(raw: Any, spec: TableSpec) -> list[str]:
+def _parse_group_by(raw: object, spec: TableSpec) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -270,7 +270,7 @@ def _parse_group_by(raw: Any, spec: TableSpec) -> list[str]:
     return list(raw)
 
 
-def _parse_aggregates(raw: Any, spec: TableSpec) -> list[Aggregate]:
+def _parse_aggregates(raw: object, spec: TableSpec) -> list[Aggregate]:
     if raw is None:
         return []
     if not isinstance(raw, list):
@@ -336,7 +336,7 @@ def _parse_aggregates(raw: Any, spec: TableSpec) -> list[Aggregate]:
     return aggregates
 
 
-def _parse_filters(raw: Any, spec: TableSpec) -> list[Filter]:
+def _parse_filters(raw: object, spec: TableSpec) -> list[Filter]:
     if raw is None:
         return []
     if not isinstance(raw, list):
@@ -364,7 +364,7 @@ def _parse_filters(raw: Any, spec: TableSpec) -> list[Filter]:
 
 
 def _parse_order_by(
-    raw: Any,
+    raw: object,
     select: Sequence[str],
     aggregates: Sequence[Aggregate],
     group_by: Sequence[str],
@@ -391,7 +391,9 @@ def _parse_order_by(
     return out
 
 
-def _parse_paging(raw_limit: Any, raw_offset: Any, limit_max: int) -> tuple[int, int]:
+def _parse_paging(
+    raw_limit: object, raw_offset: object, limit_max: int
+) -> tuple[int, int]:
     limit = raw_limit if raw_limit is not None else min(100, limit_max)
     if not isinstance(limit, int) or isinstance(limit, bool):
         _raise(ERR_INVALID_LIMIT, "'limit' must be an integer")
@@ -411,7 +413,7 @@ def _parse_paging(raw_limit: Any, raw_offset: Any, limit_max: int) -> tuple[int,
 # ---------------------------------------------------------------------------
 
 
-def _validate_filter_value(index: int, op: str, value: Any) -> None:
+def _validate_filter_value(index: int, op: str, value: object) -> None:
     if op in _OPS_REQUIRING_NO_VALUE:
         if value is not None:
             _raise(ERR_INVALID_DSL, f"where[{index}] '{op}' must not carry a value")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.profile_onboarding import (
     get_profile_onboarding_config,
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def get_operator_profile_onboarding_config(app: Flask) -> dict[str, Any]:
+def get_operator_profile_onboarding_config(app: Flask) -> dict[str, object]:
     """Return operator profile onboarding config."""
     _ = app
     return get_profile_onboarding_config()
@@ -22,9 +22,9 @@ def get_operator_profile_onboarding_config(app: Flask) -> dict[str, Any]:
 def update_operator_profile_onboarding_config(
     app: Flask,
     *,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     operator_user_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Update operator profile onboarding config."""
     return update_profile_onboarding_config(
         app,
