@@ -228,7 +228,6 @@ select = [
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    "D213",    # summary on the second line -- conflicts with D212
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
 ]

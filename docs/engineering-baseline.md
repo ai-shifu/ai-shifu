@@ -433,6 +433,14 @@ insert a blank line before a class docstring, disable `D211`, or add a local
 `noqa` to work around the pair; use the formatter-compatible `D211` form for
 every new class.
 
+For `D213`, retain `D212` and the Ruff formatter's summary-first layout: put a
+docstring's complete summary on its first physical line. `D213` requires an
+opening blank line and therefore the inverse layout, and Ruff automatically
+ignores it when both incompatible rules are selected; do not add it to
+`ignore`. Do not add an opening blank line, disable `D212`, or add a local
+`noqa` to work around the pair; use the formatter-compatible `D212` form for
+every new or edited docstring.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

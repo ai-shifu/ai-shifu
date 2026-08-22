@@ -263,6 +263,13 @@ plan's progress update for that rule.
   when the D prefix selects both rules, so this stage removes the redundant
   global ignore, documents the formatter-compatible D211 convention, and
   protects the built-in resolution with a focused Ruff policy test.
+- [x] 2026-08-22: Prepared the D213 policy stage on
+  `sunner/ruff-d213-rebuild`, stacked on D203. The direct D213 census reports
+  677 formatter-fixable findings while selected D212 is clean, proving their
+  mutually exclusive summary layouts. Ruff automatically ignores D213 when the
+  D prefix selects both rules, so this stage removes the redundant global
+  ignore, documents the formatter-compatible D212 convention, and protects the
+  built-in resolution with a focused Ruff policy test.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
