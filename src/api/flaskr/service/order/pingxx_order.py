@@ -7,6 +7,7 @@ from .payment_providers.pingxx import PingxxProvider
 
 
 def init_pingxx(app: Flask):
+    """Initialize pingxx."""
     provider = _get_provider()
     client = provider.ensure_client(app)
     app.logger.info("init pingxx done")
@@ -16,6 +17,7 @@ def init_pingxx(app: Flask):
 def create_pingxx_order(
     app: Flask, order_no, app_id, channel, amount, client_ip, subject, body, extra=None
 ):
+    """Create pingxx order."""
     app.logger.info(
         "create pingxx order,order_no:%s app_id:%s channel:%s amount:%s client_ip:%s subject:%s body:%s extra:%s",
         order_no,

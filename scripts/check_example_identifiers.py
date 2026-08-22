@@ -482,6 +482,7 @@ def find_violations(
 
 
 def run_self_test() -> None:
+    """Run self test."""
     suspicious_volcengine = "S_" + "a1b2c3d4"
     suspicious_volcengine_hyphen = "S_" + "-abcd"
     suspicious_volcengine_underscore = "S_" + "_abcd"
@@ -643,6 +644,7 @@ def run_self_test() -> None:
 
 
 def main() -> int:
+    """Validate example identifiers across repository documentation."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--self-test",

@@ -163,6 +163,7 @@ def _build_scene_status(
 def build_onboarding_status(
     app: Flask, user_bid: str, language: str | None
 ) -> dict[str, Any]:
+    """Build onboarding status."""
     with app.app_context():
         user = _load_user_entity(user_bid)
         user_segment = _resolve_user_segment(user)
@@ -209,6 +210,7 @@ def complete_onboarding_scene(
     trigger_source: str,
     status: str = STATUS_COMPLETED,
 ) -> dict[str, Any]:
+    """Complete onboarding scene."""
     normalized_user_bid = str(user_bid or "").strip()
     normalized_scene_key = str(scene_key or "").strip()
     normalized_version = str(version or "").strip()

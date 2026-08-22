@@ -145,6 +145,7 @@ class MiniMaxVoiceCloneRunResult:
 
 
 def is_valid_minimax_custom_voice_id(value: str) -> bool:
+    """Return whether valid minimax custom voice ID."""
     return bool(_VOICE_ID_RE.match(str(value or "").strip()))
 
 
@@ -154,6 +155,7 @@ def normalize_audio_blob(
     filename: str,
     purpose: str,
 ) -> NormalizedAudioBlob:
+    """Normalize audio blob."""
     normalized_filename = str(filename or "").strip()
     extension = _extract_extension(normalized_filename)
     if extension not in _ALLOWED_INPUT_EXTENSIONS:
@@ -377,6 +379,7 @@ def submit_minimax_voice_clone(
     prompt_filename: str = "",
     prompt_content_type: str = "",
 ) -> TTSMiniMaxClonedVoice:
+    """Submit minimax voice clone."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_shifu_bid = _normalize_required(shifu_bid, "shifu_bid")
     normalized_display_name = str(display_name or "").strip()[:128]
@@ -527,6 +530,7 @@ def submit_minimax_voice_clone(
 def run_minimax_voice_clone(
     app: Flask, *, voice_bid: str
 ) -> MiniMaxVoiceCloneRunResult:
+    """Run minimax voice clone."""
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
         row = _load_voice_row(normalized_voice_bid)
@@ -580,6 +584,7 @@ def list_minimax_cloned_voices(
     include_deleted: bool = False,
     provider: str = "",
 ) -> list[dict[str, Any]]:
+    """Return minimax cloned voices."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_provider = (provider or "").strip().lower()
     with app.app_context():
@@ -605,6 +610,7 @@ def get_minimax_cloned_voice(
     owner_user_bid: str,
     voice_bid: str,
 ) -> dict[str, Any]:
+    """Return minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
@@ -620,6 +626,7 @@ def retry_minimax_voice_clone(
     owner_user_bid: str,
     voice_bid: str,
 ) -> dict[str, Any]:
+    """Retry minimax voice clone."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
@@ -648,6 +655,7 @@ def delete_minimax_cloned_voice(
     owner_user_bid: str,
     voice_bid: str,
 ) -> dict[str, Any]:
+    """Delete minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
@@ -666,6 +674,7 @@ def build_minimax_clone_cost(
     creator_bid: str,
     shifu_bid: str = "",
 ) -> dict[str, Any]:
+    """Build minimax clone cost."""
     normalized_creator_bid = _normalize_required(creator_bid, "creator_bid")
     estimate = estimate_voice_clone_operation_credits(app)
     available = _available_wallet_credits(app, normalized_creator_bid)
@@ -688,6 +697,7 @@ def build_minimax_clone_cost(
 
 
 def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, Any]:
+    """Serialize minimax cloned voice."""
     return {
         "voice_bid": row.voice_bid,
         "owner_user_bid": row.owner_user_bid,

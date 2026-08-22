@@ -33,6 +33,7 @@ class Dict:
 
 
 def register_dict(name, desp, items: dict):
+    """Register dict."""
     if name in DICTS:
         return
     dict_items = []
@@ -42,5 +43,6 @@ def register_dict(name, desp, items: dict):
 
 
 def get_all_dicts(app: Flask) -> dict:
+    """Return all dicts."""
     app.logger.info("get_all_dicts is called %s", DICTS)
     return DICTS

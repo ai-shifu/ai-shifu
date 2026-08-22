@@ -40,6 +40,7 @@ def check_text_with_llm_response(
     chapter_title: str = "",
     scene: str = "lesson_runtime",
 ):
+    """Check text with LLM response."""
     res = check_text(app, log_script.generated_block_bid, user_input, user_info.user_id)
     span.event(
         name=build_langfuse_event_name(chapter_title, scene, "check_text"),

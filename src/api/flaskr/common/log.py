@@ -169,6 +169,8 @@ def _update_request_timing(status_code: int) -> None:
 
 
 def init_log(app: Flask) -> Flask:
+    """Configure request-aware application logging."""
+
     @app.before_request
     def setup_logging():
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)

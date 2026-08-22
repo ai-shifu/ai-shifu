@@ -21,6 +21,7 @@ class TranslationError(Exception):
 
 
 def iter_locale_dirs() -> Iterable[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
         message = f"Shared translation directory not found: {I18N_DIR}"
         raise TranslationError(message)
@@ -31,6 +32,7 @@ def iter_locale_dirs() -> Iterable[Path]:
 
 
 def load_json(path: Path) -> dict:
+    """Load JSON."""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -69,6 +71,7 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
 
 
 def validate_locale_files(locale_dirs: Iterable[Path]):
+    """Validate key parity and ICU placeholders across every locale."""
     files_per_locale: dict[str, dict[str, Path]] = {}
     flattened_per_locale: dict[str, dict[str, dict[str, str]]] = {}
 
@@ -170,6 +173,7 @@ def _require_locale_dirs() -> list[Path]:
 
 
 def main() -> int:
+    """Validate every shared locale and report translation contract drift."""
     try:
         validate_locale_files(_require_locale_dirs())
     except TranslationError as error:

@@ -60,10 +60,12 @@ _CLONE_PROVIDER_SPECS: dict[str, ClonedVoiceProviderSpec] = {
 
 
 def get_clone_provider_spec(provider: str) -> ClonedVoiceProviderSpec | None:
+    """Return clone provider spec."""
     return _CLONE_PROVIDER_SPECS.get((provider or "").strip().lower())
 
 
 def supports_cloned_voices(provider: str) -> bool:
+    """Return whether this provider supports cloned voices."""
     return get_clone_provider_spec(provider) is not None
 
 

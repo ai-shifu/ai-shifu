@@ -17,6 +17,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 
 
 def get_default_ask_provider_config() -> dict[str, Any]:
+    """Return default ask provider config."""
     return {
         "provider": ASK_PROVIDER_LLM,
         "mode": ASK_PROVIDER_MODE_PROVIDER_ONLY,

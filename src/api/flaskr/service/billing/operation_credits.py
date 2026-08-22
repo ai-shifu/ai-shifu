@@ -121,6 +121,7 @@ def reserve_operation_credits(
     operation_bid: str,
     metadata: dict[str, Any] | None = None,
 ) -> OperationCreditReservationResult:
+    """Reserve operation credits."""
     normalized_creator_bid = _require_bid(creator_bid, "creator_bid")
     normalized_operation_type = _require_bid(operation_type, "operation_type")
     normalized_operation_bid = _require_bid(operation_bid, "operation_bid")
@@ -236,6 +237,7 @@ def capture_reserved_operation_credits(
     usage_bid: str,
     metadata: dict[str, Any] | None = None,
 ) -> OperationCreditCaptureResult:
+    """Capture reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
     normalized_usage_bid = _require_bid(usage_bid, "usage_bid")
 
@@ -318,6 +320,7 @@ def release_reserved_operation_credits(
     reservation_bid: str,
     reason: str = "",
 ) -> OperationCreditReleaseResult:
+    """Release reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
 
     with app.app_context():

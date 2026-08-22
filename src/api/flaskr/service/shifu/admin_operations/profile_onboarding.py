@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 def get_operator_profile_onboarding_config(app: Flask) -> dict[str, Any]:
+    """Return operator profile onboarding config."""
     _ = app
     return get_profile_onboarding_config()
 
@@ -24,6 +25,7 @@ def update_operator_profile_onboarding_config(
     payload: dict[str, Any],
     operator_user_bid: str,
 ) -> dict[str, Any]:
+    """Update operator profile onboarding config."""
     return update_profile_onboarding_config(
         app,
         payload=payload,

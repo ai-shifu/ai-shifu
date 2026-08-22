@@ -77,6 +77,7 @@ def _mask_url(url: str) -> str:
 
 
 def get_db_url(args: argparse.Namespace) -> str:
+    """Return database URL."""
     if args.db_url:
         return args.db_url
     explicit = os.getenv("DATABASE_URL")
@@ -108,6 +109,7 @@ def migrate(
     db_url: str,
     batch_size: int,
 ) -> None:
+    """Replace legacy OSS domains in persisted content."""
     try:
         import sqlalchemy as sa
     except ImportError:
@@ -202,6 +204,7 @@ def migrate(
 
 
 def main() -> None:
+    """Migrate legacy OSS domains in persisted content."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,

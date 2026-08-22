@@ -412,6 +412,19 @@ production and tool method. Keep behavior-focused pytest functions exempt;
 their names and assertions are the executable specification. Do not add generic
 docstrings that merely restate the method name or signature.
 
+For `D103`, document the result, side effect, data boundary, route group, or
+command-line workflow owned by each public production or contributor-tool
+function. Prefer contract verbs such as `Return`, `Yield`, `Serialize`,
+`Register`, and `Run`; expand a precise function name only when it needs a
+destination, source, or protocol boundary to be unambiguous. Do not add opaque
+filler that merely says an operation is performed. Behavior-named tests and
+deliberately minimal architecture fixtures remain exempt, as does immutable
+Alembic history with its conventional `upgrade` and `downgrade` hooks. Because
+function docstrings are runtime data, search for `__doc__` or inspection
+consumers before bulk work, prove executable AST equality after removing only
+the new function docstrings, and run focused Swagger or CLI regressions for the
+affected surfaces.
+
 For `N815`, keep Python DTO field names in snake_case even when the public JSON
 contract uses camelCase. Pydantic DTOs should declare the public name with
 `Field(alias="...")`, accept internal construction through `populate_by_name`,

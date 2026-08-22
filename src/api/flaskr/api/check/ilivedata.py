@@ -62,6 +62,7 @@ RISK_LABLES = {
 def ilivedata_check(
     app: Flask, data_id: str, text: str, user_id: str
 ) -> CheckResultDTO:
+    """Check text with the iLiveData content-safety provider."""
     pid = app.config.get("ILIVEDATA_PID")
     secret_key = app.config.get("ILIVEDATA_SECRET_KEY").encode("utf-8")
     timeout_seconds = app.config.get(
@@ -128,6 +129,7 @@ def ilivedata_check(
 
 
 def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):
+    """Send the content-safety request to the configured provider."""
     headers = {
         "X-AppId": pid,
         "X-TimeStamp": time_stamp,

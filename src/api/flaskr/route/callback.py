@@ -24,6 +24,8 @@ from .common import bypass_token_validation
 
 
 def register_callback_handler(app: Flask, path_prefix: str):
+    """Register the callback routes on the Flask application."""
+
     @app.route("/api/order/webhooks/<provider_name>/<callback_token>", methods=["POST"])
     @bypass_token_validation
     def scoped_payment_webhook(provider_name: str, callback_token: str):

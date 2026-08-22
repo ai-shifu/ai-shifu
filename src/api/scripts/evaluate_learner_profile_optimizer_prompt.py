@@ -377,6 +377,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Evaluate learner-profile optimizer prompt fixtures."""
     args = _build_parser().parse_args()
     if args.repeats < 1:
         error_message = "--repeats must be at least 1"

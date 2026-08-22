@@ -33,6 +33,7 @@ def build_completed_audio_record(
     audio_format: str = "mp3",
     sample_rate: int = 24000,
 ) -> LearnGeneratedAudio:
+    """Build completed audio record."""
     return LearnGeneratedAudio(
         audio_bid=audio_bid or "",
         generated_block_bid=generated_block_bid or "",
@@ -65,6 +66,7 @@ def build_completed_audio_record(
 def save_audio_record(
     audio_record: LearnGeneratedAudio, *, commit: bool = True
 ) -> None:
+    """Persist audio record."""
     db.session.add(audio_record)
     if commit:
         db.session.commit()

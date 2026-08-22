@@ -45,6 +45,7 @@ app: Flask | None = None
 
 
 def create_app() -> Flask:
+    """Create and configure the Flask application."""
     if _application_state.app is not None:
         return _application_state.app
     import pymysql

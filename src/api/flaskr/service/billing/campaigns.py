@@ -121,6 +121,7 @@ class NormalizedCampaignProductConfig:
 def build_admin_billing_campaign_product_options(
     app: Flask,
 ) -> AdminBillingCampaignProductOptionsDTO:
+    """Build admin billing campaign product options."""
     with app.app_context():
         rows = (
             BillingProduct.query.filter(
@@ -161,6 +162,7 @@ def build_admin_billing_campaigns_page(
     start_time: str = "",
     end_time: str = "",
 ) -> AdminBillingCampaignsPageDTO:
+    """Build admin billing campaigns page."""
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_keyword = str(keyword or "").strip()
     normalized_status = str(status or "").strip().lower()
@@ -260,6 +262,7 @@ def build_admin_billing_campaign_detail(
     app: Flask,
     campaign_bid: str,
 ) -> AdminBillingCampaignDetailDTO:
+    """Build admin billing campaign detail."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
         raise_param_error("campaign_bid")
@@ -313,6 +316,7 @@ def create_admin_billing_campaign(
     operator_user_bid: str,
     payload: dict[str, Any],
 ) -> AdminBillingCampaignDetailDTO:
+    """Create admin billing campaign."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     draft = _normalize_campaign_payload(payload)
     with app.app_context():
@@ -357,6 +361,7 @@ def update_admin_billing_campaign(
     campaign_bid: str,
     payload: dict[str, Any],
 ) -> AdminBillingCampaignDetailDTO:
+    """Update admin billing campaign."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
@@ -414,6 +419,7 @@ def update_admin_billing_campaign_status(
     campaign_bid: str,
     payload: dict[str, Any],
 ) -> AdminBillingCampaignDetailDTO:
+    """Update admin billing campaign status."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
@@ -450,6 +456,7 @@ def resolve_catalog_campaign_payload(
     *,
     as_of: datetime | None = None,
 ) -> dict[str, Any]:
+    """Resolve catalog campaign payload."""
     return resolve_applied_billing_campaign(
         product,
         as_of=as_of,
@@ -462,6 +469,7 @@ def resolve_applied_billing_campaign(
     order_type: int | None = None,
     as_of: datetime | None = None,
 ) -> AppliedBillingCampaignResult:
+    """Resolve applied billing campaign."""
     if order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return AppliedBillingCampaignResult()
     active_binding = _load_active_campaign_binding_for_product(

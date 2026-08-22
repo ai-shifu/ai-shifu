@@ -508,6 +508,7 @@ def build_operator_course_estimated_credit_cost(
     outline_items: list[DraftOutlineItem | PublishedOutlineItem],
     visible_leaf_outline_bids: list[str] | set[str],
 ) -> AdminOperationEstimatedCreditCostDTO:
+    """Build operator course estimated credit cost."""
     calculated_at = now_utc()
     rate_cache: dict = {}
     item_map = {

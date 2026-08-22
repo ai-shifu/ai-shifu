@@ -533,6 +533,7 @@ def _load_active_exact_rate_identities(
 
 
 def get_operator_rate_config(app: Flask) -> dict[str, Any]:
+    """Return operator rate config."""
     with app_context_scope(app):
         baseline_cost = _load_llm_credit_1x_reference_cost()
         baseline_per_1000 = load_llm_credit_1x_per_1000_output_tokens()
@@ -591,6 +592,7 @@ def update_operator_rate_config(
     payload: dict[str, Any],
     operator_user_bid: str,
 ) -> dict[str, Any]:
+    """Update operator rate config."""
     _ = operator_user_bid
     with app_context_scope(app), unit_of_work():
         create_only = _normalize_create_only(payload)

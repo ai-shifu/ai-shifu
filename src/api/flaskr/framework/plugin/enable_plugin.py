@@ -14,6 +14,7 @@ from .plugin_manager import get_plugin_manager
 
 
 def enable_plugins(app: Flask):
+    """Enable plugins."""
     plugin_manager = get_plugin_manager()
     if plugin_manager is None:
         message = "Plugin manager is not enabled"

@@ -22,6 +22,7 @@ def resolve_admin_entitlement_grant_target(
     creator_bid: str,
     creator_mobile: str,
 ) -> tuple[str, bool, bool]:
+    """Resolve admin entitlement grant target."""
     normalized_creator_bid = str(creator_bid or "").strip()
     if normalized_creator_bid:
         return normalized_creator_bid, False, False
@@ -90,6 +91,7 @@ def resolve_existing_admin_billing_target_user_bid(
     creator_bid: str,
     creator_mobile: str,
 ) -> str:
+    """Resolve existing admin billing target user BID."""
     normalized_creator_bid = str(creator_bid or "").strip()
     if normalized_creator_bid:
         return normalized_creator_bid
@@ -112,6 +114,7 @@ def run_admin_creator_granted_post_auth(
     created_new_user: bool,
     source: str = "billing_admin_entitlement_grant",
 ) -> None:
+    """Run admin creator granted post auth."""
     _user_utils().run_creator_granted_post_auth(
         app,
         user_id=user_id,

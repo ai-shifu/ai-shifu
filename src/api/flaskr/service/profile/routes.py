@@ -17,6 +17,8 @@ from flaskr.service.profile.profile_manage import (
 
 @inject
 def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
+    """Register learner-profile routes on the Flask application."""
+
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
     def get_profile_item_defination_api():
         """Get profile item defination.

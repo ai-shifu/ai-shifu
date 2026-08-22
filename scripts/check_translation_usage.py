@@ -57,6 +57,7 @@ USE_TRANSLATION_ALIAS_PATTERN = re.compile(
 
 
 def collect_frontend_namespaced_keys(text: str) -> set[str]:
+    """Collect frontend namespaced keys."""
     used: set[str] = set()
     alias_declarations: dict[str, list[tuple[int, str]]] = {}
 
@@ -88,6 +89,7 @@ def collect_frontend_namespaced_keys(text: str) -> set[str]:
 
 
 def collect_frontend_trans_keys(text: str) -> set[str]:
+    """Collect frontend trans keys."""
     used: set[str] = set()
     direct_key_pattern = re.compile(
         r"i18nKey\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]",
@@ -116,6 +118,7 @@ def collect_frontend_trans_keys(text: str) -> set[str]:
 
 
 def iter_locale_dirs() -> Iterable[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
         message = f"Translation directory not found: {I18N_DIR}"
         raise RuntimeError(message)
@@ -125,6 +128,7 @@ def iter_locale_dirs() -> Iterable[Path]:
 
 
 def flatten_translation(data, namespace: str) -> dict[str, str]:
+    """Flatten translation."""
     if isinstance(data, dict):
         items: dict[str, str] = {}
         flat_section = data.get("__flat__")
@@ -148,6 +152,7 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
 
 
 def collect_defined_keys() -> set[str]:
+    """Collect defined keys."""
     locale_dirs = list(iter_locale_dirs())
     if not locale_dirs:
         return set()
@@ -168,6 +173,7 @@ def collect_defined_keys() -> set[str]:
 
 
 def load_metadata_namespaces() -> set[str]:
+    """Load metadata namespaces."""
     namespaces: set[str] = set()
     meta = I18N_DIR / "locales.json"
     if not meta.exists():
@@ -183,6 +189,7 @@ def load_metadata_namespaces() -> set[str]:
 
 
 def collect_backend_keys() -> set[str]:
+    """Collect backend keys."""
     patterns = BACKEND_PATTERNS
     used: set[str] = set()
     for file_path in BACKEND_DIR.rglob("*.py"):
@@ -234,6 +241,7 @@ def collect_backend_keys() -> set[str]:
 
 
 def collect_frontend_keys() -> set[str]:
+    """Collect frontend keys."""
     patterns = FRONTEND_PATTERNS
     used: set[str] = set()
     extensions = (".ts", ".tsx", ".js", ".jsx")
@@ -265,6 +273,7 @@ def collect_frontend_keys() -> set[str]:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the translation-usage check."""
     parser = argparse.ArgumentParser(
         description="Validate translation key usage across backend and frontend."
     )
@@ -290,6 +299,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_allowlist(path: Path | None) -> set[str]:
+    """Load allowlist."""
     if not path:
         return set()
 
@@ -310,6 +320,7 @@ def load_allowlist(path: Path | None) -> set[str]:
 
 
 def main() -> int:
+    """Compare defined translation keys with backend and frontend usage."""
     args = parse_args()
     defined_primary = collect_defined_keys()
     # Aliases for missing-key comparison only

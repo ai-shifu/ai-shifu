@@ -63,6 +63,7 @@ class FollowUpInfo:
 
 def extract_variables(template: str) -> list:
     # Match all {xxx} or {{xxx}} in the template
+    """Extract variables."""
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
     # Only keep valid variable names (letters, digits, underscore, hyphen), no dots, commas, colons, quotes, or spaces
@@ -101,6 +102,7 @@ def init_generated_block(
     mdflow: str,
     block_index: int,
 ) -> LearnGeneratedBlock:
+    """Initialize generated block."""
     generated_block: LearnGeneratedBlock = LearnGeneratedBlock()
     generated_block.progress_record_bid = progress_record_bid
     generated_block.user_bid = user_bid

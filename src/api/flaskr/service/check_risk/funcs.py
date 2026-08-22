@@ -21,6 +21,7 @@ def add_risk_control_result(
     is_pass,
     check_strategy,
 ):
+    """Add risk control result."""
     with app.app_context():
         risk_control_result = RiskControlResult(
             chat_id=chat_id,
@@ -40,6 +41,7 @@ def add_risk_control_result(
 def check_text_with_risk_control(
     app: Flask, check_id: str, user_id: str, text: str | None
 ) -> CheckResultDTO:
+    """Check text with risk control."""
     if text is None or text == "":
         return CheckResultDTO(
             check_result=CHECK_RESULT_PASS,

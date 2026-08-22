@@ -64,6 +64,7 @@ def _normalize_language_code(language_code: str) -> str:
 
 
 def get_user_language(user):
+    """Return the language preference recorded for a user."""
     language = ""
     if hasattr(user, "user_language") and user.user_language:
         language = user.user_language
@@ -130,6 +131,8 @@ def run_creator_granted_post_auth(
 
 # generate token
 def generate_token(app: Flask, user_id: str) -> str:
+    """Generate an authentication token for a user identifier."""
+
     def _generate() -> str:
         token = jwt.encode(
             {"user_id": user_id, "time_stamp": time.time()},
@@ -232,6 +235,7 @@ def send_sms_code(
     captcha_ticket: str | None = None,
     require_captcha: bool = True,
 ):
+    """Send and persist an SMS verification code for a phone number."""
     phone = normalize_phone_identifier(phone)
     with app.app_context():
         if not phone:
@@ -308,6 +312,7 @@ def send_sms_code(
 def send_email_code(
     app: Flask, email: str, ip: str | None = None, language: str | None = None
 ):
+    """Send and persist an email verification code for an address."""
     with app.app_context():
         email = str(email or "").strip().lower()
         if not email:
@@ -407,6 +412,7 @@ def create_and_commit_user_verify_code(
     verify_code_type: int,
     ip: str | None,
 ):
+    """Persist a verification-code record and return it."""
     user_verify_code = UserVerifyCode(
         phone=phone or "",
         mail=mail or "",
@@ -436,6 +442,7 @@ def ensure_creator_demo_permissions_and_first_lesson(
 
 
 def load_existing_demo_shifu_ids() -> set[str]:
+    """Return configured demo course identifiers that still exist."""
     configured_bids = {
         str(get_dynamic_config(key) or "").strip()
         for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID")

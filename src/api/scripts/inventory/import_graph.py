@@ -32,6 +32,7 @@ mods = {}  # module name -> relative file path
 
 
 def add_tree(base_dir):
+    """Add tree."""
     for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         rel = os.path.relpath(dirpath, ROOT)

@@ -30,6 +30,8 @@ def _load_user_info(user_bid: str) -> UserInfo:
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
+    """Validate user."""
+
     def _validate() -> UserInfo:
         if not token:
             raise_error("server.user.userNotLogin")
@@ -70,6 +72,7 @@ def update_user_info(
     language=None,
     avatar=None,
 ) -> UserInfo:
+    """Update user info."""
     with app.app_context():
         if not user:
             raise_error("server.user.userNotFound")
@@ -154,6 +157,7 @@ def verify_sms_code(
     language: str | None = None,
     login_context: str | None = None,
 ) -> UserToken:
+    """Verify SMS code."""
     provider = get_provider("phone")
     request = VerificationRequest(
         identifier=phone,

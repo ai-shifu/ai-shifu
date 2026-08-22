@@ -120,6 +120,7 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
 def get_profile_item_definition_list(
     app: Flask, parent_id: str, definition_type: str = "all"
 ) -> list[ProfileItemDefinition]:
+    """Return profile item definition list."""
     _ = definition_type  # Kept for backward compatibility with existing callers.
     normalized_parent_id = parent_id or ""
     with app.app_context():
@@ -209,6 +210,7 @@ def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
 
 
 def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
+    """Add profile item quick."""
     with app.app_context():
         if not parent_id:
             raise_error("server.profile.prarentRequired")
@@ -220,6 +222,7 @@ def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
 
 
 def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
+    """Add profile item quick internal."""
     bind = db.session.get_bind()
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
@@ -380,6 +383,7 @@ def add_profile_i18n(
     profile_item_remark: str,
     user_id: str,
 ):
+    """Add profile i18n."""
     _ = app
     bind = db.session.get_bind()
     inspector = inspect(bind)
@@ -518,6 +522,7 @@ def save_profile_item(
 
 
 def delete_profile_item(app: Flask, user_id: str, profile_id: str):
+    """Delete profile item."""
     with app.app_context():
         definition = Variable.query.filter(
             Variable.variable_bid == profile_id,

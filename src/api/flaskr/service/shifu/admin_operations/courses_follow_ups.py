@@ -568,6 +568,7 @@ def get_operator_course_follow_ups(
     filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseFollowUpListDTO:
+    """Return operator course follow ups."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -824,6 +825,7 @@ def get_operator_course_follow_up_detail(
     shifu_bid: str,
     generated_block_bid: str,
 ) -> AdminOperationCourseFollowUpDetailDTO:
+    """Return operator course follow up detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_generated_block_bid = str(generated_block_bid or "").strip()

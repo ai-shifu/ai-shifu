@@ -42,6 +42,8 @@ def _guess_mimetype(path: Path) -> str:
 
 
 def register_storage_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the storage routes on the Flask application."""
+
     @app.route(path_prefix + "/storage/<profile>/<path:object_key>", methods=["GET"])
     @bypass_token_validation
     def serve_local_storage(profile: str, object_key: str):

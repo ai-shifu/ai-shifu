@@ -398,6 +398,7 @@ def transfer_operator_course_creator(
     identifier: str,
     operator_user_bid: str = "",
 ) -> dict[str, Any]:
+    """Transfer operator course creator."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
@@ -471,6 +472,7 @@ def copy_operator_course(
     operator_user_bid: str,
     new_course_name: str = "",
 ) -> dict[str, Any]:
+    """Copy operator course."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()

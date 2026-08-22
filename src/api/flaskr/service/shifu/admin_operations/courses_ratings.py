@@ -62,6 +62,7 @@ def get_operator_course_ratings(
     filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseRatingListDTO:
+    """Return operator course ratings."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

@@ -7,6 +7,7 @@ from flaskr.service.config import get_config
 
 
 def get_wechat_access_token(app: Flask, code: str):
+    """Return wechat access token."""
     app.logger.info("get_wechat_access_token")
     app_id = app.config.get("WECHAT_APP_ID") or get_config("WECHAT_APP_ID", "")
     app_secret = app.config.get("WECHAT_APP_SECRET") or get_config(

@@ -246,8 +246,16 @@ plan's progress update for that rule.
   ANN003. Documented public production and tool methods by observable contract,
   kept behavior-focused tests exempt, and retained only behavior-preserving
   complexity adjustments required by the documentation pass.
-- [ ] Merge or retarget D102 PR #2638 after ANN003 without combining it with the
-  next rule unit.
+- [x] 2026-08-22: Merged D102 PR #2638 into `main` after its predecessor stack
+  completed.
+- [x] 2026-08-22: Rebuilt the D103 stage on `sunner/ruff-d103-rebuild` from
+  `origin/main`. Removed the global D103 exception and documented 749 public
+  production and contributor-tool functions across 187 existing Python files by
+  observable contract. The policy retains only behavior-named tests, immutable
+  migration history, and deliberately minimal architecture fixtures. A
+  normalized AST audit found no executable differences; the D103 policy and
+  Swagger regressions pass, followed by the full backend suite at 3,042 passed
+  with 17 skipped and every applicable repository pre-commit gate.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable

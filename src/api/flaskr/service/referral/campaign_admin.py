@@ -70,6 +70,7 @@ def list_operator_referral_campaigns(
     page_size: int,
     filters: dict[str, Any],
 ) -> dict[str, Any]:
+    """Return operator referral campaigns."""
     with app.app_context():
         safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
         query = ReferralCampaign.query.filter(ReferralCampaign.deleted == 0)
@@ -161,6 +162,7 @@ def get_operator_referral_campaign_detail(
     *,
     campaign_bid: str,
 ) -> dict[str, Any]:
+    """Return operator referral campaign detail."""
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         rule = _load_latest_rule(campaign.campaign_bid)
@@ -191,6 +193,7 @@ def create_operator_referral_campaign(
     operator_user_bid: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Create operator referral campaign."""
     with app.app_context():
         data = _normalize_payload(payload, is_create=True)
         _assert_campaign_code_available(data["campaign_code"])
@@ -241,6 +244,7 @@ def update_operator_referral_campaign(
     campaign_bid: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Update operator referral campaign."""
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         rule = _load_latest_rule(campaign.campaign_bid)
@@ -304,6 +308,7 @@ def update_operator_referral_campaign_status(
     campaign_bid: str,
     enabled: object,
 ) -> dict[str, Any]:
+    """Update operator referral campaign status."""
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         enabled_value = _parse_bool(enabled, "enabled")

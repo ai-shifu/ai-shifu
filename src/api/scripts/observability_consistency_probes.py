@@ -39,6 +39,7 @@ ProbeFn = Callable[[Any, Any, argparse.Namespace, datetime, datetime], dict[str,
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build parser."""
     parser = argparse.ArgumentParser(
         description=(
             "Run read-only billing, wallet, model, SMS, and notification "
@@ -86,6 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def json_safe(value: Any) -> Any:
+    """Convert a probe value to a JSON-compatible scalar."""
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, Decimal):
@@ -94,10 +96,12 @@ def json_safe(value: Any) -> Any:
 
 
 def row_to_dict(row: Any) -> dict[str, Any]:
+    """Convert a database result row to a dictionary."""
     return {key: json_safe(value) for key, value in dict(row).items()}
 
 
 def table_has_columns(inspector: Any, table_name: str, columns: set[str]) -> bool:
+    """Return whether a database table exposes every required column."""
     if table_name not in set(inspector.get_table_names()):
         return False
     existing = {column["name"] for column in inspector.get_columns(table_name)}
@@ -105,6 +109,7 @@ def table_has_columns(inspector: Any, table_name: str, columns: set[str]) -> boo
 
 
 def skipped_probe(name: str, description: str, reason: str) -> dict[str, Any]:
+    """Build a skipped consistency-probe result."""
     return {
         "name": name,
         "description": description,
@@ -124,6 +129,7 @@ def rows_probe(
     severity: str = "warning",
     status_when_found: str = "warning",
 ) -> dict[str, Any]:
+    """Build a probe result from the supplied finding rows."""
     return {
         "name": name,
         "description": description,
@@ -135,6 +141,7 @@ def rows_probe(
 
 
 def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+    """Execute rows."""
     statement = text(sql)
     decimal_params = [
         bindparam(key, type_=Numeric(20, 10))
@@ -154,6 +161,7 @@ def probe_usage_ledger(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    """Probe usage ledger."""
     _ = now
     description = (
         "Successful billable top-level usage rows missing consume ledger entries."
@@ -216,6 +224,7 @@ def probe_wallet_snapshot(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    """Probe wallet snapshot."""
     _ = since
     description = (
         "Wallet available/reserved totals that differ from current consumable "
@@ -354,6 +363,7 @@ def probe_bucket_expiration(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    """Probe bucket expiration."""
     _ = since
     description = (
         "Credit buckets whose status does not match expiration/available state."
@@ -417,6 +427,7 @@ def probe_model_override_inventory(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    """Probe model override inventory."""
     _ = (now, since)
     description = (
         "Published outline items whose explicit model differs from course defaults."
@@ -495,6 +506,7 @@ def probe_sms_send_failures(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    """Probe SMS send failures."""
     _ = now
     description = "Recent SMS verification-code rows that were created but not sent."
     if not table_has_columns(
@@ -536,6 +548,7 @@ def probe_notification_template_sync(
     now: datetime,
     since: datetime,
 ) -> dict[str, Any]:
+    """Probe notification template sync."""
     _ = (now, since)
     description = "Notification templates whose latest provider sync is not successful."
     if not table_has_columns(
@@ -598,6 +611,7 @@ PROBES: dict[str, ProbeFn] = {
 
 
 def selected_probe_names(raw_names: list[str]) -> list[str]:
+    """Return the requested probe names without duplicates."""
     if not raw_names or "all" in raw_names:
         return list(PROBES)
     deduped: list[str] = []
@@ -608,6 +622,7 @@ def selected_probe_names(raw_names: list[str]) -> list[str]:
 
 
 def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize consistency-probe statuses and finding counts."""
     statuses = [str(probe.get("status") or "") for probe in probes]
     finding_count = sum(int(probe.get("findings_count") or 0) for probe in probes)
     blocking_count = sum(
@@ -628,6 +643,7 @@ def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_report(args: argparse.Namespace) -> dict[str, Any]:
+    """Run report."""
     import pymysql
     from dotenv import load_dotenv
     from flask import Flask
@@ -666,6 +682,7 @@ def run_report(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Run observability consistency probes and emit their report."""
     parser = build_parser()
     args = parser.parse_args()
     if args.window_hours <= 0:

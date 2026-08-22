@@ -815,6 +815,7 @@ def _list_promotion_coupons(
 def list_operator_promotion_coupons(
     app: Flask, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion coupons."""
     del app
     return _list_promotion_coupons(
         page,
@@ -865,6 +866,7 @@ def _campaign_strategy_fields_editable(campaign: PromoCampaign) -> bool:
 def create_operator_promotion_coupon(
     app: Flask, operator_user_bid: str, payload: dict
 ) -> dict:
+    """Create operator promotion coupon."""
     with app.app_context():
         name = str(payload.get("name", "") or "").strip()
         if not name:
@@ -949,6 +951,7 @@ def create_operator_promotion_coupon(
 def update_operator_promotion_coupon(
     app: Flask, operator_user_bid: str, coupon_bid: str, payload: dict
 ) -> dict:
+    """Update operator promotion coupon."""
     with app.app_context():
         coupon = _load_coupon_or_404(coupon_bid)
         name = str(payload.get("name", "") or "").strip()
@@ -1066,6 +1069,7 @@ def update_operator_promotion_coupon(
 def get_operator_promotion_coupon_detail(
     app: Flask, coupon_bid: str
 ) -> AdminPromotionCouponDetailDTO:
+    """Return operator promotion coupon detail."""
     del app
     coupon = _load_coupon_or_404(coupon_bid)
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
@@ -1105,6 +1109,7 @@ def get_operator_promotion_coupon_detail(
 def update_operator_promotion_coupon_status(
     app: Flask, operator_user_bid: str, coupon_bid: str, enabled: object
 ) -> dict:
+    """Update operator promotion coupon status."""
     with app.app_context():
         enabled_value = _parse_bool_value(enabled, "enabled")
         coupon = _load_coupon_or_404(coupon_bid)
@@ -1145,6 +1150,7 @@ def _calculate_coupon_usage_discount_amount(
 def list_operator_promotion_coupon_usages(
     app: Flask, coupon_bid: str, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion coupon usages."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_coupon_or_404(coupon_bid)
@@ -1258,6 +1264,7 @@ def list_operator_promotion_coupon_usages(
 def list_operator_promotion_coupon_codes(
     app: Flask, coupon_bid: str, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion coupon codes."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_coupon_or_404(coupon_bid)
@@ -1413,6 +1420,7 @@ def _load_redemption_stats(promo_bids: list[str]) -> dict[str, dict]:
 def list_operator_promotion_campaigns(
     app: Flask, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion campaigns."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     query = PromoCampaign.query.filter(
@@ -1620,6 +1628,7 @@ def _validate_campaign_overlap(
 def create_operator_promotion_campaign(
     app: Flask, operator_user_bid: str, payload: dict
 ) -> dict:
+    """Create operator promotion campaign."""
     with app.app_context():
         name = str(payload.get("name", "") or "").strip()
         if not name:
@@ -1675,6 +1684,7 @@ def create_operator_promotion_campaign(
 def update_operator_promotion_campaign(
     app: Flask, operator_user_bid: str, promo_bid: str, payload: dict
 ) -> dict:
+    """Update operator promotion campaign."""
     with app.app_context():
         campaign = _load_campaign_or_404(promo_bid)
         name = str(payload.get("name", "") or "").strip()
@@ -1749,6 +1759,7 @@ def update_operator_promotion_campaign(
 def get_operator_promotion_campaign_detail(
     app: Flask, promo_bid: str
 ) -> AdminPromotionCampaignDetailDTO:
+    """Return operator promotion campaign detail."""
     del app
     campaign = _load_campaign_or_404(promo_bid)
     course_map = _load_shifu_map([campaign.shifu_bid] if campaign.shifu_bid else [])
@@ -1783,6 +1794,7 @@ def get_operator_promotion_campaign_detail(
 def update_operator_promotion_campaign_status(
     app: Flask, operator_user_bid: str, promo_bid: str, enabled: object
 ) -> dict:
+    """Update operator promotion campaign status."""
     with app.app_context():
         enabled_value = _parse_bool_value(enabled, "enabled")
         campaign = _load_campaign_or_404(promo_bid)
@@ -1812,6 +1824,7 @@ def update_operator_promotion_campaign_status(
 def list_operator_promotion_campaign_redemptions(
     app: Flask, promo_bid: str, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion campaign redemptions."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_campaign_or_404(promo_bid)

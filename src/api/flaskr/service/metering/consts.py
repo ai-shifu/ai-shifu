@@ -40,6 +40,7 @@ _LEGACY_USAGE_SCENE_MAP = {
 def normalize_usage_type(
     value: Any, *, default: int = BILL_USAGE_TYPE_LLM, strict: bool = False
 ) -> int:
+    """Normalize usage type."""
     if value is None or value == "":
         if strict:
             message = "usage_type is required"
@@ -62,6 +63,7 @@ def normalize_usage_type(
 def normalize_usage_scene(
     value: Any, *, default: int = BILL_USAGE_SCENE_PROD, strict: bool = False
 ) -> int:
+    """Normalize usage scene."""
     if value is None or value == "":
         if strict:
             message = "usage_scene is required"

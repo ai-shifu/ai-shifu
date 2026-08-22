@@ -8,6 +8,7 @@ from typing import Any
 def normalize_subtitle_cues(
     subtitle_cues: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
 ) -> list[dict[str, Any]]:
+    """Normalize subtitle cues."""
     normalized: list[dict[str, Any]] = []
     for raw_item in list(subtitle_cues or []):
         item: dict[str, Any] | None = None
@@ -62,6 +63,7 @@ def append_subtitle_cue(
     segment_index: int,
     position: int = 0,
 ) -> list[dict[str, Any]]:
+    """Append subtitle cue."""
     cue_text = str(text or "").strip()
     if not cue_text:
         return subtitle_cues
