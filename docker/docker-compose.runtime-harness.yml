@@ -1,0 +1,77 @@
+services:
+  ai-shifu-api-dev:
+    build:
+      context: ..
+      dockerfile: src/api/Dockerfile
+    image: ai-shifu-api-dev:latest
+    command:
+      - sh
+      - -c
+      - >-
+        until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done
+        && python scripts/repair_dev_migration_state.py
+        && flask db upgrade
+        && flask console update_demo_shifu
+        && cd /app
+        && exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 'app:app'
+        --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
+    env_file:
+      - ./.env
+    environment:
+      OBSERVABILITY_TRACES_ENABLED: "false"
+      INTERNAL_METRICS_PATH: /internal/metrics
+      INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
+      LOGIN_METHODS_ENABLED: phone
+      DEFAULT_LOGIN_METHOD: phone
+      CAPTCHA_CODE_OVERRIDE: "0000"
+      CREATOR_INTEGRATION_ENCRYPTION_KEY: ${AI_SHIFU_CREATOR_INTEGRATION_ENCRYPTION_KEY:?runtime harness encryption key is required}
+      SAAS_DB_URI: mysql://root:${AI_SHIFU_MYSQL_PASSWORD:?runtime harness MySQL password is required}@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
+      REDIS_HOST: ai-shifu-redis
+      REDIS_PORT: 6379
+      SKIP_LOAD_DOTENV: "1"
+      CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
+    ports:
+      - "127.0.0.1:${AI_SHIFU_API_PORT:-5800}:5800"
+    depends_on:
+      - ai-shifu-mysql
+      - ai-shifu-redis
+
+  ai-shifu-cook-web-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cook-web.runtime-harness
+    image: ai-shifu-cook-web-runtime-harness:latest
+    env_file:
+      - ./.env
+    environment:
+      I18N_ROOT: /app/src/i18n
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=2048
+      NEXT_PUBLIC_LOGIN_METHODS_ENABLED: phone
+      NEXT_PUBLIC_DEFAULT_LOGIN_METHOD: phone
+    depends_on:
+      - ai-shifu-api-dev
+
+  ai-shifu-nginx-dev-dev:
+    image: nginx:latest
+    ports:
+      - "127.0.0.1:${AI_SHIFU_WEB_PORT:-8080}:8080"
+    depends_on:
+      - ai-shifu-cook-web-dev
+      - ai-shifu-api-dev
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+
+  ai-shifu-mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: ${AI_SHIFU_MYSQL_PASSWORD:?runtime harness MySQL password is required}
+      MYSQL_DATABASE: ai-shifu
+    image: mysql:8.0
+    ports:
+      - "127.0.0.1:${AI_SHIFU_MYSQL_PORT:-3306}:3306"
+
+  ai-shifu-redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:${AI_SHIFU_REDIS_PORT:-6379}:6379"
