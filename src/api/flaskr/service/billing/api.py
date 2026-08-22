@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from decimal import (
+    Decimal,  # noqa: TC003 - public annotations are resolved at runtime
+)
+
 from flaskr.service.billing import primitives as billing_primitives
 from flaskr.service.billing.admission import CreatorUsageAdmission, admit_creator_usage
 from flaskr.service.billing.charges import (
@@ -68,17 +72,19 @@ def is_billing_enabled(*, default: bool = False) -> bool:
         return billing_primitives.is_billing_enabled()
 
 
-def quantize_credit_amount(value: object, *, precision: int | None = None) -> object:
+def quantize_credit_amount(value: object, *, precision: int | None = None) -> Decimal:
     """Quantize credit amount."""
     return billing_primitives.quantize_credit_amount(value, precision=precision)
 
 
-def credit_decimal_to_number(value: object, *, precision: int | None = None) -> object:
+def credit_decimal_to_number(
+    value: object, *, precision: int | None = None
+) -> int | float:
     """Convert a credit Decimal to an API-safe number."""
     return billing_primitives.credit_decimal_to_number(value, precision=precision)
 
 
-def to_decimal(value: object) -> object:
+def to_decimal(value: object) -> Decimal:
     """Convert a value to the billing Decimal representation."""
     return billing_primitives.to_decimal(value)
 

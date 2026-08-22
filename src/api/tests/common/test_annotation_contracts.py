@@ -1,6 +1,7 @@
 """Protect callable and streaming annotations used by typed consumers."""
 
 from collections.abc import Callable, Iterator
+from decimal import Decimal
 from typing import get_args, get_origin, get_type_hints
 
 from flaskr.api.tts.tencent_provider import TencentSSEStreamChunk, TencentTTSProvider
@@ -8,6 +9,13 @@ from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import unit_of_work
 from flaskr.framework.plugin.inject import inject
 from flaskr.framework.plugin.plugin_manager import extensible
+from flaskr.service.billing.api import (
+    credit_decimal_to_number,
+    quantize_credit_amount,
+    to_decimal,
+)
+from flaskr.service.tts.api import create_streaming_tts_processor
+from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 from flaskr.service.user.repository import transactional_session
 
 
@@ -37,6 +45,21 @@ def test_plugin_wrappers_keep_callable_annotation_and_behavior() -> None:
     assert triple(2) == 6
     assert get_origin(get_type_hints(inject)["return"]) is Callable
     assert get_origin(get_type_hints(extensible)["return"]) is Callable
+
+
+def test_tts_factory_annotation_is_runtime_resolvable() -> None:
+    """Expose the factory's concrete processor type to runtime type tooling."""
+    assert (
+        get_type_hints(create_streaming_tts_processor)["return"]
+        is StreamingTTSProcessor
+    )
+
+
+def test_billing_facade_annotations_preserve_numeric_contracts() -> None:
+    """Expose the concrete numerical types delegated to billing primitives."""
+    assert get_type_hints(quantize_credit_amount)["return"] is Decimal
+    assert get_type_hints(credit_decimal_to_number)["return"] == int | float
+    assert get_type_hints(to_decimal)["return"] is Decimal
 
 
 def test_context_manager_and_stream_annotations_are_runtime_resolvable() -> None:
