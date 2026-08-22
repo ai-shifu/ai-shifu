@@ -267,6 +267,11 @@ plan's progress update for that rule.
   plugin repository/name inputs as `str`, and removing redundant `self: object`
   annotations from the TTS base contract. `ruff check .` and
   `ruff format --check .` pass.
+- [x] 2026-08-22 11:48 CST: Rebuilt the ANN201 stage on `ruff/ann201` for
+  [#2645](https://github.com/ai-shifu/ai-shifu/pull/2645). Its 51 immutable
+  revision files now receive exact-file ANN201 exceptions rather than a
+  directory-wide glob, while all future revisions remain subject to the rule.
+  The cache-lock regression test and repository Ruff checks pass.
 - [x] 2026-08-22 11:33 CST: Addressed ANN201 follow-up review by replacing every
   production generator still annotated as `object` with an iterator or generator
   contract and by preserving `retry_on_deadlock`, `inject`, and plugin decorator
