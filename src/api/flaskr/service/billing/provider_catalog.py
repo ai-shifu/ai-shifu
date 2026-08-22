@@ -106,7 +106,7 @@ class ProviderPriceMappingValidationResult:
 class ProviderCatalogReadError(RuntimeError):
     """Raised when a provider catalog object cannot be retrieved."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self: object, code: str, message: str) -> None:
         """Store the catalog-read message and provider error code."""
         super().__init__(message)
         self.code = code
@@ -117,11 +117,11 @@ class StripeCatalogReadAdapter:
 
     provider = "stripe"
 
-    def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
+    def _client_options(self: object, app: Flask) -> tuple[Any, dict[str, Any]]:
         return get_stripe_client_options(app)
 
     def retrieve_mapping_snapshot(
-        self,
+        self: object,
         app: Flask,
         *,
         provider_product_id: str,

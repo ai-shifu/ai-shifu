@@ -173,7 +173,7 @@ def _billing_artifacts(
     return order, bucket, ledger
 
 
-def test_operator_referral_detail_includes_inviter_reward_queue(referral_app):
+def test_operator_referral_detail_includes_inviter_reward_queue(referral_app: object):
     with referral_app.app_context():
         campaign = ReferralCampaign(
             campaign_bid="campaign-admin-queue",

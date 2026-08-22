@@ -14,7 +14,9 @@ from sqlalchemy.dialects import mysql, sqlite
 LIMIT_MAX = 1000
 
 
-def _compile_for(dialect, payload, dialect_name, user_id=""):
+def _compile_for(
+    dialect: object, payload: object, dialect_name: object, user_id: object = ""
+):
     dsl = parse_dsl(payload, limit_max=LIMIT_MAX, user_id=user_id)
     stmt = build_statement(dsl, dialect_name=dialect_name)
     return str(
@@ -25,11 +27,11 @@ def _compile_for(dialect, payload, dialect_name, user_id=""):
     )
 
 
-def _compile_mysql(payload, user_id=""):
+def _compile_mysql(payload: object, user_id: object = ""):
     return _compile_for(mysql.dialect(), payload, "mysql", user_id=user_id)
 
 
-def _compile_sqlite(payload, user_id=""):
+def _compile_sqlite(payload: object, user_id: object = ""):
     return _compile_for(sqlite.dialect(), payload, "sqlite", user_id=user_id)
 
 
@@ -290,7 +292,7 @@ def test_generated_blocks_status_explicit_filter_does_not_override_auto() -> Non
 # ---------------------------------------------------------------------------
 
 
-def _meta_payload(table_key="shifu_published_shifus", **overrides: object):
+def _meta_payload(table_key: object = "shifu_published_shifus", **overrides: object):
     """Build a baseline DSL payload for shifu metadata-table compile tests."""
     base = {
         "shifu_bid": "shifu-abc",

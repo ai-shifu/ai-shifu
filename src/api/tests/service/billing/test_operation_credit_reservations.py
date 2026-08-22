@@ -484,7 +484,7 @@ def test_reserve_operation_credits_rejects_topup_after_consumption_window(
 
 def test_operation_credit_mutations_request_wallet_and_bucket_locks(
     operation_credit_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.billing import operation_credits
     from flaskr.service.billing.operation_credits import (
@@ -508,11 +508,13 @@ def test_operation_credit_mutations_request_wallet_and_bucket_locks(
         wallet_lock_calls.append(lock)
         return real_load_wallet(creator_bid, lock=lock)
 
-    def spy_load_active_buckets(wallet, operation_at, *, lock: bool = False):
+    def spy_load_active_buckets(
+        wallet: object, operation_at: object, *, lock: bool = False
+    ):
         active_bucket_lock_calls.append(lock)
         return real_load_active_buckets(wallet, operation_at, lock=lock)
 
-    def spy_iter_hold_buckets(hold, *, lock: bool = False):
+    def spy_iter_hold_buckets(hold: object, *, lock: bool = False):
         hold_bucket_lock_calls.append(lock)
         return real_iter_hold_buckets(hold, lock=lock)
 

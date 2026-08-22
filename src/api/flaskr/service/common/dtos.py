@@ -35,18 +35,18 @@ class UserInfo:
     is_operator: bool
 
     def __init__(
-        self,
-        user_id,
-        username,
-        name,
-        email,
-        mobile,
-        user_state,
-        wx_openid,
-        language,
-        user_avatar=None,
-        is_creator=False,
-        is_operator=False,
+        self: object,
+        user_id: object,
+        username: object,
+        name: object,
+        email: object,
+        mobile: object,
+        user_state: object,
+        wx_openid: object,
+        language: object,
+        user_avatar: object = None,
+        is_creator: object = False,
+        is_operator: object = False,
     ) -> None:
         """Build a serialized user-information payload."""
         self.user_id = user_id
@@ -63,7 +63,7 @@ class UserInfo:
         self.is_creator = is_creator
         self.is_operator = is_operator
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the user information as JSON-compatible data."""
         return {
             "user_id": self.user_id,
@@ -79,7 +79,7 @@ class UserInfo:
             "is_operator": self.is_operator,
         }
 
-    def __html__(self) -> dict:
+    def __html__(self: object) -> dict:
         """Return the serialized user-information payload."""
         return self.__json__()
 
@@ -91,12 +91,12 @@ class UserToken:
     userInfo: UserInfo  # noqa: N815 - exact serialized and Swagger field name
     token: str
 
-    def __init__(self, user_info: UserInfo, token) -> None:
+    def __init__(self: object, user_info: UserInfo, token: object) -> None:
         """Pair serialized user information with its access token."""
         self.userInfo = user_info
         self.token = token
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the user token as JSON-compatible data."""
         return {
             "userInfo": self.userInfo,
@@ -111,12 +111,12 @@ class OAuthStartDTO:
     authorization_url: str
     state: str
 
-    def __init__(self, authorization_url: str, state: str) -> None:
+    def __init__(self: object, authorization_url: str, state: str) -> None:
         """Build an OAuth authorization-start payload."""
         self.authorization_url = authorization_url
         self.state = state
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the OAuth start response as JSON-compatible data."""
         return {
             "authorization_url": self.authorization_url,
@@ -134,7 +134,9 @@ class PageNationDTO(BaseModel):
     page_count: int = Field(..., description="page_count")
     data: list = Field(..., description="data")
 
-    def __init__(self, page: int, page_size: int, total: int, data) -> None:
+    def __init__(
+        self: object, page: int, page_size: int, total: int, data: object
+    ) -> None:
         """Build a paginated response payload."""
         super().__init__(
             page=page,
@@ -149,7 +151,7 @@ class PageNationDTO(BaseModel):
         self.page_count = math.ceil(total / page_size if page_size > 0 else 0)
         self.data = data
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the paginated response as JSON-compatible data."""
         return {
             "page": self.page,

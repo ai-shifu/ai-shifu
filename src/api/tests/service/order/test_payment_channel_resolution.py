@@ -8,7 +8,7 @@ from flaskr.service.order.funs import _resolve_payment_channel
 class TestResolvePaymentChannel:
     """Verify resolve payment channel behavior."""
 
-    def test_pingxx_channel_requires_sub_channel(self):
+    def test_pingxx_channel_requires_sub_channel(self: object):
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint=None,
             channel_hint="wx_pub_qr",
@@ -17,7 +17,7 @@ class TestResolvePaymentChannel:
         assert provider == "pingxx"
         assert sub_channel == "wx_pub_qr"
 
-    def test_pingxx_channel_missing_sub_channel_raises(self):
+    def test_pingxx_channel_missing_sub_channel_raises(self: object):
         with pytest.raises(AppError):
             _resolve_payment_channel(
                 payment_channel_hint=None,
@@ -25,7 +25,7 @@ class TestResolvePaymentChannel:
                 stored_channel="pingxx",
             )
 
-    def test_stripe_checkout_resolution(self):
+    def test_stripe_checkout_resolution(self: object):
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint=None,
             channel_hint="stripe:checkout_session",
@@ -34,7 +34,7 @@ class TestResolvePaymentChannel:
         assert provider == "stripe"
         assert sub_channel == "checkout_session"
 
-    def test_stripe_hint_defaults_to_payment_intent(self):
+    def test_stripe_hint_defaults_to_payment_intent(self: object):
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint="stripe",
             channel_hint="",
@@ -43,7 +43,7 @@ class TestResolvePaymentChannel:
         assert provider == "stripe"
         assert sub_channel == "checkout_session"
 
-    def test_stripe_with_stored_channel_defaults(self):
+    def test_stripe_with_stored_channel_defaults(self: object):
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint=None,
             channel_hint="",
@@ -52,8 +52,10 @@ class TestResolvePaymentChannel:
         assert provider == "stripe"
         assert sub_channel == "checkout_session"
 
-    def test_stripe_only_configuration_overrides_pingxx_default(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_stripe_only_configuration_overrides_pingxx_default(
+        self: object, monkeypatch: object
+    ):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "stripe"
             return default
@@ -72,8 +74,10 @@ class TestResolvePaymentChannel:
         # Sub-channel is determined by Stripe defaults (implementation detail).
         assert sub_channel in {"checkout_session", "payment_intent"}
 
-    def test_disabled_payment_channel_raises_for_explicit_request(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_disabled_payment_channel_raises_for_explicit_request(
+        self: object, monkeypatch: object
+    ):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "stripe"
             return default
@@ -90,8 +94,8 @@ class TestResolvePaymentChannel:
                 stored_channel="pingxx",
             )
 
-    def test_alipay_qr_prefers_native_when_enabled(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_alipay_qr_prefers_native_when_enabled(self: object, monkeypatch: object):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "alipay,pingxx"
             return default
@@ -109,8 +113,10 @@ class TestResolvePaymentChannel:
         assert provider == "alipay"
         assert sub_channel == "alipay_qr"
 
-    def test_alipay_qr_falls_back_to_pingxx_when_native_disabled(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_alipay_qr_falls_back_to_pingxx_when_native_disabled(
+        self: object, monkeypatch: object
+    ):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "pingxx"
             return default
@@ -128,8 +134,10 @@ class TestResolvePaymentChannel:
         assert provider == "pingxx"
         assert sub_channel == "alipay_qr"
 
-    def test_wechat_jsapi_prefers_native_when_enabled(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_wechat_jsapi_prefers_native_when_enabled(
+        self: object, monkeypatch: object
+    ):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "wechatpay,pingxx"
             return default
@@ -147,8 +155,10 @@ class TestResolvePaymentChannel:
         assert provider == "wechatpay"
         assert sub_channel == "wx_pub"
 
-    def test_explicit_wechatpay_defaults_to_qr_channel(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_explicit_wechatpay_defaults_to_qr_channel(
+        self: object, monkeypatch: object
+    ):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "wechatpay"
             return default
@@ -166,7 +176,9 @@ class TestResolvePaymentChannel:
         assert provider == "wechatpay"
         assert sub_channel == "wx_pub_qr"
 
-    def test_scoped_provider_allows_custom_wechat_when_global_default_is_pingxx(self):
+    def test_scoped_provider_allows_custom_wechat_when_global_default_is_pingxx(
+        self: object,
+    ):
         provider, sub_channel = _resolve_payment_channel(
             payment_channel_hint="wechatpay",
             channel_hint="wx_pub_qr",
@@ -176,8 +188,10 @@ class TestResolvePaymentChannel:
         assert provider == "wechatpay"
         assert sub_channel == "wx_pub_qr"
 
-    def test_explicit_native_provider_rejects_unsupported_channel(self, monkeypatch):
-        def fake_get_config(key, default=None):
+    def test_explicit_native_provider_rejects_unsupported_channel(
+        self: object, monkeypatch: object
+    ):
+        def fake_get_config(key: object, default: object = None):
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "alipay"
             return default

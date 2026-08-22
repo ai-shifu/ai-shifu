@@ -15,7 +15,7 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 
 
-def _prepare_tables(app) -> None:
+def _prepare_tables(app: object) -> None:
     with app.app_context():
         TTSMiniMaxClonedVoice.__table__.create(db.engine, checkfirst=True)
 
@@ -88,7 +88,7 @@ def _seed_voice_clone_rows() -> None:
     db.session.commit()
 
 
-def test_list_operator_voice_clones_returns_owner_course_and_status(app):
+def test_list_operator_voice_clones_returns_owner_course_and_status(app: object):
     _prepare_tables(app)
     with app.app_context():
         _clear_rows()
@@ -113,7 +113,7 @@ def test_list_operator_voice_clones_returns_owner_course_and_status(app):
     assert item["charged_credits"] == "1"
 
 
-def test_list_operator_voice_clones_filters_failure_and_provider_code(app):
+def test_list_operator_voice_clones_filters_failure_and_provider_code(app: object):
     _prepare_tables(app)
     with app.app_context():
         _clear_rows()
@@ -136,7 +136,7 @@ def test_list_operator_voice_clones_filters_failure_and_provider_code(app):
     assert item["minimax_status_msg"] == "invalid audio"
 
 
-def test_list_operator_voice_clones_filters_voice_name(app):
+def test_list_operator_voice_clones_filters_voice_name(app: object):
     _prepare_tables(app)
     with app.app_context():
         _clear_rows()
@@ -153,7 +153,9 @@ def test_list_operator_voice_clones_filters_voice_name(app):
     assert result["items"][0]["voice_bid"] == "voice-ready"
 
 
-def test_list_operator_voice_clones_filters_owner_nickname_without_user_bid(app):
+def test_list_operator_voice_clones_filters_owner_nickname_without_user_bid(
+    app: object,
+):
     _prepare_tables(app)
     with app.app_context():
         _clear_rows()
@@ -177,7 +179,7 @@ def test_list_operator_voice_clones_filters_owner_nickname_without_user_bid(app)
     assert user_bid_result["total"] == 0
 
 
-def test_list_operator_voice_clones_filters_course_keyword(app):
+def test_list_operator_voice_clones_filters_course_keyword(app: object):
     _prepare_tables(app)
     with app.app_context():
         _clear_rows()
@@ -194,7 +196,7 @@ def test_list_operator_voice_clones_filters_course_keyword(app):
     assert result["items"][0]["voice_bid"] == "voice-ready"
 
 
-def test_list_operator_voice_clones_filters_provider(app):
+def test_list_operator_voice_clones_filters_provider(app: object):
     _prepare_tables(app)
     with app.app_context():
         _clear_rows()

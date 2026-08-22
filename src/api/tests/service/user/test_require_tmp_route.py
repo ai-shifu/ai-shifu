@@ -5,12 +5,20 @@ from __future__ import annotations
 import json
 
 
-def test_require_tmp_passes_payload_source_to_temp_user(test_client, monkeypatch):
+def test_require_tmp_passes_payload_source_to_temp_user(
+    test_client: object, monkeypatch: object
+):
     import flaskr.route.user as user_route
 
     calls: list[dict[str, str | None]] = []
 
-    def fake_generate_temp_user(app, temp_id, source, wx_code=None, language="en-US"):
+    def fake_generate_temp_user(
+        app: object,
+        temp_id: object,
+        source: object,
+        wx_code: object = None,
+        language: object = "en-US",
+    ):
         _ = app
         calls.append(
             {

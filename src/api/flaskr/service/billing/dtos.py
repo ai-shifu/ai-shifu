@@ -16,15 +16,15 @@ class BillingBaseDTO(BaseModel):
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self: object) -> dict[str, Any]:
         """Return aliased model fields as JSON-compatible data."""
         return self.model_dump(mode="python", by_alias=True)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self: object, key: str) -> Any:
         """Return a serialized DTO field by key."""
         return self.__json__()[key]
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self: object, other: object) -> bool:
         """Compare the DTO with a serialized mapping or model."""
         if isinstance(other, dict):
             return self.__json__() == other

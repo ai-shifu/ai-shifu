@@ -11,25 +11,30 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 class AppError(Exception):
     """Represent an application error with a stable API code."""
 
-    def __init__(self, message, status_code=None, payload=None) -> None:
+    def __init__(
+        self: object,
+        message: object,
+        status_code: object = None,
+        payload: object = None,
+    ) -> None:
         """Initialize an application error and response payload."""
         Exception.__init__(self)
         self.message = message
         self.code = status_code
         self.payload = payload
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the application error as JSON-compatible data."""
         rv = dict(self.payload or ())
         rv["message"] = self.message
         rv["code"] = self.code
         return rv
 
-    def __str__(self) -> str:
+    def __str__(self: object) -> str:
         """Return the application error message."""
         return self.message
 
-    def __html__(self) -> dict:
+    def __html__(self: object) -> dict:
         """Return the serialized application-error payload."""
         return self.__json__()
 
@@ -57,12 +62,12 @@ def _load_error_codes() -> dict[str, int]:
 ERROR_CODE = _load_error_codes()
 
 
-def register_error(error_name, error_code):
+def register_error(error_name: object, error_code: object):
     """Register error."""
     ERROR_CODE[error_name] = error_code
 
 
-def raise_param_error(param_message):
+def raise_param_error(param_message: object):
     """Raise a localized invalid-parameter application error."""
     raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
@@ -70,7 +75,7 @@ def raise_param_error(param_message):
     )
 
 
-def raise_error(error_name):
+def raise_error(error_name: object):
     """Raise a localized application error for the supplied key."""
     raise AppError(
         _(error_name),
@@ -78,7 +83,7 @@ def raise_error(error_name):
     )
 
 
-def raise_error_with_args(error_name, **kwargs: object):
+def raise_error_with_args(error_name: object, **kwargs: object):
     """Raise error with args."""
     raise AppError(
         _(error_name).format(**kwargs),

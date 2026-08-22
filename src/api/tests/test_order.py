@@ -41,7 +41,7 @@ def _query_promo_applications(items: list[object]) -> object:
     return query
 
 
-def test_init_buy_record_creates_order(app, monkeypatch):
+def test_init_buy_record_creates_order(app: object, monkeypatch: object):
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -70,7 +70,9 @@ def test_init_buy_record_creates_order(app, monkeypatch):
         db.session.commit()
 
 
-def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeypatch):
+def test_init_buy_record_refreshes_existing_unpaid_order_promotions(
+    app: object, monkeypatch: object
+):
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -93,7 +95,9 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeyp
             return []
         return [promo_application]
 
-    def fake_query_promo_campaign_applications(_app, _order_id, recalc_discount):
+    def fake_query_promo_campaign_applications(
+        _app: object, _order_id: object, recalc_discount: object
+    ):
         _ = recalc_discount
         if apply_calls["count"] >= 2:
             return [promo_application]
@@ -129,7 +133,9 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(app, monkeyp
         db.session.commit()
 
 
-def test_init_buy_record_reactivates_voided_promo_redemption(app, monkeypatch):
+def test_init_buy_record_reactivates_voided_promo_redemption(
+    app: object, monkeypatch: object
+):
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -197,7 +203,7 @@ def test_init_buy_record_reactivates_voided_promo_redemption(app, monkeypatch):
         db.session.commit()
 
 
-def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
+def test_init_buy_record_applies_legacy_campaign(app: object, monkeypatch: object):
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -244,7 +250,7 @@ def test_init_buy_record_applies_legacy_campaign(app, monkeypatch):
 
 
 def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculating(
-    app,
+    app: object,
 ):
     from flaskr.service.promo.funcs import query_promo_campaign_applications
 
@@ -290,7 +296,9 @@ def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculat
     assert result[0].promo_bid == "promo-legacy-runtime-2"
 
 
-def test_init_buy_record_refresh_keeps_existing_coupon_discount(app, monkeypatch):
+def test_init_buy_record_refresh_keeps_existing_coupon_discount(
+    app: object, monkeypatch: object
+):
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")

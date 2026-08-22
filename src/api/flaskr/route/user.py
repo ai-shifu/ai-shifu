@@ -160,7 +160,7 @@ def _apply_request_language(payload: dict | None = None) -> None:
         set_language(language)
 
 
-def _resolve_runtime_language(user, payload: dict | None = None) -> str:
+def _resolve_runtime_language(user: object, payload: dict | None = None) -> str:
     """Prefer the current client language for this request without mutating the profile."""
     if payload is None and request.is_json:
         json_data = request.get_json(silent=True) or {}
@@ -185,7 +185,7 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
-def optional_token_validation(f):
+def optional_token_validation(f: object):
     """Allow a route to accept an optional authentication token."""
 
     @wraps(f)

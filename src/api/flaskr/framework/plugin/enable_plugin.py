@@ -26,7 +26,7 @@ def enable_plugins(app: Flask):
 
     @plugin.command(name="add")
     @click.argument("repo_url")
-    def add(repo_url):
+    def add(repo_url: object):
         """Add a plugin by cloning the repository."""
         repo_name = repo_url.split("/")[-1].replace(".git", "")
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
@@ -41,7 +41,7 @@ def enable_plugins(app: Flask):
 
     @plugin.command(name="delete")
     @click.argument("repo_name")
-    def delete(repo_name):
+    def delete(repo_name: object):
         """Delete a plugin by its repository name."""
         dest_dir = str(Path("flaskr") / "plugins" / repo_name)
         if not Path(dest_dir).exists():
@@ -79,7 +79,7 @@ def enable_plugins(app: Flask):
         """Get version table name."""
         return f"alembic_version_plugin_{plugin_name.replace('-', '_')}"
 
-    def get_alembic_config(plugin, version_table: str | None = None) -> Config:
+    def get_alembic_config(plugin: object, version_table: str | None = None) -> Config:
         """Get alembic config."""
         alembic_cfg = Config()
         alembic_cfg.set_main_option("script_location", plugin.migration_dir)
@@ -97,7 +97,13 @@ def enable_plugins(app: Flask):
     def get_plugin_include_object(plugin_name: str):
         """Generate plugin model filter function."""
 
-        def include_object(db_object, name, type_, reflected, compare_to):
+        def include_object(
+            db_object: object,
+            name: object,
+            type_: object,
+            reflected: object,
+            compare_to: object,
+        ):
             _ = (name, reflected, compare_to)
             if type_ == "table":
                 return db_object.__module__.startswith(f"flaskr.plugins.{plugin_name}")
@@ -108,7 +114,7 @@ def enable_plugins(app: Flask):
     @plugin_db.command(name="upgrade")
     @click.argument("plugin_name", required=False)
     @with_appcontext
-    def upgrade(plugin_name):
+    def upgrade(plugin_name: object):
         """Upgrade the plugin database to the latest version."""
         plugins = get_plugin_migrations()
 
@@ -125,7 +131,7 @@ def enable_plugins(app: Flask):
     @plugin_db.command(name="history")
     @click.argument("plugin_name")
     @with_appcontext
-    def history(plugin_name):
+    def history(plugin_name: object):
         """View the migration history of the plugin."""
         plugins = get_plugin_migrations()
         for plugin in plugins:
@@ -141,7 +147,7 @@ def enable_plugins(app: Flask):
     @plugin_db.command(name="migrate")
     @click.argument("plugin_name")
     @with_appcontext
-    def migrate(plugin_name):
+    def migrate(plugin_name: object):
         """Migrate the plugin database to the latest version."""
         plugins = get_plugin_migrations()
         for plugin in plugins:

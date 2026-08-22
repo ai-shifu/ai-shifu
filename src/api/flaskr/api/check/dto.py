@@ -16,7 +16,7 @@ class CheckResultDTO:
     provider: str
 
     def __init__(
-        self,
+        self: object,
         check_result: int,
         risk_labels: list[str],
         risk_label_ids: list[int],
@@ -30,7 +30,7 @@ class CheckResultDTO:
         self.provider = provider
         self.raw_data = raw_data
 
-    def __to_dict__(self) -> dict:
+    def __to_dict__(self: object) -> dict:
         """Return the risk-check result as a dictionary."""
         return {
             "check_result": self.check_result,
@@ -39,6 +39,6 @@ class CheckResultDTO:
             "provider": self.provider,
         }
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the risk-check result as JSON-compatible data."""
         return self.__to_dict__()

@@ -15,7 +15,7 @@ from flaskr.service.order.open_api import (
 from flaskr.service.user.models import UserInfo
 
 
-def require_api_key(f):
+def require_api_key(f: object):
     """Authenticate Open API requests via X-User-Uid + X-Api-Key headers."""
 
     @wraps(f)

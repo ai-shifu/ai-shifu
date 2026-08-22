@@ -116,7 +116,7 @@ class BillingWebhookResult:
     charge_id: str | None = None
     order_no: str | None = None
 
-    def to_response_dict(self) -> dict[str, Any]:
+    def to_response_dict(self: object) -> dict[str, Any]:
         """Serialize this result for an API response."""
         payload = {
             "status": self.status,
@@ -131,11 +131,11 @@ class BillingWebhookResult:
             payload["message"] = self.message
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self: object, key: str) -> Any:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self: object) -> Iterator[Any]:
         """Yield the response payload and status code for unpacking."""
         yield self.to_response_dict()
         yield self.status_code

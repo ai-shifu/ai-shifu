@@ -31,7 +31,7 @@ SKILLS = os.environ.get("SKILLS_REPO", str((Path(ROOT) / ".." / "skills").resolv
 MINIAPP = os.environ.get("MINIAPP_REPO", "")
 
 
-def norm(path):
+def norm(path: object):
     """Normalize a route path into comparable segments."""
     path = path.split("?")[0].rstrip("/")
     segs = []
@@ -45,7 +45,7 @@ def norm(path):
     return tuple(segs)
 
 
-def grep_paths(root):
+def grep_paths(root: object):
     """Return source paths reported by the route search."""
     if not Path(root).is_dir():
         return set()
@@ -113,7 +113,7 @@ with Path(BACKEND_ROUTES).open(encoding="utf-8") as backend_routes:
         be.append((method, path, norm(path), src))
 
 
-def match(be_segs, fe_segs):
+def match(be_segs: object, fe_segs: object):
     """Return whether backend and consumer route segments match."""
     if len(be_segs) != len(fe_segs):
         return False

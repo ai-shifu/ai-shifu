@@ -25,7 +25,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
     """Preview-only element adapter that keeps element snapshots in memory."""
 
     def __init__(
-        self,
+        self: object,
         app: Flask,
         *,
         shifu_bid: str,
@@ -47,17 +47,17 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         )
         self._latest_element_snapshots: dict[str, ElementDTO] = {}
 
-    def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
+    def _load_block_meta(self: object, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid not in self._block_meta_cache:
             self._block_meta_cache[generated_block_bid] = BlockMeta()
         return self._block_meta_cache[generated_block_bid]
 
-    def _persist_element(self, element: ElementDTO) -> None:
+    def _persist_element(self: object, element: ElementDTO) -> None:
         base_element_bid = self._prepare_runtime_element(element)
         self._latest_element_snapshots[base_element_bid] = element.model_copy(deep=True)
 
     def _persisted_non_element_message(
-        self,
+        self: object,
         *,
         stored_event_type: str,
         emitted_event_type: str,
@@ -73,13 +73,15 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
             is_terminal=is_terminal,
         )
 
-    def _load_latest_element_snapshot(self, element_bid: str) -> ElementDTO | None:
+    def _load_latest_element_snapshot(
+        self: object, element_bid: str
+    ) -> ElementDTO | None:
         snapshot = self._latest_element_snapshots.get(element_bid)
         if snapshot is None:
             return None
         return snapshot.model_copy(deep=True)
 
-    def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
+    def _backfill_audio_url(self: object, element_bid: str, audio_url: str) -> None:
         snapshot = self._latest_element_snapshots.get(element_bid)
         if snapshot is None:
             return
@@ -87,7 +89,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         self._latest_element_snapshots[element_bid] = snapshot
 
     def _retire_fallback_element(
-        self, state, *, emit_notification: bool = True
+        self: object, state: object, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
@@ -104,7 +106,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         )
 
     def _retire_stream_elements(
-        self, state, *, emit_notification: bool = True
+        self: object, state: object, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return
@@ -122,7 +124,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
             )
 
     def _interaction_content_and_payload(
-        self, event: RunMarkdownFlowDTO, generated_block_bid: str
+        self: object, event: RunMarkdownFlowDTO, generated_block_bid: str
     ) -> tuple[str, ElementPayloadDTO]:
         del generated_block_bid
         payload = ElementPayloadDTO(audio=None, previous_visuals=[])
@@ -133,5 +135,5 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         )
         return content_text, payload
 
-    def _new_interaction_element_bid(self) -> str:
+    def _new_interaction_element_bid(self: object) -> str:
         return f"preview-interaction-{uuid.uuid4().hex[:8]}"

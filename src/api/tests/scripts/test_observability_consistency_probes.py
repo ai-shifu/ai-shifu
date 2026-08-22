@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 class _Db:
-    def __init__(self, session) -> None:
+    def __init__(self: object, session: object) -> None:
         self.session = session
 
 
@@ -75,7 +75,12 @@ def _args():
 
 
 def _insert_wallet(
-    session, *, wallet_bid: str, creator_bid: str, available: str, reserved: str = "0"
+    session: object,
+    *,
+    wallet_bid: str,
+    creator_bid: str,
+    available: str,
+    reserved: str = "0",
 ):
     session.execute(
         text(
@@ -95,7 +100,7 @@ def _insert_wallet(
 
 
 def _insert_bucket(
-    session,
+    session: object,
     *,
     wallet_bid: str,
     creator_bid: str,
@@ -147,7 +152,7 @@ def _insert_bucket(
     )
 
 
-def _insert_active_subscription(session, *, creator_bid: str, now: datetime):
+def _insert_active_subscription(session: object, *, creator_bid: str, now: datetime):
     session.execute(
         text(
             """
@@ -168,7 +173,7 @@ def _insert_active_subscription(session, *, creator_bid: str, now: datetime):
     )
 
 
-def _probe(env, *, now: datetime):
+def _probe(env: object, *, now: datetime):
     return probe_wallet_snapshot(
         env.db,
         inspect(env.engine),

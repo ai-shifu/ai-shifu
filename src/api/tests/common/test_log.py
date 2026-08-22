@@ -7,12 +7,12 @@ from flaskr.common.log import FeishuLogHandler
 
 
 class _FailingResponse:
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         message = "400 Client Error"
         raise requests.exceptions.HTTPError(message)
 
 
-def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):
+def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch: object):
     calls = []
 
     def fake_post(*args: object, **kwargs: object):
@@ -39,7 +39,7 @@ def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):
 
 
 def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
-    monkeypatch, caplog
+    monkeypatch: object, caplog: object
 ):
     calls = []
 
@@ -68,7 +68,7 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
     assert "Failed to send log to Feishu webhook" in caplog.text
 
 
-def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch):
+def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch: object):
     calls = []
 
     def fake_post(*args: object, **kwargs: object):
@@ -96,10 +96,10 @@ def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch):
     assert calls == []
 
 
-def test_feishu_log_handler_truncates_oversized_payload(monkeypatch):
+def test_feishu_log_handler_truncates_oversized_payload(monkeypatch: object):
     captured = {}
 
-    def fake_post(_url, *, json, timeout):
+    def fake_post(_url: object, *, json: object, timeout: object):
         captured["payload"] = json
         captured["timeout"] = timeout
         return type("Response", (), {"raise_for_status": lambda _self: None})()

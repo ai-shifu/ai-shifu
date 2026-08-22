@@ -28,7 +28,7 @@ from flaskr.service.referral.models import (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_referral_campaign_tables(app):
+def _isolate_referral_campaign_tables(app: object):
     with app.app_context():
         db.session.query(ReferralInviteEvent).delete()
         db.session.query(ReferralInviteReward).delete()
@@ -56,7 +56,7 @@ def _isolate_referral_campaign_tables(app):
         db.session.remove()
 
 
-def _mock_operator(monkeypatch, user_id: str = "operator-1") -> None:
+def _mock_operator(monkeypatch: object, user_id: str = "operator-1") -> None:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_operator=True,
@@ -108,9 +108,9 @@ def _payload():
 
 
 def test_admin_operations_promotions_referral_campaign_routes_round_trip(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: object,
 ):
     _mock_operator(monkeypatch)
     with app.app_context():
@@ -162,9 +162,9 @@ def test_admin_operations_promotions_referral_campaign_routes_round_trip(
 
 
 def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
-    app,
-    test_client,
-    monkeypatch,
+    app: object,
+    test_client: object,
+    monkeypatch: object,
 ):
     _mock_operator(monkeypatch)
     with app.app_context():
@@ -285,8 +285,8 @@ def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
 
 
 def test_admin_operations_promotions_referral_campaign_rejects_invalid_status_filter(
-    test_client,
-    monkeypatch,
+    test_client: object,
+    monkeypatch: object,
 ):
     _mock_operator(monkeypatch)
 

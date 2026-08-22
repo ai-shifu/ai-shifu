@@ -27,14 +27,14 @@ class StripeProvider(PaymentProvider):
 
     channel = "stripe"
 
-    def _ensure_client(self, app: Flask):
+    def _ensure_client(self: object, app: Flask):
         return get_stripe_client_options(app)[0]
 
-    def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
+    def _client_options(self: object, app: Flask) -> tuple[Any, dict[str, Any]]:
         return get_stripe_client_options(app)
 
     def create_payment(
-        self, *, request: PaymentRequest, app: Flask
+        self: object, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         """Create a payment through this provider."""
         stripe, request_options = self._client_options(app)
@@ -171,7 +171,7 @@ class StripeProvider(PaymentProvider):
         )
 
     def create_subscription(
-        self, *, request: PaymentRequest, app: Flask
+        self: object, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         """Create a recurring subscription through this provider."""
         options: dict[str, Any] = dict(request.extra or {})
@@ -194,7 +194,11 @@ class StripeProvider(PaymentProvider):
         return self.create_payment(request=subscription_request, app=app)
 
     def cancel_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self: object,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
         """Schedule provider subscription cancellation at the current period end."""
         stripe, request_options = self._client_options(app)
@@ -215,7 +219,11 @@ class StripeProvider(PaymentProvider):
         )
 
     def resume_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self: object,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
         """Clear Stripe's scheduled cancellation for a subscription."""
         stripe, request_options = self._client_options(app)
@@ -236,26 +244,28 @@ class StripeProvider(PaymentProvider):
         )
 
     def retrieve_checkout_session(
-        self, *, session_id: str, app: Flask
+        self: object, *, session_id: str, app: Flask
     ) -> dict[str, Any]:
         """Retrieve a Stripe checkout session."""
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
-    def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
+    def retrieve_payment_intent(
+        self: object, *, intent_id: str, app: Flask
+    ) -> dict[str, Any]:
         """Retrieve a Stripe payment intent."""
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
-        self, *, subscription_id: str, app: Flask
+        self: object, *, subscription_id: str, app: Flask
     ) -> dict[str, Any]:
         """Retrieve a Stripe subscription."""
         stripe, request_options = self._client_options(app)
         return stripe.Subscription.retrieve(subscription_id, **request_options)
 
     def verify_webhook(
-        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
+        self: object, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         """Verify and decode a provider webhook payload."""
         stripe, _request_options = self._client_options(app)
@@ -287,7 +297,7 @@ class StripeProvider(PaymentProvider):
         return self._build_notification_from_event(event)
 
     def handle_notification(
-        self, *, payload: dict[str, Any], app: Flask
+        self: object, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
         """Verify and normalize a Stripe provider notification."""
         headers = dict(payload.get("headers", {}) or {})
@@ -301,7 +311,7 @@ class StripeProvider(PaymentProvider):
         )
 
     def sync_reference(
-        self, *, provider_reference: str, reference_type: str, app: Flask
+        self: object, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
         """Retrieve and normalize Stripe state for local state application."""
         normalized_reference_type = str(reference_type or "").strip().lower()
@@ -358,7 +368,7 @@ class StripeProvider(PaymentProvider):
         raise RuntimeError(message)
 
     def refund_payment(
-        self, *, request: PaymentRefundRequest, app: Flask
+        self: object, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         """Refund a payment through this provider."""
         stripe, request_options = self._client_options(app)
@@ -394,7 +404,7 @@ class StripeProvider(PaymentProvider):
         )
 
     def _build_notification_from_event(
-        self, event: dict[str, Any]
+        self: object, event: dict[str, Any]
     ) -> PaymentNotificationResult:
         data_object = event.get("data", {}).get("object", {}) or {}
         metadata = data_object.get("metadata", {}) or {}

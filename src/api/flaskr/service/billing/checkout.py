@@ -194,7 +194,7 @@ class ProviderReferenceReconcileResult:
     provider_reference_id: str | None
     payment_provider: str | None
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self: object) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -204,7 +204,7 @@ class ProviderReferenceReconcileResult:
             "payment_provider": self.payment_provider,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self: object, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -220,7 +220,7 @@ class StripeLineItemPayload:
     interval_count: int | None = None
     quantity: int = 1
 
-    def to_provider_payload(self) -> dict[str, Any]:
+    def to_provider_payload(self: object) -> dict[str, Any]:
         """Serialize this value for the payment provider."""
         price_data: dict[str, Any] = {
             "currency": self.currency,
@@ -244,7 +244,7 @@ class RefundProviderMetadata:
     payment_intent_id: str | None = None
     charge_id: str | None = None
 
-    def to_provider_payload(self) -> dict[str, Any]:
+    def to_provider_payload(self: object) -> dict[str, Any]:
         """Serialize this value for the payment provider."""
         payload = {
             "bill_order_bid": self.bill_order_bid,

@@ -143,7 +143,7 @@ def _dashboard_learner_keyword_matches(
 
 
 def _build_dashboard_learner_keyword_filter(
-    user_bid_column,
+    user_bid_column: object,
     keyword: str,
 ):
     normalized_keyword = _normalize_dashboard_identifier(keyword).strip()
@@ -310,7 +310,7 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
 
 
 def _build_follow_up_user_keyword_filter(
-    user_bid_column,
+    user_bid_column: object,
     keyword: str,
 ):
     normalized = _normalize_dashboard_identifier(keyword)

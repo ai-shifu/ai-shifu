@@ -55,7 +55,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_creator_analytics_tables(app):
+def _isolate_creator_analytics_tables(app: object):
     if app is None:
         yield
         return
@@ -67,7 +67,7 @@ def _isolate_creator_analytics_tables(app):
 
 
 @pytest.fixture
-def mock_request_user(monkeypatch):
+def mock_request_user(monkeypatch: object):
     """Return a helper that installs a fake authenticated user."""
 
     def _install(user_id: str = "teacher-1", is_creator: bool = True) -> None:

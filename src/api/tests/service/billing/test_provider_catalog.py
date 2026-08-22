@@ -26,25 +26,25 @@ from flaskr.service.config import config_overrides
 
 
 class _StripeObject:
-    def __init__(self, payload) -> None:
+    def __init__(self: object, payload: object) -> None:
         self._payload = payload
 
-    def to_dict(self):
+    def to_dict(self: object):
         return dict(self._payload)
 
 
 class _FakeStripeResource:
-    def __init__(self, payload) -> None:
+    def __init__(self: object, payload: object) -> None:
         self.payload = payload
         self.calls = []
 
-    def retrieve(self, *args: object, **kwargs: object):
+    def retrieve(self: object, *args: object, **kwargs: object):
         self.calls.append({"args": args, "kwargs": kwargs})
         return _StripeObject(self.payload)
 
 
 class _FakeStripe:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.Account = _FakeStripeResource(
             {
                 "id": "acct_test",
@@ -86,7 +86,7 @@ class _FakeStripe:
 
 
 class _FailingStripeResource:
-    def retrieve(self, *args: object, **kwargs: object):
+    def retrieve(self: object, *args: object, **kwargs: object):
         _ = (args, kwargs)
         message = "secret sk_test_should_not_leak"
         raise RuntimeError(message)
@@ -99,10 +99,10 @@ class _FailingStripe:
 
 
 class _FakeStripeAdapter(StripeCatalogReadAdapter):
-    def __init__(self, stripe) -> None:
+    def __init__(self: object, stripe: object) -> None:
         self.stripe = stripe
 
-    def _client_options(self, app):
+    def _client_options(self: object, app: object):
         _ = app
         return self.stripe, build_stripe_request_options()
 
@@ -216,7 +216,9 @@ def _validate(product: BillingProduct, snapshot: ProviderCatalogSnapshot):
     )
 
 
-def test_stripe_catalog_adapter_retrieves_and_normalizes_sdk_objects(app) -> None:
+def test_stripe_catalog_adapter_retrieves_and_normalizes_sdk_objects(
+    app: object,
+) -> None:
     fake = _FakeStripe()
     with config_overrides(
         {
@@ -245,7 +247,9 @@ def test_stripe_catalog_adapter_retrieves_and_normalizes_sdk_objects(app) -> Non
     assert fake.Price.calls[0]["args"] == ("price_growth_month",)
 
 
-def test_stripe_catalog_adapter_wraps_retrieve_errors_without_secret(app) -> None:
+def test_stripe_catalog_adapter_wraps_retrieve_errors_without_secret(
+    app: object,
+) -> None:
     with (
         config_overrides({"STRIPE_SECRET_KEY": "sk_test_secret"}),
         pytest.raises(ProviderCatalogReadError) as exc_info,
@@ -300,8 +304,8 @@ def test_topup_provider_price_mapping_accepts_matching_one_time_price() -> None:
     ],
 )
 def test_topup_provider_price_mapping_accepts_credit_pack_metadata_contract(
-    product_code,
-    credit_amount,
+    product_code: object,
+    credit_amount: object,
 ) -> None:
     product = _topup_product(product_code=product_code, credit_amount=credit_amount)
     snapshot = _snapshot(
@@ -347,8 +351,8 @@ def test_topup_provider_price_mapping_accepts_credit_pack_metadata_contract(
     ],
 )
 def test_plan_provider_price_mapping_rejects_strong_mismatches(
-    snapshot_kwargs,
-    expected_error,
+    snapshot_kwargs: object,
+    expected_error: object,
 ) -> None:
     result = _validate(_plan_product(), _snapshot(**snapshot_kwargs))
 

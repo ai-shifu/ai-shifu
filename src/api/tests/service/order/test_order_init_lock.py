@@ -6,31 +6,36 @@ import flaskr.service.order.funs as order_funs
 class DummyLock:
     """Simulate lock behavior for tests."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Reset acquisition and release call counters."""
         self.acquired = 0
         self.released = 0
 
-    def acquire(self, blocking=True):
+    def acquire(self: object, blocking: object = True):
         _ = blocking
         self.acquired += 1
         return True
 
-    def release(self):
+    def release(self: object):
         self.released += 1
 
 
 class DummyRedis:
     """Simulate Redis behavior for tests."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Capture lock arguments and expose one reusable test lock."""
         self.last_key = None
         self.last_timeout = None
         self.last_blocking_timeout = None
         self.lock_instance = DummyLock()
 
-    def lock(self, key, timeout=None, blocking_timeout=None):
+    def lock(
+        self: object,
+        key: object,
+        timeout: object = None,
+        blocking_timeout: object = None,
+    ):
         self.last_key = key
         self.last_timeout = timeout
         self.last_blocking_timeout = blocking_timeout
@@ -40,12 +45,12 @@ class DummyRedis:
 class DummyApp:
     """Simulate app behavior for tests."""
 
-    def __init__(self, prefix="ai-shifu") -> None:
+    def __init__(self: object, prefix: object = "ai-shifu") -> None:
         """Expose the configured Redis key prefix to lock tests."""
         self.config = {"REDIS_KEY_PREFIX": prefix}
 
 
-def test_order_init_lock_uses_prefixed_key(monkeypatch):
+def test_order_init_lock_uses_prefixed_key(monkeypatch: object):
     dummy_redis = DummyRedis()
     monkeypatch.setattr(order_funs, "cache_provider", dummy_redis)
     app = DummyApp(prefix="unit-test")
@@ -60,9 +65,9 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch):
     assert dummy_redis.lock_instance.released == 1
 
 
-def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch):
+def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch: object):
     class _BrokenCacheProvider:
-        def lock(self, *args: object, **kwargs: object):
+        def lock(self: object, *args: object, **kwargs: object):
             _ = (args, kwargs)
             message = "lock unavailable"
             raise RuntimeError(message)

@@ -31,7 +31,7 @@ def _get_draft_module():
     return shifu_draft_funcs
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str):
+def _seed_shifu(app: object, shifu_bid: str, owner_bid: str):
     """Create draft shifu row and clear archive state for testing."""
     with app.app_context():
         _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
@@ -57,7 +57,7 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
         dao.db.session.commit()
 
 
-def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
+def test_archive_then_unarchive_updates_both_tables(app: object, monkeypatch: object):
     shifu_bid = "test-archive-toggle"
     owner_bid = "owner-123"
     _seed_shifu(app, shifu_bid, owner_bid)
@@ -110,7 +110,9 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
         assert archive.archived_at is None
 
 
-def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypatch):
+def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(
+    app: object, monkeypatch: object
+):
     created_at = datetime(2026, 4, 21, 0, 0, 0)
     owner_bid = "owner-create-utc"
     draft_module = _get_draft_module()
@@ -151,7 +153,9 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypat
         assert draft.updated_at == created_at
 
 
-def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypatch):
+def test_create_shifu_draft_initializes_default_chapter_and_lesson(
+    app: object, monkeypatch: object
+):
     owner_bid = "owner-default-outline"
     draft_module = _get_draft_module()
     draft_outline_model, _, draft_struct_model, _ = _get_models()
@@ -212,7 +216,7 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypa
 
 
 def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     owner_bid = "owner-empty-struct-rebuild"
     now_time = datetime(2026, 7, 13, 12, 0, 0)
@@ -308,7 +312,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
 
 
 def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     owner_bid = "owner-skip-default-outline-risk"
     draft_module = _get_draft_module()
@@ -354,7 +358,9 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
     assert len(draft_risk_calls) == 1
 
 
-def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypatch):
+def test_create_shifu_draft_raises_when_default_outline_init_fails(
+    app: object, monkeypatch: object
+):
     owner_bid = "owner-outline-init-fail"
     draft_module = _get_draft_module()
 
@@ -389,7 +395,7 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypa
         )
 
 
-def test_archive_requires_creator_permission(app):
+def test_archive_requires_creator_permission(app: object):
     shifu_bid = "test-archive-permission"
     creator = "creator-1"
     _seed_shifu(app, shifu_bid, creator)

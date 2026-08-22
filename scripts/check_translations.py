@@ -40,10 +40,10 @@ def load_json(path: Path) -> dict:
         raise TranslationError(message) from exc
 
 
-def flatten_translation(data, namespace: str) -> dict[str, str]:
+def flatten_translation(data: object, namespace: str) -> dict[str, str]:
     """Flatten nested translation JSON to dot-separated keys."""
 
-    def _flatten(obj, prefix: str):
+    def _flatten(obj: object, prefix: str):
         items: dict[str, str] = {}
         if isinstance(obj, dict):
             # __flat__ allows specifying exact keys without additional nesting

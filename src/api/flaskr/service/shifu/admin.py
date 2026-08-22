@@ -642,7 +642,7 @@ _ADMIN_SPLIT_SUBMODULES = (
 
 
 class _AdminCompatibilityModule(type(sys)):
-    def __setattr__(self, name, value) -> None:
+    def __setattr__(self: object, name: object, value: object) -> None:
         super().__setattr__(name, value)
         for submodule in _ADMIN_SPLIT_SUBMODULES:
             if hasattr(submodule, name):

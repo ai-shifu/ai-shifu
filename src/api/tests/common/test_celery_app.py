@@ -10,7 +10,7 @@ from flask import Flask, current_app
 
 
 def _assert_cron_schedule(
-    schedule,
+    schedule: object,
     *,
     minute: str,
     hour: str,
@@ -150,7 +150,7 @@ def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
 
 
 def test_create_celery_app_executes_billing_tasks_in_eager_mode(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     flask_app = Flask(__name__)
     flask_app.config.update(
@@ -317,7 +317,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
 
 
 def test_get_celery_app_loads_flask_app_from_app_factory(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     fake_flask_app = Flask(__name__)
     fake_flask_app.config.update(CELERY_TASK_ALWAYS_EAGER=True)

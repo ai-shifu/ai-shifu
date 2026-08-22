@@ -86,7 +86,7 @@ def _looks_like_json_object(text: str) -> bool:
     return True
 
 
-def _iter_golden_completion(messages) -> list[str]:
+def _iter_golden_completion(messages: object) -> list[str]:
     """Choose deterministic completion chunks for a chat call.
 
     markdown-flow asks the LLM to "translate" interaction button labels by
@@ -129,12 +129,12 @@ def golden_get_allowed_models() -> list[str]:
     return []
 
 
-def golden_get_current_models(_app) -> list[dict[str, str]]:
+def golden_get_current_models(_app: object) -> list[dict[str, str]]:
     return []
 
 
 @pytest.fixture(autouse=True)
-def golden_llm(monkeypatch):
+def golden_llm(monkeypatch: object):
     """Patch a deterministic fake LLM into every namespace the /run path uses."""
     import sys
 
@@ -166,13 +166,13 @@ def golden_llm(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def golden_sse_settings(app, monkeypatch):
+def golden_sse_settings(app: object, monkeypatch: object):
     """Disable timing-dependent SSE heartbeats for deterministic transcripts."""
     monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
 
 
 @pytest.fixture(autouse=True)
-def golden_disable_risk_audit_commit(monkeypatch):
+def golden_disable_risk_audit_commit(monkeypatch: object):
     """Skip the risk-control audit side-write on SQLite.
 
     ``add_risk_control_result`` commits through a nested ``app.app_context()``
@@ -188,7 +188,9 @@ def golden_disable_risk_audit_commit(monkeypatch):
     )
 
 
-def mock_validate_user(monkeypatch, user_bid: str, *, is_creator: bool = False) -> None:
+def mock_validate_user(
+    monkeypatch: object, user_bid: str, *, is_creator: bool = False
+) -> None:
     """Route auth: make every request resolve to the given user."""
     dummy_user = SimpleNamespace(
         user_id=user_bid,
@@ -203,7 +205,7 @@ def mock_validate_user(monkeypatch, user_bid: str, *, is_creator: bool = False) 
     )
 
 
-def seed_golden_user(app, user_bid: str) -> None:
+def seed_golden_user(app: object, user_bid: str) -> None:
     """Ensure a learner row exists for load_user_aggregate()."""
     from flaskr import dao
     from flaskr.service.user.models import UserInfo
@@ -225,7 +227,7 @@ def seed_golden_user(app, user_bid: str) -> None:
 
 
 @pytest.fixture
-def golden_shifu(app):
+def golden_shifu(app: object):
     """Seed a published, free shifu with one chapter and one runnable lesson.
 
     Idempotent: existing golden rows are removed before reseeding so every

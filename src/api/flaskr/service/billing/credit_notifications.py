@@ -126,7 +126,7 @@ class CreditNotificationStageResult:
     dedupe_key: str = ""
     enqueued: bool = False
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self: object) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,

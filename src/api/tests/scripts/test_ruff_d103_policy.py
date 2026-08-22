@@ -21,14 +21,14 @@ class RuffD103PolicyTest(unittest.TestCase):
     """Protect the documented public-function policy and its narrow boundaries."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUpClass(cls: object) -> None:
         """Resolve the same Ruff executable used by local and CI checks."""
         cls.ruff = os.environ.get("RUFF_BIN") or shutil.which("ruff")
         if cls.ruff is None:
             message = "ruff is not installed"
             raise unittest.SkipTest(message)
 
-    def run_ruff(self, filename: str) -> subprocess.CompletedProcess[str]:
+    def run_ruff(self: object, filename: str) -> subprocess.CompletedProcess[str]:
         """Run configured Ruff against fixture source at one repository path."""
         return subprocess.run(
             [
@@ -47,7 +47,9 @@ class RuffD103PolicyTest(unittest.TestCase):
             check=False,
         )
 
-    def test_semantic_exception_boundaries_allow_undocumented_functions(self) -> None:
+    def test_semantic_exception_boundaries_allow_undocumented_functions(
+        self: object,
+    ) -> None:
         """Keep D103 exceptions limited to tests, fixtures, and migration history."""
         exception_filenames = (
             "src/api/tests/docstring_fixture.py",
@@ -61,7 +63,7 @@ class RuffD103PolicyTest(unittest.TestCase):
                 result = self.run_ruff(filename)
                 assert "D103" not in result.stdout, result.stdout + result.stderr
 
-    def test_production_function_requires_a_docstring(self) -> None:
+    def test_production_function_requires_a_docstring(self: object) -> None:
         """Keep D103 enforced for public production functions."""
         result = self.run_ruff("src/api/flaskr/documentation_fixture.py")
 

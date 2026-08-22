@@ -38,7 +38,7 @@ TIMESTAMP_COLUMNS = [
 ]
 
 
-def _set_server_default(server_default):
+def _set_server_default(server_default: object):
     table_columns = {}
     for table_name, column_name, comment in TIMESTAMP_COLUMNS:
         table_columns.setdefault(table_name, []).append((column_name, comment))

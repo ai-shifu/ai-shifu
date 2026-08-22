@@ -65,7 +65,7 @@ stream_ask_provider_response = None
 chat_llm = None
 
 
-def _is_valid_asks(asks):
+def _is_valid_asks(asks: object):
     """Check if asks list has at least one complete student+teacher pair."""
     if not asks or not isinstance(asks, list):
         return False
@@ -74,7 +74,9 @@ def _is_valid_asks(asks):
     return has_student and has_teacher
 
 
-def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
+def _load_legacy_ask_context(
+    anchor_element: object, ask_element: object, ask_max_history_len: object
+):
     if anchor_element is None or ask_element is None:
         return None
 
@@ -104,7 +106,9 @@ def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
     return messages
 
 
-def _load_ask_context(anchor_element, follow_up_elements, ask_max_history_len):
+def _load_ask_context(
+    anchor_element: object, follow_up_elements: object, ask_max_history_len: object
+):
     """Load ask context from ask/answer sidecar elements first."""
     if anchor_element is None or not follow_up_elements:
         return None
@@ -151,12 +155,12 @@ def _load_ask_context(anchor_element, follow_up_elements, ask_max_history_len):
 
 
 def _create_ask_block(
-    app,
-    outline_item_info,
-    attend_id,
-    user_bid,
-    input_text,
-    last_position,
+    app: object,
+    outline_item_info: object,
+    attend_id: object,
+    user_bid: object,
+    input_text: object,
+    last_position: object,
 ):
     ask_block = init_generated_block(
         app,
@@ -177,12 +181,12 @@ def _create_ask_block(
 
 
 def _create_answer_block(
-    app,
-    outline_item_info,
-    attend_id,
-    user_bid,
-    response_text,
-    last_position,
+    app: object,
+    outline_item_info: object,
+    attend_id: object,
+    user_bid: object,
+    response_text: object,
+    last_position: object,
 ):
     answer_block = init_generated_block(
         app,
@@ -202,19 +206,19 @@ def _create_answer_block(
 
 
 def _run_guardrail(
-    app,
-    user_info,
-    ask_block,
-    input_text,
-    span,
-    outline_item_info,
-    last_position,
-    follow_up_model,
-    follow_up_info,
-    attend_id,
-    usage_context,
-    chapter_title,
-    ask_scene,
+    app: object,
+    user_info: object,
+    ask_block: object,
+    input_text: object,
+    span: object,
+    outline_item_info: object,
+    last_position: object,
+    follow_up_model: object,
+    follow_up_info: object,
+    attend_id: object,
+    usage_context: object,
+    chapter_title: object,
+    ask_scene: object,
 ):
     check_text_func = globals().get("check_text_with_llm_response")
     llm_settings_cls = globals().get("LLMSettings")
@@ -287,7 +291,7 @@ def _finalize_ask_trace(
 @extensible_generic
 def handle_input_ask(
     app: Flask,
-    context,
+    context: object,
     user_info: UserAggregate,
     attend_id: str,
     user_input: str,

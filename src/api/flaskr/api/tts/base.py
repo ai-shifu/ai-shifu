@@ -32,7 +32,7 @@ class ParamRange:
     step: float
     default: float
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Return a new mapping with min, max, step, and default values."""
         return {
             "min": self.min,
@@ -57,7 +57,7 @@ class ProviderConfig:
     supports_custom_voice_id: bool = False
     supports_voice_cloning: bool = False
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Return frontend config with serialized ranges and shared list values."""
         data = {
             "name": self.name,
@@ -98,7 +98,7 @@ class VoiceSettings:
     emotion: str = ""
     volume: float = 1.0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "voice_id": self.voice_id,
@@ -118,7 +118,7 @@ class AudioSettings:
     bitrate: int = 128000
     channel: int = 1
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Convert to dictionary format."""
         return {
             "format": self.format,
@@ -133,16 +133,16 @@ class BaseTTSProvider(ABC):
 
     @property
     @abstractmethod
-    def provider_name(self) -> str:
+    def provider_name(self: object) -> str:
         """Return the provider name."""
 
     @abstractmethod
-    def is_configured(self) -> bool:
+    def is_configured(self: object) -> bool:
         """Check if the provider is properly configured."""
 
     @abstractmethod
     def synthesize(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -165,23 +165,23 @@ class BaseTTSProvider(ABC):
         """
 
     @abstractmethod
-    def get_default_voice_settings(self) -> VoiceSettings:
+    def get_default_voice_settings(self: object) -> VoiceSettings:
         """Get default voice settings for this provider."""
 
     @abstractmethod
-    def get_default_audio_settings(self) -> AudioSettings:
+    def get_default_audio_settings(self: object) -> AudioSettings:
         """Get default audio settings for this provider."""
 
-    def get_supported_emotions(self) -> list[str]:
+    def get_supported_emotions(self: object) -> list[str]:
         """Get list of supported emotions for this provider."""
         return []
 
-    def get_supported_voices(self) -> list[dict[str, str]]:
+    def get_supported_voices(self: object) -> list[dict[str, str]]:
         """Get list of supported voices for this provider."""
         return []
 
     @abstractmethod
-    def get_provider_config(self) -> ProviderConfig:
+    def get_provider_config(self: object) -> ProviderConfig:
         """Get provider configuration for frontend.
 
         Returns:

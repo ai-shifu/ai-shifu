@@ -8,7 +8,7 @@ class TestListenElementHistorySubtitles:
     """Verify listen element history subtitles behavior."""
 
     @classmethod
-    def setup_class(cls) -> None:
+    def setup_class(cls: object) -> None:
         cls.app = Flask("listen-element-history-subtitles")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -29,7 +29,7 @@ class TestListenElementHistorySubtitles:
         with cls.app.app_context():
             dao.db.create_all()
 
-    def test_final_elements_are_hydrated_from_persisted_audio_subtitles(self):
+    def test_final_elements_are_hydrated_from_persisted_audio_subtitles(self: object):
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,
@@ -113,7 +113,7 @@ class TestListenElementHistorySubtitles:
         assert element.payload.audio.audio_bid == "audio-history-subtitles"
         assert element.payload.audio.subtitle_cues[0].text == "Hello subtitle history."
 
-    def test_multi_position_audio_is_hydrated_by_speakable_element_order(self):
+    def test_multi_position_audio_is_hydrated_by_speakable_element_order(self: object):
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,
@@ -243,7 +243,9 @@ class TestListenElementHistorySubtitles:
             "audio-history-multi-2",
         ]
 
-    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(self):
+    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(
+        self: object,
+    ):
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,

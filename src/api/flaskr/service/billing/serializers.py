@@ -624,7 +624,7 @@ def serialize_daily_ledger_summary(
 
 def serialize_admin_entitlement_state(
     app: Flask,
-    state,
+    state: object,
     *,
     creator: dict[str, str],
     product: BillingProduct | None,
@@ -769,8 +769,8 @@ def serialize_operator_credit_order_grant(
     source_type: str,
     source_bid: str,
     granted_credits: float,
-    valid_from,
-    valid_to,
+    valid_from: object,
+    valid_to: object,
 ) -> OperatorCreditOrderGrantDTO:
     """Serialize operator credit order grant."""
     _ = app

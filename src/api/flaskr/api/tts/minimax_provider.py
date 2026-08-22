@@ -315,16 +315,16 @@ class MinimaxTTSProvider(BaseTTSProvider):
     """TTS provider using Minimax API."""
 
     @property
-    def provider_name(self) -> str:
+    def provider_name(self: object) -> str:
         """Return the provider's stable configuration name."""
         return "MiniMax"
 
-    def is_configured(self) -> bool:
+    def is_configured(self: object) -> bool:
         """Check if Minimax TTS is properly configured."""
         api_key = get_config("MINIMAX_API_KEY")
         return bool(api_key)
 
-    def get_default_voice_settings(self) -> VoiceSettings:
+    def get_default_voice_settings(self: object) -> VoiceSettings:
         """Get default voice settings.
 
         Notes:
@@ -341,7 +341,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
             volume=1.0,
         )
 
-    def get_default_audio_settings(self) -> AudioSettings:
+    def get_default_audio_settings(self: object) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
             format="mp3",
@@ -350,12 +350,12 @@ class MinimaxTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_emotions(self) -> list[str]:
+    def get_supported_emotions(self: object) -> list[str]:
         """Get list of supported emotions."""
         return MINIMAX_ALLOWED_EMOTIONS
 
     def synthesize(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -426,7 +426,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
         )
 
     def stream_synthesize(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -544,7 +544,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
             )
 
     def _call_api(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -637,7 +637,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
         return result
 
-    def get_provider_config(self) -> ProviderConfig:
+    def get_provider_config(self: object) -> ProviderConfig:
         """Get Minimax provider configuration for frontend."""
         return ProviderConfig(
             name="MiniMax",

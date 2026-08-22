@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from flaskr import dao
 
 
-def _seed_course(app, shifu_bid: str, owner_bid: str) -> None:
+def _seed_course(app: object, shifu_bid: str, owner_bid: str) -> None:
     from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 
     with app.app_context():
@@ -34,7 +34,7 @@ def _seed_course(app, shifu_bid: str, owner_bid: str) -> None:
 
 
 def _add_course_auth(
-    app,
+    app: object,
     *,
     shifu_bid: str,
     user_bid: str,
@@ -56,7 +56,7 @@ def _add_course_auth(
         dao.db.session.commit()
 
 
-def _mock_user(monkeypatch, user_bid: str, *, is_creator: bool = False) -> None:
+def _mock_user(monkeypatch: object, user_bid: str, *, is_creator: bool = False) -> None:
     dummy_user = SimpleNamespace(
         user_id=user_bid,
         is_creator=is_creator,
@@ -70,14 +70,16 @@ def _mock_user(monkeypatch, user_bid: str, *, is_creator: bool = False) -> None:
     )
 
 
-def _assert_no_permission(response) -> None:
+def _assert_no_permission(response: object) -> None:
     payload = response.get_json(force=True)
     assert response.status_code == 200
     assert payload["code"] == 401
     assert payload["message"] == "No permission"
 
 
-def test_preview_course_info_allows_creator(monkeypatch, test_client, app):
+def test_preview_course_info_allows_creator(
+    monkeypatch: object, test_client: object, app: object
+):
     shifu_bid = "preview-permission-owner"
     owner_bid = "owner-preview-info"
     _seed_course(app, shifu_bid, owner_bid)
@@ -95,7 +97,7 @@ def test_preview_course_info_allows_creator(monkeypatch, test_client, app):
 
 
 def test_preview_course_info_allows_active_view_collaborator(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "preview-permission-collaborator"
     owner_bid = "owner-preview-collab"
@@ -121,7 +123,7 @@ def test_preview_course_info_allows_active_view_collaborator(
 
 
 def test_preview_course_info_rejects_user_without_course_permission(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "preview-permission-denied"
     _seed_course(app, shifu_bid, "owner-preview-denied")
@@ -136,7 +138,7 @@ def test_preview_course_info_rejects_user_without_course_permission(
 
 
 def test_preview_course_info_rejects_inactive_or_unknown_permission(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "preview-permission-inactive"
     owner_bid = "owner-preview-inactive"
@@ -173,7 +175,9 @@ def test_preview_course_info_rejects_inactive_or_unknown_permission(
     _assert_no_permission(unknown_permission_resp)
 
 
-def test_preview_course_info_allows_publish_collaborator(monkeypatch, test_client, app):
+def test_preview_course_info_allows_publish_collaborator(
+    monkeypatch: object, test_client: object, app: object
+):
     shifu_bid = "preview-permission-publish"
     owner_bid = "owner-preview-publish"
     collaborator_bid = "user-preview-publish"
@@ -197,7 +201,9 @@ def test_preview_course_info_allows_publish_collaborator(monkeypatch, test_clien
     assert payload["data"]["bid"] == shifu_bid
 
 
-def test_non_preview_course_info_keeps_anonymous_access(monkeypatch, test_client, app):
+def test_non_preview_course_info_keeps_anonymous_access(
+    monkeypatch: object, test_client: object, app: object
+):
     shifu_bid = "preview-permission-non-preview"
     _seed_course(app, shifu_bid, "owner-non-preview")
     monkeypatch.setattr(
@@ -217,7 +223,7 @@ def test_non_preview_course_info_keeps_anonymous_access(monkeypatch, test_client
 
 
 def test_editor_preview_denied_before_admission_and_stream(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "preview-permission-editor-denied"
     _seed_course(app, shifu_bid, "owner-preview-editor")
@@ -244,7 +250,9 @@ def test_editor_preview_denied_before_admission_and_stream(
     _assert_no_permission(resp)
 
 
-def test_preview_tts_denied_before_admission_and_stream(monkeypatch, test_client, app):
+def test_preview_tts_denied_before_admission_and_stream(
+    monkeypatch: object, test_client: object, app: object
+):
     shifu_bid = "preview-permission-tts-denied"
     _seed_course(app, shifu_bid, "owner-preview-tts")
     _mock_user(monkeypatch, "user-preview-tts-denied")

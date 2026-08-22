@@ -192,12 +192,12 @@ def _format_course_credit_usage_model_label_fallback(value: str) -> str:
 
 
 class _CourseCreditUsageModelLabelResolver:
-    def __init__(self, app: Flask) -> None:
+    def __init__(self: object, app: Flask) -> None:
         self._app = app
         self._llm_label_map: dict[tuple[str, str], str] | None = None
         self._tts_label_map: dict[tuple[str, str], str] | None = None
 
-    def _load_llm_label_map(self) -> dict[tuple[str, str], str]:
+    def _load_llm_label_map(self: object) -> dict[tuple[str, str], str]:
         if self._llm_label_map is not None:
             return self._llm_label_map
 
@@ -228,7 +228,7 @@ class _CourseCreditUsageModelLabelResolver:
         self._llm_label_map = label_map
         return label_map
 
-    def _load_tts_label_map(self) -> dict[tuple[str, str], str]:
+    def _load_tts_label_map(self: object) -> dict[tuple[str, str], str]:
         if self._tts_label_map is not None:
             return self._tts_label_map
 
@@ -258,7 +258,7 @@ class _CourseCreditUsageModelLabelResolver:
         self._tts_label_map = label_map
         return label_map
 
-    def resolve(self, *, usage_type: int, provider: str, model: str) -> str:
+    def resolve(self: object, *, usage_type: int, provider: str, model: str) -> str:
         normalized_provider = str(provider or "").strip().lower()
         normalized_model = str(model or "").strip()
         if not normalized_provider and not normalized_model:

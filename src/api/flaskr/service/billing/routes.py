@@ -143,7 +143,7 @@ def _get_optional_bool_query_arg(name: str) -> bool | None:
     return _to_optional_bool(normalized, name)
 
 
-def _to_optional_bool(value, field_name: str) -> bool:
+def _to_optional_bool(value: object, field_name: str) -> bool:
     if isinstance(value, bool):
         return value
     normalized = str(value or "").strip().lower()

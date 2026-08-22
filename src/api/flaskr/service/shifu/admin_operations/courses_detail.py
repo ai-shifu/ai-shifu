@@ -79,13 +79,13 @@ def _resolve_learning_permission(item_type: int | None) -> str:
     return "unknown"
 
 
-def _resolve_content_status(item) -> str:
+def _resolve_content_status(item: object) -> str:
     if str(getattr(item, "content", "") or "").strip():
         return "has"
     return "empty"
 
 
-def _resolve_outline_prompt_source(item) -> str:
+def _resolve_outline_prompt_source(item: object) -> str:
     parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
     if parent_bid:
         return PROMPT_SOURCE_LESSON
@@ -94,9 +94,9 @@ def _resolve_outline_prompt_source(item) -> str:
 
 def _resolve_prompt_with_fallback(
     *,
-    outline_item,
+    outline_item: object,
     outline_item_map: dict[str, DraftOutlineItem | PublishedOutlineItem],
-    course,
+    course: object,
     field_name: str,
 ) -> tuple[str, str]:
     current_item = outline_item
@@ -121,7 +121,7 @@ def _resolve_prompt_with_fallback(
 
 
 def _build_chapter_tree(
-    items,
+    items: object,
     user_map: dict[str, dict[str, str]],
     *,
     follow_up_count_map: dict[str, int],

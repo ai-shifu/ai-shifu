@@ -21,7 +21,7 @@ def mock_app():
     return app
 
 
-def create_test_processor(mock_app, **kwargs: object):
+def create_test_processor(mock_app: object, **kwargs: object):
     """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
@@ -42,7 +42,10 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_process_chunk_submits_only_after_sentence_boundary(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test stream-time submission waits for a full sentence ending."""
         mock_is_configured.return_value = True
@@ -74,7 +77,10 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_in_segments_splits_at_sentence_boundaries(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test that remaining text is split at sentence boundaries."""
         mock_is_configured.return_value = True
@@ -118,7 +124,10 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_does_not_split_by_char_count_without_sentence(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test that text without sentence boundaries is submitted as one segment."""
         mock_is_configured.return_value = True
@@ -154,7 +163,10 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_short_text(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test handling of very short remaining text."""
         mock_is_configured.return_value = True
@@ -189,7 +201,10 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_empty_string(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test handling of empty remaining text."""
         mock_is_configured.return_value = True
@@ -205,7 +220,10 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_whitespace_only(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test handling of whitespace-only remaining text."""
         mock_is_configured.return_value = True
@@ -221,7 +239,11 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_logs_segment_info(
-        self, mock_is_configured, mock_executor, mock_app, caplog
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        caplog: object,
     ):
         """Test that segment submission is properly logged."""
         mock_is_configured.return_value = True
@@ -254,12 +276,12 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_tencent_empty_audio_segment_retries_once(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_usage,
-        mock_sleep,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_usage: object,
+        mock_sleep: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
@@ -301,12 +323,12 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_tencent_empty_audio_failure_logs_text_after_retry(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_sleep,
-        mock_logger,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_sleep: object,
+        mock_logger: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = ValueError(
@@ -348,13 +370,13 @@ class TestStreamingSynthesisRetries:
         ["tencent", "tencent_texttovoice", "volcengine", "minimax"],
     )
     def test_non_speakable_segment_skips_configured_provider_call(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_usage,
-        mock_logger,
-        mock_app,
-        tts_provider,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_usage: object,
+        mock_logger: object,
+        mock_app: object,
+        tts_provider: object,
     ):
         mock_is_configured.return_value = True
         app_context = MagicMock()
@@ -389,11 +411,11 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.MinimaxTTSProvider")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_minimax_http_stream_skips_non_speakable_request(
-        self,
-        mock_is_configured,
-        mock_minimax_provider,
-        mock_logger,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_minimax_provider: object,
+        mock_logger: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="minimax")
@@ -419,11 +441,11 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_timestamp_stream_skips_non_speakable_request(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_logger,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_logger: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="volcengine")
@@ -450,12 +472,12 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_empty_audio_segment_retries_once(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_usage,
-        mock_sleep,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_usage: object,
+        mock_sleep: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
@@ -505,16 +527,16 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_finalizes_whole_text_with_provider_subtitles(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_concat_audio,
-        mock_get_duration,
-        mock_upload,
-        mock_record_segment_usage,
-        mock_record_aggregate_usage,
-        mock_save_audio_record,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_concat_audio: object,
+        mock_get_duration: object,
+        mock_upload: object,
+        mock_record_segment_usage: object,
+        mock_record_aggregate_usage: object,
+        mock_save_audio_record: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
@@ -581,17 +603,17 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_whole_text_empty_audio_retries_once(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_concat_audio,
-        mock_get_duration,
-        mock_upload,
-        mock_record_segment_usage,
-        mock_record_aggregate_usage,
-        mock_save_audio_record,
-        mock_sleep,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_concat_audio: object,
+        mock_get_duration: object,
+        mock_upload: object,
+        mock_record_segment_usage: object,
+        mock_record_aggregate_usage: object,
+        mock_save_audio_record: object,
+        mock_sleep: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
@@ -640,7 +662,10 @@ class TestOffsetDriftRegression:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_bold_spanning_chunks_no_text_loss(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Bold markers completing across chunks must not cause text loss.
 
@@ -687,7 +712,10 @@ class TestOffsetDriftRegression:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_link_spanning_chunks_no_text_loss(
-        self, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Links completing across chunks must not lose surrounding text."""
         mock_is_configured.return_value = True
@@ -726,11 +754,11 @@ class TestFinalizeDelayManagement:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_ready_segments_use_provider_subtitles_bounded_to_duration(
-        self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_segment_usage,
-        mock_app,
+        self: object,
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_segment_usage: object,
+        mock_app: object,
     ):
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
@@ -777,7 +805,11 @@ class TestFinalizeDelayManagement:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
     def test_yield_ready_segments_adds_delay_between_segments(
-        self, mock_sleep, mock_is_configured, mock_executor, mock_app
+        self: object,
+        mock_sleep: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
     ):
         """Test that _yield_ready_segments adds delay between segment yields."""
         _ = mock_executor

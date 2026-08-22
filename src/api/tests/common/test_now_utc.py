@@ -15,7 +15,7 @@ def test_now_utc_returns_naive_utc() -> None:
     assert abs((reference - value).total_seconds()) < 5
 
 
-def test_model_timestamp_default_writes_utc(app) -> None:
+def test_model_timestamp_default_writes_utc(app: object) -> None:
     """ORM default (now_utc) must persist UTC, not DB-session local time."""
     from flaskr import dao
     from flaskr.service.user.models import UserVerifyCode

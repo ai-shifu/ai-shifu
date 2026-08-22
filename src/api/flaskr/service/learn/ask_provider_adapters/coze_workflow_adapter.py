@@ -183,7 +183,7 @@ class CozeWorkflowAskProviderAdapter:
     provider = ASK_PROVIDER_COZE_WORKFLOW
 
     def stream_answer(
-        self,
+        self: object,
         app: Flask,
         user_id: str,
         user_query: str,

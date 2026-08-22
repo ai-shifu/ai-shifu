@@ -12,28 +12,28 @@ from flaskr.common.gevent_hub_observer import install_hub_error_observer
 
 
 class _StubHub:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.calls = []
 
-        def _original(context, exc_type, value, tb):
+        def _original(context: object, exc_type: object, value: object, tb: object):
             self.calls.append((context, exc_type, value, tb))
             return "original-result"
 
         self.handle_error = _original
 
 
-def _fire(hub, context=None, exc=None):
+def _fire(hub: object, context: object = None, exc: object = None):
     exc = exc if exc is not None else AssertionError("(None, <callback>)")
     return hub.handle_error(context, type(exc), exc, None)
 
 
-def test_observer_logs_and_delegates(caplog):
+def test_observer_logs_and_delegates(caplog: object):
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer")
     assert install_hub_error_observer(logger, hub=hub) is True
 
     class _FakeSemaphore:
-        def __repr__(self) -> str:
+        def __repr__(self: object) -> str:
             return "<FakeSemaphore links=3>"
 
     context = _FakeSemaphore()
@@ -49,7 +49,7 @@ def test_observer_logs_and_delegates(caplog):
     assert "AssertionError" in caplog.text
 
 
-def test_observer_installs_once(caplog):
+def test_observer_installs_once(caplog: object):
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer-once")
     assert install_hub_error_observer(logger, hub=hub) is True
@@ -67,7 +67,7 @@ def test_logger_failure_never_blocks_the_original_handler():
     hub = _StubHub()
 
     class _BrokenLogger:
-        def error(self, *args: object, **kwargs: object):
+        def error(self: object, *args: object, **kwargs: object):
             _ = (args, kwargs)
             message = "logging backend down"
             raise RuntimeError(message)
@@ -79,13 +79,13 @@ def test_logger_failure_never_blocks_the_original_handler():
     assert len(hub.calls) == 1
 
 
-def test_unreprable_context_is_still_logged(caplog):
+def test_unreprable_context_is_still_logged(caplog: object):
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer-badrepr")
     install_hub_error_observer(logger, hub=hub)
 
     class _BadRepr:
-        def __repr__(self) -> str:
+        def __repr__(self: object) -> str:
             message = "no repr for you"
             raise ValueError(message)
 
