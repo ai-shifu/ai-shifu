@@ -23,7 +23,7 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists("var_variables"):
         op.create_table(
             "var_variables",
@@ -257,7 +257,7 @@ def upgrade() -> None:
             )
 
 
-def downgrade() -> None:
+def downgrade():
     if _table_exists("var_variable_values"):
         with op.batch_alter_table("var_variable_values", schema=None) as batch_op:
             batch_op.drop_index(batch_op.f("ix_var_variable_values_variable_value_bid"))

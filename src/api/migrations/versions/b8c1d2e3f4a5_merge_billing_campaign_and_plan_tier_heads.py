@@ -14,9 +14,9 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     pass
 
 
-def downgrade() -> None:
+def downgrade():
     pass

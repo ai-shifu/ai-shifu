@@ -146,7 +146,7 @@ def _create_element_protocol_indexes() -> None:
         op.create_index(index_name, TABLE_NAME, [column_name], unique=False)
 
 
-def upgrade() -> None:
+def upgrade():
     if _table_exists(TABLE_NAME):
         _add_element_protocol_columns()
         _create_element_protocol_indexes()
@@ -394,7 +394,7 @@ def upgrade() -> None:
     _create_element_protocol_indexes()
 
 
-def downgrade() -> None:
+def downgrade():
     if not _table_exists(TABLE_NAME):
         return
 

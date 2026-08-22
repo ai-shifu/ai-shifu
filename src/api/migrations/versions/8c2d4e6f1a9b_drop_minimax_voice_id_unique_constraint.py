@@ -14,7 +14,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     op.drop_constraint(
         "uq_tts_minimax_cloned_voices_voice_id",
         "tts_minimax_cloned_voices",
@@ -22,7 +22,7 @@ def upgrade() -> None:
     )
 
 
-def downgrade() -> None:
+def downgrade():
     op.create_unique_constraint(
         "uq_tts_minimax_cloned_voices_voice_id",
         "tts_minimax_cloned_voices",

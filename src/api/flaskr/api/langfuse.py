@@ -6,6 +6,7 @@ import json
 import os
 import re
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -371,7 +372,7 @@ class TraceAttributePropagation:
         return dict(updated)
 
     @contextmanager
-    def scope(self: object, delegate: Any) -> object:
+    def scope(self: object, delegate: Any) -> Iterator[None]:
         """Propagate the collected attributes to observations started inside.
 
         Entering ``propagate_attributes()`` also writes the attributes on the

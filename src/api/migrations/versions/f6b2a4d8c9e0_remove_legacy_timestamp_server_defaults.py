@@ -55,9 +55,9 @@ def _set_server_default(server_default):
                 )
 
 
-def upgrade() -> None:
+def upgrade():
     _set_server_default(None)
 
 
-def downgrade() -> None:
+def downgrade():
     _set_server_default(sa.text("CURRENT_TIMESTAMP"))

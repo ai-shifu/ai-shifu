@@ -287,7 +287,7 @@ def _ensure_profile_i18n(
     )
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists("profile_item"):
         return
 
@@ -307,7 +307,7 @@ def upgrade() -> None:
             )
 
 
-def downgrade() -> None:
+def downgrade():
     if not _table_exists("profile_item"):
         return
 

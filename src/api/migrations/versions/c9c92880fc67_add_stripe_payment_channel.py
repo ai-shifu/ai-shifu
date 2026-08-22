@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     op.add_column(
         "order_orders",
         sa.Column(
@@ -195,7 +195,7 @@ def upgrade() -> None:
         )
 
 
-def downgrade() -> None:
+def downgrade():
     with op.batch_alter_table("order_stripe_orders", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_order_stripe_orders_latest_charge_id"))
         batch_op.drop_index(batch_op.f("ix_order_stripe_orders_checkout_session_id"))

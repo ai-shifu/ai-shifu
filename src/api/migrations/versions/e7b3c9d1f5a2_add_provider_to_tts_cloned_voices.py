@@ -30,7 +30,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     return any(column.get("name") == column_name for column in columns)
 
 
-def upgrade() -> None:
+def upgrade():
     if _column_exists(TABLE_NAME, COLUMN_NAME):
         return
 
@@ -47,7 +47,7 @@ def upgrade() -> None:
         batch_op.create_index(INDEX_NAME, [COLUMN_NAME])
 
 
-def downgrade() -> None:
+def downgrade():
     if not _column_exists(TABLE_NAME, COLUMN_NAME):
         return
 

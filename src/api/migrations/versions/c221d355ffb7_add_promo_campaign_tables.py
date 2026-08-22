@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     op.create_table(
         "promo_promos",
         sa.Column(
@@ -310,7 +310,7 @@ def upgrade() -> None:
         )
 
 
-def downgrade() -> None:
+def downgrade():
     with op.batch_alter_table("promo_redemptions", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_promo_redemptions_user_bid"))
         batch_op.drop_index(batch_op.f("ix_promo_redemptions_status"))

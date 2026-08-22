@@ -45,14 +45,14 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     return any(index.get("name") == index_name for index in indexes)
 
 
-def upgrade() -> None:
+def upgrade():
     for index_name, columns in INDEX_DEFINITIONS.items():
         if _index_exists(TABLE_NAME, index_name):
             continue
         op.create_index(index_name, TABLE_NAME, columns, unique=False)
 
 
-def downgrade() -> None:
+def downgrade():
     for index_name in reversed(list(INDEX_DEFINITIONS.keys())):
         if _index_exists(TABLE_NAME, index_name):
             op.drop_index(index_name, table_name=TABLE_NAME)

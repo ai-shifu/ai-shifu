@@ -35,7 +35,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     return any(column["name"] == column_name for column in columns)
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists(TABLE_NAME):
         return
     if _column_exists(TABLE_NAME, COLUMN_NAME):
@@ -51,7 +51,7 @@ def upgrade() -> None:
         )
 
 
-def downgrade() -> None:
+def downgrade():
     if not _table_exists(TABLE_NAME):
         return
     if not _column_exists(TABLE_NAME, COLUMN_NAME):

@@ -22,7 +22,7 @@ depends_on = None
 VERIFIED_STATES = (1, 2, 3, 1102, 1103, 1104)
 
 
-def upgrade() -> None:
+def upgrade():
     bind = op.get_bind()
 
     # Respect instances that already assigned operator manually after the
@@ -62,7 +62,7 @@ def upgrade() -> None:
     )
 
 
-def downgrade() -> None:
+def downgrade():
     # No-op: the upgrade is an additive one-time backfill and cannot safely
     # distinguish migrated values from later manual operator assignments.
     return

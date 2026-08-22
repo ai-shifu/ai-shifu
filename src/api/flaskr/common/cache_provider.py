@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 
 @runtime_checkable
@@ -14,7 +14,7 @@ class CacheLock(Protocol):
 
     def acquire(
         self: object, blocking: bool = True, blocking_timeout: int | None = None
-    ) -> object:
+    ) -> bool:
         """Acquire this cache lock."""
         raise NotImplementedError
 
@@ -72,7 +72,7 @@ class CacheProvider(Protocol):
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ) -> object:
+    ) -> CacheLock:
         """Create a lock for the supplied key."""
         raise NotImplementedError
 
@@ -136,9 +136,12 @@ class _DynamicRedisCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ) -> object:
-        return self._client().lock(
-            key, timeout=timeout, blocking_timeout=blocking_timeout
+    ) -> CacheLock:
+        return cast(
+            "CacheLock",
+            self._client().lock(
+                key, timeout=timeout, blocking_timeout=blocking_timeout
+            ),
         )
 
 
@@ -155,7 +158,7 @@ class _InMemoryLock:
 
     def acquire(
         self: object, blocking: bool = True, blocking_timeout: int | None = None
-    ) -> object:
+    ) -> bool:
         if not blocking:
             acquired = self._lock.acquire(blocking=False)
         elif blocking_timeout is None:
@@ -301,7 +304,7 @@ class InMemoryCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ) -> object:
+    ) -> CacheLock:
         """Create a process-local fallback lock for the supplied key."""
         _ = (timeout, blocking_timeout)
         with self._mu:
@@ -386,10 +389,11 @@ class FallbackCacheProvider:
         key: str,
         timeout: int | None = None,
         blocking_timeout: int | None = None,
-    ) -> object:
+    ) -> CacheLock:
         """Create a lock, falling back to process-local scope without Redis."""
-        return self._call(
-            "lock", key, timeout=timeout, blocking_timeout=blocking_timeout
+        return cast(
+            "CacheLock",
+            self._call("lock", key, timeout=timeout, blocking_timeout=blocking_timeout),
         )
 
 

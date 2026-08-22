@@ -32,7 +32,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     return any(column["name"] == column_name for column in columns)
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists("promo_promos") or not _table_exists("promo_redemptions"):
         return
 
@@ -199,6 +199,6 @@ def upgrade() -> None:
             break
 
 
-def downgrade() -> None:
+def downgrade():
     # Data migrations are not safely reversible without risking data loss.
     return

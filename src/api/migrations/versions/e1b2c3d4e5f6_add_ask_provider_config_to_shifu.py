@@ -34,7 +34,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     return any(col.get("name") == column_name for col in columns)
 
 
-def upgrade() -> None:
+def upgrade():
     for table_name in TABLES:
         if not _table_exists(table_name):
             continue
@@ -58,7 +58,7 @@ def upgrade() -> None:
             batch_op.alter_column(COLUMN_NAME, existing_type=sa.Text(), nullable=False)
 
 
-def downgrade() -> None:
+def downgrade():
     for table_name in TABLES:
         if not _table_exists(table_name):
             continue

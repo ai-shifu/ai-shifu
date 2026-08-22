@@ -35,8 +35,12 @@ from __future__ import annotations
 import contextvars
 import logging
 from contextlib import contextmanager, nullcontext
+from typing import TYPE_CHECKING
 
 from flask import has_app_context
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +94,7 @@ def _run_post_commit(callbacks: list) -> None:
 
 
 @contextmanager
-def unit_of_work() -> object:
+def unit_of_work() -> Iterator[None]:
     """Commit on clean exit of the outermost block; roll back on exception.
 
     Nested blocks join the outer transaction (no commit, no rollback): an

@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     op.create_table(
         "bill_usage",
         sa.Column(
@@ -243,7 +243,7 @@ def upgrade() -> None:
         batch_op.create_index("ix_bill_usage_deleted", ["deleted"], unique=False)
 
 
-def downgrade() -> None:
+def downgrade():
     with op.batch_alter_table("bill_usage", schema=None) as batch_op:
         batch_op.drop_index("idx_bill_usage_user_created")
         batch_op.drop_index("idx_bill_usage_shifu_created")

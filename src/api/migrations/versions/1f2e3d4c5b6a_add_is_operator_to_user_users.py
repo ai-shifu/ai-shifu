@@ -16,7 +16,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     with op.batch_alter_table("user_users", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
@@ -34,7 +34,7 @@ def upgrade() -> None:
         )
 
 
-def downgrade() -> None:
+def downgrade():
     with op.batch_alter_table("user_users", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_user_users_is_operator"))
         batch_op.drop_column("is_operator")

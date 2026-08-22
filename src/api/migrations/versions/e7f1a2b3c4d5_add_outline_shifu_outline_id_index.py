@@ -43,7 +43,7 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     return any(index.get("name") == index_name for index in indexes)
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists(TABLE_NAME):
         return
     if _index_exists(TABLE_NAME, INDEX_NAME):
@@ -53,7 +53,7 @@ def upgrade() -> None:
         batch_op.create_index(INDEX_NAME, INDEX_COLUMNS, unique=False)
 
 
-def downgrade() -> None:
+def downgrade():
     if not _table_exists(TABLE_NAME):
         return
     if not _index_exists(TABLE_NAME, INDEX_NAME):

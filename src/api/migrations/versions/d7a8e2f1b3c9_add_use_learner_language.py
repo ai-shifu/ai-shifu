@@ -32,7 +32,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     return any(column["name"] == column_name for column in columns)
 
 
-def upgrade() -> None:
+def upgrade():
     for table_name in ("shifu_draft_shifus", "shifu_published_shifus"):
         if not _table_exists(table_name):
             continue
@@ -50,7 +50,7 @@ def upgrade() -> None:
             )
 
 
-def downgrade() -> None:
+def downgrade():
     for table_name in ("shifu_draft_shifus", "shifu_published_shifus"):
         if not _table_exists(table_name):
             continue

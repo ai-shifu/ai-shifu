@@ -19,12 +19,12 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     """No-op migration.
 
     Demo shifu import/update is now executed at container startup.
     """
 
 
-def downgrade() -> None:
+def downgrade():
     pass

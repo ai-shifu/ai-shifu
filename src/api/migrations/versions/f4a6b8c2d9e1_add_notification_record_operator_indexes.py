@@ -36,11 +36,11 @@ _INDEXES = (
 )
 
 
-def upgrade() -> None:
+def upgrade():
     for index_name, columns in _INDEXES:
         op.create_index(index_name, "notification_records", columns, unique=False)
 
 
-def downgrade() -> None:
+def downgrade():
     for index_name, _columns in reversed(_INDEXES):
         op.drop_index(index_name, table_name="notification_records")

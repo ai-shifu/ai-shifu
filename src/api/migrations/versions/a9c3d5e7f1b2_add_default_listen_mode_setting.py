@@ -14,7 +14,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     op.add_column(
         "shifu_draft_shifus",
         sa.Column(
@@ -37,6 +37,6 @@ def upgrade() -> None:
     )
 
 
-def downgrade() -> None:
+def downgrade():
     op.drop_column("shifu_published_shifus", "default_listen_mode_enabled")
     op.drop_column("shifu_draft_shifus", "default_listen_mode_enabled")

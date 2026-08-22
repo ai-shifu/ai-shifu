@@ -22,7 +22,7 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
-def upgrade() -> None:
+def upgrade():
     if _table_exists("user_onboarding_states"):
         return
 
@@ -104,7 +104,7 @@ def upgrade() -> None:
     )
 
 
-def downgrade() -> None:
+def downgrade():
     if not _table_exists("user_onboarding_states"):
         return
     op.drop_index(

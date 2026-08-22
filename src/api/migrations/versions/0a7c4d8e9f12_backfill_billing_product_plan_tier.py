@@ -47,7 +47,7 @@ def _normalize_metadata(value: Any) -> dict[str, Any]:
     return dict(parsed) if isinstance(parsed, dict) else {}
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists("bill_products"):
         return
 
@@ -94,5 +94,5 @@ def upgrade() -> None:
         )
 
 
-def downgrade() -> None:
+def downgrade():
     pass

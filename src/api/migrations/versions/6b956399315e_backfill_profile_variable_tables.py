@@ -50,7 +50,7 @@ def _execute_insert_in_batches(
             break
 
 
-def upgrade() -> None:
+def upgrade():
     if not _table_exists("var_variables"):
         return
     if not _table_exists("var_variable_values"):
@@ -164,6 +164,6 @@ def upgrade() -> None:
         _execute_insert_in_batches(insert_values_sql)
 
 
-def downgrade() -> None:
+def downgrade():
     # Data backfill is intentionally irreversible.
     pass

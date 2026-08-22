@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def upgrade():
     op.create_table(
         "bill_product_provider_prices",
         sa.Column(
@@ -244,5 +244,5 @@ def upgrade() -> None:
         )
 
 
-def downgrade() -> None:
+def downgrade():
     op.drop_table("bill_product_provider_prices")
