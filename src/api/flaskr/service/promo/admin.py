@@ -71,6 +71,7 @@ from sqlalchemy import and_, case, func, not_, or_
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flask_sqlalchemy.query import Query
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
@@ -240,7 +241,7 @@ def _build_like_pattern(keyword: str) -> str:
     return f"%{escaped}%"
 
 
-def _build_user_keyword_query(keyword: str) -> object:
+def _build_user_keyword_query(keyword: str) -> Query:
     like_pattern = _build_like_pattern(keyword)
     return (
         db.session.query(UserEntity.user_bid)
