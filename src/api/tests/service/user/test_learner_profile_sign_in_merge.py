@@ -44,32 +44,32 @@ def _assert_orm_utc(value: datetime | None, expected: datetime) -> None:
 
 
 class _FakeRedis:
-    def get(self, _key: object):
+    def get(self: object, _key: object):
         return None
 
-    def delete(self, *_keys: str):
+    def delete(self: object, *_keys: str):
         return None
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload: object) -> None:
+    def __init__(self: object, payload: object) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         return None
 
-    def json(self):
+    def json(self: object):
         return self._payload
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile: object) -> None:
+    def __init__(self: object, profile: object) -> None:
         self._profile = profile
 
-    def fetch_token(self, *_args: object, **_kwargs: object):
+    def fetch_token(self: object, *_args: object, **_kwargs: object):
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args: object, **_kwargs: object):
+    def get(self: object, *_args: object, **_kwargs: object):
         return _FakeGoogleResponse(self._profile)
 
 

@@ -96,7 +96,7 @@ billing_routes_module = load_billing_routes_module()
 def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz: object = None) -> datetime:
+        def now(cls: object, tz: object = None) -> datetime:
             current = cls(2026, 4, 6, 12, 0, 0)
             if tz is not None:
                 return current.replace(tzinfo=tz)
@@ -629,7 +629,7 @@ class TestBillingRoutes:
     """Verify billing routes behavior."""
 
     def test_billing_routes_reject_requests_when_feature_disabled(
-        self, billing_test_client: object, monkeypatch: object
+        self: object, billing_test_client: object, monkeypatch: object
     ) -> None:
         monkeypatch.setattr(
             billing_routes_module,
@@ -644,7 +644,7 @@ class TestBillingRoutes:
         assert payload["code"] == ERROR_CODE["server.billing.disabled"]
 
     def test_billing_bootstrap_route_returns_design_manifest(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         response = billing_test_client.get("/api/billing")
         payload = response.get_json(force=True)
@@ -700,7 +700,7 @@ class TestBillingRoutes:
         } in payload["data"]["admin_routes"]
 
     def test_admin_can_grant_creator_customization_entitlements(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         response = billing_test_client.post(
             "/api/admin/billing/entitlements/grants",
@@ -722,7 +722,7 @@ class TestBillingRoutes:
         assert payload["data"]["custom_payment_enabled"] is True
 
     def test_creator_logo_upload_route_uses_branding_uploader(
-        self, billing_test_client: object, monkeypatch: object
+        self: object, billing_test_client: object, monkeypatch: object
     ) -> None:
         monkeypatch.setattr(
             billing_routes_module,
@@ -749,7 +749,7 @@ class TestBillingRoutes:
         )
 
     def test_catalog_overview_and_wallet_buckets_follow_design_projection(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         catalog_response = billing_test_client.get("/api/billing/catalog")
         overview_response = billing_test_client.get("/api/billing/overview")
@@ -824,7 +824,7 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
 
     def test_overview_recalculates_wallet_snapshot_for_current_balance(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
         with app.app_context():
@@ -845,7 +845,7 @@ class TestBillingRoutes:
             assert wallet.available_credits == Decimal(0)
 
     def test_overview_limit_state_uses_current_consumable_bucket_balance(
-        self,
+        self: object,
         billing_test_client: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -879,7 +879,7 @@ class TestBillingRoutes:
             assert overview.credit_status == "hardlimit"
 
     def test_overview_limit_state_remains_normal_when_billing_disabled(
-        self,
+        self: object,
         billing_test_client: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -907,7 +907,7 @@ class TestBillingRoutes:
             assert overview.debug_allowed is True
 
     def test_overview_marks_stale_active_subscription_expired_without_db_update(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
         with app.app_context():
@@ -961,7 +961,7 @@ class TestBillingRoutes:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
     def test_overview_marks_stale_active_trial_subscription_expired(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
         with app.app_context():
@@ -1020,7 +1020,7 @@ class TestBillingRoutes:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
     def test_catalog_returns_active_campaign_payload_for_plan_product(
-        self,
+        self: object,
         billing_test_client: object,
     ) -> None:
         app = billing_test_client.application
@@ -1069,7 +1069,7 @@ class TestBillingRoutes:
         }
 
     def test_catalog_serializes_daily_plan_interval_without_month_fallback(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
         with app.app_context():
@@ -1116,7 +1116,7 @@ class TestBillingRoutes:
         assert daily_plan["billing_interval_count"] == 7
 
     def test_overview_and_wallet_buckets_emit_utc_ignoring_request_timezone(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         # The backend is a single UTC sink: ?timezone= is ignored and every
         # datetime is emitted as UTC ISO 8601 with a 'Z' suffix. Display-time
@@ -1152,13 +1152,13 @@ class TestBillingRoutes:
         )
 
     def test_wallet_buckets_return_runtime_expired_status_before_expire_task_runs(
-        self,
+        self: object,
         billing_test_client: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         class _FixedDateTime(datetime):
             @classmethod
-            def now(cls, tz: object = None) -> datetime:
+            def now(cls: object, tz: object = None) -> datetime:
                 current = cls(2026, 5, 1, 12, 0, 0)
                 if tz is not None:
                     return current.replace(tzinfo=tz)
@@ -1183,7 +1183,7 @@ class TestBillingRoutes:
         assert bucket_map["bucket-topup"]["status"] == "active"
 
     def test_wallet_buckets_keep_owned_topup_visible_after_old_window_ends(
-        self,
+        self: object,
         billing_test_client: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1213,7 +1213,7 @@ class TestBillingRoutes:
         assert bucket_map["bucket-topup"]["available_credits"] == 15.38
 
     def test_wallet_bucket_order_lookup_is_page_scoped(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
 
@@ -1314,7 +1314,7 @@ class TestBillingRoutes:
         assert bucket_map["bucket-shared-order-2"].credit_asset_kind == "pack_credits"
 
     def test_billing_public_builders_return_dto_instances(
-        self,
+        self: object,
         billing_test_client: object,
     ) -> None:
         app = billing_test_client.application
@@ -1338,7 +1338,7 @@ class TestBillingRoutes:
             assert not isinstance(value, list)
             assert isinstance(value.__json__(), dict)
 
-    def test_billing_routes_module_uses_shared_common_response(self) -> None:
+    def test_billing_routes_module_uses_shared_common_response(self: object) -> None:
         from flaskr.route.common import make_common_response
 
         assert getattr(billing_routes_module, "_make_common_response", None) is None
@@ -1350,7 +1350,7 @@ class TestBillingRoutes:
         )
 
     def test_admin_entitlements_and_reports_routes_return_cross_creator_rows(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         entitlements_response = billing_test_client.get(
             "/api/admin/billing/entitlements?page_index=1&page_size=10",
@@ -1472,7 +1472,7 @@ class TestBillingRoutes:
         ]
 
     def test_ledger_supports_pagination_and_creator_isolation(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1"
@@ -1505,7 +1505,7 @@ class TestBillingRoutes:
         assert ledger_payload["data"]["items"][0]["credit_asset_kind"] == "plan_credits"
 
     def test_billing_ledger_page_exposes_canonical_credit_asset_kind(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
 
@@ -1724,7 +1724,7 @@ class TestBillingRoutes:
         assert asset_kind_by_bid["ledger-cross-creator-order"] == "unknown"
 
     def test_ledger_emits_utc_ignoring_request_timezone(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1&timezone=Asia/Shanghai"
@@ -1738,7 +1738,7 @@ class TestBillingRoutes:
         )
 
     def test_build_billing_ledger_page_returns_raw_created_at(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         # DTO datetime fields now hold the raw stored datetime; the browser
         # timezone thread is gone and the fmt sink emits UTC at serialization time.
@@ -1749,7 +1749,7 @@ class TestBillingRoutes:
         assert ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
 
     def test_build_billing_ledger_page_hides_reserved_grants_until_available(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
 
@@ -1815,7 +1815,7 @@ class TestBillingRoutes:
         assert activated_page.items[0].ledger_bid == "ledger-reserved-renewal"
 
     def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
-        self, billing_test_client: object
+        self: object, billing_test_client: object
     ) -> None:
         app = billing_test_client.application
 
@@ -1906,7 +1906,9 @@ class TestBillingRoutes:
             "Draft Course 1"
         )
 
-    def test_billing_routes_require_creator(self, billing_test_client: object) -> None:
+    def test_billing_routes_require_creator(
+        self: object, billing_test_client: object
+    ) -> None:
         response = billing_test_client.get(
             "/api/billing/catalog",
             headers={"X-Creator": "0"},

@@ -31,7 +31,7 @@ class OutlineStructureChange:
     old_position: str
     new_position: str
 
-    def to_payload(self) -> dict:
+    def to_payload(self: object) -> dict:
         """Serialize this result for the outline repair CLI report."""
         return {
             "outline_item_bid": self.outline_item_bid,
@@ -51,7 +51,7 @@ class OutlineStructureRepairRecord:
     issue_types: list[str]
     changed_outlines: list[OutlineStructureChange] = field(default_factory=list)
 
-    def to_payload(self) -> dict:
+    def to_payload(self: object) -> dict:
         """Serialize this result for the outline repair CLI report."""
         return {
             "shifu_bid": self.shifu_bid,
@@ -69,7 +69,7 @@ class OutlineStructureSkippedRecord:
     shifu_bid: str
     reason: str
 
-    def to_payload(self) -> dict:
+    def to_payload(self: object) -> dict:
         """Serialize this result as an API payload."""
         return {
             "shifu_bid": self.shifu_bid,
@@ -90,7 +90,7 @@ class OutlineStructureRepairResult:
     repaired_records: list[OutlineStructureRepairRecord] = field(default_factory=list)
     skipped_records: list[OutlineStructureSkippedRecord] = field(default_factory=list)
 
-    def to_payload(self) -> dict:
+    def to_payload(self: object) -> dict:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,

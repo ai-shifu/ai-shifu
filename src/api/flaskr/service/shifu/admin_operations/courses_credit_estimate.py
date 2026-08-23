@@ -55,7 +55,7 @@ class _CreditRange:
     minimum: Decimal
     maximum: Decimal
 
-    def to_numbers(self) -> tuple[int | float, int | float]:
+    def to_numbers(self: object) -> tuple[int | float, int | float]:
         return (
             credit_decimal_to_number(self.minimum),
             credit_decimal_to_number(self.maximum),

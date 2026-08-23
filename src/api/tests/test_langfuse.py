@@ -20,18 +20,18 @@ TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 class CoerceTraceIdTests(unittest.TestCase):
     """Verify coerce trace ID behavior."""
 
-    def test_passes_through_valid_w3c_trace_id(self):
+    def test_passes_through_valid_w3c_trace_id(self: object):
         valid = "0123456789abcdef0123456789abcdef"
         assert coerce_langfuse_trace_id(valid) == valid
 
-    def test_maps_arbitrary_ids_deterministically(self):
+    def test_maps_arbitrary_ids_deterministically(self: object):
         first = coerce_langfuse_trace_id("my-request-id")
         second = coerce_langfuse_trace_id("my-request-id")
         assert first == second
         assert re.search(TRACE_ID_RE, first)
         assert first != coerce_langfuse_trace_id("other-request-id")
 
-    def test_generates_random_id_when_seed_missing(self):
+    def test_generates_random_id_when_seed_missing(self: object):
         generated = coerce_langfuse_trace_id(None)
         assert re.search(TRACE_ID_RE, generated)
 
@@ -39,12 +39,12 @@ class CoerceTraceIdTests(unittest.TestCase):
 class RequestTraceIdTests(unittest.TestCase):
     """Verify request trace ID behavior."""
 
-    def tearDown(self):
+    def tearDown(self: object):
         for attr in ("request_id",):
             if hasattr(thread_local, attr):
                 delattr(thread_local, attr)
 
-    def test_prefers_thread_local_request_id(self):
+    def test_prefers_thread_local_request_id(self: object):
         app = Flask("langfuse-thread-local")
         thread_local.request_id = "thread-local-request-id"
 
@@ -53,7 +53,7 @@ class RequestTraceIdTests(unittest.TestCase):
                 "thread-local-request-id"
             )
 
-    def test_falls_back_to_request_header(self):
+    def test_falls_back_to_request_header(self: object):
         if hasattr(thread_local, "request_id"):
             delattr(thread_local, "request_id")
         fake_request = types.SimpleNamespace(
@@ -68,7 +68,7 @@ class RequestTraceIdTests(unittest.TestCase):
         finally:
             get_request_trace_id.__globals__["request"] = original_request
 
-    def test_uses_generated_uuid_when_request_id_is_missing(self):
+    def test_uses_generated_uuid_when_request_id_is_missing(self: object):
         fake_uuid = types.SimpleNamespace(hex="0123456789abcdef0123456789abcdef")
 
         with patch("flaskr.api.langfuse.uuid.uuid4", return_value=fake_uuid):
@@ -78,23 +78,23 @@ class RequestTraceIdTests(unittest.TestCase):
 class ResolveLangfuseTraceIdTests(unittest.TestCase):
     """Verify resolve langfuse trace ID behavior."""
 
-    def tearDown(self):
+    def tearDown(self: object):
         for attr in ("request_id",):
             if hasattr(thread_local, attr):
                 delattr(thread_local, attr)
 
-    def test_prefers_explicit_string_trace_id(self):
+    def test_prefers_explicit_string_trace_id(self: object):
         observation = types.SimpleNamespace(trace_id="observation-trace-id")
         assert (
             resolve_langfuse_trace_id(observation, "explicit-trace-id")
             == "explicit-trace-id"
         )
 
-    def test_falls_back_to_observation_string_trace_id(self):
+    def test_falls_back_to_observation_string_trace_id(self: object):
         observation = types.SimpleNamespace(trace_id="observation-trace-id")
         assert resolve_langfuse_trace_id(observation) == "observation-trace-id"
 
-    def test_ignores_non_string_trace_id_from_mock_client(self):
+    def test_ignores_non_string_trace_id_from_mock_client(self: object):
         # When Langfuse is disabled, observations are MockClient instances whose
         # __getattr__ returns a bound method for any attribute, including
         # ``trace_id``. That object must never be used as the trace id.
@@ -104,7 +104,7 @@ class ResolveLangfuseTraceIdTests(unittest.TestCase):
             "request-trace-id"
         )
 
-    def test_ignores_empty_string_trace_ids(self):
+    def test_ignores_empty_string_trace_ids(self: object):
         thread_local.request_id = "request-trace-id"
         observation = types.SimpleNamespace(trace_id="")
 

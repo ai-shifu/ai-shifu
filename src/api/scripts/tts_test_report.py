@@ -78,7 +78,7 @@ class ReportRow:
     duration_ms: int
     error: str = ""
 
-    def to_html_audio(self) -> str:
+    def to_html_audio(self: object) -> str:
         """Render this report row as an HTML audio control."""
         if not self.audio_url:
             return ""

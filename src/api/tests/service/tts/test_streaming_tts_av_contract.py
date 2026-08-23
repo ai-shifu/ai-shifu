@@ -22,13 +22,13 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
             self.av_contract = kwargs.get("av_contract")
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             if not (chunk or "").strip():
                 return
             yield RunMarkdownFlowDTO(
@@ -45,7 +45,7 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(
                 ),
             )
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             yield RunMarkdownFlowDTO(
                 outline_bid=self.outline_bid,
@@ -102,16 +102,16 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             if (chunk or "").strip():
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -160,16 +160,16 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             if (chunk or "").strip():
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -217,17 +217,17 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
     captured_by_position: dict[int, list[str]] = {}
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             if chunk:
                 self._parts.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             text = "".join(self._parts).strip()
             if text:
@@ -286,18 +286,18 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _LenGateStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
             self._buffer = ""
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             self._buffer += chunk or ""
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             # Simulate provider behavior: very short text produces no audio completion.
             if len((self._buffer or "").strip()) < 2:
@@ -355,12 +355,12 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             self.generated_block_bid = kwargs.get("generated_block_bid", "")
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             if not (chunk or "").strip():
                 return
             yield RunMarkdownFlowDTO(
@@ -376,7 +376,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(
                 ),
             )
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -416,15 +416,15 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _NoopStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             _ = chunk
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield
@@ -474,16 +474,16 @@ def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
     captured_chunks: list[str] = []
 
     class _CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self: object, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self: object, chunk: object):
             if chunk:
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self: object, commit: object = True):
             _ = commit
             return
             yield

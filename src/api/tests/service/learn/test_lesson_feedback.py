@@ -25,7 +25,7 @@ class LessonFeedbackTests(unittest.TestCase):
     """Verify lesson feedback behavior."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUpClass(cls: object) -> None:
         cls.app = Flask("lesson-feedback-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -39,7 +39,7 @@ class LessonFeedbackTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self: object):
         self.ctx = self.app.app_context()
         self.ctx.push()
         LearnLessonFeedback.query.delete()
@@ -47,11 +47,11 @@ class LessonFeedbackTests(unittest.TestCase):
         LearnProgressRecord.query.delete()
         dao.db.session.commit()
 
-    def tearDown(self):
+    def tearDown(self: object):
         dao.db.session.remove()
         self.ctx.pop()
 
-    def test_submit_feedback_upserts_single_active_row(self):
+    def test_submit_feedback_upserts_single_active_row(self: object):
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
@@ -118,7 +118,7 @@ class LessonFeedbackTests(unittest.TestCase):
         assert synced_generated_content.get("comment") == "Need more examples"
 
     def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(
-        self,
+        self: object,
     ):
         interaction = LearnGeneratedBlock(
             generated_block_bid="block-1",
@@ -172,7 +172,7 @@ class LessonFeedbackTests(unittest.TestCase):
         assert synced_generated_content.get("comment") == "new"
         dao.db.session.rollback()
 
-    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self):
+    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self: object):
         feedback = LearnLessonFeedback(
             bid="feedback-1",
             lesson_feedback_bid="feedback-1",

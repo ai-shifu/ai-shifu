@@ -1115,25 +1115,27 @@ def test_settle_usage_acquires_creator_scoped_lock(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class _DummyLock:
-        def __init__(self) -> None:
+        def __init__(self: object) -> None:
             self.acquire_calls: list[bool] = []
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
+        def acquire(
+            self: object, blocking: bool = True, blocking_timeout: object = None
+        ):
             _ = blocking_timeout
             self.acquire_calls.append(bool(blocking))
             return True
 
-        def release(self) -> None:
+        def release(self: object) -> None:
             self.release_calls += 1
 
     class _DummyCacheProvider:
-        def __init__(self) -> None:
+        def __init__(self: object) -> None:
             self.calls: list[dict[str, object]] = []
             self.lock_instance = _DummyLock()
 
         def lock(
-            self,
+            self: object,
             key: str,
             timeout: object = None,
             blocking_timeout: object = None,
@@ -1208,14 +1210,16 @@ def test_settle_usage_releases_creator_lock_on_error(
     billing_settlement_app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class _DummyLock:
-        def __init__(self) -> None:
+        def __init__(self: object) -> None:
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
+        def acquire(
+            self: object, blocking: bool = True, blocking_timeout: object = None
+        ):
             _ = (blocking, blocking_timeout)
             return True
 
-        def release(self) -> None:
+        def release(self: object) -> None:
             self.release_calls += 1
 
     lock = _DummyLock()

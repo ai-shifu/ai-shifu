@@ -48,7 +48,7 @@ class DummyCourse:
     """Simulate course behavior for tests."""
 
     def __init__(
-        self,
+        self: object,
         *,
         shifu_bid: str,
         title: str,
@@ -703,7 +703,7 @@ def test_list_operator_courses_filters_by_course_status():
 def test_list_operator_courses_applies_quick_filters(monkeypatch: object):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
+        def now(cls: object, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -837,7 +837,7 @@ def test_build_operator_course_overview_returns_expected_counts(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
+        def now(cls: object, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -1561,50 +1561,50 @@ class FakeColumn:
 
     __hash__ = None
 
-    def __init__(self, name: str) -> None:
+    def __init__(self: object, name: str) -> None:
         """Capture the column name used to build query expressions."""
         self.name = name
 
-    def __eq__(self, other: object) -> tuple:
+    def __eq__(self: object, other: object) -> tuple:
         """Build a fake equality expression."""
         return ("eq", self.name, other)
 
-    def __ge__(self, other: object) -> tuple:
+    def __ge__(self: object, other: object) -> tuple:
         """Build a fake greater-than-or-equal expression."""
         return ("ge", self.name, other)
 
-    def __le__(self, other: object) -> tuple:
+    def __le__(self: object, other: object) -> tuple:
         """Build a fake less-than-or-equal expression."""
         return ("le", self.name, other)
 
-    def ilike(self, value: str):
+    def ilike(self: object, value: str):
         return ("ilike", self.name, value)
 
-    def in_(self, value: object):
+    def in_(self: object, value: object):
         return ("in", self.name, value)
 
-    def desc(self):
+    def desc(self: object):
         return ("desc", self.name)
 
-    def label(self, alias: str):
+    def label(self: object, alias: str):
         return ("label", self.name, alias)
 
 
 class FakeMaxExpression:
     """Simulate max expression behavior for tests."""
 
-    def __init__(self, column: FakeColumn) -> None:
+    def __init__(self: object, column: FakeColumn) -> None:
         """Capture the column wrapped by the maximum expression."""
         self.column = column
 
-    def label(self, alias: str):
+    def label(self: object, alias: str):
         return ("max", self.column.name, alias)
 
 
 class FakeLatestSubquery:
     """Simulate latest subquery behavior for tests."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Expose the labeled maximum ID column used by the outer query."""
         self.c = type("Columns", (), {"max_id": "latest-max-id"})()
 
@@ -1612,28 +1612,28 @@ class FakeLatestSubquery:
 class FakeLatestQuery:
     """Simulate latest query behavior for tests."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Collect filters and grouping while exposing a fixed subquery."""
         self.filters = []
         self.grouped_by = []
         self.subquery_value = FakeLatestSubquery()
 
-    def filter(self, *conditions: object):
+    def filter(self: object, *conditions: object):
         self.filters.extend(conditions)
         return self
 
-    def group_by(self, *columns: object):
+    def group_by(self: object, *columns: object):
         self.grouped_by.extend(columns)
         return self
 
-    def subquery(self):
+    def subquery(self: object):
         return self.subquery_value
 
 
 class FakeIdQuery:
     """Simulate ID query behavior for tests."""
 
-    def __init__(self, target: object) -> None:
+    def __init__(self: object, target: object) -> None:
         """Capture the target requested by an ID-only query."""
         self.target = target
 
@@ -1641,7 +1641,7 @@ class FakeIdQuery:
 class FakeOuterQuery:
     """Simulate outer query behavior for tests."""
 
-    def __init__(self, result: object) -> None:
+    def __init__(self: object, result: object) -> None:
         """Collect query operations and expose the configured result rows."""
         self.filters = []
         self.ordering = []
@@ -1649,23 +1649,23 @@ class FakeOuterQuery:
         self.options_calls = []
         self.with_entities_calls = []
 
-    def filter(self, *conditions: object):
+    def filter(self: object, *conditions: object):
         self.filters.extend(conditions)
         return self
 
-    def options(self, *options: object):
+    def options(self: object, *options: object):
         self.options_calls.extend(options)
         return self
 
-    def order_by(self, *ordering: object):
+    def order_by(self: object, *ordering: object):
         self.ordering.extend(ordering)
         return self
 
-    def with_entities(self, *columns: object):
+    def with_entities(self: object, *columns: object):
         self.with_entities_calls.append(columns)
         return self
 
-    def all(self):
+    def all(self: object):
         return self.result
 
 
@@ -1673,14 +1673,14 @@ class FakeSession:
     """Simulate session behavior for tests."""
 
     def __init__(
-        self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
+        self: object, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
     ) -> None:
         """Route query targets and record generated ID queries."""
         self.latest_query = latest_query
         self.outer_query = outer_query
         self.id_queries = []
 
-    def query(self, target: object):
+    def query(self: object, target: object):
         if target == ("max", "id", "max_id"):
             return self.latest_query
         if isinstance(target, type) and issubclass(target, FakeModel):
@@ -1702,7 +1702,7 @@ class FakeDB:
     """Simulate database behavior for tests."""
 
     def __init__(
-        self, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
+        self: object, latest_query: FakeLatestQuery, outer_query: FakeOuterQuery
     ) -> None:
         """Expose a configured fake session and SQL function namespace."""
         self.session = FakeSession(latest_query, outer_query)

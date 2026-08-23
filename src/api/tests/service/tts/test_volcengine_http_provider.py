@@ -28,10 +28,10 @@ def test_volcengine_http_synthesize_success(monkeypatch: object):
         headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
         text = ""
 
-        def raise_for_status(self):
+        def raise_for_status(self: object):
             return None
 
-        def json(self):
+        def json(self: object):
             return {
                 "reqid": "reqid",
                 "code": 3000,
@@ -97,10 +97,10 @@ def test_volcengine_http_legacy_resource_id_overrides_default_cluster(
         headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
         text = ""
 
-        def raise_for_status(self):
+        def raise_for_status(self: object):
             return None
 
-        def json(self):
+        def json(self: object):
             return {
                 "reqid": "reqid",
                 "code": 3000,

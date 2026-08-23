@@ -2222,7 +2222,7 @@ def test_failed_provider_notification_can_be_requeued(
     captured_kwargs: list[dict[str, str]] = []
 
     class FakeTask:
-        def apply_async(self, kwargs: object):
+        def apply_async(self: object, kwargs: object):
             captured_kwargs.append(dict(kwargs))
 
     def get_celery_app(flask_app: object | None = None) -> object:

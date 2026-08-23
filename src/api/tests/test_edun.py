@@ -22,7 +22,7 @@ def test_yidun_check_uses_configured_timeout(app: object, monkeypatch: object):
     captured = {}
 
     class _Resp:
-        def json(self):
+        def json(self: object):
             return {
                 "code": 200,
                 "result": {"antispam": {"suggestion": 0, "label": 100}},
@@ -72,13 +72,15 @@ def test_ilivedata_check_uses_configured_timeout(app: object, monkeypatch: objec
     captured = {}
 
     class _Resp:
-        def __enter__(self) -> Self:
+        def __enter__(self: object) -> Self:
             return self
 
-        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool | None:
+        def __exit__(
+            self: object, exc_type: object, exc: object, tb: object
+        ) -> bool | None:
             captured["closed"] = True
 
-        def read(self):
+        def read(self: object):
             return b'{"errorCode":0,"textSpam":{"result":0,"tags":[]}}'
 
     def fake_urlopen(req: object, timeout: object = None):

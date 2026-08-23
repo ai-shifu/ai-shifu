@@ -16,15 +16,15 @@ from sqlalchemy.pool import QueuePool
 class _FakePyMySQLConnection:
     """Minimal stand-in exposing the pymysql `_sock` attribute."""
 
-    def __init__(self, sock: object) -> None:
+    def __init__(self: object, sock: object) -> None:
         self._sock = sock
         self.closed = False
 
     # QueuePool reset/close hooks
-    def rollback(self):
+    def rollback(self: object):
         pass
 
-    def close(self):
+    def close(self: object):
         self.closed = True
         self._sock.close()
 
@@ -171,11 +171,11 @@ def test_checkin_grace_window_is_a_short_positive_interval():
 class _FakePingablePyMySQLConnection(_FakePyMySQLConnection):
     """Fake with a healthy ping - the pymysql-shaped checkout path."""
 
-    def __init__(self, sock: object) -> None:
+    def __init__(self: object, sock: object) -> None:
         super().__init__(sock)
         self.pings = 0
 
-    def ping(self, reconnect: object):
+    def ping(self: object, reconnect: object):
         _ = reconnect
         self.pings += 1
 

@@ -358,10 +358,10 @@ def test_persist_cleanup_targets_failed_session_inside_context(
     monkeypatch.setattr(recorder_module, "cleanup_session_after", _fake_cleanup)
 
     class _FailingSession:
-        def add(self, _record: object):
+        def add(self: object, _record: object):
             pass
 
-        def commit(self):
+        def commit(self: object):
             message = "desynced"
             raise ResourceClosedError(message)
 
@@ -391,10 +391,10 @@ def test_persist_invalidates_on_base_exception_interrupt(
         pass
 
     class _InterruptedSession:
-        def add(self, _record: object):
+        def add(self: object, _record: object):
             pass
 
-        def commit(self):
+        def commit(self: object):
             raise _Interrupt
 
     monkeypatch.setattr(

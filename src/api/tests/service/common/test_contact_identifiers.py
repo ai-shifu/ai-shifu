@@ -28,15 +28,15 @@ def login_methods(monkeypatch: object):
 class TestResolveEnabledContactTypes:
     """Verify resolve enabled contact types behavior."""
 
-    def test_google_login_implies_email(self, login_methods: object) -> None:
+    def test_google_login_implies_email(self: object, login_methods: object) -> None:
         login_methods("google")
         assert contact_identifiers.resolve_enabled_contact_types() == {"email"}
 
-    def test_phone_only_deployment(self, login_methods: object) -> None:
+    def test_phone_only_deployment(self: object, login_methods: object) -> None:
         login_methods("phone,password")
         assert contact_identifiers.resolve_enabled_contact_types() == {"phone"}
 
-    def test_mixed_deployment_keeps_both(self, login_methods: object) -> None:
+    def test_mixed_deployment_keeps_both(self: object, login_methods: object) -> None:
         login_methods("phone,email")
         assert contact_identifiers.resolve_enabled_contact_types() == {
             "phone",
@@ -44,7 +44,7 @@ class TestResolveEnabledContactTypes:
         }
 
     def test_unrecognized_methods_fall_back_to_phone(
-        self, login_methods: object
+        self: object, login_methods: object
     ) -> None:
         login_methods("wechat")
         assert contact_identifiers.resolve_enabled_contact_types() == {"phone"}
@@ -54,7 +54,7 @@ class TestResolveContactType:
     """Verify resolve contact type behavior."""
 
     def test_single_enabled_type_wins_over_the_value(
-        self, login_methods: object
+        self: object, login_methods: object
     ) -> None:
         # A malformed value must still fail with the error operators expect,
         # so the deployment's only contact type decides before the "@" check.
@@ -64,7 +64,7 @@ class TestResolveContactType:
         assert contact_identifiers.resolve_contact_type("13800138000") == "email"
 
     def test_mixed_deployment_infers_from_the_value(
-        self, login_methods: object
+        self: object, login_methods: object
     ) -> None:
         login_methods("phone,email")
         assert contact_identifiers.resolve_contact_type("a@b.com") == "email"
@@ -74,7 +74,7 @@ class TestResolveContactType:
 class TestValidateContactIdentifier:
     """Verify validate contact identifier behavior."""
 
-    def test_email_is_lowercased_and_trimmed(self) -> None:
+    def test_email_is_lowercased_and_trimmed(self: object) -> None:
         assert (
             contact_identifiers.validate_contact_identifier(
                 "  Teacher@Example.COM ", "email"
@@ -82,27 +82,27 @@ class TestValidateContactIdentifier:
             == "teacher@example.com"
         )
 
-    def test_phone_drops_the_country_prefix(self) -> None:
+    def test_phone_drops_the_country_prefix(self: object) -> None:
         assert (
             contact_identifiers.validate_contact_identifier("+8613800138000", "phone")
             == "13800138000"
         )
 
-    def test_phone_still_requires_an_sms_reachable_number(self) -> None:
+    def test_phone_still_requires_an_sms_reachable_number(self: object) -> None:
         with pytest.raises(AppError):
             contact_identifiers.validate_contact_identifier("23800138000", "phone")
 
-    def test_malformed_email_is_rejected(self) -> None:
+    def test_malformed_email_is_rejected(self: object) -> None:
         with pytest.raises(AppError):
             contact_identifiers.validate_contact_identifier("not-an-email", "email")
 
-    def test_blank_value_uses_the_caller_error_key(self) -> None:
+    def test_blank_value_uses_the_caller_error_key(self: object) -> None:
         with pytest.raises(AppError):
             contact_identifiers.validate_contact_identifier(
                 "  ", "email", empty_error="creator_mobile"
             )
 
-    def test_overlong_identifier_is_rejected(self) -> None:
+    def test_overlong_identifier_is_rejected(self: object) -> None:
         overlong = "a" * 320 + "@example.com"
         with pytest.raises(AppError):
             contact_identifiers.validate_contact_identifier(overlong, "email")
@@ -111,13 +111,13 @@ class TestValidateContactIdentifier:
 class TestResolveContactLookupProviders:
     """Verify resolve contact lookup providers behavior."""
 
-    def test_email_also_matches_google_accounts(self) -> None:
+    def test_email_also_matches_google_accounts(self: object) -> None:
         assert contact_identifiers.resolve_contact_lookup_providers("email") == [
             "email",
             "google",
         ]
 
-    def test_phone_only_matches_phone(self) -> None:
+    def test_phone_only_matches_phone(self: object) -> None:
         assert contact_identifiers.resolve_contact_lookup_providers("phone") == [
             "phone"
         ]

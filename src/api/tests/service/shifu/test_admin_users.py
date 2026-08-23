@@ -877,7 +877,7 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz: object = None) -> datetime:
+        def now(cls: object, tz: object = None) -> datetime:
             return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -991,7 +991,7 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz: object = None) -> datetime:
+        def now(cls: object, tz: object = None) -> datetime:
             return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -2951,7 +2951,7 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz: object = None) -> datetime:
+        def now(cls: object, tz: object = None) -> datetime:
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(
@@ -4850,7 +4850,7 @@ def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
     app: object, monkeypatch: object
 ):
     class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs: object):
+        def filter(self: object, *_args: object, **_kwargs: object):
             message = "expected no user query when users=[] is provided"
             raise AssertionError(message)
 
@@ -4908,7 +4908,7 @@ def test_contact_map_skips_user_query_when_users_argument_is_empty(
     app: object, monkeypatch: object
 ):
     class ForbiddenUserQuery:
-        def filter(self, *_args: object, **_kwargs: object):
+        def filter(self: object, *_args: object, **_kwargs: object):
             message = "expected no user query when users=[] is provided"
             raise AssertionError(message)
 

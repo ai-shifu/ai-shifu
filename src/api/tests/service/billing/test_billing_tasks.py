@@ -444,7 +444,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 ) -> None:
     class _ThreadLock:
         def __init__(
-            self,
+            self: object,
             *,
             key: str,
             raw_lock: threading.Lock,
@@ -456,7 +456,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._events = events
             self._second_attempted = second_attempted
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
+        def acquire(
+            self: object, blocking: bool = True, blocking_timeout: object = None
+        ):
             self._events.append(
                 {
                     "type": "attempt",
@@ -488,7 +490,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
                 )
             return acquired
 
-        def release(self) -> None:
+        def release(self: object) -> None:
             self._events.append(
                 {
                     "type": "released",
@@ -500,14 +502,14 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._raw_lock.release()
 
     class _ThreadLockCacheProvider:
-        def __init__(self) -> None:
+        def __init__(self: object) -> None:
             self._locks: dict[str, threading.Lock] = {}
             self._guard = threading.Lock()
             self.events: list[dict[str, object]] = []
             self.second_attempted = threading.Event()
 
         def lock(
-            self,
+            self: object,
             key: str,
             timeout: object = None,
             blocking_timeout: object = None,
@@ -1046,20 +1048,20 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
     events: list[tuple[str, str]] = []
 
     class _RecordingLock:
-        def __init__(self, key: str) -> None:
+        def __init__(self: object, key: str) -> None:
             self._key = key
 
-        def acquire(self, blocking: bool = True) -> bool:
+        def acquire(self: object, blocking: bool = True) -> bool:
             _ = blocking
             events.append(("acquire", self._key))
             return True
 
-        def release(self) -> None:
+        def release(self: object) -> None:
             events.append(("release", self._key))
 
     class _RecordingCache:
         def lock(
-            self,
+            self: object,
             key: object,
             timeout: object = None,
             blocking_timeout: object = None,

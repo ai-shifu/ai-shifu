@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError
 
 
 class _FakeOrigError(Exception):
-    def __init__(self, errno: object, message: object) -> None:
+    def __init__(self: object, errno: object, message: object) -> None:
         super().__init__(errno, message)
         self.args = (errno, message)
 
@@ -134,7 +134,7 @@ def test_rollback_db_failure_escalates_and_stops_retrying(monkeypatch: object):
     )
 
     class _BrokenSession:
-        def rollback(self):
+        def rollback(self: object):
             message = "ROLLBACK"
             raise OperationalError(message, {}, Exception())
 

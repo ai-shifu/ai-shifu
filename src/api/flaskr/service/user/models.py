@@ -52,7 +52,7 @@ class UserConversion(db.Model):
     )
 
     def __init__(
-        self,
+        self: object,
         user_id: object,
         conversion_id: object,
         conversion_source: object,

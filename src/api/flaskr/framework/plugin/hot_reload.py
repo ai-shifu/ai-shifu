@@ -11,7 +11,7 @@ from watchdog.observers import Observer
 class PluginHotReloader:
     """Reload backend plugins when their source files change."""
 
-    def __init__(self, app: Flask) -> None:
+    def __init__(self: object, app: Flask) -> None:
         """Initialize plugin reloader state without starting file watching.
 
         Stores the Flask app and plugin directory, creates an empty watched-file
@@ -23,19 +23,19 @@ class PluginHotReloader:
         self.watched_files = {}
         self.observer = Observer()
 
-    def start(self):
+    def start(self: object):
         """1111111."""
         event_handler = PluginFileHandler(self)
         self.observer.schedule(event_handler, self.plugin_dir, recursive=True)
         self.observer.start()
         self.app.logger.info("Plugin hot reload started")
 
-    def stop(self):
+    def stop(self: object):
         """Stop watching for hot reloads."""
         self.observer.stop()
         self.observer.join()
 
-    def reload_plugin(self, plugin_path: str):
+    def reload_plugin(self: object, plugin_path: str):
         """Reload a single plugin."""
         try:
             # 1. unload plugin
@@ -53,7 +53,7 @@ class PluginHotReloader:
         except Exception:
             self.app.logger.exception("Hot reload plugin failed: %s", plugin_path)
 
-    def _unload_plugin(self, plugin_path: str):
+    def _unload_plugin(self: object, plugin_path: str):
         """Unload a plugin and clean up its resources.
 
         Args:
@@ -102,7 +102,7 @@ class PluginHotReloader:
         except Exception:
             self.app.logger.exception("Failed to unload plugin %s", plugin_path)
 
-    def _register_plugin(self, module: object):
+    def _register_plugin(self: object, module: object):
         """Register a newly loaded plugin.
 
         Args:
@@ -134,7 +134,7 @@ class PluginHotReloader:
 class PluginFileHandler(FileSystemEventHandler):
     """Handle plugin source changes reported by the file watcher."""
 
-    def __init__(self, reloader: PluginHotReloader) -> None:
+    def __init__(self: object, reloader: PluginHotReloader) -> None:
         """Bind a reloader and initialize per-file reload throttling.
 
         Stores the reloader, starts an empty last-reload registry, and sets a
@@ -144,7 +144,7 @@ class PluginFileHandler(FileSystemEventHandler):
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads
 
-    def on_modified(self, event: object):
+    def on_modified(self: object, event: object):
         """Reload the plugin affected by a file change."""
         if event.is_directory:
             return

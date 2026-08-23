@@ -5,32 +5,32 @@ from flaskr.service.tts import rpm_gate
 
 
 class _FakeRedisLock:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.released = False
 
-    def acquire(self, blocking: object = True, blocking_timeout: object = None):
+    def acquire(self: object, blocking: object = True, blocking_timeout: object = None):
         _ = blocking, blocking_timeout
         return True
 
-    def release(self):
+    def release(self: object):
         self.released = True
 
 
 class _FakeRedis:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.values = {}
         self.locks = []
 
-    def get(self, key: object):
+    def get(self: object, key: object):
         return self.values.get(key)
 
-    def set(self, key: object, value: object, ex: object = None):
+    def set(self: object, key: object, value: object, ex: object = None):
         _ = ex
         self.values[key] = str(value).encode("utf-8")
         return True
 
     def lock(
-        self,
+        self: object,
         key: object,
         timeout: object = None,
         blocking_timeout: object = None,

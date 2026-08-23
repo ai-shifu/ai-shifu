@@ -53,7 +53,7 @@ def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
 
     class FakeStripeProvider:
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app: object
+            self: object, *, provider_reference: str, reference_type: str, app: object
         ):
             _ = app
             assert reference_type == "subscription"

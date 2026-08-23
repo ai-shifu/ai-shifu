@@ -9,13 +9,13 @@ from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 
 
 class _Response:
-    def __init__(self, payload: object, text: object) -> None:
+    def __init__(self: object, payload: object, text: object) -> None:
         self.headers = {"Content-Type": "application/json"}
         self.status_code = 200
         self._payload = payload
         self.text = text
 
-    def json(self):
+    def json(self: object):
         if self._payload is None:
             message = "no json"
             raise ValueError(message)

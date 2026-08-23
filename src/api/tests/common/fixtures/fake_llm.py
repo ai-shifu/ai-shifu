@@ -8,7 +8,7 @@ class FakeLLMResponse:
     """Simulate LLM response behavior for tests."""
 
     def __init__(
-        self,
+        self: object,
         result: str,
         *,
         chunk_id: str = "mock-1",

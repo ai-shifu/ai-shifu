@@ -19,7 +19,7 @@ class PageWindow(Generic[T]):
     page_size: int
     total: int
 
-    def to_dto_kwargs(self) -> dict[str, Any]:
+    def to_dto_kwargs(self: object) -> dict[str, Any]:
         """Return keyword arguments for the page-window DTO."""
         return {
             "items": self.items,
@@ -44,35 +44,35 @@ class JsonObjectMap(MutableMapping[str, Any]):
 
     values: dict[str, Any] = field(default_factory=dict)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self: object, key: str) -> Any:
         """Return a stored JSON value by key."""
         return self.values[key]
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self: object, key: str, value: Any) -> None:
         """Store a JSON value under the normalized string key."""
         self.values[str(key)] = value
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self: object, key: str) -> None:
         """Delete the stored JSON value for a key."""
         del self.values[key]
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self: object) -> Iterator[str]:
         """Iterate over the stored JSON keys."""
         return iter(self.values)
 
-    def __len__(self) -> int:
+    def __len__(self: object) -> int:
         """Return the number of stored JSON keys."""
         return len(self.values)
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self: object, key: str, default: Any = None) -> Any:
         """Return the stored value for a key."""
         return self.values.get(key, default)
 
-    def copy(self) -> JsonObjectMap:
+    def copy(self: object) -> JsonObjectMap:
         """Return a shallow copy of this JSON object map."""
         return JsonObjectMap(values=dict(self.values))
 
-    def to_metadata_json(self) -> dict[str, Any]:
+    def to_metadata_json(self: object) -> dict[str, Any]:
         """Serialize this value as JSON-compatible metadata."""
         return {
             str(key): _serialize_json_value(value) for key, value in self.values.items()

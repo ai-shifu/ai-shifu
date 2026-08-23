@@ -105,7 +105,7 @@ class PayItemDto:
     discount_code: str
 
     def __init__(
-        self,
+        self: object,
         name: object,
         price_name: object,
         price: object,
@@ -119,7 +119,7 @@ class PayItemDto:
         self.is_discount = is_discount
         self.discount_code = discount_code
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the pay item as JSON-compatible data."""
         return {
             "name": self.name,
@@ -144,7 +144,7 @@ class AICourseBuyRecordDTO:
     price_item: list[PayItemDto]
 
     def __init__(
-        self,
+        self: object,
         record_id: object,
         user_id: object,
         course_id: object,
@@ -165,7 +165,7 @@ class AICourseBuyRecordDTO:
         self.price_item = price_item
         self.payment_channel = payment_channel
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the AI course buy record as JSON-compatible data."""
 
         def format_decimal(value: object):
@@ -504,7 +504,7 @@ class BuyRecordDTO:
     qr_url: str  # 二维码地址
 
     def __init__(
-        self,
+        self: object,
         record_id: object,
         user_id: object,
         price: object,
@@ -522,7 +522,7 @@ class BuyRecordDTO:
         self.payment_channel = payment_channel
         self.payment_payload = payment_payload or {}
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the buy record as JSON-compatible data."""
         return {
             "order_id": self.order_id,
@@ -1989,7 +1989,7 @@ class DiscountInfo:
     discount_value: str
     items: list[PayItemDto]
 
-    def __init__(self, discount_value: object, items: object) -> None:
+    def __init__(self: object, discount_value: object, items: object) -> None:
         """Capture the discount value and affected payment items."""
         self.discount_value = discount_value
         self.items = items

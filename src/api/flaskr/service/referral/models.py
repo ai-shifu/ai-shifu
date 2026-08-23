@@ -159,7 +159,7 @@ class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
     ends_at = Column(DateTime, nullable=True, index=True)
     metadata_json = Column("metadata", JSON, nullable=True)
 
-    def to_snapshot(self) -> dict[str, object]:
+    def to_snapshot(self: object) -> dict[str, object]:
         """Serialize this mutable reward rule into a point-in-time mapping."""
         amount = self.reward_credit_amount
         return {

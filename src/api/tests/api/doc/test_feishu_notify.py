@@ -5,32 +5,32 @@ from flaskr.api.doc import feishu
 
 
 class _Logger:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.infos = []
         self.warnings = []
         self.exceptions = []
 
-    def info(self, *args: object, **kwargs: object):
+    def info(self: object, *args: object, **kwargs: object):
         _ = kwargs
         self.infos.append(args)
 
-    def warning(self, *args: object, **kwargs: object):
+    def warning(self: object, *args: object, **kwargs: object):
         _ = kwargs
         self.warnings.append(args)
 
-    def exception(self, *args: object, **kwargs: object):
+    def exception(self: object, *args: object, **kwargs: object):
         _ = kwargs
         self.exceptions.append(args)
 
 
 class _App:
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         self.logger = _Logger()
 
 
 class _Response:
     def __init__(
-        self,
+        self: object,
         status_code: object = 200,
         text: object = "",
         json_value: object = None,
@@ -41,7 +41,7 @@ class _Response:
         self._json_value = json_value
         self._json_exc = json_exc
 
-    def json(self):
+    def json(self: object):
         if self._json_exc is not None:
             raise self._json_exc
         return self._json_value

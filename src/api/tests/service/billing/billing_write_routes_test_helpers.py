@@ -388,7 +388,7 @@ def billing_write_client(monkeypatch: object):
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request: object, app: object):
+        def create_payment(self: object, *, request: object, app: object):
             _ = app
             stripe_requests.append(
                 {
@@ -409,11 +409,11 @@ def billing_write_client(monkeypatch: object):
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def create_subscription(self, *, request: object, app: object):
+        def create_subscription(self: object, *, request: object, app: object):
             return self.create_payment(request=request, app=app)
 
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app: object
+            self: object, *, provider_reference: str, reference_type: str, app: object
         ):
             _ = app
             assert reference_type == "checkout_session"
@@ -438,7 +438,7 @@ def billing_write_client(monkeypatch: object):
             )
 
         def cancel_subscription(
-            self,
+            self: object,
             *,
             subscription_bid: str,
             provider_subscription_id: str,
@@ -458,7 +458,7 @@ def billing_write_client(monkeypatch: object):
             )
 
         def resume_subscription(
-            self,
+            self: object,
             *,
             subscription_bid: str,
             provider_subscription_id: str,
@@ -477,7 +477,7 @@ def billing_write_client(monkeypatch: object):
                 extra={"cancel_at_period_end": False},
             )
 
-        def refund_payment(self, *, request: object, app: object):
+        def refund_payment(self: object, *, request: object, app: object):
             _ = app
             refund_requests.append(
                 {
@@ -494,7 +494,7 @@ def billing_write_client(monkeypatch: object):
             )
 
     class FakePingxxProvider:
-        def create_payment(self, *, request: object, app: object):
+        def create_payment(self: object, *, request: object, app: object):
             _ = app
             pingxx_requests.append(
                 {
@@ -512,7 +512,7 @@ def billing_write_client(monkeypatch: object):
             )
 
         def sync_reference(
-            self, *, provider_reference: str, reference_type: str, app: object
+            self: object, *, provider_reference: str, reference_type: str, app: object
         ):
             _ = app
             assert reference_type == "charge"

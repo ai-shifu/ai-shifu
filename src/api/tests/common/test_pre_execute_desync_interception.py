@@ -45,7 +45,7 @@ def test_pre_execute_probe_blocks_desynced_connection():
             info: ClassVar[dict[str, object]] = {}
             invalidated_count = 0
 
-            def invalidate(self):
+            def invalidate(self: object):
                 type(self).invalidated_count += 1
 
         conn = _FakeConn()

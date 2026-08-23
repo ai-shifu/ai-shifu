@@ -16,16 +16,16 @@ def test_existing_english_and_chinese_names_are_unchanged():
 
 def test_french_native_name_reaches_content_and_interaction_prompts():
     class CapturingProvider:
-        def __init__(self) -> None:
+        def __init__(self: object) -> None:
             self.calls = []
 
-        def complete(self, messages: object, **_kwargs: object):
+        def complete(self: object, messages: object, **_kwargs: object):
             self.calls.append(messages)
             if "JSON Interaction Translation Task" in messages[0]["content"]:
                 return '{"buttons":["Continuer"]}'
             return "Réponse"
 
-        def stream(self, _messages: object, **_kwargs: object):
+        def stream(self: object, _messages: object, **_kwargs: object):
             return iter(())
 
     provider = CapturingProvider()

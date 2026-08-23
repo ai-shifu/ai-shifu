@@ -324,7 +324,7 @@ VOLCENGINE_EMOTIONS = [
 class VolcengineTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine bidirectional WebSocket API."""
 
-    def __init__(self) -> None:
+    def __init__(self: object) -> None:
         """Initialize provider-owned protocol and synchronization state.
 
         Creates a ``VolcengineProtocol`` and a lock for the provider instance;
@@ -334,11 +334,11 @@ class VolcengineTTSProvider(BaseTTSProvider):
         self._lock = threading.Lock()
 
     @property
-    def provider_name(self) -> str:
+    def provider_name(self: object) -> str:
         """Return the provider's stable configuration name."""
         return "volcengine"
 
-    def _infer_resource_id_for_voice(self, voice_id: str) -> str:
+    def _infer_resource_id_for_voice(self: object, voice_id: str) -> str:
         """Infer Volcengine resource ID from a known voice ID."""
         voice_id = (voice_id or "").strip()
         if not voice_id:
@@ -356,7 +356,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         return ""
 
-    def _get_credentials(self, resource_id: str = "") -> tuple[str, str, str]:
+    def _get_credentials(self: object, resource_id: str = "") -> tuple[str, str, str]:
         """Get Volcengine TTS credentials.
 
         Uses VOLCENGINE_TTS_* config for authentication.
@@ -388,7 +388,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         return app_key, access_key, resource_id
 
-    def is_configured(self) -> bool:
+    def is_configured(self: object) -> bool:
         """Check if Volcengine TTS is properly configured."""
         if not WEBSOCKET_AVAILABLE:
             logger.warning("websocket-client package is not installed")
@@ -397,7 +397,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         app_key, access_key, _resource_id = self._get_credentials()
         return bool(app_key and access_key)
 
-    def get_default_voice_settings(self) -> VoiceSettings:
+    def get_default_voice_settings(self: object) -> VoiceSettings:
         """Get default voice settings.
 
         Notes:
@@ -413,7 +413,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             volume=1.0,
         )
 
-    def get_default_audio_settings(self) -> AudioSettings:
+    def get_default_audio_settings(self: object) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
             # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
@@ -423,12 +423,12 @@ class VolcengineTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> list[dict]:
+    def get_supported_voices(self: object) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_VOICES
 
     def synthesize(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -745,7 +745,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             subtitle_cues=subtitle_cues,
         )
 
-    def get_provider_config(self) -> ProviderConfig:
+    def get_provider_config(self: object) -> ProviderConfig:
         """Get Volcengine provider configuration for frontend."""
         return ProviderConfig(
             name="volcengine",

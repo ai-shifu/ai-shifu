@@ -124,21 +124,21 @@ class ListenElementRunPersistenceMixin:
         """
     ).bindparams(bindparam("element_bids", expanding=True))
 
-    def _next_seq(self) -> int:
+    def _next_seq(self: object) -> int:
         self._run_event_seq += 1
         return self._run_event_seq
 
-    def _next_sequence_number(self) -> int:
+    def _next_sequence_number(self: object) -> int:
         self._sequence_number += 1
         return self._sequence_number
 
-    def _resolve_persisted_is_new(self, element: ElementDTO) -> bool:
+    def _resolve_persisted_is_new(self: object, element: ElementDTO) -> bool:
         if element.target_element_bid:
             return False
         return bool(element.is_new)
 
     def _remember_latest_element_snapshot(
-        self, base_element_bid: str, element: ElementDTO
+        self: object, base_element_bid: str, element: ElementDTO
     ) -> None:
         if not base_element_bid:
             return
@@ -148,7 +148,7 @@ class ListenElementRunPersistenceMixin:
             self._latest_element_snapshots = snapshots
         snapshots[base_element_bid] = element.model_copy(deep=True)
 
-    def _forget_latest_element_snapshot(self, base_element_bid: str) -> None:
+    def _forget_latest_element_snapshot(self: object, base_element_bid: str) -> None:
         if not base_element_bid:
             return
         snapshots = getattr(self, "_latest_element_snapshots", None)
@@ -156,7 +156,7 @@ class ListenElementRunPersistenceMixin:
             return
         snapshots.pop(base_element_bid, None)
 
-    def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
+    def _load_block_meta(self: object, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
             return self._block_meta_cache[generated_block_bid]
         meta = BlockMeta()
@@ -177,7 +177,7 @@ class ListenElementRunPersistenceMixin:
         self._block_meta_cache[generated_block_bid] = meta
         return meta
 
-    def _ensure_block_state(self, generated_block_bid: str) -> BlockState:
+    def _ensure_block_state(self: object, generated_block_bid: str) -> BlockState:
         state = self._block_states.get(generated_block_bid)
         if state is None:
             state = BlockState(generated_block_bid=generated_block_bid)
@@ -185,7 +185,7 @@ class ListenElementRunPersistenceMixin:
         return state
 
     def _find_active_element_row_ids(
-        self,
+        self: object,
         *,
         generated_block_bid: str,
         element_bids: list[str],
@@ -239,7 +239,7 @@ class ListenElementRunPersistenceMixin:
                 result.close()
 
     def _deactivate_active_element_rows(
-        self,
+        self: object,
         *,
         generated_block_bid: str,
         element_bids: list[str],
@@ -267,7 +267,7 @@ class ListenElementRunPersistenceMixin:
         db.session.flush()
 
     def _insert_row(
-        self,
+        self: object,
         *,
         generated_block_bid: str,
         element_index: int,
@@ -332,7 +332,7 @@ class ListenElementRunPersistenceMixin:
         db.session.add(row)
         db.session.flush()
 
-    def _element_message(self, element: ElementDTO) -> RunElementSSEMessageDTO:
+    def _element_message(self: object, element: ElementDTO) -> RunElementSSEMessageDTO:
         self._persist_element(element)
         return RunElementSSEMessageDTO(
             type="element",
@@ -344,7 +344,7 @@ class ListenElementRunPersistenceMixin:
         )
 
     def _stream_only_element_message(
-        self, element: ElementDTO
+        self: object, element: ElementDTO
     ) -> RunElementSSEMessageDTO:
         base_element_bid = self._prepare_runtime_element(element)
         self._remember_latest_element_snapshot(base_element_bid, element)
@@ -357,7 +357,7 @@ class ListenElementRunPersistenceMixin:
             content=element,
         )
 
-    def _prepare_runtime_element(self, element: ElementDTO) -> str:
+    def _prepare_runtime_element(self: object, element: ElementDTO) -> str:
         seq = self._next_seq()
         if element.element_type in {ElementType.ASK, ElementType.ANSWER}:
             element.is_new = bool(element.is_new)
@@ -381,7 +381,7 @@ class ListenElementRunPersistenceMixin:
             else element.element_bid
         )
 
-    def _persist_element(self, element: ElementDTO) -> None:
+    def _persist_element(self: object, element: ElementDTO) -> None:
         base_element_bid = self._prepare_runtime_element(element)
         replace_same_element_bid = bool(element.is_new and element.element_bid)
         if (not element.is_new) or replace_same_element_bid:
@@ -414,7 +414,7 @@ class ListenElementRunPersistenceMixin:
         self._remember_latest_element_snapshot(base_element_bid, element)
 
     def _build_non_element_message(
-        self,
+        self: object,
         *,
         emitted_event_type: str,
         content: str
@@ -438,7 +438,7 @@ class ListenElementRunPersistenceMixin:
         )
 
     def _persisted_non_element_message(
-        self,
+        self: object,
         *,
         stored_event_type: str,
         emitted_event_type: str,
@@ -477,7 +477,7 @@ class ListenElementRunPersistenceMixin:
         )
 
     def _non_element_message(
-        self,
+        self: object,
         *,
         event_type: str,
         content: str
@@ -497,7 +497,7 @@ class ListenElementRunPersistenceMixin:
         )
 
     def _stream_non_element_message(
-        self,
+        self: object,
         *,
         stored_event_type: str,
         emitted_event_type: str,
@@ -518,7 +518,7 @@ class ListenElementRunPersistenceMixin:
         )
 
     def make_ephemeral_message(
-        self,
+        self: object,
         *,
         event_type: str,
         content: str = "",
@@ -545,7 +545,7 @@ class ListenElementRunPersistenceMixin:
         )
 
     def _make_inter_element_done_message(
-        self, generated_block_bid: str
+        self: object, generated_block_bid: str
     ) -> RunElementSSEMessageDTO:
         return self.make_ephemeral_message(
             event_type=GeneratedType.DONE.value,
@@ -554,7 +554,9 @@ class ListenElementRunPersistenceMixin:
             is_terminal=False,
         )
 
-    def _load_latest_element_snapshot(self, element_bid: str) -> ElementDTO | None:
+    def _load_latest_element_snapshot(
+        self: object, element_bid: str
+    ) -> ElementDTO | None:
         in_memory_snapshot = getattr(self, "_latest_element_snapshots", {}).get(
             element_bid
         )

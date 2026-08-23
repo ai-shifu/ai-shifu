@@ -7,7 +7,7 @@ from flaskr.common.log import FeishuLogHandler
 
 
 class _FailingResponse:
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         message = "400 Client Error"
         raise requests.exceptions.HTTPError(message)
 

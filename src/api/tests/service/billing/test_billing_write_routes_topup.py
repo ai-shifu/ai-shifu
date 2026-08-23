@@ -46,7 +46,7 @@ class TestBillingWriteRoutesTopup:
     """Verify billing write routes topup behavior."""
 
     def test_topup_checkout_and_sync_mark_order_paid(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -112,7 +112,7 @@ class TestBillingWriteRoutesTopup:
             )
 
     def test_stripe_topup_checkout_keeps_one_time_line_item(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -136,7 +136,7 @@ class TestBillingWriteRoutesTopup:
         assert "recurring" not in price_data
 
     def test_topup_grant_expires_with_current_subscription_period(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -179,7 +179,7 @@ class TestBillingWriteRoutesTopup:
             assert ledger.expires_at == current_period_end_at
 
     def test_repeated_topup_reuses_single_bucket_and_tracks_latest_source(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -247,7 +247,7 @@ class TestBillingWriteRoutesTopup:
             assert second_ledger.expires_at == current_period_end_at
 
     def test_trial_then_paid_then_topup_prefers_paid_subscription_for_overview_and_expiry(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -342,7 +342,7 @@ class TestBillingWriteRoutesTopup:
         )
 
     def test_trial_then_topup_then_paid_realigns_existing_topup_expiry(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -436,7 +436,7 @@ class TestBillingWriteRoutesTopup:
             assert bucket.effective_to != trial_end
 
     def test_topup_checkout_rejects_without_active_subscription(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
 
@@ -452,7 +452,7 @@ class TestBillingWriteRoutesTopup:
         assert checkout["code"] != 0
 
     def test_repair_topup_grant_expiries_updates_only_misaligned_expiry_fields(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         app = billing_write_client["app"]
         now = now_utc()
@@ -589,7 +589,7 @@ class TestBillingWriteRoutesTopup:
             assert wallet.version == 0
 
     def test_topup_checkout_uses_pingxx_default_channel_when_provider_omitted(
-        self, billing_write_client: object, monkeypatch: object
+        self: object, billing_write_client: object, monkeypatch: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -621,7 +621,7 @@ class TestBillingWriteRoutesTopup:
         assert billing_write_client["pingxx_requests"][0]["channel"] == "alipay_qr"
 
     def test_topup_sync_rebuilds_wallet_snapshot_from_bucket_balances(
-        self, billing_write_client: object
+        self: object, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]

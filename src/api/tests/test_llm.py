@@ -116,7 +116,7 @@ class DummySpan:
     """Simulate span behavior for tests."""
 
     def __init__(
-        self, trace_id: object = "trace-1", span_id: object = "span-1"
+        self: object, trace_id: object = "trace-1", span_id: object = "span-1"
     ) -> None:
         """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
@@ -124,14 +124,14 @@ class DummySpan:
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs: object):
+    def generation(self: object, **kwargs: object):
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs: object):
+    def end(self: object, **kwargs: object):
         self.end_args = kwargs
 
-    def update(self, **kwargs: object):
+    def update(self: object, **kwargs: object):
         self.update_args = kwargs
 
 
@@ -139,7 +139,7 @@ class FakeResponse:
     """Simulate response behavior for tests."""
 
     def __init__(
-        self,
+        self: object,
         chunk_id: object,
         content: object = None,
         finish_reason: object = None,
@@ -159,14 +159,14 @@ class FakeResponse:
 class FakeModelsResponse:
     """Simulate models response behavior for tests."""
 
-    def __init__(self, payload: object) -> None:
+    def __init__(self: object, payload: object) -> None:
         """Capture the payload returned by the fake models endpoint."""
         self.payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         return None
 
-    def json(self):
+    def json(self: object):
         return self.payload
 
 

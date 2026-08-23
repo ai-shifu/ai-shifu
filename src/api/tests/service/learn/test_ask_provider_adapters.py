@@ -17,7 +17,7 @@ from flaskr.service.learn.ask_provider_adapters import (
 
 class _FakeResponse:
     def __init__(
-        self,
+        self: object,
         lines: object = None,
         status_code: object = 200,
         text: object = "",
@@ -32,15 +32,15 @@ class _FakeResponse:
         self._json_data = json_data
         self._json_error = json_error
 
-    def iter_lines(self, decode_unicode: object = True):
+    def iter_lines(self: object, decode_unicode: object = True):
         _ = decode_unicode
         yield from self._lines
 
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         if self._http_error is not None:
             raise self._http_error
 
-    def json(self):
+    def json(self: object):
         if self._json_error is not None:
             raise self._json_error
         return self._json_data

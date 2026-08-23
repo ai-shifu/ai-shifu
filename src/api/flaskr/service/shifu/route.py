@@ -167,7 +167,7 @@ class ShifuTokenValidation:
     """Shifu token validation decorator if is_creator is true, only verify creator permission and skip shifu-specific verification."""
 
     def __init__(
-        self,
+        self: object,
         permission: ShifuPermission = ShifuPermission.VIEW,
         is_creator: bool = False,
     ) -> None:
@@ -175,7 +175,7 @@ class ShifuTokenValidation:
         self.permission = permission
         self.is_creator = is_creator
 
-    def __call__(self, f: object) -> Callable:
+    def __call__(self: object, f: object) -> Callable:
         """Validate token permissions and optional creator status before invoking the route."""
 
         @wraps(f)
@@ -286,7 +286,7 @@ def _resolve_publish_base_url(app: Flask) -> str:
 
 
 @inject
-def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu"):
+def register_shifu_routes(app: Flask, path_prefix: object = "/api/shifu"):
     """Register shifu routes."""
     app.logger.info("register shifu routes %s", path_prefix)
 

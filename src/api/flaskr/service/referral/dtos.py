@@ -31,7 +31,7 @@ class InviteProfileDTO:
     available: bool = True
 
     @classmethod
-    def unavailable(cls) -> InviteProfileDTO:
+    def unavailable(cls: object) -> InviteProfileDTO:
         """Create an invite profile that is unavailable."""
         return cls(
             campaign_bid="",
@@ -49,7 +49,7 @@ class InviteProfileDTO:
             available=False,
         )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Serialize this value as a dictionary."""
         return {
             "available": self.available,
@@ -83,7 +83,7 @@ class InvitePreviewDTO:
     invite_code: str = ""
     inviter_mobile_masked: str = ""
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self: object) -> dict[str, Any]:
         """Serialize this value as a dictionary."""
         return {
             "recognized": self.recognized,

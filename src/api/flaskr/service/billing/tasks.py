@@ -110,7 +110,7 @@ class LowBalanceAlertCandidate:
     wallet_available_credits: Any
     alerts: list[Any]
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self: object) -> dict[str, Any]:
         """Serialize this result for task processing."""
         serialized_alerts: list[Any] = []
         for alert in self.alerts:
@@ -137,7 +137,7 @@ class LowBalanceAlertTaskResult:
     creators: list[LowBalanceAlertCandidate]
     task_name: str = "billing.send_low_balance_alert"
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self: object) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,

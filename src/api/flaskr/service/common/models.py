@@ -12,7 +12,7 @@ class AppError(Exception):
     """Represent an application error with a stable API code."""
 
     def __init__(
-        self,
+        self: object,
         message: object,
         status_code: object = None,
         payload: object = None,
@@ -23,18 +23,18 @@ class AppError(Exception):
         self.code = status_code
         self.payload = payload
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the application error as JSON-compatible data."""
         rv = dict(self.payload or ())
         rv["message"] = self.message
         rv["code"] = self.code
         return rv
 
-    def __str__(self) -> str:
+    def __str__(self: object) -> str:
         """Return the application error message."""
         return self.message
 
-    def __html__(self) -> dict:
+    def __html__(self: object) -> dict:
         """Return the serialized application-error payload."""
         return self.__json__()
 

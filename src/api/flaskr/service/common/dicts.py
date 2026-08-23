@@ -8,12 +8,12 @@ DICTS = {}
 class DictItem:
     """Represent one key-label entry in a shared dictionary."""
 
-    def __init__(self, display: object, value: object) -> None:
+    def __init__(self: object, display: object, value: object) -> None:
         """Create a display-value dictionary item."""
         self.display = display
         self.value = value
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the dictionary item as JSON-compatible data."""
         return {"display": self.display, "value": self.value}
 
@@ -21,13 +21,15 @@ class DictItem:
 class Dict:
     """Index dictionary items by key for shared lookup helpers."""
 
-    def __init__(self, name: object, display: object, items: list[DictItem]) -> None:
+    def __init__(
+        self: object, name: object, display: object, items: list[DictItem]
+    ) -> None:
         """Create a named dictionary definition."""
         self.name = name
         self.display = display
         self.items = items
 
-    def __json__(self) -> dict:
+    def __json__(self: object) -> dict:
         """Return the dictionary definition as JSON-compatible data."""
         return {"name": self.name, "display": self.display, "items": self.items}
 

@@ -10,11 +10,11 @@ def test_query_sms_template_list_caps_page_size_at_provider_limit(monkeypatch: o
     captured = {}
 
     class FakeClient:
-        def __init__(self, _config: object) -> None:
+        def __init__(self: object, _config: object) -> None:
             pass
 
         def query_sms_template_list_with_options(
-            self, request: object, _runtime: object
+            self: object, request: object, _runtime: object
         ):
             captured["page_index"] = request.page_index
             captured["page_size"] = request.page_size

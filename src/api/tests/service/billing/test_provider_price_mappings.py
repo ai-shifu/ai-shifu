@@ -40,12 +40,12 @@ from flaskr.util.datetime import now_utc
 
 
 class _FakeStripeCatalogAdapter(StripeCatalogReadAdapter):
-    def __init__(self, snapshot: ProviderCatalogSnapshot) -> None:
+    def __init__(self: object, snapshot: ProviderCatalogSnapshot) -> None:
         self.snapshot = snapshot
         self.calls: list[dict[str, str]] = []
 
     def retrieve_mapping_snapshot(
-        self,
+        self: object,
         app: Flask,
         *,
         provider_product_id: str,

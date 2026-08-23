@@ -36,27 +36,29 @@ def clear_google_public_url_config_cache():
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload: object) -> None:
+    def __init__(self: object, payload: object) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self: object):
         return None
 
-    def json(self):
+    def json(self: object):
         return self._payload
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile: object, *, fetch_token_error: object = None) -> None:
+    def __init__(
+        self: object, profile: object, *, fetch_token_error: object = None
+    ) -> None:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 
-    def fetch_token(self, *_args: object, **_kwargs: object):
+    def fetch_token(self: object, *_args: object, **_kwargs: object):
         if self._fetch_token_error is not None:
             raise self._fetch_token_error
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args: object, **_kwargs: object):
+    def get(self: object, *_args: object, **_kwargs: object):
         return _FakeGoogleResponse(self._profile)
 
 

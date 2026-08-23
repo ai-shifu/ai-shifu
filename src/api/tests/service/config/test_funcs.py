@@ -255,7 +255,7 @@ def build_runtime_branding():
 class TestFernetKeyGeneration:
     """Test Fernet key generation functions."""
 
-    def test_get_fernet_key_with_valid_secret_key(self, app: object):
+    def test_get_fernet_key_with_valid_secret_key(self: object, app: object):
         """Test generating Fernet key from valid SECRET_KEY."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -264,7 +264,7 @@ class TestFernetKeyGeneration:
             assert isinstance(key, bytes)
             assert len(key) == 44  # Base64 encoded 32-byte key
 
-    def test_get_fernet_key_with_missing_secret_key(self, app: object):
+    def test_get_fernet_key_with_missing_secret_key(self: object, app: object):
         """Test that missing SECRET_KEY raises ValueError."""
         with app.app_context():
             # Save original SECRET_KEY if exists
@@ -279,14 +279,14 @@ class TestFernetKeyGeneration:
                 if original_secret_key:
                     app.config["SECRET_KEY"] = original_secret_key
 
-    def test_get_fernet_key_with_empty_secret_key(self, app: object):
+    def test_get_fernet_key_with_empty_secret_key(self: object, app: object):
         """Test that empty SECRET_KEY raises ValueError."""
         with app.app_context():
             app.config["SECRET_KEY"] = ""
             with pytest.raises(ValueError, match="SECRET_KEY is not configured"):
                 _get_fernet_key(app)
 
-    def test_get_fernet_returns_fernet_instance(self, app: object):
+    def test_get_fernet_returns_fernet_instance(self: object, app: object):
         """Test that _get_fernet returns a Fernet instance."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -300,7 +300,7 @@ class TestFernetKeyGeneration:
 class TestEncryptionDecryption:
     """Test encryption and decryption functions."""
 
-    def test_encrypt_config_encrypts_value(self, app: object):
+    def test_encrypt_config_encrypts_value(self: object, app: object):
         """Test that _encrypt_config encrypts plain text value."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -311,7 +311,7 @@ class TestEncryptionDecryption:
             assert encrypted != plain_value
             assert len(encrypted) > 0
 
-    def test_decrypt_config_decrypts_value(self, app: object):
+    def test_decrypt_config_decrypts_value(self: object, app: object):
         """Test that _decrypt_config decrypts encrypted value."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -320,7 +320,7 @@ class TestEncryptionDecryption:
             decrypted = _decrypt_config(app, encrypted)
             assert decrypted == plain_value
 
-    def test_encrypt_decrypt_roundtrip(self, app: object):
+    def test_encrypt_decrypt_roundtrip(self: object, app: object):
         """Test that encrypt-decrypt roundtrip preserves original value."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -336,14 +336,14 @@ class TestEncryptionDecryption:
                 decrypted = _decrypt_config(app, encrypted)
                 assert decrypted == value
 
-    def test_decrypt_config_with_invalid_token(self, app: object):
+    def test_decrypt_config_with_invalid_token(self: object, app: object):
         """Test that _decrypt_config raises ValueError for invalid token."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
             with pytest.raises(ValueError, match="Failed to decrypt config value"):
                 _decrypt_config(app, "invalid-encrypted-token")
 
-    def test_decrypt_config_with_different_secret_key(self, app: object):
+    def test_decrypt_config_with_different_secret_key(self: object, app: object):
         """Test that decryption fails with different SECRET_KEY."""
         with app.app_context():
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -359,14 +359,14 @@ class TestEncryptionDecryption:
 class TestCacheKeyGeneration:
     """Test cache and lock key generation functions."""
 
-    def test_get_config_cache_key(self, app: object):
+    def test_get_config_cache_key(self: object, app: object):
         """Test that cache key is generated correctly."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             key = _get_config_cache_key(app, "test_key")
             assert key == "test:sys:config:test_key"
 
-    def test_get_config_lock_key(self, app: object):
+    def test_get_config_lock_key(self: object, app: object):
         """Test that lock key is generated correctly."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
@@ -375,7 +375,7 @@ class TestCacheKeyGeneration:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_get_config_cache_key_falls_back_to_common_prefix(
-        self, mock_get_config_from_common: object, app: object
+        self: object, mock_get_config_from_common: object, app: object
     ):
         """Fallback to shared config prefix when plain Flask config lacks the key."""
         with app.app_context():
@@ -389,7 +389,7 @@ class TestCacheKeyGeneration:
 class TestGetConfig:
     """Test get_config function."""
 
-    def test_config_overrides_override_get_config(self, app: object):
+    def test_config_overrides_override_get_config(self: object, app: object):
         """Config overrides should win over env and DB-backed lookups."""
         with (
             app.app_context(),
@@ -404,7 +404,7 @@ class TestGetConfig:
             assert has_config_override("test_key") is False
             mock_get_config_from_common.assert_not_called()
 
-    def test_config_overrides_restore_previous_values(self, app: object):
+    def test_config_overrides_restore_previous_values(self: object, app: object):
         """Nested overrides restore the outer and original values correctly."""
         with app.app_context():
             with config_overrides(
@@ -423,7 +423,7 @@ class TestGetConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_config_overrides_work_without_app_context(
-        self, mock_get_config_from_common: object
+        self: object, mock_get_config_from_common: object
     ):
         """Thread-local overrides should work even without a Flask app context."""
         with config_overrides({"test_key": "override-value"}):
@@ -435,7 +435,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_get_config_from_environment(
-        self,
+        self: object,
         mock_redis: object,
         mock_get_config_from_common: object,
         mock_has_override: object,
@@ -454,7 +454,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs._decrypt_config")
     def test_get_config_from_cache_plain(
-        self,
+        self: object,
         mock_decrypt: object,
         mock_redis: object,
         mock_get_config_from_common: object,
@@ -476,7 +476,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs._decrypt_config")
     def test_get_config_from_cache_encrypted(
-        self,
+        self: object,
         mock_decrypt: object,
         mock_redis: object,
         mock_get_config_from_common: object,
@@ -501,7 +501,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._decrypt_config")
     def test_get_config_from_database_plain(
-        self,
+        self: object,
         mock_decrypt: object,
         mock_config_class: object,
         mock_redis: object,
@@ -537,7 +537,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs.Config")
     def test_get_config_queries_database_when_default_is_explicit_empty_string(
-        self,
+        self: object,
         mock_config_class: object,
         mock_redis: object,
         mock_get_config_from_common: object,
@@ -572,7 +572,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._decrypt_config")
     def test_get_config_from_database_encrypted(
-        self,
+        self: object,
         mock_decrypt: object,
         mock_config_class: object,
         mock_redis: object,
@@ -610,7 +610,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs.Config")
     def test_get_config_not_found(
-        self,
+        self: object,
         mock_config_class: object,
         mock_redis: object,
         mock_get_config_from_common: object,
@@ -641,7 +641,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs.Config")
     def test_get_config_uses_common_default_when_database_config_is_missing(
-        self,
+        self: object,
         mock_config_class: object,
         mock_redis: object,
         mock_get_config_from_common: object,
@@ -670,7 +670,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_get_config_lock_failed(
-        self,
+        self: object,
         mock_redis: object,
         mock_get_config_from_common: object,
         app: object,
@@ -691,7 +691,7 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs.Config")
     def test_get_config_uses_env_when_db_not_ready(
-        self,
+        self: object,
         mock_config_class: object,
         mock_redis: object,
         mock_get_config_from_common: object,
@@ -728,7 +728,7 @@ class TestAddConfig:
     @patch("flaskr.service.config.funcs._encrypt_config")
     @patch("flaskr.service.config.funcs.Config")
     def test_add_config_plain_value(
-        self,
+        self: object,
         mock_config_class: object,
         mock_encrypt: object,
         mock_generate_id: object,
@@ -777,7 +777,7 @@ class TestAddConfig:
     @patch("flaskr.service.config.funcs._encrypt_config")
     @patch("flaskr.service.config.funcs.Config")
     def test_add_config_encrypted_value(
-        self,
+        self: object,
         mock_config_class: object,
         mock_encrypt: object,
         mock_generate_id: object,
@@ -828,7 +828,7 @@ class TestAddConfig:
     @patch("flaskr.service.config.funcs._encrypt_config")
     @patch("flaskr.service.config.funcs.Config")
     def test_add_config_from_cache_encrypted(
-        self,
+        self: object,
         mock_config_class: object,
         mock_encrypt: object,
         mock_decrypt: object,
@@ -871,7 +871,7 @@ class TestAddConfig:
     @patch("flaskr.service.config.funcs._encrypt_config")
     @patch("flaskr.service.config.funcs.Config")
     def test_add_config_from_cache_plain(
-        self,
+        self: object,
         mock_config_class: object,
         mock_encrypt: object,
         mock_generate_id: object,
@@ -905,7 +905,7 @@ class TestAddConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_add_config_skips_if_env_exists(
-        self, mock_get_config_from_common: object, app: object
+        self: object, mock_get_config_from_common: object, app: object
     ):
         """Test that add_config skips if environment config exists."""
         with app.app_context():
@@ -923,7 +923,7 @@ class TestAddConfig:
     @patch("flaskr.service.config.funcs.generate_id")
     @patch("flaskr.service.config.funcs.Config")
     def test_add_config_does_not_treat_non_env_defaults_as_override(
-        self,
+        self: object,
         mock_config_class: object,
         mock_generate_id: object,
         mock_db: object,
@@ -955,7 +955,7 @@ class TestAddConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_add_config_returns_false_if_no_value(
-        self,
+        self: object,
         mock_redis: object,
         mock_get_config_from_common: object,
         app: object,
@@ -978,7 +978,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._encrypt_config")
     def test_update_config_plain_value(
-        self,
+        self: object,
         mock_encrypt: object,
         mock_config_class: object,
         mock_db: object,
@@ -1021,7 +1021,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._encrypt_config")
     def test_update_config_encrypted_value(
-        self,
+        self: object,
         mock_encrypt: object,
         mock_config_class: object,
         mock_db: object,
@@ -1066,7 +1066,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs._decrypt_config")
     @patch("flaskr.service.config.funcs._encrypt_config")
     def test_update_config_ignores_cache_encrypted(
-        self,
+        self: object,
         mock_encrypt: object,
         mock_decrypt: object,
         mock_config_class: object,
@@ -1113,7 +1113,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._encrypt_config")
     def test_update_config_ignores_cache_plain(
-        self,
+        self: object,
         mock_encrypt: object,
         mock_config_class: object,
         mock_db: object,
@@ -1151,7 +1151,7 @@ class TestUpdateConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_update_config_skips_if_env_exists(
-        self, mock_get_config_from_common: object, app: object
+        self: object, mock_get_config_from_common: object, app: object
     ):
         """Test that update_config returns False if environment config exists."""
         with app.app_context():
@@ -1165,7 +1165,7 @@ class TestUpdateConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_update_config_skips_if_empty_env_exists(
-        self, mock_get_config_from_common: object, app: object
+        self: object, mock_get_config_from_common: object, app: object
     ):
         """Test that update_config respects empty string environment overrides."""
         with app.app_context():
@@ -1182,7 +1182,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.db")
     @patch("flaskr.service.config.funcs.Config")
     def test_update_config_not_found(
-        self,
+        self: object,
         mock_config_class: object,
         mock_db: object,
         mock_redis: object,
@@ -1210,7 +1210,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_update_config_returns_false_if_no_value(
-        self,
+        self: object,
         mock_redis: object,
         mock_get_config_from_common: object,
         app: object,
@@ -1227,26 +1227,26 @@ class TestUpdateConfig:
 class TestConfigCache:
     """Test ConfigCache model."""
 
-    def test_config_cache_defaults(self):
+    def test_config_cache_defaults(self: object):
         """Test ConfigCache default values."""
         cache = ConfigCache()
         assert cache.is_encrypted is False
         assert cache.value == ""
 
-    def test_config_cache_with_values(self):
+    def test_config_cache_with_values(self: object):
         """Test ConfigCache with explicit values."""
         cache = ConfigCache(is_encrypted=True, value="test-value")
         assert cache.is_encrypted is True
         assert cache.value == "test-value"
 
-    def test_config_cache_serialization(self):
+    def test_config_cache_serialization(self: object):
         """Test ConfigCache JSON serialization."""
         cache = ConfigCache(is_encrypted=True, value="test-value")
         json_str = cache.model_dump_json()
         assert isinstance(json_str, str)
         assert "test-value" in json_str
 
-    def test_config_cache_deserialization(self):
+    def test_config_cache_deserialization(self: object):
         """Test ConfigCache JSON deserialization."""
         json_str = '{"is_encrypted": true, "value": "test-value"}'
         cache = ConfigCache.model_validate_json(json_str)

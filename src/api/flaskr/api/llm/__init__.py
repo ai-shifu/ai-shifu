@@ -962,7 +962,7 @@ class LLMStreamaUsage:
     """Track token usage reported by a streaming LLM response."""
 
     def __init__(
-        self,
+        self: object,
         prompt_tokens: object,
         completion_tokens: object,
         total_tokens: object,
@@ -977,7 +977,7 @@ class LLMStreamResponse:
     """Wrap an LLM stream together with response metadata."""
 
     def __init__(
-        self,
+        self: object,
         response_id: object,
         is_end: object,
         is_truncated: object,

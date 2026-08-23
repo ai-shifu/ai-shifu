@@ -293,21 +293,21 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
     """TTS provider using the Tencent Cloud TextToVoice API."""
 
     @property
-    def provider_name(self) -> str:
+    def provider_name(self: object) -> str:
         """Return the provider's stable configuration name."""
         return "tencent_texttovoice"
 
-    def _get_credentials(self) -> tuple:
+    def _get_credentials(self: object) -> tuple:
         secret_id = (get_config("TENCENT_TTS_SECRET_ID") or "").strip()
         secret_key = (get_config("TENCENT_TTS_SECRET_KEY") or "").strip()
         return secret_id, secret_key
 
-    def is_configured(self) -> bool:
+    def is_configured(self: object) -> bool:
         """Return whether this provider has usable credentials."""
         secret_id, secret_key = self._get_credentials()
         return bool(secret_id and secret_key)
 
-    def get_default_voice_settings(self) -> VoiceSettings:
+    def get_default_voice_settings(self: object) -> VoiceSettings:
         """Return this provider's default voice settings."""
         return VoiceSettings(
             voice_id=TENCENT_TEXTTOVOICE_DEFAULT_VOICE_ID,
@@ -317,7 +317,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             volume=0,
         )
 
-    def get_default_audio_settings(self) -> AudioSettings:
+    def get_default_audio_settings(self: object) -> AudioSettings:
         """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
@@ -326,12 +326,12 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> list[dict[str, str]]:
+    def get_supported_voices(self: object) -> list[dict[str, str]]:
         """Return the voices exposed by this provider."""
         return [dict(voice) for voice in TENCENT_TEXTTOVOICE_VOICES]
 
     def _synthesize_segment(
-        self,
+        self: object,
         text: str,
         voice_type: int,
         speed: float,
@@ -385,7 +385,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         return base64.b64decode(audio_base64)
 
     def synthesize(
-        self,
+        self: object,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -451,7 +451,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             subtitle_cues=[],
         )
 
-    def get_provider_config(self) -> ProviderConfig:
+    def get_provider_config(self: object) -> ProviderConfig:
         """Return the provider's public configuration."""
         return ProviderConfig(
             name=self.provider_name,

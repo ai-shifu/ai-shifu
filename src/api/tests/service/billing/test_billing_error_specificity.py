@@ -21,17 +21,17 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 
 
 class _UnavailableLock:
-    def acquire(self, blocking: bool = True) -> bool:
+    def acquire(self: object, blocking: bool = True) -> bool:
         assert blocking is True
         return False
 
-    def release(self) -> None:  # pragma: no cover - should not be called
+    def release(self: object) -> None:  # pragma: no cover - should not be called
         message = "unacquired lock should not be released"
         raise AssertionError(message)
 
 
 class _LockFactory:
-    def lock(self, *_args: object, **_kwargs: object):
+    def lock(self: object, *_args: object, **_kwargs: object):
         return _UnavailableLock()
 
 

@@ -698,11 +698,11 @@ def test_dedicated_engine_replacement_disposes_previous_owner(
     app: object, monkeypatch: object
 ):
     class _FakeEngine:
-        def __init__(self, uri: str) -> None:
+        def __init__(self: object, uri: str) -> None:
             self.uri = uri
             self.disposed = False
 
-        def dispose(self) -> None:
+        def dispose(self: object) -> None:
             self.disposed = True
 
     created: list[_FakeEngine] = []

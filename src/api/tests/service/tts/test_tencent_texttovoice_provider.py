@@ -65,10 +65,10 @@ def _patch_credentials(monkeypatch: object):
 
 
 class _FakeResponse:
-    def __init__(self, body: object) -> None:
+    def __init__(self: object, body: object) -> None:
         self._body = body
 
-    def json(self):
+    def json(self: object):
         return self._body
 
 
