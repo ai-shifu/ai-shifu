@@ -94,7 +94,7 @@ def _mock_route_permission(monkeypatch: object, permission_map: dict[str, bool])
 
 def test_save_shifu_draft_info_keeps_existing_price_when_input_is_none(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -134,7 +134,7 @@ def test_save_shifu_draft_info_keeps_existing_price_when_input_is_none(
 
 def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -207,7 +207,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
 
 def test_save_shifu_draft_info_normalizes_removed_tts_fields(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -274,7 +274,7 @@ def test_save_shifu_draft_info_normalizes_removed_tts_fields(
 
 def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -350,7 +350,7 @@ def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
 
 def test_save_shifu_draft_info_persists_default_listen_mode_setting(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -408,7 +408,7 @@ def test_save_shifu_draft_info_persists_default_listen_mode_setting(
 
 def test_save_shifu_draft_info_clears_default_listen_mode_when_tts_is_disabled(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
@@ -462,7 +462,7 @@ def test_save_shifu_draft_info_clears_default_listen_mode_when_tts_is_disabled(
 )
 def test_save_shifu_detail_route_rejects_invalid_default_listen_mode_enabled(
     app: object, test_client: object, monkeypatch: object, invalid_value: object
-):
+) -> None:
     shifu_bid = "test-save-shifu-default-listen-invalid"
     owner_bid = "owner-default-listen-invalid"
     _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
@@ -482,7 +482,7 @@ def test_save_shifu_detail_route_rejects_invalid_default_listen_mode_enabled(
 
 def test_get_draft_meta_route_serializes_utc_timestamp(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu.models import DraftOutlineItem
 
     shifu_bid = "test-draft-meta-timezone"
@@ -523,7 +523,7 @@ def test_get_draft_meta_route_serializes_utc_timestamp(
 
 def test_get_draft_meta_route_allows_view_only_permission(
     app: object, test_client: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.shifu.models import DraftOutlineItem
 
     shifu_bid = "test-draft-meta-view-only"

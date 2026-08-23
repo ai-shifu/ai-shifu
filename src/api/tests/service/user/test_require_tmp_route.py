@@ -7,7 +7,7 @@ import json
 
 def test_require_tmp_passes_payload_source_to_temp_user(
     test_client: object, monkeypatch: object
-):
+) -> None:
     import flaskr.route.user as user_route
 
     calls: list[dict[str, str | None]] = []

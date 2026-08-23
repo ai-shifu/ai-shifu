@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -28,9 +29,12 @@ from flaskr.service.order.raw_snapshots import (
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def native_payment_split_app():
+def native_payment_split_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

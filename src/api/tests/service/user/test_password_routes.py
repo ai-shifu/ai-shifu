@@ -17,7 +17,9 @@ def _post_json(client: object, path: str, payload: dict, headers: dict | None = 
     return resp, json.loads(resp.data)
 
 
-def test_reset_password_does_not_create_new_user(test_client: object, app: object):
+def test_reset_password_does_not_create_new_user(
+    test_client: object, app: object
+) -> None:
     from flaskr.service.user.models import UserInfo as UserEntity
 
     phone = "15500009999"
@@ -45,7 +47,7 @@ def test_reset_password_does_not_create_new_user(test_client: object, app: objec
 
 def test_set_password_requires_login_and_verification_code(
     test_client: object, app: object
-):
+) -> None:
     from flaskr.service.user import phone_flow
 
     phone = "15500001111"
@@ -89,7 +91,9 @@ def test_set_password_requires_login_and_verification_code(
     assert body2["code"] == 1017  # server.user.passwordAlreadySet
 
 
-def test_password_login_after_setting_password(test_client: object, app: object):
+def test_password_login_after_setting_password(
+    test_client: object, app: object
+) -> None:
     from flaskr.service.user import phone_flow
 
     phone = "15500002222"
@@ -123,7 +127,7 @@ def test_password_login_after_setting_password(test_client: object, app: object)
 
 def test_password_login_merges_authenticated_guest_learner_profile(
     test_client: object, app: object
-):
+) -> None:
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
@@ -252,7 +256,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(
 
 def test_password_login_never_merges_from_a_registered_account(
     test_client: object, app: object
-):
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
@@ -303,7 +307,7 @@ def test_password_login_never_merges_from_a_registered_account(
 
 def test_password_login_ignores_invalid_and_expired_optional_tokens(
     test_client: object, app: object
-):
+) -> None:
     from flaskr.dao import db
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo
@@ -363,7 +367,7 @@ def test_password_login_ignores_invalid_and_expired_optional_tokens(
         assert stored_target.nickname == "Stable target"
 
 
-def test_sms_login_route_logs_in_with_phone_code(test_client: object):
+def test_sms_login_route_logs_in_with_phone_code(test_client: object) -> None:
     phone = "15500003333"
 
     resp, body = _post_json(
@@ -385,7 +389,7 @@ def test_sms_login_route_logs_in_with_phone_code(test_client: object):
 
 def test_sms_login_route_does_not_rebind_authenticated_account_phone(
     test_client: object, app: object
-):
+) -> None:
     from flaskr.service.user import phone_flow
     from flaskr.service.user.models import AuthCredential
     from flaskr.service.user.models import UserInfo as UserEntity
@@ -431,7 +435,7 @@ def test_sms_login_route_does_not_rebind_authenticated_account_phone(
         ]
 
 
-def test_sms_login_route_normalizes_cn_prefix(test_client: object, app: object):
+def test_sms_login_route_normalizes_cn_prefix(test_client: object, app: object) -> None:
     from flaskr.service.user.models import AuthCredential
     from flaskr.service.user.models import UserInfo as UserEntity
 
@@ -464,7 +468,7 @@ def test_sms_login_route_normalizes_cn_prefix(test_client: object, app: object):
         assert credential is not None
 
 
-def test_sms_login_referral_metadata_helper_hashes_client_context():
+def test_sms_login_referral_metadata_helper_hashes_client_context() -> None:
     from flaskr.service.referral.service import extract_referral_post_auth_fields
 
     fields = extract_referral_post_auth_fields(

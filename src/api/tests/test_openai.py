@@ -97,14 +97,14 @@ class DummySpan:
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs: object):
+    def generation(self, **kwargs: object) -> object:
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs: object):
+    def end(self, **kwargs: object) -> None:
         self.end_args = kwargs
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
@@ -140,7 +140,7 @@ class FakeUsage:
         self.total_tokens = total_tokens
 
 
-def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object):
+def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
 
     def fake_completion(*args: object, **kwargs: object):

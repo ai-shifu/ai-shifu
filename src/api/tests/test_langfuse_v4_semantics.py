@@ -8,6 +8,8 @@ overall input/output on the root observation, and trace attributes replicated
 onto every observation.
 """
 
+from collections.abc import Iterator
+
 import pytest
 from flaskr.api.langfuse import (
     MockClient,
@@ -26,7 +28,9 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 
 @pytest.fixture
-def captured_spans(monkeypatch: object):
+def captured_spans(
+    monkeypatch: object,
+) -> Iterator[tuple[Langfuse, InMemorySpanExporter, TracerProvider]]:
     """Build a Langfuse client whose observations are captured instead of shipped."""
     monkeypatch.setattr(
         LangfuseTransformingSpanExporter,
@@ -58,7 +62,7 @@ def _spans_by_name(exporter: InMemorySpanExporter) -> dict:
     return {span.name: span for span in exporter.get_finished_spans()}
 
 
-def test_facade_builds_a_single_observation_hierarchy(captured_spans: object):
+def test_facade_builds_a_single_observation_hierarchy(captured_spans: object) -> None:
     client, exporter, _provider = captured_spans
 
     trace, root_span = create_trace_with_root_span(
@@ -93,7 +97,9 @@ def test_facade_builds_a_single_observation_hierarchy(captured_spans: object):
     assert spans["llm"].attributes["langfuse.observation.model.name"] == "gpt-test"
 
 
-def test_overall_input_output_lands_on_the_root_observation(captured_spans: object):
+def test_overall_input_output_lands_on_the_root_observation(
+    captured_spans: object,
+) -> None:
     client, exporter, _provider = captured_spans
 
     trace, root_span = create_trace_with_root_span(
@@ -116,7 +122,9 @@ def test_overall_input_output_lands_on_the_root_observation(captured_spans: obje
     assert root.attributes["langfuse.internal.as_root"] is True
 
 
-def test_trace_attributes_never_reach_an_unrelated_ambient_span(captured_spans: object):
+def test_trace_attributes_never_reach_an_unrelated_ambient_span(
+    captured_spans: object,
+) -> None:
     client, exporter, provider = captured_spans
     ambient_tracer = provider.get_tracer("ai_shifu.http.test")
 
@@ -144,7 +152,9 @@ def test_trace_attributes_never_reach_an_unrelated_ambient_span(captured_spans: 
     assert "session.id" not in ambient.attributes
 
 
-def test_disabled_langfuse_leaves_the_ambient_span_untouched(captured_spans: object):
+def test_disabled_langfuse_leaves_the_ambient_span_untouched(
+    captured_spans: object,
+) -> None:
     _client, exporter, provider = captured_spans
     ambient_tracer = provider.get_tracer("ai_shifu.http.test")
 
@@ -161,7 +171,9 @@ def test_disabled_langfuse_leaves_the_ambient_span_untouched(captured_spans: obj
     assert not ambient.attributes
 
 
-def test_trace_attributes_are_propagated_to_child_observations(captured_spans: object):
+def test_trace_attributes_are_propagated_to_child_observations(
+    captured_spans: object,
+) -> None:
     client, exporter, _provider = captured_spans
 
     trace, root_span = create_trace_with_root_span(

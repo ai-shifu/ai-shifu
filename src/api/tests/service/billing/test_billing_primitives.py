@@ -7,21 +7,21 @@ from datetime import datetime
 from flaskr.service.billing.primitives import coerce_datetime, normalize_json_object
 
 
-def test_coerce_datetime_normalizes_epoch_to_utc_naive():
+def test_coerce_datetime_normalizes_epoch_to_utc_naive() -> None:
     assert coerce_datetime(0) is None
     assert coerce_datetime("0") is None
     assert coerce_datetime(1772000000) == datetime(2026, 2, 25, 6, 13, 20)
     assert coerce_datetime("1772000000") == datetime(2026, 2, 25, 6, 13, 20)
 
 
-def test_coerce_datetime_normalizes_offset_iso_to_utc_naive():
+def test_coerce_datetime_normalizes_offset_iso_to_utc_naive() -> None:
     assert coerce_datetime("2026-01-01T00:00:00+08:00") == datetime(
         2025, 12, 31, 16, 0, 0
     )
     assert coerce_datetime("2026-01-01T00:00:00Z") == datetime(2026, 1, 1, 0, 0, 0)
 
 
-def test_normalize_json_object_serializes_datetimes_as_utc_z():
+def test_normalize_json_object_serializes_datetimes_as_utc_z() -> None:
     payload = normalize_json_object(
         {"metadata_time": datetime(2026, 1, 1, 0, 0, 0)}
     ).to_metadata_json()

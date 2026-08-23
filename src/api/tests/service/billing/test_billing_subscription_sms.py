@@ -6,6 +6,7 @@ import sys
 import types
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -50,13 +51,16 @@ from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _utc_epoch(value: datetime) -> int:
     return int(value.replace(tzinfo=UTC).timestamp())
 
 
 @pytest.fixture
-def billing_subscription_sms_app(tmp_path: object):
+def billing_subscription_sms_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-subscription-sms.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

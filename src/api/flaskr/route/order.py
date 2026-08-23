@@ -42,7 +42,7 @@ from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.util.datetime import parse_naive_utc
 
 
-def register_order_handler(app: Flask, path_prefix: str):
+def register_order_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the order routes on the Flask application."""
 
     def _require_creator():

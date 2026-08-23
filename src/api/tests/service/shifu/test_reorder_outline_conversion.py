@@ -7,7 +7,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 )
 
 
-def test_convert_accepts_nested_outline_tree():
+def test_convert_accepts_nested_outline_tree() -> None:
     dtos = convert_outline_to_reorder_outline_item_dto(
         [
             {
@@ -22,7 +22,7 @@ def test_convert_accepts_nested_outline_tree():
     assert [child.bid for child in dtos[0].children] == ["child"]
 
 
-def test_convert_tolerates_null_children():
+def test_convert_tolerates_null_children() -> None:
     # A leaf node may send "children": null instead of omitting the key; it
     # should be treated as an empty child list rather than raising.
     dtos = convert_outline_to_reorder_outline_item_dto(
@@ -32,17 +32,17 @@ def test_convert_tolerates_null_children():
     assert dtos[0].children == []
 
 
-def test_convert_accepts_empty_list():
+def test_convert_accepts_empty_list() -> None:
     assert convert_outline_to_reorder_outline_item_dto([]) == []
 
 
 @pytest.mark.parametrize("bad_value", [None, {}, "outlines", 42])
-def test_convert_rejects_non_list_top_level(bad_value: object):
+def test_convert_rejects_non_list_top_level(bad_value: object) -> None:
     with pytest.raises(AppError):
         convert_outline_to_reorder_outline_item_dto(bad_value)
 
 
 @pytest.mark.parametrize("bad_item", ["not-a-dict", 1, ["nested"], None])
-def test_convert_rejects_non_dict_items(bad_item: object):
+def test_convert_rejects_non_dict_items(bad_item: object) -> None:
     with pytest.raises(AppError):
         convert_outline_to_reorder_outline_item_dto([bad_item])

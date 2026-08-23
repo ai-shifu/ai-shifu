@@ -38,7 +38,7 @@ class TestProfileRoutes:
 
     def test_get_profile_item_definitions_passes_type_filter(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         called = {}
 
         def fake_get_definitions(
@@ -65,7 +65,7 @@ class TestProfileRoutes:
 
     def test_hide_unused_profile_items_requires_parent(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
         resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})
         payload = resp.get_json(force=True)
@@ -74,7 +74,7 @@ class TestProfileRoutes:
 
     def test_hide_unused_profile_items_ok(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         called = {}
 
         def fake_hide(_app_ctx: object, parent_id: object, user_id: object):
@@ -106,7 +106,7 @@ class TestProfileRoutes:
 
     def test_update_profile_hidden_state_requires_parent(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
         resp = test_client.post(
             "/api/profiles/update-profile-hidden-state",
@@ -118,7 +118,7 @@ class TestProfileRoutes:
 
     def test_update_profile_hidden_state_ok(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         called = {}
 
         def fake_update(
@@ -162,7 +162,7 @@ class TestProfileRoutes:
 
     def test_save_profile_item_only_supports_text_type(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         resp = test_client.post(
@@ -180,7 +180,7 @@ class TestProfileRoutes:
 
     def test_save_profile_item_passes_only_active_fields(
         self, monkeypatch: object, test_client: object
-    ):
+    ) -> None:
         called = {}
 
         def fake_save(

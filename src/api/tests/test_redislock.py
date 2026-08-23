@@ -1,7 +1,7 @@
 """Verify Redis-guarded work runs only with a configured client."""
 
 
-def test_run_with_redis_executes_once(app: object, monkeypatch: object):
+def test_run_with_redis_executes_once(app: object, monkeypatch: object) -> None:
     from flaskr import dao
 
     from tests.common.fixtures.fake_redis import FakeRedis
@@ -18,7 +18,7 @@ def test_run_with_redis_executes_once(app: object, monkeypatch: object):
 
 def test_run_with_redis_skips_when_client_is_unconfigured(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr import dao
 
     monkeypatch.setattr(dao._redis_state, "client", None)

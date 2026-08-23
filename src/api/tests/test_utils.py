@@ -9,7 +9,7 @@ except Exception:  # pragma: no cover - fallback for test environment
 
     def op(
         data: object, depth: object = 10, width: object = 120, elements: object = 100
-    ):
+    ) -> None:
         _ = elements
         pp = pprint.PrettyPrinter(indent=2, depth=depth, width=width)
         pp.pprint(data)

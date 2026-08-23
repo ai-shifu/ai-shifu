@@ -15,7 +15,7 @@ class BasePlugin:
         self.name = self.__class__.__name__
         self.migration_dir = None  # plugin migration dir
 
-    def on_load(self):
+    def on_load(self) -> None:
         """Run plugin initialization after loading."""
         if self.migration_dir:
             self._run_migrations()
@@ -33,8 +33,8 @@ class BasePlugin:
 
         command.upgrade(alembic_cfg, "head")
 
-    def on_unload(self):
+    def on_unload(self) -> None:
         """Handle the plugin being unloaded."""
 
-    def on_reload(self):
+    def on_reload(self) -> None:
         """Handle the plugin being reloaded."""

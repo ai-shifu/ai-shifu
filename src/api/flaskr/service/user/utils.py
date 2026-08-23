@@ -63,7 +63,7 @@ def _normalize_language_code(language_code: str) -> str:
     return "-".join(normalized_parts)
 
 
-def get_user_language(user: object):
+def get_user_language(user: object) -> str:
     """Return the language preference recorded for a user."""
     language = ""
     if hasattr(user, "user_language") and user.user_language:
@@ -234,7 +234,7 @@ def send_sms_code(
     ip: str | None = None,
     captcha_ticket: str | None = None,
     require_captcha: bool = True,
-):
+) -> dict[str, int]:
     """Send and persist an SMS verification code for a phone number."""
     phone = normalize_phone_identifier(phone)
     with app.app_context():
@@ -311,7 +311,7 @@ def send_sms_code(
 
 def send_email_code(
     app: Flask, email: str, ip: str | None = None, language: str | None = None
-):
+) -> dict[str, int]:
     """Send and persist an email verification code for an address."""
     with app.app_context():
         email = str(email or "").strip().lower()
@@ -411,7 +411,7 @@ def create_and_commit_user_verify_code(
     verify_code: str,
     verify_code_type: int,
     ip: str | None,
-):
+) -> UserVerifyCode:
     """Persist a verification-code record and return it."""
     user_verify_code = UserVerifyCode(
         phone=phone or "",

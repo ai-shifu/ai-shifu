@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -23,9 +24,14 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask.testing import FlaskClient
+
 
 @pytest.fixture
-def runtime_config_client(monkeypatch: object):
+def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

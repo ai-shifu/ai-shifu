@@ -73,7 +73,7 @@ class DummyCourse:
         self.updated_at = updated_at
 
 
-def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
+def test_list_operator_courses_prefers_latest_draft_and_formats_contacts() -> None:
     app = Flask(__name__)
     updated_start_time = datetime(2025, 4, 2, 0, 0, 0)
     updated_end_time = datetime(2025, 4, 3, 23, 59, 59)
@@ -159,7 +159,7 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
     assert latest_mock.call_args_list[1].kwargs["updated_end_time"] is None
 
 
-def test_list_operator_courses_paginates_merged_results():
+def test_list_operator_courses_paginates_merged_results() -> None:
     app = Flask(__name__)
     draft_course = DummyCourse(
         shifu_bid="course-2",
@@ -216,7 +216,9 @@ def test_list_operator_courses_paginates_merged_results():
     assert result.items[0].shifu_bid == "course-1"
 
 
-def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items():
+def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items() -> (
+    None
+):
     app = Flask(__name__)
     draft_seed = OperatorCourseListSeed(
         id=11,
@@ -283,7 +285,9 @@ def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items(
     assert result.items[0].has_course_prompt is True
 
 
-def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at():
+def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at() -> (
+    None
+):
     app = Flask(__name__)
     draft_course = DummyCourse(
         shifu_bid="course-activity",
@@ -352,7 +356,7 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
     assert result.items[0].updated_at == datetime(2025, 4, 5, 9, 0, 0)
 
 
-def test_list_operator_courses_filters_by_latest_activity_updated_range():
+def test_list_operator_courses_filters_by_latest_activity_updated_range() -> None:
     app = Flask(__name__)
     draft_course = DummyCourse(
         shifu_bid="course-activity-filter",
@@ -413,7 +417,9 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range():
     assert latest_mock.call_args_list[0].kwargs["updated_end_time"] is None
 
 
-def test_load_course_activity_map_prefers_latest_outline_activity_row(app: object):
+def test_load_course_activity_map_prefers_latest_outline_activity_row(
+    app: object,
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
 
@@ -469,7 +475,7 @@ def test_load_course_activity_map_prefers_latest_outline_activity_row(app: objec
 
 def test_load_course_activity_map_prefers_outline_when_timestamp_ties_course(
     app: object,
-):
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     shared_updated_at = datetime(2025, 4, 5, 10, 0, 0)
@@ -512,7 +518,7 @@ def test_load_course_activity_map_prefers_outline_when_timestamp_ties_course(
     assert activity_map[shifu_bid]["updated_at"] == shared_updated_at
 
 
-def test_list_operator_courses_filters_out_builtin_demo_courses_only():
+def test_list_operator_courses_filters_out_builtin_demo_courses_only() -> None:
     app = Flask(__name__)
     builtin_demo_course = DummyCourse(
         shifu_bid="course-system",
@@ -581,7 +587,7 @@ def test_list_operator_courses_filters_out_builtin_demo_courses_only():
     }
 
 
-def test_list_operator_courses_skips_system_user_lookup():
+def test_list_operator_courses_skips_system_user_lookup() -> None:
     app = Flask(__name__)
     system_course = DummyCourse(
         shifu_bid="course-system-custom",
@@ -634,7 +640,7 @@ def test_list_operator_courses_skips_system_user_lookup():
     assert "system" not in user_map_mock.call_args.args[0]
 
 
-def test_list_operator_courses_filters_by_course_status():
+def test_list_operator_courses_filters_by_course_status() -> None:
     app = Flask(__name__)
     draft_only_course = DummyCourse(
         shifu_bid="course-draft-only",
@@ -700,7 +706,7 @@ def test_list_operator_courses_filters_by_course_status():
     assert published_result.items[0].course_status == "published"
 
 
-def test_list_operator_courses_applies_quick_filters(monkeypatch: object):
+def test_list_operator_courses_applies_quick_filters(monkeypatch: object) -> None:
     class FixedDateTime(datetime):
         @classmethod
         def now(cls, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
@@ -815,7 +821,9 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch: object):
     assert [item.shifu_bid for item in paid_result.items] == ["course-paid"]
 
 
-def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overview():
+def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overview() -> (
+    None
+):
     app = Flask(__name__)
 
     with (
@@ -834,7 +842,7 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
 
 def test_build_operator_course_overview_returns_expected_counts(
     app: object, monkeypatch: object
-):
+) -> None:
     class FixedDateTime(datetime):
         @classmethod
         def now(cls, tz: object = None) -> datetime:  # noqa: ARG003 - matches datetime.now signature
@@ -1031,7 +1039,7 @@ def test_build_operator_course_overview_returns_expected_counts(
 
 def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_order(
     app: object,
-):
+) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     draft_only_bid = uuid.uuid4().hex[:32]
     published_only_bid = uuid.uuid4().hex[:32]
@@ -1175,7 +1183,7 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
 
 def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
     app: object,
-):
+) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     published_with_blank_draft_bid = uuid.uuid4().hex[:32]
     published_history_fallback_bid = uuid.uuid4().hex[:32]
@@ -1271,7 +1279,9 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
     assert historical_fallback.tts_model == "speech-01"
 
 
-def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(app: object):
+def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(
+    app: object,
+) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     empty_model_bid = uuid.uuid4().hex[:32]
 
@@ -1311,7 +1321,7 @@ def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(app: obj
 
 def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(
     app: object,
-):
+) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     shifu_bid = uuid.uuid4().hex[:32]
     outline_item_bid = uuid.uuid4().hex[:32]
@@ -1386,7 +1396,7 @@ def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(
 
 def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(
     app: object,
-):
+) -> None:
     creator_bid = uuid.uuid4().hex[:32]
     demo_bid = uuid.uuid4().hex[:32]
     normal_bid = uuid.uuid4().hex[:32]
@@ -1439,7 +1449,9 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(
     assert [item.shifu_bid for item in result.items] == [normal_bid]
 
 
-def test_list_operator_courses_sql_path_filters_by_combined_course_query(app: object):
+def test_list_operator_courses_sql_path_filters_by_combined_course_query(
+    app: object,
+) -> None:
     matching_bid = uuid.uuid4().hex[:32]
     name_match_bid = uuid.uuid4().hex[:32]
     other_bid = uuid.uuid4().hex[:32]
@@ -1520,7 +1532,7 @@ def test_list_operator_courses_sql_path_filters_by_combined_course_query(app: ob
     assert find_course_bids_mock.call_count == 2
 
 
-def test_merge_courses_checks_published_visibility_once():
+def test_merge_courses_checks_published_visibility_once() -> None:
     draft_course = DummyCourse(
         shifu_bid="course-draft",
         title="Draft Course",
@@ -1577,16 +1589,16 @@ class FakeColumn:
         """Build a fake less-than-or-equal expression."""
         return ("le", self.name, other)
 
-    def ilike(self, value: str):
+    def ilike(self, value: str) -> object:
         return ("ilike", self.name, value)
 
-    def in_(self, value: object):
+    def in_(self, value: object) -> object:
         return ("in", self.name, value)
 
-    def desc(self):
+    def desc(self) -> object:
         return ("desc", self.name)
 
-    def label(self, alias: str):
+    def label(self, alias: str) -> object:
         return ("label", self.name, alias)
 
 
@@ -1597,7 +1609,7 @@ class FakeMaxExpression:
         """Capture the column wrapped by the maximum expression."""
         self.column = column
 
-    def label(self, alias: str):
+    def label(self, alias: str) -> object:
         return ("max", self.column.name, alias)
 
 
@@ -1618,15 +1630,15 @@ class FakeLatestQuery:
         self.grouped_by = []
         self.subquery_value = FakeLatestSubquery()
 
-    def filter(self, *conditions: object):
+    def filter(self, *conditions: object) -> object:
         self.filters.extend(conditions)
         return self
 
-    def group_by(self, *columns: object):
+    def group_by(self, *columns: object) -> object:
         self.grouped_by.extend(columns)
         return self
 
-    def subquery(self):
+    def subquery(self) -> object:
         return self.subquery_value
 
 
@@ -1649,23 +1661,23 @@ class FakeOuterQuery:
         self.options_calls = []
         self.with_entities_calls = []
 
-    def filter(self, *conditions: object):
+    def filter(self, *conditions: object) -> object:
         self.filters.extend(conditions)
         return self
 
-    def options(self, *options: object):
+    def options(self, *options: object) -> object:
         self.options_calls.extend(options)
         return self
 
-    def order_by(self, *ordering: object):
+    def order_by(self, *ordering: object) -> object:
         self.ordering.extend(ordering)
         return self
 
-    def with_entities(self, *columns: object):
+    def with_entities(self, *columns: object) -> object:
         self.with_entities_calls.append(columns)
         return self
 
-    def all(self):
+    def all(self) -> object:
         return self.result
 
 
@@ -1680,7 +1692,7 @@ class FakeSession:
         self.outer_query = outer_query
         self.id_queries = []
 
-    def query(self, target: object):
+    def query(self, target: object) -> object:
         if target == ("max", "id", "max_id"):
             return self.latest_query
         if isinstance(target, type) and issubclass(target, FakeModel):
@@ -1731,7 +1743,7 @@ class FakeMappedModel(FakeModel):
     updated_user_bid = FakeColumn("updated_user_bid")
 
 
-def test_load_latest_shifus_filters_on_latest_rows(monkeypatch: object):
+def test_load_latest_shifus_filters_on_latest_rows(monkeypatch: object) -> None:
     latest_query = FakeLatestQuery()
     expected_rows = ["latest-course-row"]
     outer_query = FakeOuterQuery(expected_rows)
@@ -1778,7 +1790,7 @@ def test_load_latest_shifus_filters_on_latest_rows(monkeypatch: object):
 
 def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(
     monkeypatch: object,
-):
+) -> None:
     latest_query = FakeLatestQuery()
     outer_query = FakeOuterQuery(
         [

@@ -27,7 +27,7 @@ def _isolate_coupon_tables(app: object):
 
 def test_generate_unique_coupon_code_failure_returns_specific_error(
     app: object, monkeypatch: object
-):
+) -> None:
     monkeypatch.setattr(
         promo_admin, "_generate_random_coupon_code", lambda: "DUPLICATE"
     )
@@ -59,7 +59,7 @@ def test_generate_unique_coupon_code_failure_returns_specific_error(
 
 def test_generate_unique_coupon_codes_failure_returns_specific_error(
     app: object, monkeypatch: object
-):
+) -> None:
     generated_codes = [f"DUP{i:03d}" for i in range(400)]
     code_iter = iter(generated_codes)
     monkeypatch.setattr(

@@ -45,7 +45,7 @@ class RenamedDTO(AutoJsonMixin, BaseModel):
     data: list[str] = Field(default_factory=list)
 
 
-def test_json_emits_fields_in_declaration_order_with_identity_keys():
+def test_json_emits_fields_in_declaration_order_with_identity_keys() -> None:
     dto = SampleDTO(text="hello", number=7, flag=True)
     payload = dto.__json__()
     assert list(payload.keys()) == [
@@ -63,7 +63,7 @@ def test_json_emits_fields_in_declaration_order_with_identity_keys():
     assert payload["flag"] is True
 
 
-def test_int_and_bool_fields_are_coerced_like_hand_written_json():
+def test_int_and_bool_fields_are_coerced_like_hand_written_json() -> None:
     dto = SampleDTO(text="x", number=7, flag=True)
     # simulate un-validated assignment, which pydantic allows by default
     object.__setattr__(dto, "number", "9")
@@ -73,7 +73,7 @@ def test_int_and_bool_fields_are_coerced_like_hand_written_json():
     assert payload["flag"] is False
 
 
-def test_none_decimal_and_datetime_leaves_pass_through_raw():
+def test_none_decimal_and_datetime_leaves_pass_through_raw() -> None:
     naive = datetime(2026, 7, 3, 12, 0, 0)
     dto = SampleDTO(
         text="x",
@@ -89,7 +89,7 @@ def test_none_decimal_and_datetime_leaves_pass_through_raw():
     assert payload["child"] is None
 
 
-def test_fmt_sink_serializes_generated_payload():
+def test_fmt_sink_serializes_generated_payload() -> None:
     aware = datetime(2026, 7, 3, 20, 0, 0, tzinfo=timezone(timedelta(hours=8)))
     dto = SampleDTO(
         text="x",
@@ -105,7 +105,7 @@ def test_fmt_sink_serializes_generated_payload():
     assert data["happened_at"].endswith("Z")
 
 
-def test_nested_dto_and_lists_are_serialized_recursively():
+def test_nested_dto_and_lists_are_serialized_recursively() -> None:
     child = ChildDTO(name="a", count=1)
     dto = SampleDTO(
         text="x",
@@ -125,7 +125,7 @@ def test_nested_dto_and_lists_are_serialized_recursively():
     assert payload["tags"] == ["t1", "t2"]
 
 
-def test_key_overrides_and_exclusions():
+def test_key_overrides_and_exclusions() -> None:
     dto = RenamedDTO(page=2, internal_state=5, data=["a", "b"])
     payload = dto.__json__()
     assert payload == {"page": 2, "items": ["a", "b"]}

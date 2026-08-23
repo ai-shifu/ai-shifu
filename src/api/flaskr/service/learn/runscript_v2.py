@@ -533,7 +533,7 @@ def run_script_inner(
     yield from _run()
 
 
-def fmt(o: object):
+def fmt(o: object) -> object:
     """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime):
         return to_utc_iso(o)

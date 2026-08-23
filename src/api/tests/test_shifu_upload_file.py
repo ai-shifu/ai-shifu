@@ -9,7 +9,7 @@ from flaskr.service.shifu import funcs
 
 def test_upload_file_creates_resource_when_resource_id_is_missing(
     app: object, monkeypatch: object
-):
+) -> None:
     class DummyFile:
         filename = "avatar.png"
 

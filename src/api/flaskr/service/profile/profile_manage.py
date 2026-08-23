@@ -209,7 +209,9 @@ def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
     }
 
 
-def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
+def add_profile_item_quick(
+    app: Flask, parent_id: str, key: str, user_id: str
+) -> ProfileItemDefinition:
     """Add profile item quick."""
     with app.app_context():
         if not parent_id:
@@ -221,7 +223,9 @@ def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
         return ret
 
 
-def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
+def add_profile_item_quick_internal(
+    app: Flask, parent_id: str, key: str, user_id: str
+) -> ProfileItemDefinition:
     """Add profile item quick internal."""
     bind = db.session.get_bind()
     inspector = inspect(bind)
@@ -382,7 +386,7 @@ def add_profile_i18n(
     language: str,
     profile_item_remark: str,
     user_id: str,
-):
+) -> None:
     """Add profile i18n."""
     _ = app
     bind = db.session.get_bind()
@@ -455,7 +459,7 @@ def save_profile_item(
     parent_id: str,
     user_id: str,
     key: str,
-):
+) -> ProfileItemDefinition:
     """Save (create/update) a custom variable definition."""
     with app.app_context():
         normalized_parent_id = parent_id or ""
@@ -521,7 +525,7 @@ def save_profile_item(
         return convert_variable_definition_to_profile_item_definition(definition)
 
 
-def delete_profile_item(app: Flask, user_id: str, profile_id: str):
+def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> bool:
     """Delete profile item."""
     with app.app_context():
         definition = Variable.query.filter(

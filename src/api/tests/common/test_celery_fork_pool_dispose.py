@@ -17,7 +17,7 @@ from flaskr.dao import db
 from sqlalchemy import text
 
 
-def test_dispose_replaces_the_inherited_pool(app: object):
+def test_dispose_replaces_the_inherited_pool(app: object) -> None:
     with app.app_context():
         db.session.execute(text("SELECT 1"))
         db.session.remove()
@@ -32,7 +32,7 @@ def test_dispose_replaces_the_inherited_pool(app: object):
         db.session.remove()
 
 
-def test_worker_process_init_signal_disposes_pools(app: object):
+def test_worker_process_init_signal_disposes_pools(app: object) -> None:
     get_celery_app(app)
     with app.app_context():
         db.session.execute(text("SELECT 1"))
@@ -45,7 +45,9 @@ def test_worker_process_init_signal_disposes_pools(app: object):
         assert db.engine.pool is not inherited_pool
 
 
-def test_one_failing_bind_does_not_block_the_rest(app: object, monkeypatch: object):
+def test_one_failing_bind_does_not_block_the_rest(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr import dao
 
     disposed = []

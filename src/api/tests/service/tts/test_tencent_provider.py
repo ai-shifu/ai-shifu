@@ -82,7 +82,7 @@ def _patch_tencent_config(monkeypatch: object, tencent_provider: object):
     )
 
 
-def test_tencent_sse_tc3_headers_sign_exact_request_payload():
+def test_tencent_sse_tc3_headers_sign_exact_request_payload() -> None:
     from flaskr.api.tts.tencent_provider import (
         build_tencent_tc3_headers,
         encode_tencent_sse_payload,
@@ -124,7 +124,9 @@ def test_tencent_sse_tc3_headers_sign_exact_request_payload():
     )
 
 
-def test_tencent_provider_config_validation_and_explicit_only(monkeypatch: object):
+def test_tencent_provider_config_validation_and_explicit_only(
+    monkeypatch: object,
+) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.api.tts import tencent_provider
     from flaskr.common.config import ENV_VARS
@@ -186,7 +188,7 @@ def test_tencent_provider_config_validation_and_explicit_only(monkeypatch: objec
 
 def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
     monkeypatch: object,
-):
+) -> None:
     from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
@@ -272,7 +274,7 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
 
 def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     monkeypatch: object,
-):
+) -> None:
     from flaskr.api.tts import tencent_provider
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
 
@@ -369,7 +371,9 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
     assert [cue["text"] for cue in result.subtitle_cues] == ["你好。", "世界！"]
 
 
-def test_tencent_provider_raises_sanitized_error_on_sse_error(monkeypatch: object):
+def test_tencent_provider_raises_sanitized_error_on_sse_error(
+    monkeypatch: object,
+) -> None:
     from flaskr.api.tts import tencent_provider
 
     _patch_tencent_config(monkeypatch, tencent_provider)

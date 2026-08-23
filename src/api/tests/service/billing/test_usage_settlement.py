@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -53,9 +54,12 @@ from flaskr.service.metering.consts import (
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_settlement_app():
+def billing_settlement_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -1627,7 +1631,7 @@ def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time
 
 def test_resolve_credit_multiplier_label_uses_utc_default_settlement(
     monkeypatch: object,
-):
+) -> None:
     from flaskr.service.billing import charges
 
     utc_sentinel = datetime(2026, 1, 1, 0, 0, 0)

@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -32,12 +33,15 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import Coupon, CouponUsage, PromoRedemption
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 USER_ID = "uow-user-1"
 COURSE_ID = "uow-course-1"
 
 
 @pytest.fixture
-def order_app():
+def order_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -59,7 +63,7 @@ def order_app():
 
 
 @pytest.fixture
-def stub_shifu(monkeypatch: pytest.MonkeyPatch):
+def stub_shifu(monkeypatch: pytest.MonkeyPatch) -> None:
     def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
         del app, bid, preview_mode
         return SimpleNamespace(
@@ -78,7 +82,7 @@ def stub_shifu(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def stub_promo_side_sessions(monkeypatch: pytest.MonkeyPatch):
+def stub_promo_side_sessions(monkeypatch: pytest.MonkeyPatch) -> object:
     """Neutralize the promo helpers that push their own app context.
 
     ``timeout_coupon_code_rollback`` / ``void_promo_campaign_applications``
@@ -131,7 +135,7 @@ def test_init_buy_record_late_failure_persists_nothing(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
-):
+) -> None:
     """(a) A late failure in init_buy_record must not leave partial rows.
 
     Pre-migration, ``_sync_order_campaign_pricing`` committed the new Order
@@ -169,7 +173,7 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
     stub_promo_side_sessions: object,
-):
+) -> None:
     """(b) Clean run: the timeout flip and the new order commit together."""
     _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
@@ -193,7 +197,7 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
     stub_promo_side_sessions: object,
-):
+) -> None:
     """(b) Failure run: the timeout flip joins the caller's transaction.
 
     Decision: the flip is derived state (recomputed from ``created_at`` on
@@ -223,7 +227,7 @@ def test_discount_refresh_failure_keeps_coupon_pricing_untouched(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
-):
+) -> None:
     """(c) A failure after the discount recalculation leaves pricing intact.
 
     Pre-migration, ``_sync_order_campaign_pricing`` committed the recomputed
@@ -272,7 +276,7 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     stub_shifu: object,
-):
+) -> None:
     """The key migration property: self-committing at top level, joining when nested — legacy callers (coupon_funcs, admin) and migrated owners both stay correct."""
     _ = stub_shifu
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_a, **_k: None)

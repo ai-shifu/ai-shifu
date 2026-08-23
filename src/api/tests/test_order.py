@@ -41,7 +41,7 @@ def _query_promo_applications(items: list[object]) -> object:
     return query
 
 
-def test_init_buy_record_creates_order(app: object, monkeypatch: object):
+def test_init_buy_record_creates_order(app: object, monkeypatch: object) -> None:
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -72,7 +72,7 @@ def test_init_buy_record_creates_order(app: object, monkeypatch: object):
 
 def test_init_buy_record_refreshes_existing_unpaid_order_promotions(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -135,7 +135,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(
 
 def test_init_buy_record_reactivates_voided_promo_redemption(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -203,7 +203,9 @@ def test_init_buy_record_reactivates_voided_promo_redemption(
         db.session.commit()
 
 
-def test_init_buy_record_applies_legacy_campaign(app: object, monkeypatch: object):
+def test_init_buy_record_applies_legacy_campaign(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
@@ -251,7 +253,7 @@ def test_init_buy_record_applies_legacy_campaign(app: object, monkeypatch: objec
 
 def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculating(
     app: object,
-):
+) -> None:
     from flaskr.service.promo.funcs import query_promo_campaign_applications
 
     now = now_utc()
@@ -298,7 +300,7 @@ def test_query_promo_campaign_applications_keeps_legacy_campaign_when_recalculat
 
 def test_init_buy_record_refresh_keeps_existing_coupon_discount(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")

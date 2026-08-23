@@ -22,7 +22,7 @@ def _query_promo_applications(items: list[object]) -> object:
     return query
 
 
-def test_query_buy_record_returns_dto(app: object):
+def test_query_buy_record_returns_dto(app: object) -> None:
     with app.app_context():
         order = Order(
             order_bid="order-query-1",
@@ -43,7 +43,7 @@ def test_query_buy_record_returns_dto(app: object):
 
 def test_query_buy_record_keeps_stored_discount_for_unpaid_order(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     with app.app_context():
@@ -86,7 +86,7 @@ def test_query_buy_record_keeps_stored_discount_for_unpaid_order(
 
 def test_query_buy_record_uses_coupon_name_and_code_in_price_item(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     with app.app_context():
@@ -148,7 +148,7 @@ def test_query_buy_record_uses_coupon_name_and_code_in_price_item(
 
 def test_query_buy_record_does_not_supplement_voided_campaign_redemption(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.order import funs as order_funs
     from flaskr.service.promo.consts import (
         PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,

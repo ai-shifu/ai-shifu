@@ -5,10 +5,13 @@ import os
 import shutil
 import sys
 import tempfile
+from collections.abc import Iterator
 from importlib import import_module
 from pathlib import Path
 
 import pytest
+from flask import Flask
+from flask.testing import FlaskClient
 
 # Prevent accidental loading of user/global .env files during tests
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
@@ -99,7 +102,7 @@ from tests.common.fixtures.fake_redis import FakeRedis
 
 
 @pytest.fixture(scope="session")
-def app():
+def app() -> Iterator[Flask | None]:
     if os.getenv("SKIP_APP_FIXTURE"):
         yield None
         return
@@ -170,18 +173,18 @@ def app():
 
 
 @pytest.fixture
-def test_client(app: object):
+def test_client(app: object) -> Iterator[FlaskClient]:
     with app.test_client() as client:
         yield client
 
 
 @pytest.fixture
-def token():
+def token() -> object:
     return ""
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_client(monkeypatch: object, request: object):
+def mock_redis_client(monkeypatch: object, request: object) -> object:
     fake_redis = FakeRedis()
     # test_funcs.py uses its own `@patch` decorators for fine-grained Redis control.
     if "service/config/test_funcs.py" in request.node.nodeid:
@@ -218,7 +221,7 @@ def _should_skip_llm_mock(request: object) -> bool:
 
 
 @pytest.fixture(autouse=True)
-def mock_llm_calls(monkeypatch: object, request: object):
+def mock_llm_calls(monkeypatch: object, request: object) -> None:
     if _should_skip_llm_mock(request):
         return
     llm = sys.modules.get("flaskr.api.llm")
@@ -235,7 +238,7 @@ def mock_llm_calls(monkeypatch: object, request: object):
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request: object):
+def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
     if "app" in request.fixturenames:
         yield
         return

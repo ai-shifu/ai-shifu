@@ -6,7 +6,9 @@ from flaskr.service.learn.listen_element_payloads import (
 )
 
 
-def test_upsert_audio_segment_payload_deduplicates_by_position_and_segment_index():
+def test_upsert_audio_segment_payload_deduplicates_by_position_and_segment_index() -> (
+    None
+):
     existing = [
         {
             "position": 0,
@@ -39,7 +41,7 @@ def test_upsert_audio_segment_payload_deduplicates_by_position_and_segment_index
     ]
 
 
-def test_mark_last_audio_segment_final_keeps_deduplicated_state():
+def test_mark_last_audio_segment_final_keeps_deduplicated_state() -> None:
     audio_segments_by_position = {
         0: _upsert_audio_segment_payload(
             [],

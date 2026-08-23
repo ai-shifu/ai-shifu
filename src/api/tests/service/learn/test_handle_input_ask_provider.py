@@ -300,7 +300,7 @@ def _collect_content_chunks(events: object):
 
 def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -371,7 +371,7 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
 
 def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -441,7 +441,7 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
 
 def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -516,7 +516,9 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     assert events[-1].type == GeneratedType.BREAK
 
 
-def test_handle_input_ask_provider_response_skips_llm(app: object, monkeypatch: object):
+def test_handle_input_ask_provider_response_skips_llm(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -584,7 +586,7 @@ def test_handle_input_ask_provider_response_skips_llm(app: object, monkeypatch: 
 
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
     from flaskr.service.learn import utils_v2
     from flaskr.service.learn.learner_profile_prompt import build_course_prompt
@@ -676,7 +678,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
 
 def test_handle_input_ask_formats_provider_prompt_with_request_language(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -770,7 +772,7 @@ def _setup_llm_only_patches(monkeypatch: object, module: object, llm_chunks: obj
     monkeypatch.setattr(module, "stream_ask_provider_response", _fake_stream)
 
 
-def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object):
+def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object) -> None:
     """All teacher-side CONTENT events should use answer block's bid (gb-2)."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -797,7 +799,7 @@ def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object):
         assert e.generated_block_bid == "gb-2"
 
 
-def test_ask_event_emitted(app: object, monkeypatch: object):
+def test_ask_event_emitted(app: object, monkeypatch: object) -> None:
     """An ASK event should be emitted with anchor_element_bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -825,7 +827,7 @@ def test_ask_event_emitted(app: object, monkeypatch: object):
     assert ask_events[0].anchor_element_bid == "elem_anchor_123"
 
 
-def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object):
+def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object) -> None:
     """ASK and teacher content both use the answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -856,7 +858,7 @@ def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object):
     assert content_events[0].generated_block_bid == "gb-2"
 
 
-def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object):
+def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object) -> None:
     """When guardrail triggers, CONTENT events should still use answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -895,7 +897,7 @@ def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object):
 
 def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -949,7 +951,7 @@ def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
 
 def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
     app: object, monkeypatch: object
-):
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}

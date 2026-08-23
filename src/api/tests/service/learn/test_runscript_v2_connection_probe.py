@@ -68,14 +68,14 @@ def _patch_session(monkeypatch: object, behaviours: object):
     return session
 
 
-def test_probe_passes_on_healthy_connection(app: object):
+def test_probe_passes_on_healthy_connection(app: object) -> None:
     with app.app_context():
         _ensure_healthy_db_connection(app)
 
 
 def test_probe_invalidates_desynced_connection_and_retries(
     app: object, monkeypatch: object
-):
+) -> None:
     session = _patch_session(monkeypatch, ["raise", "ok"])
 
     _ensure_healthy_db_connection(app)
@@ -85,7 +85,9 @@ def test_probe_invalidates_desynced_connection_and_retries(
     assert session.rollbacks == 0
 
 
-def test_probe_detects_mismatched_echo_and_retries(app: object, monkeypatch: object):
+def test_probe_detects_mismatched_echo_and_retries(
+    app: object, monkeypatch: object
+) -> None:
     session = _patch_session(monkeypatch, ["stale-packet-value", "ok"])
 
     _ensure_healthy_db_connection(app)
@@ -94,7 +96,9 @@ def test_probe_detects_mismatched_echo_and_retries(app: object, monkeypatch: obj
     assert session.invalidations == 1
 
 
-def test_probe_raises_after_exhausting_attempts(app: object, monkeypatch: object):
+def test_probe_raises_after_exhausting_attempts(
+    app: object, monkeypatch: object
+) -> None:
     session = _patch_session(monkeypatch, ["raise", "raise", "raise"])
 
     with pytest.raises(OperationalError):
@@ -105,7 +109,9 @@ def test_probe_raises_after_exhausting_attempts(app: object, monkeypatch: object
     assert session.rollbacks == 0
 
 
-def test_probe_raises_on_persistent_echo_mismatch(app: object, monkeypatch: object):
+def test_probe_raises_on_persistent_echo_mismatch(
+    app: object, monkeypatch: object
+) -> None:
     _patch_session(monkeypatch, ["bad-1", "bad-2", "bad-3"])
 
     with pytest.raises(RuntimeError):

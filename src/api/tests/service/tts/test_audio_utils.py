@@ -77,7 +77,7 @@ class _RecordingAudioSegment:
 
 def test_try_get_audio_duration_ms_decodes_with_the_requested_format(
     monkeypatch: object,
-):
+) -> None:
     _RecordingAudioSegment.from_file_formats.clear()
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _RecordingAudioSegment, raising=False
@@ -88,7 +88,9 @@ def test_try_get_audio_duration_ms_decodes_with_the_requested_format(
     assert _RecordingAudioSegment.from_file_formats == ["wav"]
 
 
-def test_get_audio_duration_ms_estimates_when_decoding_fails(monkeypatch: object):
+def test_get_audio_duration_ms_estimates_when_decoding_fails(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -99,7 +101,7 @@ def test_get_audio_duration_ms_estimates_when_decoding_fails(monkeypatch: object
     )
 
 
-def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch: object):
+def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch: object) -> None:
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
@@ -112,7 +114,7 @@ def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch: object):
 
 def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(
     monkeypatch: object,
-):
+) -> None:
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
@@ -123,7 +125,7 @@ def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(
     assert output == b"duration=130"
 
 
-def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch: object):
+def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch: object) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -135,7 +137,7 @@ def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch: object):
 
 def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failure(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -146,7 +148,9 @@ def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failur
     assert output == b"duration=180"
 
 
-def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch: object):
+def test_concat_audio_best_effort_drops_undecodable_single_segment(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -159,7 +163,7 @@ def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch: 
 
 def test_concat_audio_best_effort_drops_undecodable_multiple_segments(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -172,7 +176,7 @@ def test_concat_audio_best_effort_drops_undecodable_multiple_segments(
 
 def test_export_audio_range_does_not_return_invalid_bytes_after_decode_failure(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )

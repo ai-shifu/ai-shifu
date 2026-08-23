@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN201/ANN202/ANN401 and the selected rules below) / SLF001 /
+# - ANN (except ANN202/ANN401 and the selected rules below) / SLF001 /
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
@@ -185,6 +185,7 @@ select = [
     "ANN001",  # missing type for function arguments
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
+    "ANN201",  # missing return type for a public function
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod

@@ -63,7 +63,7 @@ CHECK_RESULT_MAP = {
 }
 
 
-def gen_signature(params: object = None):
+def gen_signature(params: object = None) -> str:
     """Generate signature for yidun check."""
     buff = ""
     for k in sorted(params.keys()):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from tests.service.billing import (
@@ -42,6 +44,9 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     to_utc_iso,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def test_mark_preorder_effective_applied_preserves_terminal_preorder_states() -> None:
     absorbed_order = BillingOrder(
@@ -69,7 +74,7 @@ def test_mark_preorder_effective_applied_preserves_terminal_preorder_states() ->
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch: object):
+def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 

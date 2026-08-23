@@ -11,12 +11,12 @@ class DummyLock:
         self.acquired = 0
         self.released = 0
 
-    def acquire(self, blocking: object = True):
+    def acquire(self, blocking: object = True) -> object:
         _ = blocking
         self.acquired += 1
         return True
 
-    def release(self):
+    def release(self) -> None:
         self.released += 1
 
 
@@ -35,7 +35,7 @@ class DummyRedis:
         key: object,
         timeout: object = None,
         blocking_timeout: object = None,
-    ):
+    ) -> object:
         self.last_key = key
         self.last_timeout = timeout
         self.last_blocking_timeout = blocking_timeout
@@ -50,7 +50,7 @@ class DummyApp:
         self.config = {"REDIS_KEY_PREFIX": prefix}
 
 
-def test_order_init_lock_uses_prefixed_key(monkeypatch: object):
+def test_order_init_lock_uses_prefixed_key(monkeypatch: object) -> None:
     dummy_redis = DummyRedis()
     monkeypatch.setattr(order_funs, "cache_provider", dummy_redis)
     app = DummyApp(prefix="unit-test")
@@ -65,7 +65,7 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch: object):
     assert dummy_redis.lock_instance.released == 1
 
 
-def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch: object):
+def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch: object) -> None:
     class _BrokenCacheProvider:
         def lock(self, *args: object, **kwargs: object):
             _ = (args, kwargs)

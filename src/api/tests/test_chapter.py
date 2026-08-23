@@ -6,7 +6,7 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
 
 
-def test_get_shifu_outline_tree_preview(app: object):
+def test_get_shifu_outline_tree_preview(app: object) -> None:
     with app.app_context():
         shifu = DraftShifu(shifu_bid="shifu-1", title="Shifu", created_user_bid="u1")
         db.session.add(shifu)

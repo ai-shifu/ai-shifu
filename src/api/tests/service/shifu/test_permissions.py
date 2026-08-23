@@ -135,7 +135,7 @@ class TestShifuPermissions:
 
     def test_list_permissions_only_active(
         self, monkeypatch: object, test_client: object, app: object
-    ):
+    ) -> None:
         shifu_bid = "test-permission-list"
         owner_id = "owner-1"
         active_user = "user-active"
@@ -173,7 +173,7 @@ class TestShifuPermissions:
 
     def test_remove_permissions_soft_delete(
         self, monkeypatch: object, test_client: object, app: object
-    ):
+    ) -> None:
         shifu_bid = "test-permission-remove"
         owner_id = "owner-2"
         target_user = "user-target"
@@ -202,7 +202,7 @@ class TestShifuPermissions:
 
     def test_grant_view_permission_does_not_promote_creator(
         self, monkeypatch: object, test_client: object, app: object
-    ):
+    ) -> None:
         shifu_bid = "test-permission-grant-view"
         owner_id = "owner-grant-view"
         target_user = "user-grant-view"
@@ -245,7 +245,7 @@ class TestShifuPermissions:
         app: object,
         permission: str,
         expected_auth_types: list[str],
-    ):
+    ) -> None:
         shifu_bid = f"test-permission-grant-{permission}"
         owner_id = f"owner-grant-{permission}"
         target_user = f"user-grant-{permission}"

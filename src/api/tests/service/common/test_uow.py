@@ -21,7 +21,7 @@ def _count(bid: str) -> int:
     return PublishedShifu.query.filter_by(shifu_bid=bid).count()
 
 
-def test_outermost_commits_on_clean_exit(app: object):
+def test_outermost_commits_on_clean_exit(app: object) -> None:
     with app.app_context():
         with uow.unit_of_work():
             dao.db.session.add(_make_shifu("uow-commit-1"))
@@ -29,7 +29,7 @@ def test_outermost_commits_on_clean_exit(app: object):
         assert _count("uow-commit-1") == 1
 
 
-def test_outermost_rolls_back_on_exception(app: object):
+def test_outermost_rolls_back_on_exception(app: object) -> None:
     with app.app_context():
 
         def write_then_fail():
@@ -44,7 +44,7 @@ def test_outermost_rolls_back_on_exception(app: object):
         assert _count("uow-rollback-1") == 0
 
 
-def test_nested_block_joins_outer_transaction(app: object):
+def test_nested_block_joins_outer_transaction(app: object) -> None:
     with app.app_context():
 
         def helper():
@@ -66,7 +66,7 @@ def test_nested_block_joins_outer_transaction(app: object):
         assert _count("uow-nested-outer-1") == 0
 
 
-def test_nested_clean_exit_commits_once_at_outermost(app: object):
+def test_nested_clean_exit_commits_once_at_outermost(app: object) -> None:
     with app.app_context():
         with uow.unit_of_work():
             with uow.unit_of_work():
@@ -77,7 +77,7 @@ def test_nested_clean_exit_commits_once_at_outermost(app: object):
         assert _count("uow-nested-clean-1") == 1
 
 
-def test_in_unit_of_work_flag(app: object):
+def test_in_unit_of_work_flag(app: object) -> None:
     with app.app_context():
         assert not uow.in_unit_of_work()
         with uow.unit_of_work():
@@ -85,7 +85,7 @@ def test_in_unit_of_work_flag(app: object):
         assert not uow.in_unit_of_work()
 
 
-def test_depth_is_isolated_per_thread(app: object):
+def test_depth_is_isolated_per_thread(app: object) -> None:
     """The /run producer runs in its own thread; depth must not leak across."""
     seen = {}
 
@@ -99,7 +99,7 @@ def test_depth_is_isolated_per_thread(app: object):
     assert seen["inside_thread"] is False
 
 
-def test_depth_resets_after_exception(app: object):
+def test_depth_resets_after_exception(app: object) -> None:
     with app.app_context():
         message = "boom"
         with pytest.raises(RuntimeError), uow.unit_of_work():
@@ -107,14 +107,14 @@ def test_depth_resets_after_exception(app: object):
         assert not uow.in_unit_of_work()
 
 
-def test_on_commit_outside_uow_runs_immediately(app: object):
+def test_on_commit_outside_uow_runs_immediately(app: object) -> None:
     calls = []
     with app.app_context():
         uow.on_commit(lambda: calls.append("now"))
     assert calls == ["now"]
 
 
-def test_on_commit_nested_defers_to_outermost_commit(app: object):
+def test_on_commit_nested_defers_to_outermost_commit(app: object) -> None:
     calls = []
     with app.app_context():
         with uow.unit_of_work():
@@ -125,7 +125,7 @@ def test_on_commit_nested_defers_to_outermost_commit(app: object):
         assert calls == ["notified"]
 
 
-def test_on_commit_dropped_on_rollback(app: object):
+def test_on_commit_dropped_on_rollback(app: object) -> None:
     calls = []
     with app.app_context():
 
@@ -140,7 +140,7 @@ def test_on_commit_dropped_on_rollback(app: object):
         assert calls == []
 
 
-def test_on_commit_callback_exception_does_not_propagate(app: object):
+def test_on_commit_callback_exception_does_not_propagate(app: object) -> None:
     calls = []
 
     def boom():

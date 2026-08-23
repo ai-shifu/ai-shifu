@@ -132,6 +132,7 @@ from markdown_flow import (
     replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
+from markdown_flow.models import Block
 
 context_local = threading.local()
 
@@ -457,11 +458,11 @@ class MdflowContextV2:
             )
             self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
-    def get_block(self, block_index: int):
+    def get_block(self, block_index: int) -> Block:
         """Return a MarkdownFlow block by its index."""
         return self._mdflow.get_block(block_index)
 
-    def get_all_blocks(self):
+    def get_all_blocks(self) -> list[Block]:
         """Return all MarkdownFlow blocks in encounter order."""
         return self._mdflow.get_all_blocks()
 
@@ -473,7 +474,7 @@ class MdflowContextV2:
         context: list[dict[str, str]] | None = None,
         variables: dict | None = None,
         user_input: dict[str, list[str]] | None = None,
-    ):
+    ) -> LLMResult | Generator[LLMResult, None, None]:
         """Process the current MarkdownFlow content."""
         return self._mdflow.process(
             block_index=block_index,
@@ -2204,7 +2205,7 @@ class RunScriptContextV2:
             return False
         return bool(str(input_value).strip())
 
-    def set_input(self, user_input: str | dict, input_type: str):
+    def set_input(self, user_input: str | dict, input_type: str) -> None:
         """Set user input.
 
         Args:
@@ -3729,7 +3730,7 @@ class RunScriptContextV2:
         reload_generated_block_bid: str,
         *,
         reload_element_bid: str | None = None,
-    ):
+    ) -> Generator[object, None, None]:
         """Regenerate from an anchor by rewinding progress and deactivating superseded persisted state."""
         with app.app_context():
             anchor_element = None

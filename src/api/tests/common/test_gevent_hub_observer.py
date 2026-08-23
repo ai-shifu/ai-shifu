@@ -27,7 +27,7 @@ def _fire(hub: object, context: object = None, exc: object = None):
     return hub.handle_error(context, type(exc), exc, None)
 
 
-def test_observer_logs_and_delegates(caplog: object):
+def test_observer_logs_and_delegates(caplog: object) -> None:
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer")
     assert install_hub_error_observer(logger, hub=hub) is True
@@ -49,7 +49,7 @@ def test_observer_logs_and_delegates(caplog: object):
     assert "AssertionError" in caplog.text
 
 
-def test_observer_installs_once(caplog: object):
+def test_observer_installs_once(caplog: object) -> None:
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer-once")
     assert install_hub_error_observer(logger, hub=hub) is True
@@ -63,7 +63,7 @@ def test_observer_installs_once(caplog: object):
     assert caplog.text.count("gevent hub error") == 1
 
 
-def test_logger_failure_never_blocks_the_original_handler():
+def test_logger_failure_never_blocks_the_original_handler() -> None:
     hub = _StubHub()
 
     class _BrokenLogger:
@@ -79,7 +79,7 @@ def test_logger_failure_never_blocks_the_original_handler():
     assert len(hub.calls) == 1
 
 
-def test_unreprable_context_is_still_logged(caplog: object):
+def test_unreprable_context_is_still_logged(caplog: object) -> None:
     hub = _StubHub()
     logger = logging.getLogger("test-hub-observer-badrepr")
     install_hub_error_observer(logger, hub=hub)

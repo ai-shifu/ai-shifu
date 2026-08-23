@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -39,9 +40,12 @@ from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_admission_app(monkeypatch: object):
+def billing_admission_app(monkeypatch: object) -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

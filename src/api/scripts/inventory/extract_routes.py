@@ -43,7 +43,7 @@ for base in ("flaskr/route", "flaskr/service", "flaskr/common"):
 results = []
 
 
-def literal(node: object, env: object):
+def literal(node: object, env: object) -> object:
     """Resolve an AST expression to its route-path text."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
@@ -62,7 +62,7 @@ def literal(node: object, env: object):
     return f"<expr:{ast.unparse(node)}>"
 
 
-def config_get_default(node: object):
+def config_get_default(node: object) -> object:
     """app.config.get('KEY', 'default') -> 'default'."""
     if (
         isinstance(node, ast.Call)
@@ -76,7 +76,7 @@ def config_get_default(node: object):
     return None
 
 
-def collect_routes(scope_body: object, env: object, rel: object):
+def collect_routes(scope_body: object, env: object, rel: object) -> None:
     """Collect routes."""
     for node in scope_body:
         if (

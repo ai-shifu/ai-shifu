@@ -6,6 +6,7 @@ import json
 import os
 import re
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -85,7 +86,7 @@ class _LangfuseState:
 _langfuse_state = _LangfuseState()
 
 
-def get_langfuse_client():
+def get_langfuse_client() -> object:
     """Return the configured Langfuse client."""
     return _langfuse_state.client
 
@@ -159,7 +160,7 @@ def build_langfuse_observation_link(
 PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
 
 
-def init_langfuse(app: Flask):
+def init_langfuse(app: Flask) -> None:
     """Initialize the process-local Langfuse client for a Flask application."""
     if os.environ.get(PRELOAD_MASTER_ENV):
         # Running inside the gunicorn preload master. Creating a real client
@@ -371,7 +372,7 @@ class TraceAttributePropagation:
         return dict(updated)
 
     @contextmanager
-    def scope(self, delegate: Any):
+    def scope(self, delegate: Any) -> Iterator[None]:
         """Propagate the collected attributes to observations started inside.
 
         Entering ``propagate_attributes()`` also writes the attributes on the
@@ -499,7 +500,7 @@ def create_trace_with_root_span(
     client: Any,
     trace_payload: dict[str, Any],
     root_span_payload: dict[str, Any],
-):
+) -> tuple[LangfuseTraceHandle, LangfuseObservationHandle]:
     """Create a trace facade and its root observation from caller payloads."""
     raw_trace_id = compact_langfuse_payload(trace_payload).get("id")
     trace_id = coerce_langfuse_trace_id(
@@ -531,7 +532,7 @@ def create_trace_with_root_span(
 
 def update_langfuse_trace(
     trace: Any, payload: dict[str, Any] | None = None, **kwargs: object
-):
+) -> object:
     """Apply non-empty attributes to a Langfuse trace facade."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
@@ -543,7 +544,7 @@ def update_langfuse_observation(
     observation: Any,
     payload: dict[str, Any] | None = None,
     **kwargs: object,
-):
+) -> object:
     """Apply non-empty attributes to a Langfuse observation."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
@@ -557,7 +558,7 @@ def finalize_langfuse_trace(
     root_span: Any | None,
     trace_payload: dict[str, Any] | None = None,
     root_span_payload: dict[str, Any] | None = None,
-):
+) -> object:
     # Update trace attributes before ending the root span: the attributes are
     # written through the (still open) root span.
     """Apply final attributes and end the root observation when present."""

@@ -60,7 +60,7 @@ def _seed_creator(*, user_bid: str, is_creator: bool = True) -> None:
 
 
 @pytest.fixture
-def trial_billing_client(monkeypatch: object):
+def trial_billing_client(monkeypatch: object) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

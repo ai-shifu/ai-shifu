@@ -134,7 +134,7 @@ def send(
     time_stamp: object,
     pid: object,
     timeout: object = DEFAULT_TIMEOUT_SECONDS,
-):
+) -> dict[str, object]:
     """Send the content-safety request to the configured provider."""
     headers = {
         "X-AppId": pid,

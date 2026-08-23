@@ -1,7 +1,9 @@
 """Expose user HTTP routes."""
 
 import contextlib
+from collections.abc import Callable
 from functools import wraps
+from typing import ParamSpec, TypeVar
 
 from flask import Flask, current_app, make_response, request
 
@@ -78,6 +80,9 @@ from flaskr.service.user.verification_codes import consume_verification_code
 from flaskr.util.uuid import generate_id
 
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
@@ -185,7 +190,7 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
-def optional_token_validation(f: object):
+def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
     """Allow a route to accept an optional authentication token."""
 
     @wraps(f)

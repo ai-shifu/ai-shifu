@@ -10,7 +10,9 @@ from flaskr.api.tts.aliyun_nls_token import get_aliyun_nls_token
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
 
-def test_get_aliyun_nls_token_uses_override_when_configured(monkeypatch: object):
+def test_get_aliyun_nls_token_uses_override_when_configured(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("ALIYUN_TTS_TOKEN", "override-token")
 
     def fake_get(*args: object, **kwargs: object):
@@ -23,7 +25,7 @@ def test_get_aliyun_nls_token_uses_override_when_configured(monkeypatch: object)
     assert get_aliyun_nls_token() == "override-token"
 
 
-def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object):
+def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object) -> None:
     monkeypatch.setenv("REDIS_KEY_PREFIX", "test:aliyun:nls-token:")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "my_access_key_id")
@@ -76,7 +78,9 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object):
     assert signature == unquote(expected_signature)
 
 
-def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch: object):
+def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("REDIS_KEY_PREFIX", "test:aliyun:nls-token:fallback:")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "my_access_key_id")
@@ -108,7 +112,7 @@ def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch: ob
     assert captured["calls"] == 1
 
 
-def test_aliyun_provider_is_configured_with_access_keys(monkeypatch: object):
+def test_aliyun_provider_is_configured_with_access_keys(monkeypatch: object) -> None:
     monkeypatch.setenv("ALIYUN_TTS_APPKEY", "appkey")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "ak")
@@ -118,7 +122,7 @@ def test_aliyun_provider_is_configured_with_access_keys(monkeypatch: object):
     assert provider.is_configured() is True
 
 
-def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch: object):
+def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch: object) -> None:
     monkeypatch.setenv("ALIYUN_TTS_APPKEY", "appkey")
     monkeypatch.setenv("ALIYUN_TTS_REGION", "shanghai")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)

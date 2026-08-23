@@ -5,7 +5,7 @@ from typing import Self
 import pytest
 
 
-def test_check_text_returns_unconfigured_for_yidun(app: object):
+def test_check_text_returns_unconfigured_for_yidun(app: object) -> None:
     from flaskr.api.check import CHECK_RESULT_UNCONF, check_text
 
     with app.app_context():
@@ -15,7 +15,7 @@ def test_check_text_returns_unconfigured_for_yidun(app: object):
         assert result.provider == "yidun"
 
 
-def test_yidun_check_uses_configured_timeout(app: object, monkeypatch: object):
+def test_yidun_check_uses_configured_timeout(app: object, monkeypatch: object) -> None:
     from flaskr.api.check import CHECK_RESULT_PASS
     from flaskr.api.check import yidun as yidun_module
 
@@ -50,7 +50,7 @@ def test_yidun_check_uses_configured_timeout(app: object, monkeypatch: object):
     assert captured["timeout"] == 3
 
 
-def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch: object):
+def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch: object) -> None:
     from urllib.error import URLError
 
     from flaskr.api.check import ilivedata as ilivedata_module
@@ -65,7 +65,9 @@ def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch: object):
         ilivedata_module.send("{}", b"sig", "2026-07-11T00:00:00Z", "pid", timeout=5)
 
 
-def test_ilivedata_check_uses_configured_timeout(app: object, monkeypatch: object):
+def test_ilivedata_check_uses_configured_timeout(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.api.check import CHECK_RESULT_PASS
     from flaskr.api.check import ilivedata as ilivedata_module
 

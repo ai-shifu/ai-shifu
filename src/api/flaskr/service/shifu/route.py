@@ -286,7 +286,7 @@ def _resolve_publish_base_url(app: Flask) -> str:
 
 
 @inject
-def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu"):
+def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     """Register shifu routes."""
     app.logger.info("register shifu routes %s", path_prefix)
 
@@ -324,9 +324,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu"):
         request_user = getattr(request, "user", None)
         creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
         if not creator_bid or not getattr(request_user, "is_creator", False):
-            return None
+            return
         assert_creator_debug_allowed(app, creator_bid)
-        return admit_creator_usage(
+        admit_creator_usage(
             app,
             creator_bid=creator_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,

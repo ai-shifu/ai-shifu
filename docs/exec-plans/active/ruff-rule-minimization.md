@@ -256,6 +256,14 @@ plan's progress update for that rule.
   normalized AST audit found no executable differences; the D103 policy and
   Swagger regressions pass, followed by the full backend suite at 3,042 passed
   with 17 skipped and every applicable repository pre-commit gate.
+- [x] 2026-08-23: Rebuilt the ANN201 stage from current `origin/main` for
+  PR #2645. The scope is limited to the 2,196 functions reported by ANN201;
+  immutable Alembic revisions remain covered by the existing directory-wide
+  exemption. A normalized AST audit confirms no executable differences in the
+  333 existing Python files after removing return annotations; the ANN201 policy
+  test and repository Ruff/format checks pass. The full backend suite is blocked
+  during collection by the local Langfuse package missing
+  `langfuse._client.span_exporter`.
 - [x] 2026-08-22: Replaced rule-specific Alembic exceptions with a directory
   `ALL` exemption for `src/api/migrations/versions/**`. The project policy,
   confirmed by the maintainers, treats every Alembic-generated revision as

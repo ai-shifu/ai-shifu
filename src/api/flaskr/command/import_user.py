@@ -21,7 +21,7 @@ def import_user(
     course_id: object,
     discount_code: object = "web",
     user_nick_name: object = None,
-):
+) -> None:
     """Import user and enable course."""
     app.logger.info("import_user: %s, %s", mobile, course_id)
     with app.app_context():

@@ -4,7 +4,9 @@ import datetime
 import decimal
 import json
 import traceback
+from collections.abc import Callable
 from functools import wraps
+from typing import ParamSpec, TypeVar
 
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
@@ -12,6 +14,9 @@ from werkzeug.exceptions import HTTPException
 from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import _, _translations, clear_language, set_language
 from flaskr.service.common import AppError
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 by_pass_login_func = [
     "flasgger.apispec_1",
@@ -60,7 +65,7 @@ def _extract_request_language() -> str | None:
 
 
 # Decorator that exempts a route from token validation
-def bypass_token_validation(func: object):
+def bypass_token_validation(func: Callable[P, R]) -> Callable[P, R]:
     """Mark a route as exempt from token validation."""
     by_pass_login_func.append(func.__name__)
 
@@ -108,7 +113,7 @@ def register_common_handler(app: Flask) -> Flask:
     return app
 
 
-def fmt(o: object):
+def fmt(o: object) -> object:
     """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime.datetime):
         # Single serialization choke point for datetimes returned by APIs.
@@ -125,7 +130,7 @@ def fmt(o: object):
     return o.__json__()
 
 
-def make_common_response(data: object):
+def make_common_response(data: object) -> str:
     """Build common response."""
     if data is None:
         data = {}

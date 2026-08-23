@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.service.billing.domains as billing_domains
 import pytest
@@ -31,12 +32,15 @@ from tests.service.billing.route_loader import (
     load_register_billing_routes,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
 
 @pytest.fixture
-def billing_domain_client(monkeypatch: object):
+def billing_domain_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

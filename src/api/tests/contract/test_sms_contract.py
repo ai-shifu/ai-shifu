@@ -7,7 +7,7 @@ import pytest
 from flask import Flask
 
 
-def test_send_sms_ali_builds_request_for_generic_template(monkeypatch: object):
+def test_send_sms_ali_builds_request_for_generic_template(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     captured = {}
@@ -50,7 +50,7 @@ def test_send_sms_ali_builds_request_for_generic_template(monkeypatch: object):
     assert captured["config"].endpoint == "dysmsapi.aliyuncs.com"
 
 
-def test_send_sms_code_ali_builds_request(monkeypatch: object):
+def test_send_sms_code_ali_builds_request(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     captured = {}
@@ -87,7 +87,7 @@ def test_send_sms_code_ali_builds_request(monkeypatch: object):
     assert captured["config"].endpoint == "dysmsapi.aliyuncs.com"
 
 
-def test_send_sms_code_ali_returns_none_without_keys(monkeypatch: object):
+def test_send_sms_code_ali_returns_none_without_keys(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     def fake_client(_config: object):
@@ -109,7 +109,7 @@ def test_send_sms_code_ali_returns_none_without_keys(monkeypatch: object):
     assert result is None
 
 
-def test_send_sms_code_ali_handles_client_error(monkeypatch: object):
+def test_send_sms_code_ali_handles_client_error(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class DummyError(Exception):
@@ -150,7 +150,7 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch: object):
 
 def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(
     monkeypatch: object,
-):
+) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
@@ -196,7 +196,7 @@ def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(
 )
 def test_send_sms_ali_logs_recipient_throttle_as_warning(
     monkeypatch: object, caplog: object, provider_message: object
-):
+) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
@@ -243,7 +243,7 @@ def test_send_sms_ali_logs_recipient_throttle_as_warning(
 
 def test_send_sms_ali_logs_illegal_recipient_number_as_warning(
     monkeypatch: object, caplog: object
-):
+) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:

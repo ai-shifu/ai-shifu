@@ -9,7 +9,7 @@ from flaskr.service.common.pagination import (
 )
 
 
-def test_constants_keep_admin_defaults():
+def test_constants_keep_admin_defaults() -> None:
     assert DEFAULT_PAGE_INDEX == 1
     assert DEFAULT_PAGE_SIZE == 20
     assert MAX_PAGE_SIZE == 100
@@ -42,5 +42,7 @@ def test_constants_keep_admin_defaults():
         (2.9, 30.7, (2, 30)),
     ],
 )
-def test_normalize_pagination(page_index: object, page_size: object, expected: object):
+def test_normalize_pagination(
+    page_index: object, page_size: object, expected: object
+) -> None:
     assert normalize_pagination(page_index, page_size) == expected

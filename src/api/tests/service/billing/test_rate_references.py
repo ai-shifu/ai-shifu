@@ -36,7 +36,9 @@ def _rate(
     )
 
 
-def test_llm_credit_1x_unit_cost_uses_fixed_config(monkeypatch: object, app: object):
+def test_llm_credit_1x_unit_cost_uses_fixed_config(
+    monkeypatch: object, app: object
+) -> None:
     values = {
         "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
         "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
@@ -67,7 +69,9 @@ def test_llm_credit_1x_unit_cost_uses_fixed_config(monkeypatch: object, app: obj
         assert rate_references.load_llm_credit_1x_unit_cost() == Decimal("0.000066667")
 
 
-def test_llm_credit_1x_unit_cost_rejects_missing_or_invalid_config(monkeypatch: object):
+def test_llm_credit_1x_unit_cost_rejects_missing_or_invalid_config(
+    monkeypatch: object,
+) -> None:
     for raw_value in [None, "", "bad", "0", "-1"]:
         monkeypatch.setattr(
             credit_rate_references,
