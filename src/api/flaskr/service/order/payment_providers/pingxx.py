@@ -12,7 +12,7 @@ from collections.abc import (
 from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -31,6 +31,8 @@ if TYPE_CHECKING:
     from flask import Flask
 
 _PINGPP_CONFIG_LOCK = threading.RLock()
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 @dataclass(slots=True)
@@ -43,9 +45,9 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func: object) -> Callable[..., Any]:
+def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     @wraps(func)
-    def wrapped(*args: object, **kwargs: object) -> Any:
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
         with _PINGPP_CONFIG_LOCK:
             return func(*args, **kwargs)
 
