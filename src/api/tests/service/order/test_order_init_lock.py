@@ -11,7 +11,7 @@ class DummyLock:
         self.acquired = 0
         self.released = 0
 
-    def acquire(self, blocking=True):
+    def acquire(self, blocking: object = True):
         _ = blocking
         self.acquired += 1
         return True
@@ -30,7 +30,12 @@ class DummyRedis:
         self.last_blocking_timeout = None
         self.lock_instance = DummyLock()
 
-    def lock(self, key, timeout=None, blocking_timeout=None):
+    def lock(
+        self,
+        key: object,
+        timeout: object = None,
+        blocking_timeout: object = None,
+    ):
         self.last_key = key
         self.last_timeout = timeout
         self.last_blocking_timeout = blocking_timeout
@@ -40,12 +45,12 @@ class DummyRedis:
 class DummyApp:
     """Simulate app behavior for tests."""
 
-    def __init__(self, prefix="ai-shifu") -> None:
+    def __init__(self, prefix: object = "ai-shifu") -> None:
         """Expose the configured Redis key prefix to lock tests."""
         self.config = {"REDIS_KEY_PREFIX": prefix}
 
 
-def test_order_init_lock_uses_prefixed_key(monkeypatch):
+def test_order_init_lock_uses_prefixed_key(monkeypatch: object):
     dummy_redis = DummyRedis()
     monkeypatch.setattr(order_funs, "cache_provider", dummy_redis)
     app = DummyApp(prefix="unit-test")
@@ -60,7 +65,7 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch):
     assert dummy_redis.lock_instance.released == 1
 
 
-def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch):
+def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch: object):
     class _BrokenCacheProvider:
         def lock(self, *args: object, **kwargs: object):
             _ = (args, kwargs)

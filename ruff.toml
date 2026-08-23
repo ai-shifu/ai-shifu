@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN002/ANN003/ANN204/ANN205/ANN206, see `select`) / SLF001 /
+# - ANN (except ANN201/ANN202/ANN401 and the selected rules below) / SLF001 /
 #   PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
@@ -169,11 +169,12 @@ select = [
     "S",
 
     # --- Type annotations -------------------------------------------------
-    # flake8-annotations is otherwise off (see the header): annotating every
-    # argument and return in the repo is a separate project. Variadic parameters
-    # name the element/value type after the stars; use a concrete homogeneous
-    # type when known and `object` for intentionally heterogeneous forwarding.
-    # ANN205 is small enough to keep enforced, and a staticmethod is where a
+    # flake8-annotations is otherwise off (see the header). Every callable
+    # parameter now names its input contract; `object` marks intentionally
+    # heterogeneous values at dynamic boundaries. Variadic parameters name the
+    # element/value type after the stars; use a concrete homogeneous type when
+    # known and `object` for intentionally heterogeneous forwarding. ANN205 is
+    # small enough to keep enforced, and a staticmethod is where a
     # missing return type hides the most, since there is no `self` to infer from.
     # ANN206 covers the classmethod counterpart, mostly alternative constructors
     # and frozen-clock `now()` doubles. ANN204 is the same bet for special
@@ -181,6 +182,7 @@ select = [
     # so the return type is never a judgement call and writing it down keeps the
     # serialization dunders (`__json__` returning a dict vs an enum value's str)
     # readable at a glance.
+    "ANN001",  # missing type for function arguments
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
     "ANN204",  # missing return type on a special method

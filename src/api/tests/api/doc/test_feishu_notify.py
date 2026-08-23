@@ -30,7 +30,11 @@ class _App:
 
 class _Response:
     def __init__(
-        self, status_code=200, text="", json_value=None, json_exc=None
+        self,
+        status_code: object = 200,
+        text: object = "",
+        json_value: object = None,
+        json_exc: object = None,
     ) -> None:
         self.status_code = status_code
         self.text = text
@@ -43,7 +47,9 @@ class _Response:
         return self._json_value
 
 
-def test_send_notify_returns_metadata_for_successful_non_json_response(monkeypatch):
+def test_send_notify_returns_metadata_for_successful_non_json_response(
+    monkeypatch: object,
+):
     app = _App()
     monkeypatch.setattr(
         feishu,
@@ -64,7 +70,7 @@ def test_send_notify_returns_metadata_for_successful_non_json_response(monkeypat
     assert app.logger.warnings == []
 
 
-def test_send_notify_returns_none_for_non_2xx_response(monkeypatch):
+def test_send_notify_returns_none_for_non_2xx_response(monkeypatch: object):
     app = _App()
     monkeypatch.setattr(
         feishu,
@@ -83,7 +89,7 @@ def test_send_notify_returns_none_for_non_2xx_response(monkeypatch):
     assert app.logger.warnings
 
 
-def test_send_notify_returns_none_for_request_error(monkeypatch):
+def test_send_notify_returns_none_for_request_error(monkeypatch: object):
     app = _App()
     monkeypatch.setattr(
         feishu,

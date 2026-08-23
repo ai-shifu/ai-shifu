@@ -13,7 +13,7 @@ def _get_models():
     return DraftShifu, DraftOutlineItem
 
 
-def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
+def _mock_user(monkeypatch: object, user_id: str, is_creator: bool = True):
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -28,7 +28,7 @@ def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
 
 
 def _seed_shifu_with_outline(
-    app,
+    app: object,
     shifu_bid: str,
     outline_bid: str,
     owner_bid: str,
@@ -71,7 +71,7 @@ def _seed_shifu_with_outline(
 
 
 def test_create_outline_route_rejects_missing_name_without_500(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "test-route-create-outline-invalid-name"
     outline_bid = "test-route-create-outline-seed"
@@ -91,7 +91,7 @@ def test_create_outline_route_rejects_missing_name_without_500(
 
 
 def test_save_mdflow_route_rejects_non_object_json_without_500(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "test-route-save-mdflow-invalid-body"
     outline_bid = "test-route-save-mdflow-invalid-outline"
@@ -110,7 +110,9 @@ def test_save_mdflow_route_rejects_non_object_json_without_500(
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
 
 
-def test_get_mdflow_history_version_detail_route_success(monkeypatch, test_client, app):
+def test_get_mdflow_history_version_detail_route_success(
+    monkeypatch: object, test_client: object, app: object
+):
     shifu_bid = "test-route-history-detail-1"
     outline_bid = "test-route-outline-1"
     owner_bid = "test-route-owner-1"
@@ -140,7 +142,7 @@ def test_get_mdflow_history_version_detail_route_success(monkeypatch, test_clien
 
 
 def test_get_mdflow_history_version_detail_route_rejects_invalid_version_id(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "test-route-history-detail-2"
     outline_bid = "test-route-outline-2"
@@ -165,7 +167,7 @@ def test_get_mdflow_history_version_detail_route_rejects_invalid_version_id(
 
 
 def test_restore_mdflow_history_route_returns_deleted_flag(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "test-route-history-restore-1"
     outline_bid = "test-route-outline-restore-1"

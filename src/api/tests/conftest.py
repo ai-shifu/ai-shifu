@@ -52,17 +52,25 @@ class _TestPluginManager:
         self.extensible_generic_functions = {}
         self.is_enabled = False
 
-    def register_extension(self, target_func_name, func):
+    def register_extension(self, target_func_name: object, func: object):
         self.extension_functions.setdefault(target_func_name, []).append(func)
 
-    def execute_extensions(self, _func_name, result, *args: object, **kwargs: object):
+    def execute_extensions(
+        self,
+        _func_name: object,
+        result: object,
+        *args: object,
+        **kwargs: object,
+    ):
         _ = (args, kwargs)
         return result
 
-    def register_extensible_generic(self, func_name, func):
+    def register_extensible_generic(self, func_name: object, func: object):
         self.extensible_generic_functions.setdefault(func_name, []).append(func)
 
-    def execute_extensible_generic(self, _func_name, *args: object, **kwargs: object):
+    def execute_extensible_generic(
+        self, _func_name: object, *args: object, **kwargs: object
+    ):
         _ = (args, kwargs)
 
 
@@ -70,12 +78,12 @@ set_plugin_manager(_TestPluginManager())
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw: object):
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object):
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw: object):
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object):
     return "INTEGER"
 
 
@@ -162,7 +170,7 @@ def app():
 
 
 @pytest.fixture
-def test_client(app):
+def test_client(app: object):
     with app.test_client() as client:
         yield client
 
@@ -173,7 +181,7 @@ def token():
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_client(monkeypatch, request):
+def mock_redis_client(monkeypatch: object, request: object):
     fake_redis = FakeRedis()
     # test_funcs.py uses its own `@patch` decorators for fine-grained Redis control.
     if "service/config/test_funcs.py" in request.node.nodeid:
@@ -205,12 +213,12 @@ def mock_redis_client(monkeypatch, request):
     return fake_redis
 
 
-def _should_skip_llm_mock(request) -> bool:
+def _should_skip_llm_mock(request: object) -> bool:
     return request.node.get_closest_marker("no_mock_llm") is not None
 
 
 @pytest.fixture(autouse=True)
-def mock_llm_calls(monkeypatch, request):
+def mock_llm_calls(monkeypatch: object, request: object):
     if _should_skip_llm_mock(request):
         return
     llm = sys.modules.get("flaskr.api.llm")
@@ -227,7 +235,7 @@ def mock_llm_calls(monkeypatch, request):
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request):
+def isolate_env_for_non_app_tests(request: object):
     if "app" in request.fixturenames:
         yield
         return

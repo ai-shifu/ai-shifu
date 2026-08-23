@@ -73,7 +73,9 @@ class RunEventEmitter:
         self._context = context
 
     def render_outline_updates(
-        self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
+        self,
+        outline_updates: list[OutlineItemUpdateDTO],
+        new_chapter: bool = False,
     ) -> Generator[str, None, None]:
         """Render outline-update events while persisting progress and current outline state."""
         ctx = self._context

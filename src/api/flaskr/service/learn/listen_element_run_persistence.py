@@ -43,7 +43,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ResourceClosedError
 
 
-def _describe_desynced_connection(result, connection) -> str:
+def _describe_desynced_connection(result: object, connection: object) -> str:
     """Collect protocol-level forensics after a desynced SELECT.
 
     When this SELECT consumes a stale response packet, the DBAPI cursor holds

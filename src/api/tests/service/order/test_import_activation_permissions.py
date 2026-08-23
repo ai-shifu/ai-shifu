@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from flaskr import dao
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
+def _seed_shifu(app: object, shifu_bid: str, owner_bid: str) -> None:
     from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 
     with app.app_context():
@@ -32,7 +32,7 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str) -> None:
         dao.db.session.commit()
 
 
-def _add_shared_permission(app, shifu_bid: str, user_id: str) -> None:
+def _add_shared_permission(app: object, shifu_bid: str, user_id: str) -> None:
     from flaskr.service.shifu.models import AiCourseAuth
 
     with app.app_context():
@@ -48,7 +48,7 @@ def _add_shared_permission(app, shifu_bid: str, user_id: str) -> None:
         dao.db.session.commit()
 
 
-def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = True):
+def _mock_user(monkeypatch: object, user_id: str, *, is_creator: bool = True):
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -63,7 +63,7 @@ def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = True):
 
 
 def test_admin_import_activation_rejects_shared_permission_user(
-    monkeypatch, test_client, app
+    monkeypatch: object, test_client: object, app: object
 ):
     shifu_bid = "import-permission-course-1"
     owner_bid = "owner-import-1"
@@ -87,7 +87,9 @@ def test_admin_import_activation_rejects_shared_permission_user(
     assert payload["code"] == 401
 
 
-def test_admin_import_activation_allows_owner(monkeypatch, test_client, app):
+def test_admin_import_activation_allows_owner(
+    monkeypatch: object, test_client: object, app: object
+):
     shifu_bid = "import-permission-course-2"
     owner_bid = "owner-import-2"
     _seed_shifu(app, shifu_bid, owner_bid)

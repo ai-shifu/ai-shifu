@@ -466,7 +466,7 @@ def _safe_issue_summary(issues: list[dict[str, str]]) -> str:
     )
 
 
-def _serialize_validation_issues(issues) -> list[dict[str, str]]:
+def _serialize_validation_issues(issues: object) -> list[dict[str, str]]:
     return [
         {
             "code": issue.code,

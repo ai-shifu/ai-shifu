@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from flask import Flask
 
 
-def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatch):
+def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(
+    monkeypatch: object,
+):
     from flaskr.dao import db
     from flaskr.service.learn.context_v2 import RunScriptContextV2
     from flaskr.service.shifu.models import DraftShifu

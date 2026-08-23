@@ -243,7 +243,9 @@ class TestListenElementHistorySubtitles:
             "audio-history-multi-2",
         ]
 
-    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(self):
+    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(
+        self,
+    ):
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,

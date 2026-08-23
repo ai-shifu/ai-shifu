@@ -8,7 +8,7 @@ DICTS = {}
 class DictItem:
     """Represent one key-label entry in a shared dictionary."""
 
-    def __init__(self, display, value) -> None:
+    def __init__(self, display: object, value: object) -> None:
         """Create a display-value dictionary item."""
         self.display = display
         self.value = value
@@ -21,7 +21,7 @@ class DictItem:
 class Dict:
     """Index dictionary items by key for shared lookup helpers."""
 
-    def __init__(self, name, display, items: list[DictItem]) -> None:
+    def __init__(self, name: object, display: object, items: list[DictItem]) -> None:
         """Create a named dictionary definition."""
         self.name = name
         self.display = display
@@ -32,7 +32,7 @@ class Dict:
         return {"name": self.name, "display": self.display, "items": self.items}
 
 
-def register_dict(name, desp, items: dict):
+def register_dict(name: object, desp: object, items: dict):
     """Register dict."""
     if name in DICTS:
         return

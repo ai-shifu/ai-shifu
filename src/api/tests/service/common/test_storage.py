@@ -17,7 +17,7 @@ def _reset_config_cache(*keys: str) -> None:
         common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
-def _make_storage_app(monkeypatch, tmp_path, provider: str) -> Flask:
+def _make_storage_app(monkeypatch: object, tmp_path: object, provider: str) -> Flask:
     monkeypatch.setenv("PATH_PREFIX", "/api")
     monkeypatch.setenv("STORAGE_PROVIDER", provider)
     monkeypatch.setenv("LOCAL_STORAGE_ROOT", str(tmp_path))
@@ -28,7 +28,9 @@ def _make_storage_app(monkeypatch, tmp_path, provider: str) -> Flask:
     return app
 
 
-def test_upload_to_storage_auto_falls_back_to_local(monkeypatch, tmp_path):
+def test_upload_to_storage_auto_falls_back_to_local(
+    monkeypatch: object, tmp_path: object
+):
     app = _make_storage_app(monkeypatch, tmp_path, "auto")
 
     result = upload_to_storage(
@@ -44,7 +46,7 @@ def test_upload_to_storage_auto_falls_back_to_local(monkeypatch, tmp_path):
     assert (tmp_path / "default" / "example").read_bytes() == b"hello"
 
 
-def test_storage_route_serves_nested_object_key(monkeypatch, tmp_path):
+def test_storage_route_serves_nested_object_key(monkeypatch: object, tmp_path: object):
     app = _make_storage_app(monkeypatch, tmp_path, "local")
     client = app.test_client()
 
@@ -63,7 +65,7 @@ def test_storage_route_serves_nested_object_key(monkeypatch, tmp_path):
     assert response.headers["Content-Type"].startswith("audio/mpeg")
 
 
-def test_storage_route_guesses_mimetype_by_magic(monkeypatch, tmp_path):
+def test_storage_route_guesses_mimetype_by_magic(monkeypatch: object, tmp_path: object):
     app = _make_storage_app(monkeypatch, tmp_path, "local")
     client = app.test_client()
 
@@ -82,7 +84,7 @@ def test_storage_route_guesses_mimetype_by_magic(monkeypatch, tmp_path):
     assert response.headers["Content-Type"].startswith("image/jpeg")
 
 
-def test_upload_audio_to_oss_uses_storage_layer(monkeypatch, tmp_path):
+def test_upload_audio_to_oss_uses_storage_layer(monkeypatch: object, tmp_path: object):
     app = _make_storage_app(monkeypatch, tmp_path, "auto")
 
     audio_bytes = b"ID3" + b"\x00" * 8
@@ -96,8 +98,8 @@ def test_upload_audio_to_oss_uses_storage_layer(monkeypatch, tmp_path):
 
 
 def test_read_storage_bytes_fetches_from_oss_when_local_file_is_missing(
-    monkeypatch,
-    tmp_path,
+    monkeypatch: object,
+    tmp_path: object,
 ):
     from flaskr.service.common import storage
     from flaskr.service.common.oss_utils import OSSConfig
@@ -125,7 +127,7 @@ def test_read_storage_bytes_fetches_from_oss_when_local_file_is_missing(
             assert object_key == "tts/minimax/source.webm"
             return FakeObject()
 
-    def fake_create_oss_bucket(config):
+    def fake_create_oss_bucket(config: object):
         assert config.bucket == "resource-bucket"
         return FakeBucket()
 

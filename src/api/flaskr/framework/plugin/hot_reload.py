@@ -102,7 +102,7 @@ class PluginHotReloader:
         except Exception:
             self.app.logger.exception("Failed to unload plugin %s", plugin_path)
 
-    def _register_plugin(self, module):
+    def _register_plugin(self, module: object):
         """Register a newly loaded plugin.
 
         Args:
@@ -144,7 +144,7 @@ class PluginFileHandler(FileSystemEventHandler):
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads
 
-    def on_modified(self, event):
+    def on_modified(self, event: object):
         """Reload the plugin affected by a file change."""
         if event.is_directory:
             return

@@ -60,7 +60,7 @@ class TestSecretKeyValidator:
         secret_key_env = ENV_VARS["SECRET_KEY"]
         assert secret_key_env.secret is True
 
-    def test_environment_validation_with_empty_secret_key(self, monkeypatch):
+    def test_environment_validation_with_empty_secret_key(self, monkeypatch: object):
         """Test that environment validation fails with empty SECRET_KEY."""
         # Set required environment variables
         monkeypatch.setenv(
@@ -82,7 +82,9 @@ class TestSecretKeyValidator:
         )
         assert "SECRET_KEY" in error_msg
 
-    def test_environment_validation_with_whitespace_secret_key(self, monkeypatch):
+    def test_environment_validation_with_whitespace_secret_key(
+        self, monkeypatch: object
+    ):
         """Test that environment validation fails with whitespace-only SECRET_KEY."""
         # Set required environment variables
         monkeypatch.setenv(
@@ -101,7 +103,7 @@ class TestSecretKeyValidator:
         assert "Missing required environment variables" in error_msg
         assert "SECRET_KEY" in error_msg
 
-    def test_environment_validation_with_valid_secret_key(self, monkeypatch):
+    def test_environment_validation_with_valid_secret_key(self, monkeypatch: object):
         """Test that environment validation passes with valid SECRET_KEY."""
         # Set required environment variables
         monkeypatch.setenv(
@@ -116,7 +118,7 @@ class TestSecretKeyValidator:
         config.validate_environment()
         assert config._validated is True
 
-    def test_secret_key_with_special_characters(self, monkeypatch):
+    def test_secret_key_with_special_characters(self, monkeypatch: object):
         """Test that SECRET_KEY with special characters works correctly."""
         # Set required environment variables
         monkeypatch.setenv(
@@ -134,7 +136,7 @@ class TestSecretKeyValidator:
         secret_value = config.get("SECRET_KEY")
         assert secret_value == "!@#$%^&*()_+-=[]{}|;:,.<>?/~`"
 
-    def test_secret_key_trimming_during_get(self, monkeypatch):
+    def test_secret_key_trimming_during_get(self, monkeypatch: object):
         """Test that SECRET_KEY is trimmed during get operation."""
         # Set SECRET_KEY with surrounding whitespace
         monkeypatch.setenv("SECRET_KEY", "  secret_with_spaces  ")

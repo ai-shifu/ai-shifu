@@ -188,7 +188,7 @@ def _mask_contact_identifier(identifier: str | None) -> str:
     return _mask_phone_identifier(identifier)
 
 
-def _build_draft_meta(latest) -> dict:
+def _build_draft_meta(latest: object) -> dict:
     if not latest:
         return {
             "revision": 0,
@@ -251,7 +251,7 @@ def get_shifu_draft_meta(
         return _build_draft_meta(latest)
 
 
-def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
+def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
     """Get shifu history.
 
     Args:

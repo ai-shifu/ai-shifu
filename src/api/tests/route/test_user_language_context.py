@@ -9,7 +9,7 @@ from flaskr.route.user import register_user_handler
 
 
 def test_authenticated_request_prefers_accept_language_for_runtime_context(
-    monkeypatch,
+    monkeypatch: object,
 ):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"
@@ -36,7 +36,7 @@ def test_authenticated_request_prefers_accept_language_for_runtime_context(
 
 
 def test_authenticated_request_normalizes_accept_language_for_runtime_context(
-    monkeypatch,
+    monkeypatch: object,
 ):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"
@@ -63,7 +63,7 @@ def test_authenticated_request_normalizes_accept_language_for_runtime_context(
 
 
 def test_authenticated_request_reads_json_payload_language_for_runtime_context(
-    monkeypatch,
+    monkeypatch: object,
 ):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"

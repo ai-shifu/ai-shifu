@@ -9,7 +9,7 @@ import click
 from .repair import repair_shifu_outline_structure
 
 
-def register_shifu_commands(console, app) -> None:
+def register_shifu_commands(console: object, app: object) -> None:
     """Register course-maintenance commands on the console group."""
 
     @console.group(name="shifu")

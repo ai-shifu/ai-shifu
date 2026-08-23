@@ -24,7 +24,7 @@ from flaskr.service.tts.pipeline import (
 )
 
 
-def _find_close_end(raw: str, close_pattern) -> int | None:
+def _find_close_end(raw: str, close_pattern: object) -> int | None:
     if not raw:
         return None
     close = close_pattern.search(raw)

@@ -1,7 +1,9 @@
 """transactional_session termination-classification behavior."""
 
 
-def test_transactional_session_classifies_before_savepoint_rollback(app, monkeypatch):
+def test_transactional_session_classifies_before_savepoint_rollback(
+    app: object, monkeypatch: object
+):
     """Abnormal terminations must invalidate WITHOUT any savepoint rollback reaching the wire; ordinary errors keep the legacy full-rollback path."""
     _ = app
     import flaskr.service.user.repository as repo_module
@@ -9,12 +11,12 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
 
     events = []
 
-    def invalidate(*, source, session=None):
+    def invalidate(*, source: object, session: object = None):
         del session
         events.append(("invalidate", source))
         return True
 
-    def cleanup(exc, *, source, session=None):
+    def cleanup(exc: object, *, source: object, session: object = None):
         del exc, session
         events.append(("cleanup", source))
         return "rolled_back"

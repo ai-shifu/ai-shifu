@@ -40,7 +40,7 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func):
+def _serialized_pingpp_config(func: object):
     @wraps(func)
     def wrapped(*args: object, **kwargs: object):
         with _PINGPP_CONFIG_LOCK:
@@ -173,7 +173,11 @@ class PingxxProvider(PaymentProvider):
         raise RuntimeError(message)
 
     def cancel_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
         """Raise because Pingxx does not support subscription operations."""
         _ = (subscription_bid, provider_subscription_id, app)
@@ -181,7 +185,11 @@ class PingxxProvider(PaymentProvider):
         raise RuntimeError(message)
 
     def resume_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
         """Raise because Pingxx does not support subscription operations."""
         _ = (subscription_bid, provider_subscription_id, app)

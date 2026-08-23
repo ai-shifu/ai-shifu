@@ -17,7 +17,9 @@ class _DummyGeneration:
 
 
 class _DummySpan:
-    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
+    def __init__(
+        self, trace_id: object = "trace-1", span_id: object = "span-1"
+    ) -> None:
         self.trace_id = trace_id
         self.id = span_id
         self.generations = []

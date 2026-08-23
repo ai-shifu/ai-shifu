@@ -261,7 +261,7 @@ class TestLLMModelMaxOutputTokensConfig:
             '{"qwen/model": 8192, " qwen/model ": 4096}',
         ],
     )
-    def test_reject_invalid_routed_model_limits(self, value):
+    def test_reject_invalid_routed_model_limits(self, value: object):
         env_var = ENV_VARS["LLM_MODEL_MAX_OUTPUT_TOKENS"]
 
         assert env_var.validate_value(value) is False

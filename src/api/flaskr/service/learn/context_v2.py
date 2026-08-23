@@ -1141,7 +1141,7 @@ class RunScriptPreviewContextV2:
         result: LLMResult | Generator[LLMResult, None, None] | None,
         outline_bid: str,
         block_index: int,
-        current_block,
+        current_block: object,
         is_user_input_validation: bool,
         content_chunks: list[str],
         langfuse_output_chunks: list[str],
@@ -1193,7 +1193,7 @@ class RunScriptPreviewContextV2:
         llm_result: LLMResult | None,
         outline_bid: str,
         generated_block_bid: str,
-        current_block,
+        current_block: object,
         is_user_input_validation: bool,
     ) -> list[RunMarkdownFlowDTO]:
         content = ""
@@ -1541,7 +1541,7 @@ class RunScriptPreviewContextV2:
             .first()
         )
 
-    def _decimal_to_float(self, value) -> float | None:
+    def _decimal_to_float(self, value: object) -> float | None:
         if value is None:
             return None
         if isinstance(value, Decimal):
@@ -1837,7 +1837,7 @@ class RunScriptContextV2:
 
     def _finalize_stream_tts_processor(
         self,
-        tts_processor,
+        tts_processor: object,
         *,
         log_prefix: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -1856,7 +1856,7 @@ class RunScriptContextV2:
     def _teardown_stream_tts_state(
         self,
         *,
-        tts_processor=None,
+        tts_processor: object = None,
         flush_content_cache: Callable[[], Iterable[RunMarkdownFlowDTO]] | None = None,
         log_prefix: str,
         skip_emit: bool = False,
@@ -2109,7 +2109,9 @@ class RunScriptContextV2:
     # event construction lives in flaskr/service/learn/run/emitter.py.
 
     def _render_outline_updates(
-        self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
+        self,
+        outline_updates: list[OutlineItemUpdateDTO],
+        new_chapter: bool = False,
     ) -> Generator[str, None, None]:
         yield from self._event_emitter.render_outline_updates(
             outline_updates, new_chapter=new_chapter
@@ -2150,7 +2152,9 @@ class RunScriptContextV2:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         yield from self._event_emitter.emit_feedback_after_exception_gate()
 
-    def _ensure_current_attend_for_gate_interaction(self) -> LearnProgressRecord | None:
+    def _ensure_current_attend_for_gate_interaction(
+        self,
+    ) -> LearnProgressRecord | None:
         return self._event_emitter.ensure_current_attend_for_gate_interaction()
 
     def _emit_current_progress_gate_interaction(
@@ -3058,7 +3062,7 @@ class RunScriptContextV2:
             return False
 
     def _phase_emit_validation_error(
-        self, app: Flask, state: _RunStepState, validate_result
+        self, app: Flask, state: _RunStepState, validate_result: object
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Stream the validation-error content and re-emit the interaction."""
         run_script_info = state.run_script_info
@@ -3597,7 +3601,9 @@ class RunScriptContextV2:
             generation_prompt=sent_prompt,
         )
 
-    def _phase_completion_tail(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def _phase_completion_tail(
+        self,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Post-step outline completion: outline flips + tail interactions."""
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()

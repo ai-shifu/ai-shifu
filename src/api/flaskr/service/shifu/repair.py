@@ -104,7 +104,7 @@ class OutlineStructureRepairResult:
         }
 
 
-def _apply_shifu_scope(query, shifu_bids: list[str] | str | None):
+def _apply_shifu_scope(query: object, shifu_bids: list[str] | str | None):
     if shifu_bids is None:
         return query
     if isinstance(shifu_bids, str):

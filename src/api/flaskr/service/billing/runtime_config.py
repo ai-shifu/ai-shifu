@@ -99,7 +99,7 @@ def build_default_runtime_billing_context(
 
 
 def _build_branding_payload(
-    entitlement_state,
+    entitlement_state: object,
 ) -> RuntimeBillingBrandingDTO:
     normalized_feature_payload = entitlement_state.feature_payload.to_metadata_json()
 

@@ -188,7 +188,7 @@ _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
 )
 
 
-def _filter_out_reserved_credit_grant_ledgers(query):
+def _filter_out_reserved_credit_grant_ledgers(query: object):
     bucket_credit_state_expr = db.func.lower(
         db.func.trim(
             db.func.coalesce(
@@ -1175,7 +1175,7 @@ def _load_independent_entitlement_creator_bids(*, creator_bid: str = "") -> list
     )
 
 
-def _is_independent_entitlement_row(row) -> bool:
+def _is_independent_entitlement_row(row: object) -> bool:
     if bool(row[1]) or bool(row[2]):
         return True
     payload = row[3] if isinstance(row[3], dict) else {}

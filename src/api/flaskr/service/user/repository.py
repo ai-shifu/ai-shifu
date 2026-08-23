@@ -619,7 +619,7 @@ VALID_USER_STATES = {
 }
 
 
-def _normalize_user_state(raw_state) -> int:
+def _normalize_user_state(raw_state: object) -> int:
     if raw_state is None:
         return USER_STATE_UNREGISTERED
 

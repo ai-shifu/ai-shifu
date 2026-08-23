@@ -30,24 +30,30 @@ class _RecordingEmitter:
     def __init__(self) -> None:
         self.calls = []
 
-    def render_outline_updates(self, outline_updates, new_chapter=False):
+    def render_outline_updates(
+        self, outline_updates: object, new_chapter: object = False
+    ):
         self.calls.append(("render_outline_updates", outline_updates, new_chapter))
         yield "outline-event"
 
-    def emit_next_chapter_interaction(self, progress_record):
+    def emit_next_chapter_interaction(self, progress_record: object):
         self.calls.append(("emit_next_chapter_interaction", progress_record))
         yield "next-event"
 
-    def emit_lesson_feedback_interaction(self, progress_record):
+    def emit_lesson_feedback_interaction(self, progress_record: object):
         self.calls.append(("emit_lesson_feedback_interaction", progress_record))
         yield "feedback-event"
 
-    def is_access_gate_blocking_interaction(self, parsed_interaction):
+    def is_access_gate_blocking_interaction(self, parsed_interaction: object):
         self.calls.append(("is_access_gate_blocking_interaction", parsed_interaction))
         return True
 
     def maybe_emit_feedback_after_access_gate(
-        self, *, parsed_interaction, progress_record, is_tail_gate
+        self,
+        *,
+        parsed_interaction: object,
+        progress_record: object,
+        is_tail_gate: object,
     ):
         self.calls.append(
             (
@@ -67,12 +73,16 @@ class _RecordingEmitter:
         self.calls.append(("ensure_current_attend_for_gate_interaction",))
         return "attend"
 
-    def emit_current_progress_gate_interaction(self, content):
+    def emit_current_progress_gate_interaction(self, content: object):
         self.calls.append(("emit_current_progress_gate_interaction", content))
         yield "gate-interaction-event"
 
     def emit_completion_tail_interactions(
-        self, *, progress_record, current_outline_completed, has_next_outline_item
+        self,
+        *,
+        progress_record: object,
+        current_outline_completed: object,
+        has_next_outline_item: object,
     ):
         self.calls.append(
             (
@@ -182,11 +192,11 @@ class EmitterContextSeamTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object):
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress):
+        def _emit_next(_progress: object):
             calls.append("next")
             yield "next-event"
 
@@ -208,7 +218,7 @@ class EmitterContextSeamTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object):
             calls.append("feedback")
             yield "feedback-event"
 

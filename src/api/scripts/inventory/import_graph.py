@@ -31,7 +31,7 @@ ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 mods = {}  # module name -> relative file path
 
 
-def add_tree(base_dir):
+def add_tree(base_dir: object):
     """Add tree."""
     for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
@@ -82,7 +82,7 @@ for name, rel in mods.items():
                     edges[name].add(base + "." + a.name)
 
 
-def resolve(target):
+def resolve(target: object):
     """Map an imported dotted name to a known project module (or None)."""
     while target:
         if target in mods:

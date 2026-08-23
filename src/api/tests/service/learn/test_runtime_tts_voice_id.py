@@ -33,7 +33,9 @@ def voice_app():
 
 
 def _patch_provider(
-    monkeypatch, built_in=("builtin-1",), default_voice_id="default-voice"
+    monkeypatch: object,
+    built_in: object = ("builtin-1",),
+    default_voice_id: object = "default-voice",
 ):
     provider_config = SimpleNamespace(voices=[{"value": value} for value in built_in])
     monkeypatch.setattr(
@@ -46,7 +48,13 @@ def _patch_provider(
     )
 
 
-def _add_clone(shifu_bid, voice_id, status, voice_bid, provider="minimax"):
+def _add_clone(
+    shifu_bid: object,
+    voice_id: object,
+    status: object,
+    voice_bid: object,
+    provider: object = "minimax",
+):
     dao.db.session.add(
         TTSMiniMaxClonedVoice(
             voice_bid=voice_bid,
@@ -60,7 +68,7 @@ def _add_clone(shifu_bid, voice_id, status, voice_bid, provider="minimax"):
     dao.db.session.commit()
 
 
-def test_non_minimax_provider_returns_voice_id_unchanged(voice_app):
+def test_non_minimax_provider_returns_voice_id_unchanged(voice_app: object):
     from flaskr.service.learn import learn_funcs
 
     with voice_app.app_context():
@@ -73,7 +81,7 @@ def test_non_minimax_provider_returns_voice_id_unchanged(voice_app):
         )
 
 
-def test_minimax_empty_voice_id_returns_empty(voice_app):
+def test_minimax_empty_voice_id_returns_empty(voice_app: object):
     from flaskr.service.learn import learn_funcs
 
     with voice_app.app_context():
@@ -85,7 +93,7 @@ def test_minimax_empty_voice_id_returns_empty(voice_app):
         )
 
 
-def test_minimax_builtin_voice_is_kept(voice_app, monkeypatch):
+def test_minimax_builtin_voice_is_kept(voice_app: object, monkeypatch: object):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
@@ -98,7 +106,9 @@ def test_minimax_builtin_voice_is_kept(voice_app, monkeypatch):
         )
 
 
-def test_minimax_ready_clone_of_same_shifu_is_kept(voice_app, monkeypatch):
+def test_minimax_ready_clone_of_same_shifu_is_kept(
+    voice_app: object, monkeypatch: object
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
@@ -113,7 +123,7 @@ def test_minimax_ready_clone_of_same_shifu_is_kept(voice_app, monkeypatch):
 
 
 def test_minimax_ready_clone_of_other_shifu_is_kept_as_manual_custom_voice(
-    voice_app, monkeypatch
+    voice_app: object, monkeypatch: object
 ):
     from flaskr.service.learn import learn_funcs
 
@@ -130,7 +140,9 @@ def test_minimax_ready_clone_of_other_shifu_is_kept_as_manual_custom_voice(
         )
 
 
-def test_minimax_non_ready_clone_of_same_shifu_falls_back(voice_app, monkeypatch):
+def test_minimax_non_ready_clone_of_same_shifu_falls_back(
+    voice_app: object, monkeypatch: object
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
@@ -147,7 +159,9 @@ def test_minimax_non_ready_clone_of_same_shifu_falls_back(voice_app, monkeypatch
         )
 
 
-def test_minimax_untracked_custom_voice_falls_back(voice_app, monkeypatch):
+def test_minimax_untracked_custom_voice_falls_back(
+    voice_app: object, monkeypatch: object
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
@@ -162,7 +176,7 @@ def test_minimax_untracked_custom_voice_falls_back(voice_app, monkeypatch):
         )
 
 
-def test_volcengine_builtin_voice_is_kept(voice_app, monkeypatch):
+def test_volcengine_builtin_voice_is_kept(voice_app: object, monkeypatch: object):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch, built_in=("zh_female_vv_uranus_bigtts",))
@@ -178,7 +192,9 @@ def test_volcengine_builtin_voice_is_kept(voice_app, monkeypatch):
         )
 
 
-def test_volcengine_operator_registered_clone_is_kept(voice_app, monkeypatch):
+def test_volcengine_operator_registered_clone_is_kept(
+    voice_app: object, monkeypatch: object
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
@@ -196,7 +212,9 @@ def test_volcengine_operator_registered_clone_is_kept(voice_app, monkeypatch):
         )
 
 
-def test_volcengine_unregistered_clone_falls_back(voice_app, monkeypatch):
+def test_volcengine_unregistered_clone_falls_back(
+    voice_app: object, monkeypatch: object
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
@@ -209,7 +227,9 @@ def test_volcengine_unregistered_clone_falls_back(voice_app, monkeypatch):
         )
 
 
-def test_volcengine_does_not_accept_minimax_clone_row(voice_app, monkeypatch):
+def test_volcengine_does_not_accept_minimax_clone_row(
+    voice_app: object, monkeypatch: object
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)

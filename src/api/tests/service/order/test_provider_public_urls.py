@@ -31,7 +31,7 @@ def clear_provider_public_url_config_cache():
     _reset_config_cache(*keys)
 
 
-def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
+def test_alipay_precreate_uses_host_url_notify_url(monkeypatch: object):
     monkeypatch.setenv("HOST_URL", "https://pay.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -42,11 +42,11 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
         pass
 
     class FakePrecreateRequest:
-        def __init__(self, *, biz_model) -> None:
+        def __init__(self, *, biz_model: object) -> None:
             self.biz_model = biz_model
 
     class FakeClient:
-        def execute(self, precreate_request):
+        def execute(self, precreate_request: object):
             captured["notify_url"] = precreate_request.notify_url
             return {
                 "alipay_trade_precreate_response": {
@@ -88,7 +88,7 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
     assert result.extra["raw_request"]["notify_url"] == captured["notify_url"]
 
 
-def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
+def test_wechatpay_native_uses_host_url_notify_url(monkeypatch: object):
     monkeypatch.setenv("HOST_URL", "https://pay.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     monkeypatch.setenv("WECHATPAY_APP_ID", "wx-app-1")
@@ -104,7 +104,7 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
 
     provider = WechatPayProvider()
 
-    def fake_request(*, method, path, body, app):
+    def fake_request(*, method: object, path: object, body: object, app: object):
         del method, path, app
         captured.update(json.loads(body))
         return {"code_url": "https://wechatpay.test/qr"}
@@ -134,7 +134,7 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
 
 
 def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempotency(
-    monkeypatch,
+    monkeypatch: object,
 ):
     captured_coupon: dict[str, object] = {}
     captured_session: dict[str, object] = {}
@@ -214,7 +214,7 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
 
 
 def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
-    monkeypatch,
+    monkeypatch: object,
 ):
     deleted: list[str] = []
 
@@ -224,7 +224,7 @@ def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
             return {"id": "coupon-cleanup-1"}
 
         @staticmethod
-        def delete(coupon_id, **_kwargs: object) -> None:
+        def delete(coupon_id: object, **_kwargs: object) -> None:
             deleted.append(coupon_id)
 
     class FakeSession:

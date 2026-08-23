@@ -20,7 +20,7 @@ class _RecordingLangfuse:
         _RecordingLangfuse.instances.append(kwargs)
 
 
-def _configure(app, monkeypatch):
+def _configure(app: object, monkeypatch: object):
     app.config["LANGFUSE_PUBLIC_KEY"] = "pk"
     app.config["LANGFUSE_SECRET_KEY"] = "sk"
     app.config["LANGFUSE_HOST"] = "https://langfuse.example"
@@ -33,7 +33,7 @@ def _configure(app, monkeypatch):
     )
 
 
-def test_preload_master_defers_real_client(app, monkeypatch):
+def test_preload_master_defers_real_client(app: object, monkeypatch: object):
     _configure(app, monkeypatch)
     monkeypatch.setattr(langfuse_module, "Langfuse", _RecordingLangfuse)
     monkeypatch.setattr(_RecordingLangfuse, "instances", [])
@@ -45,7 +45,7 @@ def test_preload_master_defers_real_client(app, monkeypatch):
     assert isinstance(langfuse_module.get_langfuse_client(), MockClient)
 
 
-def test_worker_builds_real_client_after_flag_cleared(app, monkeypatch):
+def test_worker_builds_real_client_after_flag_cleared(app: object, monkeypatch: object):
     _configure(app, monkeypatch)
     monkeypatch.setattr(langfuse_module, "Langfuse", _RecordingLangfuse)
     monkeypatch.setattr(_RecordingLangfuse, "instances", [])

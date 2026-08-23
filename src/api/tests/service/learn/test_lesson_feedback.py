@@ -117,7 +117,9 @@ class LessonFeedbackTests(unittest.TestCase):
         assert synced_generated_content.get("score") == 3
         assert synced_generated_content.get("comment") == "Need more examples"
 
-    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(self):
+    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(
+        self,
+    ):
         interaction = LearnGeneratedBlock(
             generated_block_bid="block-1",
             progress_record_bid="progress-1",

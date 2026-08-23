@@ -44,7 +44,7 @@ def _normalize_audio(data: bytes, filename: str, purpose: str) -> SimpleNamespac
 
 
 @pytest.fixture
-def minimax_clone_app(monkeypatch):
+def minimax_clone_app(monkeypatch: object):
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -159,14 +159,16 @@ def test_validate_minimax_custom_voice_id_rules() -> None:
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) -> None:
+def test_normalize_audio_blob_validates_duration_and_exports_wav(
+    monkeypatch: object,
+) -> None:
     from flaskr.service.tts import minimax_voice_clone
 
     class FakeSegment:
         def __len__(self) -> int:
             return 12_000
 
-        def export(self, out, format="wav"):  # noqa: A002 - mirrors the pydub API
+        def export(self, out: object, format: object = "wav"):  # noqa: A002 - mirrors the pydub API
             assert format == "wav"
             out.write(b"WAV-BYTES")
 
@@ -189,7 +191,9 @@ def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) ->
     assert result.audio_bytes == b"WAV-BYTES"
 
 
-def test_minimax_upload_file_accepts_official_file_response(monkeypatch) -> None:
+def test_minimax_upload_file_accepts_official_file_response(
+    monkeypatch: object,
+) -> None:
     from flaskr.service.tts import minimax_voice_clone
     from flaskr.service.tts.minimax_voice_clone import MiniMaxVoiceCloneClient
 
@@ -217,7 +221,9 @@ def test_minimax_upload_file_accepts_official_file_response(monkeypatch) -> None
                 "base_resp": {"status_code": 0, "status_msg": "success"},
             }
 
-    def fake_post(url, headers, data, files, timeout):
+    def fake_post(
+        url: object, headers: object, data: object, files: object, timeout: object
+    ):
         assert url.endswith("/v1/files/upload?GroupId=test-group")
         assert headers["Authorization"] == "Bearer test-api-key"
         assert data == {"purpose": "voice_clone"}
@@ -237,7 +243,7 @@ def test_minimax_upload_file_accepts_official_file_response(monkeypatch) -> None
     assert result.extra_info["purpose"] == "voice_clone"
 
 
-def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch) -> None:
+def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch: object) -> None:
     from flaskr.service.tts import minimax_voice_clone
     from flaskr.service.tts.minimax_voice_clone import MiniMaxVoiceCloneClient
 
@@ -262,7 +268,7 @@ def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch) -> None:
                 "base_resp": {"status_code": 0, "status_msg": "success"},
             }
 
-    def fake_post(url, headers, json, timeout):
+    def fake_post(url: object, headers: object, json: object, timeout: object):
         assert url.endswith("/v1/voice_clone?GroupId=test-group")
         assert headers["Authorization"] == "Bearer test-api-key"
         assert headers["Content-Type"] == "application/json"
@@ -285,7 +291,7 @@ def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch) -> None:
 
 def test_run_minimax_voice_clone_success_captures_credit_once(
     minimax_clone_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.tts.minimax_voice_clone import (
         TTS_MINIMAX_CLONE_STATUS_QUEUED,
@@ -318,13 +324,17 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
     )
 
     class FakeClient:
-        def upload_clone_audio(self, audio_bytes, filename, content_type):
+        def upload_clone_audio(
+            self, audio_bytes: object, filename: object, content_type: object
+        ):
             assert audio_bytes == b"WAV"
             assert filename.endswith(".wav")
             assert content_type == "audio/wav"
             return SimpleNamespace(file_id="file-source")
 
-        def upload_prompt_audio(self, audio_bytes, filename, content_type):
+        def upload_prompt_audio(
+            self, audio_bytes: object, filename: object, content_type: object
+        ):
             _ = (audio_bytes, filename, content_type)
             message = "prompt upload should not be called"
             raise AssertionError(message)
@@ -385,7 +395,7 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
 
 def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misses(
     minimax_clone_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.resource.models import Resource
     from flaskr.service.tts import minimax_voice_clone
@@ -400,7 +410,9 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
     stored_objects: dict[str, bytes] = {}
     read_calls: list[tuple[str, str]] = []
 
-    def fake_upload_to_storage(_app, *, file_content, object_key, **_kwargs: object):
+    def fake_upload_to_storage(
+        _app: object, *, file_content: object, object_key: object, **_kwargs: object
+    ):
         if hasattr(file_content, "seek"):
             file_content.seek(0)
         stored_objects[object_key] = file_content.read()
@@ -410,7 +422,9 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
             url=f"https://cdn.example/{object_key}",
         )
 
-    def fake_read_storage_bytes(*, object_key, profile, bucket_name):
+    def fake_read_storage_bytes(
+        *, object_key: object, profile: object, bucket_name: object
+    ):
         _ = profile
         read_calls.append((object_key, bucket_name))
         return stored_objects[object_key]
@@ -436,12 +450,16 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
     )
 
     class FakeClient:
-        def upload_clone_audio(self, audio_bytes, filename, content_type):
+        def upload_clone_audio(
+            self, audio_bytes: object, filename: object, content_type: object
+        ):
             _ = (filename, content_type)
             assert audio_bytes == b"WAV"
             return SimpleNamespace(file_id="file-source")
 
-        def upload_prompt_audio(self, audio_bytes, filename, content_type):
+        def upload_prompt_audio(
+            self, audio_bytes: object, filename: object, content_type: object
+        ):
             _ = (audio_bytes, filename, content_type)
             message = "prompt upload should not be called"
             raise AssertionError(message)
@@ -499,7 +517,9 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
         assert read_calls[0] == (source_object_key, "resource-bucket")
 
 
-def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch):
+def test_execute_clone_processing_uses_row_values_inside_app_context(
+    monkeypatch: object,
+):
     from flaskr.service.tts import minimax_voice_clone
 
     in_context = False
@@ -533,7 +553,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
             self.billing_reservation_bid = ""
             self.estimated_credits = Decimal(0)
 
-        def __getattribute__(self, name) -> Any:
+        def __getattribute__(self, name: object) -> Any:
             protected = {
                 "voice_bid",
                 "voice_id",
@@ -566,7 +586,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
         _normalize_audio,
     )
 
-    def fake_store_resource_bytes(_app, **kwargs: object):
+    def fake_store_resource_bytes(_app: object, **kwargs: object):
         stored_calls.append(
             {
                 "owner_user_bid": kwargs["owner_user_bid"],
@@ -602,11 +622,15 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
     )
 
     class FakeClient:
-        def upload_clone_audio(self, audio_bytes, filename, content_type):
+        def upload_clone_audio(
+            self, audio_bytes: object, filename: object, content_type: object
+        ):
             _ = (audio_bytes, filename, content_type)
             return SimpleNamespace(file_id="file-source")
 
-        def upload_prompt_audio(self, audio_bytes, filename, content_type):
+        def upload_prompt_audio(
+            self, audio_bytes: object, filename: object, content_type: object
+        ):
             _ = (audio_bytes, filename, content_type)
             message = "prompt upload should not be called"
             raise AssertionError(message)
@@ -645,7 +669,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch
 
 def test_soft_deleted_minimax_voice_id_can_be_reused(
     minimax_clone_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.tts.minimax_voice_clone import submit_minimax_voice_clone
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
@@ -698,7 +722,7 @@ def test_soft_deleted_minimax_voice_id_can_be_reused(
 
 def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
     minimax_clone_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.tts.minimax_voice_clone import (
         TTS_MINIMAX_CLONE_STATUS_FAILED,
@@ -756,7 +780,7 @@ def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
 
 def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
     minimax_clone_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.tts import minimax_voice_clone
     from flaskr.service.tts.minimax_voice_clone import (

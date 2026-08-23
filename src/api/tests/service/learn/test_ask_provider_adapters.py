@@ -18,12 +18,12 @@ from flaskr.service.learn.ask_provider_adapters import (
 class _FakeResponse:
     def __init__(
         self,
-        lines=None,
-        status_code=200,
-        text="",
-        http_error=None,
-        json_data=None,
-        json_error=None,
+        lines: object = None,
+        status_code: object = 200,
+        text: object = "",
+        http_error: object = None,
+        json_data: object = None,
+        json_error: object = None,
     ) -> None:
         self._lines = lines or []
         self.status_code = status_code
@@ -32,7 +32,7 @@ class _FakeResponse:
         self._json_data = json_data
         self._json_error = json_error
 
-    def iter_lines(self, decode_unicode=True):
+    def iter_lines(self, decode_unicode: object = True):
         _ = decode_unicode
         yield from self._lines
 
@@ -46,7 +46,7 @@ class _FakeResponse:
         return self._json_data
 
 
-def test_dify_adapter_streams_success_content(app, monkeypatch):
+def test_dify_adapter_streams_success_content(app: object, monkeypatch: object):
     adapter = module.DifyAskProviderAdapter()
     request_state = {}
 
@@ -103,7 +103,7 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
 
-def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
+def test_coze_adapter_timeout_raises_timeout_error(app: object, monkeypatch: object):
     adapter = module.CozeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -138,7 +138,9 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
         )
 
 
-def test_stream_ask_provider_response_raises_error_for_unsupported_provider(app):
+def test_stream_ask_provider_response_raises_error_for_unsupported_provider(
+    app: object,
+):
     with pytest.raises(module.AskProviderConfigError):
         list(
             module.stream_ask_provider_response(
@@ -152,7 +154,9 @@ def test_stream_ask_provider_response_raises_error_for_unsupported_provider(app)
         )
 
 
-def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
+def test_coze_adapter_http_error_raises_provider_error(
+    app: object, monkeypatch: object
+):
     adapter = module.CozeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -192,7 +196,9 @@ def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
         )
 
 
-def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
+def test_coze_workflow_adapter_streams_success_content(
+    app: object, monkeypatch: object
+):
     adapter = module.CozeWorkflowAskProviderAdapter()
     request_state = {}
 
@@ -204,7 +210,7 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
         }.get,
     )
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url: object, **kwargs: object):
         request_state["url"] = url
         request_state["json"] = kwargs.get("json")
         request_state["headers"] = kwargs.get("headers") or {}
@@ -256,7 +262,9 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
     )
 
 
-def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypatch):
+def test_coze_workflow_adapter_nonzero_code_raises_provider_error(
+    app: object, monkeypatch: object
+):
     adapter = module.CozeWorkflowAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -299,7 +307,7 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypat
         )
 
 
-def test_dify_adapter_missing_shifu_config_raises_config_error(app):
+def test_dify_adapter_missing_shifu_config_raises_config_error(app: object):
     adapter = module.DifyAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="base_url/api_key"):
@@ -314,7 +322,7 @@ def test_dify_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_adapter_missing_shifu_config_raises_config_error(app):
+def test_coze_adapter_missing_shifu_config_raises_config_error(app: object):
     adapter = module.CozeAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="api_key is required"):
@@ -329,7 +337,7 @@ def test_coze_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app):
+def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app: object):
     adapter = module.CozeWorkflowAskProviderAdapter()
 
     with pytest.raises(
@@ -346,7 +354,9 @@ def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
+def test_coze_adapter_uses_default_base_url_when_missing(
+    app: object, monkeypatch: object
+):
     adapter = module.CozeAskProviderAdapter()
     request_state = {}
 
@@ -358,7 +368,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
         }.get,
     )
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url: object, **kwargs: object):
         request_state["url"] = url
         request_state["json"] = kwargs["json"]
         return _FakeResponse(
@@ -390,7 +400,9 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     assert [chunk.content for chunk in chunks] == ["ok"]
 
 
-def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
+def test_volc_knowledge_adapter_streams_success_content(
+    app: object, monkeypatch: object
+):
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -452,7 +464,7 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
     assert request_state["headers"]["X-Content-Sha256"]
 
 
-def test_volc_knowledge_adapter_missing_config_raises_error(app):
+def test_volc_knowledge_adapter_missing_config_raises_error(app: object):
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="account_id/ak/sk"):
@@ -472,7 +484,9 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app):
         )
 
 
-def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatch):
+def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(
+    app: object, monkeypatch: object
+):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -485,7 +499,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
     request_state = {}
 
-    def _fake_post(url, **kwargs: object):
+    def _fake_post(url: object, **kwargs: object):
         request_state["url"] = url
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["json"] = kwargs.get("json")
@@ -521,7 +535,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context: object):
         captured_context["value"] = knowledge_context
         return iter(
             [
@@ -575,7 +589,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
 
 def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
@@ -602,7 +616,7 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context: object):
         captured_context["value"] = knowledge_context
         return iter([types.SimpleNamespace(result="answer")])
 
@@ -632,7 +646,7 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
 
 
 def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
@@ -646,7 +660,7 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context: object):
         captured_context["value"] = knowledge_context
         return iter([types.SimpleNamespace(result="fallback answer")])
 
@@ -675,7 +689,9 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context
     assert [chunk.content for chunk in chunks] == ["fallback answer"]
 
 
-def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypatch):
+def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(
+    app: object, monkeypatch: object
+):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -725,7 +741,7 @@ def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypa
     ]
 
 
-def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
+def test_get_biji_knowledge_adapter_missing_config_raises_error(app: object):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     with pytest.raises(
@@ -747,7 +763,9 @@ def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
         )
 
 
-def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
+def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(
+    app: object, monkeypatch: object
+):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     def _raise_timeout(*_args: object, **_kwargs: object):
@@ -774,7 +792,9 @@ def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatc
         )
 
 
-def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkeypatch):
+def test_get_biji_knowledge_adapter_http_error_raises_provider_error(
+    app: object, monkeypatch: object
+):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
     http_error = requests.HTTPError("bad request")
 
@@ -809,7 +829,7 @@ def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkey
 
 
 def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
@@ -853,7 +873,7 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
 
 
 def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
-    app, monkeypatch
+    app: object, monkeypatch: object
 ):
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
     cases = [
@@ -1001,7 +1021,7 @@ def test_apply_knowledge_to_messages_prepends_system_when_missing():
     assert unchanged == messages
 
 
-def test_llm_adapter_streams_from_runtime_factory(app):
+def test_llm_adapter_streams_from_runtime_factory(app: object):
     adapter = module.LlmAskProviderAdapter()
 
     runtime = module.AskProviderRuntime(
@@ -1029,7 +1049,7 @@ def test_llm_adapter_streams_from_runtime_factory(app):
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
 
 
-def test_llm_adapter_missing_runtime_raises_config_error(app):
+def test_llm_adapter_missing_runtime_raises_config_error(app: object):
     adapter = module.LlmAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="llm runtime"):
@@ -1044,7 +1064,7 @@ def test_llm_adapter_missing_runtime_raises_config_error(app):
         )
 
 
-def test_stream_ask_provider_response_uses_llm_adapter_runtime(app):
+def test_stream_ask_provider_response_uses_llm_adapter_runtime(app: object):
     runtime = module.AskProviderRuntime(
         llm_stream_factory=lambda: iter([types.SimpleNamespace(result="from-llm")])
     )

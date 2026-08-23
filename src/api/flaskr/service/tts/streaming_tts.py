@@ -716,7 +716,9 @@ class StreamingTTSProcessor:
 
         return segment
 
-    def _yield_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def _yield_ready_segments(
+        self,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield segments that are ready in order."""
         segments_yielded = 0
         while True:

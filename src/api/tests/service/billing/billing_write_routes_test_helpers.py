@@ -363,7 +363,7 @@ def add_trial_subscription_state(
         dao.db.session.commit()
 
 
-def billing_write_client(monkeypatch):
+def billing_write_client(monkeypatch: object):
     monkeypatch.setenv("HOST_URL", "https://billing.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -388,7 +388,7 @@ def billing_write_client(monkeypatch):
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object):
             _ = app
             stripe_requests.append(
                 {
@@ -409,10 +409,12 @@ def billing_write_client(monkeypatch):
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def create_subscription(self, *, request, app):
+        def create_subscription(self, *, request: object, app: object):
             return self.create_payment(request=request, app=app)
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ):
             _ = app
             assert reference_type == "checkout_session"
             return PaymentNotificationResult(
@@ -436,7 +438,11 @@ def billing_write_client(monkeypatch):
             )
 
         def cancel_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
+            self,
+            *,
+            subscription_bid: str,
+            provider_subscription_id: str,
+            app: object,
         ):
             _ = app
             return SubscriptionUpdateResult(
@@ -452,7 +458,11 @@ def billing_write_client(monkeypatch):
             )
 
         def resume_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
+            self,
+            *,
+            subscription_bid: str,
+            provider_subscription_id: str,
+            app: object,
         ):
             _ = app
             return SubscriptionUpdateResult(
@@ -467,7 +477,7 @@ def billing_write_client(monkeypatch):
                 extra={"cancel_at_period_end": False},
             )
 
-        def refund_payment(self, *, request, app):
+        def refund_payment(self, *, request: object, app: object):
             _ = app
             refund_requests.append(
                 {
@@ -484,7 +494,7 @@ def billing_write_client(monkeypatch):
             )
 
     class FakePingxxProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object):
             _ = app
             pingxx_requests.append(
                 {
@@ -501,7 +511,9 @@ def billing_write_client(monkeypatch):
                 extra={"credential": {"alipay_qr": "https://pingxx.test/qr"}},
             )
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ):
             _ = app
             assert reference_type == "charge"
             return PaymentNotificationResult(

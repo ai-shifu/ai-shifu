@@ -15,7 +15,7 @@ class FakeLLMResponse:
         is_end: bool = False,
         is_truncated: bool = False,
         finish_reason: str = "stop",
-        usage=None,
+        usage: object = None,
     ) -> None:
         """Capture streamed content, completion metadata, and usage for tests."""
         self.id = chunk_id
@@ -67,5 +67,5 @@ def fake_get_allowed_models() -> list[str]:
     return []
 
 
-def fake_get_current_models(_app) -> list[dict[str, str]]:
+def fake_get_current_models(_app: object) -> list[dict[str, str]]:
     return []

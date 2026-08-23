@@ -33,7 +33,9 @@ def _make_row(
     )
 
 
-def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(app):
+def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(
+    app: object,
+):
     with app.app_context():
         LearnGeneratedElement.query.delete()
         db.session.commit()
@@ -75,7 +77,9 @@ def test_find_active_element_row_ids_returns_sorted_ids_from_both_bid_columns(ap
         assert row_ids == expected_ids
 
 
-def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(app):
+def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(
+    app: object,
+):
     with app.app_context():
         LearnGeneratedElement.query.delete()
         db.session.commit()
@@ -101,7 +105,9 @@ def test_find_active_element_row_ids_sees_rows_flushed_in_current_transaction(ap
         db.session.rollback()
 
 
-def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkeypatch):
+def test_find_active_element_row_ids_invalidates_desynced_connection(
+    app: object, monkeypatch: object
+):
     class _DesyncedResult:
         def fetchall(self):
             message = (
@@ -124,7 +130,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
             self.invalidated += 1
 
     class _FakeSession:
-        def __init__(self, connection) -> None:
+        def __init__(self, connection: object) -> None:
             self._connection = connection
 
         def connection(self):
@@ -166,7 +172,9 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(app, monkey
     assert fake_connection.invalidated == 0
 
 
-def test_deactivate_active_element_rows_retires_rows_without_touching_others(app):
+def test_deactivate_active_element_rows_retires_rows_without_touching_others(
+    app: object,
+):
     with app.app_context():
         LearnGeneratedElement.query.delete()
         db.session.commit()

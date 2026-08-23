@@ -17,7 +17,7 @@ class DummyStripeRefundProvider:
         """Capture the result returned by refund requests."""
         self._result = result
 
-    def refund_payment(self, *, request, app):  # pylint: disable=unused-argument
+    def refund_payment(self, *, request: object, app: object):  # pylint: disable=unused-argument
         _ = (request, app)
         return self._result
 
@@ -42,7 +42,7 @@ def app():
         dao.db.drop_all()
 
 
-def _ensure_order(status, order_bid):
+def _ensure_order(status: object, order_bid: object):
     order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
@@ -54,7 +54,7 @@ def _ensure_order(status, order_bid):
     return order
 
 
-def test_refund_order_payment_updates_status(app, monkeypatch):
+def test_refund_order_payment_updates_status(app: object, monkeypatch: object):
     order_bid = "order-refund-1"
     with app.app_context():
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
@@ -139,7 +139,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
         assert billing_snapshot.status == 0
 
 
-def test_get_payment_details_returns_stripe_payload(app):
+def test_get_payment_details_returns_stripe_payload(app: object):
     with app.app_context():
         order_bid = "order-details-1"
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)

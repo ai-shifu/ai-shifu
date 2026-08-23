@@ -6,12 +6,12 @@ import pytest
 from flask import request
 
 
-def _require_app(app):
+def _require_app(app: object):
     if app is None:
         pytest.skip("App fixture disabled")
 
 
-def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(app):
+def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(app: object):
     _require_app(app)
 
     from flaskr.dao import db
@@ -104,7 +104,7 @@ def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(app):
     assert all("slide_id" not in audio.__json__() for audio in record.audios)
 
 
-def test_get_learn_record_omits_legacy_fields_for_answer_blocks(app):
+def test_get_learn_record_omits_legacy_fields_for_answer_blocks(app: object):
     _require_app(app)
 
     from flaskr.dao import db

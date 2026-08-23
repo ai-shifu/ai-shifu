@@ -57,14 +57,14 @@ class _StubRunContext:
     def has_next(self):
         return next(self._steps, False)
 
-    def run(self, _app):
+    def run(self, _app: object):
         for item in type(self).script:
             if isinstance(item, BaseException):
                 raise item
             yield item
 
 
-def _patch_run_dependencies(monkeypatch, script):
+def _patch_run_dependencies(monkeypatch: object, script: object):
     session = _FakeSession()
 
     class _FakeDb:
@@ -102,7 +102,7 @@ def _patch_run_dependencies(monkeypatch, script):
     return session
 
 
-def _start_stream(app):
+def _start_stream(app: object):
     generator = run_script_inner(
         app=app,
         user_bid="user-1",
@@ -114,7 +114,9 @@ def _start_stream(app):
     return generator
 
 
-def test_generator_exit_invalidates_connection_instead_of_rollback(app, monkeypatch):
+def test_generator_exit_invalidates_connection_instead_of_rollback(
+    app: object, monkeypatch: object
+):
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -126,7 +128,9 @@ def test_generator_exit_invalidates_connection_instead_of_rollback(app, monkeypa
     assert session.removed == 1
 
 
-def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatch):
+def test_desync_error_invalidates_connection_instead_of_rollback(
+    app: object, monkeypatch: object
+):
     session = _patch_run_dependencies(
         monkeypatch,
         [
@@ -152,7 +156,9 @@ def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatc
     assert session.removed == 1
 
 
-def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
+def test_ordinary_error_still_rolls_back_pooled_connection(
+    app: object, monkeypatch: object
+):
     session = _patch_run_dependencies(
         monkeypatch, ["chunk-1", ValueError("business failure")]
     )
@@ -184,7 +190,9 @@ def test_desync_error_classifier_covers_symptom_family():
     assert not _is_protocol_desync_error(wrapped_deadlock)
 
 
-def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatch):
+def test_stop_event_cancellation_invalidates_instead_of_rollback(
+    app: object, monkeypatch: object
+):
     import threading
 
     session = _patch_run_dependencies(monkeypatch, ["chunk-1"])
@@ -220,7 +228,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     assert session.rollbacks == 0
 
 
-def test_natural_exhaustion_never_invalidates(app, monkeypatch):
+def test_natural_exhaustion_never_invalidates(app: object, monkeypatch: object):
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -233,7 +241,7 @@ def test_natural_exhaustion_never_invalidates(app, monkeypatch):
     assert session.commits >= 1
 
 
-def test_discard_helper_works_on_real_scoped_session(app, caplog):
+def test_discard_helper_works_on_real_scoped_session(app: object, caplog: object):
     import logging
 
     from flaskr.service.learn.runscript_v2 import _discard_session_connection

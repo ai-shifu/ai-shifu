@@ -17,7 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DisconnectionError
 
 
-def test_statement_journal_records_recent_statements(app):
+def test_statement_journal_records_recent_statements(app: object):
     with app.app_context():
         db.session.execute(text("SELECT 1"))
         db.session.execute(text("SELECT 2"))
@@ -68,7 +68,7 @@ def test_pre_execute_probe_blocks_desynced_connection():
         right.close()
 
 
-def test_pre_execute_probe_ignores_drivers_without_socket(app):
+def test_pre_execute_probe_ignores_drivers_without_socket(app: object):
     # SQLite connections expose no _sock; the whole suite running on SQLite
     # exercises this path implicitly, but assert the direct call is a no-op.
     with app.app_context():

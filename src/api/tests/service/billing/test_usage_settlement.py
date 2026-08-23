@@ -1119,7 +1119,7 @@ def test_settle_usage_acquires_creator_scoped_lock(
             self.acquire_calls: list[bool] = []
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
             _ = blocking_timeout
             self.acquire_calls.append(bool(blocking))
             return True
@@ -1132,7 +1132,12 @@ def test_settle_usage_acquires_creator_scoped_lock(
             self.calls: list[dict[str, object]] = []
             self.lock_instance = _DummyLock()
 
-        def lock(self, key: str, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: str,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ):
             self.calls.append(
                 {
                     "key": key,
@@ -1206,7 +1211,7 @@ def test_settle_usage_releases_creator_lock_on_error(
         def __init__(self) -> None:
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
             _ = (blocking, blocking_timeout)
             return True
 
@@ -1492,7 +1497,7 @@ def test_build_usage_metric_charges_uses_public_charge_module(
 
 def test_build_usage_metric_charges_matches_llm_rate_model_alias(
     billing_settlement_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.billing import charges as charge_module
 
@@ -1550,7 +1555,7 @@ def test_build_usage_metric_charges_matches_llm_rate_model_alias(
 
 def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time(
     billing_settlement_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.billing import charges as charge_module
 
@@ -1620,7 +1625,9 @@ def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time
         assert charge["consumed_credits"] == Decimal("2.00")
 
 
-def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch):
+def test_resolve_credit_multiplier_label_uses_utc_default_settlement(
+    monkeypatch: object,
+):
     from flaskr.service.billing import charges
 
     utc_sentinel = datetime(2026, 1, 1, 0, 0, 0)
@@ -1628,7 +1635,9 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch
 
     monkeypatch.setattr(charges, "now_utc", lambda: utc_sentinel)
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ):
         _ = (usage, billing_metric)
         captured.append(settlement_at)
 

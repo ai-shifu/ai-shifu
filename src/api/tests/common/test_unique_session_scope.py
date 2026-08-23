@@ -11,14 +11,14 @@ import pytest
 from flaskr.dao import _unique_app_ctx_scope, db
 
 
-def test_scope_token_is_stable_within_a_context(app):
+def test_scope_token_is_stable_within_a_context(app: object):
     with app.app_context():
         first = _unique_app_ctx_scope()
         second = _unique_app_ctx_scope()
         assert first == second
 
 
-def test_scope_token_never_repeats_across_contexts(app):
+def test_scope_token_never_repeats_across_contexts(app: object):
     tokens = []
     for _ in range(50):
         with app.app_context():
@@ -29,7 +29,7 @@ def test_scope_token_never_repeats_across_contexts(app):
     assert len(set(tokens)) == len(tokens)
 
 
-def test_nested_contexts_get_distinct_tokens(app):
+def test_nested_contexts_get_distinct_tokens(app: object):
     with app.app_context():
         outer = _unique_app_ctx_scope()
         with app.app_context():
@@ -38,7 +38,7 @@ def test_nested_contexts_get_distinct_tokens(app):
         assert _unique_app_ctx_scope() == outer
 
 
-def test_sessions_are_isolated_per_context_and_removed_on_teardown(app):
+def test_sessions_are_isolated_per_context_and_removed_on_teardown(app: object):
     with app.app_context():
         outer_token = _unique_app_ctx_scope()
         outer_session = db.session()

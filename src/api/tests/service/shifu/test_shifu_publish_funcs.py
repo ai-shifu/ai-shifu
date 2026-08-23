@@ -99,7 +99,7 @@ class _FakeObservation:
         self.id = f"fake-{kind}-id"
         self.generations = []
 
-    def start_observation(self, as_type="span", **kwargs: object):
+    def start_observation(self, as_type: object = "span", **kwargs: object):
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
@@ -126,7 +126,12 @@ class _FakeLangfuseClient:
     def __init__(self) -> None:
         self.traces = []
 
-    def start_observation(self, as_type="span", trace_context=None, **kwargs: object):
+    def start_observation(
+        self,
+        as_type: object = "span",
+        trace_context: object = None,
+        **kwargs: object,
+    ):
         root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
@@ -157,13 +162,13 @@ def test_make_ask_prompt_fills_content_and_keeps_runtime_placeholders():
     assert "<knowledge>" not in result
 
 
-def test_get_summary_updates_trace_and_span_output(monkeypatch):
+def test_get_summary_updates_trace_and_span_output(monkeypatch: object):
     from flaskr.api import langfuse as langfuse_module
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     fake_langfuse = _FakeLangfuseClient()
 
-    def create_trace_id(seed=None):
+    def create_trace_id(seed: object = None):
         del seed
         return "a" * 32
 
@@ -209,7 +214,7 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     assert trace.ended
 
 
-def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
+def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch: object):
     from unittest.mock import MagicMock
 
     from flaskr.service.shifu import shifu_publish_funcs as module
@@ -237,7 +242,7 @@ def test_run_summary_downgrades_shutdown_race_to_warning(monkeypatch):
     error_mock.assert_not_called()
 
 
-def test_run_summary_logs_error_for_other_failures(monkeypatch):
+def test_run_summary_logs_error_for_other_failures(monkeypatch: object):
     from unittest.mock import MagicMock
 
     from flaskr.service.shifu import shifu_publish_funcs as module
@@ -262,7 +267,9 @@ def test_run_summary_logs_error_for_other_failures(monkeypatch):
     warning_mock.assert_not_called()
 
 
-def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
+def test_publish_shifu_draft_preserves_outline_updated_at(
+    app: object, monkeypatch: object
+):
     from flaskr.service.shifu import shifu_publish_funcs as module
 
     monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *_args: None)

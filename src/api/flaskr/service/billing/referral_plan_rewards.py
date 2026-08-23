@@ -123,7 +123,7 @@ def _load_product_by_bid(product_bid: str):
     )
 
 
-def _is_trial_subscription_product(subscription, product) -> bool:
+def _is_trial_subscription_product(subscription: object, product: object) -> bool:
     consts = _billing_consts()
     product_bid = _normalize_bid(getattr(product, "product_bid", ""))
     product_code = str(getattr(product, "product_code", "") or "").strip()
@@ -173,7 +173,7 @@ def _load_primary_active_subscription(creator_bid: str, *, as_of: datetime):
 
 
 def _calculate_self_managed_billing_cycle_end(
-    product,
+    product: object,
     *,
     cycle_start_at: datetime,
 ):
@@ -186,7 +186,7 @@ def _calculate_self_managed_billing_cycle_end(
 
 
 def _calculate_self_managed_billing_cycle_end_after_boundary(
-    product,
+    product: object,
     *,
     cycle_boundary_at: datetime,
 ):
@@ -204,7 +204,7 @@ def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None
     return extract_order_metadata_datetime(metadata, key)
 
 
-def _grant_paid_order_credits(app: Flask, order) -> bool:
+def _grant_paid_order_credits(app: Flask, order: object) -> bool:
     from .subscriptions import grant_paid_order_credits
 
     return grant_paid_order_credits(app, order)
@@ -216,7 +216,7 @@ def _is_self_managed_billing_provider(provider_name: str) -> bool:
     return is_self_managed_billing_provider(provider_name)
 
 
-def _load_bucket_and_ledger(order) -> tuple[str, str]:
+def _load_bucket_and_ledger(order: object) -> tuple[str, str]:
     models = _billing_models()
     bucket = (
         models.CreditWalletBucket.query.filter(
@@ -243,7 +243,7 @@ def _load_bucket_and_ledger(order) -> tuple[str, str]:
 
 
 def _validate_reward_product(
-    product,
+    product: object,
     *,
     request: ReferralPlanRewardRequest,
 ) -> None:
@@ -255,7 +255,7 @@ def _validate_reward_product(
         raise_param_error("cycle_count")
 
 
-def _cycle_end_from_start(product, cycle_start_at: datetime) -> datetime:
+def _cycle_end_from_start(product: object, cycle_start_at: datetime) -> datetime:
     cycle_end_at = _calculate_self_managed_billing_cycle_end(
         product,
         cycle_start_at=cycle_start_at,
@@ -266,7 +266,7 @@ def _cycle_end_from_start(product, cycle_start_at: datetime) -> datetime:
 
 
 def _cycle_end_after_boundary(
-    product,
+    product: object,
     cycle_boundary_at: datetime,
 ) -> datetime:
     cycle_end_at = _calculate_self_managed_billing_cycle_end_after_boundary(
@@ -278,7 +278,7 @@ def _cycle_end_after_boundary(
     return cycle_end_at
 
 
-def _is_referral_reward_order(order) -> bool:
+def _is_referral_reward_order(order: object) -> bool:
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     checkout_type = str(metadata.get("checkout_type") or "").strip()
     return checkout_type == _CHECKOUT_TYPE or bool(
@@ -325,7 +325,7 @@ def _latest_referral_renewal_cycle_end_after(
 
 def _resolve_referral_renewal_cycle_start_at(
     *,
-    active_subscription,
+    active_subscription: object,
     now: datetime,
 ) -> datetime:
     cycle_start_at = active_subscription.current_period_end_at or now
@@ -339,7 +339,9 @@ def _resolve_referral_renewal_cycle_start_at(
     return cycle_start_at
 
 
-def _classify_deferred_entitlement(active_subscription, current_product) -> str:
+def _classify_deferred_entitlement(
+    active_subscription: object, current_product: object
+) -> str:
     if _is_trial_subscription_product(active_subscription, current_product):
         return "trial"
     return "paid"
@@ -348,7 +350,7 @@ def _classify_deferred_entitlement(active_subscription, current_product) -> str:
 def _resolve_order_shape(
     *,
     request: ReferralPlanRewardRequest,
-    product,
+    product: object,
     now: datetime,
 ) -> tuple[object, int, datetime, datetime, dict[str, Any]]:
     consts = _billing_consts()

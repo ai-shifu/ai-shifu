@@ -28,7 +28,7 @@ from flaskr.service.config.funcs import get_config
 from .common import bypass_token_validation, make_common_response
 
 
-def _to_bool(value, default=False) -> bool:
+def _to_bool(value: object, default: object = False) -> bool:
     if isinstance(value, bool):
         return value
     if value is None:
@@ -41,7 +41,7 @@ def _to_bool(value, default=False) -> bool:
     return default
 
 
-def _to_list(value, default=None):
+def _to_list(value: object, default: object = None):
     default = default or []
     if value is None:
         return default
@@ -53,7 +53,7 @@ def _to_list(value, default=None):
     return default
 
 
-def _to_int(value, default: int = 0) -> int:
+def _to_int(value: object, default: int = 0) -> int:
     if value is None:
         return default
     try:

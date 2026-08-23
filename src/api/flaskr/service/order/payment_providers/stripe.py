@@ -194,7 +194,11 @@ class StripeProvider(PaymentProvider):
         return self.create_payment(request=subscription_request, app=app)
 
     def cancel_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
         """Schedule provider subscription cancellation at the current period end."""
         stripe, request_options = self._client_options(app)
@@ -215,7 +219,11 @@ class StripeProvider(PaymentProvider):
         )
 
     def resume_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
         """Clear Stripe's scheduled cancellation for a subscription."""
         stripe, request_options = self._client_options(app)

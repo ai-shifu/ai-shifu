@@ -870,8 +870,8 @@ def _yield_tts_segments(
     text: str,
     provider: str,
     tts_model: str,
-    voice_settings,
-    audio_settings,
+    voice_settings: object,
+    audio_settings: object,
 ):
     provider_name = (provider or "").strip().lower()
     if not provider_name:
@@ -908,7 +908,9 @@ def _yield_tts_segments(
         )
 
 
-def _build_tts_usage_metadata(*, voice_settings, audio_settings) -> dict:
+def _build_tts_usage_metadata(
+    *, voice_settings: object, audio_settings: object
+) -> dict:
     return {
         "voice_id": voice_settings.voice_id or "",
         "speed": voice_settings.speed,
@@ -951,8 +953,8 @@ def _finalize_tts_stream_audio(
     audio_parts: list[bytes],
     subtitle_cues: list[dict] | None,
     audio_bid: str,
-    audio_settings,
-    voice_settings,
+    audio_settings: object,
+    voice_settings: object,
     tts_model: str,
     cleaned_text: str,
     segment_count: int,
@@ -1002,7 +1004,7 @@ def _yield_with_tts_error_mapping(
     app: Flask,
     *,
     unknown_error_log: str,
-    body,
+    body: object,
 ):
     try:
         yield from body()
@@ -1151,7 +1153,7 @@ def _yield_tts_synthesis(
     user_bid: str,
     outline_bid: str,
     unknown_error_log: str,
-    body,
+    body: object,
 ):
     """Run a TTS synthesis body under a per-(user, outline) concurrency slot.
 
@@ -1382,7 +1384,7 @@ def _has_speakable_tts_segment(text: str) -> bool:
     return bool(cleaned and len(cleaned.strip()) >= 2 and has_speakable_text(cleaned))
 
 
-def _float_settings_match(left, right) -> bool:
+def _float_settings_match(left: object, right: object) -> bool:
     try:
         return abs(float(left) - float(right)) < 0.0001
     except (TypeError, ValueError):
@@ -1392,7 +1394,7 @@ def _float_settings_match(left, right) -> bool:
 def _audio_record_matches_tts_settings(
     audio_record: LearnGeneratedAudio | None,
     *,
-    voice_settings,
+    voice_settings: object,
     tts_model: str,
 ) -> bool:
     if audio_record is None:
@@ -1435,8 +1437,8 @@ def _yield_stream_tts_audio_segments(
     text: str,
     provider: str,
     tts_model: str,
-    voice_settings,
-    audio_settings,
+    voice_settings: object,
+    audio_settings: object,
     usage_context: UsageContext,
     parent_usage_bid: str,
     usage_metadata: dict,
@@ -1514,7 +1516,7 @@ def _yield_run_tts_audio_events(
     text: str,
     provider: str,
     tts_model: str,
-    voice_settings,
+    voice_settings: object,
     generated_block: LearnGeneratedBlock,
     user_bid: str,
     shifu_bid: str,
@@ -1561,7 +1563,7 @@ def _yield_run_tts_audio_events(
         raise RuntimeError(message)
 
 
-def _audio_stream_element_type(element) -> str:
+def _audio_stream_element_type(element: object) -> str:
     element_type = getattr(element, "element_type", "") or ""
     return str(getattr(element_type, "value", element_type) or "")
 

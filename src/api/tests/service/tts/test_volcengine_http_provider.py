@@ -13,7 +13,7 @@ from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.validation import validate_tts_settings_strict
 
 
-def test_volcengine_http_synthesize_success(monkeypatch):
+def test_volcengine_http_synthesize_success(monkeypatch: object):
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-token")
     monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "volcano_tts")
@@ -41,7 +41,9 @@ def test_volcengine_http_synthesize_success(monkeypatch):
                 "addition": {"duration": "1234"},
             }
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(
+        url: object, json: object = None, headers: object = None, timeout: object = None
+    ):
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers
@@ -77,7 +79,9 @@ def test_volcengine_http_synthesize_success(monkeypatch):
     assert captured["json"]["audio"]["emotion"] == "happy"
 
 
-def test_volcengine_http_legacy_resource_id_overrides_default_cluster(monkeypatch):
+def test_volcengine_http_legacy_resource_id_overrides_default_cluster(
+    monkeypatch: object,
+):
     """Ensure old VOLCENGINE_TTS_RESOURCE_ID still works when new cluster var is unset."""
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-token")
@@ -106,7 +110,9 @@ def test_volcengine_http_legacy_resource_id_overrides_default_cluster(monkeypatc
                 "addition": {"duration": "0"},
             }
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(
+        url: object, json: object = None, headers: object = None, timeout: object = None
+    ):
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers
@@ -122,7 +128,7 @@ def test_volcengine_http_legacy_resource_id_overrides_default_cluster(monkeypatc
     assert captured["json"]["app"]["cluster"] == "legacy_cluster"
 
 
-def test_volcengine_http_provider_config_omits_models(monkeypatch):
+def test_volcengine_http_provider_config_omits_models(monkeypatch: object):
     monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "custom_cluster")
     provider = VolcengineHttpTTSProvider()
     config = provider.get_provider_config().to_dict()
@@ -138,7 +144,7 @@ def test_split_text_for_tts_volcengine_http_byte_limit():
     assert all(len(segment.encode("utf-8")) <= 1024 for segment in segments)
 
 
-def test_validate_tts_settings_strict_volcengine_http(monkeypatch):
+def test_validate_tts_settings_strict_volcengine_http(monkeypatch: object):
     monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "volcano_tts")
     settings = validate_tts_settings_strict(
         provider="volcengine_http",

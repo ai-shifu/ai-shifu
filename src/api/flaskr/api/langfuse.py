@@ -67,7 +67,7 @@ class MockClient:
     def __init__(self, *args: object, **kwargs: object) -> None:
         """Initialize the no-op Langfuse client."""
 
-    def __getattr__(self, name) -> Any:
+    def __getattr__(self, name: object) -> Any:
         """Return a no-op callable for any Langfuse operation."""
 
         def method(*args: object, **kwargs: object):

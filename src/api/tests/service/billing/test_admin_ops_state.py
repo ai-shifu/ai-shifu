@@ -5,7 +5,7 @@ from flaskr.service.billing import admin_ops_state
 
 
 class _TrackingLock:
-    def __init__(self, events, key) -> None:
+    def __init__(self, events: object, key: object) -> None:
         self._events = events
         self._key = key
 
@@ -21,18 +21,18 @@ class _TrackingRedis:
     def __init__(self) -> None:
         self.events = []
 
-    def lock(self, key, **_kwargs: object):
+    def lock(self, key: object, **_kwargs: object):
         self.events.append(("lock", key))
         return _TrackingLock(self.events, key)
 
 
-def _patch_config_store(monkeypatch):
+def _patch_config_store(monkeypatch: object):
     store = {}
 
-    def fake_get_config(key, default=None):
+    def fake_get_config(key: object, default: object = None):
         return store.get(key, default)
 
-    def fake_update_config(_app, key, value, **kwargs: object):
+    def fake_update_config(_app: object, key: object, value: object, **kwargs: object):
         store[key] = value
         store[(key, "meta")] = kwargs
         return True
@@ -42,7 +42,9 @@ def _patch_config_store(monkeypatch):
     return store
 
 
-def test_admin_billing_ops_state_updates_under_redis_lock(app, monkeypatch):
+def test_admin_billing_ops_state_updates_under_redis_lock(
+    app: object, monkeypatch: object
+):
     redis = _TrackingRedis()
     store = _patch_config_store(monkeypatch)
     monkeypatch.setattr(dao._redis_state, "client", redis)

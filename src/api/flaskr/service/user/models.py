@@ -53,12 +53,12 @@ class UserConversion(db.Model):
 
     def __init__(
         self,
-        user_id,
-        conversion_id,
-        conversion_source,
-        conversion_status,
-        conversion_uuid="",
-        conversion_third_platform="",
+        user_id: object,
+        conversion_id: object,
+        conversion_source: object,
+        conversion_status: object,
+        conversion_uuid: object = "",
+        conversion_third_platform: object = "",
     ) -> None:
         """Initialize a user conversion record."""
         self.user_id = user_id

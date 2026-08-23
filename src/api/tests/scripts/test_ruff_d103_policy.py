@@ -47,7 +47,9 @@ class RuffD103PolicyTest(unittest.TestCase):
             check=False,
         )
 
-    def test_semantic_exception_boundaries_allow_undocumented_functions(self) -> None:
+    def test_semantic_exception_boundaries_allow_undocumented_functions(
+        self,
+    ) -> None:
         """Keep D103 exceptions limited to tests, fixtures, and migration history."""
         exception_filenames = (
             "src/api/tests/docstring_fixture.py",

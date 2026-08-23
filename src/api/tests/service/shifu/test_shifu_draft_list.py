@@ -42,7 +42,7 @@ def _seed_draft(
     dao.db.session.add(draft)
 
 
-def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
+def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app: object):
     owner_bid = "draft-list-owner"
     with app.app_context():
         DraftShifu.query.filter(
@@ -106,7 +106,7 @@ def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
     ]
 
 
-def test_get_shifu_draft_list_prefers_latest_outline_activity(app):
+def test_get_shifu_draft_list_prefers_latest_outline_activity(app: object):
     owner_bid = "draft-list-activity-owner"
     with app.app_context():
         DraftOutlineItem.query.filter(
@@ -180,7 +180,7 @@ def test_get_shifu_draft_list_prefers_latest_outline_activity(app):
     ]
 
 
-def test_get_shifu_draft_list_ignores_published_outline_activity(app):
+def test_get_shifu_draft_list_ignores_published_outline_activity(app: object):
     owner_bid = "draft-list-published-outline-owner"
     with app.app_context():
         PublishedOutlineItem.query.filter(
@@ -252,7 +252,7 @@ def test_get_shifu_draft_list_ignores_published_outline_activity(app):
     ]
 
 
-def test_get_shifu_draft_list_marks_courses_with_published_versions(app):
+def test_get_shifu_draft_list_marks_courses_with_published_versions(app: object):
     owner_bid = "draft-list-published-state-owner"
     with app.app_context():
         PublishedShifu.query.filter(

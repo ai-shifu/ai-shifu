@@ -62,7 +62,7 @@ _original_asyncio_run = asyncio.run
 _background_asyncio_tasks: set[asyncio.Task] = set()
 
 
-def _safe_asyncio_run(coro, *args: object, **kwargs: object):
+def _safe_asyncio_run(coro: object, *args: object, **kwargs: object):
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:
@@ -961,7 +961,12 @@ if not any_litellm_enabled:
 class LLMStreamaUsage:
     """Track token usage reported by a streaming LLM response."""
 
-    def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
+    def __init__(
+        self,
+        prompt_tokens: object,
+        completion_tokens: object,
+        total_tokens: object,
+    ) -> None:
         """Record token counts for an LLM stream."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
@@ -972,7 +977,13 @@ class LLMStreamResponse:
     """Wrap an LLM stream together with response metadata."""
 
     def __init__(
-        self, response_id, is_end, is_truncated, result, finish_reason, usage
+        self,
+        response_id: object,
+        is_end: object,
+        is_truncated: object,
+        result: object,
+        finish_reason: object,
+        usage: object,
     ) -> None:
         """Build an LLM stream-chunk response."""
         self.id = response_id

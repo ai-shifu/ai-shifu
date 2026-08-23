@@ -9,7 +9,7 @@ from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 
 
 class _Response:
-    def __init__(self, payload, text) -> None:
+    def __init__(self, payload: object, text: object) -> None:
         self.headers = {"Content-Type": "application/json"}
         self.status_code = 200
         self._payload = payload
@@ -23,7 +23,7 @@ class _Response:
 
 
 @pytest.fixture
-def baidu(monkeypatch):
+def baidu(monkeypatch: object):
     monkeypatch.setattr(baidu_mod, "_get_access_token", lambda *_args: "token")
     provider = BaiduTTSProvider()
     monkeypatch.setattr(provider, "_get_credentials", lambda: ("key", "secret"))
@@ -31,14 +31,14 @@ def baidu(monkeypatch):
 
 
 @pytest.fixture
-def aliyun(monkeypatch):
+def aliyun(monkeypatch: object):
     monkeypatch.setattr(aliyun_mod, "get_aliyun_nls_token", lambda: "token")
     provider = AliyunTTSProvider()
     monkeypatch.setattr(provider, "_get_settings", lambda: ("appkey", "shanghai"))
     return provider
 
 
-def test_baidu_reports_the_json_error_payload(baidu, monkeypatch):
+def test_baidu_reports_the_json_error_payload(baidu: object, monkeypatch: object):
     monkeypatch.setattr(
         requests,
         "post",
@@ -49,7 +49,9 @@ def test_baidu_reports_the_json_error_payload(baidu, monkeypatch):
         baidu.synthesize("hello")
 
 
-def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch):
+def test_baidu_reports_the_raw_body_when_json_is_malformed(
+    baidu: object, monkeypatch: object
+):
     monkeypatch.setattr(
         requests,
         "post",
@@ -60,7 +62,7 @@ def test_baidu_reports_the_raw_body_when_json_is_malformed(baidu, monkeypatch):
         baidu.synthesize("hello")
 
 
-def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch):
+def test_aliyun_reports_the_json_error_payload(aliyun: object, monkeypatch: object):
     monkeypatch.setattr(
         requests,
         "post",
@@ -77,7 +79,9 @@ def test_aliyun_reports_the_json_error_payload(aliyun, monkeypatch):
         aliyun.synthesize("hello")
 
 
-def test_aliyun_reports_the_raw_body_when_json_is_malformed(aliyun, monkeypatch):
+def test_aliyun_reports_the_raw_body_when_json_is_malformed(
+    aliyun: object, monkeypatch: object
+):
     monkeypatch.setattr(
         requests,
         "post",

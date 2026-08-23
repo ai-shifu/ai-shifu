@@ -226,7 +226,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
         ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
 
-        def get_run_script_info(self, attend, *, is_ask=False):
+        def get_run_script_info(
+            self: object, attend: object, *, is_ask: object = False
+        ):
             del self, is_ask
             return RunScriptInfo(
                 attend=attend,
@@ -238,7 +240,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._get_run_script_info = types.MethodType(get_run_script_info, ctx)
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -263,11 +267,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
             ):
                 _ = (block_index, mode, variables, user_input)
                 FakeMarkdownFlow.last_context = context
@@ -360,7 +369,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -391,11 +402,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
             ):
                 _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
@@ -441,7 +457,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert progress.block_position == 2
         assert not ctx._can_continue
 
-    def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(self):
+    def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(
+        self,
+    ):
         """Avoid replaying an already generated fixed output after interaction submit."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-skip-dup",
@@ -510,7 +528,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -531,11 +551,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
             ):
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
@@ -637,7 +662,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -661,11 +688,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
             ):
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
@@ -760,7 +792,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -784,11 +818,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
             ):
                 _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True

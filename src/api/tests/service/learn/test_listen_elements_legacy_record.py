@@ -162,7 +162,9 @@ class TestBuildListenElementsFromLegacyRecord:
             "audio-persisted-1",
         ]
 
-    def test_skips_blank_persisted_text_elements_when_binding_audio_positions(self):
+    def test_skips_blank_persisted_text_elements_when_binding_audio_positions(
+        self,
+    ):
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,

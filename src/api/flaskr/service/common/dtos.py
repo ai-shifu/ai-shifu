@@ -36,17 +36,17 @@ class UserInfo:
 
     def __init__(
         self,
-        user_id,
-        username,
-        name,
-        email,
-        mobile,
-        user_state,
-        wx_openid,
-        language,
-        user_avatar=None,
-        is_creator=False,
-        is_operator=False,
+        user_id: object,
+        username: object,
+        name: object,
+        email: object,
+        mobile: object,
+        user_state: object,
+        wx_openid: object,
+        language: object,
+        user_avatar: object = None,
+        is_creator: object = False,
+        is_operator: object = False,
     ) -> None:
         """Build a serialized user-information payload."""
         self.user_id = user_id
@@ -91,7 +91,7 @@ class UserToken:
     userInfo: UserInfo  # noqa: N815 - exact serialized and Swagger field name
     token: str
 
-    def __init__(self, user_info: UserInfo, token) -> None:
+    def __init__(self, user_info: UserInfo, token: object) -> None:
         """Pair serialized user information with its access token."""
         self.userInfo = user_info
         self.token = token
@@ -134,7 +134,7 @@ class PageNationDTO(BaseModel):
     page_count: int = Field(..., description="page_count")
     data: list = Field(..., description="data")
 
-    def __init__(self, page: int, page_size: int, total: int, data) -> None:
+    def __init__(self, page: int, page_size: int, total: int, data: object) -> None:
         """Build a paginated response payload."""
         super().__init__(
             page=page,

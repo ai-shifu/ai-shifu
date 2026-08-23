@@ -166,7 +166,7 @@ def _failing_lifecycle_sync(monkeypatch: pytest.MonkeyPatch, *, failing_bids: se
     event completion, simulating any late in-transaction error.
     """
 
-    def fake_sync(_app, subscription):
+    def fake_sync(_app: object, subscription: object):
         if subscription.subscription_bid in failing_bids:
             message = f"boom in {subscription.subscription_bid}"
             raise RuntimeError(message)
@@ -1065,7 +1065,7 @@ def test_upsert_recovers_when_concurrent_insert_wins(
         subscription_bid: str,
         *,
         event_type: int,
-        scheduled_at,
+        scheduled_at: object,
         for_update: bool = False,
     ):
         nonlocal calls
@@ -1138,7 +1138,7 @@ def test_upsert_recovers_when_cross_session_insert_wins(
         subscription_bid: str,
         *,
         event_type: int,
-        scheduled_at,
+        scheduled_at: object,
         for_update: bool = False,
     ):
         calls.append(for_update)
