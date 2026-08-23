@@ -593,7 +593,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
-    def admin_import_activation() -> str:
+    def admin_import_activation() -> Response:
         """Admin import activation order.
 
         ---
@@ -685,10 +685,13 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
             # Validate course exists before iterating mobiles to avoid repeated errors
             get_shifu_info(app, course_id, preview_mode=False)
 
-            return make_common_response(
-                import_activation_orders_from_entries(
-                    app, entries, course_id, contact_type=contact_type
-                )
+            return app.response_class(
+                make_common_response(
+                    import_activation_orders_from_entries(
+                        app, entries, course_id, contact_type=contact_type
+                    )
+                ),
+                mimetype="application/json",
             )
 
         mobile_field = str(payload.get("mobile", "")).strip()
@@ -704,10 +707,13 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         # Validate course exists before iterating mobiles to avoid repeated errors
         get_shifu_info(app, course_id, preview_mode=False)
 
-        return make_common_response(
-            import_activation_orders(
-                app, mobiles, course_id, user_nick_name, contact_type=contact_type
-            )
+        return app.response_class(
+            make_common_response(
+                import_activation_orders(
+                    app, mobiles, course_id, user_nick_name, contact_type=contact_type
+                )
+            ),
+            mimetype="application/json",
         )
 
     @app.route(path_prefix + "/admin/orders/redemption-codes", methods=["GET"])
