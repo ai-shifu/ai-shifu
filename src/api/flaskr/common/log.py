@@ -13,7 +13,7 @@ from typing import Any
 import colorlog
 import pytz
 import requests
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from .observability import current_trace_ids
 from .request_context import thread_local
@@ -206,7 +206,7 @@ def init_log(app: Flask) -> Flask:
             app.logger.info("Request method: %s", request.method)
 
     @app.after_request
-    def after_request(response: object) -> object:
+    def after_request(response: Response) -> Response:
         try:
             _update_request_timing(response.status_code)
             if response.headers.get(
