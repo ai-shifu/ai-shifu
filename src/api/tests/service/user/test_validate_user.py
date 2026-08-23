@@ -14,7 +14,7 @@ def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(
     app.config["SECRET_KEY"] = "test-secret"
     app.config["ENVERIMENT"] = "prod"
 
-    def _raise_invalid_algorithm(*_args: object, **_kwargs: object):
+    def _raise_invalid_algorithm(*_args: object, **_kwargs: object) -> None:
         message = "The specified alg value is not allowed"
         raise jwt.exceptions.InvalidAlgorithmError(message)
 

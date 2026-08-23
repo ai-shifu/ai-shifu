@@ -10,7 +10,7 @@ def test_init_pingxx_uses_provider(app: object, monkeypatch: object) -> None:
         def __init__(self) -> None:
             self.called = False
 
-        def ensure_client(self, _app: object):
+        def ensure_client(self, _app: object) -> object:
             self.called = True
             return "client"
 
@@ -28,7 +28,7 @@ def test_create_pingxx_order_builds_request(app: object, monkeypatch: object) ->
     captured = {}
 
     class FakeProvider:
-        def create_payment(self, *, request: object, app: object):
+        def create_payment(self, *, request: object, app: object) -> object:
             _ = app
             captured["request"] = request
             return PaymentCreationResult(

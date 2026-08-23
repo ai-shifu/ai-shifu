@@ -63,6 +63,7 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from sqlalchemy.sql import Select
+    from sqlalchemy.sql.elements import ColumnElement
 
 # Reuse the DSL-path error names so the HTTP wrapper maps them consistently
 # (the error name → HTTP code mapping lives in error_codes.json).
@@ -274,7 +275,7 @@ def _parse_int(raw: Any, field_name: str, *, default: int) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _join_conditions():
+def _join_conditions() -> object:
     """Build the bill_usage x credit_ledger_entries ON clause.
 
     ``source_type = USAGE`` is part of the JOIN (not the WHERE) so the
@@ -296,7 +297,7 @@ def _join_conditions():
     )
 
 
-def _where_clauses(params: _Params):
+def _where_clauses(params: _Params) -> list[ColumnElement[bool]]:
     """Build the WHERE predicates shared by detail + summary queries."""
     bu = BillUsageRecord.__table__
     clauses = [bu.c.shifu_bid == bindparam("__shifu_bid", value=params.shifu_bid)]

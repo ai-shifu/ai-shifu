@@ -36,7 +36,7 @@ def enable_commands(app: Flask) -> None:
     """Register the application's command-line commands."""
 
     @app.cli.group()
-    def console():
+    def console() -> None:
         """AI Shifu Console management commands."""
 
     register_billing_commands(console)
@@ -49,7 +49,7 @@ def enable_commands(app: Flask) -> None:
     @click.argument("user_nick_name")
     def import_user_command(
         mobile: object, course_id: object, discount_code: object, user_nick_name: object
-    ):
+    ) -> None:
         """Import user and enable course."""
         import_user(app, mobile, course_id, discount_code, user_nick_name)
 
@@ -71,7 +71,7 @@ def enable_commands(app: Flask) -> None:
         force_full: object,
         output_file: object,
         dry_run: object,
-    ):
+    ) -> None:
         """Run unified legacy data migration."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ def enable_commands(app: Flask) -> None:
             raise click.ClickException(error_message)
 
     @console.command(name="verify")
-    def verify_command():
+    def verify_command() -> None:
         """Verify data consistency between old and new tables."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
@@ -246,7 +246,7 @@ def enable_commands(app: Flask) -> None:
                 migration_task.close()
 
     @console.command(name="status")
-    def status_command():
+    def status_command() -> None:
         """Show migration status and table counts."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
@@ -333,7 +333,7 @@ def enable_commands(app: Flask) -> None:
     @console.command(name="export_shifu")
     @click.argument("shifu_id")
     @click.argument("file_path")
-    def export_shifu_command(shifu_id: object, file_path: object):
+    def export_shifu_command(shifu_id: object, file_path: object) -> None:
         """Export a shifu to a JSON file.
 
         Args:
@@ -371,7 +371,7 @@ def enable_commands(app: Flask) -> None:
     @click.option(
         "--user-id", required=True, help="User ID for creating/updating the shifu"
     )
-    def import_shifu_command(file_path: object, shifu_id: object, user_id: object):
+    def import_shifu_command(file_path: object, shifu_id: object, user_id: object) -> None:
         """Import a shifu from a JSON file.
 
         Args:
@@ -425,7 +425,7 @@ def enable_commands(app: Flask) -> None:
             raise click.ClickException(message) from e
 
     @console.command(name="update_demo_shifu")
-    def update_demo_shifu_command():
+    def update_demo_shifu_command() -> None:
         """Update demo shifu."""
         app.logger.info("Updating demo shifu...")
         update_demo_shifu(app)

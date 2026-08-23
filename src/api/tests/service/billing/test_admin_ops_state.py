@@ -9,11 +9,11 @@ class _TrackingLock:
         self._events = events
         self._key = key
 
-    def acquire(self, **_kwargs: object):
+    def acquire(self, **_kwargs: object) -> object:
         self._events.append(("acquire", self._key))
         return True
 
-    def release(self):
+    def release(self) -> None:
         self._events.append(("release", self._key))
 
 
@@ -21,18 +21,18 @@ class _TrackingRedis:
     def __init__(self) -> None:
         self.events = []
 
-    def lock(self, key: object, **_kwargs: object):
+    def lock(self, key: object, **_kwargs: object) -> object:
         self.events.append(("lock", key))
         return _TrackingLock(self.events, key)
 
 
-def _patch_config_store(monkeypatch: object):
+def _patch_config_store(monkeypatch: object) -> object:
     store = {}
 
-    def fake_get_config(key: object, default: object = None):
+    def fake_get_config(key: object, default: object = None) -> object:
         return store.get(key, default)
 
-    def fake_update_config(_app: object, key: object, value: object, **kwargs: object):
+    def fake_update_config(_app: object, key: object, value: object, **kwargs: object) -> object:
         store[key] = value
         store[(key, "meta")] = kwargs
         return True

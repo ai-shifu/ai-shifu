@@ -83,7 +83,7 @@ def _track_profile_lock_reads(monkeypatch: object) -> list[tuple[str, str, bool,
     original_first = query_type.first
     read_order: list[tuple[str, str, bool, bool]] = []
 
-    def track_first(query: object):
+    def track_first(query: object) -> object:
         statement = str(query.statement)
         parameters = query.statement.compile().params
         table = (
@@ -718,7 +718,7 @@ def test_nickname_rejection_rolls_back_profile_nickname_and_state(
 
     checked: list[str] = []
 
-    def reject_nickname(_app: object, _user_id: object, text: object):
+    def reject_nickname(_app: object, _user_id: object, text: object) -> object:
         checked.append(text)
         return text != "Rejected nickname"
 
@@ -786,7 +786,7 @@ def test_profile_safety_audit_records_text_and_provider_response(
     profile = "称呼：小明\n职业背景：医疗产品经理"
     checked: dict[str, str] = {}
 
-    def fake_check_text(_app: object, check_id: object, text: object, user_id: object):
+    def fake_check_text(_app: object, check_id: object, text: object, user_id: object) -> object:
         checked.update(check_id=check_id, text=text, user_id=user_id)
         return CheckResultDTO(
             check_result=CHECK_RESULT_PASS,
@@ -967,7 +967,7 @@ def test_save_locks_user_then_state_before_writing_profile(
         read_order = _track_profile_lock_reads(monkeypatch)
         reads_when_moderated: list[tuple[str, str, bool, bool]] = []
 
-        def allow_after_user_lock(_app: object, _user_id: object, _text: object):
+        def allow_after_user_lock(_app: object, _user_id: object, _text: object) -> object:
             reads_when_moderated.extend(read_order)
             return True
 
@@ -1008,11 +1008,11 @@ def test_save_moderates_once_when_state_creation_retries(
     moderation_calls: list[str] = []
     operation_calls = 0
 
-    def allow_once(_app: object, _user_id: object, text: object):
+    def allow_once(_app: object, _user_id: object, text: object) -> object:
         moderation_calls.append(text)
         return True
 
-    def run_twice(operation: object, *, user_id: object):
+    def run_twice(operation: object, *, user_id: object) -> object:
         nonlocal operation_calls
         assert user_id == "profile-save-moderation-retry"
         operation()
@@ -1299,7 +1299,7 @@ def test_complete_rolls_back_profile_and_state_together(
         db.session.commit()
         original_commit = db.session.commit
 
-        def fail_commit():
+        def fail_commit() -> None:
             message = "database unavailable"
             raise RuntimeError(message)
 
@@ -1346,7 +1346,7 @@ def test_clear_rolls_back_profile_and_state_together(
         db.session.commit()
         original_commit = db.session.commit
 
-        def fail_commit():
+        def fail_commit() -> None:
             message = "database unavailable"
             raise RuntimeError(message)
 

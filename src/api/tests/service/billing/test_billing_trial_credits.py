@@ -76,7 +76,7 @@ def trial_billing_client(monkeypatch: object) -> object:
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

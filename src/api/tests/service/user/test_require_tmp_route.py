@@ -18,7 +18,7 @@ def test_require_tmp_passes_payload_source_to_temp_user(
         source: object,
         wx_code: object = None,
         language: object = "en-US",
-    ):
+    ) -> object:
         _ = app
         calls.append(
             {

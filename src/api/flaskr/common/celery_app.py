@@ -203,7 +203,7 @@ def _resolve_billing_crontab(
     flask_app: Flask,
     config_key: str,
     default_expression: str,
-):
+) -> crontab:
     # Raw env fallback for Flask apps not backed by the registry Config; the
     # BILLING_*_CRON keys are declared in flaskr/common/config.py.
     raw_expression = str(
@@ -226,7 +226,7 @@ def _resolve_billing_crontab(
     return fallback_schedule
 
 
-def _parse_crontab_expression(expression: str):
+def _parse_crontab_expression(expression: str) -> crontab | None:
     normalized_expression = " ".join(str(expression or "").split())
     parts = normalized_expression.split(" ")
     if len(parts) != 5 or any(not part for part in parts):

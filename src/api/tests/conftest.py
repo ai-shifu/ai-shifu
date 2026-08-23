@@ -55,7 +55,7 @@ class _TestPluginManager:
         self.extensible_generic_functions = {}
         self.is_enabled = False
 
-    def register_extension(self, target_func_name: object, func: object):
+    def register_extension(self, target_func_name: object, func: object) -> None:
         self.extension_functions.setdefault(target_func_name, []).append(func)
 
     def execute_extensions(
@@ -64,16 +64,16 @@ class _TestPluginManager:
         result: object,
         *args: object,
         **kwargs: object,
-    ):
+    ) -> object:
         _ = (args, kwargs)
         return result
 
-    def register_extensible_generic(self, func_name: object, func: object):
+    def register_extensible_generic(self, func_name: object, func: object) -> None:
         self.extensible_generic_functions.setdefault(func_name, []).append(func)
 
     def execute_extensible_generic(
         self, _func_name: object, *args: object, **kwargs: object
-    ):
+    ) -> None:
         _ = (args, kwargs)
 
 
@@ -81,12 +81,12 @@ set_plugin_manager(_TestPluginManager())
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object):
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object):
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "INTEGER"
 
 

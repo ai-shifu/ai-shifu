@@ -3,6 +3,7 @@
 import json
 import sys
 import uuid
+from collections.abc import Iterator
 
 from flask import Flask, Response, request, stream_with_context
 from flaskr.common.shifu_context import get_shifu_context_snapshot, with_shifu_context
@@ -54,7 +55,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 
-def _normalize_user_input(value: object):
+def _normalize_user_input(value: object) -> object:
     if value is None:
         return None
     if isinstance(value, dict):
@@ -107,7 +108,7 @@ def _stream_sse_response(
     error_event_factory: object = None,
     terminal_event_factory: object = None,
 ) -> Response:
-    def event_stream():
+    def event_stream() -> Iterator[str]:
         try:
             for message in message_iter_factory():
                 yield _to_sse_data_line(message)
@@ -152,7 +153,7 @@ def _stream_passthrough_response(
     close_log: str,
     error_log: str,
 ) -> Response:
-    def event_stream():
+    def event_stream() -> Iterator[str]:
         try:
             yield from message_iter_factory()
         except GeneratorExit:
@@ -238,7 +239,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_shifu_api(shifu_bid: str):
+    def get_shifu_api(shifu_bid: str) -> object:
         """Get shifu.
 
         ---
@@ -281,7 +282,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     @with_shifu_context()
-    def get_outline_item_tree_api(shifu_bid: str):
+    def get_outline_item_tree_api(shifu_bid: str) -> object:
         """Get outline item tree.
 
         ---
@@ -326,7 +327,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
     @with_shifu_context()
-    def run_outline_item_api(shifu_bid: str, outline_bid: str):
+    def run_outline_item_api(shifu_bid: str, outline_bid: str) -> object:
         """Run the MarkdownFlow of the outline.
 
         ---
@@ -433,7 +434,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def preview_outline_block_api(shifu_bid: str, outline_bid: str):
+    def preview_outline_block_api(shifu_bid: str, outline_bid: str) -> object:
         """Preview a specific outline block.
 
         ---
@@ -589,7 +590,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def get_run_status_api(shifu_bid: str, outline_bid: str):
+    def get_run_status_api(shifu_bid: str, outline_bid: str) -> object:
         """Get run status.
 
         ---
@@ -628,7 +629,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]
     )
     @with_shifu_context()
-    def get_record_api(shifu_bid: str, outline_bid: str):
+    def get_record_api(shifu_bid: str, outline_bid: str) -> object:
         """Get learn records of the outline.
 
         ---
@@ -692,7 +693,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
     )
     @with_shifu_context()
-    def delete_record_api(shifu_bid: str, outline_bid: str):
+    def delete_record_api(shifu_bid: str, outline_bid: str) -> object:
         """Reset the record of the outline.
 
         ---
@@ -729,7 +730,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str):
+    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str) -> object:
         """Submit lesson feedback.
 
         ---
@@ -791,7 +792,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/lesson-feedbacks", methods=["GET"])
     @with_shifu_context()
-    def list_lesson_feedbacks_api(shifu_bid: str):
+    def list_lesson_feedbacks_api(shifu_bid: str) -> object:
         """List lesson feedbacks for a course (teacher/authoring side).
 
         ---
@@ -845,7 +846,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def generate_content_api(shifu_bid: str, generated_block_bid: str, action: str):
+    def generate_content_api(shifu_bid: str, generated_block_bid: str, action: str) -> object:
         """Generate the content of the generated block.
 
         ---
@@ -890,7 +891,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["GET"],
     )
     @with_shifu_context()
-    def get_generated_content_api(shifu_bid: str, generated_block_bid: str):
+    def get_generated_content_api(shifu_bid: str, generated_block_bid: str) -> object:
         """Get the content of the generated block.
 
         ---
@@ -941,7 +942,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def synthesize_generated_block_audio_api(shifu_bid: str, generated_block_bid: str):
+    def synthesize_generated_block_audio_api(shifu_bid: str, generated_block_bid: str) -> object:
         """Synthesize audio for a generated block (C-end, persisted).
 
         ---
@@ -1009,7 +1010,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/tts/preview", methods=["POST"])
     @with_shifu_context()
-    def synthesize_preview_tts_audio_api(shifu_bid: str):
+    def synthesize_preview_tts_audio_api(shifu_bid: str) -> object:
         """Synthesize audio for an arbitrary text (editor preview, not persisted).
 
         ---

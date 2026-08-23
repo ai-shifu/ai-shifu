@@ -96,7 +96,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
         original_first = query_type.first
         reads: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query: object):
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             table = (

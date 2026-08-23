@@ -510,7 +510,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr():
+def _build_course_order_amount_expr() -> object:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),
@@ -592,7 +592,7 @@ def _is_operator_visible_course(course: object) -> bool:
 def _merge_courses(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-):
+) -> tuple[list[DraftShifu | PublishedShifu], set[str], dict[str, str]]:
     course_map = {}
     published_bids: set[str] = set()
     selected_sources: dict[str, str] = {}
@@ -645,7 +645,7 @@ def _load_latest_course_versions(
     return draft, published
 
 
-def _load_operator_course_detail_source(shifu_bid: str):
+def _load_operator_course_detail_source(shifu_bid: str) -> object:
     draft, published = _load_latest_course_versions(shifu_bid)
     visible_draft = draft if draft and _is_operator_visible_course(draft) else None
     visible_published = (
@@ -662,7 +662,7 @@ def _load_operator_course_detail_source(shifu_bid: str):
     }
 
 
-def _load_latest_outline_items(model: object, shifu_bid: str):
+def _load_latest_outline_items(model: object, shifu_bid: str) -> object:
     latest_subquery = (
         db.session.query(db.func.max(model.id).label("max_id"))
         .filter(

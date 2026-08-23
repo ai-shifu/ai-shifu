@@ -11,7 +11,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -90,21 +90,21 @@ class _DummyColumn:
 
 
 class _DummyOrderColumn(_DummyColumn):
-    def desc(self):
+    def desc(self) -> object:
         return self
 
 
 class _DummyQuery:
-    def filter(self, *_args: object, **_kwargs: object):
+    def filter(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def order_by(self, *_args: object, **_kwargs: object):
+    def order_by(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def limit(self, *_args: object, **_kwargs: object):
+    def limit(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def all(self):
+    def all(self) -> object:
         return []
 
 
@@ -118,10 +118,10 @@ class _DummyLearnGeneratedBlockModel:
 class _DummyNoneQuery:
     """Query that always returns None for .first()."""
 
-    def filter(self, *_args: object, **_kwargs: object):
+    def filter(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def first(self):
+    def first(self) -> None:
         return None
 
 
@@ -150,7 +150,7 @@ class _DummyGeneration:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs: object):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
@@ -164,23 +164,23 @@ class _DummySpan:
         self.end_kwargs = {}
         self.events = []
 
-    def generation(self, **kwargs: object):
+    def generation(self, **kwargs: object) -> object:
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self, **kwargs: object):
+    def span(self, **kwargs: object) -> object:
         self.span_calls.append(kwargs)
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def event(self, **kwargs: object):
+    def event(self, **kwargs: object) -> None:
         self.events.append(kwargs)
 
-    def end(self, output: object = None, **kwargs: object):
+    def end(self, output: object = None, **kwargs: object) -> None:
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
@@ -191,11 +191,11 @@ class _DummyTrace:
         self.updated = {}
         self.last_span = None
 
-    def span(self, **_kwargs: object):
+    def span(self, **_kwargs: object) -> object:
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
@@ -209,16 +209,16 @@ class _Context:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
-    def get_system_prompt(self, _outline_bid: str):
+    def get_system_prompt(self, _outline_bid: str) -> object:
         return "COURSE_PROMPT"
 
-    def append_langfuse_output(self, value: str):
+    def append_langfuse_output(self, value: str) -> None:
         self.langfuse_outputs.append(value)
 
 
 def _setup_handle_input_ask_patches(
     monkeypatch: object, module: object, ask_provider_config: object
-):
+) -> None:
     class _DummyLLMSettings:
         def __init__(self, model: object, temperature: object) -> None:
             self.model = model
@@ -281,7 +281,7 @@ def _setup_handle_input_ask_patches(
 
     call_counter = {"index": 0}
 
-    def _fake_init_generated_block(*_args: object, **_kwargs: object):
+    def _fake_init_generated_block(*_args: object, **_kwargs: object) -> object:
         call_counter["index"] += 1
         return types.SimpleNamespace(
             generated_block_bid=f"gb-{call_counter['index']}",
@@ -294,7 +294,7 @@ def _setup_handle_input_ask_patches(
     monkeypatch.setattr(module, "init_generated_block", _fake_init_generated_block)
 
 
-def _collect_content_chunks(events: object):
+def _collect_content_chunks(events: object) -> object:
     return [event.content for event in events if event.type == GeneratedType.CONTENT]
 
 
@@ -315,13 +315,13 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args: object, **_kwargs: object):
+    def _fake_chat_llm(*_args: object, **_kwargs: object) -> object:
         llm_call_counter["count"] += 1
         yield _LLMChunk("should-not-run")
 
     monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
 
-    def _raise_provider_error(**_kwargs: object):
+    def _raise_provider_error(**_kwargs: object) -> object:
         if False:
             yield None
         message = "provider failed"
@@ -383,13 +383,13 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args: object, **_kwargs: object):
+    def _fake_chat_llm(*_args: object, **_kwargs: object) -> object:
         llm_call_counter["count"] += 1
         yield _LLMChunk("llm-fallback-answer")
 
     monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
 
-    def _provider_then_llm_stream(**kwargs: object):
+    def _provider_then_llm_stream(**kwargs: object) -> object:
         if kwargs.get("provider") == "llm":
             runtime = kwargs.get("runtime")
             if runtime is None or runtime.llm_stream_factory is None:
@@ -457,13 +457,13 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
 
     llm_calls = []
 
-    def _fake_chat_llm(*_args: object, **kwargs: object):
+    def _fake_chat_llm(*_args: object, **kwargs: object) -> object:
         llm_calls.append(kwargs)
         yield _LLMChunk("synthesized-answer")
 
     monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
 
-    def _retrieval_provider_stream(**kwargs: object):
+    def _retrieval_provider_stream(**kwargs: object) -> object:
         # Mimic a retrieval adapter: synthesize through the runtime factory.
         runtime = kwargs.get("runtime")
         assert runtime is not None
@@ -530,7 +530,7 @@ def test_handle_input_ask_provider_response_skips_llm(
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args: object, **_kwargs: object):
+    def _fake_chat_llm(*_args: object, **_kwargs: object) -> object:
         llm_call_counter["count"] += 1
         yield _LLMChunk("should-not-run")
 
@@ -600,7 +600,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
 
     captured = {"messages": None}
 
-    def _fake_stream_ask_provider_response(**kwargs: object):
+    def _fake_stream_ask_provider_response(**kwargs: object) -> object:
         if kwargs.get("provider") == "dify":
             captured["messages"] = kwargs.get("messages")
             return iter([types.SimpleNamespace(content="provider-answer")])
@@ -702,7 +702,7 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
         template: object,
         *,
         profile_overrides: object = None,
-    ):
+    ) -> object:
         captured["profile_overrides"] = profile_overrides
         profiles = {
             "language": "zh-CN",
@@ -711,7 +711,7 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
         }
         return template.format(**profiles)
 
-    def _fake_stream_ask_provider_response(**kwargs: object):
+    def _fake_stream_ask_provider_response(**kwargs: object) -> object:
         captured["messages"] = kwargs.get("messages")
         return iter([types.SimpleNamespace(content="provider-answer")])
 
@@ -761,11 +761,11 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
 # ---------------------------------------------------------------------------
 
 
-def _setup_llm_only_patches(monkeypatch: object, module: object, llm_chunks: object):
+def _setup_llm_only_patches(monkeypatch: object, module: object, llm_chunks: object) -> None:
     ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
 
-    def _fake_stream(**_kwargs: object):
+    def _fake_stream(**_kwargs: object) -> object:
         for chunk in llm_chunks:
             yield types.SimpleNamespace(content=chunk)
 

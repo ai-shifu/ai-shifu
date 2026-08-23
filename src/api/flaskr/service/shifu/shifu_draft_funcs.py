@@ -956,7 +956,7 @@ def get_shifu_published_list(
         return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
-def _set_shifu_archive_state(app: object, user_id: str, shifu_id: str, archived: bool):
+def _set_shifu_archive_state(app: object, user_id: str, shifu_id: str, archived: bool) -> None:
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:

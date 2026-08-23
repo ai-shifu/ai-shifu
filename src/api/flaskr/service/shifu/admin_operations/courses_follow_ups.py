@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def _build_course_follow_up_base_subquery(shifu_bid: str):
+def _build_course_follow_up_base_subquery(shifu_bid: str) -> object:
     return (
         db.session.query(
             LearnGeneratedBlock.id.label("id"),

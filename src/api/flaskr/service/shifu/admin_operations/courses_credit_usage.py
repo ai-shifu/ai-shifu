@@ -404,7 +404,7 @@ def _build_course_credit_usage_learn_filter(
     )
 
 
-def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
+def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str) -> object:
     course_usage_bids = (
         db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
         .filter(
@@ -446,7 +446,7 @@ def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
     outline_item_bids: Sequence[str] | None = None,
-):
+) -> object:
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
     )
@@ -789,7 +789,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
     *,
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-):
+) -> object:
     normalized_leaf_outline_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in leaf_outline_bids
@@ -1416,7 +1416,7 @@ def _build_latest_bill_usage_record_subquery(
     *,
     user_bid: str = "",
     usage_bids: Sequence[str] | None = None,
-):
+) -> object:
     normalized_user_bid = str(user_bid or "").strip()
     normalized_usage_bids = [
         str(usage_bid or "").strip()

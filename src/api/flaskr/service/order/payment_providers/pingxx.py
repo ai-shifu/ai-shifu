@@ -6,6 +6,9 @@ import base64
 import json
 import re
 import threading
+from collections.abc import (
+    Callable,  # noqa: TC003 - decorator annotation is resolved at runtime
+)
 from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
@@ -40,9 +43,9 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func: object):
+def _serialized_pingpp_config(func: object) -> Callable[..., Any]:
     @wraps(func)
-    def wrapped(*args: object, **kwargs: object):
+    def wrapped(*args: object, **kwargs: object) -> Any:
         with _PINGPP_CONFIG_LOCK:
             return func(*args, **kwargs)
 

@@ -1123,7 +1123,7 @@ def test_settle_usage_acquires_creator_scoped_lock(
             self.acquire_calls: list[bool] = []
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
+        def acquire(self, blocking: bool = True, blocking_timeout: object = None) -> object:
             _ = blocking_timeout
             self.acquire_calls.append(bool(blocking))
             return True
@@ -1141,7 +1141,7 @@ def test_settle_usage_acquires_creator_scoped_lock(
             key: str,
             timeout: object = None,
             blocking_timeout: object = None,
-        ):
+        ) -> object:
             self.calls.append(
                 {
                     "key": key,
@@ -1215,7 +1215,7 @@ def test_settle_usage_releases_creator_lock_on_error(
         def __init__(self) -> None:
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None):
+        def acquire(self, blocking: bool = True, blocking_timeout: object = None) -> object:
             _ = (blocking, blocking_timeout)
             return True
 
@@ -1641,7 +1641,7 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(
 
     def fake_load_usage_rate(
         *, usage: object, billing_metric: object, settlement_at: object
-    ):
+    ) -> None:
         _ = (usage, billing_metric)
         captured.append(settlement_at)
 

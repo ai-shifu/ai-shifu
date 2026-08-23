@@ -26,11 +26,11 @@ def test_add_profile_item_quick_creates_definition(app: object) -> None:
 def test_hide_unused_profile_items_no_unused(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_unused(_app: object, parent_id: object):
+    def fake_get_unused(_app: object, parent_id: object) -> object:
         calls.append(("unused", parent_id))
         return []
 
-    def fake_get_defs(_app: object, parent_id: object = None):
+    def fake_get_defs(_app: object, parent_id: object = None) -> object:
         calls.append(("defs", parent_id))
         return ["defs"]
 
@@ -51,7 +51,7 @@ def test_hide_unused_profile_items_no_unused(monkeypatch: object) -> None:
 def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_unused(_app: object, parent_id: object):
+    def fake_get_unused(_app: object, parent_id: object) -> object:
         calls.append(("unused", parent_id))
         return ["v1", "v2"]
 
@@ -61,7 +61,7 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
         profile_keys: object,
         hidden: object,
         user_id: object,
-    ):
+    ) -> object:
         calls.append(("update", parent_id, tuple(profile_keys), hidden, user_id))
         return ["updated"]
 
@@ -80,7 +80,7 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
 def test_get_profile_variable_usage_groups_keys(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_defs(_app: object, parent_id: object = None, _type: object = "all"):
+    def fake_get_defs(_app: object, parent_id: object = None, _type: object = "all") -> object:
         calls.append(("defs", parent_id))
         return [
             # system key should be ignored
@@ -91,7 +91,7 @@ def test_get_profile_variable_usage_groups_keys(monkeypatch: object) -> None:
             object.__class__("obj", (), {"profile_scope": "user", "profile_key": "k2"}),
         ]
 
-    def fake_collect(_app: object, parent_id: object):
+    def fake_collect(_app: object, parent_id: object) -> object:
         calls.append(("collect", parent_id))
         return {"k2"}
 

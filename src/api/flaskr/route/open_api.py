@@ -24,7 +24,7 @@ def require_api_key(f: Callable[P, R]) -> Callable[P, R]:
     """Authenticate Open API requests via X-User-Uid + X-Api-Key headers."""
 
     @wraps(f)
-    def wrapper(*args: object, **kwargs: object):
+    def wrapper(*args: object, **kwargs: object) -> R:
         user_uid = request.headers.get("X-User-Uid", "").strip()
         api_key = request.headers.get("X-Api-Key", "").strip()
 
@@ -43,7 +43,7 @@ def require_api_key(f: Callable[P, R]) -> Callable[P, R]:
     return wrapper
 
 
-def _extract_params():
+def _extract_params() -> tuple[str, str, str]:
     """Extract and validate common request parameters."""
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
     shifu_bid = str(payload.get("shifu_bid", "")).strip()
@@ -66,7 +66,7 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/order/query", methods=["POST"])
     @bypass_token_validation
     @require_api_key
-    def open_api_order_query():
+    def open_api_order_query() -> str:
         shifu_bid, user_identify, user_identify_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_query_order(
@@ -77,7 +77,7 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/order/grant", methods=["POST"])
     @bypass_token_validation
     @require_api_key
-    def open_api_order_grant():
+    def open_api_order_grant() -> str:
         shifu_bid, user_identify, user_identify_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_grant_order(
@@ -88,7 +88,7 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/order/revoke", methods=["POST"])
     @bypass_token_validation
     @require_api_key
-    def open_api_order_revoke():
+    def open_api_order_revoke() -> str:
         shifu_bid, user_identify, user_identify_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_revoke_order(

@@ -8,10 +8,10 @@ def test_run_summary_with_error_handling_logs_and_continues(
 ) -> None:
     called = {"apply": False, "summary": False}
 
-    def fake_apply(_snapshot: object):
+    def fake_apply(_snapshot: object) -> None:
         called["apply"] = True
 
-    def fake_summary(_app: object, _shifu_id: object):
+    def fake_summary(_app: object, _shifu_id: object) -> None:
         called["summary"] = True
         message = "boom"
         raise RuntimeError(message)

@@ -39,7 +39,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 from tests.common.fixtures.fake_redis import FakeRedis
 
 
-def _load_user_route_handlers():
+def _load_user_route_handlers() -> object:
     common_module = importlib.import_module("flaskr.route.common")
     user_module = importlib.import_module("flaskr.route.user")
     return user_module.register_user_handler, common_module.register_common_handler
@@ -48,7 +48,7 @@ def _load_user_route_handlers():
 register_user_handler, register_common_handler = _load_user_route_handlers()
 
 
-def _post_json(client: object, path: str, payload: dict, headers: dict | None = None):
+def _post_json(client: object, path: str, payload: dict, headers: dict | None = None) -> object:
     return client.post(
         path,
         data=json.dumps(payload),
@@ -367,7 +367,7 @@ def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
         token = generate_token(app, user_bid)
         dao.db.session.commit()
 
-    def _failing_post_auth_handler(_context: object, *, app: object):
+    def _failing_post_auth_handler(_context: object, *, app: object) -> None:
         _ = app
         message = "boom"
         raise RuntimeError(message)

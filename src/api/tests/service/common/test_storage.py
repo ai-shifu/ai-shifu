@@ -125,15 +125,15 @@ def test_read_storage_bytes_fetches_from_oss_when_local_file_is_missing(
     )
 
     class FakeObject:
-        def read(self):
+        def read(self) -> object:
             return b"remote-audio"
 
     class FakeBucket:
-        def get_object(self, object_key: str):
+        def get_object(self, object_key: str) -> object:
             assert object_key == "tts/minimax/source.webm"
             return FakeObject()
 
-    def fake_create_oss_bucket(config: object):
+    def fake_create_oss_bucket(config: object) -> object:
         assert config.bucket == "resource-bucket"
         return FakeBucket()
 

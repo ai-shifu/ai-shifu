@@ -69,7 +69,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 
-def _load_latest_course_for_transfer(shifu_bid: str):
+def _load_latest_course_for_transfer(shifu_bid: str) -> object:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,

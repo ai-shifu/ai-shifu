@@ -155,7 +155,7 @@ def publish_shifu_draft(
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
 
-        def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem):
+        def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem) -> None:
             outline_item = PublishedOutlineItem()
             draft_outline_item: DraftOutlineItem = node.outline
             outline_item.shifu_bid = shifu_id
@@ -228,7 +228,7 @@ def publish_shifu_draft(
 
 def _run_summary_with_error_handling(
     app: object, shifu_id: object, shifu_context_snapshot: object = None
-):
+) -> None:
     """Run shifu summary generation with error handling.
 
     Args:
@@ -312,7 +312,7 @@ def _generate_ask_prompts(
     outline_summary_map: dict[str, dict],
     outline_item_map: dict[str, PublishedOutlineItem],
     ask_prompt_template: str,
-):
+) -> None:
     """Generate ask_prompt for each section.
 
     Args:
@@ -513,7 +513,7 @@ def _get_summary(
     model_name: object,
     user_id: object = None,
     temperature: object = 0.8,
-):
+) -> str:
     """Call the AI model to generate summary.
 
     Args:

@@ -36,6 +36,7 @@ from .consts import (
 )
 from .dtos import (
     AdminBillingCampaignDetailDTO,
+    AdminBillingCampaignDTO,
     AdminBillingCampaignProductOptionsDTO,
     AdminBillingCampaignsPageDTO,
 )
@@ -1110,7 +1111,7 @@ def _serialize_admin_campaign_row(
     product_types: list[str],
     bindings: list[BillingCampaignProduct],
     hit_order_count: int,
-):
+) -> AdminBillingCampaignDTO:
     campaign_rule_snapshot = _resolve_campaign_rule_snapshot_from_bindings(
         row,
         bindings=bindings,

@@ -53,7 +53,7 @@ VALID_TYPE_CODES = set(range(201, 214))
 # ---------------------------------------------------------------------------
 
 
-def _fetch_blocks_raw(app: object, limit: object = 100):
+def _fetch_blocks_raw(app: object, limit: object = 100) -> object:
     """Fetch latest generated blocks with content directly via SQLAlchemy."""
     from flaskr.service.learn.models import LearnGeneratedBlock
 
@@ -86,7 +86,7 @@ def _fetch_blocks_raw(app: object, limit: object = 100):
         ]
 
 
-def _role_str(role_int: object):
+def _role_str(role_int: object) -> object:
     if role_int == ROLE_STUDENT:
         return "student"
     return "teacher"
@@ -94,7 +94,7 @@ def _role_str(role_int: object):
 
 def _try_simulate_sse_for_block(
     app: object, block: object, *, with_av_contract: object = True
-):
+) -> object:
     """Simulate SSE for a block, returning None when the simulation fails.
 
     Callers scan a sample of production-shaped rows and skip the ones the
@@ -108,7 +108,7 @@ def _try_simulate_sse_for_block(
 
 def _simulate_sse_for_block(
     app: object, block: object, *, with_av_contract: object = True
-):
+) -> object:
     """Simulate SSE stream for a single block via ListenElementRunAdapter.
 
     When with_av_contract=True (default), builds an AV segmentation contract

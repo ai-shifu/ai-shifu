@@ -30,16 +30,16 @@ class _FakeSession:
         self.invalidations = 0
         self.removed = 0
 
-    def rollback(self):
+    def rollback(self) -> None:
         self.rollbacks += 1
 
-    def commit(self):
+    def commit(self) -> None:
         self.commits += 1
 
-    def invalidate(self):
+    def invalidate(self) -> None:
         self.invalidations += 1
 
-    def remove(self):
+    def remove(self) -> None:
         self.removed += 1
 
 
@@ -51,20 +51,20 @@ class _StubRunContext:
     def __init__(self, **_kwargs: object) -> None:
         self._steps = iter([True, False])
 
-    def set_input(self, *_args: object, **_kwargs: object):
+    def set_input(self, *_args: object, **_kwargs: object) -> None:
         pass
 
-    def has_next(self):
+    def has_next(self) -> object:
         return next(self._steps, False)
 
-    def run(self, _app: object):
+    def run(self, _app: object) -> object:
         for item in type(self).script:
             if isinstance(item, BaseException):
                 raise item
             yield item
 
 
-def _patch_run_dependencies(monkeypatch: object, script: object):
+def _patch_run_dependencies(monkeypatch: object, script: object) -> object:
     session = _FakeSession()
 
     class _FakeDb:
@@ -102,7 +102,7 @@ def _patch_run_dependencies(monkeypatch: object, script: object):
     return session
 
 
-def _start_stream(app: object):
+def _start_stream(app: object) -> object:
     generator = run_script_inner(
         app=app,
         user_bid="user-1",

@@ -12,7 +12,7 @@ class _DummyGeneration:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs: object):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
@@ -24,7 +24,7 @@ class _DummySpan:
         self.id = span_id
         self.generations = []
 
-    def generation(self, **kwargs: object):
+    def generation(self, **kwargs: object) -> object:
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation

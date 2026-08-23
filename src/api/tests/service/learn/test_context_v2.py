@@ -19,7 +19,7 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args: object, **kwargs: object):
+    def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
         message = "unknown model"
         raise ValueError(message)
@@ -149,10 +149,10 @@ class _FakeLangfuseSpan:
         self.updated = {}
         self.end_kwargs = {}
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def end(self, **kwargs: object):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
@@ -160,7 +160,7 @@ class _FakeLangfuseTrace:
     def __init__(self) -> None:
         self.updated = {}
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
@@ -232,7 +232,7 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
     def test_without_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             yield "one"
             yield "two"
 
@@ -243,10 +243,10 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
     def test_inside_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             yield "alpha"
 
-        async def runner():
+        async def runner() -> None:
             result = ctx._collect_async_generator(sample)
             assert result == ["alpha"]
 
@@ -263,7 +263,7 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
     def test_without_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             return "result"
 
         assert ctx._run_async_in_safe_context(sample) == "result"
@@ -271,10 +271,10 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
     def test_inside_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             return "loop"
 
-        async def runner():
+        async def runner() -> None:
             assert ctx._run_async_in_safe_context(sample) == "loop"
 
         asyncio.run(runner())
@@ -372,11 +372,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress: object):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress: object):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -398,11 +398,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress: object):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress: object):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -424,11 +424,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress: object):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress: object):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -460,7 +460,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         class _Column:
             __hash__ = None
 
-            def in_(self, _values: object):
+            def in_(self, _values: object) -> object:
                 return self
 
             def __eq__(self, _other: object) -> "_Column":
@@ -473,17 +473,17 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             deleted = _Column()
 
         class _FakeQuery:
-            def filter(self, *_args: object, **_kwargs: object):
+            def filter(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def all(self):
+            def all(self) -> object:
                 return [("outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
             def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return [object(), object()]
 
         outline_item = HistoryItem(
@@ -545,7 +545,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return [object(), object()]
 
         with (
@@ -732,11 +732,11 @@ class StreamTtsGateTests(unittest.TestCase):
 
         idle_ticks: list[int] = []
 
-        def delayed_stream():
+        def delayed_stream() -> object:
             time.sleep(0.05)
             yield "chunk-1"
 
-        def on_idle():
+        def on_idle() -> object:
             idle_ticks.append(len(idle_ticks))
             yield f"idle-{len(idle_ticks)}"
 
@@ -780,7 +780,7 @@ class StreamTtsGateTests(unittest.TestCase):
                     raise StopIteration
                 return "chunk-2"
 
-            def close(self):
+            def close(self) -> None:
                 self.close_calls += 1
 
         stream = ClosableStream()
@@ -1072,14 +1072,14 @@ class StreamTtsTeardownTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.finalize_calls = []
 
-            def finalize(self, *, commit: object = True):
+            def finalize(self, *, commit: object = True) -> object:
                 self.finalize_calls.append(commit)
                 yield "audio-complete"
 
         flush_calls: list[str] = []
         processor = _FakeProcessor()
 
-        def _flush_content_cache():
+        def _flush_content_cache() -> object:
             flush_calls.append("flush")
             yield "content-flush"
 
@@ -1109,7 +1109,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.finalize_calls = 0
 
-            def finalize(self, *, commit: object = True):
+            def finalize(self, *, commit: object = True) -> object:
                 _ = commit
                 self.finalize_calls += 1
                 yield "audio-complete"
@@ -1117,7 +1117,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
         flush_calls: list[str] = []
         processor = _FakeProcessor()
 
-        def _flush_content_cache():
+        def _flush_content_cache() -> object:
             flush_calls.append("flush")
             yield "content-flush"
 
@@ -1146,7 +1146,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 self.args = args
                 self.kwargs = kwargs
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1160,10 +1160,10 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 _ = (args, kwargs)
                 self.visual_mode = None
 
-            def set_visual_mode(self, visual_mode: object):
+            def set_visual_mode(self, visual_mode: object) -> None:
                 self.visual_mode = visual_mode
 
-            def set_output_language(self, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1177,7 +1177,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 _ = (args, kwargs)
                 self.output_language = None
 
-            def set_output_language(self, language: object):
+            def set_output_language(self, language: object) -> object:
                 self.output_language = language
                 return self
 
@@ -1732,7 +1732,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         def _fake_create_trace_with_root_span(
             *, client: object, trace_payload: object, root_span_payload: object
-        ):
+        ) -> object:
             captured["client"] = client
             captured["trace_payload"] = trace_payload
             captured["root_span_payload"] = root_span_payload
@@ -1848,10 +1848,10 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def get_context(self, *_args: object, **_kwargs: object):
+            def get_context(self, *_args: object, **_kwargs: object) -> object:
                 return []
 
-            def replace_context(self, *_args: object, **_kwargs: object):
+            def replace_context(self, *_args: object, **_kwargs: object) -> None:
                 return None
 
         class _FakePreviewMdflowContext:
@@ -1868,12 +1868,12 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             ) -> object:
                 return context
 
-            def get_block(self, _block_index: object):
+            def get_block(self, _block_index: object) -> object:
                 return types.SimpleNamespace(
                     block_type=PreviewBlockType.CONTENT, content="Prompt block"
                 )
 
-            def process(self, **_kwargs: object):
+            def process(self, **_kwargs: object) -> object:
                 return (
                     item
                     for item in [
@@ -1889,12 +1889,12 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def process(self, events: object):
+            def process(self, events: object) -> object:
                 return events
 
         def _fake_create_trace_with_root_span(
             *, client: object, trace_payload: object, root_span_payload: object
-        ):
+        ) -> object:
             _ = client, root_span_payload
             captured["trace_payload"] = trace_payload
             trace = _FakeLangfuseTrace()
@@ -2195,10 +2195,10 @@ class _InMemoryCache:
     def __init__(self) -> None:
         self.store: dict[str, str] = {}
 
-    def get(self, key: str):
+    def get(self, key: str) -> object:
         return self.store.get(key)
 
-    def setex(self, key: str, _ttl: int, value: object):
+    def setex(self, key: str, _ttl: int, value: object) -> None:
         self.store[key] = value
 
     def delete(self, *keys: str) -> int:
@@ -2286,7 +2286,7 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
 class PreviewContextStoreTruncationTests(unittest.TestCase):
     """Verify preview context store truncation behavior."""
 
-    def _populate(self, store: object, doc: object, indices: object):
+    def _populate(self, store: object, doc: object, indices: object) -> None:
         for idx in indices:
             store.append_context(doc, idx, f"u{idx}", f"a{idx}")
 
@@ -2433,7 +2433,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         app = Flask("runtime-langfuse-paid")
         ctx = _make_context()
 
-        def _raise_paid(_app: object):
+        def _raise_paid(_app: object) -> None:
             raise PaidError
 
         ctx.run_inner = _raise_paid
@@ -2457,7 +2457,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         "Second content {{nickname}}."
     )
 
-    def _blocks(self):
+    def _blocks(self) -> object:
         return [
             types.SimpleNamespace(
                 type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -2597,7 +2597,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def _run_stream_phase(self, stream_items: object):
+    def _run_stream_phase(self, stream_items: object) -> object:
         ctx = _make_context()
         ctx.app = self.app
         ctx._input_type = "normal"
@@ -2610,7 +2610,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
         # _recorder is a lazy read-only property backed by __dict__.
         ctx.__dict__["_run_recorder"] = MagicMock()
 
-        def fake_stream():
+        def fake_stream() -> object:
             yield from stream_items
 
         mdflow_context = types.SimpleNamespace(process=lambda **_kwargs: fake_stream())
@@ -2686,7 +2686,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
     )
     INTERACTION = "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]"
 
-    def _blocks(self, selection: object):
+    def _blocks(self, selection: object) -> object:
         return [
             types.SimpleNamespace(
                 type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -2783,7 +2783,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
 class TraceSessionBindingTests(unittest.TestCase):
     """Cover the langfuse session id binding of a runtime step."""
 
-    def _context(self, trace: object):
+    def _context(self, trace: object) -> object:
         ctx = _make_context()
         ctx.app = MagicMock()
         ctx._trace = trace

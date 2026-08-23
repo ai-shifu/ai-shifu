@@ -10,7 +10,7 @@ class _EchoResult:
     def __init__(self, value: object) -> None:
         self._value = value
 
-    def scalar(self):
+    def scalar(self) -> object:
         return self._value
 
 
@@ -18,7 +18,7 @@ class _FakeConnection:
     def __init__(self) -> None:
         self.invalidated = 0
 
-    def invalidate(self):
+    def invalidate(self) -> None:
         self.invalidated += 1
 
 
@@ -33,10 +33,10 @@ class _FakeSession:
         self.invalidations = 0
         self._connection = _FakeConnection()
 
-    def invalidate(self):
+    def invalidate(self) -> None:
         self.invalidations += 1
 
-    def execute(self, _statement: object, params: object):
+    def execute(self, _statement: object, params: object) -> object:
         self.executed += 1
         behaviour = self._behaviours.pop(0)
         if behaviour == "ok":
@@ -50,14 +50,14 @@ class _FakeSession:
             )
         return _EchoResult(behaviour)
 
-    def connection(self):
+    def connection(self) -> object:
         return self._connection
 
-    def rollback(self):
+    def rollback(self) -> None:
         self.rollbacks += 1
 
 
-def _patch_session(monkeypatch: object, behaviours: object):
+def _patch_session(monkeypatch: object, behaviours: object) -> object:
     session = _FakeSession(behaviours)
 
     class _FakeDb:

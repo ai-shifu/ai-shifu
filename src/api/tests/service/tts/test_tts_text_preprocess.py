@@ -3,7 +3,7 @@
 import pytest
 
 
-def _require_app(app: object):
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
@@ -138,7 +138,7 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(
 
     captured: list[str] = []
 
-    def _capture_submit(self: object, text: str):
+    def _capture_submit(self: object, text: str) -> None:
         _ = self
         captured.append(text)
 
@@ -187,7 +187,7 @@ def test_streaming_tts_processor_skips_chunked_markdown_image(
 
     captured: list[str] = []
 
-    def _capture_submit(self: object, text: str):
+    def _capture_submit(self: object, text: str) -> None:
         _ = self
         captured.append(text)
 

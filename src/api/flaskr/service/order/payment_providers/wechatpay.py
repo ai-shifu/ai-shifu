@@ -29,6 +29,10 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric.rsa import (
+        RSAPrivateKey,
+        RSAPublicKey,
+    )
     from flask import Flask
 
 
@@ -341,7 +345,7 @@ def _sign_with_merchant_key(message: str) -> str:
     return base64.b64encode(signature).decode("utf-8")
 
 
-def _load_private_key():
+def _load_private_key() -> RSAPrivateKey:
     inline = str(get_config("WECHATPAY_PRIVATE_KEY", "") or "").strip()
     pem = (
         inline.encode("utf-8")
@@ -351,7 +355,7 @@ def _load_private_key():
     return serialization.load_pem_private_key(pem, password=None)
 
 
-def _load_public_key_from_certificate():
+def _load_public_key_from_certificate() -> RSAPublicKey:
     inline = str(get_config("WECHATPAY_PLATFORM_CERT", "") or "").strip()
     pem = (
         inline.encode("utf-8")

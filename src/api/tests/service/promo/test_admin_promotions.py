@@ -43,7 +43,7 @@ from flaskr.util.datetime import now_utc, parse_naive_utc
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app: object):
+def _isolate_tables(app: object) -> object:
     with app.app_context():
         db.session.query(PromoRedemption).delete()
         db.session.query(PromoCampaign).delete()
@@ -161,7 +161,7 @@ def _mock_creator(monkeypatch: object, user_id: str = "creator-1") -> None:
 
 def _seed_user(
     user_bid: str, identifier: str, nickname: str, *, is_operator: bool = False
-):
+) -> object:
     user = UserEntity()
     user.user_bid = user_bid
     user.user_identify = identifier
@@ -180,7 +180,7 @@ def _seed_user(
     return user
 
 
-def _seed_course(shifu_bid: str, title: str, *, creator_user_bid: str = "operator-1"):
+def _seed_course(shifu_bid: str, title: str, *, creator_user_bid: str = "operator-1") -> object:
     course = PublishedShifu()
     course.shifu_bid = shifu_bid
     course.title = title
@@ -198,7 +198,7 @@ def _seed_order(
     *,
     payable: str = "99.00",
     paid: str = "79.00",
-):
+) -> object:
     order = Order()
     order.order_bid = order_bid
     order.shifu_bid = shifu_bid
@@ -718,7 +718,7 @@ def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
         page_index: object,
         page_size: object,
         filters: object,
-    ):
+    ) -> object:
         captured_filters.update(filters)
         assert creator_user_bid == "creator-1"
         assert page_index == 1

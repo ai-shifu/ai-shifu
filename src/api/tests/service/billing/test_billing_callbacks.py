@@ -606,7 +606,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeAlipayProvider:
-            def handle_notification(self, *, payload: object, app: object):
+            def handle_notification(self, *, payload: object, app: object) -> object:
                 _ = (payload, app)
                 return _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS")
 
@@ -796,7 +796,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeAlipayProvider:
-            def handle_notification(self, *, payload: object, app: object):
+            def handle_notification(self, *, payload: object, app: object) -> object:
                 _ = (payload, app)
                 return _alipay_notification("missing-native-order", "TRADE_SUCCESS")
 
@@ -822,7 +822,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers: object, raw_body: object, app: object):
+            def verify_webhook(self, *, headers: object, raw_body: object, app: object) -> object:
                 _ = (headers, raw_body, app)
                 return _wechatpay_notification("legacy-wechatpay-attempt-1", "SUCCESS")
 
@@ -888,7 +888,7 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers: object, raw_body: object, app: object):
+            def verify_webhook(self, *, headers: object, raw_body: object, app: object) -> None:
                 _ = (headers, raw_body, app)
                 message = "secret verification detail"
                 raise RuntimeError(message)

@@ -9,7 +9,7 @@ from flaskr.service.learn.context_v2 import RunScriptContextV2
 _PRODUCER_THREAD_NAME = "mdflow_stream_result_producer"
 
 
-def _make_context_stub(app: object):
+def _make_context_stub(app: object) -> object:
     stub = types.SimpleNamespace(app=app)
     stub._stop_requested = lambda: False
     stub._stop_if_requested = lambda: None
@@ -19,7 +19,7 @@ def _make_context_stub(app: object):
 def test_stream_producer_stops_when_consumer_exits_early(app: object) -> None:
     stop_streaming = threading.Event()
 
-    def endless_stream():
+    def endless_stream() -> object:
         index = 0
         while not stop_streaming.is_set():
             yield index
@@ -61,7 +61,7 @@ def test_early_consumer_exit_invalidates_producer_session(
 
     stop_streaming = threading.Event()
 
-    def endless_stream():
+    def endless_stream() -> object:
         index = 0
         while not stop_streaming.is_set():
             yield index
@@ -95,7 +95,7 @@ def test_natural_exhaustion_does_not_invalidate_producer_session(
         lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
-    def short_stream():
+    def short_stream() -> object:
         yield "a"
         yield "b"
 
@@ -125,7 +125,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(
 
     outcomes = []
 
-    def cleanup_session_after(exc: object, *, source: object, session: object = None):
+    def cleanup_session_after(exc: object, *, source: object, session: object = None) -> object:
         del session
         outcomes.append((type(exc).__name__, source))
         return "invalidated"
@@ -139,7 +139,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(
     class _FailingProcessor:
         next_element_index = 0
 
-        def finalize(self, *, commit: object):
+        def finalize(self, *, commit: object) -> object:
             _ = commit
             message = "desynced during finalize"
             raise ResourceClosedError(message)

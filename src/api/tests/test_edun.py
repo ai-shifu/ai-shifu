@@ -22,7 +22,7 @@ def test_yidun_check_uses_configured_timeout(app: object, monkeypatch: object) -
     captured = {}
 
     class _Resp:
-        def json(self):
+        def json(self) -> object:
             return {
                 "code": 200,
                 "result": {"antispam": {"suggestion": 0, "label": 100}},
@@ -30,7 +30,7 @@ def test_yidun_check_uses_configured_timeout(app: object, monkeypatch: object) -
 
     def fake_post(
         url: object, data: object = None, headers: object = None, timeout: object = None
-    ):
+    ) -> object:
         _ = (data, headers)
         captured["url"] = url
         captured["timeout"] = timeout
@@ -55,7 +55,7 @@ def test_ilivedata_send_wraps_oserror_as_urlerror(monkeypatch: object) -> None:
 
     from flaskr.api.check import ilivedata as ilivedata_module
 
-    def fake_urlopen(*_args: object, **_kwargs: object):
+    def fake_urlopen(*_args: object, **_kwargs: object) -> None:
         message = "timed out"
         raise TimeoutError(message)
 
@@ -80,10 +80,10 @@ def test_ilivedata_check_uses_configured_timeout(
         def __exit__(self, exc_type: object, exc: object, tb: object) -> bool | None:
             captured["closed"] = True
 
-        def read(self):
+        def read(self) -> object:
             return b'{"errorCode":0,"textSpam":{"result":0,"tags":[]}}'
 
-    def fake_urlopen(req: object, timeout: object = None):
+    def fake_urlopen(req: object, timeout: object = None) -> object:
         captured["host"] = req.full_url
         captured["timeout"] = timeout
         return _Resp()

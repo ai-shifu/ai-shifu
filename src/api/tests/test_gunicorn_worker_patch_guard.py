@@ -10,7 +10,7 @@ actually selects the gevent worker.
 import pathlib
 
 
-def _load_detector():
+def _load_detector() -> object:
     conf_path = pathlib.Path(__file__).resolve().parents[1] / "gunicorn.conf.py"
     source = conf_path.read_text()
     # Execute only the detector function, not the module (which would
@@ -64,7 +64,7 @@ def test_observer_skips_unpatched_processes(monkeypatch: object) -> None:
     monkeypatch.setattr(monkey, "is_module_patched", lambda _name: False)
 
     class _Logger:
-        def error(self, *args: object, **kwargs: object):
+        def error(self, *args: object, **kwargs: object) -> None:
             _ = (args, kwargs)
             message = "must not log during a skipped install"
             raise AssertionError(message)

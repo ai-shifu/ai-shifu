@@ -508,17 +508,17 @@ def test_operation_credit_mutations_request_wallet_and_bucket_locks(
     real_load_active_buckets = operation_credits._load_active_buckets
     real_iter_hold_buckets = operation_credits._iter_hold_buckets
 
-    def spy_load_wallet(creator_bid: str, *, lock: bool = False):
+    def spy_load_wallet(creator_bid: str, *, lock: bool = False) -> object:
         wallet_lock_calls.append(lock)
         return real_load_wallet(creator_bid, lock=lock)
 
     def spy_load_active_buckets(
         wallet: object, operation_at: object, *, lock: bool = False
-    ):
+    ) -> object:
         active_bucket_lock_calls.append(lock)
         return real_load_active_buckets(wallet, operation_at, lock=lock)
 
-    def spy_iter_hold_buckets(hold: object, *, lock: bool = False):
+    def spy_iter_hold_buckets(hold: object, *, lock: bool = False) -> object:
         hold_bucket_lock_calls.append(lock)
         return real_iter_hold_buckets(hold, lock=lock)
 

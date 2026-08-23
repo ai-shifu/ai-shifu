@@ -50,7 +50,7 @@ class _FollowUpDummyGeneration:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs: object):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
@@ -60,21 +60,21 @@ class _FollowUpDummySpan:
         self.updated = {}
         self.output = ""
 
-    def generation(self, **kwargs: object):
+    def generation(self, **kwargs: object) -> object:
         generation = _FollowUpDummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self, **_kwargs: object):
+    def span(self, **_kwargs: object) -> object:
         return _FollowUpDummySpan()
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def event(self, **_kwargs: object):
+    def event(self, **_kwargs: object) -> None:
         return None
 
-    def end(self, output: object = None, **kwargs: object):
+    def end(self, output: object = None, **kwargs: object) -> None:
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
@@ -83,10 +83,10 @@ class _FollowUpDummyTrace:
     def __init__(self) -> None:
         self.updated = {}
 
-    def span(self, **_kwargs: object):
+    def span(self, **_kwargs: object) -> object:
         return _FollowUpDummySpan()
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
@@ -95,10 +95,10 @@ class _FollowUpContext:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
-    def get_system_prompt(self, _outline_bid: str):
+    def get_system_prompt(self, _outline_bid: str) -> object:
         return "COURSE_PROMPT"
 
-    def append_langfuse_output(self, value: str):
+    def append_langfuse_output(self, value: str) -> None:
         self.langfuse_outputs.append(value)
 
 
@@ -122,7 +122,7 @@ def _setup_handle_input_ask_test_doubles(
     ask_provider_config: object,
     *,
     patch_generated_blocks: bool = True,
-):
+) -> None:
     from flaskr.service.learn.ask_provider_adapters import AskProviderError
 
     class _DummyLLMSettings:
@@ -186,7 +186,7 @@ def _setup_handle_input_ask_test_doubles(
 
         call_counter = {"index": 0}
 
-        def _fake_init_generated_block(*_args: object, **_kwargs: object):
+        def _fake_init_generated_block(*_args: object, **_kwargs: object) -> object:
             call_counter["index"] += 1
             return types.SimpleNamespace(
                 generated_block_bid=f"gb-{call_counter['index']}",
@@ -269,7 +269,7 @@ class TestElementType:
 class TestElementDTONewFields:
     """Verify element DTO new fields behavior."""
 
-    def _make_dto(self, **overrides: object):
+    def _make_dto(self, **overrides: object) -> object:
         from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
 
         defaults = {
@@ -590,7 +590,7 @@ class TestVisualKindMapping:
 # ---------------------------------------------------------------------------
 
 
-def _require_app(app: object):
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
@@ -2499,7 +2499,7 @@ class TestHandleAskAdapter:
                 patch_generated_blocks=False,
             )
 
-            def _raise_provider_error(**_kwargs: object):
+            def _raise_provider_error(**_kwargs: object) -> object:
                 if False:
                     yield None
                 message = "provider failed"

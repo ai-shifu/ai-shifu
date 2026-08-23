@@ -17,7 +17,7 @@ def test_query_sms_template_list_caps_page_size_at_provider_limit(
 
         def query_sms_template_list_with_options(
             self, request: object, _runtime: object
-        ):
+        ) -> object:
             captured["page_index"] = request.page_index
             captured["page_size"] = request.page_size
             return SimpleNamespace(body=SimpleNamespace(code="OK"))

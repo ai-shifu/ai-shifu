@@ -13,7 +13,7 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/dicts", methods=["GET"])
     @bypass_token_validation
-    def get_dicts():
+    def get_dicts() -> object:
         """Get all dictionaries.
 
         ---
@@ -24,7 +24,7 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/models", methods=["GET"])
     @bypass_token_validation
-    def get_models():
+    def get_models() -> object:
         """Get all models.
 
         ---

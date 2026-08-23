@@ -44,7 +44,7 @@ STREAMED_MARKER = "Hello "
 STREAMED_FULL_TEXT = "Hello golden learner."
 
 
-def _open_run_generator(app: object, user_bid: str, shifu: object, *, input_type: str):
+def _open_run_generator(app: object, user_bid: str, shifu: object, *, input_type: str) -> object:
     from flaskr.service.learn.runscript_v2 import run_script_inner
 
     return run_script_inner(
@@ -73,7 +73,7 @@ def _consume_until_streaming(generator: object) -> list:
     raise AssertionError(message)
 
 
-def _load_rows(app: object, user_bid: str):
+def _load_rows(app: object, user_bid: str) -> object:
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 
     with app.app_context():

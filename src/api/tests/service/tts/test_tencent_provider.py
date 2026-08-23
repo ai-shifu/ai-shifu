@@ -16,14 +16,14 @@ class _FakeSSEStreamingResponse:
         self.headers = headers or {"content-type": "text/event-stream"}
         self.closed = False
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def iter_lines(self, decode_unicode: object = True):
+    def iter_lines(self, decode_unicode: object = True) -> object:
         _ = decode_unicode
         yield from self._lines
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
 
@@ -52,7 +52,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
         ]
     )
 
-    def sign(key: object, msg: object):
+    def sign(key: object, msg: object) -> object:
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
     secret_date = sign(("TC3" + secret_key).encode("utf-8"), date)
@@ -69,7 +69,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
 
 
-def _patch_tencent_config(monkeypatch: object, tencent_provider: object):
+def _patch_tencent_config(monkeypatch: object, tencent_provider: object) -> None:
     config = {
         "TENCENT_TTS_APP_ID": "1400000000",
         "TENCENT_TTS_SECRET_ID": "secret-id",
@@ -197,7 +197,7 @@ def test_tencent_provider_stream_synthesize_parses_sse_audio_and_alignments(
 
     def fake_post(
         url: object, data: object, headers: object, stream: object, timeout: object
-    ):
+    ) -> object:
         post_calls.append(
             {
                 "url": url,
@@ -282,7 +282,7 @@ def test_tencent_provider_synthesize_collects_audio_and_sentence_subtitles(
 
     def fake_post(
         url: object, data: object, headers: object, stream: object, timeout: object
-    ):
+    ) -> object:
         _ = url, data, headers, stream, timeout
         return _FakeSSEStreamingResponse(
             [
@@ -380,7 +380,7 @@ def test_tencent_provider_raises_sanitized_error_on_sse_error(
 
     def fake_post(
         url: object, data: object, headers: object, stream: object, timeout: object
-    ):
+    ) -> object:
         _ = url, data, headers, stream, timeout
         return _FakeSSEStreamingResponse(
             [
