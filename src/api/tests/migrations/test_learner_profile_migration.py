@@ -24,7 +24,7 @@ MERGE_MIGRATION_PATH = (
 )
 
 
-def _load_migration_module(path: object = MIGRATION_PATH):
+def _load_migration_module(path: object = MIGRATION_PATH) -> object:
     spec = importlib.util.spec_from_file_location(
         "test_learner_profile_migration_module",
         path,
@@ -45,18 +45,18 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers() -> None:
     executed_statements = []
 
     class _BatchOperations:
-        def add_column(self, column: object):
+        def add_column(self, column: object) -> None:
             added_columns.append(column)
 
-        def alter_column(self, column_name: object, **kwargs: object):
+        def alter_column(self, column_name: object, **kwargs: object) -> None:
             altered_columns.append((column_name, kwargs))
 
     class _Operations:
         @contextmanager
-        def batch_alter_table(self, *_args: object, **_kwargs: object):
+        def batch_alter_table(self, *_args: object, **_kwargs: object) -> object:
             yield _BatchOperations()
 
-        def execute(self, statement: object):
+        def execute(self, statement: object) -> None:
             executed_statements.append(str(statement))
 
     migration.op = _Operations()

@@ -95,7 +95,7 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         lambda *_args, **_kwargs: None,
     )
 
-    def _fake_pingxx_charge(**kwargs: object):
+    def _fake_pingxx_charge(**kwargs: object) -> object:
         buy_record = kwargs["buy_record"]
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         dao.db.session.add(buy_record)
@@ -200,7 +200,7 @@ class _FakeSaasConfigFuncs:
     def get_sass_config(self, user_bid: str, key: str, default: str = "") -> str:
         return self._by_user_key.get((user_bid, key), default)
 
-    def get_saas_user_config_value_by_bid(self, app: object, config_bid: str):
+    def get_saas_user_config_value_by_bid(self, app: object, config_bid: str) -> object:
         del app
         record = self._by_bid.get(config_bid)
         return None if record is None else record["value"]
@@ -251,7 +251,7 @@ class _FakeSaasQuery:
     def order_by(self, *_args: object) -> _FakeSaasQuery:
         return self
 
-    def first(self):
+    def first(self) -> object:
         rows = sorted(
             self._fake_saas._by_bid.values(),
             key=lambda row: int(row["id"]),
@@ -263,7 +263,7 @@ class _FakeSaasQuery:
         return None
 
 
-def _make_fake_saas_model(fake_saas: _FakeSaasConfigFuncs):
+def _make_fake_saas_model(fake_saas: _FakeSaasConfigFuncs) -> object:
     class FakeSaasUserConfig:
         id = _FakeSaasColumn("id")
         user_bid = _FakeSaasColumn("user_bid")
@@ -290,7 +290,7 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
         def __init__(self, provider_name: str) -> None:
             self.provider_name = provider_name
 
-        def create_payment(self, *, request: object, app: object):
+        def create_payment(self, *, request: object, app: object) -> object:
             del app
             if self.provider_name == "alipay":
                 assert request.channel == "alipay_qr"
@@ -501,7 +501,7 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
     stripe_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request: object, app: object):
+        def create_payment(self, *, request: object, app: object) -> object:
             _ = app
             stripe_requests.append(
                 {

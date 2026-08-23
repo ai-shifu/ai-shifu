@@ -33,7 +33,7 @@ def load_json(path: Path) -> dict[str, object]:
 def flatten_translation(data: object, namespace: str) -> dict[str, str]:
     """Flatten translation."""
 
-    def _flatten(obj: object, prefix: str, acc: dict[str, str]):
+    def _flatten(obj: object, prefix: str, acc: dict[str, str]) -> dict[str, str]:
         if isinstance(obj, dict):
             flat_section = obj.get("__flat__")
             if isinstance(flat_section, dict):

@@ -13,7 +13,7 @@ from flaskr.service.promo.models import Coupon, CouponUsage
 
 
 @pytest.fixture(autouse=True)
-def _isolate_coupon_tables(app: object):
+def _isolate_coupon_tables(app: object) -> object:
     with app.app_context():
         CouponUsage.query.delete()
         Coupon.query.delete()

@@ -7,7 +7,9 @@ from datetime import UTC, datetime
 import jwt
 
 
-def _post_json(client: object, path: str, payload: dict, headers: dict | None = None):
+def _post_json(
+    client: object, path: str, payload: dict, headers: dict | None = None
+) -> object:
     resp = client.post(
         path,
         data=json.dumps(payload),

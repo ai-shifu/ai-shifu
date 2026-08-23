@@ -29,7 +29,7 @@ class _StripeObject:
     def __init__(self, payload: object) -> None:
         self._payload = payload
 
-    def to_dict(self):
+    def to_dict(self) -> object:
         return dict(self._payload)
 
 
@@ -38,7 +38,7 @@ class _FakeStripeResource:
         self.payload = payload
         self.calls = []
 
-    def retrieve(self, *args: object, **kwargs: object):
+    def retrieve(self, *args: object, **kwargs: object) -> object:
         self.calls.append({"args": args, "kwargs": kwargs})
         return _StripeObject(self.payload)
 
@@ -86,7 +86,7 @@ class _FakeStripe:
 
 
 class _FailingStripeResource:
-    def retrieve(self, *args: object, **kwargs: object):
+    def retrieve(self, *args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         message = "secret sk_test_should_not_leak"
         raise RuntimeError(message)
@@ -102,7 +102,7 @@ class _FakeStripeAdapter(StripeCatalogReadAdapter):
     def __init__(self, stripe: object) -> None:
         self.stripe = stripe
 
-    def _client_options(self, app: object):
+    def _client_options(self, app: object) -> object:
         _ = app
         return self.stripe, build_stripe_request_options()
 
@@ -205,7 +205,7 @@ def _snapshot(
         )
 
 
-def _validate(product: BillingProduct, snapshot: ProviderCatalogSnapshot):
+def _validate(product: BillingProduct, snapshot: ProviderCatalogSnapshot) -> object:
     return validate_provider_price_mapping(
         product,
         snapshot,

@@ -15,7 +15,7 @@ def test_get_aliyun_nls_token_uses_override_when_configured(
 ) -> None:
     monkeypatch.setenv("ALIYUN_TTS_TOKEN", "override-token")
 
-    def fake_get(*args: object, **kwargs: object):
+    def fake_get(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         message = "requests.get should not be called when override token exists"
         raise AssertionError(message)
@@ -46,10 +46,10 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object) -> None:
         status_code = 200
         text = ""
 
-        def json(self):
+        def json(self) -> object:
             return {"Token": {"Id": "tok-1", "ExpireTime": int(time.time()) + 3600}}
 
-    def fake_get(url: object, headers: object = None, timeout: object = None):
+    def fake_get(url: object, headers: object = None, timeout: object = None) -> object:
         captured["calls"] += 1
         captured["url"] = url
         captured["headers"] = headers
@@ -100,7 +100,7 @@ def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(
 
     captured = {"calls": 0}
 
-    def fake_get(*args: object, **kwargs: object):
+    def fake_get(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         captured["calls"] += 1
         message = "network down"
@@ -140,7 +140,7 @@ def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch: object) -> N
 
     def fake_post(
         url: object, json: object = None, headers: object = None, timeout: object = None
-    ):
+    ) -> object:
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers

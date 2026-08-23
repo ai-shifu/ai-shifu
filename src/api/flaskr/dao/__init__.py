@@ -137,7 +137,7 @@ def _socket_has_unread_data(dbapi_connection: object, timeout: float = 0) -> boo
 _CHECKIN_PROBE_GRACE_SECONDS = 0.002
 
 
-def _server_thread_id(dbapi_connection: object):
+def _server_thread_id(dbapi_connection: object) -> int | None:
     """Best-effort MySQL server-side connection id for log correlation."""
     try:
         return dbapi_connection.thread_id()
@@ -145,7 +145,7 @@ def _server_thread_id(dbapi_connection: object):
         return None
 
 
-def _pool_diagnostics_logger():
+def _pool_diagnostics_logger() -> logging.Logger:
     """Log through the app logger when available.
 
     The app logger carries the RequestFormatter (request-id / trace context)
@@ -166,7 +166,7 @@ def _pool_diagnostics_logger():
 @event.listens_for(sa_pool.Pool, "checkin")
 def _invalidate_desynced_connection_on_checkin(
     dbapi_connection: object, connection_record: object
-):
+) -> None:
     if dbapi_connection is None:
         return
     if _socket_has_unread_data(dbapi_connection, timeout=_CHECKIN_PROBE_GRACE_SECONDS):
@@ -190,7 +190,7 @@ def _invalidate_desynced_connection_on_checkin(
 @event.listens_for(sa_pool.Pool, "checkout")
 def _reject_desynced_connection_on_checkout(
     dbapi_connection: object, connection_record: object, connection_proxy: object
-):
+) -> None:
     _ = connection_proxy
     if _socket_has_unread_data(dbapi_connection):
         _pool_diagnostics_logger().warning(
@@ -279,7 +279,7 @@ def _intercept_desync_before_execute(
     parameters: object,
     context: object,
     executemany: object,
-):
+) -> None:
     _ = (cursor, parameters, context, executemany)
     dbapi_connection = getattr(conn.connection, "dbapi_connection", None)
     if dbapi_connection is None:
@@ -316,7 +316,7 @@ def _journal_statement_after_execute(
     parameters: object,
     context: object,
     executemany: object,
-):
+) -> None:
     _ = (parameters, context, executemany)
     with contextlib.suppress(Exception):
         _statement_journal(conn).append(
@@ -335,7 +335,7 @@ MYSQL_DEADLOCK_ERRNO = 1213
 MYSQL_LOCK_WAIT_TIMEOUT_ERRNO = 1205
 
 
-def _operational_errno(exc: OperationalError):
+def _operational_errno(exc: OperationalError) -> int | None:
     orig = getattr(exc, "orig", None)
     args = getattr(orig, "args", None)
     return args[0] if args else None
@@ -533,9 +533,9 @@ def retry_on_deadlock(
     that connection.
     """
 
-    def decorator(func: object):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
-        def wrapper(*args: object, **kwargs: object):
+        def wrapper(*args: object, **kwargs: object) -> R:
             attempt = 0
             while True:
                 try:
@@ -642,14 +642,14 @@ def init_db(app: Flask) -> None:
     # REVERSE registration order, so registering AFTER db.init_app makes
     # this run BEFORE the extension's session removal.
     @app.teardown_appcontext
-    def _invalidate_session_on_interrupted_teardown(exc: object):
+    def _invalidate_session_on_interrupted_teardown(exc: object) -> None:
         if exc is not None and is_abnormal_stream_termination(exc):
             invalidate_session(source="appcontext teardown interrupt")
 
     # Enable formatted SQL output in the development environment
     if app.debug:
 
-        def setup_sql_logging():
+        def setup_sql_logging() -> None:
             @event.listens_for(db.engine, "before_cursor_execute")
             def before_cursor_execute(
                 conn: object,
@@ -658,7 +658,7 @@ def init_db(app: Flask) -> None:
                 parameters: object,
                 context: object,
                 executemany: object,
-            ):
+            ) -> None:
                 _ = (conn, cursor, context, executemany)
                 stack = traceback.extract_stack()
                 project_root = str((Path(__file__).parent / "../../../").resolve())

@@ -159,14 +159,16 @@ def _seed_event(
     return event
 
 
-def _failing_lifecycle_sync(monkeypatch: pytest.MonkeyPatch, *, failing_bids: set):
+def _failing_lifecycle_sync(
+    monkeypatch: pytest.MonkeyPatch, *, failing_bids: set
+) -> None:
     """Fail the cancel-effective handler mid-flow for selected subscriptions.
 
     The failure point sits after the subscription mutation and before the
     event completion, simulating any late in-transaction error.
     """
 
-    def fake_sync(_app: object, subscription: object):
+    def fake_sync(_app: object, subscription: object) -> None:
         if subscription.subscription_bid in failing_bids:
             message = f"boom in {subscription.subscription_bid}"
             raise RuntimeError(message)
@@ -316,7 +318,7 @@ def test_renewal_order_persists_before_provider_sync_crash(
     )
     dao.db.session.commit()
 
-    def crashing_sync(*_args: object, **_kwargs: object):
+    def crashing_sync(*_args: object, **_kwargs: object) -> None:
         message = "provider sync crash"
         raise RuntimeError(message)
 
@@ -952,7 +954,7 @@ def test_provider_guard_renews_lease_before_cross_transaction_sync(
 
     recovery_counts: list[int] = []
 
-    def fake_sync(*_args: object, **_kwargs: object):
+    def fake_sync(*_args: object, **_kwargs: object) -> object:
         recovery_counts.append(
             billing_tasks._recover_stale_processing_renewal_events(
                 stale_before=now_utc() - timedelta(minutes=30),
@@ -1067,7 +1069,7 @@ def test_upsert_recovers_when_concurrent_insert_wins(
         event_type: int,
         scheduled_at: object,
         for_update: bool = False,
-    ):
+    ) -> object:
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -1140,7 +1142,7 @@ def test_upsert_recovers_when_cross_session_insert_wins(
         event_type: int,
         scheduled_at: object,
         for_update: bool = False,
-    ):
+    ) -> object:
         calls.append(for_update)
         if len(calls) == 1:
             session_factory = sessionmaker(bind=dao.db.engine)

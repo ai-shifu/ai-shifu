@@ -154,7 +154,7 @@ def admin_billing_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     load_translations(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -1293,7 +1293,7 @@ class TestAdminBillingRoutes:
 
         def _save_branding(
             _app: object, creator_bid: object, payload: object, **kwargs: object
-        ):
+        ) -> object:
             captured["creator_bid"] = creator_bid
             captured["payload"] = payload
             captured["kwargs"] = kwargs

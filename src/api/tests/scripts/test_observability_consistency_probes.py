@@ -16,7 +16,7 @@ class _Db:
         self.session = session
 
 
-def _build_db():
+def _build_db() -> object:
     engine = create_engine("sqlite:///:memory:")
     session = sessionmaker(bind=engine)()
     session.execute(
@@ -70,7 +70,7 @@ def _build_db():
     return SimpleNamespace(engine=engine, session=session, db=_Db(session))
 
 
-def _args():
+def _args() -> object:
     return argparse.Namespace(limit=20)
 
 
@@ -81,7 +81,7 @@ def _insert_wallet(
     creator_bid: str,
     available: str,
     reserved: str = "0",
-):
+) -> None:
     session.execute(
         text(
             """
@@ -110,7 +110,7 @@ def _insert_bucket(
     source_type: int = 7411,
     effective_from: datetime,
     effective_to: datetime | None = None,
-):
+) -> None:
     session.execute(
         text(
             """
@@ -152,7 +152,9 @@ def _insert_bucket(
     )
 
 
-def _insert_active_subscription(session: object, *, creator_bid: str, now: datetime):
+def _insert_active_subscription(
+    session: object, *, creator_bid: str, now: datetime
+) -> None:
     session.execute(
         text(
             """
@@ -173,7 +175,7 @@ def _insert_active_subscription(session: object, *, creator_bid: str, now: datet
     )
 
 
-def _probe(env: object, *, now: datetime):
+def _probe(env: object, *, now: datetime) -> object:
     return probe_wallet_snapshot(
         env.db,
         inspect(env.engine),

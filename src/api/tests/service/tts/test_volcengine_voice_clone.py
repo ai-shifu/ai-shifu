@@ -19,7 +19,7 @@ _TEST_CONFIG = {
 }
 
 
-def _patch_config(monkeypatch: object, config: object = None):
+def _patch_config(monkeypatch: object, config: object = None) -> None:
     values = _TEST_CONFIG if config is None else config
     monkeypatch.setattr(
         volcengine_voice_clone,
@@ -34,7 +34,7 @@ class _FakeResponse:
         self.status_code = status_code
         self.text = ""
 
-    def json(self):
+    def json(self) -> object:
         return self._payload
 
 
@@ -61,7 +61,9 @@ def test_is_valid_volcengine_custom_voice_id(value: object, expected: object) ->
 def test_query_status_sends_expected_request(monkeypatch: object) -> None:
     _patch_config(monkeypatch)
 
-    def fake_post(url: object, headers: object, json: object, timeout: object):
+    def fake_post(
+        url: object, headers: object, json: object, timeout: object
+    ) -> object:
         assert url == VOLCENGINE_MEGA_TTS_STATUS_URL
         assert headers["Authorization"] == "Bearer;test-token"
         assert headers["Resource-Id"] == VOLCENGINE_ICL_RESOURCE_ID
@@ -102,7 +104,7 @@ def test_query_status_converts_transport_error_to_param_error(
 
     _patch_config(monkeypatch)
 
-    def _raise_transport_error(*args: object, **kwargs: object):
+    def _raise_transport_error(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         message = "connect timeout"
         raise requests_lib.exceptions.ConnectTimeout(message)
@@ -119,7 +121,7 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch: object) 
         status_code = 200
         text = "<html>gateway error</html>"
 
-        def json(self):
+        def json(self) -> None:
             message = "no json"
             raise ValueError(message)
 

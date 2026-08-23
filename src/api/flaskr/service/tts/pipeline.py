@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.api.tts import (
     AudioSettings,
+    TTSResult,
     VoiceSettings,
     get_default_audio_settings,
     get_default_voice_settings,
@@ -286,7 +287,7 @@ def _append_open_close_boundary_candidate(
     close_pattern: re.Pattern[str],
     rewind_start: bool = False,
     extend_end: bool = False,
-):
+) -> None:
     match = _find_first_match_outside_fence(raw, open_pattern, fence_ranges)
     if match is None:
         return
@@ -449,7 +450,7 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
         start_offset: int,
         end_offset: int,
         after_visual_kind: str,
-    ):
+    ) -> None:
         cleaned = (text or "").strip()
         if not cleaned:
             return
@@ -463,7 +464,7 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
             }
         )
 
-    def _split(text: str, base_offset: int, after_visual_kind: str):
+    def _split(text: str, base_offset: int, after_visual_kind: str) -> None:
         if not text or not text.strip():
             return
 
@@ -823,7 +824,7 @@ def synthesize_long_text_to_oss(
         audio_parts = [b""] * len(segments)
         segment_map = dict(enumerate(segments))
 
-        def _synthesize_in_app_context(segment_text: str):
+        def _synthesize_in_app_context(segment_text: str) -> TTSResult:
             with app.app_context():
                 return synthesize_text(
                     text=segment_text,

@@ -72,7 +72,9 @@ class HistoryItem(BaseModel, Generic[T]):
         return cls.model_validate_json(json)
 
 
-def _get_latest_draft_log(shifu_bid: str, for_update: bool = False):
+def _get_latest_draft_log(
+    shifu_bid: str, for_update: bool = False
+) -> LogDraftStruct | None:
     query = LogDraftStruct.query.filter_by(
         shifu_bid=shifu_bid,
         deleted=0,
@@ -125,7 +127,9 @@ def iter_outline_item_versions_desc(
         last_id = int(batch[-1].id)
 
 
-def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str):
+def _get_latest_outline_content_log(
+    shifu_bid: str, outline_bid: str
+) -> DraftOutlineItem | None:
     latest_version = (
         DraftOutlineItem.query.filter(
             DraftOutlineItem.shifu_bid == shifu_bid,
@@ -277,7 +281,7 @@ def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
 
 def __save_shifu_history(
     app: Flask, user_id: str, shifu_bid: str, history: HistoryItem
-):
+) -> LogDraftStruct:
     """Save shifu history.
 
     Args:
@@ -330,7 +334,7 @@ def __save_new_item_history(
     parent_bid: str,
     item_type: str,
     index: int = 0,
-):
+) -> None:
     """Save new item history internal function.
 
     Args:
@@ -385,7 +389,9 @@ def __save_new_item_history(
     __save_shifu_history(app, user_id, shifu_bid, history)
 
 
-def __delete_item_history(app: Flask, user_id: str, shifu_bid: str, item_bid: str):
+def __delete_item_history(
+    app: Flask, user_id: str, shifu_bid: str, item_bid: str
+) -> None:
     """Delete item history internal function.
 
     Args:

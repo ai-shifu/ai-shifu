@@ -62,9 +62,10 @@ from sqlalchemy import and_, case, or_
 
 if TYPE_CHECKING:
     from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
 
 
-def _build_user_query_filter(user_query: str):
+def _build_user_query_filter(user_query: str) -> ColumnElement[bool]:
     normalized_query = str(user_query or "").strip()
     like_pattern = f"%{normalized_query}%"
     credential_user_bids = db.session.query(AuthCredential.user_bid).filter(

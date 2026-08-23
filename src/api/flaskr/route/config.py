@@ -41,7 +41,7 @@ def _to_bool(value: object, default: object = False) -> bool:
     return default
 
 
-def _to_list(value: object, default: object = None):
+def _to_list(value: object, default: object = None) -> list[str]:
     default = default or []
     if value is None:
         return default
@@ -75,7 +75,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_runtime_config():
+    def get_runtime_config() -> str:
         # An explicit creator_bid lets surfaces without a shifu in the path
         # (e.g. the /admin backend) fetch a creator's branding. Falls back to
         # the shifu-context creator when absent, so existing callers are

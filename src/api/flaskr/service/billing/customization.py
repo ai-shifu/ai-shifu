@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass
 from importlib import import_module
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 from urllib.parse import urlsplit
 
 from cryptography import x509
@@ -40,6 +40,17 @@ from .primitives import normalize_bid
 
 if TYPE_CHECKING:
     from werkzeug.datastructures import FileStorage
+
+
+class _SaasUserConfigModel(Protocol):
+    query: ClassVar[Any]
+    user_bid: ClassVar[Any]
+    key: ClassVar[Any]
+    config_bid: ClassVar[Any]
+    deleted: ClassVar[Any]
+    created_at: ClassVar[Any]
+    id: ClassVar[Any]
+
 
 BRANDING_KEY = "CUSTOMIZATION.BRANDING"
 ADMIN_DRAFT_KEY = "CUSTOMIZATION.ADMIN_DRAFT"
@@ -1310,7 +1321,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
     return output.getvalue()
 
 
-def _saas_funcs(*, required: bool = True):
+def _saas_funcs(*, required: bool = True) -> Any | None:
     try:
         module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
@@ -1335,7 +1346,7 @@ def _saas_funcs(*, required: bool = True):
     return module
 
 
-def _saas_model():
+def _saas_model() -> type[_SaasUserConfigModel]:
     return import_module(
         "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.models"
     ).SaasUserConfig

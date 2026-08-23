@@ -89,7 +89,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(
     )
     apply_calls = {"count": 0}
 
-    def fake_apply_promo_campaigns(*_args: object, **_kwargs: object):
+    def fake_apply_promo_campaigns(*_args: object, **_kwargs: object) -> object:
         apply_calls["count"] += 1
         if apply_calls["count"] == 1:
             return []
@@ -97,7 +97,7 @@ def test_init_buy_record_refreshes_existing_unpaid_order_promotions(
 
     def fake_query_promo_campaign_applications(
         _app: object, _order_id: object, recalc_discount: object
-    ):
+    ) -> object:
         _ = recalc_discount
         if apply_calls["count"] >= 2:
             return [promo_application]

@@ -237,7 +237,7 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
             provider_reference: object,
             reference_type: object,
             app: object,
-        ):
+        ) -> object:
             _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(
@@ -324,7 +324,7 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
             provider_reference: object,
             reference_type: object,
             app: object,
-        ):
+        ) -> object:
             _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(

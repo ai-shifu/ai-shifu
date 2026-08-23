@@ -50,6 +50,7 @@ from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
     from decimal import Decimal
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
@@ -61,7 +62,7 @@ _ACTIVE_SUBSCRIPTION_STATUSES = (
 _TRIAL_WELCOME_ACK_KEY = "welcome_trial_dialog_acknowledged_at"
 
 
-def _maybe_app_context(app: Flask):
+def _maybe_app_context(app: Flask) -> AbstractContextManager[None]:
     return nullcontext() if has_app_context() else app.app_context()
 
 

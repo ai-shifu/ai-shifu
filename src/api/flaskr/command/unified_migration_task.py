@@ -894,7 +894,7 @@ class UnifiedMigrationTask:
             logger.warning("Error getting last synced ID: %s", e)
             return 0
 
-    def _update_sync_time(self, sync_type: str, sync_time: datetime):
+    def _update_sync_time(self, sync_type: str, sync_time: datetime) -> None:
         """Update sync time in log table."""
         session = self.SessionClass()
         try:
@@ -904,7 +904,7 @@ class UnifiedMigrationTask:
 
     def _update_sync_time_with_session(
         self, session: object, sync_type: str, sync_time: datetime
-    ):
+    ) -> None:
         """Update sync time in log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -921,7 +921,7 @@ class UnifiedMigrationTask:
 
     def _update_last_synced_id_with_session(
         self, session: object, sync_type: str, last_synced_id: int
-    ):
+    ) -> None:
         """Update last synced ID in log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -936,7 +936,7 @@ class UnifiedMigrationTask:
         except Exception as e:
             logger.warning("Error updating last synced ID: %s", e)
 
-    def _ensure_sync_log_table(self):
+    def _ensure_sync_log_table(self) -> None:
         """Ensure sync log table exists."""
         session = self.SessionClass()
         try:
@@ -944,7 +944,7 @@ class UnifiedMigrationTask:
         finally:
             session.close()
 
-    def _ensure_sync_log_table_with_session(self, session: object):
+    def _ensure_sync_log_table_with_session(self, session: object) -> None:
         """Ensure sync log table exists using provided session."""
         try:
             session.execute(

@@ -457,7 +457,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
     ) -> None:
         client = billing_write_client["client"]
 
-        def fake_get_config(key: object, default: object = None):
+        def fake_get_config(key: object, default: object = None) -> object:
             if key == "PINGXX_APP_ID":
                 return "app_billing_test"
             return default

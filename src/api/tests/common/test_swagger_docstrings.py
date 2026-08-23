@@ -16,7 +16,7 @@ KNOWN_UNPARSEABLE_SWAGGER_DOCSTRINGS = {
 }
 
 
-def _swagger_docstrings():
+def _swagger_docstrings() -> object:
     for path in (API_ROOT / "flaskr").rglob("*.py"):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -48,7 +48,7 @@ def test_all_swagger_docstrings_keep_valid_yaml_after_summary() -> None:
         assert separator_index > 1, (path, function_name)
         assert lines[1].strip() == "", (path, function_name)
 
-        def view():
+        def view() -> None:
             pass
 
         view.__doc__ = docstring

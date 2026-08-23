@@ -128,9 +128,11 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import datetime
 
+    from flask_sqlalchemy.query import Query
     from flaskr.service.user.models import (
         UserInfo as UserEntity,
     )
+    from sqlalchemy.sql.selectable import Subquery
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
@@ -337,7 +339,9 @@ def _build_course_credit_usage_learn_filter(
     )
 
 
-def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
+def _build_operator_course_credit_usage_ledger_totals_subquery(
+    shifu_bid: str,
+) -> Subquery:
     course_usage_bids = (
         db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
         .filter(
@@ -379,7 +383,7 @@ def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
     outline_item_bids: Sequence[str] | None = None,
-):
+) -> Query:
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
     )
@@ -714,7 +718,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
     *,
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-):
+) -> Subquery | None:
     normalized_leaf_outline_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in leaf_outline_bids

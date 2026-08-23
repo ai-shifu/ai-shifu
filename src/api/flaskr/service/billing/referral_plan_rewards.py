@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -13,7 +13,16 @@ from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
     from datetime import datetime
+
+    from .models import (
+        BillingOrder,
+        BillingProduct,
+        BillingSubscription,
+        CreditLedgerEntry,
+        CreditWalletBucket,
+    )
 
 _MANUAL_PROVIDER_NAME = "manual"
 _CHECKOUT_TYPE = "referral_invitation_reward"
@@ -70,7 +79,27 @@ class _NullContext:
         return False
 
 
-def _with_app_context(app: Flask):
+class _BillingModelsModule(Protocol):
+    BillingOrder: type[BillingOrder]
+    BillingProduct: type[BillingProduct]
+    BillingSubscription: type[BillingSubscription]
+    CreditLedgerEntry: type[CreditLedgerEntry]
+    CreditWalletBucket: type[CreditWalletBucket]
+
+
+class _BillingConstantsModule(Protocol):
+    BILLING_PRODUCT_TYPE_PLAN: int
+    BILLING_PRODUCT_STATUS_ACTIVE: int
+    BILLING_SUBSCRIPTION_STATUS_DRAFT: int
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START: int
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL: int
+    BILLING_ORDER_STATUS_PAID: int
+    BILLING_TRIAL_PRODUCT_BID: str
+    BILLING_TRIAL_PRODUCT_CODE: str
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: str
+
+
+def _with_app_context(app: Flask) -> AbstractContextManager[None]:
     return _NullContext() if has_app_context() else app.app_context()
 
 
@@ -82,19 +111,19 @@ def _normalize_bid(value: object) -> str:
     return str(value or "").strip()
 
 
-def _billing_consts():
+def _billing_consts() -> _BillingConstantsModule:
     from . import consts
 
     return consts
 
 
-def _billing_models():
+def _billing_models() -> _BillingModelsModule:
     from . import models
 
     return models
 
 
-def _load_reward_product(product_code: str):
+def _load_reward_product(product_code: str) -> BillingProduct | None:
     consts = _billing_consts()
     models = _billing_models()
     return (
@@ -109,7 +138,7 @@ def _load_reward_product(product_code: str):
     )
 
 
-def _load_product_by_bid(product_bid: str):
+def _load_product_by_bid(product_bid: str) -> BillingProduct | None:
     consts = _billing_consts()
     models = _billing_models()
     return (
@@ -166,7 +195,9 @@ def _load_existing_order(
     )
 
 
-def _load_primary_active_subscription(creator_bid: str, *, as_of: datetime):
+def _load_primary_active_subscription(
+    creator_bid: str, *, as_of: datetime
+) -> BillingSubscription | None:
     from .queries import load_primary_active_subscription
 
     return load_primary_active_subscription(creator_bid, as_of=as_of)
@@ -176,7 +207,7 @@ def _calculate_self_managed_billing_cycle_end(
     product: object,
     *,
     cycle_start_at: datetime,
-):
+) -> datetime | None:
     from .queries import calculate_self_managed_billing_cycle_end
 
     return calculate_self_managed_billing_cycle_end(
@@ -189,7 +220,7 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     product: object,
     *,
     cycle_boundary_at: datetime,
-):
+) -> datetime | None:
     from .queries import calculate_self_managed_billing_cycle_end_after_boundary
 
     return calculate_self_managed_billing_cycle_end_after_boundary(

@@ -67,6 +67,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 
 @dataclass(frozen=True)
@@ -145,7 +147,7 @@ def _dashboard_learner_keyword_matches(
 def _build_dashboard_learner_keyword_filter(
     user_bid_column: object,
     keyword: str,
-):
+) -> ColumnElement[bool] | None:
     normalized_keyword = _normalize_dashboard_identifier(keyword).strip()
     if not normalized_keyword:
         return None
@@ -278,7 +280,7 @@ def _build_course_outline_context_map(
     return context_map
 
 
-def _build_course_follow_up_base_subquery(shifu_bid: str):
+def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
     return (
         db.session.query(
             LearnGeneratedBlock.id.label("id"),
@@ -312,7 +314,7 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
 def _build_follow_up_user_keyword_filter(
     user_bid_column: object,
     keyword: str,
-):
+) -> ColumnElement[bool] | None:
     normalized = _normalize_dashboard_identifier(keyword)
     if not normalized:
         return None

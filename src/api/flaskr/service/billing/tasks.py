@@ -13,7 +13,11 @@ from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, or_
 
-from .checkout import reconcile_billing_provider_reference, sync_billing_order
+from .checkout import (
+    ProviderReferenceReconcileResult,
+    reconcile_billing_provider_reference,
+    sync_billing_order,
+)
 from .consts import (
     BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_ORDER_STATUS_PENDING,
@@ -66,6 +70,8 @@ from .wallets import expire_credit_wallet_buckets
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from flask import Flask
+
 try:  # pragma: no cover - exercised indirectly when Celery is installed
     from celery import shared_task
 except ImportError:  # pragma: no cover - local fallback for non-Celery test envs
@@ -95,7 +101,7 @@ class CreditNotificationRetryableError(RuntimeError):
     """Raised when the credit notification worker should use Celery autoretry."""
 
 
-def _create_task_app():
+def _create_task_app() -> Flask:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     from app import create_app
 
@@ -292,14 +298,14 @@ def dispatch_due_renewal_events(
 
 
 def _run_reconcile_provider_reference(
-    app: object,
+    app: Flask,
     *,
     creator_bid: str = "",
     payment_provider: str = "",
     provider_reference_id: str = "",
     bill_order_bid: str = "",
     session_id: str = "",
-):
+) -> ProviderReferenceReconcileResult:
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_payment_provider = _normalize_bid(payment_provider)
     normalized_provider_reference_id = _normalize_bid(provider_reference_id)

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import (
+    Iterator,  # noqa: TC003 - private annotation is inspected at runtime
+)
 from typing import TYPE_CHECKING, Any
 
 from flaskr.api.langfuse import (
@@ -39,7 +42,7 @@ def _parse_optimized_profile(raw_response: str) -> str:
     return raw_response
 
 
-def _exception_chain(exc: BaseException):
+def _exception_chain(exc: BaseException) -> Iterator[BaseException]:
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:

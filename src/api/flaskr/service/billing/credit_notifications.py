@@ -67,6 +67,7 @@ from .primitives import to_decimal as _to_decimal
 
 if TYPE_CHECKING:
     from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
 
 TASK_NAME = "billing.send_credit_notification"
 SOURCE_TYPE_LEDGER = "ledger"
@@ -3103,7 +3104,7 @@ def _is_notification_not_sent_status(status: str) -> bool:
     )
 
 
-def _notification_not_sent_condition():
+def _notification_not_sent_condition() -> ColumnElement[bool]:
     return or_(
         NotificationRecord.status.like("skipped%"),
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
@@ -3140,7 +3141,9 @@ def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
     return ""
 
 
-def _notification_delivery_status_condition(delivery_status: str):
+def _notification_delivery_status_condition(
+    delivery_status: str,
+) -> ColumnElement[bool] | None:
     if delivery_status == CREDIT_NOTIFICATION_STATUS_PENDING:
         return NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_PENDING
     if delivery_status == CREDIT_NOTIFICATION_STATUS_SENT:
@@ -3152,7 +3155,9 @@ def _notification_delivery_status_condition(delivery_status: str):
     return None
 
 
-def _notification_skip_reason_condition(skip_reason: str):
+def _notification_skip_reason_condition(
+    skip_reason: str,
+) -> ColumnElement[bool] | None:
     contact_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
     )

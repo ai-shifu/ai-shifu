@@ -76,6 +76,9 @@ from sqlalchemy import case
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 ORDER_STATUS_KEY_MAP = {
     ORDER_STATUS_INIT: "server.order.orderStatusInit",
@@ -453,7 +456,7 @@ def _load_coupon_code_map(order_bids: list[str]) -> dict[str, list[str]]:
     return dict(coupon_map)
 
 
-def _build_coupon_usage_order_bid_subquery():
+def _build_coupon_usage_order_bid_subquery() -> Subquery:
     return (
         db.session.query(CouponUsage.order_bid.label("order_bid"))
         .filter(
@@ -554,7 +557,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
     return sorted(matched_shifu_bids)
 
 
-def _build_course_query_shifu_bid_filter(course_query: str):
+def _build_course_query_shifu_bid_filter(course_query: str) -> ColumnElement[bool]:
     normalized_course_query = str(course_query or "").strip()
     like_value = f"%{normalized_course_query}%"
     draft_course_bids = db.session.query(DraftShifu.shifu_bid).filter(
@@ -572,7 +575,7 @@ def _build_course_query_shifu_bid_filter(course_query: str):
     )
 
 
-def _apply_order_source_filter(query: object, order_source: str):
+def _apply_order_source_filter(query: Query, order_source: str) -> Query:
     normalized_order_source = str(order_source or "").strip()
     if not normalized_order_source:
         return query

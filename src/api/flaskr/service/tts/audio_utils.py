@@ -36,7 +36,9 @@ def _estimated_duration_ms(audio_data: bytes) -> int:
     return int(len(audio_data or b"") / 16000 * 1000)
 
 
-def _load_audio_segment(audio_data: bytes, *, input_format: str = "mp3"):
+def _load_audio_segment(
+    audio_data: bytes, *, input_format: str = "mp3"
+) -> "AudioSegment":
     audio_io = io.BytesIO(audio_data)
     if input_format == "mp3" and hasattr(AudioSegment, "from_mp3"):
         return AudioSegment.from_mp3(audio_io)

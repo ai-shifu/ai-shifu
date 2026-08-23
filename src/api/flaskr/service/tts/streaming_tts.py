@@ -20,6 +20,7 @@ from typing import Any
 from flask import Flask
 from flaskr.api.tts import (
     AudioSettings,
+    TTSResult,
     VoiceSettings,
     get_default_audio_settings,
     get_default_voice_settings,
@@ -392,7 +393,7 @@ class StreamingTTSProcessor:
         """Yield already-synthesized segments without submitting new text."""
         yield from self._yield_ready_segments()
 
-    def _try_submit_tts_task(self):
+    def _try_submit_tts_task(self) -> None:
         """Submit all complete sentences currently available in the stream buffer."""
         if not self._buffer:
             return
@@ -473,7 +474,7 @@ class StreamingTTSProcessor:
                 lo = mid + 1
         return best
 
-    def _submit_tts_task(self, text: str):
+    def _submit_tts_task(self, text: str) -> None:
         """Submit a TTS synthesis task to the background thread pool."""
         with self._lock:
             segment_index = self._segment_index
@@ -503,7 +504,7 @@ class StreamingTTSProcessor:
         remaining_text: str,
         *,
         include_trailing_fragment: bool = True,
-    ):
+    ) -> None:
         """Submit text sentence-by-sentence.
 
         When ``include_trailing_fragment`` is True, any trailing text without
@@ -552,7 +553,7 @@ class StreamingTTSProcessor:
         tts_provider: str = "",
         tts_model: str = "",
         segment_index: int | None = None,
-    ):
+    ) -> TTSResult:
         result = None
         max_attempts = 2
         attempt = 0
@@ -2156,7 +2157,7 @@ class AVStreamingTTSProcessor:
             # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
 
-    def _update_av_contract(self):
+    def _update_av_contract(self) -> None:
         try:
             self._av_contract = build_av_segmentation_contract(
                 self._raw_full_content, self.generated_block_bid
@@ -2205,7 +2206,7 @@ class AVStreamingTTSProcessor:
         """Return whether an unfinished visual boundary remains."""
         return bool(self._skip_mode)
 
-    def _refresh_next_element_index_from_contract(self):
+    def _refresh_next_element_index_from_contract(self) -> None:
         segments, _ = build_visual_segments_for_block(
             app=self.app,
             raw_content=self._raw_full_content,

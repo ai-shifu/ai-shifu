@@ -15,7 +15,7 @@ def _seed_shifu(
     owner_bid: str,
     price: Decimal,
     ask_provider_config: str = "{}",
-):
+) -> None:
     from flaskr.service.shifu.models import DraftShifu
 
     with app.app_context():
@@ -43,7 +43,7 @@ def _seed_shifu(
         dao.db.session.commit()
 
 
-def _mock_shifu_permissions(monkeypatch: object):
+def _mock_shifu_permissions(monkeypatch: object) -> None:
     from flaskr.service.shifu import shifu_draft_funcs
 
     monkeypatch.setattr(
@@ -60,7 +60,7 @@ def _mock_shifu_permissions(monkeypatch: object):
     )
 
 
-def _mock_route_user(monkeypatch: object, user_id: str):
+def _mock_route_user(monkeypatch: object, user_id: str) -> object:
     from types import SimpleNamespace
 
     dummy_user = SimpleNamespace(
@@ -76,12 +76,14 @@ def _mock_route_user(monkeypatch: object, user_id: str):
     return dummy_user
 
 
-def _mock_route_permission(monkeypatch: object, permission_map: dict[str, bool]):
+def _mock_route_permission(
+    monkeypatch: object, permission_map: dict[str, bool]
+) -> None:
     from flaskr.service.shifu import route
 
     def _has_permission(
         _app: object, _user_id: object, _shifu_bid: object, permission: str
-    ):
+    ) -> object:
         return permission_map.get(permission, False)
 
     monkeypatch.setattr(
@@ -218,7 +220,7 @@ def test_save_shifu_draft_info_normalizes_removed_tts_fields(
 
     captured: dict[str, object] = {}
 
-    def _fake_validate_tts_settings_strict(**kwargs: object):
+    def _fake_validate_tts_settings_strict(**kwargs: object) -> object:
         captured.update(kwargs)
         return SimpleNamespace(
             provider="minimax",
@@ -299,7 +301,7 @@ def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
         legacy.tts_emotion = "happy"
         dao.db.session.commit()
 
-    def _fake_validate_tts_settings_strict(**kwargs: object):
+    def _fake_validate_tts_settings_strict(**kwargs: object) -> object:
         return SimpleNamespace(
             provider=kwargs["provider"],
             model=kwargs["model"],

@@ -20,7 +20,7 @@ class _RecordingLangfuse:
         _RecordingLangfuse.instances.append(kwargs)
 
 
-def _configure(app: object, monkeypatch: object):
+def _configure(app: object, monkeypatch: object) -> None:
     app.config["LANGFUSE_PUBLIC_KEY"] = "pk"
     app.config["LANGFUSE_SECRET_KEY"] = "sk"
     app.config["LANGFUSE_HOST"] = "https://langfuse.example"

@@ -15,14 +15,16 @@ class _StubHub:
     def __init__(self) -> None:
         self.calls = []
 
-        def _original(context: object, exc_type: object, value: object, tb: object):
+        def _original(
+            context: object, exc_type: object, value: object, tb: object
+        ) -> object:
             self.calls.append((context, exc_type, value, tb))
             return "original-result"
 
         self.handle_error = _original
 
 
-def _fire(hub: object, context: object = None, exc: object = None):
+def _fire(hub: object, context: object = None, exc: object = None) -> object:
     exc = exc if exc is not None else AssertionError("(None, <callback>)")
     return hub.handle_error(context, type(exc), exc, None)
 
@@ -67,7 +69,7 @@ def test_logger_failure_never_blocks_the_original_handler() -> None:
     hub = _StubHub()
 
     class _BrokenLogger:
-        def error(self, *args: object, **kwargs: object):
+        def error(self, *args: object, **kwargs: object) -> None:
             _ = (args, kwargs)
             message = "logging backend down"
             raise RuntimeError(message)

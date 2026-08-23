@@ -19,7 +19,7 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.util._once import Once
 
 
-def _reset_langfuse_after_fork():
+def _reset_langfuse_after_fork() -> None:
     # Mirrors the sequence in src/api/gunicorn.conf.py post_fork. Kept in
     # sync manually; the assertions below are what the hook relies on.
     LangfuseResourceManager._instances.clear()
@@ -28,7 +28,7 @@ def _reset_langfuse_after_fork():
 
 
 @pytest.fixture(autouse=True)
-def _clean_singletons():
+def _clean_singletons() -> object:
     _reset_langfuse_after_fork()
     yield
     _reset_langfuse_after_fork()

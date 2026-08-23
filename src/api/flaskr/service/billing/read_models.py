@@ -77,6 +77,7 @@ from .dtos import (
     BillingTopupProductDTO,
     BillingWalletBucketListDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderGrantDTO,
     OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
 )
@@ -176,6 +177,7 @@ from .wallets import (
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flask_sqlalchemy.query import Query
 
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
@@ -188,7 +190,7 @@ _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
 )
 
 
-def _filter_out_reserved_credit_grant_ledgers(query: object):
+def _filter_out_reserved_credit_grant_ledgers(query: Query) -> Query:
     bucket_credit_state_expr = db.func.lower(
         db.func.trim(
             db.func.coalesce(
@@ -493,7 +495,7 @@ def _load_credit_order_product_map(
 def _load_credit_order_grant_map(
     app: Flask,
     order_bids: list[str],
-):
+) -> dict[str, OperatorCreditOrderGrantDTO]:
     normalized_order_bids = [_normalize_bid(bid) for bid in order_bids if bid]
     if not normalized_order_bids:
         return {}
@@ -510,7 +512,7 @@ def _load_credit_order_grant_map(
         )
         .all()
     )
-    payload = {}
+    payload: dict[str, OperatorCreditOrderGrantDTO] = {}
     for row in rows:
         source_bid = str(row.source_bid or "").strip()
         if not source_bid or source_bid in payload:

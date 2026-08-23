@@ -186,6 +186,7 @@ select = [
     "ANN002",  # missing type for *args
     "ANN003",  # missing type for **kwargs
     "ANN201",  # missing return type for a public function
+    "ANN202",  # missing return type for a private function
     "ANN204",  # missing return type on a special method
     "ANN205",  # missing return type on a staticmethod
     "ANN206",  # missing return type on a classmethod

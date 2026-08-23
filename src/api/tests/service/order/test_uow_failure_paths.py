@@ -108,7 +108,7 @@ def _fail_after_pricing_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run the real pricing sync, then fail — simulating any late step error."""
     real_sync = order_funs._sync_order_campaign_pricing
 
-    def failing_sync(*args: object, **kwargs: object):
+    def failing_sync(*args: object, **kwargs: object) -> None:
         real_sync(*args, **kwargs)
         message = "boom after pricing sync"
         raise RuntimeError(message)
@@ -143,7 +143,7 @@ def test_init_buy_record_late_failure_persists_nothing(
     """
     _ = stub_shifu
 
-    def fake_apply_promo(_app: object, **kwargs: object):
+    def fake_apply_promo(_app: object, **kwargs: object) -> object:
         application = PromoRedemption(
             redemption_bid="uow-redemption-1",
             promo_bid="uow-promo-1",

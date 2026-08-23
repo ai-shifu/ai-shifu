@@ -3,7 +3,7 @@
 import pytest
 
 
-def _require_app(app: object):
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
@@ -28,7 +28,7 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(
             self.position = int(kwargs.get("position", 0) or 0)
             self.av_contract = kwargs.get("av_contract")
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             if not (chunk or "").strip():
                 return
             yield RunMarkdownFlowDTO(
@@ -45,7 +45,7 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(
                 ),
             )
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             yield RunMarkdownFlowDTO(
                 outline_bid=self.outline_bid,
@@ -105,13 +105,13 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(
         def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             if (chunk or "").strip():
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             return
             yield
@@ -163,13 +163,13 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(
         def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             if (chunk or "").strip():
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             return
             yield
@@ -221,13 +221,13 @@ def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             if chunk:
                 self._parts.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             text = "".join(self._parts).strip()
             if text:
@@ -292,12 +292,12 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
             self.position = int(kwargs.get("position", 0) or 0)
             self._buffer = ""
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             self._buffer += chunk or ""
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             # Simulate provider behavior: very short text produces no audio completion.
             if len((self._buffer or "").strip()) < 2:
@@ -360,7 +360,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(
             self.outline_bid = kwargs.get("outline_bid", "")
             self.position = int(kwargs.get("position", 0) or 0)
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             if not (chunk or "").strip():
                 return
             yield RunMarkdownFlowDTO(
@@ -376,7 +376,7 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(
                 ),
             )
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             return
             yield
@@ -419,17 +419,17 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
         def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             _ = chunk
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             return
             yield
 
-    def _fake_build_visual_segments(**kwargs: object):
+    def _fake_build_visual_segments(**kwargs: object) -> object:
         _ = kwargs
         seg = VisualSegment(
             segment_id="seg-1",
@@ -477,13 +477,13 @@ def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
         def __init__(self, **kwargs: object) -> None:
             _ = kwargs
 
-        def process_chunk(self, chunk: object):
+        def process_chunk(self, chunk: object) -> object:
             if chunk:
                 captured_chunks.append(chunk)
             return
             yield
 
-        def finalize(self, commit: object = True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             return
             yield

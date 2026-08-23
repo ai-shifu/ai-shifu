@@ -42,7 +42,7 @@ def test_profile_onboarding_config_roundtrip(app: object, monkeypatch: object) -
         module, "load_profile_onboarding_config_payload", lambda: current_config
     )
 
-    def fake_save_config(_app: object, payload: object, *, updated_by: object):
+    def fake_save_config(_app: object, payload: object, *, updated_by: object) -> None:
         saved_payloads.append((payload, updated_by))
         current_config.update(payload)
 

@@ -6,7 +6,7 @@ import base64
 import json
 import uuid
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Response, current_app, stream_with_context
 from flaskr.api.tts import (
@@ -28,6 +28,9 @@ from flaskr.service.tts.validation import (
     validate_tts_settings_strict,
 )
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def _build_tts_preview_usage_metadata(
@@ -121,7 +124,7 @@ def build_tts_preview_response(
         audio_settings=safe_audio_settings,
     )
 
-    def event_stream():
+    def event_stream() -> Iterator[str]:
         total_duration_ms = 0
         total_word_count = 0
         total_output_chars = 0

@@ -71,7 +71,7 @@ class MockClient:
     def __getattr__(self, name: object) -> Any:
         """Return a no-op callable for any Langfuse operation."""
 
-        def method(*args: object, **kwargs: object):
+        def method(*args: object, **kwargs: object) -> object:
             _ = (args, kwargs)
             return self
 

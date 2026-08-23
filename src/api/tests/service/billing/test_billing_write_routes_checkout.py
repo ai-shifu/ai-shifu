@@ -76,7 +76,7 @@ class TestBillingWriteRoutesCheckout:
     ) -> None:
         client = billing_write_client["client"]
 
-        def fake_get_config(key: object, default: object = None):
+        def fake_get_config(key: object, default: object = None) -> object:
             if key == "PAYMENT_CHANNELS_ENABLED":
                 return "stripe"
             return default

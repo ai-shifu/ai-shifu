@@ -48,7 +48,7 @@ def _add_shared_permission(app: object, shifu_bid: str, user_id: str) -> None:
         dao.db.session.commit()
 
 
-def _mock_user(monkeypatch: object, user_id: str, *, is_creator: bool = True):
+def _mock_user(monkeypatch: object, user_id: str, *, is_creator: bool = True) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,

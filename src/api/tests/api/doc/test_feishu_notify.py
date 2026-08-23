@@ -10,15 +10,15 @@ class _Logger:
         self.warnings = []
         self.exceptions = []
 
-    def info(self, *args: object, **kwargs: object):
+    def info(self, *args: object, **kwargs: object) -> None:
         _ = kwargs
         self.infos.append(args)
 
-    def warning(self, *args: object, **kwargs: object):
+    def warning(self, *args: object, **kwargs: object) -> None:
         _ = kwargs
         self.warnings.append(args)
 
-    def exception(self, *args: object, **kwargs: object):
+    def exception(self, *args: object, **kwargs: object) -> None:
         _ = kwargs
         self.exceptions.append(args)
 
@@ -41,7 +41,7 @@ class _Response:
         self._json_value = json_value
         self._json_exc = json_exc
 
-    def json(self):
+    def json(self) -> object:
         if self._json_exc is not None:
             raise self._json_exc
         return self._json_value
@@ -97,7 +97,7 @@ def test_send_notify_returns_none_for_request_error(monkeypatch: object) -> None
         lambda key, default=None: "https://example.test/webhook",  # noqa: ARG005 -- preserve get_config keyword contract
     )
 
-    def _raise(*args: object, **kwargs: object):
+    def _raise(*args: object, **kwargs: object) -> None:
         _ = (args, kwargs)
         message = "network down"
         raise requests.RequestException(message)

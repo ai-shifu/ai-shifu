@@ -8,11 +8,13 @@ class _FakeRedisLock:
     def __init__(self) -> None:
         self.released = False
 
-    def acquire(self, blocking: object = True, blocking_timeout: object = None):
+    def acquire(
+        self, blocking: object = True, blocking_timeout: object = None
+    ) -> object:
         _ = blocking, blocking_timeout
         return True
 
-    def release(self):
+    def release(self) -> None:
         self.released = True
 
 
@@ -21,10 +23,10 @@ class _FakeRedis:
         self.values = {}
         self.locks = []
 
-    def get(self, key: object):
+    def get(self, key: object) -> object:
         return self.values.get(key)
 
-    def set(self, key: object, value: object, ex: object = None):
+    def set(self, key: object, value: object, ex: object = None) -> object:
         _ = ex
         self.values[key] = str(value).encode("utf-8")
         return True
@@ -34,27 +36,27 @@ class _FakeRedis:
         key: object,
         timeout: object = None,
         blocking_timeout: object = None,
-    ):
+    ) -> object:
         _ = key, timeout, blocking_timeout
         lock = _FakeRedisLock()
         self.locks.append(lock)
         return lock
 
 
-def _clock(start: object = 1000.0):
+def _clock(start: object = 1000.0) -> object:
     now = {"value": float(start)}
 
-    def now_fn():
+    def now_fn() -> object:
         return now["value"]
 
-    def sleep_fn(seconds: object):
+    def sleep_fn(seconds: object) -> None:
         now["value"] += seconds
 
     return now_fn, sleep_fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_gate_state():
+def _reset_gate_state() -> object:
     rpm_gate._LOCAL_STATE.clear()
     rpm_gate._FALLBACK_WARNING_KEYS.clear()
     yield

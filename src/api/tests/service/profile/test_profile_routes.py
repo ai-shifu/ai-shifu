@@ -12,7 +12,7 @@ _dummy_lock = SimpleNamespace(
 
 
 @pytest.fixture(autouse=True)
-def _stub_profile_config_cache(monkeypatch: object):
+def _stub_profile_config_cache(monkeypatch: object) -> None:
     monkeypatch.setattr(
         config_funcs,
         "redis",
@@ -28,7 +28,7 @@ def _stub_profile_config_cache(monkeypatch: object):
 class TestProfileRoutes:
     """Verify profile routes behavior."""
 
-    def _mock_request_user(self, monkeypatch: object):
+    def _mock_request_user(self, monkeypatch: object) -> None:
         dummy_user = SimpleNamespace(user_id="test-user", language="en-US")
         monkeypatch.setattr(
             "flaskr.route.user.validate_user",
@@ -43,7 +43,7 @@ class TestProfileRoutes:
 
         def fake_get_definitions(
             _app_ctx: object, parent_id: object, definition_type: object
-        ):
+        ) -> object:
             called["parent_id"] = parent_id
             called["definition_type"] = definition_type
             return []
@@ -77,7 +77,7 @@ class TestProfileRoutes:
     ) -> None:
         called = {}
 
-        def fake_hide(_app_ctx: object, parent_id: object, user_id: object):
+        def fake_hide(_app_ctx: object, parent_id: object, user_id: object) -> object:
             called["parent_id"] = parent_id
             called["user_id"] = user_id
             return [
@@ -127,7 +127,7 @@ class TestProfileRoutes:
             profile_keys: object,
             hidden: object,
             user_id: object,
-        ):
+        ) -> object:
             called["parent_id"] = parent_id
             called["profile_keys"] = profile_keys
             called["hidden"] = hidden
@@ -189,7 +189,7 @@ class TestProfileRoutes:
             parent_id: object,
             user_id: object,
             key: object,
-        ):
+        ) -> object:
             called["profile_id"] = profile_id
             called["parent_id"] = parent_id
             called["user_id"] = user_id

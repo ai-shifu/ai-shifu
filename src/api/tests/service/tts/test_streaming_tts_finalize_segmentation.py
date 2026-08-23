@@ -53,7 +53,7 @@ class TestFinalizeSegmentation:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             _ = kwargs
             if len(args) > 1:
                 segment = args[1]
@@ -97,7 +97,7 @@ class TestFinalizeSegmentation:
         # Track submitted tasks
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             # Capture the segment text from args[1]
@@ -142,7 +142,7 @@ class TestFinalizeSegmentation:
 
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             _ = kwargs
@@ -178,7 +178,7 @@ class TestFinalizeSegmentation:
 
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             # Positional args are the thread target followed by segment,
             # voice settings, audio settings, provider and model.
             _ = kwargs
@@ -252,7 +252,7 @@ class TestFinalizeSegmentation:
 
         remaining_text = "First sentence. Second sentence."
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             _ = (args, kwargs)
             future = MagicMock()
             future.result.return_value = None
@@ -678,7 +678,7 @@ class TestOffsetDriftRegression:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             _ = kwargs
             if len(args) > 1:
                 segment = args[1]
@@ -723,7 +723,7 @@ class TestOffsetDriftRegression:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args: object, **kwargs: object):
+        def mock_submit(*args: object, **kwargs: object) -> object:
             _ = kwargs
             if len(args) > 1:
                 segment = args[1]

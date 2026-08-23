@@ -57,9 +57,10 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from flask import Flask
+    from sqlalchemy.sql.selectable import Subquery
 
 
-def _build_course_follow_up_base_subquery(shifu_bid: str):
+def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
     return (
         db.session.query(
             LearnGeneratedBlock.id.label("id"),

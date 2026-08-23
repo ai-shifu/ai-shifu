@@ -20,7 +20,7 @@ class BasePlugin:
         if self.migration_dir:
             self._run_migrations()
 
-    def _run_migrations(self):
+    def _run_migrations(self) -> None:
         """Run the plugin migrations."""
         from alembic import command
         from alembic.config import Config

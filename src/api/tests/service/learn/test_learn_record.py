@@ -70,10 +70,10 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.commit()
         return progress
 
-    def _set_request_user(self, mobile: str = ""):
+    def _set_request_user(self, mobile: str = "") -> None:
         request.user = types.SimpleNamespace(mobile=mobile, user_id="user-1")
 
-    def _seed_struct(self, outline_bids: list[str]):
+    def _seed_struct(self, outline_bids: list[str]) -> None:
         struct = HistoryItem(
             bid="shifu-1",
             id=1,

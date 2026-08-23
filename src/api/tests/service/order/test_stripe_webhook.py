@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-def _load_route_module(module_name: str):
+def _load_route_module(module_name: str) -> object:
     return importlib.import_module(f"flaskr.route.{module_name}")
 
 
@@ -76,7 +76,7 @@ def stripe_webhook_app() -> Iterator[Flask]:
         dao.db.drop_all()
 
 
-def _ensure_order(status: object, order_bid: object):
+def _ensure_order(status: object, order_bid: object) -> object:
     order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
@@ -88,7 +88,7 @@ def _ensure_order(status: object, order_bid: object):
     return order
 
 
-def _ensure_billing_subscription(status: object, subscription_bid: object):
+def _ensure_billing_subscription(status: object, subscription_bid: object) -> object:
     subscription = BillingSubscription.query.filter(
         BillingSubscription.subscription_bid == subscription_bid
     ).first()
@@ -114,7 +114,7 @@ def _ensure_billing_subscription(status: object, subscription_bid: object):
 
 def _ensure_billing_order(
     status: object, bill_order_bid: object, subscription_bid: object
-):
+) -> object:
     order = BillingOrder.query.filter(
         BillingOrder.bill_order_bid == bill_order_bid
     ).first()
@@ -145,7 +145,7 @@ def _ensure_billing_order(
     return order
 
 
-def _ensure_billing_stripe_raw_snapshot(bill_order_bid: object):
+def _ensure_billing_stripe_raw_snapshot(bill_order_bid: object) -> object:
     raw_order = StripeOrder.query.filter(
         StripeOrder.bill_order_bid == bill_order_bid,
         StripeOrder.biz_domain == "billing",

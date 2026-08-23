@@ -8,7 +8,7 @@ from flasgger.utils import parse_docstring
 from PIL import Image
 
 
-def _post_json(client: object, path: str, payload: dict):
+def _post_json(client: object, path: str, payload: dict) -> object:
     resp = client.post(
         path,
         data=json.dumps(payload),
@@ -17,7 +17,7 @@ def _post_json(client: object, path: str, payload: dict):
     return resp, resp.get_json(force=True)
 
 
-def _get_captcha(client: object, app: object):
+def _get_captcha(client: object, app: object) -> object:
     app.config["ENV"] = "development"
     app.config["CAPTCHA_CODE_OVERRIDE"] = "0000"
     response = client.get("/api/user/captcha")
@@ -27,7 +27,7 @@ def _get_captcha(client: object, app: object):
     return body["data"]
 
 
-def _get_ticket(client: object, app: object):
+def _get_ticket(client: object, app: object) -> object:
     captcha = _get_captcha(client, app)
     response, body = _post_json(
         client,

@@ -24,7 +24,7 @@ class _FakeObservation:
         self.span_calls = []
         self.last_span = None
 
-    def start_observation(self, as_type: object = "span", **kwargs: object):
+    def start_observation(self, as_type: object = "span", **kwargs: object) -> object:
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
@@ -33,17 +33,17 @@ class _FakeObservation:
             self.last_span = child
         return child
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.updates.append(kwargs)
 
-    def set_trace_as_public(self):
+    def set_trace_as_public(self) -> None:
         self.public = True
 
-    def end(self):
+    def end(self) -> None:
         self.ended = True
 
     @property
-    def end_kwargs(self):
+    def end_kwargs(self) -> object:
         merged = {}
         for item in self.updates:
             merged.update(item)
@@ -59,7 +59,7 @@ class _FakeLangfuseClient:
         as_type: object = "span",
         trace_context: object = None,
         **kwargs: object,
-    ):
+    ) -> object:
         root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
@@ -96,7 +96,7 @@ def test_ask_preview_route_success_with_provider(
     _mock_authenticated_user(monkeypatch)
     fake_langfuse = _FakeLangfuseClient()
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "dify"
@@ -157,7 +157,7 @@ def test_ask_preview_route_fallbacks_to_llm(
 ) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         if provider == "dify":
@@ -232,7 +232,7 @@ def test_ask_preview_route_provider_only_does_not_require_ask_model(
 ) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "coze"
@@ -275,7 +275,7 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
 ) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "coze_workflow"
@@ -319,7 +319,7 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
     _mock_authenticated_user(monkeypatch)
     captured: dict[str, object] = {}
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "get_biji_knowledge"
@@ -369,7 +369,7 @@ def test_ask_preview_route_surfaces_friendly_provider_error(
 ) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = (args, kwargs)
         message = (
             "get_biji_knowledge request failed: 401 Client Error for url: "
@@ -417,7 +417,7 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
 ) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = (args, kwargs)
         message = "dify request failed: 500 | {raw body}"
         raise AskProviderError(message)
@@ -477,12 +477,12 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
         raising=False,
     )
 
-    def fake_chat_llm(*args: object, **kwargs: object):
+    def fake_chat_llm(*args: object, **kwargs: object) -> object:
         _ = args
         captured["chat_llm"] = kwargs
         yield SimpleNamespace(content="debug answer")
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         runtime = kwargs.get("runtime")
         assert runtime is not None
@@ -534,12 +534,12 @@ def test_ask_preview_route_passes_debug_usage_context_for_creator(
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
-    def fake_chat_llm(*args: object, **kwargs: object):
+    def fake_chat_llm(*args: object, **kwargs: object) -> object:
         _ = args
         captured.update(kwargs)
         yield SimpleNamespace(content="debug answer")
 
-    def fake_stream_ask_provider_response(*args: object, **kwargs: object):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         runtime = kwargs.get("runtime")
         assert runtime is not None

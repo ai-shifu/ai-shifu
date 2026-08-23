@@ -30,7 +30,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _shared_callback(monkeypatch: object):
+def _shared_callback(monkeypatch: object) -> object:
     """Pin the deployment to one shared callback URL."""
     _reset_config_cache("HOST_URL", "GOOGLE_OAUTH_REDIRECT_URI")
     monkeypatch.setattr(
@@ -44,7 +44,7 @@ def _shared_callback(monkeypatch: object):
 
 
 @pytest.fixture
-def _verified_custom_domain(monkeypatch: object):
+def _verified_custom_domain(monkeypatch: object) -> None:
     """Treat exactly one host as a verified, TLS-active custom domain."""
     monkeypatch.setattr(
         oauth_origins,
@@ -90,7 +90,7 @@ class TestIsAllowedOAuthOrigin:
     def test_lookup_failure_refuses_rather_than_allows(
         self, app: object, monkeypatch: object
     ) -> None:
-        def _boom(app: object, host: object):
+        def _boom(app: object, host: object) -> None:
             _ = (app, host)
             message = "database is down"
             raise RuntimeError(message)

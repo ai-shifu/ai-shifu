@@ -2226,7 +2226,7 @@ def test_failed_provider_notification_can_be_requeued(
     captured_kwargs: list[dict[str, str]] = []
 
     class FakeTask:
-        def apply_async(self, kwargs: object):
+        def apply_async(self, kwargs: object) -> None:
             captured_kwargs.append(dict(kwargs))
 
     def get_celery_app(flask_app: object | None = None) -> object:
@@ -2240,7 +2240,7 @@ def test_failed_provider_notification_can_be_requeued(
         template_code: object,
         template_params: object,
         sign_name: object = None,
-    ):
+    ) -> None:
         del app, mobile, template_code, template_params, sign_name
 
     monkeypatch.setattr(
@@ -2295,7 +2295,7 @@ def test_requeue_keeps_failed_status_when_enqueue_fails(
         template_code: object,
         template_params: object,
         sign_name: object = None,
-    ):
+    ) -> None:
         del app, mobile, template_code, template_params, sign_name
 
     monkeypatch.setattr(
@@ -2349,7 +2349,7 @@ def test_requeue_records_operator_audit_metadata(
         template_code: object,
         template_params: object,
         sign_name: object = None,
-    ):
+    ) -> None:
         del app, mobile, template_code, template_params, sign_name
 
     monkeypatch.setattr(
