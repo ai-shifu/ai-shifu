@@ -730,7 +730,7 @@ def _load_latest_shifus(
     updated_end_time: datetime | None,
     attach_prompt_flags: bool = False,
     lightweight: bool = False,
-) -> object:
+) -> list[DraftShifu | PublishedShifu | OperatorCourseListSeed]:
     ordered_query = _build_latest_shifus_query(
         model,
         shifu_bid=shifu_bid,
