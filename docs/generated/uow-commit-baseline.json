@@ -3,7 +3,6 @@
   "command/update_shifu_demo.py": 2,
   "route/user.py": 8,
   "service/billing/campaigns.py": 3,
-  "service/billing/checkout.py": 7,
   "service/billing/cli.py": 5,
   "service/billing/daily_aggregates.py": 2,
   "service/billing/domains.py": 1,
