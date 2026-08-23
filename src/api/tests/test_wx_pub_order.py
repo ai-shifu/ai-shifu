@@ -9,7 +9,7 @@ from flaskr.service.order.funs import BuyRecordDTO, generate_charge
 from flaskr.service.order.models import Order
 
 
-def test_generate_charge_uses_pingxx_channel(app: object, monkeypatch: object):
+def test_generate_charge_uses_pingxx_channel(app: object, monkeypatch: object) -> None:
     from flaskr.service.order import funs as order_funs
 
     order_bid = "order-wx-pub-1"

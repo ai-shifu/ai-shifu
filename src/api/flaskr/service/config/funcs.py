@@ -28,7 +28,7 @@ _config_override_local = threading.local()
 
 
 @contextmanager
-def config_overrides(values: dict[str, object]):
+def config_overrides(values: dict[str, object]) -> "Iterator[None]":  # noqa: F821 - type-only name
     """Return config overrides."""
     previous = getattr(_config_override_local, "values", None)
     merged = dict(previous) if previous is not None else {}

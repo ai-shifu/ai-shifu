@@ -124,14 +124,14 @@ class DummySpan:
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs: object):
+    def generation(self, **kwargs: object) -> object:
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs: object):
+    def end(self, **kwargs: object) -> None:
         self.end_args = kwargs
 
-    def update(self, **kwargs: object):
+    def update(self, **kwargs: object) -> None:
         self.update_args = kwargs
 
 
@@ -163,10 +163,10 @@ class FakeModelsResponse:
         """Capture the payload returned by the fake models endpoint."""
         self.payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def json(self):
+    def json(self) -> object:
         return self.payload
 
 
@@ -255,7 +255,7 @@ def _configure_model_list(monkeypatch: object):
 
 def test_get_current_models_adds_output_token_credit_multiplier(
     monkeypatch: object, app: object
-):
+) -> None:
     _configure_model_list(monkeypatch)
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
@@ -333,7 +333,7 @@ def test_get_current_models_adds_output_token_credit_multiplier(
 
 def test_get_current_models_uses_fixed_credit_1x_anchor(
     monkeypatch: object, app: object
-):
+) -> None:
     _configure_model_list(monkeypatch)
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
@@ -380,7 +380,7 @@ def test_get_current_models_uses_fixed_credit_1x_anchor(
 
 def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
     monkeypatch: object, app: object
-):
+) -> None:
     _configure_model_list(monkeypatch)
     missing_anchor_config = {
         "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
@@ -422,7 +422,7 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
 
 def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
     monkeypatch: object, app: object
-):
+) -> None:
     _configure_model_list(monkeypatch)
 
     def raise_lookup(_app: object):
@@ -441,7 +441,7 @@ def test_get_current_models_keeps_list_when_credit_rate_lookup_fails(
     assert all(item["credit_multiplier"] is None for item in models)
 
 
-def test_deepseek_model_loader_lists_models(monkeypatch: object):
+def test_deepseek_model_loader_lists_models(monkeypatch: object) -> None:
     captured = {}
 
     def fake_get(url: object, headers: object = None, timeout: object = None):
@@ -478,7 +478,9 @@ def test_deepseek_model_loader_lists_models(monkeypatch: object):
     assert captured["timeout"] == 20
 
 
-def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch: object):
+def test_deepseek_model_loader_falls_back_when_list_models_fails(
+    monkeypatch: object,
+) -> None:
     def fake_get(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "network unavailable"
@@ -503,7 +505,7 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(monkeypatch: ob
 
 def test_qwen_prefixed_model_routes_without_fetched_alias(
     monkeypatch: object, app: object
-):
+) -> None:
     captured = {}
 
     def fake_completion(model: object, *args: object, **kwargs: object):
@@ -559,7 +561,7 @@ def test_qwen_prefixed_model_routes_without_fetched_alias(
     assert captured["kwargs"]["max_tokens"] == 393216
 
 
-def test_load_and_register_model_max_output_tokens(monkeypatch: object):
+def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     configured = {
         "qwen/deepseek-v4-flash": 393216,
         "ark/doubao-seed-2-0-lite-260428": 131072,
@@ -589,7 +591,9 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object):
     }
 
 
-def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch: object):
+def test_load_model_max_output_tokens_ignores_invalid_config(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -609,7 +613,7 @@ def test_load_model_max_output_tokens_ignores_invalid_config(monkeypatch: object
 
 def test_stream_litellm_completion_falls_back_to_litellm_limit(
     monkeypatch: object, app: object
-):
+) -> None:
     captured = {}
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
     monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda _model: 8192)
@@ -642,7 +646,7 @@ def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
     app: object,
     requested_max_tokens: object,
     expected_max_tokens: object,
-):
+) -> None:
     captured = {}
     monkeypatch.setattr(
         llm,
@@ -674,7 +678,7 @@ def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
 
 def test_stream_litellm_completion_omits_unknown_limit(
     monkeypatch: object, app: object
-):
+) -> None:
     captured = {}
 
     def raise_unknown(_model: object):
@@ -703,7 +707,7 @@ def test_stream_litellm_completion_omits_unknown_limit(
     assert "max_tokens" not in captured
 
 
-def test_qwen_provider_config_keeps_prefix_fallback():
+def test_qwen_provider_config_keeps_prefix_fallback() -> None:
     qwen_config = next(
         config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == "qwen"
     )
@@ -726,7 +730,7 @@ def test_qwen_provider_config_keeps_prefix_fallback():
 def test_provider_configs_use_expected_litellm_adapters(
     provider_key: object,
     expected_litellm_provider: object,
-):
+) -> None:
     provider_config = next(
         config for config in llm.LITELLM_PROVIDER_CONFIGS if config.key == provider_key
     )
@@ -771,7 +775,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
     model_info: object,
     expected_effort: object,
     expected_temperature: object,
-):
+) -> None:
     captured = {}
 
     def fake_get_model_info(*, model: object, custom_llm_provider: object):
@@ -795,7 +799,7 @@ def test_openai_params_use_litellm_reasoning_capabilities(
 
 def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
     monkeypatch: object,
-):
+) -> None:
     def raise_unknown(*args: object, **kwargs: object):
         _ = args, kwargs
         message = "unknown model"
@@ -811,7 +815,7 @@ def test_openai_params_fall_back_to_existing_policy_for_unknown_model(
 
 def test_openai_params_fall_back_when_capability_metadata_is_partial(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setattr(
         llm.litellm,
         "get_model_info",
@@ -828,7 +832,7 @@ def test_openai_params_fall_back_when_capability_metadata_is_partial(
     "model_id",
     ["glm-4.5", "glm-4.6-air", "glm-4.7-flash", "glm-5.2"],
 )
-def test_glm_params_disable_thinking_for_supported_models(model_id: object):
+def test_glm_params_disable_thinking_for_supported_models(model_id: object) -> None:
     params = llm._reload_glm_params(model_id, 0.4)
 
     assert params == {
@@ -838,7 +842,7 @@ def test_glm_params_disable_thinking_for_supported_models(model_id: object):
     }
 
 
-def test_glm_params_leave_legacy_models_unchanged():
+def test_glm_params_leave_legacy_models_unchanged() -> None:
     params = llm._reload_glm_params("glm-4-plus", 0.4)
 
     assert params == {
@@ -847,7 +851,7 @@ def test_glm_params_leave_legacy_models_unchanged():
     }
 
 
-def test_provider_specific_thinking_params_remain_compatible():
+def test_provider_specific_thinking_params_remain_compatible() -> None:
     assert llm._reload_qwen_params("qwen-max", 0.4)["extra_body"] == {
         "enable_thinking": False
     }
@@ -862,7 +866,7 @@ def test_provider_specific_thinking_params_remain_compatible():
     ]
 
 
-def test_provider_thinking_policy_removes_caller_conflicts():
+def test_provider_thinking_policy_removes_caller_conflicts() -> None:
     kwargs = {
         "reasoning_effort": "high",
         "thinking": {"type": "enabled"},
@@ -897,7 +901,7 @@ def test_gemini_thinking_policy_removes_nested_caller_override(
     generation_config_key: object,
     thinking_config_key: object,
     top_k_key: object,
-):
+) -> None:
     kwargs = {
         "extra_body": {
             generation_config_key: {
@@ -927,7 +931,7 @@ def test_gemini_thinking_policy_removes_nested_caller_override(
 @pytest.mark.parametrize("generation_config_key", llm._GEMINI_GENERATION_CONFIG_KEYS)
 def test_gemini_thinking_policy_removes_invalid_native_config(
     generation_config_key: object,
-):
+) -> None:
     kwargs = {
         "extra_body": {
             generation_config_key: None,
@@ -943,7 +947,7 @@ def test_gemini_thinking_policy_removes_invalid_native_config(
     assert kwargs["extra_body"] == {"custom_field": "keep"}
 
 
-def test_gemini_thinking_policy_normalizes_generation_config_aliases():
+def test_gemini_thinking_policy_normalizes_generation_config_aliases() -> None:
     kwargs = {
         "extra_body": {
             "generation_config": {
@@ -970,7 +974,7 @@ def test_gemini_thinking_policy_normalizes_generation_config_aliases():
     }
 
 
-def test_provider_thinking_policy_preserves_caller_extra_body_fields():
+def test_provider_thinking_policy_preserves_caller_extra_body_fields() -> None:
     kwargs = {
         "extra_body": {
             "enable_thinking": True,
@@ -1011,7 +1015,7 @@ def _installed_litellm_version() -> str | None:
         "install requirements.txt to run it"
     ),
 )
-def test_litellm_195_native_adapter_contracts():
+def test_litellm_195_native_adapter_contracts() -> None:
     script = textwrap.dedent(
         """
         import importlib.metadata
@@ -1264,7 +1268,7 @@ def test_litellm_195_native_adapter_contracts():
     }
 
 
-def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object):
+def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
 
     def fake_completion(*args: object, **kwargs: object):
@@ -1317,7 +1321,7 @@ def test_chat_llm_disables_deepseek_thinking(monkeypatch: object, app: object):
     assert captured_kwargs["kwargs"]["extra_body"] == {"custom_field": "keep"}
 
 
-def test_gemini_3_params_use_none_with_explicit_allowlist():
+def test_gemini_3_params_use_none_with_explicit_allowlist() -> None:
     params = llm._reload_gemini_params("gemini-3.1-flash-lite", 0.3)
 
     assert params == {
@@ -1327,7 +1331,7 @@ def test_gemini_3_params_use_none_with_explicit_allowlist():
     }
 
 
-def test_gemini_25_pro_params_use_lowest_supported_reasoning():
+def test_gemini_25_pro_params_use_lowest_supported_reasoning() -> None:
     params = llm._reload_gemini_params("gemini-2.5-pro", 0.3)
 
     assert params["allowed_openai_params"] == ["reasoning_effort"]
@@ -1336,7 +1340,7 @@ def test_gemini_25_pro_params_use_lowest_supported_reasoning():
 
 def test_invoke_llm_uses_actual_model_for_provider_params(
     monkeypatch: object, app: object
-):
+) -> None:
     captured = {}
 
     def reload_params(model_id: object, temperature: object):
@@ -1390,7 +1394,7 @@ def test_invoke_llm_uses_actual_model_for_provider_params(
 
 def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     monkeypatch: object, app: object
-):
+) -> None:
     class RepeatedChunkError(Exception):
         __module__ = "litellm.exceptions"
 
@@ -1427,7 +1431,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     assert [resp.result for resp in responses] == ["你好"]
 
 
-def test_chat_llm_streams(monkeypatch: object, app: object):
+def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
     captured_usage = {}
 
@@ -1500,7 +1504,7 @@ def test_chat_llm_streams(monkeypatch: object, app: object):
 @pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
 def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
     monkeypatch: object, app: object, llm_method: object
-):
+) -> None:
     def fake_completion(*args: object, **kwargs: object):
         _ = args, kwargs
         return iter(
@@ -1553,7 +1557,7 @@ def test_llm_sends_reasoning_output_to_langfuse_without_streaming_it(
     }
 
 
-def test_langfuse_reasoning_output_keeps_empty_content_key():
+def test_langfuse_reasoning_output_keeps_empty_content_key() -> None:
     assert llm._build_langfuse_llm_output("", "Think carefully.") == {
         "content": "",
         "reasoning_content": "Think carefully.",
@@ -1598,11 +1602,13 @@ def test_langfuse_reasoning_output_keeps_empty_content_key():
 )
 def test_extract_reasoning_delta_supports_litellm_fallback_fields(
     delta: object, expected: object
-):
+) -> None:
     assert llm._extract_reasoning_delta(delta) == expected
 
 
-def test_chat_llm_falls_back_to_request_trace_id(monkeypatch: object, app: object):
+def test_chat_llm_falls_back_to_request_trace_id(
+    monkeypatch: object, app: object
+) -> None:
     def fake_completion(*args: object, **kwargs: object):
         _ = args, kwargs
         return iter([FakeResponse("chunk-1", content="Hi", finish_reason="stop")])
@@ -1724,7 +1730,7 @@ def _collect_retry_stream(app: object):
 )
 def test_stream_retries_connection_error_before_first_content(
     monkeypatch: object, app: object, error_type: object
-):
+) -> None:
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1742,7 +1748,7 @@ def test_stream_retries_connection_error_before_first_content(
 
 def test_stream_retry_discards_reasoning_from_failed_attempt(
     monkeypatch: object, app: object
-):
+) -> None:
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1769,7 +1775,9 @@ def test_stream_retry_discards_reasoning_from_failed_attempt(
     assert calls["count"] == 2
 
 
-def test_stream_error_after_content_is_not_retried(monkeypatch: object, app: object):
+def test_stream_error_after_content_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1782,7 +1790,7 @@ def test_stream_error_after_content_is_not_retried(monkeypatch: object, app: obj
     assert calls["count"] == 1
 
 
-def test_stream_retry_attempts_are_bounded(monkeypatch: object, app: object):
+def test_stream_retry_attempts_are_bounded(monkeypatch: object, app: object) -> None:
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(
         monkeypatch,
@@ -1800,7 +1808,7 @@ def test_stream_retry_attempts_are_bounded(monkeypatch: object, app: object):
 
 def test_stream_non_retryable_error_raises_immediately(
     monkeypatch: object, app: object
-):
+) -> None:
     _patch_retryable_stream_errors(monkeypatch)
     calls = _patch_scripted_streams(monkeypatch, [[ValueError("business error")]])
 
@@ -1812,7 +1820,7 @@ def test_stream_non_retryable_error_raises_immediately(
 
 def test_stream_retry_noop_when_exception_types_unavailable(
     monkeypatch: object, app: object
-):
+) -> None:
     """The litellm test stub has no exceptions submodule; the wrapper must degrade to raising instead of crashing on type resolution."""
     monkeypatch.delattr(llm.litellm, "exceptions", raising=False)
     calls = _patch_scripted_streams(

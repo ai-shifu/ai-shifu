@@ -25,7 +25,7 @@ BACKEND_DIR = ROOT / "src" / "api"
 COOK_WEB_DIR = ROOT / "src" / "cook-web"
 
 
-def load_json(path: Path):
+def load_json(path: Path) -> dict[str, object]:
     """Load JSON."""
     return json.loads(path.read_text(encoding="utf-8"))
 

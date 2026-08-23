@@ -36,7 +36,7 @@ def _load_migration_module(path: object = MIGRATION_PATH):
     return module
 
 
-def test_learner_profile_column_remains_nullable_for_rolling_writers():
+def test_learner_profile_column_remains_nullable_for_rolling_writers() -> None:
     from flaskr.service.user.models import UserInfo
 
     migration = _load_migration_module()
@@ -75,14 +75,14 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
     assert UserInfo.__table__.c.learner_profile.nullable is True
 
 
-def test_learner_profile_revision_extends_the_existing_main_head():
+def test_learner_profile_revision_extends_the_existing_main_head() -> None:
     migration = _load_migration_module()
 
     assert migration.revision == "c8f1a2d3e4b5"
     assert migration.down_revision == "b8d5f0a2c3e4"
 
 
-def test_merge_revision_joins_learner_profile_and_tts_provider_heads():
+def test_merge_revision_joins_learner_profile_and_tts_provider_heads() -> None:
     migration = _load_migration_module(MERGE_MIGRATION_PATH)
 
     assert migration.revision == "f9a2b3c4d5e6"

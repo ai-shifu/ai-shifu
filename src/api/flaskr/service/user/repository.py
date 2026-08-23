@@ -891,7 +891,7 @@ def upsert_wechat_credentials(
 
 
 @contextmanager
-def transactional_session():
+def transactional_session() -> Iterator[None]:  # noqa: F821 - type-only name
     # Managed manually instead of ``with begin_nested()``: the context
     # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
     # any classification could run, which is exactly what must not happen on

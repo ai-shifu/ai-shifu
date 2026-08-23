@@ -63,7 +63,7 @@ def _blank_legacy_bid_expression(column: object):
     return func.trim(normalized) == ""
 
 
-def build_coupon_enabled_expression(model_or_columns: object):
+def build_coupon_enabled_expression(model_or_columns: object) -> object:
     """Build coupon enabled expression."""
     return or_(
         model_or_columns.status == COUPON_BATCH_STATUS_ACTIVE,
@@ -75,7 +75,7 @@ def build_coupon_enabled_expression(model_or_columns: object):
     )
 
 
-def build_campaign_enabled_expression(model_or_columns: object):
+def build_campaign_enabled_expression(model_or_columns: object) -> object:
     """Build campaign enabled expression."""
     return or_(
         model_or_columns.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
@@ -91,7 +91,9 @@ def _app_context_scope(app: Flask):
     return nullcontext() if has_app_context() else app.app_context()
 
 
-def timeout_coupon_code_rollback(app: Flask, user_bid: object, order_bid: object):
+def timeout_coupon_code_rollback(
+    app: Flask, user_bid: object, order_bid: object
+) -> None:
     """Timeout coupon code rollback.
 
     Args:

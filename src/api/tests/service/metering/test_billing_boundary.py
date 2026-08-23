@@ -19,7 +19,7 @@ from flaskr.service.metering.models import BillUsageRecord
 
 
 @pytest.fixture
-def metering_billing_boundary_app():
+def metering_billing_boundary_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

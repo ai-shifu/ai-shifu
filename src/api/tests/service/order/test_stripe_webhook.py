@@ -41,13 +41,15 @@ class DummyStripeProvider:
         """Capture the notification returned by webhook verification."""
         self._notification = notification
 
-    def verify_webhook(self, *, headers: object, raw_body: object, app: object):
+    def verify_webhook(
+        self, *, headers: object, raw_body: object, app: object
+    ) -> object:
         del headers, raw_body, app
         return self._notification
 
 
 @pytest.fixture
-def stripe_webhook_app():
+def stripe_webhook_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -174,7 +176,7 @@ def _ensure_billing_stripe_raw_snapshot(bill_order_bid: object):
 
 def test_handle_stripe_webhook_marks_order_paid(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     with stripe_webhook_app.app_context():
         order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-1")
 
@@ -245,7 +247,7 @@ def test_handle_stripe_webhook_marks_order_paid(
 
 def test_stripe_webhook_route_marks_legacy_order_paid(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     with stripe_webhook_app.app_context():
         order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-route-1")
 
@@ -328,7 +330,7 @@ def test_stripe_webhook_route_marks_legacy_order_paid(
 
 def test_handle_stripe_webhook_routes_bill_orders_without_regression(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -436,7 +438,7 @@ def test_handle_stripe_webhook_routes_bill_orders_without_regression(
 
 def test_stripe_webhook_route_delegates_bill_orders(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -514,7 +516,7 @@ def test_stripe_webhook_route_delegates_bill_orders(
 
 def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_DRAFT,
@@ -585,7 +587,7 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
 
 def test_handle_stripe_webhook_ignores_stale_subscription_updates(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     with stripe_webhook_app.app_context():
         subscription = _ensure_billing_subscription(
             BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -642,7 +644,7 @@ def test_handle_stripe_webhook_ignores_stale_subscription_updates(
 
 def test_handle_stripe_webhook_ignores_orphan_billing_event(
     stripe_webhook_app: object, monkeypatch: object
-):
+) -> None:
     notification = PaymentNotificationResult(
         order_bid="",
         status="checkout.session.completed",

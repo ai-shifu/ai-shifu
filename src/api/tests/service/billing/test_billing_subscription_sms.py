@@ -56,7 +56,7 @@ def _utc_epoch(value: datetime) -> int:
 
 
 @pytest.fixture
-def billing_subscription_sms_app(tmp_path: object):
+def billing_subscription_sms_app(tmp_path: object) -> object:
     db_path = tmp_path / "billing-subscription-sms.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

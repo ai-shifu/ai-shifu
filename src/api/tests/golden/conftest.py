@@ -104,7 +104,7 @@ def _iter_golden_completion(messages: object) -> list[str]:
     return list(GOLDEN_LLM_CHUNKS)
 
 
-def golden_chat_llm(*args: object, **kwargs: object):
+def golden_chat_llm(*args: object, **kwargs: object) -> object:
     messages = kwargs.get("messages")
     if messages is None:
         for arg in args:
@@ -121,7 +121,7 @@ def golden_chat_llm(*args: object, **kwargs: object):
         )
 
 
-def golden_invoke_llm(*args: object, **kwargs: object):
+def golden_invoke_llm(*args: object, **kwargs: object) -> object:
     yield from golden_chat_llm(*args, **kwargs)
 
 
@@ -134,7 +134,7 @@ def golden_get_current_models(_app: object) -> list[dict[str, str]]:
 
 
 @pytest.fixture(autouse=True)
-def golden_llm(monkeypatch: object):
+def golden_llm(monkeypatch: object) -> None:
     """Patch a deterministic fake LLM into every namespace the /run path uses."""
     import sys
 
@@ -166,13 +166,13 @@ def golden_llm(monkeypatch: object):
 
 
 @pytest.fixture(autouse=True)
-def golden_sse_settings(app: object, monkeypatch: object):
+def golden_sse_settings(app: object, monkeypatch: object) -> None:
     """Disable timing-dependent SSE heartbeats for deterministic transcripts."""
     monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
 
 
 @pytest.fixture(autouse=True)
-def golden_disable_risk_audit_commit(monkeypatch: object):
+def golden_disable_risk_audit_commit(monkeypatch: object) -> None:
     """Skip the risk-control audit side-write on SQLite.
 
     ``add_risk_control_result`` commits through a nested ``app.app_context()``
@@ -227,7 +227,7 @@ def seed_golden_user(app: object, user_bid: str) -> None:
 
 
 @pytest.fixture
-def golden_shifu(app: object):
+def golden_shifu(app: object) -> object:
     """Seed a published, free shifu with one chapter and one runnable lesson.
 
     Idempotent: existing golden rows are removed before reseeding so every

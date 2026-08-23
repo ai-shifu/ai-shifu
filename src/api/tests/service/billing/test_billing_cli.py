@@ -57,7 +57,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 
 @pytest.fixture
-def billing_cli_runner():
+def billing_cli_runner() -> object:
     app = Flask(__name__)
     app.testing = True
 
@@ -70,7 +70,7 @@ def billing_cli_runner():
 
 
 @pytest.fixture
-def billing_cli_db_app():
+def billing_cli_db_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

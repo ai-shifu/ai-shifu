@@ -1576,7 +1576,7 @@ def stream_generated_block_audio(
     user_bid: str,
     preview_mode: bool,
     listen: bool = False,
-):
+) -> "Iterator[object]":  # noqa: F821 - type-only name
     """Stream generated block audio."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
@@ -1967,7 +1967,7 @@ def stream_preview_tts_audio(
     user_bid: str,
     text: str,
     preview_mode: bool,
-):
+) -> "Iterator[object]":  # noqa: F821 - type-only name
     """Stream preview TTS audio."""
     with app.app_context():
         provider, tts_model, voice_settings, audio_settings = (

@@ -39,20 +39,20 @@ def _make_conn(sock: object, ping_exc: object = None):
 
 
 @pytest.fixture
-def clean_sock():
+def clean_sock() -> object:
     left, right = socket.socketpair()
     yield left
     left.close()
     right.close()
 
 
-def test_healthy_ping_passes(clean_sock: object):
+def test_healthy_ping_passes(clean_sock: object) -> None:
     record = _FakeRecord()
     dao._reject_desynced_connection_on_checkout(_make_conn(clean_sock), record, None)
     assert record.invalidated_with == []
 
 
-def test_dead_connection_ping_invalidates_and_retries(clean_sock: object):
+def test_dead_connection_ping_invalidates_and_retries(clean_sock: object) -> None:
     record = _FakeRecord()
     ping_exc = OSError("dead")
     with pytest.raises(DisconnectionError):
@@ -62,7 +62,7 @@ def test_dead_connection_ping_invalidates_and_retries(clean_sock: object):
     assert record.invalidated_with == [ping_exc]
 
 
-def test_interrupted_ping_invalidates_before_propagating(clean_sock: object):
+def test_interrupted_ping_invalidates_before_propagating(clean_sock: object) -> None:
     record = _FakeRecord()
     with pytest.raises(_FakeGreenletExit):
         dao._reject_desynced_connection_on_checkout(
@@ -74,7 +74,7 @@ def test_interrupted_ping_invalidates_before_propagating(clean_sock: object):
     assert record.invalidated_with == [None]
 
 
-def test_connections_without_ping_are_skipped(clean_sock: object):
+def test_connections_without_ping_are_skipped(clean_sock: object) -> None:
     class _NoPing:
         _sock = clean_sock
 
@@ -83,5 +83,5 @@ def test_connections_without_ping_are_skipped(clean_sock: object):
     assert record.invalidated_with == []
 
 
-def test_pre_ping_engine_option_defaults_off(app: object):
+def test_pre_ping_engine_option_defaults_off(app: object) -> None:
     assert app.config["SQLALCHEMY_ENGINE_OPTIONS"].get("pool_pre_ping") is False

@@ -147,7 +147,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_non_listen_uses_run_tts_processor(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -223,7 +223,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_non_listen_ignores_cache_with_stale_voice(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -330,7 +330,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_non_listen_ignores_segmented_listen_cache(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -459,7 +459,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_uses_text_elements_only(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -666,7 +666,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_falls_back_to_legacy_block_text(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -729,7 +729,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_finishes_non_speakable_legacy_block(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -780,7 +780,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_finishes_markup_only_legacy_block(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -831,7 +831,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_fast_path_skips_markup_positions(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -967,7 +967,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_ignores_cached_markup_position(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1093,7 +1093,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_finishes_markup_only_elements(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1184,7 +1184,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_preview_listen_falls_back_to_block_tts_without_final_elements(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1258,7 +1258,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_preview_listen_reuses_cached_block_audio(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1355,7 +1355,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1468,7 +1468,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_reuses_partial_segment_cache(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1632,7 +1632,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_ignores_cache_with_stale_voice(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1754,7 +1754,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_ignores_cache_with_mismatched_subtitles(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1874,7 +1874,7 @@ class TestGeneratedBlockListenTtsElementFirst:
 
     def test_stream_generated_block_audio_listen_raises_when_finalize_has_no_complete(
         self, monkeypatch: object
-    ):
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.common.models import AppError
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio

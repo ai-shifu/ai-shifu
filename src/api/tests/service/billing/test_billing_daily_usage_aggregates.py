@@ -30,7 +30,7 @@ from flaskr.service.metering.models import BillUsageRecord
 
 
 @pytest.fixture
-def billing_daily_usage_app(tmp_path: object):
+def billing_daily_usage_app(tmp_path: object) -> object:
     db_path = tmp_path / "billing-daily-usage.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

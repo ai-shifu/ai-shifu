@@ -159,7 +159,7 @@ class PingxxProvider(PaymentProvider):
         )
 
     @_serialized_pingpp_config
-    def retrieve_charge(self, *, charge_id: str, app: Flask):
+    def retrieve_charge(self, *, charge_id: str, app: Flask) -> dict[str, object]:
         """Retrieve a charge from the payment provider."""
         client = self._ensure_client(app)
         return client.Charge.retrieve(charge_id)

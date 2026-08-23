@@ -14,7 +14,7 @@ from flaskr.util.datetime import now_utc
 
 def test_get_shifu_draft_list_marks_builtin_guide_course(
     app: object, monkeypatch: object
-):
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     guide_bid = uuid.uuid4().hex[:32]
     regular_bid = uuid.uuid4().hex[:32]

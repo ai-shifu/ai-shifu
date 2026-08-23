@@ -31,14 +31,14 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_legacy_order_url_config_cache():
+def clear_legacy_order_url_config_cache() -> object:
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
     yield
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
 
 @pytest.fixture
-def legacy_order_app():
+def legacy_order_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

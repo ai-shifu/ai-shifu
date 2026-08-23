@@ -202,19 +202,19 @@ class TestSSEElementSplitFromDB:
     """Fetch real blocks and validate SSE element splitting."""
 
     @pytest.fixture(scope="class")
-    def blocks(self, app: object):
+    def blocks(self, app: object) -> object:
         """Load 100 latest blocks from the test DB."""
         rows = _fetch_blocks_raw(app, limit=100)
         if not rows:
             pytest.skip("No generated blocks found in test DB")
         return rows
 
-    def test_blocks_loaded(self, blocks: object):
+    def test_blocks_loaded(self, blocks: object) -> None:
         """Sanity check: we have data to test with."""
         assert len(blocks) > 0
         print(f"\n  Loaded {len(blocks)} blocks from test DB")
 
-    def test_all_blocks_produce_valid_sse(self, app: object, blocks: object):
+    def test_all_blocks_produce_valid_sse(self, app: object, blocks: object) -> None:
         """Every block must produce a valid SSE stream without errors."""
         failures = []
         stats = {
@@ -336,7 +336,9 @@ class TestSSEElementSplitFromDB:
                 failure_msg += f"\n  ... and {len(failures) - 20} more"
             pytest.fail(f"{len(failures)} validation failures:\n{failure_msg}")
 
-    def test_sse_json_serialization_roundtrip(self, app: object, blocks: object):
+    def test_sse_json_serialization_roundtrip(
+        self, app: object, blocks: object
+    ) -> None:
         """Verify SSE JSON output can be parsed back correctly."""
         from flaskr.service.learn.routes import _to_sse_data_line
 
@@ -412,7 +414,7 @@ class TestSSEElementSplitFromDB:
             failure_msg = "\n".join(failures[:20])
             pytest.fail(f"{len(failures)} serialization failures:\n{failure_msg}")
 
-    def test_content_coverage_no_data_loss(self, app: object, blocks: object):
+    def test_content_coverage_no_data_loss(self, app: object, blocks: object) -> None:
         """Verify that element splitting does not lose content."""
         sample_blocks = [
             b
@@ -480,7 +482,9 @@ class TestSSEElementSplitFromDB:
             failure_msg = "\n".join(failures[:20])
             pytest.fail(f"{len(failures)} content coverage failures:\n{failure_msg}")
 
-    def test_element_type_matches_content_pattern(self, app: object, blocks: object):
+    def test_element_type_matches_content_pattern(
+        self, app: object, blocks: object
+    ) -> None:
         """Verify element_type is appropriate for the content pattern.
 
         When a block's entire content is a single visual element (e.g. pure SVG),
@@ -544,7 +548,7 @@ class TestSSEElementSplitFromDB:
             # may legitimately use fallback TEXT when av_contract does
             # not recognize the visual boundary
 
-    def test_pure_visual_blocks_element_type(self, app: object, blocks: object):
+    def test_pure_visual_blocks_element_type(self, app: object, blocks: object) -> None:
         """Diagnose element type inference for blocks whose content is pure visual (SVG, HTML with no speakable text).
 
         These blocks have visual_boundaries in av_contract but no

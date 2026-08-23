@@ -39,7 +39,7 @@ from sqlalchemy import text
 
 
 @pytest.fixture
-def billing_view_app():
+def billing_view_app() -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

@@ -13,7 +13,7 @@ def _shared_i18n_root() -> Path:
 
 def test_common_handler_returns_translated_unexpected_error_for_unhandled_exceptions(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
@@ -36,7 +36,7 @@ def test_common_handler_returns_translated_unexpected_error_for_unhandled_except
 
 def test_common_handler_uses_request_language_for_unhandled_exceptions(
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
@@ -84,7 +84,9 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(
     }
 
 
-def test_common_handler_uses_json_language_for_patch_requests(monkeypatch: object):
+def test_common_handler_uses_json_language_for_patch_requests(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)

@@ -17,7 +17,7 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
 
-def get_engine():
+def get_engine() -> "Engine":  # noqa: F821 - type-only name
     try:
         # this works with Flask-SQLAlchemy<3 and Alchemical
         return current_app.extensions["migrate"].db.get_engine()
@@ -26,7 +26,7 @@ def get_engine():
         return current_app.extensions["migrate"].db.engine
 
 
-def get_engine_url():
+def get_engine_url() -> str:
     try:
         return get_engine().url.render_as_string(hide_password=False).replace("%", "%%")
     except AttributeError:
@@ -43,7 +43,7 @@ def include_object(
     type_: object,
     reflected: object,
     compare_to: object,
-):
+) -> object:
     """Use the simplest mode to avoid separation."""
     # the system tables
     _ = compare_to
@@ -98,13 +98,13 @@ def include_object(
     return True
 
 
-def get_metadata():
+def get_metadata() -> object:
     if hasattr(target_db, "metadatas"):
         return target_db.metadatas[None]
     return target_db.metadata
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
     This configures the context with just a URL

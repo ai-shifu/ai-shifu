@@ -229,7 +229,7 @@ def create_shifu_draft(
     shifu_model: str | None = None,
     shifu_temperature: float | None = None,
     shifu_price: float | None = None,
-):
+) -> ShifuDto:
     """Create a shifu draft.
 
     Args:
@@ -412,7 +412,7 @@ def save_shifu_draft_info(
     ask_temperature: float | None = None,
     ask_system_prompt: str | None = None,
     ask_provider_config: Any = None,
-):
+) -> object:
     """Save shifu draft info.
 
     Args:
@@ -721,7 +721,7 @@ def get_shifu_draft_list(
     is_favorite: bool,
     archived: bool = False,
     creator_only: bool = False,
-):
+) -> object:
     """Get shifu draft list.
 
     Args:
@@ -894,7 +894,7 @@ def get_shifu_published_list(
     page_index: int,
     page_size: int,
     creator_only: bool = True,
-):
+) -> object:
     """Get published shifu list."""
     with app.app_context():
         page_index = max(page_index, 1)
@@ -991,11 +991,11 @@ def _set_shifu_archive_state(app: object, user_id: str, shifu_id: str, archived:
         db.session.commit()
 
 
-def archive_shifu(app: object, user_id: str, shifu_id: str):
+def archive_shifu(app: object, user_id: str, shifu_id: str) -> None:
     """Archive shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=True)
 
 
-def unarchive_shifu(app: object, user_id: str, shifu_id: str):
+def unarchive_shifu(app: object, user_id: str, shifu_id: str) -> None:
     """Restore shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=False)

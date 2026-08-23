@@ -88,7 +88,7 @@ def _seed_default_llm_rates() -> None:
 
 def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(
     monkeypatch: object, app: object
-):
+) -> None:
     def config_getter(key: object, default: object = None):
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
@@ -240,7 +240,7 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(
 
 def test_update_db_only_llm_alias_only_supersedes_explicit_alias(
     monkeypatch: object, app: object
-):
+) -> None:
     fixed_now = datetime(2026, 7, 20, 13, 30, 43, 990000)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -321,7 +321,7 @@ def test_update_db_only_llm_alias_only_supersedes_explicit_alias(
 
 def test_update_new_llm_rate_uses_default_metric_ratios(
     monkeypatch: object, app: object
-):
+) -> None:
     def config_getter(key: object, default: object = None):
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
@@ -394,7 +394,7 @@ def test_update_new_llm_rate_uses_default_metric_ratios(
 
 def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
     monkeypatch: object, app: object
-):
+) -> None:
     def config_getter(key: object, default: object = None):
         return {
             "DEFAULT_LLM_MODEL": "ark/doubao-seed-2-0-lite-260428",
@@ -439,7 +439,9 @@ def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
         db.session.commit()
 
 
-def test_update_rate_rejects_missing_credit_1x_anchor(monkeypatch: object, app: object):
+def test_update_rate_rejects_missing_credit_1x_anchor(
+    monkeypatch: object, app: object
+) -> None:
     def config_getter(key: object, default: object = None):
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
@@ -486,7 +488,7 @@ def test_update_rate_rejects_missing_credit_1x_anchor(monkeypatch: object, app: 
 
 def test_operator_rate_config_appends_only_current_exact_db_identities(
     monkeypatch: object, app: object
-):
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -720,7 +722,7 @@ def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
     credits_per_unit: object,
     expected_input: object,
     expected_cache: object,
-):
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -794,7 +796,7 @@ def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
 
 def test_create_only_rejects_duplicate_active_exact_identity(
     monkeypatch: object, app: object
-):
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -872,7 +874,7 @@ def test_create_only_rejects_duplicate_active_exact_identity(
 )
 def test_create_only_rejects_invalid_identity_and_fixed_fields(
     monkeypatch: object, app: object, overrides: object
-):
+) -> None:
     monkeypatch.setattr(
         config_rates, "_load_llm_credit_1x_reference_cost", lambda: Decimal(3)
     )
@@ -911,7 +913,7 @@ def test_create_only_rejects_invalid_identity_and_fixed_fields(
 )
 def test_create_only_tts_allows_empty_default_model(
     monkeypatch: object, app: object, credits_per_unit: object
-):
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(

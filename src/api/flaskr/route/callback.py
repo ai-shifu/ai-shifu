@@ -23,7 +23,7 @@ from flaskr.service.order.raw_snapshots import native_snapshot_model
 from .common import bypass_token_validation
 
 
-def register_callback_handler(app: Flask, path_prefix: str):
+def register_callback_handler(app: Flask, path_prefix: str) -> object:
     """Register the callback routes on the Flask application."""
 
     @app.route("/api/order/webhooks/<provider_name>/<callback_token>", methods=["POST"])

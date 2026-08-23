@@ -25,7 +25,7 @@ from flaskr.service.billing.runtime_config import (
 
 
 @pytest.fixture
-def runtime_config_client(monkeypatch: object):
+def runtime_config_client(monkeypatch: object) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

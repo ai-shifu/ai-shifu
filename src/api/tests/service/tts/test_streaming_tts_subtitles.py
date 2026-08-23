@@ -27,7 +27,9 @@ class TestStreamingTtsSubtitles:
         with cls.app.app_context():
             dao.db.create_all()
 
-    def test_streaming_tts_processor_persists_subtitle_cues(self, monkeypatch: object):
+    def test_streaming_tts_processor_persists_subtitle_cues(
+        self, monkeypatch: object
+    ) -> None:
         from types import SimpleNamespace
 
         from flaskr.dao import db

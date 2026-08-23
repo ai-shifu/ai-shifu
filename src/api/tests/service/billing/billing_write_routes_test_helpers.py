@@ -363,7 +363,7 @@ def add_trial_subscription_state(
         dao.db.session.commit()
 
 
-def billing_write_client(monkeypatch: object):
+def billing_write_client(monkeypatch: object) -> object:
     monkeypatch.setenv("HOST_URL", "https://billing.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")

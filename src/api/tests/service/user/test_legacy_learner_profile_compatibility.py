@@ -69,7 +69,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
     app: object,
     monkeypatch: object,
     writer: object,
-):
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
@@ -145,7 +145,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
 
 def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
     app: object, monkeypatch: object
-):
+) -> None:
     definitions = [
         SimpleNamespace(
             profile_key="sys_user_background", profile_id="background-variable"
@@ -200,7 +200,7 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
 
 def test_skipped_v2_state_preserves_legacy_profile_behavior(
     app: object, monkeypatch: object
-):
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
@@ -227,7 +227,7 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(
 def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
     app: object,
     monkeypatch: object,
-):
+) -> None:
     definitions = [
         SimpleNamespace(
             profile_key="sys_user_nickname",
@@ -312,7 +312,7 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
 def test_explicit_nickname_uses_existing_runtime_precedence_without_rewriting_legacy_rows(
     app: object,
     monkeypatch: object,
-):
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
         lambda *_args, **_kwargs: True,

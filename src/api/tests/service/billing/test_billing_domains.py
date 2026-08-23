@@ -36,7 +36,7 @@ register_billing_routes = load_register_billing_routes()
 
 
 @pytest.fixture
-def billing_domain_client(monkeypatch: object):
+def billing_domain_client(monkeypatch: object) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

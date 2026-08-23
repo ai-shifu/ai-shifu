@@ -70,7 +70,7 @@ from flaskr.service.user.repository import (
 
 
 @pytest.fixture
-def credit_notifications_app(tmp_path: object):
+def credit_notifications_app(tmp_path: object) -> object:
     db_path = tmp_path / "credit-notifications.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

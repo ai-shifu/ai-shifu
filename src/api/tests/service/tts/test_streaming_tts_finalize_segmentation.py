@@ -14,14 +14,14 @@ from flaskr.service.tts.streaming_tts import StreamingTTSProcessor, TTSSegment
 
 
 @pytest.fixture
-def mock_app():
+def mock_app() -> object:
     """Create a mock Flask app."""
     app = MagicMock()
     app.config = {}
     return app
 
 
-def create_test_processor(mock_app: object, **kwargs: object):
+def create_test_processor(mock_app: object, **kwargs: object) -> object:
     """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
@@ -46,7 +46,7 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test stream-time submission waits for a full sentence ending."""
         mock_is_configured.return_value = True
 
@@ -81,7 +81,7 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test that remaining text is split at sentence boundaries."""
         mock_is_configured.return_value = True
 
@@ -128,7 +128,7 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test that text without sentence boundaries is submitted as one segment."""
         mock_is_configured.return_value = True
 
@@ -167,7 +167,7 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test handling of very short remaining text."""
         mock_is_configured.return_value = True
 
@@ -205,7 +205,7 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test handling of empty remaining text."""
         mock_is_configured.return_value = True
 
@@ -224,7 +224,7 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test handling of whitespace-only remaining text."""
         mock_is_configured.return_value = True
 
@@ -244,7 +244,7 @@ class TestFinalizeSegmentation:
         mock_executor: object,
         mock_app: object,
         caplog: object,
-    ):
+    ) -> None:
         """Test that segment submission is properly logged."""
         mock_is_configured.return_value = True
 
@@ -282,7 +282,7 @@ class TestStreamingSynthesisRetries:
         mock_record_usage: object,
         mock_sleep: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received from Tencent TTS"),
@@ -329,7 +329,7 @@ class TestStreamingSynthesisRetries:
         mock_sleep: object,
         mock_logger: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = ValueError(
             "No audio data received from Tencent TTS"
@@ -377,7 +377,7 @@ class TestStreamingSynthesisRetries:
         mock_logger: object,
         mock_app: object,
         tts_provider: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         app_context = MagicMock()
         app_context.__enter__.return_value = None
@@ -416,7 +416,7 @@ class TestStreamingSynthesisRetries:
         mock_minimax_provider: object,
         mock_logger: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="minimax")
 
@@ -446,7 +446,7 @@ class TestStreamingSynthesisRetries:
         mock_synthesize_text: object,
         mock_logger: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="volcengine")
 
@@ -478,7 +478,7 @@ class TestStreamingSynthesisRetries:
         mock_record_usage: object,
         mock_sleep: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received"),
@@ -537,7 +537,7 @@ class TestStreamingSynthesisRetries:
         mock_record_aggregate_usage: object,
         mock_save_audio_record: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
             audio_data=b"provider-audio",
@@ -614,7 +614,7 @@ class TestStreamingSynthesisRetries:
         mock_save_audio_record: object,
         mock_sleep: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received"),
@@ -666,7 +666,7 @@ class TestOffsetDriftRegression:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Bold markers completing across chunks must not cause text loss.
 
         Regression: when **bold** spans the processed/unprocessed boundary,
@@ -716,7 +716,7 @@ class TestOffsetDriftRegression:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Links completing across chunks must not lose surrounding text."""
         mock_is_configured.return_value = True
 
@@ -759,7 +759,7 @@ class TestFinalizeDelayManagement:
         mock_synthesize_text: object,
         mock_record_segment_usage: object,
         mock_app: object,
-    ):
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
             audio_data=b"fake_audio_data",
@@ -810,7 +810,7 @@ class TestFinalizeDelayManagement:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-    ):
+    ) -> None:
         """Test that _yield_ready_segments adds delay between segment yields."""
         _ = mock_executor
         mock_is_configured.return_value = True

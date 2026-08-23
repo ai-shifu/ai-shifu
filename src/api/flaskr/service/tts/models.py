@@ -340,7 +340,7 @@ class TTSMiniMaxClonedVoice(db.Model):
     ready_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> object:
         """Convert model to dictionary."""
         return {
             "audio_bid": self.audio_bid,

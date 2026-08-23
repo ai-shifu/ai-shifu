@@ -58,7 +58,7 @@ def _post_json(client: object, path: str, payload: dict, headers: dict | None = 
 
 
 @pytest.fixture
-def user_trial_client(monkeypatch: object, tmp_path: object):
+def user_trial_client(monkeypatch: object, tmp_path: object) -> object:
     import flaskr.service.billing.auth_hooks as _billing_auth_hooks  # noqa: F401
     import flaskr.service.user.utils as user_utils
     from flaskr.service.user import email_flow, phone_flow
@@ -172,7 +172,7 @@ def _assert_trial_bootstrapped(user_bid: str) -> None:
 
 def test_sms_login_admin_login_bootstraps_trial_once(
     user_trial_client: object,
-):
+) -> None:
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     phone = f"155{uuid.uuid4().int % 100000000:08d}"
@@ -214,7 +214,7 @@ def test_sms_login_admin_login_bootstraps_trial_once(
 
 def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
     user_trial_client: object,
-):
+) -> None:
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -255,7 +255,7 @@ def test_ensure_admin_creator_bootstraps_trial_for_existing_user_once(
 
 def test_password_login_existing_creator_does_not_bootstrap_trial_again(
     user_trial_client: object,
-):
+) -> None:
     app = user_trial_client.application
     email = f"{uuid.uuid4().hex[:10]}@example.com"
     password = "Abcd1234"
@@ -305,7 +305,7 @@ def test_password_login_existing_creator_does_not_bootstrap_trial_again(
 
 def test_password_login_non_creator_does_not_grant_trial(
     user_trial_client: object,
-):
+) -> None:
     app = user_trial_client.application
     email = f"{uuid.uuid4().hex[:10]}@example.com"
     password = "Abcd1234"
@@ -351,7 +351,7 @@ def test_password_login_non_creator_does_not_grant_trial(
 
 def test_post_auth_extension_failures_do_not_block_trial_bootstrap(
     user_trial_client: object,
-):
+) -> None:
     app = user_trial_client.application
     app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = True
     email = f"{uuid.uuid4().hex[:10]}@example.com"

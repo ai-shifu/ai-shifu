@@ -515,7 +515,9 @@ def _rollback_quietly() -> bool:
         return True
 
 
-def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
+def retry_on_deadlock(
+    max_attempts: int = 3, backoff_seconds: float = 0.1
+) -> "Callable[[Callable[P, R]], Callable[P, R]]":  # noqa: F821 - type-only name
     """Retry a transactional function when MySQL reports a deadlock (1213) or a lock wait timeout (1205).
 
     The failed transaction is rolled back on every caught error so the session is left
@@ -564,7 +566,7 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
     return decorator
 
 
-def init_db(app: Flask):
+def init_db(app: Flask) -> None:
     """Initialize database."""
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
@@ -688,7 +690,7 @@ def init_db(app: Flask):
             setup_sql_logging()
 
 
-def init_redis(app: Flask):
+def init_redis(app: Flask) -> None:
     """Initialize Redis."""
     host = app.config.get("REDIS_HOST")
     port = app.config.get("REDIS_PORT")
@@ -731,7 +733,9 @@ def init_redis(app: Flask):
     app.logger.info("init redis done")
 
 
-def run_with_redis(app: object, key: object, timeout: int, func: object, args: object):
+def run_with_redis(
+    app: object, key: object, timeout: int, func: object, args: object
+) -> "R | None":  # noqa: F821 - type-only name
     """Run with Redis."""
     with app.app_context():
         app.logger.info("run_with_redis start %s", key)

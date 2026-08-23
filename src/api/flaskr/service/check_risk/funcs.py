@@ -20,7 +20,7 @@ def add_risk_control_result(
     check_resp: object,
     is_pass: object,
     check_strategy: object,
-):
+) -> object:
     """Add risk control result."""
     with app.app_context():
         risk_control_result = RiskControlResult(

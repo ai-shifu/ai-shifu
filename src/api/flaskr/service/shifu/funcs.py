@@ -26,7 +26,7 @@ from .models import AiCourseAuth, FavoriteScenario
 from .utils import get_shifu_creator_bid
 
 
-def mark_favorite_shifu(app: object, user_id: str, shifu_id: str):
+def mark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> object:
     """Mark a shifu as favorite for a user.
 
     Args:
@@ -55,7 +55,7 @@ def mark_favorite_shifu(app: object, user_id: str, shifu_id: str):
 
 
 # unmark favorite shifu
-def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str):
+def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> object:
     """Unmark a shifu as favorite for a user.
 
     Args:
@@ -80,7 +80,7 @@ def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str):
 
 def mark_or_unmark_favorite_shifu(
     app: object, user_id: str, shifu_id: str, is_favorite: bool
-):
+) -> object:
     """Mark or unmark a shifu as favorite for a user.
 
     Args:
@@ -255,7 +255,7 @@ def shifu_permission_verification(
     user_id: str,
     shifu_id: str,
     auth_type: str,
-):
+) -> bool:
     """Verify the permission of a user to a shifu.
 
     Args:

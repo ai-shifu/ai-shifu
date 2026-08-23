@@ -61,7 +61,7 @@ class HistoryItem(BaseModel, Generic[T]):
     children: list["HistoryItem"] = []
     child_count: int = 0
 
-    def to_json(self):
+    def to_json(self) -> str:
         """To json."""
         return self.model_dump_json()
 
@@ -87,7 +87,7 @@ def iter_outline_item_versions_desc(
     *,
     batch_size: int = 200,
     max_rows: int | None = None,
-):
+) -> "Iterator[DraftOutlineItem]":  # noqa: F821 - type-only name
     """Yield draft outline versions newest-first in buffered keyset batches.
 
     Replaces yield_per/stream_results for these scans: a server-side cursor
@@ -303,7 +303,7 @@ def __save_shifu_history(
     return shifu_history
 
 
-def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, row_id: int):
+def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, row_id: int) -> None:
     """Save shifu history.
 
     Args:
@@ -419,7 +419,7 @@ def save_new_outline_history(
     row_id: int,
     parent_bid: str,
     index: int = 0,
-):
+) -> None:
     """Save new outline history.
 
     Args:
@@ -444,7 +444,7 @@ def save_outline_history(
     outline_bid: str,
     row_id: int,
     child_count: int = 0,
-):
+) -> object:
     """Save outline history.
 
     Args:
@@ -475,7 +475,9 @@ def save_outline_history(
     return int(log.id) if log else 0
 
 
-def delete_outline_history(app: Flask, user_id: str, shifu_bid: str, outline_bid: str):
+def delete_outline_history(
+    app: Flask, user_id: str, shifu_bid: str, outline_bid: str
+) -> None:
     """Delete outline history.
 
     Args:
@@ -496,7 +498,7 @@ def save_outline_tree_history(
     shifu_bid: str,
     outline_tree: list[HistoryItem],
     shifu_id: int | None = None,
-):
+) -> None:
     """Save outline tree history.
 
     Args:

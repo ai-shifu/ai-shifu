@@ -286,7 +286,7 @@ def _resolve_publish_base_url(app: Flask) -> str:
 
 
 @inject
-def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu"):
+def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> object:
     """Register shifu routes."""
     app.logger.info("register shifu routes %s", path_prefix)
 

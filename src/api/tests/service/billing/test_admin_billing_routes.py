@@ -131,7 +131,7 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def admin_billing_client(monkeypatch: object):
+def admin_billing_client(monkeypatch: object) -> object:
     _freeze_billing_wall_clock(monkeypatch)
 
     app = Flask(__name__)

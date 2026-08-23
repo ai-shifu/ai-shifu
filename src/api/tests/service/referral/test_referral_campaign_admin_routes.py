@@ -111,7 +111,7 @@ def test_admin_operations_promotions_referral_campaign_routes_round_trip(
     app: object,
     test_client: object,
     monkeypatch: object,
-):
+) -> None:
     _mock_operator(monkeypatch)
     with app.app_context():
         _seed_plan_product()
@@ -165,7 +165,7 @@ def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
     app: object,
     test_client: object,
     monkeypatch: object,
-):
+) -> None:
     _mock_operator(monkeypatch)
     with app.app_context():
         _seed_plan_product()
@@ -287,7 +287,7 @@ def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
 def test_admin_operations_promotions_referral_campaign_rejects_invalid_status_filter(
     test_client: object,
     monkeypatch: object,
-):
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(

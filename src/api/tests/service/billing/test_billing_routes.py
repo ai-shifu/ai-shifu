@@ -131,7 +131,7 @@ def _seed_products_with_yearly_entitlements():
 
 
 @pytest.fixture
-def billing_test_client(monkeypatch: object):
+def billing_test_client(monkeypatch: object) -> object:
     _freeze_billing_wall_clock(monkeypatch)
 
     app = Flask(__name__)

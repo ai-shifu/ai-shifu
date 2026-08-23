@@ -13,7 +13,7 @@ from flask.cli import with_appcontext
 from .plugin_manager import get_plugin_manager
 
 
-def enable_plugins(app: Flask):
+def enable_plugins(app: Flask) -> None:
     """Enable plugins."""
     plugin_manager = get_plugin_manager()
     if plugin_manager is None:

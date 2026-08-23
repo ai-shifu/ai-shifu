@@ -29,7 +29,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_google_public_url_config_cache():
+def clear_google_public_url_config_cache() -> object:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")
@@ -98,7 +98,7 @@ def _run_google_callback(
 
 def test_google_unverified_email_does_not_consume_first_account_bootstrap(
     app: object, monkeypatch: object
-):
+) -> None:
     first_email = f"{uuid.uuid4().hex[:10]}@example.com"
     second_email = f"{uuid.uuid4().hex[:10]}@example.com"
 
@@ -153,7 +153,7 @@ def test_google_unverified_email_does_not_consume_first_account_bootstrap(
 
 def test_google_verified_login_does_not_downgrade_paid_user(
     app: object, monkeypatch: object
-):
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -194,7 +194,7 @@ def test_google_verified_login_does_not_downgrade_paid_user(
 def test_google_existing_account_keeps_pre_profile_display_name_behavior(
     app: object,
     monkeypatch: object,
-):
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -256,7 +256,9 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             _reset_user_auth_tables()
 
 
-def test_google_oauth_token_fetch_failure_propagates(app: object, monkeypatch: object):
+def test_google_oauth_token_fetch_failure_propagates(
+    app: object, monkeypatch: object
+) -> None:
     with app.app_context():
         _reset_user_auth_tables()
         try:
