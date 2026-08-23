@@ -777,7 +777,9 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
         real_sync = wallets_mod._sync_empty_available_bucket_status_if_unchanged
         changed = {"done": False}
 
-        def _release_before_status_sync(target_bucket: object, **kwargs: object) -> object:
+        def _release_before_status_sync(
+            target_bucket: object, **kwargs: object
+        ) -> object:
             if not changed["done"]:
                 changed["done"] = True
                 CreditWalletBucket.query.filter(

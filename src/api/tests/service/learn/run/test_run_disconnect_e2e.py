@@ -44,7 +44,9 @@ STREAMED_MARKER = "Hello "
 STREAMED_FULL_TEXT = "Hello golden learner."
 
 
-def _open_run_generator(app: object, user_bid: str, shifu: object, *, input_type: str) -> object:
+def _open_run_generator(
+    app: object, user_bid: str, shifu: object, *, input_type: str
+) -> object:
     from flaskr.service.learn.runscript_v2 import run_script_inner
 
     return run_script_inner(

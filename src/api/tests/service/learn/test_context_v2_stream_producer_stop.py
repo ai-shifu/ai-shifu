@@ -125,7 +125,9 @@ def test_tts_finalize_failure_runs_classified_cleanup(
 
     outcomes = []
 
-    def cleanup_session_after(exc: object, *, source: object, session: object = None) -> object:
+    def cleanup_session_after(
+        exc: object, *, source: object, session: object = None
+    ) -> object:
         del session
         outcomes.append((type(exc).__name__, source))
         return "invalidated"

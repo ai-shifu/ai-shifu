@@ -460,7 +460,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._events = events
             self._second_attempted = second_attempted
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None) -> object:
+        def acquire(
+            self, blocking: bool = True, blocking_timeout: object = None
+        ) -> object:
             self._events.append(
                 {
                     "type": "attempt",

@@ -8,7 +8,9 @@ class _FakeRedisLock:
     def __init__(self) -> None:
         self.released = False
 
-    def acquire(self, blocking: object = True, blocking_timeout: object = None) -> object:
+    def acquire(
+        self, blocking: object = True, blocking_timeout: object = None
+    ) -> object:
         _ = blocking, blocking_timeout
         return True
 

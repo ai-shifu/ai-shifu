@@ -80,7 +80,9 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
 def test_get_profile_variable_usage_groups_keys(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_defs(_app: object, parent_id: object = None, _type: object = "all") -> object:
+    def fake_get_defs(
+        _app: object, parent_id: object = None, _type: object = "all"
+    ) -> object:
         calls.append(("defs", parent_id))
         return [
             # system key should be ignored

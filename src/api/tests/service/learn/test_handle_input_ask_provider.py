@@ -761,7 +761,9 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
 # ---------------------------------------------------------------------------
 
 
-def _setup_llm_only_patches(monkeypatch: object, module: object, llm_chunks: object) -> None:
+def _setup_llm_only_patches(
+    monkeypatch: object, module: object, llm_chunks: object
+) -> None:
     ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
 

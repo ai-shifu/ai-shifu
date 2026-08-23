@@ -93,7 +93,9 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         raising=False,
     )
 
-    def _fake_record_tts_usage(app: object, context: object, **kwargs: object) -> object:
+    def _fake_record_tts_usage(
+        app: object, context: object, **kwargs: object
+    ) -> object:
         captured.append(
             {
                 "app": app,

@@ -74,7 +74,9 @@ def _isolate_dashboard_tables(app: object) -> object:
 class TestDashboardRoutes:
     """Verify dashboard routes behavior."""
 
-    def _mock_request_user(self, monkeypatch: object, *, user_id: str = "teacher-1") -> None:
+    def _mock_request_user(
+        self, monkeypatch: object, *, user_id: str = "teacher-1"
+    ) -> None:
         dummy_user = SimpleNamespace(
             user_id=user_id,
             language="en-US",

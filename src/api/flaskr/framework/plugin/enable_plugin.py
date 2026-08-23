@@ -96,7 +96,9 @@ def enable_plugins(app: Flask) -> None:
 
         return alembic_cfg
 
-    def get_plugin_include_object(plugin_name: str) -> Callable[[object, object, object, object, object], bool]:
+    def get_plugin_include_object(
+        plugin_name: str,
+    ) -> Callable[[object, object, object, object, object], bool]:
         """Generate plugin model filter function."""
 
         def include_object(

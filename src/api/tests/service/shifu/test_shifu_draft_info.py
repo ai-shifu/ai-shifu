@@ -76,7 +76,9 @@ def _mock_route_user(monkeypatch: object, user_id: str) -> object:
     return dummy_user
 
 
-def _mock_route_permission(monkeypatch: object, permission_map: dict[str, bool]) -> None:
+def _mock_route_permission(
+    monkeypatch: object, permission_map: dict[str, bool]
+) -> None:
     from flaskr.service.shifu import route
 
     def _has_permission(

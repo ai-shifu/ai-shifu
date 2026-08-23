@@ -677,7 +677,9 @@ def generate_charge(
     return None
 
 
-def _order_credential_scope(app: Flask, order: Order, context: object = None) -> AbstractContextManager[None]:
+def _order_credential_scope(
+    app: Flask, order: Order, context: object = None
+) -> AbstractContextManager[None]:
     """Use the immutable credential version snapshotted on the order."""
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:

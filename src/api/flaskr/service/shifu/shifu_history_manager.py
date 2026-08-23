@@ -387,7 +387,9 @@ def __save_new_item_history(
     __save_shifu_history(app, user_id, shifu_bid, history)
 
 
-def __delete_item_history(app: Flask, user_id: str, shifu_bid: str, item_bid: str) -> None:
+def __delete_item_history(
+    app: Flask, user_id: str, shifu_bid: str, item_bid: str
+) -> None:
     """Delete item history internal function.
 
     Args:

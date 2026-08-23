@@ -822,7 +822,9 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers: object, raw_body: object, app: object) -> object:
+            def verify_webhook(
+                self, *, headers: object, raw_body: object, app: object
+            ) -> object:
                 _ = (headers, raw_body, app)
                 return _wechatpay_notification("legacy-wechatpay-attempt-1", "SUCCESS")
 
@@ -888,7 +890,9 @@ class TestBillingNativeCallbacks:
         self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers: object, raw_body: object, app: object) -> None:
+            def verify_webhook(
+                self, *, headers: object, raw_body: object, app: object
+            ) -> None:
                 _ = (headers, raw_body, app)
                 message = "secret verification detail"
                 raise RuntimeError(message)

@@ -2365,7 +2365,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             )
 
             def _chat_llm_stream(
-                stream_messages: list[dict[str, str]]
+                stream_messages: list[dict[str, str]],
             ) -> Generator[Any, None, None]:
                 return chat_llm(
                     app,

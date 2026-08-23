@@ -513,7 +513,9 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
                 word_count=12,
             )
 
-    def _fake_try_get_duration(audio_data: object, audio_format: object = "mp3") -> object:
+    def _fake_try_get_duration(
+        audio_data: object, audio_format: object = "mp3"
+    ) -> object:
         _ = audio_format
         if audio_data == b"broken-stream-mp3":
             return None

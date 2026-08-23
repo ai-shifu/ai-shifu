@@ -1629,7 +1629,9 @@ def stream_generated_block_audio(
                 None,
             )
 
-        def _yield_existing_single_block_audio(existing_audio: LearnGeneratedAudio) -> object:
+        def _yield_existing_single_block_audio(
+            existing_audio: LearnGeneratedAudio,
+        ) -> object:
             yield _build_audio_complete_message(
                 outline_bid=generated_block.outline_item_bid or "",
                 generated_block_bid=generated_block_bid,

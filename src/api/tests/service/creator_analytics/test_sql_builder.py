@@ -292,7 +292,9 @@ def test_generated_blocks_status_explicit_filter_does_not_override_auto() -> Non
 # ---------------------------------------------------------------------------
 
 
-def _meta_payload(table_key: object = "shifu_published_shifus", **overrides: object) -> object:
+def _meta_payload(
+    table_key: object = "shifu_published_shifus", **overrides: object
+) -> object:
     """Build a baseline DSL payload for shifu metadata-table compile tests."""
     base = {
         "shifu_bid": "shifu-abc",

@@ -128,7 +128,9 @@ def _find_call_by_name(node: ast.AST, name: str) -> ast.Call:
     raise AssertionError(message)
 
 
-def _mock_user(monkeypatch: object, user_id: str, *, is_creator: bool = False) -> object:
+def _mock_user(
+    monkeypatch: object, user_id: str, *, is_creator: bool = False
+) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,

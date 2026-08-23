@@ -152,7 +152,9 @@ class _InMemoryLock:
         self._lock = lock
         self._held = False
 
-    def acquire(self, blocking: bool = True, blocking_timeout: int | None = None) -> bool:
+    def acquire(
+        self, blocking: bool = True, blocking_timeout: int | None = None
+    ) -> bool:
         if not blocking:
             acquired = self._lock.acquire(blocking=False)
         elif blocking_timeout is None:

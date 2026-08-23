@@ -1461,7 +1461,9 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/referral-campaigns/<campaign_bid>",
         methods=["GET"],
     )
-    def admin_operations_promotion_referral_campaign_detail(campaign_bid: str) -> object:
+    def admin_operations_promotion_referral_campaign_detail(
+        campaign_bid: str,
+    ) -> object:
         """Get operator referral campaign configuration detail."""
         _require_operator()
         return make_common_response(
@@ -1473,7 +1475,9 @@ def register_admin_operations_routes(
         + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/relations",
         methods=["GET"],
     )
-    def admin_operations_promotion_referral_campaign_relations(campaign_bid: str) -> object:
+    def admin_operations_promotion_referral_campaign_relations(
+        campaign_bid: str,
+    ) -> object:
         """List invite relations for one referral campaign."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1533,7 +1537,9 @@ def register_admin_operations_routes(
         + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/invitations",
         methods=["GET"],
     )
-    def admin_operations_promotion_referral_campaign_invitations(campaign_bid: str) -> object:
+    def admin_operations_promotion_referral_campaign_invitations(
+        campaign_bid: str,
+    ) -> object:
         """List invite-code funnel data for one referral campaign."""
         _require_operator()
         page_index = _parse_positive_query_int(
@@ -1585,7 +1591,9 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/promotions/referral-campaigns/<campaign_bid>",
         methods=["POST"],
     )
-    def admin_update_operations_promotion_referral_campaign(campaign_bid: str) -> object:
+    def admin_update_operations_promotion_referral_campaign(
+        campaign_bid: str,
+    ) -> object:
         """Update operator referral campaign configuration."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -1605,7 +1613,9 @@ def register_admin_operations_routes(
         + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/status",
         methods=["POST"],
     )
-    def admin_operations_promotion_referral_campaign_status(campaign_bid: str) -> object:
+    def admin_operations_promotion_referral_campaign_status(
+        campaign_bid: str,
+    ) -> object:
         """Update operator referral campaign configuration status."""
         _require_operator()
         payload = request.get_json(silent=True) or {}
@@ -2073,7 +2083,9 @@ def register_admin_operations_routes(
         + "/admin/operations/users/<user_bid>/credits/usages/<usage_bid>/detail",
         methods=["GET"],
     )
-    def admin_operation_user_credit_usage_detail(user_bid: str, usage_bid: str) -> object:
+    def admin_operation_user_credit_usage_detail(
+        user_bid: str, usage_bid: str
+    ) -> object:
         """Get operator user credit usage content detail.
 
         ---
@@ -2270,7 +2282,9 @@ def register_admin_operations_routes(
         + "/admin/operations/courses/<shifu_bid>/chapters/<outline_item_bid>/detail",
         methods=["GET"],
     )
-    def admin_operation_course_chapter_detail(shifu_bid: str, outline_item_bid: str) -> object:
+    def admin_operation_course_chapter_detail(
+        shifu_bid: str, outline_item_bid: str
+    ) -> object:
         """Get operator course chapter detail.
 
         ---

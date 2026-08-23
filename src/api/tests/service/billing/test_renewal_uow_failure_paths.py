@@ -159,7 +159,9 @@ def _seed_event(
     return event
 
 
-def _failing_lifecycle_sync(monkeypatch: pytest.MonkeyPatch, *, failing_bids: set) -> None:
+def _failing_lifecycle_sync(
+    monkeypatch: pytest.MonkeyPatch, *, failing_bids: set
+) -> None:
     """Fail the cancel-effective handler mid-flow for selected subscriptions.
 
     The failure point sits after the subscription mutation and before the

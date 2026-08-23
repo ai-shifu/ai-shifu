@@ -155,7 +155,9 @@ def publish_shifu_draft(
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
 
-        def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem) -> None:
+        def publish_outline_item(
+            node: ShifuOutlineTreeNode, history_item: HistoryItem
+        ) -> None:
             outline_item = PublishedOutlineItem()
             draft_outline_item: DraftOutlineItem = node.outline
             outline_item.shifu_bid = shifu_id

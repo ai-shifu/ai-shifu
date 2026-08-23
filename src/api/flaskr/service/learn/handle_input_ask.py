@@ -598,7 +598,9 @@ def handle_input_ask(
         apply_knowledge_to_messages,
     )
 
-    def _chat_llm_stream(stream_messages: list[dict[str, Any]]) -> Generator[Any, None, None]:
+    def _chat_llm_stream(
+        stream_messages: list[dict[str, Any]],
+    ) -> Generator[Any, None, None]:
         return chat_llm_func(
             app,
             user_info.user_id,

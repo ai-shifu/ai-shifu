@@ -371,7 +371,9 @@ def enable_commands(app: Flask) -> None:
     @click.option(
         "--user-id", required=True, help="User ID for creating/updating the shifu"
     )
-    def import_shifu_command(file_path: object, shifu_id: object, user_id: object) -> None:
+    def import_shifu_command(
+        file_path: object, shifu_id: object, user_id: object
+    ) -> None:
         """Import a shifu from a JSON file.
 
         Args:

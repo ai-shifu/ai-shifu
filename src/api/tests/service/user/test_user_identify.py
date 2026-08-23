@@ -295,7 +295,9 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
         def login(self, *_args: object) -> None:
             return None
 
-        def sendmail(self, _sender: object, _recipient: object, message: object) -> None:
+        def sendmail(
+            self, _sender: object, _recipient: object, message: object
+        ) -> None:
             type(self).sent_message = message
 
         def quit(self) -> None:

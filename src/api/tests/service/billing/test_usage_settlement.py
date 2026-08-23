@@ -1123,7 +1123,9 @@ def test_settle_usage_acquires_creator_scoped_lock(
             self.acquire_calls: list[bool] = []
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None) -> object:
+        def acquire(
+            self, blocking: bool = True, blocking_timeout: object = None
+        ) -> object:
             _ = blocking_timeout
             self.acquire_calls.append(bool(blocking))
             return True
@@ -1215,7 +1217,9 @@ def test_settle_usage_releases_creator_lock_on_error(
         def __init__(self) -> None:
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout: object = None) -> object:
+        def acquire(
+            self, blocking: bool = True, blocking_timeout: object = None
+        ) -> object:
             _ = (blocking, blocking_timeout)
             return True
 

@@ -34,7 +34,9 @@ def test_rate_limit_detector(message: object, expected: object) -> None:
     assert _is_retryable_rate_limit_error(ValueError(message)) is expected
 
 
-def _run_retry(monkeypatch: object, outcomes: object, segment_index: object = 0) -> object:
+def _run_retry(
+    monkeypatch: object, outcomes: object, segment_index: object = 0
+) -> object:
     calls = []
     sleeps = []
 

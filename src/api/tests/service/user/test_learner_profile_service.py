@@ -786,7 +786,9 @@ def test_profile_safety_audit_records_text_and_provider_response(
     profile = "称呼：小明\n职业背景：医疗产品经理"
     checked: dict[str, str] = {}
 
-    def fake_check_text(_app: object, check_id: object, text: object, user_id: object) -> object:
+    def fake_check_text(
+        _app: object, check_id: object, text: object, user_id: object
+    ) -> object:
         checked.update(check_id=check_id, text=text, user_id=user_id)
         return CheckResultDTO(
             check_result=CHECK_RESULT_PASS,
@@ -967,7 +969,9 @@ def test_save_locks_user_then_state_before_writing_profile(
         read_order = _track_profile_lock_reads(monkeypatch)
         reads_when_moderated: list[tuple[str, str, bool, bool]] = []
 
-        def allow_after_user_lock(_app: object, _user_id: object, _text: object) -> object:
+        def allow_after_user_lock(
+            _app: object, _user_id: object, _text: object
+        ) -> object:
             reads_when_moderated.extend(read_order)
             return True
 

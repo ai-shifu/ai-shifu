@@ -108,7 +108,9 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch: object) -> None:
 
     provider = WechatPayProvider()
 
-    def fake_request(*, method: object, path: object, body: object, app: object) -> object:
+    def fake_request(
+        *, method: object, path: object, body: object, app: object
+    ) -> object:
         del method, path, app
         captured.update(json.loads(body))
         return {"code_url": "https://wechatpay.test/qr"}

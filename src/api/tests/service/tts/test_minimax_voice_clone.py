@@ -271,7 +271,9 @@ def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch: object) -> None:
                 "base_resp": {"status_code": 0, "status_msg": "success"},
             }
 
-    def fake_post(url: object, headers: object, json: object, timeout: object) -> object:
+    def fake_post(
+        url: object, headers: object, json: object, timeout: object
+    ) -> object:
         assert url.endswith("/v1/voice_clone?GroupId=test-group")
         assert headers["Authorization"] == "Bearer test-api-key"
         assert headers["Content-Type"] == "application/json"

@@ -180,7 +180,9 @@ def _seed_user(
     return user
 
 
-def _seed_course(shifu_bid: str, title: str, *, creator_user_bid: str = "operator-1") -> object:
+def _seed_course(
+    shifu_bid: str, title: str, *, creator_user_bid: str = "operator-1"
+) -> object:
     course = PublishedShifu()
     course.shifu_bid = shifu_bid
     course.title = title

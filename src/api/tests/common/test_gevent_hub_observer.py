@@ -15,7 +15,9 @@ class _StubHub:
     def __init__(self) -> None:
         self.calls = []
 
-        def _original(context: object, exc_type: object, value: object, tb: object) -> object:
+        def _original(
+            context: object, exc_type: object, value: object, tb: object
+        ) -> object:
             self.calls.append((context, exc_type, value, tb))
             return "original-result"
 

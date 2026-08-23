@@ -846,7 +846,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def generate_content_api(shifu_bid: str, generated_block_bid: str, action: str) -> object:
+    def generate_content_api(
+        shifu_bid: str, generated_block_bid: str, action: str
+    ) -> object:
         """Generate the content of the generated block.
 
         ---
@@ -942,7 +944,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         methods=["POST"],
     )
     @with_shifu_context()
-    def synthesize_generated_block_audio_api(shifu_bid: str, generated_block_bid: str) -> object:
+    def synthesize_generated_block_audio_api(
+        shifu_bid: str, generated_block_bid: str
+    ) -> object:
         """Synthesize audio for a generated block (C-end, persisted).
 
         ---

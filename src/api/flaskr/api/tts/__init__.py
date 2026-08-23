@@ -120,7 +120,9 @@ def _resolve_provider_name(provider_name: str = "") -> str:
     return normalized or _auto_detect_provider_name()
 
 
-def _iter_provider_classes(*, include_explicit_only: bool = True) -> Iterator[tuple[str, type[BaseTTSProvider]]]:
+def _iter_provider_classes(
+    *, include_explicit_only: bool = True
+) -> Iterator[tuple[str, type[BaseTTSProvider]]]:
     provider_priority = (
         _PROVIDER_PRIORITY if include_explicit_only else _AUTO_DETECT_PROVIDER_PRIORITY
     )

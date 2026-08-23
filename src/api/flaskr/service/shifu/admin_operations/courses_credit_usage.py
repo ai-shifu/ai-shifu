@@ -404,7 +404,9 @@ def _build_course_credit_usage_learn_filter(
     )
 
 
-def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str) -> object:
+def _build_operator_course_credit_usage_ledger_totals_subquery(
+    shifu_bid: str,
+) -> object:
     course_usage_bids = (
         db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
         .filter(

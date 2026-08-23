@@ -152,7 +152,9 @@ def _insert_bucket(
     )
 
 
-def _insert_active_subscription(session: object, *, creator_bid: str, now: datetime) -> None:
+def _insert_active_subscription(
+    session: object, *, creator_bid: str, now: datetime
+) -> None:
     session.execute(
         text(
             """

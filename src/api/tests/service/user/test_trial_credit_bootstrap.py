@@ -48,7 +48,9 @@ def _load_user_route_handlers() -> object:
 register_user_handler, register_common_handler = _load_user_route_handlers()
 
 
-def _post_json(client: object, path: str, payload: dict, headers: dict | None = None) -> object:
+def _post_json(
+    client: object, path: str, payload: dict, headers: dict | None = None
+) -> object:
     return client.post(
         path,
         data=json.dumps(payload),

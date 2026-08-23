@@ -61,7 +61,9 @@ def test_is_valid_volcengine_custom_voice_id(value: object, expected: object) ->
 def test_query_status_sends_expected_request(monkeypatch: object) -> None:
     _patch_config(monkeypatch)
 
-    def fake_post(url: object, headers: object, json: object, timeout: object) -> object:
+    def fake_post(
+        url: object, headers: object, json: object, timeout: object
+    ) -> object:
         assert url == VOLCENGINE_MEGA_TTS_STATUS_URL
         assert headers["Authorization"] == "Bearer;test-token"
         assert headers["Resource-Id"] == VOLCENGINE_ICL_RESOURCE_ID
