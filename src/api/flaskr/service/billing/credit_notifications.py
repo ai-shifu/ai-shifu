@@ -3104,7 +3104,7 @@ def _is_notification_not_sent_status(status: str) -> bool:
     )
 
 
-def _notification_not_sent_condition() -> object:
+def _notification_not_sent_condition() -> ColumnElement[bool]:
     return or_(
         NotificationRecord.status.like("skipped%"),
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
@@ -3155,7 +3155,9 @@ def _notification_delivery_status_condition(
     return None
 
 
-def _notification_skip_reason_condition(skip_reason: str) -> object:
+def _notification_skip_reason_condition(
+    skip_reason: str,
+) -> ColumnElement[bool] | None:
     contact_condition = (
         NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
     )

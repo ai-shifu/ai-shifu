@@ -388,7 +388,9 @@ def get_outline_item_tree(
                     progress_record
                 )
 
-        def build_outline_item_tree(item: HistoryItem) -> object:
+        def build_outline_item_tree(
+            item: HistoryItem,
+        ) -> LearnOutlineItemInfoDTO | None:
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
                 (i for i in outline_items_dbs if i.id == item.id), None
             )
@@ -1602,7 +1604,7 @@ def stream_generated_block_audio(
             )
         )
 
-        def _resolve_existing_single_block_audio() -> object:
+        def _resolve_existing_single_block_audio() -> LearnGeneratedAudio | None:
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
                     LearnGeneratedAudio.generated_block_bid == generated_block_bid,
@@ -1631,7 +1633,7 @@ def stream_generated_block_audio(
 
         def _yield_existing_single_block_audio(
             existing_audio: LearnGeneratedAudio,
-        ) -> object:
+        ) -> Iterator[object]:
             yield _build_audio_complete_message(
                 outline_bid=generated_block.outline_item_bid or "",
                 generated_block_bid=generated_block_bid,
@@ -1676,7 +1678,7 @@ def stream_generated_block_audio(
                 body=_generate_single_audio,
             )
 
-        def _yield_preview_single_block_audio() -> object:
+        def _yield_preview_single_block_audio() -> Iterator[object]:
             cleaned_text = preprocess_for_tts(raw_text)
             if not cleaned_text or len(cleaned_text.strip()) < 2:
                 raise_error_with_args(
@@ -1703,7 +1705,7 @@ def stream_generated_block_audio(
             audio_parts: list[bytes] = []
             subtitle_cues: list[dict] = []
 
-            def _generate_preview_audio() -> object:
+            def _generate_preview_audio() -> Iterator[object]:
                 yield from _yield_stream_tts_audio_segments(
                     app=app,
                     text=raw_text,
@@ -1816,7 +1818,7 @@ def stream_generated_block_audio(
                     )
                     return
 
-                def _generate_legacy_audio() -> object:
+                def _generate_legacy_audio() -> Iterator[object]:
                     yield from _yield_run_tts_audio_events(
                         app=app,
                         text=raw_text,
@@ -1909,7 +1911,7 @@ def stream_generated_block_audio(
                 )
                 return
 
-            def _generate_av_audio() -> object:
+            def _generate_av_audio() -> Iterator[object]:
                 for position, element in enumerate(speakable_elements):
                     speakable_text = str(element.content_text or "")
                     # Skip before the cache lookup so historical records for
@@ -2009,7 +2011,7 @@ def stream_preview_tts_audio(
         audio_parts: list[bytes] = []
         subtitle_cues: list[dict] = []
 
-        def _generate_preview_audio() -> object:
+        def _generate_preview_audio() -> Iterator[object]:
             yield from _yield_stream_tts_audio_segments(
                 app=app,
                 text=text or "",

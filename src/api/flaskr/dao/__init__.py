@@ -137,7 +137,7 @@ def _socket_has_unread_data(dbapi_connection: object, timeout: float = 0) -> boo
 _CHECKIN_PROBE_GRACE_SECONDS = 0.002
 
 
-def _server_thread_id(dbapi_connection: object) -> object:
+def _server_thread_id(dbapi_connection: object) -> int | None:
     """Best-effort MySQL server-side connection id for log correlation."""
     try:
         return dbapi_connection.thread_id()
@@ -335,7 +335,7 @@ MYSQL_DEADLOCK_ERRNO = 1213
 MYSQL_LOCK_WAIT_TIMEOUT_ERRNO = 1205
 
 
-def _operational_errno(exc: OperationalError) -> object:
+def _operational_errno(exc: OperationalError) -> int | None:
     orig = getattr(exc, "orig", None)
     args = getattr(orig, "args", None)
     return args[0] if args else None

@@ -46,7 +46,7 @@ def register_storage_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/storage/<profile>/<path:object_key>", methods=["GET"])
     @bypass_token_validation
-    def serve_local_storage(profile: str, object_key: str) -> object:
+    def serve_local_storage(profile: str, object_key: str) -> Response:
         try:
             file_path = get_local_storage_path(profile, object_key)
         except ValueError:

@@ -114,7 +114,7 @@ def init_observability(app: Flask) -> Flask:
         set_thread_local_trace_ids()
 
     @app.after_request
-    def _finalize_request_observability(response: object) -> object:
+    def _finalize_request_observability(response: Response) -> Response:
         duration_ms = _record_request_metrics(response.status_code)
         span = getattr(g, "_ai_shifu_observability_span", None)
         if span is not None:
@@ -145,11 +145,11 @@ def init_observability(app: Flask) -> Flask:
             span.set_status(Status(StatusCode.ERROR, str(error)))
 
     @app.route(metrics_path, methods=["GET"])
-    def metrics_handler() -> object:
+    def metrics_handler() -> Response:
         return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
     @app.route(health_path, methods=["GET"])
-    def observability_health_handler() -> object:
+    def observability_health_handler() -> Response:
         return jsonify(
             {
                 "ok": True,

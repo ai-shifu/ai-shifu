@@ -41,6 +41,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 
@@ -99,7 +100,9 @@ class RunStateResolver:
         return self._context._preview_mode
 
     @property
-    def _outline_model(self) -> object:
+    def _outline_model(
+        self,
+    ) -> type[DraftOutlineItem] | type[PublishedOutlineItem]:
         return self._context._outline_model
 
     @property

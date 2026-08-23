@@ -65,7 +65,7 @@ stream_ask_provider_response = None
 chat_llm = None
 
 
-def _is_valid_asks(asks: object) -> object:
+def _is_valid_asks(asks: object) -> bool:
     """Check if asks list has at least one complete student+teacher pair."""
     if not asks or not isinstance(asks, list):
         return False
@@ -161,7 +161,7 @@ def _create_ask_block(
     user_bid: object,
     input_text: object,
     last_position: object,
-) -> object:
+) -> LearnGeneratedBlock:
     ask_block = init_generated_block(
         app,
         shifu_bid=outline_item_info.shifu_bid,

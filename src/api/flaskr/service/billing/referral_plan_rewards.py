@@ -138,7 +138,7 @@ def _load_reward_product(product_code: str) -> BillingProduct | None:
     )
 
 
-def _load_product_by_bid(product_bid: str) -> object:
+def _load_product_by_bid(product_bid: str) -> BillingProduct | None:
     consts = _billing_consts()
     models = _billing_models()
     return (

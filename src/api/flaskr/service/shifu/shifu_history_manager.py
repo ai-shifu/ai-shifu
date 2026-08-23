@@ -127,7 +127,9 @@ def iter_outline_item_versions_desc(
         last_id = int(batch[-1].id)
 
 
-def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str) -> object:
+def _get_latest_outline_content_log(
+    shifu_bid: str, outline_bid: str
+) -> DraftOutlineItem | None:
     latest_version = (
         DraftOutlineItem.query.filter(
             DraftOutlineItem.shifu_bid == shifu_bid,
