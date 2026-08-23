@@ -73,6 +73,8 @@ from sqlalchemy import case, or_
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from sqlalchemy.sql.selectable import Subquery
+
 
 def _load_course_user_contact_map(
     user_bids: Sequence[str],
@@ -353,7 +355,7 @@ def _resolve_operator_user_role(
     )[0]
 
 
-def _build_learner_user_bid_subquery() -> object:
+def _build_learner_user_bid_subquery() -> Subquery:
     order_query = db.session.query(Order.user_bid.label("user_bid")).filter(
         Order.deleted == 0,
         Order.status == ORDER_STATUS_SUCCESS,
