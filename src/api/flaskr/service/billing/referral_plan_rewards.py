@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -16,7 +16,13 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
     from datetime import datetime
 
-    from .models import BillingSubscription
+    from .models import (
+        BillingOrder,
+        BillingProduct,
+        BillingSubscription,
+        CreditLedgerEntry,
+        CreditWalletBucket,
+    )
 
 _MANUAL_PROVIDER_NAME = "manual"
 _CHECKOUT_TYPE = "referral_invitation_reward"
@@ -73,6 +79,14 @@ class _NullContext:
         return False
 
 
+class _BillingModelsModule(Protocol):
+    BillingOrder: type[BillingOrder]
+    BillingProduct: type[BillingProduct]
+    BillingSubscription: type[BillingSubscription]
+    CreditLedgerEntry: type[CreditLedgerEntry]
+    CreditWalletBucket: type[CreditWalletBucket]
+
+
 def _with_app_context(app: Flask) -> AbstractContextManager[None]:
     return _NullContext() if has_app_context() else app.app_context()
 
@@ -91,7 +105,7 @@ def _billing_consts() -> object:
     return consts
 
 
-def _billing_models() -> object:
+def _billing_models() -> _BillingModelsModule:
     from . import models
 
     return models
