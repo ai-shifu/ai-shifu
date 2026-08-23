@@ -6,6 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from flask import current_app
 from flaskr.dao import db
+from sqlalchemy.engine import Engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -17,7 +18,7 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
 
-def get_engine() -> "Engine":  # noqa: F821 - type-only name
+def get_engine() -> Engine:
     try:
         # this works with Flask-SQLAlchemy<3 and Alchemical
         return current_app.extensions["migrate"].db.get_engine()

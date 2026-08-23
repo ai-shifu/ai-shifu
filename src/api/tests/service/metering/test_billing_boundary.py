@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from flask import Flask
 from flaskr import dao
@@ -17,9 +19,12 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.metering.models import BillUsageRecord
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def metering_billing_boundary_app() -> object:
+def metering_billing_boundary_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

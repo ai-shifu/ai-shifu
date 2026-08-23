@@ -412,7 +412,7 @@ def save_shifu_draft_info(
     ask_temperature: float | None = None,
     ask_system_prompt: str | None = None,
     ask_provider_config: Any = None,
-) -> object:
+) -> ShifuDetailDto:
     """Save shifu draft info.
 
     Args:
@@ -721,7 +721,7 @@ def get_shifu_draft_list(
     is_favorite: bool,
     archived: bool = False,
     creator_only: bool = False,
-) -> object:
+) -> PageNationDTO:
     """Get shifu draft list.
 
     Args:
@@ -894,7 +894,7 @@ def get_shifu_published_list(
     page_index: int,
     page_size: int,
     creator_only: bool = True,
-) -> object:
+) -> PageNationDTO:
     """Get published shifu list."""
     with app.app_context():
         page_index = max(page_index, 1)

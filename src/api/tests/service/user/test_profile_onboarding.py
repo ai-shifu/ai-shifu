@@ -1,5 +1,6 @@
 """Verify profile onboarding behavior."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -11,7 +12,7 @@ from flaskr.service.user.repository import create_user_entity
 
 
 @contextmanager
-def nullcontext_admission(*_args: object, **_kwargs: object) -> object:
+def nullcontext_admission(*_args: object, **_kwargs: object) -> Iterator[None]:
     yield
 
 

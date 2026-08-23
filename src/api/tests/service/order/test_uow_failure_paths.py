@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -32,12 +33,15 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import Coupon, CouponUsage, PromoRedemption
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 USER_ID = "uow-user-1"
 COURSE_ID = "uow-course-1"
 
 
 @pytest.fixture
-def order_app() -> object:
+def order_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

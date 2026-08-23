@@ -155,7 +155,7 @@ def check_text_content(
     return res.check_result != CHECK_RESULT_REJECT
 
 
-def get_profile_labels() -> "ProfileLabels":  # noqa: F821 - type-only name
+def get_profile_labels() -> dict[str, dict[str, object]]:
     """Return profile labels."""
     return {
         "sys_user_nickname": {

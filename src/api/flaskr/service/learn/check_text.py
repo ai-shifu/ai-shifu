@@ -1,5 +1,7 @@
 """Moderate learner text with the configured LLM guardrail."""
 
+from collections.abc import Iterator
+
 from flask import Flask
 from flaskr.api.check import (
     CHECK_RESULT_PASS,
@@ -39,7 +41,7 @@ def check_text_with_llm_response(
     usage_context: UsageContext,
     chapter_title: str = "",
     scene: str = "lesson_runtime",
-) -> "Iterator[str | None]":  # noqa: F821 - type-only name
+) -> Iterator[str | None]:
     """Check text with LLM response."""
     res = check_text(app, log_script.generated_block_bid, user_input, user_info.user_id)
     span.event(

@@ -1,5 +1,7 @@
 """Verify billable usage is persisted and queued for settlement."""
 
+from collections.abc import Iterator
+
 import pytest
 from flask import Flask
 from flaskr import dao
@@ -18,7 +20,7 @@ _BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
 
 
 @pytest.fixture
-def metering_app() -> object:
+def metering_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

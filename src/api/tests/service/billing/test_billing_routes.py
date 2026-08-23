@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.entitlements as billing_entitlements_module
@@ -89,6 +90,11 @@ from tests.service.billing.route_loader import (
     load_register_billing_routes,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask.testing import FlaskClient
+
 register_billing_routes = load_register_billing_routes()
 billing_routes_module = load_billing_routes_module()
 
@@ -131,7 +137,7 @@ def _seed_products_with_yearly_entitlements():
 
 
 @pytest.fixture
-def billing_test_client(monkeypatch: object) -> object:
+def billing_test_client(monkeypatch: object) -> Iterator[FlaskClient]:
     _freeze_billing_wall_clock(monkeypatch)
 
     app = Flask(__name__)

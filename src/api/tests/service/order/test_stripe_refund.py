@@ -1,5 +1,7 @@
 """Verify stripe refund behavior."""
 
+from collections.abc import Iterator
+
 import pytest
 from flask import Flask
 from flaskr import dao
@@ -23,7 +25,7 @@ class DummyStripeRefundProvider:
 
 
 @pytest.fixture
-def app() -> object:
+def app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

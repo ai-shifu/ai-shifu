@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
 import pytest
@@ -13,6 +14,9 @@ from flaskr import dao
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
@@ -20,7 +24,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_public_url_config_cache() -> object:
+def clear_public_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")

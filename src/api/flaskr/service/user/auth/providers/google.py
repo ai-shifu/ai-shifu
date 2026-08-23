@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any
+from typing import Any, Never
 
 import jwt
 from authlib.integrations.requests_client import OAuth2Session
@@ -159,7 +159,7 @@ class GoogleAuthProvider(AuthProvider):
     def _resolve_userinfo_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
-    def verify(self, app: object, request: object) -> Never:  # noqa: F821 - type-only name
+    def verify(self, app: object, request: object) -> Never:
         """Raise because Google authentication is supported only through OAuth flows."""
         message = "GoogleAuthProvider only supports OAuth flows"
         raise NotImplementedError(message)

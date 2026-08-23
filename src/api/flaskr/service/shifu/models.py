@@ -320,7 +320,7 @@ class DraftShifu(db.Model):
         comment="Last updater user business identifier",
     )
 
-    def clone(self) -> "Self":  # noqa: F821 - type-only name
+    def clone(self) -> "DraftShifu":
         """Create a transient copy of this draft record for a new revision."""
         return DraftShifu(
             shifu_bid=self.shifu_bid,
@@ -522,7 +522,7 @@ class DraftOutlineItem(db.Model):
         comment="Last updater user business identifier",
     )
 
-    def clone(self) -> "Self":  # noqa: F821 - type-only name
+    def clone(self) -> "DraftOutlineItem":
         """Create a transient copy of this draft record for a new revision."""
         return DraftOutlineItem(
             outline_item_bid=self.outline_item_bid,

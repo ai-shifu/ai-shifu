@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from flaskr import dao
 from flaskr.service.common.models import AppError
 from flaskr.service.profile import learner_profile_optimizer_admission as admission
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class FakeRedis:
@@ -46,7 +51,7 @@ class ExplodingRedis:
 
 
 @pytest.fixture(autouse=True)
-def reset_local_admission_state() -> object:
+def reset_local_admission_state() -> Iterator[None]:
     with admission._local_lock:
         admission._local_in_flight_state.clear()
     yield

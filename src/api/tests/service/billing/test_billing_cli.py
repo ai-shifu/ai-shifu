@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -55,6 +56,9 @@ from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
 def billing_cli_runner() -> object:
@@ -70,7 +74,7 @@ def billing_cli_runner() -> object:
 
 
 @pytest.fixture
-def billing_cli_db_app() -> object:
+def billing_cli_db_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

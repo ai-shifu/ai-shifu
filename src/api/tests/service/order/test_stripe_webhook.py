@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -29,6 +30,9 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _load_route_module(module_name: str):
     return importlib.import_module(f"flaskr.route.{module_name}")
@@ -49,7 +53,7 @@ class DummyStripeProvider:
 
 
 @pytest.fixture
-def stripe_webhook_app() -> object:
+def stripe_webhook_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

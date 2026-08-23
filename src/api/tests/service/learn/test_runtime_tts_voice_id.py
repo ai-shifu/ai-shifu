@@ -1,5 +1,6 @@
 """Verify runtime TTS voice ID behavior."""
 
+from collections.abc import Iterator
 from types import SimpleNamespace
 
 import pytest
@@ -13,7 +14,7 @@ from flaskr.service.tts.models import (
 
 
 @pytest.fixture
-def voice_app() -> object:
+def voice_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

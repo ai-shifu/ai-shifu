@@ -8,6 +8,8 @@ overall input/output on the root observation, and trace attributes replicated
 onto every observation.
 """
 
+from collections.abc import Iterator
+
 import pytest
 from flaskr.api.langfuse import (
     MockClient,
@@ -26,7 +28,9 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 
 @pytest.fixture
-def captured_spans(monkeypatch: object) -> object:
+def captured_spans(
+    monkeypatch: object,
+) -> Iterator[tuple[Langfuse, InMemorySpanExporter, TracerProvider]]:
     """Build a Langfuse client whose observations are captured instead of shipped."""
     monkeypatch.setattr(
         LangfuseTransformingSpanExporter,

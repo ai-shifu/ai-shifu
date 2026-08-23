@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import flaskr.common.config as common_config
 import pytest
@@ -24,6 +24,9 @@ from flaskr.service.order.funs import (
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers import PaymentCreationResult
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
@@ -31,14 +34,14 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_legacy_order_url_config_cache() -> object:
+def clear_legacy_order_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
     yield
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
 
 @pytest.fixture
-def legacy_order_app() -> object:
+def legacy_order_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

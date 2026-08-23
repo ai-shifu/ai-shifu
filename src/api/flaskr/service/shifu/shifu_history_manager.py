@@ -37,6 +37,7 @@ format:
 
 import queue
 import re
+from collections.abc import Iterator
 from typing import Generic, TypeVar
 
 from flask import Flask
@@ -87,7 +88,7 @@ def iter_outline_item_versions_desc(
     *,
     batch_size: int = 200,
     max_rows: int | None = None,
-) -> "Iterator[DraftOutlineItem]":  # noqa: F821 - type-only name
+) -> Iterator[DraftOutlineItem]:
     """Yield draft outline versions newest-first in buffered keyset batches.
 
     Replaces yield_per/stream_results for these scans: a server-side cursor

@@ -1,7 +1,9 @@
 """Route package entrypoints."""
 
+from flask import Flask
 
-def register_route(app: object) -> "Flask":  # noqa: F821 - type-only name
+
+def register_route(app: Flask) -> Flask:
     """Register every API route group on the Flask application."""
     from flaskr.service.referral.routes import register_referral_routes
 

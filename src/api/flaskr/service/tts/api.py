@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from flaskr.service.tts.cloned_voice_registry import (
     find_ready_cloned_voice,
     find_tracked_cloned_voice,
@@ -31,8 +33,11 @@ from flaskr.service.tts.volcengine_voice_clone import (
 )
 from flaskr.util.deprecation import deprecated_alias_getattr
 
+if TYPE_CHECKING:
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
-def create_streaming_tts_processor(**kwargs: object) -> StreamingTTSProcessor:  # noqa: F821 - type-only name
+
+def create_streaming_tts_processor(**kwargs: object) -> StreamingTTSProcessor:
     """Create streaming TTS processor."""
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 

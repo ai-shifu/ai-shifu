@@ -1,6 +1,7 @@
 """Verify runscript v2 lock behavior."""
 
 import json
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -83,7 +84,7 @@ class FakeListenElementAdapter:
         self._seq = 0
         self._run_session_bid = "run-session-1"
 
-    def process(self, events: object) -> object:
+    def process(self, events: object) -> Iterator[RunElementSSEMessageDTO]:
         for event in events:
             if event.type == GeneratedType.ASK:
                 continue

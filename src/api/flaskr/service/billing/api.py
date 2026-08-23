@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from flaskr.service.billing import primitives as billing_primitives
 from flaskr.service.billing.admission import CreatorUsageAdmission, admit_creator_usage
 from flaskr.service.billing.charges import (
@@ -59,6 +61,9 @@ from flaskr.service.billing.referral_reward_grants import (
     load_referral_reward_summary,
 )
 
+if TYPE_CHECKING:
+    from decimal import Decimal
+
 
 def is_billing_enabled(*, default: bool = False) -> bool:
     """Return whether billing enabled."""
@@ -68,7 +73,7 @@ def is_billing_enabled(*, default: bool = False) -> bool:
         return billing_primitives.is_billing_enabled()
 
 
-def quantize_credit_amount(value: object, *, precision: int | None = None) -> Decimal:  # noqa: F821 - type-only name
+def quantize_credit_amount(value: object, *, precision: int | None = None) -> Decimal:
     """Quantize credit amount."""
     return billing_primitives.quantize_credit_amount(value, precision=precision)
 
@@ -80,7 +85,7 @@ def credit_decimal_to_number(
     return billing_primitives.credit_decimal_to_number(value, precision=precision)
 
 
-def to_decimal(value: object) -> Decimal:  # noqa: F821 - type-only name
+def to_decimal(value: object) -> Decimal:
     """Convert a value to the billing Decimal representation."""
     return billing_primitives.to_decimal(value)
 

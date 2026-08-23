@@ -8,6 +8,7 @@ record BEFORE any interruption propagates.
 """
 
 import socket
+from collections.abc import Iterator
 
 import pytest
 from flaskr import dao
@@ -39,7 +40,7 @@ def _make_conn(sock: object, ping_exc: object = None):
 
 
 @pytest.fixture
-def clean_sock() -> object:
+def clean_sock() -> Iterator[socket.socket]:
     left, right = socket.socketpair()
     yield left
     left.close()

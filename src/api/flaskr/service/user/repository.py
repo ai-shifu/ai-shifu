@@ -30,6 +30,8 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Flask
 
 logger = logging.getLogger(__name__)
@@ -891,7 +893,7 @@ def upsert_wechat_credentials(
 
 
 @contextmanager
-def transactional_session() -> Iterator[None]:  # noqa: F821 - type-only name
+def transactional_session() -> Iterator[None]:
     # Managed manually instead of ``with begin_nested()``: the context
     # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
     # any classification could run, which is exactly what must not happen on

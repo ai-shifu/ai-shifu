@@ -5,10 +5,13 @@ import os
 import shutil
 import sys
 import tempfile
+from collections.abc import Iterator
 from importlib import import_module
 from pathlib import Path
 
 import pytest
+from flask import Flask
+from flask.testing import FlaskClient
 
 # Prevent accidental loading of user/global .env files during tests
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
@@ -99,7 +102,7 @@ from tests.common.fixtures.fake_redis import FakeRedis
 
 
 @pytest.fixture(scope="session")
-def app() -> object:
+def app() -> Iterator[Flask | None]:
     if os.getenv("SKIP_APP_FIXTURE"):
         yield None
         return
@@ -170,7 +173,7 @@ def app() -> object:
 
 
 @pytest.fixture
-def test_client(app: object) -> object:
+def test_client(app: object) -> Iterator[FlaskClient]:
     with app.test_client() as client:
         yield client
 
@@ -235,7 +238,7 @@ def mock_llm_calls(monkeypatch: object, request: object) -> None:
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request: object) -> object:
+def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
     if "app" in request.fixturenames:
         yield
         return

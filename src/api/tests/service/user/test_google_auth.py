@@ -1,6 +1,7 @@
 """Verify Google sign-in preserves account trust and paid state."""
 
 import uuid
+from collections.abc import Iterator
 
 import flaskr.common.config as common_config
 import pytest
@@ -29,7 +30,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_google_public_url_config_cache() -> object:
+def clear_google_public_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")

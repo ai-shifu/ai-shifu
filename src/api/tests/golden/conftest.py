@@ -35,10 +35,14 @@ import os
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.common.fixtures.fake_llm import FakeLLMResponse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 GOLDEN_DIR = Path(__file__).parent
 FIXTURES_DIR = GOLDEN_DIR / "fixtures"
@@ -104,7 +108,7 @@ def _iter_golden_completion(messages: object) -> list[str]:
     return list(GOLDEN_LLM_CHUNKS)
 
 
-def golden_chat_llm(*args: object, **kwargs: object) -> object:
+def golden_chat_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMResponse]:
     messages = kwargs.get("messages")
     if messages is None:
         for arg in args:
@@ -121,7 +125,7 @@ def golden_chat_llm(*args: object, **kwargs: object) -> object:
         )
 
 
-def golden_invoke_llm(*args: object, **kwargs: object) -> object:
+def golden_invoke_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMResponse]:
     yield from golden_chat_llm(*args, **kwargs)
 
 

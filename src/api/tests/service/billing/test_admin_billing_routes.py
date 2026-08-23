@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.customization as billing_customization_module
@@ -82,6 +83,9 @@ from tests.service.billing.route_loader import (
     load_register_billing_routes,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
 
@@ -131,7 +135,7 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def admin_billing_client(monkeypatch: object) -> object:
+def admin_billing_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     _freeze_billing_wall_clock(monkeypatch)
 
     app = Flask(__name__)

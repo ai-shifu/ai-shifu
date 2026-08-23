@@ -11,7 +11,9 @@ import select as select_module
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
 import sqlparse
 from flask import Flask
@@ -29,6 +31,9 @@ from sqlalchemy.exc import (
     SQLAlchemyError,
 )
 from sqlalchemy.orm.exc import FlushError
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
 
@@ -517,7 +522,7 @@ def _rollback_quietly() -> bool:
 
 def retry_on_deadlock(
     max_attempts: int = 3, backoff_seconds: float = 0.1
-) -> "Callable[[Callable[P, R]], Callable[P, R]]":  # noqa: F821 - type-only name
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Retry a transactional function when MySQL reports a deadlock (1213) or a lock wait timeout (1205).
 
     The failed transaction is rolled back on every caught error so the session is left
@@ -734,8 +739,8 @@ def init_redis(app: Flask) -> None:
 
 
 def run_with_redis(
-    app: object, key: object, timeout: int, func: object, args: object
-) -> "R | None":  # noqa: F821 - type-only name
+    app: object, key: object, timeout: int, func: Callable[..., R], args: object
+) -> R | None:
     """Run with Redis."""
     with app.app_context():
         app.logger.info("run_with_redis start %s", key)

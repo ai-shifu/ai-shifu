@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
 import flaskr.service.billing.checkout as billing_checkout_module
@@ -95,6 +96,9 @@ from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 __all__ = [
     "ALLOCATION_INTERVAL_PER_CYCLE",
@@ -363,7 +367,7 @@ def add_trial_subscription_state(
         dao.db.session.commit()
 
 
-def billing_write_client(monkeypatch: object) -> object:
+def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     monkeypatch.setenv("HOST_URL", "https://billing.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")

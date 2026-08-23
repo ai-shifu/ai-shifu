@@ -234,7 +234,7 @@ def send_sms_code(
     ip: str | None = None,
     captcha_ticket: str | None = None,
     require_captcha: bool = True,
-) -> "VerificationCodeResponse":  # noqa: F821 - type-only name
+) -> dict[str, int]:
     """Send and persist an SMS verification code for a phone number."""
     phone = normalize_phone_identifier(phone)
     with app.app_context():
@@ -311,7 +311,7 @@ def send_sms_code(
 
 def send_email_code(
     app: Flask, email: str, ip: str | None = None, language: str | None = None
-) -> "VerificationCodeResponse":  # noqa: F821 - type-only name
+) -> dict[str, int]:
     """Send and persist an email verification code for an address."""
     with app.app_context():
         email = str(email or "").strip().lower()

@@ -8,13 +8,21 @@ Covers:
 - audio_segments accumulation
 """
 
+from __future__ import annotations
+
 import types
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask import Flask
+
 
 @pytest.fixture
-def adapter_app() -> object:
+def adapter_app() -> Iterator[Flask]:
     import flaskr.service.learn.models  # noqa: F401
     from flask import Flask
     from flaskr import dao

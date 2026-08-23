@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
 import pytest
@@ -12,6 +13,9 @@ from flaskr.service.order.payment_providers.base import PaymentRequest
 from flaskr.service.order.payment_providers.stripe import StripeProvider
 from flaskr.service.order.payment_providers.wechatpay import WechatPayProvider
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
@@ -19,7 +23,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_provider_public_url_config_cache() -> object:
+def clear_provider_public_url_config_cache() -> Iterator[None]:
     keys = (
         "HOST_URL",
         "PATH_PREFIX",

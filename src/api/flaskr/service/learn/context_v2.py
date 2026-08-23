@@ -132,6 +132,7 @@ from markdown_flow import (
     replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
+from markdown_flow.models import Block
 
 context_local = threading.local()
 
@@ -457,11 +458,11 @@ class MdflowContextV2:
             )
             self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
-    def get_block(self, block_index: int) -> "Block":  # noqa: F821 - type-only name
+    def get_block(self, block_index: int) -> Block:
         """Return a MarkdownFlow block by its index."""
         return self._mdflow.get_block(block_index)
 
-    def get_all_blocks(self) -> "list[Block]":  # noqa: F821 - type-only name
+    def get_all_blocks(self) -> list[Block]:
         """Return all MarkdownFlow blocks in encounter order."""
         return self._mdflow.get_all_blocks()
 

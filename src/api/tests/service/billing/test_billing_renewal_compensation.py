@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -27,6 +28,9 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 _MONTHLY_PLAN_CREDITS = Decimal("5.0000000000")
 
 
@@ -35,7 +39,9 @@ def _utc_epoch(value: datetime) -> int:
 
 
 @pytest.fixture
-def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch) -> object:
+def billing_renewal_compensation_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[dict[str, object]]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

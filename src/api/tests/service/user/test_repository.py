@@ -1,6 +1,7 @@
 """Verify user aggregates resolve active and legacy credentials."""
 
 import uuid
+from collections.abc import Iterator
 from datetime import datetime
 
 import pytest
@@ -26,7 +27,7 @@ from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
-def app() -> object:
+def app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.config.update(
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

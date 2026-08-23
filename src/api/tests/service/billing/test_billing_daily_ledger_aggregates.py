@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -20,9 +21,12 @@ from flaskr.service.billing.daily_aggregates import (
 )
 from flaskr.service.billing.models import BillingDailyLedgerSummary, CreditLedgerEntry
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_daily_ledger_app(tmp_path: object) -> object:
+def billing_daily_ledger_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-daily-ledger.sqlite"
     db_uri = f"sqlite:///{db_path}"
 

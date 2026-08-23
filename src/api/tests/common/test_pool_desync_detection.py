@@ -7,6 +7,7 @@ recirculating them.
 """
 
 import socket
+from collections.abc import Iterator
 
 import pytest
 from flaskr import dao
@@ -30,7 +31,7 @@ class _FakePyMySQLConnection:
 
 
 @pytest.fixture
-def sock_pair() -> object:
+def sock_pair() -> Iterator[tuple[socket.socket, socket.socket]]:
     left, right = socket.socketpair()
     left.setblocking(False)  # noqa: FBT003 -- stdlib socket API
     yield left, right

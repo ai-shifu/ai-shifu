@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import flaskr.common.config as common_config
 import pytest
 from flask import Flask
@@ -14,6 +16,9 @@ from flaskr.common.public_urls import (
     resolve_request_origin,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
@@ -21,7 +26,7 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_public_url_config_cache() -> object:
+def clear_public_url_config_cache() -> Iterator[None]:
     keys = (
         "HOST_URL",
         "PATH_PREFIX",

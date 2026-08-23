@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import PublishedShifu
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def demo_course_app() -> object:
+def demo_course_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

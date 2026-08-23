@@ -1,10 +1,15 @@
 """Coordinate Flask plugin registration and lifecycle."""
 
+from collections.abc import Callable, Generator
 from functools import wraps
+from typing import ParamSpec, TypeVar
 
 from flask import Flask
 
 from .hot_reload import PluginHotReloader
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class PluginManager:
@@ -81,7 +86,7 @@ class PluginManager:
         result: object,
         *args: object,
         **kwargs: object,
-    ) -> "Generator[object, None, object]":  # noqa: F821 - type-only name
+    ) -> Generator[object, None, object]:
         """Run registered generic extension callbacks for a completed generic operation."""
         self.app.logger.info("execute_extensible_generic: %s", func_name)
         if not self.is_enabled:
@@ -118,14 +123,14 @@ def set_plugin_manager(manager: PluginManager | None) -> None:
     _plugin_manager_state.manager = manager
 
 
-def enable_plugin_manager(app: Flask) -> object:
+def enable_plugin_manager(app: Flask) -> Flask:
     """Enable plugin manager."""
     app.logger.info("enable_plugin_manager")
     set_plugin_manager(PluginManager(app))
     return app
 
 
-def disable_plugin_manager(app: Flask) -> object:
+def disable_plugin_manager(app: Flask) -> Flask:
     """Disable plugin manager."""
     app.logger.info("disable_plugin_manager")
     manager = get_plugin_manager()
@@ -136,7 +141,7 @@ def disable_plugin_manager(app: Flask) -> object:
 
 
 # extensible decorator
-def extension(target_func_name: object) -> "Callable[[Callable[P, R]], Callable[P, R]]":  # noqa: F821 - type-only name
+def extension(target_func_name: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorate a function with registered extension callbacks."""
 
     def decorator(func: object):
@@ -152,7 +157,7 @@ def extension(target_func_name: object) -> "Callable[[Callable[P, R]], Callable[
 
 def extensible_generic_register(
     func_name: object,
-) -> "Callable[[Callable[P, R]], Callable[P, R]]":  # noqa: F821 - type-only name
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Register a generic extension point."""
 
     def decorator(func: object):
@@ -167,7 +172,7 @@ def extensible_generic_register(
 
 
 # extensible decorator
-def extensible(func: object) -> "Callable[P, R]":  # noqa: F821 - type-only name
+def extensible(func: Callable[P, R]) -> Callable[P, R]:
     """Decorate a function as an extension point."""
 
     @wraps(func)
@@ -182,7 +187,9 @@ def extensible(func: object) -> "Callable[P, R]":  # noqa: F821 - type-only name
 
 
 # extensible_generic decorator
-def extensible_generic(func: object) -> "Callable[P, Generator[object, None, None]]":  # noqa: F821 - type-only name
+def extensible_generic(
+    func: Callable[P, object],
+) -> Callable[P, Generator[object, None, None]]:
     """Decorate a generic function as an extension point."""
     try:
         from flask import current_app, has_app_context
