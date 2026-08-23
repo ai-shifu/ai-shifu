@@ -664,7 +664,9 @@ def _load_operator_course_detail_source(
     }
 
 
-def _load_latest_outline_items(model: object, shifu_bid: str) -> object:
+def _load_latest_outline_items(
+    model: object, shifu_bid: str
+) -> list[DraftOutlineItem | PublishedOutlineItem]:
     latest_subquery = (
         db.session.query(db.func.max(model.id).label("max_id"))
         .filter(
