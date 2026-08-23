@@ -1887,7 +1887,9 @@ def success_buy_record_from_native(
             lock.release()
 
 
-def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict) -> object:
+def success_buy_record_from_pingxx(
+    app: Flask, charge_id: str, body: dict
+) -> AICourseBuyRecordDTO | None:
     """Success buy record from pingxx."""
     with _app_context_scope(app):
         pingxx_order = (
