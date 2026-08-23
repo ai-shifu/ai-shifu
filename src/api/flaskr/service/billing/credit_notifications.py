@@ -67,6 +67,7 @@ from .primitives import to_decimal as _to_decimal
 
 if TYPE_CHECKING:
     from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
 
 TASK_NAME = "billing.send_credit_notification"
 SOURCE_TYPE_LEDGER = "ledger"
@@ -3140,7 +3141,9 @@ def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
     return ""
 
 
-def _notification_delivery_status_condition(delivery_status: str) -> object:
+def _notification_delivery_status_condition(
+    delivery_status: str,
+) -> ColumnElement[bool] | None:
     if delivery_status == CREDIT_NOTIFICATION_STATUS_PENDING:
         return NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_PENDING
     if delivery_status == CREDIT_NOTIFICATION_STATUS_SENT:
