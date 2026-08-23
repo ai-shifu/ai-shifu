@@ -645,7 +645,9 @@ def _load_latest_course_versions(
     return draft, published
 
 
-def _load_operator_course_detail_source(shifu_bid: str) -> object:
+def _load_operator_course_detail_source(
+    shifu_bid: str,
+) -> dict[str, object] | None:
     draft, published = _load_latest_course_versions(shifu_bid)
     visible_draft = draft if draft and _is_operator_visible_course(draft) else None
     visible_published = (
