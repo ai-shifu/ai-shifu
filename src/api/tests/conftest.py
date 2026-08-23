@@ -47,16 +47,16 @@ from sqlalchemy.ext.compiler import compiles
 
 
 class _TestPluginManager:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.extension_functions = {}
         self.extensible_generic_functions = {}
         self.is_enabled = False
 
-    def register_extension(self: object, target_func_name: object, func: object):
+    def register_extension(self, target_func_name: object, func: object):
         self.extension_functions.setdefault(target_func_name, []).append(func)
 
     def execute_extensions(
-        self: object,
+        self,
         _func_name: object,
         result: object,
         *args: object,
@@ -65,11 +65,11 @@ class _TestPluginManager:
         _ = (args, kwargs)
         return result
 
-    def register_extensible_generic(self: object, func_name: object, func: object):
+    def register_extensible_generic(self, func_name: object, func: object):
         self.extensible_generic_functions.setdefault(func_name, []).append(func)
 
     def execute_extensible_generic(
-        self: object, _func_name: object, *args: object, **kwargs: object
+        self, _func_name: object, *args: object, **kwargs: object
     ):
         _ = (args, kwargs)
 

@@ -64,7 +64,7 @@ def test_observer_skips_unpatched_processes(monkeypatch: object):
     monkeypatch.setattr(monkey, "is_module_patched", lambda _name: False)
 
     class _Logger:
-        def error(self: object, *args: object, **kwargs: object):
+        def error(self, *args: object, **kwargs: object):
             _ = (args, kwargs)
             message = "must not log during a skipped install"
             raise AssertionError(message)

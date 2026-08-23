@@ -256,7 +256,7 @@ class RenewalEventSnapshot:
     last_error: str
     payload: Any
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "renewal_event_bid": self.renewal_event_bid,
@@ -270,7 +270,7 @@ class RenewalEventSnapshot:
             "payload": self.payload,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -290,7 +290,7 @@ class RenewalEventResult:
     message: str | None = None
     order_status: int | None = None
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         payload: dict[str, Any] = {"status": self.status}
         if self.event is not None:
@@ -315,7 +315,7 @@ class RenewalEventResult:
             payload["order_status"] = self.order_status
         return payload
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

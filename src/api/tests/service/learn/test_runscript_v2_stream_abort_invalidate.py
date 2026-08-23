@@ -24,22 +24,22 @@ from sqlalchemy.exc import OperationalError, ResourceClosedError
 
 
 class _FakeSession:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.rollbacks = 0
         self.commits = 0
         self.invalidations = 0
         self.removed = 0
 
-    def rollback(self: object):
+    def rollback(self):
         self.rollbacks += 1
 
-    def commit(self: object):
+    def commit(self):
         self.commits += 1
 
-    def invalidate(self: object):
+    def invalidate(self):
         self.invalidations += 1
 
-    def remove(self: object):
+    def remove(self):
         self.removed += 1
 
 
@@ -48,16 +48,16 @@ class _StubRunContext:
 
     script: ClassVar[list] = []
 
-    def __init__(self: object, **_kwargs: object) -> None:
+    def __init__(self, **_kwargs: object) -> None:
         self._steps = iter([True, False])
 
-    def set_input(self: object, *_args: object, **_kwargs: object):
+    def set_input(self, *_args: object, **_kwargs: object):
         pass
 
-    def has_next(self: object):
+    def has_next(self):
         return next(self._steps, False)
 
-    def run(self: object, _app: object):
+    def run(self, _app: object):
         for item in type(self).script:
             if isinstance(item, BaseException):
                 raise item
@@ -200,7 +200,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(
     class _TwoRoundContext(_StubRunContext):
         # Two has_next rounds so the stop_event check at the loop boundary
         # fires between them.
-        def __init__(self: object, **kwargs: object) -> None:
+        def __init__(self, **kwargs: object) -> None:
             super().__init__(**kwargs)
             # Each loop round consumes TWO steps: the while condition and the
             # has_next() call inside the log line.

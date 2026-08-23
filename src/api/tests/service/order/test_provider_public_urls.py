@@ -42,11 +42,11 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch: object):
         pass
 
     class FakePrecreateRequest:
-        def __init__(self: object, *, biz_model: object) -> None:
+        def __init__(self, *, biz_model: object) -> None:
             self.biz_model = biz_model
 
     class FakeClient:
-        def execute(self: object, precreate_request: object):
+        def execute(self, precreate_request: object):
             captured["notify_url"] = precreate_request.notify_url
             return {
                 "alipay_trade_precreate_response": {

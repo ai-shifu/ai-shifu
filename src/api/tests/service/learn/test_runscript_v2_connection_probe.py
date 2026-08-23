@@ -7,25 +7,25 @@ from sqlalchemy.exc import OperationalError
 
 
 class _EchoResult:
-    def __init__(self: object, value: object) -> None:
+    def __init__(self, value: object) -> None:
         self._value = value
 
-    def scalar(self: object):
+    def scalar(self):
         return self._value
 
 
 class _FakeConnection:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.invalidated = 0
 
-    def invalidate(self: object):
+    def invalidate(self):
         self.invalidated += 1
 
 
 class _FakeSession:
     """Scripted session: each execute() consumes the next behaviour."""
 
-    def __init__(self: object, behaviours: object) -> None:
+    def __init__(self, behaviours: object) -> None:
         # behaviours: list of "ok" | "raise" | any-fixed-echo-value
         self._behaviours = list(behaviours)
         self.executed = 0
@@ -33,10 +33,10 @@ class _FakeSession:
         self.invalidations = 0
         self._connection = _FakeConnection()
 
-    def invalidate(self: object):
+    def invalidate(self):
         self.invalidations += 1
 
-    def execute(self: object, _statement: object, params: object):
+    def execute(self, _statement: object, params: object):
         self.executed += 1
         behaviour = self._behaviours.pop(0)
         if behaviour == "ok":
@@ -50,10 +50,10 @@ class _FakeSession:
             )
         return _EchoResult(behaviour)
 
-    def connection(self: object):
+    def connection(self):
         return self._connection
 
-    def rollback(self: object):
+    def rollback(self):
         self.rollbacks += 1
 
 

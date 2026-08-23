@@ -51,7 +51,7 @@ class CreatorEntitlementState:
     support_tier: str
     feature_payload: JsonObjectMap = field(default_factory=JsonObjectMap)
 
-    def to_public_payload(self: object) -> dict[str, Any]:
+    def to_public_payload(self) -> dict[str, Any]:
         """Serialize the entitlement state for public output."""
         return {
             "branding_enabled": self.branding_enabled,
@@ -63,7 +63,7 @@ class CreatorEntitlementState:
             "support_tier": self.support_tier,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized entitlement field by key."""
         if key == "feature_payload":
             return self.feature_payload.to_metadata_json()

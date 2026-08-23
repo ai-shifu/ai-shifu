@@ -6,24 +6,24 @@ import flaskr.service.order.funs as order_funs
 class DummyLock:
     """Simulate lock behavior for tests."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Reset acquisition and release call counters."""
         self.acquired = 0
         self.released = 0
 
-    def acquire(self: object, blocking: object = True):
+    def acquire(self, blocking: object = True):
         _ = blocking
         self.acquired += 1
         return True
 
-    def release(self: object):
+    def release(self):
         self.released += 1
 
 
 class DummyRedis:
     """Simulate Redis behavior for tests."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Capture lock arguments and expose one reusable test lock."""
         self.last_key = None
         self.last_timeout = None
@@ -31,7 +31,7 @@ class DummyRedis:
         self.lock_instance = DummyLock()
 
     def lock(
-        self: object,
+        self,
         key: object,
         timeout: object = None,
         blocking_timeout: object = None,
@@ -45,7 +45,7 @@ class DummyRedis:
 class DummyApp:
     """Simulate app behavior for tests."""
 
-    def __init__(self: object, prefix: object = "ai-shifu") -> None:
+    def __init__(self, prefix: object = "ai-shifu") -> None:
         """Expose the configured Redis key prefix to lock tests."""
         self.config = {"REDIS_KEY_PREFIX": prefix}
 
@@ -67,7 +67,7 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch: object):
 
 def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch: object):
     class _BrokenCacheProvider:
-        def lock(self: object, *args: object, **kwargs: object):
+        def lock(self, *args: object, **kwargs: object):
             _ = (args, kwargs)
             message = "lock unavailable"
             raise RuntimeError(message)

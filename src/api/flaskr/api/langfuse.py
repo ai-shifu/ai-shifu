@@ -64,10 +64,10 @@ _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 class MockClient:
     """Provide a no-op Langfuse client when tracing is disabled."""
 
-    def __init__(self: object, *args: object, **kwargs: object) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         """Initialize the no-op Langfuse client."""
 
-    def __getattr__(self: object, name: object) -> Any:
+    def __getattr__(self, name: object) -> Any:
         """Return a no-op callable for any Langfuse operation."""
 
         def method(*args: object, **kwargs: object):
@@ -342,15 +342,15 @@ class TraceAttributePropagation:
     record is resolved).
     """
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Start with an empty set of trace attributes."""
         self._values: dict[str, Any] = {}
 
-    def snapshot(self: object) -> dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         """Return a copy of the trace attributes accumulated for propagation."""
         return dict(self._values)
 
-    def merge(self: object, payload: dict[str, Any]) -> dict[str, Any]:
+    def merge(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Merge trace attributes and return the snapshot when it changed."""
         updated = dict(self._values)
         for raw_key, value in payload.items():
@@ -371,7 +371,7 @@ class TraceAttributePropagation:
         return dict(updated)
 
     @contextmanager
-    def scope(self: object, delegate: Any):
+    def scope(self, delegate: Any):
         """Propagate the collected attributes to observations started inside.
 
         Entering ``propagate_attributes()`` also writes the attributes on the
@@ -392,7 +392,7 @@ class TraceAttributePropagation:
         ):
             yield
 
-    def apply_to(self: object, delegate: Any) -> None:
+    def apply_to(self, delegate: Any) -> None:
         """Set the current attributes on an already started observation."""
         with self.scope(delegate):
             pass
@@ -402,7 +402,7 @@ class LangfuseObservationHandle:
     """v2-style facade over a Langfuse SDK span or generation."""
 
     def __init__(
-        self: object,
+        self,
         delegate: Any,
         trace_id: str = "",
         propagation: TraceAttributePropagation | None = None,
@@ -416,15 +416,15 @@ class LangfuseObservationHandle:
         )
 
     @property
-    def id(self: object) -> str:
+    def id(self) -> str:
         """Return the delegated observation identifier when the SDK exposes one."""
         delegate_id = getattr(self._delegate, "id", "")
         return delegate_id if isinstance(delegate_id, str) else ""
 
-    def _child(self: object, delegate: Any) -> "LangfuseObservationHandle":
+    def _child(self, delegate: Any) -> "LangfuseObservationHandle":
         return LangfuseObservationHandle(delegate, self.trace_id, self._propagation)
 
-    def span(self: object, **kwargs: object) -> "LangfuseObservationHandle":
+    def span(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Start and wrap a child span while propagating trace attributes."""
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "span")
@@ -432,7 +432,7 @@ class LangfuseObservationHandle:
             child = self._delegate.start_observation(as_type="span", **payload)
         return self._child(child)
 
-    def generation(self: object, **kwargs: object) -> "LangfuseObservationHandle":
+    def generation(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Start and wrap a child generation observation."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         payload.setdefault("name", "generation")
@@ -440,7 +440,7 @@ class LangfuseObservationHandle:
             child = self._delegate.start_observation(as_type="generation", **payload)
         return self._child(child)
 
-    def event(self: object, **kwargs: object) -> "LangfuseObservationHandle":
+    def event(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Create an event observation beneath the current observation."""
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "event")
@@ -448,14 +448,14 @@ class LangfuseObservationHandle:
             child = self._delegate.create_event(**payload)
         return self._child(child)
 
-    def update(self: object, **kwargs: object) -> "LangfuseObservationHandle":
+    def update(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Apply supported observation updates and return this handle."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
             self._delegate.update(**payload)
         return self
 
-    def end(self: object, **kwargs: object) -> "LangfuseObservationHandle":
+    def end(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Flush attribute updates and end the delegated observation."""
         # SDK end() only accepts end_time; flush attribute updates first.
         end_time = kwargs.pop("end_time", None)
@@ -468,7 +468,7 @@ class LangfuseObservationHandle:
             self._delegate.end()
         return self
 
-    def update_trace(self: object, **kwargs: object) -> "LangfuseObservationHandle":
+    def update_trace(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Apply trace attributes to this observation and future descendants."""
         payload = _map_trace_kwargs(kwargs)
         if not payload:
@@ -488,7 +488,7 @@ class LangfuseObservationHandle:
 class LangfuseTraceHandle(LangfuseObservationHandle):
     """v2-style trace facade; trace attributes live on the observations in v4."""
 
-    def update(self: object, **kwargs: object) -> "LangfuseTraceHandle":
+    def update(self, **kwargs: object) -> "LangfuseTraceHandle":
         """Update propagated trace attributes and return this trace facade."""
         self.update_trace(**kwargs)
         return self

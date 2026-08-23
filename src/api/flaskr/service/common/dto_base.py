@@ -60,7 +60,7 @@ class AutoJsonMixin:
     __json_key_overrides__: ClassVar[dict] = {}
     __json_exclude__: frozenset = frozenset()
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Derive JSON-compatible data from declared model fields."""
         payload = {}
         for name, field in type(self).model_fields.items():

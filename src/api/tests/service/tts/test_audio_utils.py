@@ -10,13 +10,13 @@ from flaskr.service.tts import audio_utils
 class _FakeSegment:
     append_crossfades: ClassVar[list[int]] = []
 
-    def __init__(self: object, duration_ms: int) -> None:
+    def __init__(self, duration_ms: int) -> None:
         self.duration_ms = duration_ms
 
-    def __len__(self: object) -> int:
+    def __len__(self) -> int:
         return self.duration_ms
 
-    def append(self: object, other: object, crossfade: object = 100):
+    def append(self, other: object, crossfade: object = 100):
         _FakeSegment.append_crossfades.append(crossfade)
         if crossfade > len(self):
             message = (
@@ -32,7 +32,7 @@ class _FakeSegment:
             raise ValueError(message)
         return _FakeSegment(self.duration_ms + len(other) - crossfade)
 
-    def __getitem__(self: object, key: object) -> "_FakeSegment":
+    def __getitem__(self, key: object) -> "_FakeSegment":
         if isinstance(key, slice):
             start = int(key.start or 0)
             stop = int(key.stop if key.stop is not None else self.duration_ms)
@@ -40,7 +40,7 @@ class _FakeSegment:
         return self
 
     def export(
-        self: object,
+        self,
         output_io: object,
         format: object = "mp3",  # noqa: A002 - mirrors the pydub API
         bitrate: object = "128k",

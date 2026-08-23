@@ -55,22 +55,22 @@ SSE_DATA_PREFIX = "data: "
 class IdNormalizer:
     """First-seen mapping of volatile ids to stable placeholders."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Initialize an empty stable-ID mapping."""
         self._mapping: dict[str, str] = {}
 
-    def _replace_match(self: object, match: re.Match) -> str:
+    def _replace_match(self, match: re.Match) -> str:
         raw = match.group(0)
         if raw not in self._mapping:
             self._mapping[raw] = f"<BID_{len(self._mapping) + 1}>"
         return self._mapping[raw]
 
-    def normalize_string(self: object, value: str) -> str:
+    def normalize_string(self, value: str) -> str:
         value = UUID_RE.sub(self._replace_match, value)
         value = HEX_ID_RE.sub(self._replace_match, value)
         return ISO_TS_RE.sub("<TS>", value)
 
-    def normalize_value(self: object, value: Any, field_name: str | None = None) -> Any:
+    def normalize_value(self, value: Any, field_name: str | None = None) -> Any:
         if isinstance(value, str):
             return self.normalize_string(value)
         if isinstance(value, bool):

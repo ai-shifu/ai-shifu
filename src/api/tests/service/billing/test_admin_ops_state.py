@@ -5,23 +5,23 @@ from flaskr.service.billing import admin_ops_state
 
 
 class _TrackingLock:
-    def __init__(self: object, events: object, key: object) -> None:
+    def __init__(self, events: object, key: object) -> None:
         self._events = events
         self._key = key
 
-    def acquire(self: object, **_kwargs: object):
+    def acquire(self, **_kwargs: object):
         self._events.append(("acquire", self._key))
         return True
 
-    def release(self: object):
+    def release(self):
         self._events.append(("release", self._key))
 
 
 class _TrackingRedis:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.events = []
 
-    def lock(self: object, key: object, **_kwargs: object):
+    def lock(self, key: object, **_kwargs: object):
         self.events.append(("lock", key))
         return _TrackingLock(self.events, key)
 

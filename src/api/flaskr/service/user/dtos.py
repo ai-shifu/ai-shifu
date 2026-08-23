@@ -16,7 +16,7 @@ class UserProfileLabelItemDTO(BaseModel):
     value: str | datetime.date | None = Field(..., description="value", required=False)
     items: list | None = Field(..., description="items", required=False)
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the user profile label item as JSON-compatible data."""
         return {
             "key": self.key,
@@ -36,7 +36,7 @@ class UserProfileLabelDTO(BaseModel):
     )
     language: str = Field(..., description="language")
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the user profile label as JSON-compatible data."""
         return {
             "profiles": [item.__json__() for item in self.profiles],

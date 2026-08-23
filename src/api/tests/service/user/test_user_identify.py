@@ -4,14 +4,14 @@ import uuid
 
 
 class _FakeRedis:
-    def __init__(self: object, values: object = None) -> None:
+    def __init__(self, values: object = None) -> None:
         self.values = dict(values or {})
         self.deleted = []
 
-    def get(self: object, key: object):
+    def get(self, key: object):
         return self.values.get(key)
 
-    def delete(self: object, *keys: str):
+    def delete(self, *keys: str):
         self.deleted.extend(keys)
         return len(keys)
 
@@ -193,20 +193,20 @@ def test_send_email_code_stores_lowercase_identifier(app: object, monkeypatch: o
         sent_message = ""
         sent_to = ""
 
-        def __init__(self: object, *_args: object, **_kwargs: object) -> None:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
 
-        def starttls(self: object):
+        def starttls(self):
             return None
 
-        def login(self: object, *_args: object):
+        def login(self, *_args: object):
             return None
 
-        def sendmail(self: object, _sender: object, recipient: object, message: object):
+        def sendmail(self, _sender: object, recipient: object, message: object):
             type(self).sent_to = recipient
             type(self).sent_message = message
 
-        def quit(self: object):
+        def quit(self):
             return None
 
     fake_redis = FakeRedis()
@@ -284,21 +284,19 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
     class _FakeSMTP:
         sent_message = ""
 
-        def __init__(self: object, *_args: object, **_kwargs: object) -> None:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
 
-        def starttls(self: object):
+        def starttls(self):
             return None
 
-        def login(self: object, *_args: object):
+        def login(self, *_args: object):
             return None
 
-        def sendmail(
-            self: object, _sender: object, _recipient: object, message: object
-        ):
+        def sendmail(self, _sender: object, _recipient: object, message: object):
             type(self).sent_message = message
 
-        def quit(self: object):
+        def quit(self):
             return None
 
     fake_redis = FakeRedis()

@@ -42,7 +42,7 @@ class RiskControlResult(db.Model):
     )
 
     def __init__(
-        self: object,
+        self,
         chat_id: object,
         user_id: object,
         text: object,

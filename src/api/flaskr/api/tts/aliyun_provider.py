@@ -1176,11 +1176,11 @@ class AliyunTTSProvider(BaseTTSProvider):
     """TTS provider using Aliyun Intelligent Speech Interaction RESTful API."""
 
     @property
-    def provider_name(self: object) -> str:
+    def provider_name(self) -> str:
         """Return the provider's stable configuration name."""
         return "aliyun"
 
-    def _get_settings(self: object) -> tuple:
+    def _get_settings(self) -> tuple:
         """Get Aliyun TTS settings.
 
         Returns:
@@ -1191,14 +1191,14 @@ class AliyunTTSProvider(BaseTTSProvider):
         region = get_config("ALIYUN_TTS_REGION") or "shanghai"
         return appkey, region
 
-    def is_configured(self: object) -> bool:
+    def is_configured(self) -> bool:
         """Check if Aliyun TTS is properly configured."""
         appkey, _region = self._get_settings()
         # Per Aliyun NLS RESTful TTS docs, token is required for authentication.
         # We accept either a manually provided token, or auto-fetch via CreateToken.
         return bool(appkey and is_aliyun_nls_token_configured())
 
-    def get_default_voice_settings(self: object) -> VoiceSettings:
+    def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings.
 
         Notes:
@@ -1214,7 +1214,7 @@ class AliyunTTSProvider(BaseTTSProvider):
             volume=50,  # 0-100, default 50
         )
 
-    def get_default_audio_settings(self: object) -> AudioSettings:
+    def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
             # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
@@ -1224,12 +1224,12 @@ class AliyunTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self: object) -> list[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return ALIYUN_VOICES
 
     def synthesize(
-        self: object,
+        self,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -1395,7 +1395,7 @@ class AliyunTTSProvider(BaseTTSProvider):
             error_message = f"Aliyun TTS request failed: {e}"
             raise ValueError(error_message) from e
 
-    def get_provider_config(self: object) -> ProviderConfig:
+    def get_provider_config(self) -> ProviderConfig:
         """Get Aliyun provider configuration for frontend."""
         return ProviderConfig(
             name="aliyun",

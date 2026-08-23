@@ -11,12 +11,12 @@ from flaskr.service.profile import learner_profile_optimizer_admission as admiss
 class FakeRedis:
     """Simulate Redis behavior for tests."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Track in-flight admission tokens and requested acquisition TTLs."""
         self.in_flight_tokens: dict[str, str] = {}
         self.acquire_ttls: list[int] = []
 
-    def eval(self: object, script: object, numkeys: object, *args: object):
+    def eval(self, script: object, numkeys: object, *args: object):
         assert numkeys == 1
         key = str(args[0])
         token = str(args[1])
@@ -33,14 +33,14 @@ class FakeRedis:
             return 1
         return 0
 
-    def expire_in_flight(self: object) -> None:
+    def expire_in_flight(self) -> None:
         self.in_flight_tokens.clear()
 
 
 class ExplodingRedis:
     """Simulate a Redis failure for tests."""
 
-    def eval(self: object, *_args: object, **_kwargs: object):
+    def eval(self, *_args: object, **_kwargs: object):
         message = "redis unavailable"
         raise RuntimeError(message)
 

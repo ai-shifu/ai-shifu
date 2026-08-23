@@ -72,7 +72,7 @@ class LearnElementsBackfillStats:
     dry_run: bool = False
     error: str = ""
 
-    def as_dict(self: object) -> dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 

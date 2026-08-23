@@ -210,22 +210,22 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
     )
 
     class CacheWrapper:
-        def __init__(self: object) -> None:
+        def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
-        def get(self: object, key: object):
+        def get(self, key: object):
             return self._cache.get(key)
 
-        def delete(self: object, *keys: str):
+        def delete(self, *keys: str):
             return self._cache.delete(*keys)
 
-        def setex(self: object, key: object, ttl: object, value: object):
+        def setex(self, key: object, ttl: object, value: object):
             _ = (key, ttl, value)
             message = "cache unavailable"
             raise RuntimeError(message)
 
         def lock(
-            self: object,
+            self,
             key: object,
             timeout: object = None,
             blocking_timeout: object = None,
@@ -261,22 +261,22 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
     )
 
     class CacheWrapper:
-        def __init__(self: object) -> None:
+        def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
-        def get(self: object, key: object):
+        def get(self, key: object):
             return self._cache.get(key)
 
-        def delete(self: object, *keys: str):
+        def delete(self, *keys: str):
             return self._cache.delete(*keys)
 
-        def setex(self: object, key: object, ttl: object, value: object):
+        def setex(self, key: object, ttl: object, value: object):
             _ = (key, ttl, value)
             message = "cache unavailable"
             raise RuntimeError(message)
 
         def lock(
-            self: object,
+            self,
             key: object,
             timeout: object = None,
             blocking_timeout: object = None,
@@ -314,28 +314,26 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     )
 
     class BusyLock:
-        def acquire(
-            self: object, blocking: object = True, blocking_timeout: object = None
-        ):
+        def acquire(self, blocking: object = True, blocking_timeout: object = None):
             _ = (blocking, blocking_timeout)
             return False
 
-        def release(self: object):
+        def release(self):
             return None
 
     class CacheWrapper:
-        def get(self: object, key: object):
+        def get(self, key: object):
             _ = key
 
-        def delete(self: object, *keys: str):
+        def delete(self, *keys: str):
             _ = keys
             return 0
 
-        def setex(self: object, key: object, ttl: object, value: object):
+        def setex(self, key: object, ttl: object, value: object):
             _ = (key, ttl, value)
 
         def lock(
-            self: object,
+            self,
             key: object,
             timeout: object = None,
             blocking_timeout: object = None,
@@ -370,27 +368,25 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch: ob
     )
 
     class BusyLock:
-        def acquire(
-            self: object, blocking: object = True, blocking_timeout: object = None
-        ):
+        def acquire(self, blocking: object = True, blocking_timeout: object = None):
             _ = (blocking, blocking_timeout)
             return False
 
-        def release(self: object):
+        def release(self):
             return None
 
     cache_provider = InMemoryCacheProvider()
     cache_provider.setex("test:analytics:umami:access-token", 60, "fresh-token")
 
     class CacheWrapper:
-        def get(self: object, key: object):
+        def get(self, key: object):
             return cache_provider.get(key)
 
-        def setex(self: object, key: object, ttl: object, value: object):
+        def setex(self, key: object, ttl: object, value: object):
             return cache_provider.setex(key, ttl, value)
 
         def lock(
-            self: object,
+            self,
             key: object,
             timeout: object = None,
             blocking_timeout: object = None,
@@ -419,19 +415,19 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(
     )
 
     class CacheWrapper:
-        def __init__(self: object) -> None:
+        def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
-        def get(self: object, key: object):
+        def get(self, key: object):
             return self._cache.get(key)
 
-        def setex(self: object, key: object, ttl: object, value: object):
+        def setex(self, key: object, ttl: object, value: object):
             _ = (key, ttl, value)
             message = "cache unavailable"
             raise RuntimeError(message)
 
         def lock(
-            self: object,
+            self,
             key: object,
             timeout: object = None,
             blocking_timeout: object = None,

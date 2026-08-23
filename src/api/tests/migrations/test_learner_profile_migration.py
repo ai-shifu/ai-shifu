@@ -45,18 +45,18 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
     executed_statements = []
 
     class _BatchOperations:
-        def add_column(self: object, column: object):
+        def add_column(self, column: object):
             added_columns.append(column)
 
-        def alter_column(self: object, column_name: object, **kwargs: object):
+        def alter_column(self, column_name: object, **kwargs: object):
             altered_columns.append((column_name, kwargs))
 
     class _Operations:
         @contextmanager
-        def batch_alter_table(self: object, *_args: object, **_kwargs: object):
+        def batch_alter_table(self, *_args: object, **_kwargs: object):
             yield _BatchOperations()
 
-        def execute(self: object, statement: object):
+        def execute(self, statement: object):
             executed_statements.append(str(statement))
 
     migration.op = _Operations()

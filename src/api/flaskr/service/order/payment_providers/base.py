@@ -80,19 +80,19 @@ class PaymentProvider(ABC):
 
     @abstractmethod
     def create_payment(
-        self: object, *, request: PaymentRequest, app: object
+        self, *, request: PaymentRequest, app: object
     ) -> PaymentCreationResult:
         """Create a payment with the external provider."""
 
     def create_subscription(
-        self: object, *, request: PaymentRequest, app: object
+        self, *, request: PaymentRequest, app: object
     ) -> PaymentCreationResult:
         """Create a provider-managed subscription checkout."""
         message = f"{self.__class__.__name__} does not support subscriptions"
         raise NotImplementedError(message)
 
     def cancel_subscription(
-        self: object,
+        self,
         *,
         subscription_bid: str,
         provider_subscription_id: str,
@@ -105,7 +105,7 @@ class PaymentProvider(ABC):
         raise NotImplementedError(message)
 
     def resume_subscription(
-        self: object,
+        self,
         *,
         subscription_bid: str,
         provider_subscription_id: str,
@@ -116,14 +116,14 @@ class PaymentProvider(ABC):
         raise NotImplementedError(message)
 
     def verify_webhook(
-        self: object, *, headers: dict[str, str], raw_body: bytes | str, app: object
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: object
     ) -> PaymentNotificationResult:
         """Verify and normalize a provider webhook payload."""
         message = f"{self.__class__.__name__} does not support webhook verification"
         raise NotImplementedError(message)
 
     def handle_notification(
-        self: object, *, payload: dict[str, Any], app: object
+        self, *, payload: dict[str, Any], app: object
     ) -> PaymentNotificationResult:
         """Process provider webhook payloads."""
         return self.verify_webhook(
@@ -133,14 +133,14 @@ class PaymentProvider(ABC):
         )
 
     def refund_payment(
-        self: object, *, request: PaymentRefundRequest, app: object
+        self, *, request: PaymentRefundRequest, app: object
     ) -> PaymentRefundResult:
         """Trigger a refund on the provider."""
         message = f"{self.__class__.__name__} does not support refunds"
         raise NotImplementedError(message)
 
     def sync_payment_status(
-        self: object, *, order_bid: str, provider_reference: str, app: object
+        self, *, order_bid: str, provider_reference: str, app: object
     ) -> PaymentNotificationResult:
         """Synchronize payment status with the provider if supported."""
         _ = order_bid
@@ -151,7 +151,7 @@ class PaymentProvider(ABC):
         )
 
     def sync_reference(
-        self: object, *, provider_reference: str, reference_type: str, app: object
+        self, *, provider_reference: str, reference_type: str, app: object
     ) -> PaymentNotificationResult:
         """Synchronize a provider reference and return normalized state."""
         message = f"{self.__class__.__name__} does not support reference sync"

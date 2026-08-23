@@ -38,7 +38,7 @@ class WechatPayProvider(PaymentProvider):
     channel = "wechatpay"
 
     def create_payment(
-        self: object, *, request: PaymentRequest, app: Flask
+        self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         """Create a payment through this provider."""
         if request.channel == "wx_pub_qr":
@@ -49,13 +49,13 @@ class WechatPayProvider(PaymentProvider):
         raise RuntimeError(message)
 
     def create_subscription(
-        self: object, *, request: PaymentRequest, app: Flask
+        self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         """Create a one-time payment for a subscription request."""
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
-        self: object, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         """Verify and decode a provider webhook payload."""
         _ = app
@@ -79,7 +79,7 @@ class WechatPayProvider(PaymentProvider):
         )
 
     def sync_reference(
-        self: object, *, provider_reference: str, reference_type: str, app: Flask
+        self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
         """Synchronize local state from a provider reference."""
         normalized_reference_type = str(reference_type or "").strip().lower()
@@ -104,7 +104,7 @@ class WechatPayProvider(PaymentProvider):
         )
 
     def refund_payment(
-        self: object, *, request: PaymentRefundRequest, app: Flask
+        self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         """Raise because direct WeChat Pay refunds are unsupported."""
         del request, app
@@ -112,7 +112,7 @@ class WechatPayProvider(PaymentProvider):
         raise RuntimeError(message)
 
     def _create_native_payment(
-        self: object, *, request: PaymentRequest, app: Flask
+        self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         body = self._build_transaction_body(request)
         response_payload = self._request(
@@ -136,7 +136,7 @@ class WechatPayProvider(PaymentProvider):
         )
 
     def _create_jsapi_payment(
-        self: object, *, request: PaymentRequest, app: Flask
+        self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         open_id = str((request.extra or {}).get("open_id") or "").strip()
         if not open_id:
@@ -166,9 +166,7 @@ class WechatPayProvider(PaymentProvider):
             },
         )
 
-    def _build_transaction_body(
-        self: object, request: PaymentRequest
-    ) -> dict[str, Any]:
+    def _build_transaction_body(self, request: PaymentRequest) -> dict[str, Any]:
         notify_url = (
             str(get_config("WECHATPAY_WEBHOOK_URL", "") or "")
             or build_wechatpay_notify_url()
@@ -186,7 +184,7 @@ class WechatPayProvider(PaymentProvider):
         }
 
     def _request(
-        self: object,
+        self,
         *,
         method: str,
         path: str,
@@ -235,7 +233,7 @@ class WechatPayProvider(PaymentProvider):
         return response.json()
 
     def _sign_request(
-        self: object,
+        self,
         *,
         method: str,
         path: str,
@@ -246,7 +244,7 @@ class WechatPayProvider(PaymentProvider):
         message = f"{method.upper()}\n{path}\n{timestamp}\n{nonce}\n{body}\n"
         return _sign_with_merchant_key(message)
 
-    def _build_jsapi_params(self: object, *, prepay_id: str) -> dict[str, str]:
+    def _build_jsapi_params(self, *, prepay_id: str) -> dict[str, str]:
         app_id = _wechatpay_app_id()
         timestamp = str(int(time.time()))
         nonce = secrets.token_hex(16)
@@ -264,7 +262,7 @@ class WechatPayProvider(PaymentProvider):
         }
 
     def _verify_notification_signature(
-        self: object,
+        self,
         *,
         headers: dict[str, str],
         raw_body: str,
@@ -288,7 +286,7 @@ class WechatPayProvider(PaymentProvider):
         )
 
     def _decrypt_notification_resource(
-        self: object,
+        self,
         resource: dict[str, Any],
     ) -> dict[str, Any]:
         if not resource:

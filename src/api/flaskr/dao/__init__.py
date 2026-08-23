@@ -67,7 +67,7 @@ db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
 class _RedisState:
     """Own the optional process-local Redis client."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.client: Redis | None = None
 
 

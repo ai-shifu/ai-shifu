@@ -22,11 +22,11 @@ from .request_context import thread_local
 class AppLoggerProxy:
     """Proxy application logging through the configured logger."""
 
-    def __init__(self: object, fallback: logging.Logger) -> None:
+    def __init__(self, fallback: logging.Logger) -> None:
         """Store the fallback logger used outside an application context."""
         self._fallback = fallback
 
-    def _resolve(self: object) -> logging.Logger:
+    def _resolve(self) -> logging.Logger:
         try:
             from flask import current_app
 
@@ -36,7 +36,7 @@ class AppLoggerProxy:
         except Exception:
             return self._fallback
 
-    def __getattr__(self: object, name: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the active application logger."""
         return getattr(self._resolve(), name)
 
@@ -44,7 +44,7 @@ class AppLoggerProxy:
 class RequestFormatter(logging.Formatter):
     """Format request-aware application log records."""
 
-    def formatTime(self: object, record: object, datefmt: object = None):  # noqa: N802 - logging.Formatter hook name
+    def formatTime(self, record: object, datefmt: object = None):  # noqa: N802 - logging.Formatter hook name
         # create time zone info
         """Format a log timestamp in the fixed Asia/Shanghai timezone."""
         bj_time = pytz.timezone("Asia/Shanghai")
@@ -59,7 +59,7 @@ class RequestFormatter(logging.Formatter):
                 s = ct.isoformat()
         return s
 
-    def format(self: object, record: object):
+    def format(self, record: object):
         """Format a log record with request context."""
         try:
             request_id = getattr(thread_local, "request_id", "No_Request_ID")
@@ -95,7 +95,7 @@ class FeishuLogHandler(logging.Handler):
 
     MAX_TEXT_LENGTH = 18000
 
-    def __init__(self: object, webhook_url: object) -> None:
+    def __init__(self, webhook_url: object) -> None:
         """Initialize error-level webhook delivery with a re-entrancy guard.
 
         Stores the Feishu webhook URL and creates thread-local delivery state to
@@ -111,7 +111,7 @@ class FeishuLogHandler(logging.Handler):
         # non-propagating logger).
         self._delivering = threading.local()
 
-    def _build_message_text(self: object, log_entry: str) -> str:
+    def _build_message_text(self, log_entry: str) -> str:
         text = f"师傅出错啦！\n{log_entry}\n"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         if len(text) <= self.MAX_TEXT_LENGTH:
             return text
@@ -119,7 +119,7 @@ class FeishuLogHandler(logging.Handler):
         suffix = f"\n...[truncated {omitted} chars to fit Feishu webhook limit]"
         return text[: self.MAX_TEXT_LENGTH - len(suffix)] + suffix
 
-    def _report_delivery_failure(self: object, exc: Exception) -> None:
+    def _report_delivery_failure(self, exc: Exception) -> None:
         message = "Failed to send log to Feishu webhook: %s"
         try:
             from flask import current_app
@@ -128,7 +128,7 @@ class FeishuLogHandler(logging.Handler):
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
-    def emit(self: object, record: object):
+    def emit(self, record: object):
         """Deliver a formatted error record to Feishu."""
         if getattr(self._delivering, "active", False):
             return
@@ -152,7 +152,7 @@ class FeishuLogHandler(logging.Handler):
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
     """Format request logs with terminal color metadata."""
 
-    def __init__(self: object, fmt: object, **kwargs: object) -> None:
+    def __init__(self, fmt: object, **kwargs: object) -> None:
         """Initialize the parent request and color log formatters."""
         super().__init__(fmt, **kwargs)
 

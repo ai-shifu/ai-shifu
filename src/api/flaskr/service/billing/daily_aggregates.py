@@ -50,7 +50,7 @@ class DailyAggregateJobResult:
     deleted_count: int = 0
     reason: str | None = None
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         payload = {
             "status": self.status,
@@ -71,7 +71,7 @@ class DailyAggregateJobResult:
             payload["reason"] = self.reason
         return payload
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -89,7 +89,7 @@ class RebuildDailyAggregatesResult:
     usage_days: list[DailyAggregateJobResult] = field(default_factory=list)
     ledger_days: list[DailyAggregateJobResult] = field(default_factory=list)
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         ledger_processed_days = [
             item for item in self.ledger_days if item.status != "skipped"
@@ -119,7 +119,7 @@ class RebuildDailyAggregatesResult:
             },
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

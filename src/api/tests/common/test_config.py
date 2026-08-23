@@ -21,7 +21,7 @@ from tests.common.fixtures.config_data import DOCKER_ENV_CONFIG
 class TestConfigInitialization:
     """Test Config class initialization."""
 
-    def test_init_with_valid_flask_app(self: object, monkeypatch: object):
+    def test_init_with_valid_flask_app(self, monkeypatch: object):
         """Test initialization with valid Flask app."""
         # Set up required environment variables
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
@@ -48,7 +48,7 @@ class TestConfigInitialization:
             "Environment configuration validated successfully"
         )
 
-    def test_init_with_missing_required_vars(self: object, monkeypatch: object):
+    def test_init_with_missing_required_vars(self, monkeypatch: object):
         """Test initialization fails with missing required variables."""
         # Don't set required variables
         monkeypatch.delenv("SQLALCHEMY_DATABASE_URI", raising=False)
@@ -64,7 +64,7 @@ class TestConfigInitialization:
         # Verify error was logged with traceback
         app.logger.exception.assert_called()
 
-    def test_global_instance_set(self: object, monkeypatch: object):
+    def test_global_instance_set(self, monkeypatch: object):
         """Test that global instance is set on initialization."""
         # Set up environment
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
@@ -90,7 +90,7 @@ class TestConfigInitialization:
 class TestConfigGetItem:
     """Test __getitem__ functionality."""
 
-    def test_getitem_from_enhanced_config(self: object, monkeypatch: object):
+    def test_getitem_from_enhanced_config(self, monkeypatch: object):
         """Test getting value from enhanced config."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -107,7 +107,7 @@ class TestConfigGetItem:
         # Should get from enhanced config
         assert config["REDIS_HOST"] == "test-redis"
 
-    def test_getitem_fallback_to_parent(self: object, monkeypatch: object):
+    def test_getitem_fallback_to_parent(self, monkeypatch: object):
         """Test falling back to parent config for unknown keys."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -129,7 +129,7 @@ class TestConfigGetItem:
             assert value == "parent-value"
             parent_config.__getitem__.assert_called_with("UNKNOWN_KEY")
 
-    def test_getitem_returns_none_for_missing(self: object, monkeypatch: object):
+    def test_getitem_returns_none_for_missing(self, monkeypatch: object):
         """Test returning None for missing keys."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -154,7 +154,7 @@ class TestConfigGetItem:
 class TestConfigSetItem:
     """Test __setitem__ functionality."""
 
-    def test_setitem_updates_parent_and_environ(self: object, monkeypatch: object):
+    def test_setitem_updates_parent_and_environ(self, monkeypatch: object):
         """Test setting value updates parent config and environment."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -176,7 +176,7 @@ class TestConfigSetItem:
         # Should update environment
         assert os.environ["NEW_VALUE"] == "test-value"
 
-    def test_setitem_clears_cache(self: object, monkeypatch: object):
+    def test_setitem_clears_cache(self, monkeypatch: object):
         """Test setting value clears the cache."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -204,7 +204,7 @@ class TestConfigSetItem:
 class TestConfigGetMethods:
     """Test typed get methods."""
 
-    def test_get_str(self: object, monkeypatch: object):
+    def test_get_str(self, monkeypatch: object):
         """Test get_str method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -219,7 +219,7 @@ class TestConfigGetMethods:
         assert config.get_str("REDIS_HOST") == "test-redis"
         assert isinstance(config.get_str("REDIS_HOST"), str)
 
-    def test_get_int(self: object, monkeypatch: object):
+    def test_get_int(self, monkeypatch: object):
         """Test get_int method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -234,7 +234,7 @@ class TestConfigGetMethods:
         assert config.get_int("REDIS_PORT") == 7000
         assert isinstance(config.get_int("REDIS_PORT"), int)
 
-    def test_get_bool(self: object, monkeypatch: object):
+    def test_get_bool(self, monkeypatch: object):
         """Test get_bool method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -249,7 +249,7 @@ class TestConfigGetMethods:
         assert config.get_bool("SWAGGER_ENABLED") is True
         assert isinstance(config.get_bool("SWAGGER_ENABLED"), bool)
 
-    def test_get_float(self: object, monkeypatch: object):
+    def test_get_float(self, monkeypatch: object):
         """Test get_float method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -264,7 +264,7 @@ class TestConfigGetMethods:
         assert config.get_float("DEFAULT_LLM_TEMPERATURE") == 0.8
         assert isinstance(config.get_float("DEFAULT_LLM_TEMPERATURE"), float)
 
-    def test_get_list(self: object, monkeypatch: object):
+    def test_get_list(self, monkeypatch: object):
         """Test get_list method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -284,7 +284,7 @@ class TestConfigGetMethods:
 class TestConfigGetAttr:
     """Test __getattr__ functionality."""
 
-    def test_getattr_from_enhanced_config(self: object, monkeypatch: object):
+    def test_getattr_from_enhanced_config(self, monkeypatch: object):
         """Test getting attribute from enhanced config."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -301,7 +301,7 @@ class TestConfigGetAttr:
         # Should get from enhanced config
         assert config.REDIS_HOST == "attr-redis"
 
-    def test_getattr_fallback_to_parent(self: object, monkeypatch: object):
+    def test_getattr_fallback_to_parent(self, monkeypatch: object):
         """Test falling back to parent for unknown attributes."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -324,7 +324,7 @@ class TestConfigGetAttr:
 class TestConfigSetDefault:
     """Test setdefault method."""
 
-    def test_setdefault_existing_value(self: object, monkeypatch: object):
+    def test_setdefault_existing_value(self, monkeypatch: object):
         """Test setdefault with existing value."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -346,7 +346,7 @@ class TestConfigSetDefault:
         # Parent setdefault should not be called
         parent_config.setdefault.assert_not_called()
 
-    def test_setdefault_missing_value(self: object, monkeypatch: object):
+    def test_setdefault_missing_value(self, monkeypatch: object):
         """Test setdefault with missing value."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -370,7 +370,7 @@ class TestConfigSetDefault:
 class TestConfigCall:
     """Test __call__ functionality."""
 
-    def test_call_delegates_to_parent(self: object, monkeypatch: object):
+    def test_call_delegates_to_parent(self, monkeypatch: object):
         """Test that __call__ delegates to parent config."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -394,7 +394,7 @@ class TestConfigCall:
 class TestGetConfigFunction:
     """Test the global get_config function."""
 
-    def test_get_config_with_initialized_instance(self: object, monkeypatch: object):
+    def test_get_config_with_initialized_instance(self, monkeypatch: object):
         """Test get_config when instance is initialized."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -412,7 +412,7 @@ class TestGetConfigFunction:
         value = get_config("REDIS_HOST")
         assert value == "global-redis"
 
-    def test_get_config_without_initialized_instance(self: object, monkeypatch: object):
+    def test_get_config_without_initialized_instance(self, monkeypatch: object):
         """Test get_config works before initialization by reading from environment."""
         # Clear global instance
         import flaskr.common.config as config_module
@@ -447,7 +447,7 @@ class TestGetConfigFunction:
 class TestConfigIntegrationWithFlask:
     """Test Config integration with Flask application."""
 
-    def test_config_with_real_flask_app(self: object, monkeypatch: object):
+    def test_config_with_real_flask_app(self, monkeypatch: object):
         """Test Config with a real Flask application."""
         # Set up comprehensive environment
         for key, value in DOCKER_ENV_CONFIG.items():
@@ -469,7 +469,7 @@ class TestConfigIntegrationWithFlask:
         app.config = config
         assert app.config["SECRET_KEY"] == "docker-secret-key-123456"
 
-    def test_config_priority_enhanced_over_parent(self: object, monkeypatch: object):
+    def test_config_priority_enhanced_over_parent(self, monkeypatch: object):
         """Test that enhanced config takes priority over parent."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -496,14 +496,12 @@ class TestConfigIntegrationWithFlask:
 class TestExplicitEnvOverride:
     """Test explicit environment override detection."""
 
-    def test_has_explicit_env_override_true_when_key_present(
-        self: object, monkeypatch: object
-    ):
+    def test_has_explicit_env_override_true_when_key_present(self, monkeypatch: object):
         monkeypatch.setenv("REDIS_HOST", "")
         assert has_explicit_env_override("REDIS_HOST") is True
 
     def test_has_explicit_env_override_false_when_key_missing(
-        self: object, monkeypatch: object
+        self, monkeypatch: object
     ):
         monkeypatch.delenv("REDIS_HOST", raising=False)
         assert has_explicit_env_override("REDIS_HOST") is False
@@ -512,7 +510,7 @@ class TestExplicitEnvOverride:
 class TestRedisPrefixHelpers:
     """Test Redis prefix helpers with partial Flask config state."""
 
-    def test_get_redis_key_prefix_prefers_app_config(self: object, monkeypatch: object):
+    def test_get_redis_key_prefix_prefers_app_config(self, monkeypatch: object):
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
@@ -524,7 +522,7 @@ class TestRedisPrefixHelpers:
         assert get_redis_key_prefix(app) == "app:"
 
     def test_get_redis_derived_prefix_falls_back_to_base_prefix(
-        self: object, monkeypatch: object
+        self, monkeypatch: object
     ):
         monkeypatch.setenv("REDIS_KEY_PREFIX", "env:")
 

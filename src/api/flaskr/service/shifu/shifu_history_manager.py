@@ -61,7 +61,7 @@ class HistoryItem(BaseModel, Generic[T]):
     children: list["HistoryItem"] = []
     child_count: int = 0
 
-    def to_json(self: object):
+    def to_json(self):
         """To json."""
         return self.model_dump_json()
 

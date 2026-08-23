@@ -155,9 +155,7 @@ def billing_domain_client(monkeypatch: object):
 class TestBillingDomains:
     """Verify billing domains behavior."""
 
-    def test_tls_probe_requires_tls_1_2_or_newer(
-        self: object, monkeypatch: object
-    ) -> None:
+    def test_tls_probe_requires_tls_1_2_or_newer(self, monkeypatch: object) -> None:
         context = SimpleNamespace(minimum_version=None)
 
         monkeypatch.setattr(
@@ -175,7 +173,7 @@ class TestBillingDomains:
         assert context.minimum_version == billing_domains.ssl.TLSVersion.TLSv1_2
 
     def test_domain_dns_verification_requires_txt_and_configured_cname(
-        self: object, monkeypatch: object
+        self, monkeypatch: object
     ) -> None:
         binding = BillingDomainBinding(
             host="learn.example.com",
@@ -200,7 +198,7 @@ class TestBillingDomains:
         )
 
     def test_creator_domain_bindings_keep_raw_last_verified_at(
-        self: object, billing_domain_client: object
+        self, billing_domain_client: object
     ) -> None:
         # The browser timezone thread is gone: the DTO now holds the raw stored
         # datetime and the fmt sink emits UTC at the HTTP boundary, instead of
@@ -216,7 +214,7 @@ class TestBillingDomains:
         assert verified.last_verified_at == datetime(2026, 4, 8, 10, 0, 0)
 
     def test_rebinding_verified_domain_disables_sibling_bindings(
-        self: object, billing_domain_client: object
+        self, billing_domain_client: object
     ) -> None:
         app = billing_domain_client["app"]
         now = datetime(2026, 4, 8, 12, 0, 0)
@@ -257,7 +255,7 @@ class TestBillingDomains:
         assert sibling.status == BILLING_DOMAIN_BINDING_STATUS_DISABLED
 
     def test_with_shifu_context_resolves_creator_from_custom_domain_host(
-        self: object, billing_domain_client: object
+        self, billing_domain_client: object
     ) -> None:
         client = billing_domain_client["client"]
 
@@ -282,7 +280,7 @@ class TestBillingDomains:
         assert disabled_response.get_json(force=True)["creator_bid"] is None
 
     def test_verify_domain_binding_helper_uses_existing_binding_token(
-        self: object, billing_domain_client: object
+        self, billing_domain_client: object
     ) -> None:
         app = billing_domain_client["app"]
 

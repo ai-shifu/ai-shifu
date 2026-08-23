@@ -26,7 +26,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
             message = "ruff is not installed"
             raise unittest.SkipTest(message)
 
-    def run_ruff(self: object, filename: str) -> subprocess.CompletedProcess[str]:
+    def run_ruff(self, filename: str) -> subprocess.CompletedProcess[str]:
         """Run the configured Ruff policy against source at one repository path."""
         return subprocess.run(
             [
@@ -45,7 +45,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
             check=False,
         )
 
-    def test_test_module_allows_confusable_fixture_text(self: object) -> None:
+    def test_test_module_allows_confusable_fixture_text(self) -> None:
         """Allow verbatim fixtures without an RUF001 diagnostic under test paths."""
         test_filenames = (
             "example/tests/fixture.py",
@@ -60,7 +60,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
                 assert result.returncode == 0, result.stdout + result.stderr
                 assert "RUF001" not in result.stdout, result.stdout + result.stderr
 
-    def test_production_module_still_rejects_confusable_text(self: object) -> None:
+    def test_production_module_still_rejects_confusable_text(self) -> None:
         """Keep RUF001 enforced outside test paths."""
         result = self.run_ruff("src/api/flaskr/confusable_fixture.py")
 

@@ -89,7 +89,7 @@ def test_invalidate_session_uses_fake_sessions_directly():
     calls = []
 
     class _Fake:
-        def invalidate(self: object):
+        def invalidate(self):
             calls.append(1)
 
     assert invalidate_session(source="test fake", session=_Fake()) is True
@@ -100,10 +100,10 @@ def test_cleanup_rolls_back_on_server_delivered_errors():
     events = []
 
     class _Fake:
-        def invalidate(self: object):
+        def invalidate(self):
             events.append("invalidate")
 
-        def rollback(self: object):
+        def rollback(self):
             events.append("rollback")
 
     outcome = cleanup_session_after(ValueError("business"), source="t", session=_Fake())
@@ -115,10 +115,10 @@ def test_cleanup_invalidates_on_interrupting_terminations():
     events = []
 
     class _Fake:
-        def invalidate(self: object):
+        def invalidate(self):
             events.append("invalidate")
 
-        def rollback(self: object):
+        def rollback(self):
             events.append("rollback")
 
     outcome = cleanup_session_after(GeneratorExit(), source="t", session=_Fake())
@@ -130,10 +130,10 @@ def test_cleanup_escalates_to_invalidate_when_rollback_fails():
     events = []
 
     class _Fake:
-        def invalidate(self: object):
+        def invalidate(self):
             events.append("invalidate")
 
-        def rollback(self: object):
+        def rollback(self):
             events.append("rollback")
             message = "rollback broke"
             raise RuntimeError(message)

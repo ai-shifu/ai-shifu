@@ -10,7 +10,7 @@ from .hot_reload import PluginHotReloader
 class PluginManager:
     """Coordinate backend plugin discovery and lifecycle events."""
 
-    def __init__(self: object, app: Flask) -> None:
+    def __init__(self, app: Flask) -> None:
         """Initialize empty plugin registries and lifecycle state for the app."""
         app.logger.info("PluginManager init")
         self.app = app
@@ -20,7 +20,7 @@ class PluginManager:
         self.plugins = {}
         self.is_enabled = True
 
-    def enable_hot_reload(self: object):
+    def enable_hot_reload(self):
         """Enable the hot reload."""
         if not self.is_enabled:
             return
@@ -28,18 +28,18 @@ class PluginManager:
             self.hot_reloader = PluginHotReloader(self.app)
             self.hot_reloader.start()
 
-    def disable_hot_reload(self: object):
+    def disable_hot_reload(self):
         """Disable the hot reload."""
         if self.hot_reloader:
             self.hot_reloader.stop()
             self.hot_reloader = None
 
-    def clear_extension(self: object, target_func_name: object):
+    def clear_extension(self, target_func_name: object):
         """Clear all registered functions for the specified extension point."""
         if target_func_name in self.extension_functions:
             del self.extension_functions[target_func_name]
 
-    def register_extension(self: object, target_func_name: object, func: object):
+    def register_extension(self, target_func_name: object, func: object):
         """Register an extension callback for a target function."""
         self.app.logger.info(
             "register_extension: %s -> %s", target_func_name, func.__name__
@@ -52,7 +52,7 @@ class PluginManager:
         self.extension_functions[target_func_name].append(func)
 
     def execute_extensions(
-        self: object, func_name: object, result: object, *args: object, **kwargs: object
+        self, func_name: object, result: object, *args: object, **kwargs: object
     ):
         """Execute callbacks registered for a target function."""
         self.app.logger.info("execute_extensions: %s", func_name)
@@ -63,7 +63,7 @@ class PluginManager:
                 result = func(result, *args, **kwargs)
         return result
 
-    def register_extensible_generic(self: object, func_name: object, func: object):
+    def register_extensible_generic(self, func_name: object, func: object):
         """Register a generic extensible function."""
         self.app.logger.info(
             "register_extensible_generic: %s -> %s", func_name, func.__name__
@@ -76,7 +76,7 @@ class PluginManager:
         self.extensible_generic_functions[func_name].append(func)
 
     def execute_extensible_generic(
-        self: object,
+        self,
         func_name: object,
         result: object,
         *args: object,
@@ -101,7 +101,7 @@ class PluginManager:
 class _PluginManagerState:
     """Own the replaceable manager without rebinding module state."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.manager: PluginManager | None = None
 
 

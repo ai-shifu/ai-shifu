@@ -105,11 +105,11 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine HTTP v1/tts API."""
 
     @property
-    def provider_name(self: object) -> str:
+    def provider_name(self) -> str:
         """Return the provider's stable configuration name."""
         return "volcengine_http"
 
-    def _get_credentials(self: object) -> tuple[str, str, str]:
+    def _get_credentials(self) -> tuple[str, str, str]:
         app_id = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
         token = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
         # Prefer an explicit env value over the registry default so the legacy
@@ -122,12 +122,12 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             cluster = (get_config("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
         return app_id, token, cluster
 
-    def is_configured(self: object) -> bool:
+    def is_configured(self) -> bool:
         """Return whether this provider has usable credentials."""
         app_id, token, cluster = self._get_credentials()
         return bool(app_id and token and cluster)
 
-    def get_default_voice_settings(self: object) -> VoiceSettings:
+    def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings.
 
         Notes:
@@ -143,7 +143,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             volume=1.0,
         )
 
-    def get_default_audio_settings(self: object) -> AudioSettings:
+    def get_default_audio_settings(self) -> AudioSettings:
         """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
@@ -152,21 +152,21 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self: object) -> list[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_HTTP_VOICES
 
-    def _resolve_encoding(self: object, audio_settings: AudioSettings) -> str:
+    def _resolve_encoding(self, audio_settings: AudioSettings) -> str:
         encoding = (audio_settings.format or "mp3").strip().lower()
         return VOLCENGINE_HTTP_ENCODING_MAP.get(encoding, "mp3")
 
-    def _resolve_sample_rate(self: object, audio_settings: AudioSettings) -> int:
+    def _resolve_sample_rate(self, audio_settings: AudioSettings) -> int:
         rate = int(audio_settings.sample_rate or 24000)
         if rate not in VOLCENGINE_HTTP_SAMPLE_RATES:
             return 24000
         return rate
 
-    def _resolve_pitch_ratio(self: object, pitch: int) -> float:
+    def _resolve_pitch_ratio(self, pitch: int) -> float:
         """Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
 
         The UI uses integer pitch values, where 10 maps to 1.0.
@@ -178,7 +178,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return max(0.1, min(3.0, ratio))
 
     def synthesize(
-        self: object,
+        self,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -392,7 +392,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             body_preview,
         )
 
-    def get_provider_config(self: object) -> ProviderConfig:
+    def get_provider_config(self) -> ProviderConfig:
         """Get provider configuration for frontend."""
         return ProviderConfig(
             name="volcengine_http",

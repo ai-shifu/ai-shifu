@@ -75,7 +75,7 @@ class SettlementResult:
     replay: bool = False
     backfill: bool = False
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         payload: dict[str, Any] = {
             "status": self.status,
@@ -92,7 +92,7 @@ class SettlementResult:
             payload["reason"] = self.reason
         return payload
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -107,7 +107,7 @@ class BackfillSettlementItem:
     creator_bid: str | None = None
     requested_creator_bid: str | None = None
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "usage_bid": self.usage_bid,
@@ -117,7 +117,7 @@ class BackfillSettlementItem:
             "requested_creator_bid": self.requested_creator_bid,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -136,7 +136,7 @@ class BackfillSettlementResult:
     items: list[BackfillSettlementItem] = field(default_factory=list)
     backfill: bool = True
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -150,7 +150,7 @@ class BackfillSettlementResult:
             "backfill": self.backfill,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

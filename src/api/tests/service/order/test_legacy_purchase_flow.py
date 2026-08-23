@@ -152,13 +152,13 @@ class _FakeSaasConfigFuncs:
         updated_by: str = ""
         config_bid: str = ""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self._by_bid: dict[str, dict[str, Any]] = {}
         self._by_user_key: dict[tuple[str, str], str] = {}
         self._next_id = 1
 
     def create_versioned_saas_user_config(
-        self: object,
+        self,
         app: object,
         *,
         user_bid: str,
@@ -180,9 +180,7 @@ class _FakeSaasConfigFuncs:
         }
         self._next_id += 1
 
-    def create_or_update_saas_user_config(
-        self: object, app: object, dto: object
-    ) -> None:
+    def create_or_update_saas_user_config(self, app: object, dto: object) -> None:
         del app
         self._by_user_key[(dto.user_bid, dto.key)] = dto.value
         if dto.config_bid:
@@ -196,18 +194,16 @@ class _FakeSaasConfigFuncs:
             }
             self._next_id += 1
 
-    def get_sass_config(
-        self: object, user_bid: str, key: str, default: str = ""
-    ) -> str:
+    def get_sass_config(self, user_bid: str, key: str, default: str = "") -> str:
         return self._by_user_key.get((user_bid, key), default)
 
-    def get_saas_user_config_value_by_bid(self: object, app: object, config_bid: str):
+    def get_saas_user_config_value_by_bid(self, app: object, config_bid: str):
         del app
         record = self._by_bid.get(config_bid)
         return None if record is None else record["value"]
 
     def update_saas_user_config_version(
-        self: object,
+        self,
         app: object,
         *,
         config_bid: str,
@@ -218,7 +214,7 @@ class _FakeSaasConfigFuncs:
         self._by_bid[config_bid]["value"] = value
 
     def soft_delete_saas_user_config(
-        self: object, app: object, user_bid: str, key: str
+        self, app: object, user_bid: str, key: str
     ) -> None:
         del app
         self._by_user_key.pop((user_bid, key), None)
@@ -227,32 +223,32 @@ class _FakeSaasConfigFuncs:
 class _FakeSaasColumn:
     __hash__ = None
 
-    def __init__(self: object, name: str) -> None:
+    def __init__(self, name: str) -> None:
         self.name = name
 
-    def __eq__(self: object, value: object) -> tuple[str, object]:  # type: ignore[override]
+    def __eq__(self, value: object) -> tuple[str, object]:  # type: ignore[override]
         return self.name, value
 
-    def desc(self: object) -> _FakeSaasColumn:
+    def desc(self) -> _FakeSaasColumn:
         return self
 
 
 class _FakeSaasQuery:
     def __init__(
-        self: object,
+        self,
         fake_saas: _FakeSaasConfigFuncs,
         conditions: list[tuple[str, object]] | None = None,
     ) -> None:
         self._fake_saas = fake_saas
         self._conditions = conditions or []
 
-    def filter(self: object, *conditions: tuple[str, object]) -> _FakeSaasQuery:
+    def filter(self, *conditions: tuple[str, object]) -> _FakeSaasQuery:
         return _FakeSaasQuery(self._fake_saas, [*self._conditions, *conditions])
 
-    def order_by(self: object, *_args: object) -> _FakeSaasQuery:
+    def order_by(self, *_args: object) -> _FakeSaasQuery:
         return self
 
-    def first(self: object):
+    def first(self):
         rows = sorted(
             self._fake_saas._by_bid.values(),
             key=lambda row: int(row["id"]),
@@ -288,10 +284,10 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
     provider_requests: list[dict[str, Any]] = []
 
     class FakeNativeProvider:
-        def __init__(self: object, provider_name: str) -> None:
+        def __init__(self, provider_name: str) -> None:
             self.provider_name = provider_name
 
-        def create_payment(self: object, *, request: object, app: object):
+        def create_payment(self, *, request: object, app: object):
             del app
             if self.provider_name == "alipay":
                 assert request.channel == "alipay_qr"
@@ -502,7 +498,7 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
     stripe_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self: object, *, request: object, app: object):
+        def create_payment(self, *, request: object, app: object):
             _ = app
             stripe_requests.append(
                 {

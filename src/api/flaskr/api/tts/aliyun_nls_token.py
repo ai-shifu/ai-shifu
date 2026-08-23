@@ -50,11 +50,11 @@ class AliyunNlsToken:
     expire_time: int  # unix epoch seconds
 
     @property
-    def expires_in_seconds(self: object) -> int:
+    def expires_in_seconds(self) -> int:
         """Return the number of seconds remaining until this token expires."""
         return max(0, int(self.expire_time - time.time()))
 
-    def is_expired(self: object, now: float | None = None) -> bool:
+    def is_expired(self, now: float | None = None) -> bool:
         """Return whether the cached token has expired."""
         now_ts = time.time() if now is None else float(now)
         return self.expire_time <= int(now_ts)
