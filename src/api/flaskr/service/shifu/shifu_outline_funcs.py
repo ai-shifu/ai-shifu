@@ -751,7 +751,7 @@ def reorder_outline_tree(
         return True
 
 
-def get_unit_by_id(app: object, user_id: str, unit_id: str) -> object:
+def get_unit_by_id(app: object, user_id: str, unit_id: str) -> OutlineDto:
     """Get unit by id.
 
     Args:
@@ -804,7 +804,7 @@ def modify_unit(
     unit_system_prompt: str | None = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
-) -> object:
+) -> OutlineDto:
     """Modify unit.
 
     Args:

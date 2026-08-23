@@ -63,7 +63,7 @@ def _build_frontend_url(base_url: str, path: str) -> str:
 
 def preview_shifu_draft(
     app: object, user_id: str, shifu_id: str, variables: dict, base_url: str
-) -> object:
+) -> str:
     """Preview shifu draft.
 
     Args:
@@ -89,7 +89,7 @@ def publish_shifu_draft(
     shifu_id: str,
     base_url: str,
     sync_summary: bool = False,
-) -> object:
+) -> str:
     """Publish shifu draft will copy all draft data to published data and save history to database and run summary generation in background by default and return published shifu url.
 
     Args:

@@ -45,7 +45,7 @@ def norm(path: object) -> object:
     return tuple(segs)
 
 
-def grep_paths(root: object) -> object:
+def grep_paths(root: object) -> set[tuple[str, ...]]:
     """Return source paths reported by the route search."""
     if not Path(root).is_dir():
         return set()

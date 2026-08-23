@@ -459,7 +459,7 @@ def save_profile_item(
     parent_id: str,
     user_id: str,
     key: str,
-) -> object:
+) -> ProfileItemDefinition:
     """Save (create/update) a custom variable definition."""
     with app.app_context():
         normalized_parent_id = parent_id or ""
@@ -525,7 +525,7 @@ def save_profile_item(
         return convert_variable_definition_to_profile_item_definition(definition)
 
 
-def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> object:
+def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> bool:
     """Delete profile item."""
     with app.app_context():
         definition = Variable.query.filter(

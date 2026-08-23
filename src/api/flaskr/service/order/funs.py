@@ -1173,7 +1173,7 @@ def sync_stripe_checkout_session(
     order_id: str,
     session_id: str | None = None,
     expected_user: str | None = None,
-) -> object:
+) -> dict[str, Any]:
     """Synchronize stripe checkout session."""
     with _app_context_scope(app), unit_of_work():
         order = (
@@ -1951,7 +1951,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict) -> ob
     return None
 
 
-def success_buy_record(app: Flask, record_id: str) -> object:
+def success_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO | None:
     """Success buy record.
 
     Owns a unit of work so legacy callers (coupon_funcs, order admin) keep

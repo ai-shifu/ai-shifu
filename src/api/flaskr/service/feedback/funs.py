@@ -8,7 +8,7 @@ from flaskr.service.user.repository import load_user_aggregate
 from .models import FeedBack
 
 
-def submit_feedback(app: Flask, user_id: str, feedback: str, mail: str) -> object:
+def submit_feedback(app: Flask, user_id: str, feedback: str, mail: str) -> int:
     """Submit feedback."""
     with app.app_context():
         feedback_item = FeedBack(user_id=user_id, feedback=feedback)

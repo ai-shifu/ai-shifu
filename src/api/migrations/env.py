@@ -43,7 +43,7 @@ def include_object(
     type_: object,
     reflected: object,
     compare_to: object,
-) -> object:
+) -> bool:
     """Use the simplest mode to avoid separation."""
     # the system tables
     _ = compare_to

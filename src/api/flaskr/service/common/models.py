@@ -3,6 +3,7 @@
 
 import json
 from pathlib import Path
+from typing import Never
 
 from flaskr.i18n import _
 from flaskr.util.deprecation import deprecated_alias_getattr
@@ -67,7 +68,7 @@ def register_error(error_name: object, error_code: object) -> None:
     ERROR_CODE[error_name] = error_code
 
 
-def raise_param_error(param_message: object) -> None:
+def raise_param_error(param_message: object) -> Never:
     """Raise a localized invalid-parameter application error."""
     raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
@@ -75,7 +76,7 @@ def raise_param_error(param_message: object) -> None:
     )
 
 
-def raise_error(error_name: object) -> None:
+def raise_error(error_name: object) -> Never:
     """Raise a localized application error for the supplied key."""
     raise AppError(
         _(error_name),
@@ -83,7 +84,7 @@ def raise_error(error_name: object) -> None:
     )
 
 
-def raise_error_with_args(error_name: object, **kwargs: object) -> None:
+def raise_error_with_args(error_name: object, **kwargs: object) -> Never:
     """Raise error with args."""
     raise AppError(
         _(error_name).format(**kwargs),
