@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.route.common import make_common_response
@@ -128,7 +128,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return None
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
-    def reqiure_to_pay() -> object:
+    def reqiure_to_pay() -> str:
         """Request payment.
 
         ---
@@ -183,7 +183,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/init-order", methods=["POST"])
     @with_shifu_context()
-    def init_order() -> object:
+    def init_order() -> str:
         """Initialize an order.
 
         ---
@@ -221,7 +221,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(init_buy_record(app, user_id, course_id))
 
     @app.route(path_prefix + "/query-order", methods=["POST"])
-    def query_order() -> object:
+    def query_order() -> str:
         """Query an order.
 
         ---
@@ -258,7 +258,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(query_buy_record(app, order_id))
 
     @app.route(path_prefix + "/apply-discount", methods=["POST"])
-    def apply_discount() -> object:
+    def apply_discount() -> str:
         """Apply a discount code.
 
         ---
@@ -305,7 +305,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/payment-detail", methods=["POST"])
-    def payment_detail() -> object:
+    def payment_detail() -> str:
         """Query payment details.
 
         ---
@@ -341,7 +341,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(get_payment_details(app, order_id))
 
     @app.route(path_prefix + "/stripe/sync", methods=["POST"])
-    def stripe_sync() -> object:
+    def stripe_sync() -> str:
         """Sync the Stripe payment status.
 
         ---
@@ -380,7 +380,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/payment/sync", methods=["POST"])
-    def payment_sync() -> object:
+    def payment_sync() -> str:
         """Sync the payment status.
 
         ---
@@ -418,7 +418,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
-    def stripe_webhook() -> object:
+    def stripe_webhook() -> Response:
         """Stripe webhook placeholder.
 
         ---
@@ -435,7 +435,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return app.response_class(body, status=status_code, mimetype="application/json")
 
     @app.route(path_prefix + "/admin/orders", methods=["GET"])
-    def admin_order_list() -> object:
+    def admin_order_list() -> str:
         """Admin order list.
 
         ---
@@ -513,7 +513,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
-    def admin_order_shifu_list() -> object:
+    def admin_order_shifu_list() -> str:
         """List created shifus for order admin filters.
 
         ---
@@ -593,7 +593,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
-    def admin_import_activation() -> object:
+    def admin_import_activation() -> str:
         """Admin import activation order.
 
         ---
@@ -711,7 +711,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/admin/orders/redemption-codes", methods=["GET"])
-    def admin_creator_redemption_code_list() -> object:
+    def admin_creator_redemption_code_list() -> str:
         """List course redemption code batches created by the current creator."""
         _require_creator()
         page_index, page_size = _parse_admin_pagination()
@@ -742,7 +742,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/admin/orders/redemption-codes", methods=["POST"])
-    def admin_create_creator_redemption_code() -> object:
+    def admin_create_creator_redemption_code() -> str:
         """Create a course redemption code for the current creator's published course."""
         _require_creator()
         payload = _parse_required_json_payload()
@@ -754,7 +754,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         path_prefix + "/admin/orders/redemption-codes/<coupon_bid>/usages",
         methods=["GET"],
     )
-    def admin_creator_redemption_code_usage_list(coupon_bid: str) -> object:
+    def admin_creator_redemption_code_usage_list(coupon_bid: str) -> str:
         """List usage records for a course redemption code owned by the current creator."""
         _require_creator()
         page_index, page_size = _parse_admin_pagination()
@@ -773,7 +773,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         path_prefix + "/admin/orders/redemption-codes/<coupon_bid>/codes",
         methods=["GET"],
     )
-    def admin_creator_redemption_code_code_list(coupon_bid: str) -> object:
+    def admin_creator_redemption_code_code_list(coupon_bid: str) -> str:
         """List generated sub-codes for a course redemption code owned by the current creator."""
         _require_creator()
         page_index, page_size = _parse_admin_pagination()
@@ -791,7 +791,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         path_prefix + "/admin/orders/redemption-codes/<coupon_bid>",
         methods=["GET"],
     )
-    def admin_creator_redemption_code_detail(coupon_bid: str) -> object:
+    def admin_creator_redemption_code_detail(coupon_bid: str) -> str:
         """Get detail for a course redemption code owned by the current creator."""
         _require_creator()
         return make_common_response(
@@ -804,7 +804,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         path_prefix + "/admin/orders/redemption-codes/<coupon_bid>",
         methods=["POST"],
     )
-    def admin_update_creator_redemption_code(coupon_bid: str) -> object:
+    def admin_update_creator_redemption_code(coupon_bid: str) -> str:
         """Update a course redemption code owned by the current creator."""
         _require_creator()
         payload = _parse_required_json_payload()
@@ -818,7 +818,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         path_prefix + "/admin/orders/redemption-codes/<coupon_bid>/status",
         methods=["POST"],
     )
-    def admin_update_creator_redemption_code_status(coupon_bid: str) -> object:
+    def admin_update_creator_redemption_code_status(coupon_bid: str) -> str:
         """Update status for a course redemption code owned by the current creator."""
         _require_creator()
         payload = _parse_required_json_payload()
@@ -832,7 +832,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response({"enabled": bool(result.get("enabled"))})
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
-    def admin_order_detail(order_bid: str) -> object:
+    def admin_order_detail(order_bid: str) -> str:
         """Admin order detail.
 
         ---

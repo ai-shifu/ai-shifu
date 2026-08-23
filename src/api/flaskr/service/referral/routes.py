@@ -18,7 +18,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
     """Register referral routes."""
 
     @app.route(path_prefix + "/invite-profile", methods=["GET"])
-    def referral_invite_profile_api() -> object:
+    def referral_invite_profile_api() -> str:
         user = getattr(request, "user", None)
         user_bid = str(getattr(user, "user_id", "") or "").strip()
         if not user_bid:
@@ -28,7 +28,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
 
     @app.route(path_prefix + "/invite-preview", methods=["GET"])
     @bypass_token_validation
-    def referral_invite_preview_api() -> object:
+    def referral_invite_preview_api() -> str:
         preview = build_invite_preview(
             app,
             invite_code=str(request.args.get("invite_code") or "").strip(),
@@ -37,7 +37,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
 
     @app.route(path_prefix + "/invite-event", methods=["POST"])
     @bypass_token_validation
-    def referral_invite_event_api() -> object:
+    def referral_invite_event_api() -> str:
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         result = record_invite_event(

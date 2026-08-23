@@ -12,7 +12,7 @@ def register_llm_routes(app: Flask, path_prefix: str = "/api/llm") -> Flask:
     app.logger.info("register llm routes %s", path_prefix)
 
     @app.route(path_prefix + "/model-list", methods=["GET"])
-    def model_list_api() -> object:
+    def model_list_api() -> str:
         """Get model list.
 
         ---

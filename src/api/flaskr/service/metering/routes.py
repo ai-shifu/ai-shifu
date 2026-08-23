@@ -28,7 +28,7 @@ def register_metering_routes(app: Flask, path_prefix: str = "/api/metering") -> 
     """Register metering routes."""
 
     @app.route(path_prefix + "/usage-summary", methods=["GET"])
-    def get_usage_summary() -> object:
+    def get_usage_summary() -> str:
         start_date = request.args.get("start_date", "")
         end_date = request.args.get("end_date", "")
         user_bid = request.args.get("user_bid", "")

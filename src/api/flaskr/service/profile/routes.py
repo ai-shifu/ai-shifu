@@ -20,7 +20,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
     """Register learner-profile routes on the Flask application."""
 
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
-    def get_profile_item_defination_api() -> object:
+    def get_profile_item_defination_api() -> str:
         """Get profile item defination.
 
         ---
@@ -67,7 +67,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
-    def hide_unused_profile_items_api() -> object:
+    def hide_unused_profile_items_api() -> str:
         """Hide all unused custom profile items under a shifu.
 
         ---
@@ -97,7 +97,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         )
 
     @app.route(f"{path_prefix}/profile-variable-usage", methods=["GET"])
-    def get_profile_variable_usage_api() -> object:
+    def get_profile_variable_usage_api() -> str:
         """Get variable usage across all outlines for a shifu.
 
         ---
@@ -121,7 +121,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         )
 
     @app.route(f"{path_prefix}/update-profile-hidden-state", methods=["POST"])
-    def update_profile_hidden_state_api() -> object:
+    def update_profile_hidden_state_api() -> str:
         """Hide or restore specific custom profile items.
 
         ---
@@ -165,7 +165,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         )
 
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])
-    def add_profile_item_quick_api() -> object:
+    def add_profile_item_quick_api() -> str:
         """Add profile item.
 
         ---
@@ -209,7 +209,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         )
 
     @app.route(f"{path_prefix}/save-profile-item", methods=["POST"])
-    def save_profile_item_api() -> object:
+    def save_profile_item_api() -> str:
         """Save profile item.
 
         ---
@@ -280,7 +280,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         )
 
     @app.route(f"{path_prefix}/delete-profile-item", methods=["POST"])
-    def delete_profile_item_api() -> object:
+    def delete_profile_item_api() -> str:
         """Delete profile item.
 
         ---
