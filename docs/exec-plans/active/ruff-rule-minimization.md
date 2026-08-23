@@ -256,6 +256,11 @@ plan's progress update for that rule.
   normalized AST audit found no executable differences; the D103 policy and
   Swagger regressions pass, followed by the full backend suite at 3,042 passed
   with 17 skipped and every applicable repository pre-commit gate.
+- [x] 2026-08-22: Replaced rule-specific Alembic exceptions with a directory
+  `ALL` exemption for `src/api/migrations/versions/**`. The project policy,
+  confirmed by the maintainers, treats every Alembic-generated revision as
+  immutable history, including subsequently generated revisions; later Ruff
+  adoption must never require rewriting migration code.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
