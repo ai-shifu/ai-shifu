@@ -144,7 +144,7 @@ def disable_plugin_manager(app: Flask) -> Flask:
 def extension(target_func_name: object) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorate a function with registered extension callbacks."""
 
-    def decorator(func: object) -> Callable[P, R]:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         manager = get_plugin_manager()
         if manager is None:
             message = "Plugin manager is not enabled"
