@@ -1655,7 +1655,7 @@ def stream_generated_block_audio(
                     param_message="No speakable text available for TTS synthesis",
                 )
 
-            def _generate_single_audio() -> object:
+            def _generate_single_audio() -> Iterator[object]:
                 yield from _yield_run_tts_audio_events(
                     app=app,
                     text=raw_text,
