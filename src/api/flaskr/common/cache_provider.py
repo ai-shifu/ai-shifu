@@ -124,8 +124,8 @@ class _DynamicRedisCacheProvider:
     def delete(self, *keys: str) -> int:
         return int(self._client().delete(*keys))
 
-    def incr(self, key: str, amount: int = 1) -> object:
-        return self._client().incr(key, amount)
+    def incr(self, key: str, amount: int = 1) -> int:
+        return int(self._client().incr(key, amount))
 
     def ttl(self, key: str) -> int:
         return int(self._client().ttl(key))
@@ -268,7 +268,7 @@ class InMemoryCacheProvider:
                     self._store.pop(key, None)
         return deleted
 
-    def incr(self, key: str, amount: int = 1) -> object:
+    def incr(self, key: str, amount: int = 1) -> int:
         """Increment the integer stored under a cache key."""
         with self._mu:
             self._purge_if_expired(key)
@@ -368,9 +368,9 @@ class FallbackCacheProvider:
         """Delete values for the supplied keys."""
         return int(self._call("delete", *keys))
 
-    def incr(self, key: str, amount: int = 1) -> object:
+    def incr(self, key: str, amount: int = 1) -> int:
         """Increment the integer stored under a cache key."""
-        return self._call("incr", key, amount)
+        return int(self._call("incr", key, amount))
 
     def ttl(self, key: str) -> int:
         """Return the remaining lifetime of a cache key."""
