@@ -657,7 +657,7 @@ def create_outlines_batch(
 
 def reorder_outline_tree(
     app: object, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
-) -> object:
+) -> bool:
     """Reorder outline tree.
 
     usage:
