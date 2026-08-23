@@ -877,7 +877,7 @@ def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls: object, tz: object = None) -> datetime:
+        def now(cls, tz: object = None) -> datetime:
             return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -991,7 +991,7 @@ def test_list_operator_users_recent_windows_exclude_future_records_and_keep_micr
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls: object, tz: object = None) -> datetime:
+        def now(cls, tz: object = None) -> datetime:
             return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
@@ -2951,7 +2951,7 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
 ):
     class FixedDateTime(datetime):
         @classmethod
-        def now(cls: object, tz: object = None) -> datetime:
+        def now(cls, tz: object = None) -> datetime:
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(

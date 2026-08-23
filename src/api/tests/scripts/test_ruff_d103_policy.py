@@ -21,7 +21,7 @@ class RuffD103PolicyTest(unittest.TestCase):
     """Protect the documented public-function policy and its narrow boundaries."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         """Resolve the same Ruff executable used by local and CI checks."""
         cls.ruff = os.environ.get("RUFF_BIN") or shutil.which("ruff")
         if cls.ruff is None:

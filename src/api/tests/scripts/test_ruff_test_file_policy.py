@@ -19,7 +19,7 @@ class RuffTestFilePolicyTest(unittest.TestCase):
     """Protect the test-only RUF001 exemption boundary."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         """Resolve the same Ruff executable used by local and CI checks."""
         cls.ruff = os.environ.get("RUFF_BIN") or shutil.which("ruff")
         if cls.ruff is None:

@@ -241,7 +241,7 @@ class EmitterPayloadSmokeTests(unittest.TestCase):
     """Verify emitter payload smoke behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("run-emitter-payload-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

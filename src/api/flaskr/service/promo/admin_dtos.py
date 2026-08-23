@@ -41,9 +41,7 @@ def _datetime_fields_for(cls: object) -> frozenset[str]:
 class _DTOBase(BaseModel):
     @field_validator("*", mode="before")
     @classmethod
-    def _coerce_empty_datetime(
-        cls: object, value: object, info: ValidationInfo
-    ) -> object:
+    def _coerce_empty_datetime(cls, value: object, info: ValidationInfo) -> object:
         if not isinstance(value, str) or value.strip() not in _EMPTY_DATETIME_VALUES:
             return value
         if info.field_name in _datetime_fields_for(cls):
