@@ -53,6 +53,7 @@ from .models import (
 from .reward_queue import build_referral_reward_queue
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
     from datetime import datetime
 
 _INVITE_CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -119,7 +120,7 @@ def extract_referral_post_auth_fields(
     }
 
 
-def _with_app_context(app: Flask) -> object:
+def _with_app_context(app: Flask) -> AbstractContextManager[None]:
     return app.app_context() if not has_app_context() else _NullContext()
 
 
