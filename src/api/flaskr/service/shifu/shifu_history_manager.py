@@ -445,7 +445,7 @@ def save_outline_history(
     outline_bid: str,
     row_id: int,
     child_count: int = 0,
-) -> object:
+) -> int:
     """Save outline history.
 
     Args:
