@@ -1647,7 +1647,7 @@ def stream_generated_block_audio(
                 yield from _yield_existing_single_block_audio(existing_audio)
                 return
 
-        def _yield_single_block_audio() -> object:
+        def _yield_single_block_audio() -> Iterator[object]:
             cleaned_text = preprocess_for_tts(raw_text)
             if not cleaned_text or len(cleaned_text.strip()) < 2:
                 raise_error_with_args(
