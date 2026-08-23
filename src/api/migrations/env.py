@@ -6,6 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from flask import current_app
 from flaskr.dao import db
+from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
 
 # this is the Alembic Config object, which provides
@@ -99,7 +100,7 @@ def include_object(
     return True
 
 
-def get_metadata() -> object:
+def get_metadata() -> MetaData:
     if hasattr(target_db, "metadatas"):
         return target_db.metadatas[None]
     return target_db.metadata
