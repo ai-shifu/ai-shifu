@@ -57,7 +57,7 @@ class CacheProvider(Protocol):
         """Delete values for the supplied keys."""
         raise NotImplementedError
 
-    def incr(self, key: str, amount: int = 1) -> object:
+    def incr(self, key: str, amount: int = 1) -> int:
         """Increment the integer stored under a cache key."""
         raise NotImplementedError
 
