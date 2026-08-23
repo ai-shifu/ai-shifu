@@ -40,12 +40,14 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flask.ctx import AppContext
+
 from flask import has_app_context
 
 logger = logging.getLogger(__name__)
 
 
-def app_context_scope(app: object) -> AbstractContextManager[None]:
+def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     """Reuse the caller's app context (and DB session) when one is active.
 
     Flask-SQLAlchemy 3.1 scopes the session to the innermost app context, so
