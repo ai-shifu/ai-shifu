@@ -82,7 +82,7 @@ for name, rel in mods.items():
                     edges[name].add(base + "." + a.name)
 
 
-def resolve(target: object) -> object:
+def resolve(target: object) -> str | None:
     """Map an imported dotted name to a known project module (or None)."""
     while target:
         if target in mods:
