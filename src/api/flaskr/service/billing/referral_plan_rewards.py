@@ -123,7 +123,7 @@ def _billing_models() -> _BillingModelsModule:
     return models
 
 
-def _load_reward_product(product_code: str) -> object:
+def _load_reward_product(product_code: str) -> BillingProduct | None:
     consts = _billing_consts()
     models = _billing_models()
     return (
