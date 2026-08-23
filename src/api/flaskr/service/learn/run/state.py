@@ -107,7 +107,7 @@ class RunStateResolver:
         return self._context._user_info.user_id
 
     @property
-    def _current_outline_item(self) -> object:
+    def _current_outline_item(self) -> HistoryItem | None:
         return self._context._current_outline_item
 
     @property
