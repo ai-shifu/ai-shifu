@@ -63,7 +63,7 @@ def _normalize_language_code(language_code: str) -> str:
     return "-".join(normalized_parts)
 
 
-def get_user_language(user: object) -> object:
+def get_user_language(user: object) -> str:
     """Return the language preference recorded for a user."""
     language = ""
     if hasattr(user, "user_language") and user.user_language:
