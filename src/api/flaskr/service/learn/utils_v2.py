@@ -80,7 +80,7 @@ def safe_format_template(template: str, variables: dict) -> str:
     # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
-    def replacer(match: object):
+    def replacer(match: re.Match[str]):
         _, var, _ = match.groups()
         var_name = var.strip()
         # Only process variable names with letters, digits, underscore, hyphen
