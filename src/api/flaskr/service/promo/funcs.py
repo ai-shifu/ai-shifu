@@ -8,6 +8,7 @@ from flaskr.dao import db
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, func, or_
+from sqlalchemy.sql.elements import ColumnElement
 
 from .consts import (
     COUPON_BATCH_STATUS_ACTIVE,
@@ -63,7 +64,7 @@ def _blank_legacy_bid_expression(column: object):
     return func.trim(normalized) == ""
 
 
-def build_coupon_enabled_expression(model_or_columns: object) -> object:
+def build_coupon_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
     """Build coupon enabled expression."""
     return or_(
         model_or_columns.status == COUPON_BATCH_STATUS_ACTIVE,
@@ -75,7 +76,7 @@ def build_coupon_enabled_expression(model_or_columns: object) -> object:
     )
 
 
-def build_campaign_enabled_expression(model_or_columns: object) -> object:
+def build_campaign_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
     """Build campaign enabled expression."""
     return or_(
         model_or_columns.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
