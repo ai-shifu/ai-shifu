@@ -77,6 +77,7 @@ from .dtos import (
     BillingTopupProductDTO,
     BillingWalletBucketListDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderGrantDTO,
     OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
 )
@@ -494,7 +495,7 @@ def _load_credit_order_product_map(
 def _load_credit_order_grant_map(
     app: Flask,
     order_bids: list[str],
-) -> dict[str, object]:
+) -> dict[str, OperatorCreditOrderGrantDTO]:
     normalized_order_bids = [_normalize_bid(bid) for bid in order_bids if bid]
     if not normalized_order_bids:
         return {}
@@ -511,7 +512,7 @@ def _load_credit_order_grant_map(
         )
         .all()
     )
-    payload = {}
+    payload: dict[str, OperatorCreditOrderGrantDTO] = {}
     for row in rows:
         source_bid = str(row.source_bid or "").strip()
         if not source_bid or source_bid in payload:
