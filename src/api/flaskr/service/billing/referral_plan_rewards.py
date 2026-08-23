@@ -87,6 +87,18 @@ class _BillingModelsModule(Protocol):
     CreditWalletBucket: type[CreditWalletBucket]
 
 
+class _BillingConstantsModule(Protocol):
+    BILLING_PRODUCT_TYPE_PLAN: int
+    BILLING_PRODUCT_STATUS_ACTIVE: int
+    BILLING_SUBSCRIPTION_STATUS_DRAFT: int
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START: int
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL: int
+    BILLING_ORDER_STATUS_PAID: int
+    BILLING_TRIAL_PRODUCT_BID: str
+    BILLING_TRIAL_PRODUCT_CODE: str
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: str
+
+
 def _with_app_context(app: Flask) -> AbstractContextManager[None]:
     return _NullContext() if has_app_context() else app.app_context()
 
@@ -99,7 +111,7 @@ def _normalize_bid(value: object) -> str:
     return str(value or "").strip()
 
 
-def _billing_consts() -> object:
+def _billing_consts() -> _BillingConstantsModule:
     from . import consts
 
     return consts
