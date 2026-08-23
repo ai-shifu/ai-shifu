@@ -1,5 +1,7 @@
 """Handle Ping++ order for legacy orders."""
 
+from typing import Any
+
 from flask import Flask
 
 from .payment_providers import PaymentRequest, get_payment_provider
@@ -24,7 +26,7 @@ def create_pingxx_order(
     subject: object,
     body: object,
     extra: object = None,
-) -> object:
+) -> dict[str, Any]:
     """Create pingxx order."""
     app.logger.info(
         "create pingxx order,order_no:%s app_id:%s channel:%s amount:%s client_ip:%s subject:%s body:%s extra:%s",
