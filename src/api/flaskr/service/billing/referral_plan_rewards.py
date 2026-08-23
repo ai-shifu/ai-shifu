@@ -208,7 +208,7 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     product: object,
     *,
     cycle_boundary_at: datetime,
-) -> object:
+) -> datetime | None:
     from .queries import calculate_self_managed_billing_cycle_end_after_boundary
 
     return calculate_self_managed_billing_cycle_end_after_boundary(
