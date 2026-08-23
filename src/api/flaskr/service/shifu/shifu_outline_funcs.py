@@ -889,7 +889,7 @@ def modify_unit(
         )
 
 
-def delete_unit(app: object, user_id: str, unit_id: str) -> object:
+def delete_unit(app: object, user_id: str, unit_id: str) -> bool:
     """Delete unit.
 
     Args:
