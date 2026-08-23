@@ -237,7 +237,7 @@ class TencentTTSError(ValueError):
     """Signal that Tencent speech synthesis returned invalid data."""
 
     def __init__(
-        self: object,
+        self,
         *,
         code: Any,
         message: str = "",
@@ -1154,11 +1154,11 @@ class TencentTTSProvider(BaseTTSProvider):
     """Stream synthesized speech through Tencent TTS."""
 
     @property
-    def provider_name(self: object) -> str:
+    def provider_name(self) -> str:
         """Return the provider's stable configuration name."""
         return "tencent"
 
-    def get_credentials(self: object) -> TencentTTSCredentials:
+    def get_credentials(self) -> TencentTTSCredentials:
         """Return the configured provider credentials."""
         app_id = get_config("TENCENT_TTS_APP_ID", "")
         secret_id = str(get_config("TENCENT_TTS_SECRET_ID", "") or "").strip()
@@ -1172,7 +1172,7 @@ class TencentTTSProvider(BaseTTSProvider):
             secret_key=secret_key,
         )
 
-    def is_configured(self: object) -> bool:
+    def is_configured(self) -> bool:
         """Return whether this provider has usable credentials."""
         try:
             self.get_credentials()
@@ -1180,7 +1180,7 @@ class TencentTTSProvider(BaseTTSProvider):
             return False
         return True
 
-    def get_default_voice_settings(self: object) -> VoiceSettings:
+    def get_default_voice_settings(self) -> VoiceSettings:
         """Return this provider's default voice settings."""
         return VoiceSettings(
             voice_id=TENCENT_DEFAULT_VOICE_ID,
@@ -1190,7 +1190,7 @@ class TencentTTSProvider(BaseTTSProvider):
             volume=0,
         )
 
-    def get_default_audio_settings(self: object) -> AudioSettings:
+    def get_default_audio_settings(self) -> AudioSettings:
         """Return this provider's default audio settings."""
         return AudioSettings(
             format=_tencent_codec(),
@@ -1199,15 +1199,15 @@ class TencentTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_emotions(self: object) -> list[str]:
+    def get_supported_emotions(self) -> list[str]:
         """Return the emotions exposed by this provider."""
         return [item["value"] for item in TENCENT_EMOTIONS if item["value"]]
 
-    def get_supported_voices(self: object) -> list[dict[str, str]]:
+    def get_supported_voices(self) -> list[dict[str, str]]:
         """Return the voices exposed by this provider."""
         return [dict(voice) for voice in TENCENT_PREMIUM_VOICES]
 
-    def get_provider_config(self: object) -> ProviderConfig:
+    def get_provider_config(self) -> ProviderConfig:
         """Return the provider's public configuration."""
         return ProviderConfig(
             name=self.provider_name,
@@ -1220,7 +1220,7 @@ class TencentTTSProvider(BaseTTSProvider):
             emotions=list(TENCENT_EMOTIONS),
         )
 
-    def _split_text(self: object, text: str) -> list[str]:
+    def _split_text(self, text: str) -> list[str]:
         max_chars = max(TENCENT_MAX_SESSION_CHARS, 1)
         normalized = str(text or "").strip()
         if not normalized:
@@ -1231,7 +1231,7 @@ class TencentTTSProvider(BaseTTSProvider):
         ]
 
     def stream_synthesize(
-        self: object,
+        self,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,
@@ -1324,7 +1324,7 @@ class TencentTTSProvider(BaseTTSProvider):
                 close()
 
     def synthesize(
-        self: object,
+        self,
         text: str,
         voice_settings: VoiceSettings | None = None,
         audio_settings: AudioSettings | None = None,

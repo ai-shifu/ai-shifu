@@ -12,7 +12,7 @@ from flaskr.common.gevent_hub_observer import install_hub_error_observer
 
 
 class _StubHub:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.calls = []
 
         def _original(context: object, exc_type: object, value: object, tb: object):
@@ -33,7 +33,7 @@ def test_observer_logs_and_delegates(caplog: object):
     assert install_hub_error_observer(logger, hub=hub) is True
 
     class _FakeSemaphore:
-        def __repr__(self: object) -> str:
+        def __repr__(self) -> str:
             return "<FakeSemaphore links=3>"
 
     context = _FakeSemaphore()
@@ -67,7 +67,7 @@ def test_logger_failure_never_blocks_the_original_handler():
     hub = _StubHub()
 
     class _BrokenLogger:
-        def error(self: object, *args: object, **kwargs: object):
+        def error(self, *args: object, **kwargs: object):
             _ = (args, kwargs)
             message = "logging backend down"
             raise RuntimeError(message)
@@ -85,7 +85,7 @@ def test_unreprable_context_is_still_logged(caplog: object):
     install_hub_error_observer(logger, hub=hub)
 
     class _BadRepr:
-        def __repr__(self: object) -> str:
+        def __repr__(self) -> str:
             message = "no repr for you"
             raise ValueError(message)
 

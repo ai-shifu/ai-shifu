@@ -51,13 +51,13 @@ def test_one_failing_bind_does_not_block_the_rest(app: object, monkeypatch: obje
     disposed = []
 
     class _BrokenEngine:
-        def dispose(self: object, close: object):
+        def dispose(self, close: object):
             _ = close
             message = "bind gone"
             raise RuntimeError(message)
 
     class _GoodEngine:
-        def dispose(self: object, close: object):
+        def dispose(self, close: object):
             disposed.append(close)
 
     class _FakeDB:

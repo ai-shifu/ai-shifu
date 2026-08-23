@@ -33,14 +33,14 @@ def test_transactional_session_classifies_before_savepoint_rollback(
     )
 
     class _Nested:
-        def __init__(self: object) -> None:
+        def __init__(self) -> None:
             self.rollbacks = 0
             self.commits = 0
 
-        def rollback(self: object):
+        def rollback(self):
             self.rollbacks += 1
 
-        def commit(self: object):
+        def commit(self):
             self.commits += 1
 
     nested = _Nested()

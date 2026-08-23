@@ -8,23 +8,23 @@ from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_lang
 
 
 class _DummyGeneration:
-    def __init__(self: object, **kwargs: object) -> None:
+    def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self: object, **kwargs: object):
+    def end(self, **kwargs: object):
         self.end_kwargs = kwargs
 
 
 class _DummySpan:
     def __init__(
-        self: object, trace_id: object = "trace-1", span_id: object = "span-1"
+        self, trace_id: object = "trace-1", span_id: object = "span-1"
     ) -> None:
         self.trace_id = trace_id
         self.id = span_id
         self.generations = []
 
-    def generation(self: object, **kwargs: object):
+    def generation(self, **kwargs: object):
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation

@@ -18,7 +18,7 @@ class LearnStatus(Enum):
     COMPLETED = "completed"
     LOCKED = "locked"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -31,7 +31,7 @@ class OutlineType(Enum):
     TRIAL = "trial"
     GUEST = "guest"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -53,7 +53,7 @@ class GeneratedType(Enum):
     # Internal ask event (listen adapter only, not exposed to non-listen consumers)
     ASK = "ask"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -83,7 +83,7 @@ class ElementType(Enum):
     _PICTURE = "picture"
     _VIDEO = "video"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -95,7 +95,7 @@ class ElementChangeType(Enum):
     RENDER = "render"
     DIFF = "diff"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -108,7 +108,7 @@ class LikeStatus(Enum):
     DISLIKE = "dislike"
     NONE = "none"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -123,7 +123,7 @@ class BlockType(Enum):
     ASK = "ask"
     ANSWER = "answer"
 
-    def __json__(self: object) -> str:
+    def __json__(self) -> str:
         """Return the serialized enum value."""
         return self.value
 
@@ -136,14 +136,14 @@ class VariableUpdateDTO(BaseModel):
     variable_value: str = Field(..., description="variable value", required=False)
 
     def __init__(
-        self: object,
+        self,
         variable_name: str,
         variable_value: str,
     ) -> None:
         """Build the variable update payload."""
         super().__init__(variable_name=variable_name, variable_value=variable_value)
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the variable update as JSON-compatible data."""
         return {
             "variable_name": self.variable_name,
@@ -163,7 +163,7 @@ class OutlineItemUpdateDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         outline_bid: str,
         title: str,
         status: LearnStatus,
@@ -177,7 +177,7 @@ class OutlineItemUpdateDTO(BaseModel):
             has_children=has_children,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the outline item update as JSON-compatible data."""
         return {
             "outline_bid": self.outline_bid,
@@ -205,7 +205,7 @@ class LearnShifuInfoDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         bid: str,
         title: str,
         description: str,
@@ -227,7 +227,7 @@ class LearnShifuInfoDTO(BaseModel):
             default_listen_mode_enabled=default_listen_mode_enabled,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return learner-facing course information as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -257,7 +257,7 @@ class LearnBannerInfoDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         title: str,
         pop_up_title: str,
         pop_up_content: str,
@@ -273,7 +273,7 @@ class LearnBannerInfoDTO(BaseModel):
             pop_up_cancel_text=pop_up_cancel_text,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the learner banner as JSON-compatible data."""
         return {
             "title": self.title,
@@ -304,7 +304,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         bid: str,
         position: str,
         title: str,
@@ -326,7 +326,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             has_content_update_for_current_user=has_content_update_for_current_user,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the learner outline item as JSON-compatible data."""
         return {
             "bid": self.bid,
@@ -352,7 +352,7 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         banner_info: LearnBannerInfoDTO | None,
         outline_items: list[LearnOutlineItemInfoDTO],
     ) -> None:
@@ -362,7 +362,7 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
             outline_items=outline_items,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the learner banner and outline collection as JSON-compatible data."""
         return {
             "banner_info": None
@@ -402,7 +402,7 @@ class AudioSegmentDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         segment_index: int,
         audio_data: str,
         duration_ms: int = 0,
@@ -426,7 +426,7 @@ class AudioSegmentDTO(BaseModel):
             subtitle_cues=subtitle_cues or [],
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the audio segment as JSON-compatible data."""
         ret = {
             "position": self.position,
@@ -473,7 +473,7 @@ class AudioCompleteDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         audio_url: str,
         audio_bid: str,
         duration_ms: int,
@@ -495,7 +495,7 @@ class AudioCompleteDTO(BaseModel):
             subtitle_cues=subtitle_cues or [],
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return completed-audio metadata as JSON-compatible data."""
         ret = {
             "position": self.position,
@@ -521,11 +521,11 @@ class ElementVisualDTO(BaseModel):
     visual_type: str = Field(..., description="Visual payload type", required=False)
     content: str = Field(..., description="Visual payload content", required=False)
 
-    def __init__(self: object, visual_type: str, content: str) -> None:
+    def __init__(self, visual_type: str, content: str) -> None:
         """Build the element visual payload."""
         super().__init__(visual_type=visual_type, content=content)
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the element visual as JSON-compatible data."""
         return {"visual_type": self.visual_type, "content": self.content}
 
@@ -545,7 +545,7 @@ class SubtitleCueDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         text: str,
         start_ms: int,
         end_ms: int,
@@ -561,7 +561,7 @@ class SubtitleCueDTO(BaseModel):
             position=int(position or 0),
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the subtitle cue as JSON-compatible data."""
         return {
             "text": self.text or "",
@@ -589,7 +589,7 @@ class ElementAudioDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         audio_url: str,
         audio_bid: str,
         duration_ms: int,
@@ -605,7 +605,7 @@ class ElementAudioDTO(BaseModel):
             subtitle_cues=subtitle_cues or [],
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the element audio as JSON-compatible data."""
         ret = {
             "position": int(self.position or 0),
@@ -649,7 +649,7 @@ class ElementPayloadDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         audio: ElementAudioDTO | None = None,
         previous_visuals: list[ElementVisualDTO] | None = None,
         anchor_element_bid: str | None = None,
@@ -669,7 +669,7 @@ class ElementPayloadDTO(BaseModel):
             asks=asks,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the composite element payload as JSON-compatible data."""
         ret = {
             "audio": self.audio.__json__() if self.audio is not None else None,
@@ -751,12 +751,12 @@ class ElementDTO(BaseModel):
     )
 
     @property
-    def content_text(self: object) -> str:
+    def content_text(self) -> str:
         """Return the element's learner-visible text."""
         return self.content
 
     @content_text.setter
-    def content_text(self: object, value: str) -> None:
+    def content_text(self, value: str) -> None:
         object.__setattr__(self, "content", value or "")
 
     _PATCH_FIELDS = (
@@ -773,12 +773,12 @@ class ElementDTO(BaseModel):
         "sequence_number",
     )
 
-    def apply_patch(self: object, patch: ElementDTO) -> None:
+    def apply_patch(self, patch: ElementDTO) -> None:
         """Apply an incremental patch to this element."""
         for field_name in self._PATCH_FIELDS:
             setattr(self, field_name, getattr(patch, field_name))
 
-    def _audio_segments_for_output(self: object) -> list[dict[str, Any]]:
+    def _audio_segments_for_output(self) -> list[dict[str, Any]]:
         segments: list[dict[str, Any]] = []
         for item in self.audio_segments or []:
             if not isinstance(item, dict):
@@ -790,7 +790,7 @@ class ElementDTO(BaseModel):
             item["is_final"] = True
         return segments
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the element as JSON-compatible data."""
         ret = {
             "event_type": self.event_type,
@@ -835,7 +835,7 @@ class AudioBackfillReadyDTO(BaseModel):
         description="Persisted final element identifiers in this generated block",
     )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return audio-backfill readiness as JSON-compatible data."""
         return {
             "generated_block_bid": self.generated_block_bid,
@@ -870,7 +870,7 @@ class RunElementSSEMessageDTO(BaseModel):
         | AudioBackfillReadyDTO
     ) = Field(..., description="Run event content")
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the run element SSE message as JSON-compatible data."""
         ret = {
             "type": self.type,
@@ -914,7 +914,7 @@ class RunMarkdownFlowDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         outline_bid: str,
         generated_block_bid: str,
         type: GeneratedType,  # noqa: A002 - serialized DTO field name
@@ -935,7 +935,7 @@ class RunMarkdownFlowDTO(BaseModel):
         )
 
     def set_mdflow_stream_parts(
-        self: object, parts: list[tuple[str, str, int]] | None
+        self, parts: list[tuple[str, str, int]] | None
     ) -> RunMarkdownFlowDTO:
         """Attach incremental MarkdownFlow stream parts."""
         normalized_parts: list[tuple[str, str, int]] = []
@@ -955,11 +955,11 @@ class RunMarkdownFlowDTO(BaseModel):
         self._mdflow_stream_parts = normalized_parts
         return self
 
-    def get_mdflow_stream_parts(self: object) -> list[tuple[str, str, int]]:
+    def get_mdflow_stream_parts(self) -> list[tuple[str, str, int]]:
         """Return attached MarkdownFlow stream parts."""
         return list(self._mdflow_stream_parts)
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the MarkdownFlow execution payload as JSON-compatible data."""
         ret = {
             "outline_bid": self.outline_bid,
@@ -1014,7 +1014,7 @@ class PlaygroundPreviewRequest(BaseModel):
         description="Whether to enable MarkdownFlow visual mode for preview",
     )
 
-    def get_document(self: object) -> str:
+    def get_document(self) -> str:
         """Return the requested playground document."""
         return self.content or ""
 
@@ -1035,7 +1035,7 @@ class LearnElementRecordDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         elements: list[ElementDTO] | None = None,
         events: list[RunElementSSEMessageDTO] | None = None,
         last_progress_updated_at: str | None = None,
@@ -1047,7 +1047,7 @@ class LearnElementRecordDTO(BaseModel):
             last_progress_updated_at=last_progress_updated_at,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the learner element record as JSON-compatible data."""
         ret = {
             "elements": [
@@ -1073,14 +1073,14 @@ class RunStatusDTO(BaseModel):
     running_time: int = Field(..., description="running time", required=False)
 
     def __init__(
-        self: object,
+        self,
         is_running: bool,
         running_time: int,
     ) -> None:
         """Build the run status payload."""
         super().__init__(is_running=is_running, running_time=running_time)
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the run status as JSON-compatible data."""
         return {
             "is_running": self.is_running,
@@ -1099,7 +1099,7 @@ class GeneratedInfoDTO(BaseModel):
     )
 
     def __init__(
-        self: object,
+        self,
         position: int,
         outline_name: str,
         is_trial_lesson: bool,
@@ -1111,7 +1111,7 @@ class GeneratedInfoDTO(BaseModel):
             is_trial_lesson=is_trial_lesson,
         )
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return generated-outline metadata as JSON-compatible data."""
         return {
             "position": self.position,

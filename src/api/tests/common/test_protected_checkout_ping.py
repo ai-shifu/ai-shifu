@@ -15,10 +15,10 @@ from sqlalchemy.exc import DisconnectionError
 
 
 class _FakeRecord:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.invalidated_with = []
 
-    def invalidate(self: object, e: object = None):
+    def invalidate(self, e: object = None):
         self.invalidated_with.append(e)
 
 
@@ -30,7 +30,7 @@ def _make_conn(sock: object, ping_exc: object = None):
     class _Conn:
         _sock = sock
 
-        def ping(self: object, reconnect: object):
+        def ping(self, reconnect: object):
             assert reconnect is False
             if ping_exc is not None:
                 raise ping_exc

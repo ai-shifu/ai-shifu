@@ -30,11 +30,11 @@ if TYPE_CHECKING:
 class ListenElementRunSidecarMixin:
     """Provide sidecar state operations for listen-mode element runs."""
 
-    def _new_interaction_element_bid(self: object) -> str:
+    def _new_interaction_element_bid(self) -> str:
         return _new_element_bid(self.app)
 
     def _resolve_ask_element_bid_for_block(
-        self: object,
+        self,
         generated_block_bid: str,
         *,
         bind_current: bool = False,
@@ -51,13 +51,11 @@ class ListenElementRunSidecarMixin:
             return self._current_ask_element_bid
         return ""
 
-    def _resolve_answer_element_bid_for_block(
-        self: object, generated_block_bid: str
-    ) -> str:
+    def _resolve_answer_element_bid_for_block(self, generated_block_bid: str) -> str:
         return self._answer_element_bid_by_block_bid.get(generated_block_bid, "")
 
     def _build_follow_up_payload(
-        self: object,
+        self,
         *,
         anchor_element_bid: str,
         ask_element_bid: str | None = None,
@@ -72,7 +70,7 @@ class ListenElementRunSidecarMixin:
         return payload
 
     def _build_ask_element(
-        self: object,
+        self,
         *,
         generated_block_bid: str,
         ask_element_bid: str,
@@ -109,7 +107,7 @@ class ListenElementRunSidecarMixin:
         )
 
     def _build_answer_element(
-        self: object,
+        self,
         *,
         generated_block_bid: str,
         answer_element_bid: str,
@@ -148,7 +146,7 @@ class ListenElementRunSidecarMixin:
         )
 
     def _build_answer_element_patch(
-        self: object,
+        self,
         *,
         generated_block_bid: str,
         answer_element_bid: str,
@@ -175,7 +173,7 @@ class ListenElementRunSidecarMixin:
             base_payload=snapshot.payload,
         )
 
-    def _load_follow_up_snapshot(self: object, element_bid: str) -> ElementDTO | None:
+    def _load_follow_up_snapshot(self, element_bid: str) -> ElementDTO | None:
         snapshot = self._load_latest_element_snapshot(element_bid)
         if snapshot is not None:
             return snapshot
@@ -185,7 +183,7 @@ class ListenElementRunSidecarMixin:
         return _element_from_row(snapshot_row)
 
     def _build_answer_element_from_state(
-        self: object,
+        self,
         generated_block_bid: str,
         *,
         is_final: bool,
@@ -243,7 +241,7 @@ class ListenElementRunSidecarMixin:
         )
 
     def _interaction_content_and_payload(
-        self: object, event: RunMarkdownFlowDTO, generated_block_bid: str
+        self, event: RunMarkdownFlowDTO, generated_block_bid: str
     ) -> tuple[str, ElementPayloadDTO]:
         interaction_user_input = _load_interaction_user_input(generated_block_bid)
         payload = ElementPayloadDTO(audio=None, previous_visuals=[])
@@ -252,7 +250,7 @@ class ListenElementRunSidecarMixin:
         return str(event.content or ""), payload
 
     def _handle_interaction(
-        self: object, event: RunMarkdownFlowDTO
+        self, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
         content_text, payload = self._interaction_content_and_payload(
@@ -279,7 +277,7 @@ class ListenElementRunSidecarMixin:
         yield self._element_message(element)
 
     def _handle_ask(
-        self: object, event: RunMarkdownFlowDTO
+        self, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         anchor_bid = getattr(event, "anchor_element_bid", "") or ""
         ask_content = str(event.content or "")
@@ -357,7 +355,7 @@ class ListenElementRunSidecarMixin:
         yield self._element_message(ask_element)
 
     def _finalize_answer_element(
-        self: object, generated_block_bid: str
+        self, generated_block_bid: str
     ) -> RunElementSSEMessageDTO | None:
         answer_element = self._build_answer_element_from_state(
             generated_block_bid,

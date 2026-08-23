@@ -167,7 +167,7 @@ class ShifuTokenValidation:
     """Shifu token validation decorator if is_creator is true, only verify creator permission and skip shifu-specific verification."""
 
     def __init__(
-        self: object,
+        self,
         permission: ShifuPermission = ShifuPermission.VIEW,
         is_creator: bool = False,
     ) -> None:
@@ -175,7 +175,7 @@ class ShifuTokenValidation:
         self.permission = permission
         self.is_creator = is_creator
 
-    def __call__(self: object, f: object) -> Callable:
+    def __call__(self, f: object) -> Callable:
         """Validate token permissions and optional creator status before invoking the route."""
 
         @wraps(f)

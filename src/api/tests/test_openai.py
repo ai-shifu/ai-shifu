@@ -88,7 +88,7 @@ class DummySpan:
     """Simulate span behavior for tests."""
 
     def __init__(
-        self: object, trace_id: object = "trace-1", span_id: object = "span-1"
+        self, trace_id: object = "trace-1", span_id: object = "span-1"
     ) -> None:
         """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
@@ -97,14 +97,14 @@ class DummySpan:
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self: object, **kwargs: object):
+    def generation(self, **kwargs: object):
         self.generation_args = kwargs
         return self
 
-    def end(self: object, **kwargs: object):
+    def end(self, **kwargs: object):
         self.end_args = kwargs
 
-    def update(self: object, **kwargs: object):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
 
@@ -112,7 +112,7 @@ class FakeResponse:
     """Simulate response behavior for tests."""
 
     def __init__(
-        self: object,
+        self,
         chunk_id: object,
         content: object = None,
         finish_reason: object = None,
@@ -129,7 +129,7 @@ class FakeUsage:
     """Simulate usage behavior for tests."""
 
     def __init__(
-        self: object,
+        self,
         prompt_tokens: object,
         completion_tokens: object,
         total_tokens: object,

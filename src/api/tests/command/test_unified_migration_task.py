@@ -12,28 +12,28 @@ from flaskr.command.unified_migration_task import (
 
 
 class _FakeResult:
-    def __init__(self: object, value: object) -> None:
+    def __init__(self, value: object) -> None:
         self._value = value
 
-    def scalar(self: object):
+    def scalar(self):
         return self._value
 
-    def fetchone(self: object):
+    def fetchone(self):
         return self._value
 
 
 class _FakeSession:
     """Session double that records the statements a migration step issues."""
 
-    def __init__(self: object, value: object = 1) -> None:
+    def __init__(self, value: object = 1) -> None:
         self._value = value
         self.calls = []
 
-    def execute(self: object, statement: object, params: object = None):
+    def execute(self, statement: object, params: object = None):
         self.calls.append((str(statement), params))
         return _FakeResult(self._value)
 
-    def close(self: object):
+    def close(self):
         pass
 
 

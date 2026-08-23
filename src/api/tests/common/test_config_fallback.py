@@ -16,7 +16,7 @@ class TestEnvironmentVariableFallback:
     """Test environment variable fallback mechanism."""
 
     @pytest.fixture
-    def setup_app(self: object, monkeypatch: object):
+    def setup_app(self, monkeypatch: object):
         """Set up Flask app with required configurations."""
         # Set required environment variables
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
@@ -41,7 +41,7 @@ class TestEnvironmentVariableFallback:
 
         return app, config
 
-    def test_fallback_to_env_var_with_warning(self: object, setup_app: object):
+    def test_fallback_to_env_var_with_warning(self, setup_app: object):
         """Test that undefined config keys fallback to environment variables with warning."""
         app, config = setup_app
 
@@ -60,7 +60,7 @@ class TestEnvironmentVariableFallback:
         )
 
     def test_fallback_cached_no_repeated_warning(
-        self: object, setup_app: object, caplog: object
+        self, setup_app: object, caplog: object
     ):
         """Test that cached values don't trigger repeated warnings."""
         _app, config = setup_app
@@ -81,7 +81,7 @@ class TestEnvironmentVariableFallback:
         # Only one warning should have been logged
         assert final_warning_count == initial_warning_count
 
-    def test_undefined_var_not_in_env_returns_none(self: object, setup_app: object):
+    def test_undefined_var_not_in_env_returns_none(self, setup_app: object):
         """Test that undefined variables not in environment return None."""
         _app, config = setup_app
 
@@ -91,9 +91,7 @@ class TestEnvironmentVariableFallback:
         # Should return None
         assert value is None
 
-    def test_defined_var_no_fallback_warning(
-        self: object, setup_app: object, caplog: object
-    ):
+    def test_defined_var_no_fallback_warning(self, setup_app: object, caplog: object):
         """Test that defined variables don't trigger fallback warnings."""
         _app, config = setup_app
 
@@ -107,7 +105,7 @@ class TestEnvironmentVariableFallback:
         # No fallback warning should be logged
         assert "not defined in ENV_VARS registry" not in caplog.text
 
-    def test_get_method_with_fallback(self: object, setup_app: object, caplog: object):
+    def test_get_method_with_fallback(self, setup_app: object, caplog: object):
         """Test Config.get() method with fallback."""
         _app, config = setup_app
 
@@ -118,7 +116,7 @@ class TestEnvironmentVariableFallback:
         assert value == "undefined_value_1"
         # Note: config.get() does trigger a warning when falling back to environment variables.
 
-    def test_get_method_with_default(self: object, setup_app: object):
+    def test_get_method_with_default(self, setup_app: object):
         """Test Config.get() method with default value."""
         _app, config = setup_app
 
@@ -139,12 +137,12 @@ class TestEnhancedConfigFallback:
     """Test EnhancedConfig fallback mechanism."""
 
     @pytest.fixture
-    def enhanced_config(self: object):
+    def enhanced_config(self):
         """Create EnhancedConfig instance."""
         return EnhancedConfig(ENV_VARS)
 
     def test_enhanced_get_no_fallback(
-        self: object, enhanced_config: object, monkeypatch: object
+        self, enhanced_config: object, monkeypatch: object
     ):
         """Test EnhancedConfig.get() does NOT fallback to environment variable."""
         # Set an undefined environment variable
@@ -161,7 +159,7 @@ class TestEnhancedConfigFallback:
         assert value is None
 
     def test_enhanced_get_caches_defined_values(
-        self: object, enhanced_config: object, monkeypatch: object
+        self, enhanced_config: object, monkeypatch: object
     ):
         """Test that defined values are cached in EnhancedConfig."""
         # Set a defined environment variable
@@ -182,7 +180,7 @@ class TestEnhancedConfigFallback:
 
         assert value1 == value2 == "cached_redis_host"
 
-    def test_enhanced_get_undefined_not_in_env(self: object, enhanced_config: object):
+    def test_enhanced_get_undefined_not_in_env(self, enhanced_config: object):
         """Test EnhancedConfig.get() returns None for non-existent vars."""
         # Clear cache
         enhanced_config._cache.clear()
@@ -196,7 +194,7 @@ class TestEnhancedConfigFallback:
 class TestIntegrationWithFlask:
     """Integration tests with Flask application."""
 
-    def test_flask_app_with_custom_env_vars(self: object, monkeypatch: object):
+    def test_flask_app_with_custom_env_vars(self, monkeypatch: object):
         """Test Flask app can use custom environment variables."""
         # Set required vars
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
@@ -227,7 +225,7 @@ class TestIntegrationWithFlask:
         # The warnings are logged by the logger module, not through app.logger
         # So we check that values were retrieved correctly which indicates fallback worked
 
-    def test_setitem_clears_cache_for_fallback(self: object, monkeypatch: object):
+    def test_setitem_clears_cache_for_fallback(self, monkeypatch: object):
         """Test that setting a value clears the cache."""
         # Set required vars
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")

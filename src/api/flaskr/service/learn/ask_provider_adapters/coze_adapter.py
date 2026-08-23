@@ -31,7 +31,7 @@ class CozeAskProviderAdapter:
     provider = ASK_PROVIDER_COZE
 
     def stream_answer(
-        self: object,
+        self,
         app: Flask,
         user_id: str,
         user_query: str,

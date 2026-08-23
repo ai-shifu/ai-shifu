@@ -30,7 +30,7 @@ class FollowUpInfo:
     ask_provider_config: dict
 
     def __init__(
-        self: object,
+        self,
         ask_model: object,
         ask_prompt: object,
         ask_history_count: object,
@@ -48,7 +48,7 @@ class FollowUpInfo:
         self.ask_mode = ask_mode
         self.ask_provider_config = ask_provider_config or {}
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         """Return the follow-up info as JSON-compatible data."""
         return {
             "ask_model": self.ask_model,

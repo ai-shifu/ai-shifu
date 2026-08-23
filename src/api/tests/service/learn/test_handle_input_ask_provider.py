@@ -85,26 +85,26 @@ GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").Gener
 class _DummyColumn:
     __hash__ = None
 
-    def __eq__(self: object, _other: object) -> bool:
+    def __eq__(self, _other: object) -> bool:
         return True
 
 
 class _DummyOrderColumn(_DummyColumn):
-    def desc(self: object):
+    def desc(self):
         return self
 
 
 class _DummyQuery:
-    def filter(self: object, *_args: object, **_kwargs: object):
+    def filter(self, *_args: object, **_kwargs: object):
         return self
 
-    def order_by(self: object, *_args: object, **_kwargs: object):
+    def order_by(self, *_args: object, **_kwargs: object):
         return self
 
-    def limit(self: object, *_args: object, **_kwargs: object):
+    def limit(self, *_args: object, **_kwargs: object):
         return self
 
-    def all(self: object):
+    def all(self):
         return []
 
 
@@ -118,10 +118,10 @@ class _DummyLearnGeneratedBlockModel:
 class _DummyNoneQuery:
     """Query that always returns None for .first()."""
 
-    def filter(self: object, *_args: object, **_kwargs: object):
+    def filter(self, *_args: object, **_kwargs: object):
         return self
 
-    def first(self: object):
+    def first(self):
         return None
 
 
@@ -132,13 +132,13 @@ class _DummyLearnGeneratedElementModel:
 
 
 class _DummyFollowUpInfo:
-    def __init__(self: object, ask_provider_config: object) -> None:
+    def __init__(self, ask_provider_config: object) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}::{knowledge_section}"
         self.ask_model = "gpt-test"
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
 
-    def __json__(self: object) -> dict:
+    def __json__(self) -> dict:
         return {
             "ask_model": self.ask_model,
             "ask_provider_config": self.ask_provider_config,
@@ -146,16 +146,16 @@ class _DummyFollowUpInfo:
 
 
 class _DummyGeneration:
-    def __init__(self: object, **kwargs: object) -> None:
+    def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self: object, **kwargs: object):
+    def end(self, **kwargs: object):
         self.end_kwargs = kwargs
 
 
 class _DummySpan:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.output = ""
         self.generations = []
         self.updated = {}
@@ -164,55 +164,55 @@ class _DummySpan:
         self.end_kwargs = {}
         self.events = []
 
-    def generation(self: object, **kwargs: object):
+    def generation(self, **kwargs: object):
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self: object, **kwargs: object):
+    def span(self, **kwargs: object):
         self.span_calls.append(kwargs)
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self: object, **kwargs: object):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
-    def event(self: object, **kwargs: object):
+    def event(self, **kwargs: object):
         self.events.append(kwargs)
 
-    def end(self: object, output: object = None, **kwargs: object):
+    def end(self, output: object = None, **kwargs: object):
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
 
 class _DummyTrace:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.span_output = None
         self.updated = {}
         self.last_span = None
 
-    def span(self: object, **_kwargs: object):
+    def span(self, **_kwargs: object):
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self: object, **kwargs: object):
+    def update(self, **kwargs: object):
         self.updated = kwargs
 
 
 class _LLMChunk:
-    def __init__(self: object, result: str) -> None:
+    def __init__(self, result: str) -> None:
         self.result = result
 
 
 class _Context:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
-    def get_system_prompt(self: object, _outline_bid: str):
+    def get_system_prompt(self, _outline_bid: str):
         return "COURSE_PROMPT"
 
-    def append_langfuse_output(self: object, value: str):
+    def append_langfuse_output(self, value: str):
         self.langfuse_outputs.append(value)
 
 
@@ -220,13 +220,13 @@ def _setup_handle_input_ask_patches(
     monkeypatch: object, module: object, ask_provider_config: object
 ):
     class _DummyLLMSettings:
-        def __init__(self: object, model: object, temperature: object) -> None:
+        def __init__(self, model: object, temperature: object) -> None:
             self.model = model
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
         def __init__(
-            self: object,
+            self,
             llm_stream_factory: object = None,
             llm_context_stream_factory: object = None,
         ) -> None:

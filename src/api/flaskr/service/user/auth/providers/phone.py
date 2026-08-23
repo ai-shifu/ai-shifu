@@ -31,7 +31,7 @@ class PhoneAuthProvider(AuthProvider):
     supports_challenge = True
 
     def send_challenge(
-        self: object, app: Flask, request: ChallengeRequest
+        self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
         """Send an authentication challenge to the user."""
         identifier = normalize_phone_identifier(request.identifier)
@@ -48,7 +48,7 @@ class PhoneAuthProvider(AuthProvider):
             metadata=metadata,
         )
 
-    def verify(self: object, app: Flask, request: VerificationRequest) -> AuthResult:
+    def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
         """Verify the supplied authentication credential."""
         identifier = normalize_phone_identifier(request.identifier)
         user_token, created_user, context = verify_phone_code(

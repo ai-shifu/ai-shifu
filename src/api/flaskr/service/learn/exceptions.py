@@ -7,7 +7,7 @@ from flaskr.util.deprecation import deprecated_alias_getattr
 class PaidError(AppError):
     """Signal that the requested learning content requires payment."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Initialize the paid-content control-flow signal."""
         super().__init__(
             "server.order.courseNotPaid",
@@ -21,7 +21,7 @@ class PaidError(AppError):
 class BreakError(AppError):
     """Signal that the current learning run should stop normally."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Initialize the run-break control-flow signal."""
         super().__init__(
             "server.order.courseNotPaid",

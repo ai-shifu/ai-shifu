@@ -153,18 +153,18 @@ class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
 
-    def _resolve_token_endpoint(self: object, app: object) -> str:
+    def _resolve_token_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_TOKEN_ENDPOINT", TOKEN_ENDPOINT)
 
-    def _resolve_userinfo_endpoint(self: object, app: object) -> str:
+    def _resolve_userinfo_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
-    def verify(self: object, app: object, request: object):
+    def verify(self, app: object, request: object):
         """Raise because Google authentication is supported only through OAuth flows."""
         message = "GoogleAuthProvider only supports OAuth flows"
         raise NotImplementedError(message)
 
-    def _create_session(self: object, app: object, redirect_uri: str) -> OAuth2Session:
+    def _create_session(self, app: object, redirect_uri: str) -> OAuth2Session:
         client_id = app.config.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = app.config.get("GOOGLE_OAUTH_CLIENT_SECRET")
         scopes = ["openid", "email", "profile"]
@@ -175,9 +175,7 @@ class GoogleAuthProvider(AuthProvider):
             redirect_uri=redirect_uri,
         )
 
-    def begin_oauth(
-        self: object, app: object, metadata: dict[str, Any]
-    ) -> dict[str, Any]:
+    def begin_oauth(self, app: object, metadata: dict[str, Any]) -> dict[str, Any]:
         """Create the Google OAuth authorization redirect."""
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
@@ -230,7 +228,7 @@ class GoogleAuthProvider(AuthProvider):
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(
-        self: object, app: object, request: OAuthCallbackRequest
+        self, app: object, request: OAuthCallbackRequest
     ) -> AuthResult:
         """Verify the callback, resolve account state, and issue a login token."""
         if not request.code or not request.state:

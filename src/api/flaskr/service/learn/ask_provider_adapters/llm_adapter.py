@@ -19,7 +19,7 @@ class LlmAskProviderAdapter:
     provider = ASK_PROVIDER_LLM
 
     def stream_answer(
-        self: object,
+        self,
         app: Flask,
         user_id: str,
         user_query: str,

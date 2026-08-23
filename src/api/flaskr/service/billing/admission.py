@@ -39,7 +39,7 @@ class CreatorUsageAdmission:
     subscription_status: int | None
     priority_class: str
 
-    def to_response_dict(self: object) -> dict[str, Any]:
+    def to_response_dict(self) -> dict[str, Any]:
         """Serialize this result for an API response."""
         return {
             "allowed": self.allowed,
@@ -51,7 +51,7 @@ class CreatorUsageAdmission:
             "priority_class": self.priority_class,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 

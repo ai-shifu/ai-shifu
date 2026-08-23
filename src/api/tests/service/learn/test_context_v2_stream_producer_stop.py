@@ -137,7 +137,7 @@ def test_tts_finalize_failure_runs_classified_cleanup(app: object, monkeypatch: 
     class _FailingProcessor:
         next_element_index = 0
 
-        def finalize(self: object, *, commit: object):
+        def finalize(self, *, commit: object):
             _ = commit
             message = "desynced during finalize"
             raise ResourceClosedError(message)

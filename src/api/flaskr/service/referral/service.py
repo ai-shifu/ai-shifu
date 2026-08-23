@@ -124,10 +124,10 @@ def _with_app_context(app: Flask):
 
 
 class _NullContext:
-    def __enter__(self: object) -> None:
+    def __enter__(self) -> None:
         return None
 
-    def __exit__(self: object, *_exc: object) -> bool | None:
+    def __exit__(self, *_exc: object) -> bool | None:
         return False
 
 

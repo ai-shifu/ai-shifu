@@ -30,43 +30,43 @@ def _skip_connection_probe(monkeypatch: object):
 class FakeLock:
     """Simulate lock behavior for tests."""
 
-    def __init__(self: object, acquire_results: list[bool]) -> None:
+    def __init__(self, acquire_results: list[bool]) -> None:
         """Queue acquisition outcomes and reset acquire and release counters."""
         self._acquire_results = list(acquire_results)
         self.acquire_calls = 0
         self.release_calls = 0
 
-    def acquire(self: object, blocking: object = True):
+    def acquire(self, blocking: object = True):
         _ = blocking
         self.acquire_calls += 1
         if self._acquire_results:
             return self._acquire_results.pop(0)
         return False
 
-    def release(self: object):
+    def release(self):
         self.release_calls += 1
 
 
 class FakeCacheProvider:
     """Simulate cache provider behavior for tests."""
 
-    def __init__(self: object, lock: FakeLock) -> None:
+    def __init__(self, lock: FakeLock) -> None:
         """Bind a test lock and initialize the cached byte values."""
         self._lock = lock
         self.values: dict[str, bytes] = {}
 
-    def lock(self: object, *_args: object, **_kwargs: object):
+    def lock(self, *_args: object, **_kwargs: object):
         return self._lock
 
-    def setex(self: object, key: str, _time_in_seconds: int, value: object):
+    def setex(self, key: str, _time_in_seconds: int, value: object):
         encoded = value if isinstance(value, bytes) else str(value).encode("utf-8")
         self.values[key] = encoded
         return True
 
-    def get(self: object, key: str):
+    def get(self, key: str):
         return self.values.get(key)
 
-    def delete(self: object, *keys: str) -> int:
+    def delete(self, *keys: str) -> int:
         deleted = 0
         for key in keys:
             if key in self.values:
@@ -78,12 +78,12 @@ class FakeCacheProvider:
 class FakeListenElementAdapter:
     """Simulate listen element adapter behavior for tests."""
 
-    def __init__(self: object, *_args: object, **_kwargs: object) -> None:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
         """Initialize event sequencing for a fixed run session."""
         self._seq = 0
         self._run_session_bid = "run-session-1"
 
-    def process(self: object, events: object):
+    def process(self, events: object):
         for event in events:
             if event.type == GeneratedType.ASK:
                 continue
@@ -101,7 +101,7 @@ class FakeListenElementAdapter:
             )
 
     def make_ephemeral_message(
-        self: object,
+        self,
         *,
         event_type: str,
         content: object,
@@ -532,22 +532,22 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(
     )
 
     class FakeRunScriptContext:
-        def __init__(self: object, **_kwargs: object) -> None:
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self: object, *_args: object, **_kwargs: object):
+        def set_input(self, *_args: object, **_kwargs: object):
             return None
 
-        def reload(self: object, *_args: object, **_kwargs: object):
+        def reload(self, *_args: object, **_kwargs: object):
             return []
 
-        def has_next(self: object):
+        def has_next(self):
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self: object, _app: object):
+        def run(self, _app: object):
             return [
                 RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -573,10 +573,10 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
     class FakeElementAdapter:
-        def __init__(self: object) -> None:
+        def __init__(self) -> None:
             self.calls = []
 
-        def process(self: object, events: object):
+        def process(self, events: object):
             captured = list(events)
             self.calls.append(captured)
             return iter([f"converted:{event.type.value}" for event in captured])
@@ -734,22 +734,22 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch: object
     )
 
     class FakeRunScriptContext:
-        def __init__(self: object, **_kwargs: object) -> None:
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self: object, *_args: object, **_kwargs: object):
+        def set_input(self, *_args: object, **_kwargs: object):
             return None
 
-        def reload(self: object, *_args: object, **_kwargs: object):
+        def reload(self, *_args: object, **_kwargs: object):
             return []
 
-        def has_next(self: object):
+        def has_next(self):
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self: object, _app: object):
+        def run(self, _app: object):
             message = "boom"
             raise RuntimeError(message)
 
@@ -820,24 +820,24 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch: object):
     class FakeRunScriptContext:
         last_instance = None
 
-        def __init__(self: object, **_kwargs: object) -> None:
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
             self.finalize_calls = 0
             FakeRunScriptContext.last_instance = self
 
-        def set_input(self: object, *_args: object, **_kwargs: object):
+        def set_input(self, *_args: object, **_kwargs: object):
             return None
 
-        def reload(self: object, *_args: object, **_kwargs: object):
+        def reload(self, *_args: object, **_kwargs: object):
             return []
 
-        def has_next(self: object):
+        def has_next(self):
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self: object, _app: object):
+        def run(self, _app: object):
             return [
                 RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -853,7 +853,7 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch: object):
                 ),
             ]
 
-        def _finalize_langfuse_trace(self: object):
+        def _finalize_langfuse_trace(self):
             self.finalize_calls += 1
 
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
@@ -924,22 +924,22 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(
     )
 
     class FakeRunScriptContext:
-        def __init__(self: object, **_kwargs: object) -> None:
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self: object, *_args: object, **_kwargs: object):
+        def set_input(self, *_args: object, **_kwargs: object):
             return None
 
-        def reload(self: object, *_args: object, **_kwargs: object):
+        def reload(self, *_args: object, **_kwargs: object):
             return []
 
-        def has_next(self: object):
+        def has_next(self):
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self: object, _app: object):
+        def run(self, _app: object):
             return [
                 RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -958,7 +958,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
     class ElementAdapter:
-        def process(self: object, events: object):
+        def process(self, events: object):
             for event in events:
                 if event.type == GeneratedType.CONTENT:
                     yield RunElementSSEMessageDTO(
@@ -1055,22 +1055,22 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(
     )
 
     class FakeRunScriptContext:
-        def __init__(self: object, **_kwargs: object) -> None:
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self: object, *_args: object, **_kwargs: object):
+        def set_input(self, *_args: object, **_kwargs: object):
             return None
 
-        def reload(self: object, *_args: object, **_kwargs: object):
+        def reload(self, *_args: object, **_kwargs: object):
             return []
 
-        def has_next(self: object):
+        def has_next(self):
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self: object, _app: object):
+        def run(self, _app: object):
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -1082,7 +1082,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
     class ElementAdapter:
-        def process(self: object, events: object):
+        def process(self, events: object):
             for event in events:
                 if event.type == GeneratedType.CONTENT:
                     yield RunElementSSEMessageDTO(

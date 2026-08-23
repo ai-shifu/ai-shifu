@@ -44,7 +44,7 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object):
         status_code = 200
         text = ""
 
-        def json(self: object):
+        def json(self):
             return {"Token": {"Id": "tok-1", "ExpireTime": int(time.time()) + 3600}}
 
     def fake_get(url: object, headers: object = None, timeout: object = None):

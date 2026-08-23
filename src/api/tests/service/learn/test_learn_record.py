@@ -42,7 +42,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self: object):
+    def setUp(self):
         self.app = self.__class__.app
         self.ctx = self.app.app_context()
         self.ctx.push()
@@ -52,12 +52,12 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.query(LogPublishedStruct).delete()
         dao.db.session.commit()
 
-    def tearDown(self: object):
+    def tearDown(self):
         dao.db.session.remove()
         self.ctx.pop()
 
     def _create_progress(
-        self: object, status: int, outline_bid: str = "outline-1"
+        self, status: int, outline_bid: str = "outline-1"
     ) -> LearnProgressRecord:
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
@@ -70,10 +70,10 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.commit()
         return progress
 
-    def _set_request_user(self: object, mobile: str = ""):
+    def _set_request_user(self, mobile: str = ""):
         request.user = types.SimpleNamespace(mobile=mobile, user_id="user-1")
 
-    def _seed_struct(self: object, outline_bids: list[str]):
+    def _seed_struct(self, outline_bids: list[str]):
         struct = HistoryItem(
             bid="shifu-1",
             id=1,
@@ -101,7 +101,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.commit()
 
     def _add_interaction_block(
-        self: object,
+        self,
         progress: LearnProgressRecord,
         content: str,
         position: int = 0,
@@ -124,7 +124,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.commit()
         return block
 
-    def test_appends_virtual_button_when_completed(self: object):
+    def test_appends_virtual_button_when_completed(self):
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
 
@@ -143,7 +143,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert CONTEXT_INTERACTION_NEXT in result.records[0].content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_uses_persisted_button_when_present(self: object):
+    def test_uses_persisted_button_when_present(self):
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         button_label = _("server.learn.nextChapterButton")
@@ -181,7 +181,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert CONTEXT_INTERACTION_NEXT in record.content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_no_button_when_not_completed(self: object):
+    def test_no_button_when_not_completed(self):
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
 
@@ -197,7 +197,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
 
         assert result.records == []
 
-    def test_feedback_when_completed_without_next(self: object):
+    def test_feedback_when_completed_without_next(self):
         self._seed_struct(["outline-1"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
 
@@ -214,7 +214,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert len(result.records) == 1
         assert is_lesson_feedback_interaction(result.records[0].content)
 
-    def test_feedback_after_pay_gate_when_in_progress(self: object):
+    def test_feedback_after_pay_gate_when_in_progress(self):
         self._seed_struct(["outline-1"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
         self._add_interaction_block(progress, "?[去支付//_sys_pay]")
@@ -233,7 +233,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert "_sys_pay" in result.records[0].content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_feedback_after_login_gate_when_in_progress(self: object):
+    def test_feedback_after_login_gate_when_in_progress(self):
         self._seed_struct(["outline-1"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
         self._add_interaction_block(progress, "?[去登录//_sys_login]")
@@ -252,7 +252,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert "_sys_login" in result.records[0].content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_no_next_button_when_completed_with_pay_gate(self: object):
+    def test_no_next_button_when_completed_with_pay_gate(self):
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         self._add_interaction_block(progress, "?[去支付//_sys_pay]")
@@ -272,7 +272,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert CONTEXT_INTERACTION_NEXT not in result.records[0].content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_inserts_fallback_next_before_existing_feedback(self: object):
+    def test_inserts_fallback_next_before_existing_feedback(self):
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         self._add_interaction_block(
@@ -295,7 +295,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert CONTEXT_INTERACTION_NEXT in result.records[0].content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_moves_existing_feedback_to_tail_when_next_already_persisted(self: object):
+    def test_moves_existing_feedback_to_tail_when_next_already_persisted(self):
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         button_label = _("server.learn.nextChapterButton")

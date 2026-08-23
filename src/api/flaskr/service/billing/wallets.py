@@ -88,7 +88,7 @@ class WalletSnapshotRecord:
     reserved_credits_delta: int | float
     changed: bool
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "wallet_bid": self.wallet_bid,
@@ -102,7 +102,7 @@ class WalletSnapshotRecord:
             "changed": self.changed,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -119,7 +119,7 @@ class WalletSnapshotRebuildResult:
     dry_run: bool = False
     wallets: list[WalletSnapshotRecord] = field(default_factory=list)
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -131,7 +131,7 @@ class WalletSnapshotRebuildResult:
             "wallets": [wallet.to_payload() for wallet in self.wallets],
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -147,7 +147,7 @@ class RefundReturnCreditsResult:
     wallet_bucket_bid: str | None = None
     ledger_bid: str | None = None
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -158,7 +158,7 @@ class RefundReturnCreditsResult:
             "ledger_bid": self.ledger_bid,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -172,7 +172,7 @@ class WalletExpirationResult:
     bucket_count: int
     expired_credits: int | float
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -181,7 +181,7 @@ class WalletExpirationResult:
             "expired_credits": self.expired_credits,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -205,7 +205,7 @@ class ExpireLedgerBucketDriftRecord:
     repair_reason: str
     changed: bool
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
@@ -238,7 +238,7 @@ class ExpireLedgerBucketDriftRepairResult:
     dry_run: bool
     buckets: list[ExpireLedgerBucketDriftRecord] = field(default_factory=list)
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -251,7 +251,7 @@ class ExpireLedgerBucketDriftRepairResult:
             "buckets": [bucket.to_payload() for bucket in self.buckets],
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -276,7 +276,7 @@ class ExpiredCreditPackBucketRestoreRecord:
     changed: bool
     ledger_bid: str | None = None
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "bill_order_bid": self.bill_order_bid,
@@ -310,7 +310,7 @@ class ExpiredCreditPackBucketRestoreResult:
     dry_run: bool
     buckets: list[ExpiredCreditPackBucketRestoreRecord] = field(default_factory=list)
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -323,7 +323,7 @@ class ExpiredCreditPackBucketRestoreResult:
             "buckets": [bucket.to_payload() for bucket in self.buckets],
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
@@ -341,7 +341,7 @@ class ManualCreditGrantResult:
     expires_at: datetime | None = None
     metadata_json: dict[str, Any] = field(default_factory=dict)
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -354,7 +354,7 @@ class ManualCreditGrantResult:
             "metadata_json": self.metadata_json,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -372,7 +372,7 @@ class ReservedGrantRepairRecord:
     paid_at: datetime | None
     renewal_event_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "creator_bid": self.creator_bid,
@@ -385,7 +385,7 @@ class ReservedGrantRepairRecord:
             "renewal_event_bids": list(self.renewal_event_bids),
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -418,7 +418,7 @@ class RenewalStateDriftRepairResult:
         default_factory=list
     )
 
-    def to_task_payload(self: object) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, Any]:
         """Serialize this result for task processing."""
         return {
             "status": self.status,
@@ -446,7 +446,7 @@ class RenewalStateDriftRepairResult:
             ],
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

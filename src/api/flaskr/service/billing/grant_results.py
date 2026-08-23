@@ -25,7 +25,7 @@ class ManualCreditGrantResult:
     note: str = ""
     metadata_json: dict[str, Any] = field(default_factory=dict)
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -41,7 +41,7 @@ class ManualCreditGrantResult:
             "metadata_json": self.metadata_json,
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -55,7 +55,7 @@ class ReferralRewardSummary:
     wallet_bucket_bid: str = ""
     grant_count: int = 0
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "available_credits": self.available_credits,

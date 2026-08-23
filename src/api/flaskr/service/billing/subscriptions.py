@@ -190,7 +190,7 @@ class TopupExpiryRepairRecord:
     effective_to: datetime
     ledger_bids: tuple[str, ...] = ()
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
@@ -213,7 +213,7 @@ class TopupExpiryRepairResult:
     repaired_records: list[TopupExpiryRepairRecord] = field(default_factory=list)
     skipped_bucket_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -225,7 +225,7 @@ class TopupExpiryRepairResult:
             "skipped_bucket_bids": list(self.skipped_bucket_bids),
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -244,7 +244,7 @@ class SubscriptionCycleRepairRecord:
     current_period_end_at: datetime
     reason: str
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "subscription_bid": self.subscription_bid,
@@ -271,7 +271,7 @@ class SubscriptionCycleRepairResult:
     repaired_records: list[SubscriptionCycleRepairRecord] = field(default_factory=list)
     skipped_subscription_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -283,7 +283,7 @@ class SubscriptionCycleRepairResult:
             "skipped_subscription_bids": list(self.skipped_subscription_bids),
         }
 
-    def __getitem__(self: object, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 

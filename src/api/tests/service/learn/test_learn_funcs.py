@@ -58,18 +58,18 @@ class LearnRecordLoadTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self: object):
+    def setUp(self):
         self.ctx = self.app.app_context()
         self.ctx.push()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
         dao.db.session.commit()
 
-    def tearDown(self: object):
+    def tearDown(self):
         dao.db.session.remove()
         self.ctx.pop()
 
-    def test_learn_record_loads_generated_and_input_content_separately(self: object):
+    def test_learn_record_loads_generated_and_input_content_separately(self):
         """Ensure learn record loading uses generated content and real user input."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
@@ -154,7 +154,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         # Interaction blocks should not carry like status in API responses.
         assert interaction_record.like_status == LikeStatus.NONE
 
-    def test_mdflow_context_loads_generated_and_user_inputs(self: object):
+    def test_mdflow_context_loads_generated_and_user_inputs(self):
         """Verify mdflow run uses generated content for context and real user input values."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-ctx",
@@ -241,37 +241,37 @@ class LearnRecordLoadTests(unittest.TestCase):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyLLMResult:
-            def __init__(self: object, content: str) -> None:
+            def __init__(self, content: str) -> None:
                 self.content = content
 
         class FakeMarkdownFlow:
             last_context = None
 
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "md content", 0)]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,
@@ -313,7 +313,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             not in FakeMarkdownFlow.last_context[1]["content"]
         )
 
-    def test_run_progresses_across_content_blocks_until_interaction(self: object):
+    def test_run_progresses_across_content_blocks_until_interaction(self):
         """A single run should keep advancing through content blocks and stop at interaction."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-run-continue",
@@ -370,18 +370,18 @@ class LearnRecordLoadTests(unittest.TestCase):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyLLMResult:
-            def __init__(self: object, content: str) -> None:
+            def __init__(self, content: str) -> None:
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "first content", 0),
@@ -393,20 +393,20 @@ class LearnRecordLoadTests(unittest.TestCase):
                     ),
                 ]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,
@@ -458,7 +458,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert not ctx._can_continue
 
     def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(
-        self: object,
+        self,
     ):
         """Avoid replaying an already generated fixed output after interaction submit."""
         progress = LearnProgressRecord(
@@ -529,7 +529,7 @@ class LearnRecordLoadTests(unittest.TestCase):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
@@ -538,24 +538,24 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,
@@ -593,7 +593,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             == 1
         )
 
-    def test_run_inner_realigns_index_to_pending_interaction_after_submit(self: object):
+    def test_run_inner_realigns_index_to_pending_interaction_after_submit(self):
         """If index drifts to content, realign to pending interaction before consuming input."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-realign",
@@ -663,7 +663,7 @@ class LearnRecordLoadTests(unittest.TestCase):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
@@ -672,27 +672,27 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,
@@ -723,7 +723,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert ctx._run_type == RunType.INPUT
         assert ctx._can_continue
 
-    def test_run_inner_does_not_realign_on_empty_auto_input(self: object):
+    def test_run_inner_does_not_realign_on_empty_auto_input(self):
         """Empty auto-run input should not be treated as a real interaction submit."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-empty-input",
@@ -793,7 +793,7 @@ class LearnRecordLoadTests(unittest.TestCase):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
@@ -802,27 +802,27 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,

@@ -36,7 +36,7 @@ def _find_close_end(raw: str, close_pattern: object) -> int | None:
 class FenceBoundaryStrategy:
     """Strategy for fenced code blocks (```)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         if not raw:
             return None
@@ -50,7 +50,7 @@ class FenceBoundaryStrategy:
 class SvgBoundaryStrategy:
     """Strategy for SVG elements (<svg>...</svg>)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         return _find_close_end(raw, AV_SVG_CLOSE)
 
@@ -58,7 +58,7 @@ class SvgBoundaryStrategy:
 class IframeBoundaryStrategy:
     """Strategy for iframe elements (<iframe>...</iframe>)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         end = _find_close_end(raw, AV_IFRAME_CLOSE)
         if end is None:
@@ -69,7 +69,7 @@ class IframeBoundaryStrategy:
 class VideoBoundaryStrategy:
     """Strategy for video elements (<video>...</video>)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         return _find_close_end(raw, AV_VIDEO_CLOSE)
 
@@ -77,7 +77,7 @@ class VideoBoundaryStrategy:
 class HtmlTableBoundaryStrategy:
     """Strategy for HTML table elements (<table>...</table>)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         return _find_close_end(raw, AV_TABLE_CLOSE)
 
@@ -85,7 +85,7 @@ class HtmlTableBoundaryStrategy:
 class MarkdownTableBoundaryStrategy:
     r"""Strategy for markdown tables (| A | B |\n| --- | --- |)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         if not raw:
             return None
@@ -102,7 +102,7 @@ class MarkdownTableBoundaryStrategy:
 class SandboxBoundaryStrategy:
     """Strategy for HTML sandbox blocks (div, section, article, etc.)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         if not raw:
             return None
@@ -113,7 +113,7 @@ class SandboxBoundaryStrategy:
 class MarkdownImageBoundaryStrategy:
     """Strategy for markdown images (![alt](url))."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         if not raw:
             return None
@@ -132,7 +132,7 @@ class MarkdownImageBoundaryStrategy:
 class HtmlImageBoundaryStrategy:
     """Strategy for HTML image tags (<img ...>)."""
 
-    def find_end(self: object, raw: str) -> int | None:
+    def find_end(self, raw: str) -> int | None:
         """Return the closing boundary position when this strategy matches."""
         if not raw:
             return None

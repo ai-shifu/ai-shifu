@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 class _Db:
-    def __init__(self: object, session: object) -> None:
+    def __init__(self, session: object) -> None:
         self.session = session
 
 

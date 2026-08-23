@@ -216,7 +216,7 @@ class RunScriptInfo:
     mdflow: str
 
     def __init__(
-        self: object,
+        self,
         attend: LearnProgressRecord,
         outline_bid: str,
         block_position: int,
@@ -262,7 +262,7 @@ class RUNLLMProvider(LLMProvider):
     usage_scene: int
 
     def __init__(
-        self: object,
+        self,
         app: Flask,
         llm_settings: LLMSettings,
         trace: LangfuseTraceHandle,
@@ -280,7 +280,7 @@ class RUNLLMProvider(LLMProvider):
         self.usage_context = usage_context
         self.usage_scene = usage_scene
 
-    def set_usage_generated_block_bid(self: object, generated_block_bid: str) -> None:
+    def set_usage_generated_block_bid(self, generated_block_bid: str) -> None:
         """Attach the generated block to LLM usage tracking."""
         self.usage_context = replace(
             self.usage_context,
@@ -288,7 +288,7 @@ class RUNLLMProvider(LLMProvider):
         )
 
     def _log_preview_output(
-        self: object,
+        self,
         *,
         model: str,
         temperature: float | None,
@@ -313,7 +313,7 @@ class RUNLLMProvider(LLMProvider):
         )
 
     def complete(
-        self: object,
+        self,
         messages: list[dict[str, str]],
         model: str | None = None,
         temperature: float | None = None,
@@ -362,7 +362,7 @@ class RUNLLMProvider(LLMProvider):
         return output
 
     def stream(
-        self: object,
+        self,
         messages: list[dict[str, str]],
         model: str | None = None,
         temperature: float | None = None,
@@ -418,7 +418,7 @@ class MdflowContextV2:
     """Track shared MarkdownFlow state for a version-two learning run."""
 
     def __init__(
-        self: object,
+        self,
         *,
         document: str,
         document_prompt: str | None = None,
@@ -457,16 +457,16 @@ class MdflowContextV2:
             )
             self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
-    def get_block(self: object, block_index: int):
+    def get_block(self, block_index: int):
         """Return a MarkdownFlow block by its index."""
         return self._mdflow.get_block(block_index)
 
-    def get_all_blocks(self: object):
+    def get_all_blocks(self):
         """Return all MarkdownFlow blocks in encounter order."""
         return self._mdflow.get_all_blocks()
 
     def process(
-        self: object,
+        self,
         *,
         block_index: int,
         mode: ProcessMode,
@@ -646,7 +646,7 @@ class _PreviewContextStore:
     _REPLACE_SENTINEL_BLOCK_INDEX = -1
 
     def __init__(
-        self: object,
+        self,
         app: Flask,
         user_bid: str,
         shifu_bid: str,
@@ -663,12 +663,12 @@ class _PreviewContextStore:
             f"{language_suffix}"
         )
 
-    def _hash_document(self: object, document: str) -> str:
+    def _hash_document(self, document: str) -> str:
         if not document:
             return ""
         return hashlib.sha256(document.encode("utf-8")).hexdigest()
 
-    def load(self: object) -> dict:
+    def load(self) -> dict:
         try:
             raw = self._cache.get(self._key)
             if raw is None:
@@ -679,14 +679,14 @@ class _PreviewContextStore:
         except Exception:
             return {}
 
-    def save(self: object, payload: dict) -> None:
+    def save(self, payload: dict) -> None:
         try:
             value = json.dumps(payload, ensure_ascii=False)
             self._cache.setex(self._key, self._ttl_seconds, value)
         except Exception:
             return
 
-    def clear(self: object) -> None:
+    def clear(self) -> None:
         try:
             self._cache.delete(self._key)
         except Exception:
@@ -704,7 +704,7 @@ class _PreviewContextStore:
                 messages.append({"role": "assistant", "content": assistant_text})
         return messages
 
-    def _load_entries(self: object, document: str) -> list[dict] | None:
+    def _load_entries(self, document: str) -> list[dict] | None:
         payload = self.load()
         if not payload:
             return None
@@ -724,9 +724,7 @@ class _PreviewContextStore:
                 return None
         return entries
 
-    def get_context(
-        self: object, document: str, block_index: int
-    ) -> list[dict[str, str]]:
+    def get_context(self, document: str, block_index: int) -> list[dict[str, str]]:
         if block_index == 0:
             self.clear()
             return []
@@ -743,9 +741,7 @@ class _PreviewContextStore:
             )
         return self._entries_to_messages(kept)
 
-    def replace_context(
-        self: object, document: str, context: list[dict[str, str]]
-    ) -> None:
+    def replace_context(self, document: str, context: list[dict[str, str]]) -> None:
         """Replace cached context from a raw role/content message list.
 
         Used when callers pass a full context payload without per-block
@@ -796,7 +792,7 @@ class _PreviewContextStore:
         )
 
     def append_context(
-        self: object,
+        self,
         document: str,
         block_index: int,
         user_message: str | None,
@@ -827,12 +823,12 @@ class _PreviewContextStore:
 class RunScriptPreviewContextV2:
     """MarkdownFlow preview using context v2 logic with optional Redis caching."""
 
-    def __init__(self: object, app: Flask) -> None:
+    def __init__(self, app: Flask) -> None:
         """Bind the preview execution context to the Flask app."""
         self.app = app
 
     def stream_preview(
-        self: object,
+        self,
         *,
         preview_request: PlaygroundPreviewRequest,
         shifu_bid: str,
@@ -1075,7 +1071,7 @@ class RunScriptPreviewContextV2:
                 set_language(original_language)
 
     def _update_preview_context(
-        self: object,
+        self,
         context_store: _PreviewContextStore,
         document: str,
         preview_request: PlaygroundPreviewRequest,
@@ -1106,7 +1102,7 @@ class RunScriptPreviewContextV2:
         )
 
     def _resolve_preview_variables(
-        self: object,
+        self,
         *,
         preview_request: PlaygroundPreviewRequest,
         user_bid: str,
@@ -1140,7 +1136,7 @@ class RunScriptPreviewContextV2:
         return variables
 
     def _iter_preview_generated_events(
-        self: object,
+        self,
         *,
         result: LLMResult | Generator[LLMResult, None, None] | None,
         outline_bid: str,
@@ -1192,7 +1188,7 @@ class RunScriptPreviewContextV2:
         )
 
     def _preview_events_from_result(
-        self: object,
+        self,
         *,
         llm_result: LLMResult | None,
         outline_bid: str,
@@ -1255,7 +1251,7 @@ class RunScriptPreviewContextV2:
         ]
 
     def _make_preview_content_event(
-        self: object,
+        self,
         *,
         outline_bid: str,
         generated_block_bid: str,
@@ -1281,7 +1277,7 @@ class RunScriptPreviewContextV2:
         )
 
     def _resolve_document_prompt(
-        self: object,
+        self,
         preview_request: PlaygroundPreviewRequest,
         outline: DraftOutlineItem | PublishedOutlineItem | None,
         shifu: DraftShifu | PublishedShifu | None,
@@ -1314,7 +1310,7 @@ class RunScriptPreviewContextV2:
         return build_course_prompt(course_prompt, learner=learner)
 
     def _load_learner_for_course_prompt(
-        self: object,
+        self,
         user_bid: str,
     ) -> UserAggregate | None:
         try:
@@ -1334,7 +1330,7 @@ class RunScriptPreviewContextV2:
             return None
 
     def _resolve_prompt_from_outline_chain(
-        self: object,
+        self,
         shifu_bid: str,
         outline_bid: str,
         outline_record: DraftOutlineItem | PublishedOutlineItem | None,
@@ -1367,7 +1363,7 @@ class RunScriptPreviewContextV2:
         return None
 
     def _load_outline_hierarchy_records(
-        self: object,
+        self,
         shifu_bid: str,
         outline_bid: str,
         prefer_draft: bool,
@@ -1414,7 +1410,7 @@ class RunScriptPreviewContextV2:
         return records
 
     def _resolve_llm_settings(
-        self: object,
+        self,
         preview_request: PlaygroundPreviewRequest,
         outline: DraftOutlineItem | PublishedOutlineItem | None,
         shifu: DraftShifu | PublishedShifu | None,
@@ -1500,7 +1496,7 @@ class RunScriptPreviewContextV2:
         return model, float(temperature)
 
     def _get_outline_record(
-        self: object, shifu_bid: str, outline_bid: str
+        self, shifu_bid: str, outline_bid: str
     ) -> DraftOutlineItem | PublishedOutlineItem | None:
         outline = (
             DraftOutlineItem.query.filter(
@@ -1524,7 +1520,7 @@ class RunScriptPreviewContextV2:
         )
 
     def _get_shifu_record(
-        self: object, shifu_bid: str, has_draft_outline: bool
+        self, shifu_bid: str, has_draft_outline: bool
     ) -> DraftShifu | PublishedShifu | None:
         if has_draft_outline:
             shifu = (
@@ -1545,7 +1541,7 @@ class RunScriptPreviewContextV2:
             .first()
         )
 
-    def _decimal_to_float(self: object, value: object) -> float | None:
+    def _decimal_to_float(self, value: object) -> float | None:
         if value is None:
             return None
         if isinstance(value, Decimal):
@@ -1612,7 +1608,7 @@ class RunScriptContextV2:
     _stop_event: threading.Event | None = None
 
     def __init__(
-        self: object,
+        self,
         app: Flask,
         shifu_info: ShifuInfoDto,
         struct: HistoryItem,
@@ -1701,17 +1697,15 @@ class RunScriptContextV2:
         )
         context_local.current_context = self
 
-    def _stop_requested(self: object) -> bool:
+    def _stop_requested(self) -> bool:
         return bool(self._stop_event is not None and self._stop_event.is_set())
 
-    def _stop_if_requested(self: object) -> None:
+    def _stop_if_requested(self) -> None:
         if self._stop_requested():
             self.app.logger.info("run_script context cancelled")
             raise GeneratorExit
 
-    def _iter_until_active(
-        self: object, items: Iterable[Any]
-    ) -> Generator[Any, None, None]:
+    def _iter_until_active(self, items: Iterable[Any]) -> Generator[Any, None, None]:
         for item in items:
             self._stop_if_requested()
             yield item
@@ -1723,7 +1717,7 @@ class RunScriptContextV2:
             return None
         return context_local.current_context
 
-    def append_langfuse_output(self: object, value: Any) -> None:
+    def append_langfuse_output(self, value: Any) -> None:
         """Buffer output content for active Langfuse trace finalization."""
         if not hasattr(self, "_langfuse_output_chunks"):
             self._langfuse_output_chunks = []
@@ -1732,7 +1726,7 @@ class RunScriptContextV2:
             return
         self._langfuse_output_chunks.append(text)
 
-    def _finalize_langfuse_trace(self: object) -> None:
+    def _finalize_langfuse_trace(self) -> None:
         output_chunks = getattr(self, "_langfuse_output_chunks", [])
         finalize_langfuse_trace(
             trace=self._trace,
@@ -1747,7 +1741,7 @@ class RunScriptContextV2:
             },
         )
 
-    def _should_stream_tts(self: object) -> bool:
+    def _should_stream_tts(self) -> bool:
         return (
             (not self._preview_mode)
             and getattr(self, "_input_type", None) != INPUT_TYPE_ASK
@@ -1755,7 +1749,7 @@ class RunScriptContextV2:
         )
 
     def _try_create_tts_processor(
-        self: object,
+        self,
         generated_block_bid: str,
         *,
         shifu_bid: str = "",
@@ -1842,7 +1836,7 @@ class RunScriptContextV2:
             return None
 
     def _finalize_stream_tts_processor(
-        self: object,
+        self,
         tts_processor: object,
         *,
         log_prefix: str,
@@ -1860,7 +1854,7 @@ class RunScriptContextV2:
             cleanup_session_after(exc, source="finalize stream tts processor")
 
     def _teardown_stream_tts_state(
-        self: object,
+        self,
         *,
         tts_processor: object = None,
         flush_content_cache: Callable[[], Iterable[RunMarkdownFlowDTO]] | None = None,
@@ -1886,7 +1880,7 @@ class RunScriptContextV2:
             )
 
     def _iter_stream_result_with_idle_callback(
-        self: object,
+        self,
         stream_result: Generator[Any, None, None],
         *,
         idle_callback: Callable[[], Iterable[Any]] | None = None,
@@ -1975,7 +1969,7 @@ class RunScriptContextV2:
                     "it will exit at the next stream chunk boundary"
                 )
 
-    def _get_current_attend(self: object, outline_bid: str) -> LearnProgressRecord:
+    def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         # Order so that a record which has started learning wins over a
         # fresh NOT_STARTED placeholder. A parallel ask SSE running before
         # the main run committed cannot see the main row under MVCC and
@@ -2061,32 +2055,30 @@ class RunScriptContextV2:
     # unchanged; the resolution logic lives in
     # flaskr/service/learn/run/state.py.
 
-    def _is_leaf_outline_item(
-        self: object, outline_item_info: ShifuOutlineItemDto
-    ) -> bool:
+    def _is_leaf_outline_item(self, outline_item_info: ShifuOutlineItemDto) -> bool:
         return self._state_resolver.is_leaf_outline_item(outline_item_info)
 
-    def _get_current_outline_block_count(self: object) -> int:
+    def _get_current_outline_block_count(self) -> int:
         return self._state_resolver.get_current_outline_block_count()
 
-    def _get_next_outline_item(self: object) -> list[OutlineItemUpdateDTO]:
+    def _get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
         return self._state_resolver.get_next_outline_item()
 
     def _has_next_outline_item(
-        self: object, outline_updates: list[OutlineItemUpdateDTO]
+        self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
         return self._state_resolver.has_next_outline_item(outline_updates)
 
     def _is_current_outline_completed(
-        self: object, outline_updates: list[OutlineItemUpdateDTO]
+        self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
         return self._state_resolver.is_current_outline_completed(outline_updates)
 
-    def _get_current_outline_item(self: object) -> ShifuOutlineItemDto:
+    def _get_current_outline_item(self) -> ShifuOutlineItemDto:
         return self._current_outline_item
 
     @property
-    def _event_emitter(self: object) -> RunEventEmitter:
+    def _event_emitter(self) -> RunEventEmitter:
         # Lazy so contexts built via __new__ (tests) get an emitter too.
         emitter = self.__dict__.get("_run_event_emitter")
         if emitter is None:
@@ -2095,7 +2087,7 @@ class RunScriptContextV2:
         return emitter
 
     @property
-    def _recorder(self: object) -> RunRecorder:
+    def _recorder(self) -> RunRecorder:
         # Lazy so contexts built via __new__ (tests) get a recorder too.
         recorder = self.__dict__.get("_run_recorder")
         if recorder is None:
@@ -2104,7 +2096,7 @@ class RunScriptContextV2:
         return recorder
 
     @property
-    def _state_resolver(self: object) -> RunStateResolver:
+    def _state_resolver(self) -> RunStateResolver:
         # Lazy so contexts built via __new__ (tests) get a resolver too.
         resolver = self.__dict__.get("_run_state_resolver")
         if resolver is None:
@@ -2117,7 +2109,7 @@ class RunScriptContextV2:
     # event construction lives in flaskr/service/learn/run/emitter.py.
 
     def _render_outline_updates(
-        self: object,
+        self,
         outline_updates: list[OutlineItemUpdateDTO],
         new_chapter: bool = False,
     ) -> Generator[str, None, None]:
@@ -2126,26 +2118,24 @@ class RunScriptContextV2:
         )
 
     def _emit_next_chapter_interaction(
-        self: object,
+        self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         yield from self._event_emitter.emit_next_chapter_interaction(progress_record)
 
     def _emit_lesson_feedback_interaction(
-        self: object,
+        self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         yield from self._event_emitter.emit_lesson_feedback_interaction(progress_record)
 
-    def _is_access_gate_blocking_interaction(
-        self: object, parsed_interaction: dict
-    ) -> bool:
+    def _is_access_gate_blocking_interaction(self, parsed_interaction: dict) -> bool:
         return self._event_emitter.is_access_gate_blocking_interaction(
             parsed_interaction
         )
 
     def _maybe_emit_feedback_after_access_gate(
-        self: object,
+        self,
         *,
         parsed_interaction: dict,
         progress_record: LearnProgressRecord,
@@ -2158,23 +2148,23 @@ class RunScriptContextV2:
         )
 
     def _emit_feedback_after_exception_gate(
-        self: object,
+        self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         yield from self._event_emitter.emit_feedback_after_exception_gate()
 
     def _ensure_current_attend_for_gate_interaction(
-        self: object,
+        self,
     ) -> LearnProgressRecord | None:
         return self._event_emitter.ensure_current_attend_for_gate_interaction()
 
     def _emit_current_progress_gate_interaction(
-        self: object,
+        self,
         content: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         yield from self._event_emitter.emit_current_progress_gate_interaction(content)
 
     def _emit_completion_tail_interactions(
-        self: object,
+        self,
         *,
         progress_record: LearnProgressRecord,
         current_outline_completed: bool,
@@ -2186,13 +2176,13 @@ class RunScriptContextV2:
             has_next_outline_item=has_next_outline_item,
         )
 
-    def _get_default_llm_settings(self: object) -> LLMSettings:
+    def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
             model=self.app.config.get("DEFAULT_LLM_MODEL"),
             temperature=float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         )
 
-    def _has_effective_input(self: object) -> bool:
+    def _has_effective_input(self) -> bool:
         input_value = self._input
         if input_value is None:
             return False
@@ -2214,7 +2204,7 @@ class RunScriptContextV2:
             return False
         return bool(str(input_value).strip())
 
-    def set_input(self: object, user_input: str | dict, input_type: str):
+    def set_input(self, user_input: str | dict, input_type: str):
         """Set user input.
 
         Args:
@@ -2230,23 +2220,21 @@ class RunScriptContextV2:
         self._input = user_input
         self._anchor_element_bid = ""
 
-    def _get_outline_struct(self: object, outline_item_id: str) -> HistoryItem:
+    def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
         return self._state_resolver.get_outline_struct(outline_item_id)
 
-    def _get_outline_row_id(self: object, outline_item_bid: str) -> int | None:
+    def _get_outline_row_id(self, outline_item_bid: str) -> int | None:
         return self._state_resolver.get_outline_row_id(outline_item_bid)
 
     def _get_run_script_info(
-        self: object, attend: LearnProgressRecord, is_ask: bool = False
+        self, attend: LearnProgressRecord, is_ask: bool = False
     ) -> RunScriptInfo:
         return self._state_resolver.get_run_script_info(attend, is_ask=is_ask)
 
-    def _get_run_script_info_by_block_id(self: object, block_id: str) -> RunScriptInfo:
+    def _get_run_script_info_by_block_id(self, block_id: str) -> RunScriptInfo:
         return self._state_resolver.get_run_script_info_by_block_id(block_id)
 
-    def run_inner(
-        self: object, app: Flask
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Orchestrate one /run step (B6 PR3).
 
         Thin phase sequencer: every region of the historical ~1,000-line
@@ -2308,7 +2296,7 @@ class RunScriptContextV2:
 
         yield from self._phase_completion_tail()
 
-    def _bind_trace_session(self: object) -> None:
+    def _bind_trace_session(self) -> None:
         """Bind the langfuse runtime trace to the resolved progress record."""
         if not getattr(self, "_trace_id", ""):
             self._trace_id = get_request_trace_id()
@@ -2338,7 +2326,7 @@ class RunScriptContextV2:
         )
 
     def _phase_sync_outline_progress(
-        self: object, app: Flask
+        self, app: Flask
     ) -> Generator[RunMarkdownFlowDTO, None, bool]:
         """Emit entry outline updates and re-read the attend row.
 
@@ -2365,7 +2353,7 @@ class RunScriptContextV2:
         return True
 
     def _phase_completion_when_script_missing(
-        self: object,
+        self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Completion tail for a step whose run-script info resolved to None."""
         self.app.logger.warning("run script is none")
@@ -2384,7 +2372,7 @@ class RunScriptContextV2:
             self._can_continue = False
 
     def _persist_generated_block_for_events(
-        self: object, generated_block: LearnGeneratedBlock | None
+        self, generated_block: LearnGeneratedBlock | None
     ) -> None:
         # One recorder step per interaction-block persist. Only called
         # after any LLM COMPLETE call for the block has returned; never
@@ -2394,7 +2382,7 @@ class RunScriptContextV2:
         self._recorder.save_generated_block(generated_block)
 
     def _phase_handle_ask_input(
-        self: object, app: Flask, run_script_info: RunScriptInfo
+        self, app: Flask, run_script_info: RunScriptInfo
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Delegate an ask-type input to handle_input_ask (with optional TTS)."""
         if self._last_position == -1:
@@ -2467,7 +2455,7 @@ class RunScriptContextV2:
         self._recorder.commit_pending_step()
 
     def _prepare_step_state(
-        self: object,
+        self,
         app: Flask,
         run_script_info: RunScriptInfo,
         llm_settings: LLMSettings,
@@ -2550,7 +2538,7 @@ class RunScriptContextV2:
         )
 
     def _phase_process_input(
-        self: object, app: Flask, state: _RunStepState
+        self, app: Flask, state: _RunStepState
     ) -> Generator[RunMarkdownFlowDTO, None, bool]:
         """INPUT-mode step: realign, access gates, pause, record, validate.
 
@@ -2597,7 +2585,7 @@ class RunScriptContextV2:
         return handled
 
     def _phase_resolve_noninteraction_input(
-        self: object, app: Flask, state: _RunStepState
+        self, app: Flask, state: _RunStepState
     ) -> None:
         """Input arrived while the cursor sits on a non-interaction block.
 
@@ -2648,7 +2636,7 @@ class RunScriptContextV2:
         )
 
     def _phase_reemit_access_gate_interaction(
-        self: object,
+        self,
         app: Flask,
         state: _RunStepState,
         parsed_interaction: dict,
@@ -2765,7 +2753,7 @@ class RunScriptContextV2:
         return False
 
     def _phase_emit_interaction_pause(
-        self: object, app: Flask, state: _RunStepState
+        self, app: Flask, state: _RunStepState
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """First arrival at an interaction with no cached block.
 
@@ -2820,7 +2808,7 @@ class RunScriptContextV2:
         self._can_continue = False
 
     def _phase_record_input_and_moderate(
-        self: object,
+        self,
         app: Flask,
         state: _RunStepState,
         generated_block: LearnGeneratedBlock,
@@ -2974,7 +2962,7 @@ class RunScriptContextV2:
         return False, user_input_param
 
     def _phase_validate_input_and_advance(
-        self: object,
+        self,
         app: Flask,
         state: _RunStepState,
         generated_block: LearnGeneratedBlock,
@@ -3074,7 +3062,7 @@ class RunScriptContextV2:
             return False
 
     def _phase_emit_validation_error(
-        self: object, app: Flask, state: _RunStepState, validate_result: object
+        self, app: Flask, state: _RunStepState, validate_result: object
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Stream the validation-error content and re-emit the interaction."""
         run_script_info = state.run_script_info
@@ -3188,7 +3176,7 @@ class RunScriptContextV2:
         )
 
     def _phase_render_output(
-        self: object, app: Flask, state: _RunStepState
+        self, app: Flask, state: _RunStepState
     ) -> Generator[RunMarkdownFlowDTO, None, bool]:
         """OUTPUT-mode step: render an interaction or stream a content block.
 
@@ -3250,7 +3238,7 @@ class RunScriptContextV2:
             return False
 
     def _phase_emit_output_interaction(
-        self: object,
+        self,
         app: Flask,
         state: _RunStepState,
         generated_block: LearnGeneratedBlock,
@@ -3339,7 +3327,7 @@ class RunScriptContextV2:
         return
 
     def _phase_stream_content_block(
-        self: object,
+        self,
         app: Flask,
         state: _RunStepState,
         generated_block: LearnGeneratedBlock,
@@ -3614,7 +3602,7 @@ class RunScriptContextV2:
         )
 
     def _phase_completion_tail(
-        self: object,
+        self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Post-step outline completion: outline flips + tail interactions."""
         progress_record = self._current_attend
@@ -3633,7 +3621,7 @@ class RunScriptContextV2:
             )
             self._can_continue = False
 
-    def run(self: object, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Execute the current lesson run."""
         try:
             yield from self.run_inner(app)
@@ -3652,11 +3640,11 @@ class RunScriptContextV2:
             )
             yield from self._emit_feedback_after_exception_gate()
 
-    def has_next(self: object) -> bool:
+    def has_next(self) -> bool:
         """Return whether the lesson run can execute another step."""
         return self._can_continue
 
-    def get_system_prompt(self: object, outline_item_bid: str) -> str | None:
+    def get_system_prompt(self, outline_item_bid: str) -> str | None:
         """Build the system prompt for the current lesson run."""
         path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
@@ -3705,7 +3693,7 @@ class RunScriptContextV2:
 
         return build_course_prompt(course_prompt, learner=self._user_info)
 
-    def get_llm_settings(self: object, outline_bid: str) -> LLMSettings:
+    def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         """Return the effective LLM settings for this run."""
         path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
@@ -3736,7 +3724,7 @@ class RunScriptContextV2:
         return self._get_default_llm_settings()
 
     def reload(
-        self: object,
+        self,
         app: Flask,
         reload_generated_block_bid: str,
         *,

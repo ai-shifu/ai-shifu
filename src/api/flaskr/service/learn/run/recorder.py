@@ -41,7 +41,7 @@ from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 class RunRecorder:
     """Transactional persistence steps for the /run runtime."""
 
-    def __init__(self: object, app: Flask) -> None:
+    def __init__(self, app: Flask) -> None:
         """Store the Flask app reference for recorder initialization.
 
         Persistence methods resolve transactions from the active application context
@@ -50,9 +50,7 @@ class RunRecorder:
         """
         self.app = app
 
-    def save_new_progress_records(
-        self: object, records: list[LearnProgressRecord]
-    ) -> None:
+    def save_new_progress_records(self, records: list[LearnProgressRecord]) -> None:
         """Persist freshly built progress-record placeholder rows as one step.
 
         The caller builds the rows (NOT_STARTED placeholders for the outline
@@ -67,7 +65,7 @@ class RunRecorder:
             db.session.flush()
 
     def update_progress_pointer(
-        self: object,
+        self,
         attend: LearnProgressRecord,
         *,
         status: int | None = None,
@@ -88,9 +86,7 @@ class RunRecorder:
                 attend.outline_item_updated = outline_item_updated
             db.session.flush()
 
-    def save_generated_block(
-        self: object, generated_block: LearnGeneratedBlock
-    ) -> None:
+    def save_generated_block(self, generated_block: LearnGeneratedBlock) -> None:
         """Persist a generated block (new row or accumulated mutations).
 
         One step for the non-streamed block writes: gate/feedback/interaction
@@ -104,7 +100,7 @@ class RunRecorder:
             db.session.flush()
 
     def finalize_streamed_block(
-        self: object,
+        self,
         generated_block: LearnGeneratedBlock,
         generated_content: str,
         attend: LearnProgressRecord,
@@ -134,7 +130,7 @@ class RunRecorder:
             attend.block_position = block_position
             db.session.flush()
 
-    def commit_pending_step(self: object) -> None:
+    def commit_pending_step(self) -> None:
         """Commit writes staged by collaborators the recorder does not own yet.
 
         Transitional (PR2): the ask path persists its history rows inside

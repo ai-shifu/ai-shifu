@@ -109,31 +109,31 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
     app: object, monkeypatch: object
 ):
     class _DesyncedResult:
-        def fetchall(self: object):
+        def fetchall(self):
             message = (
                 "This result object does not return rows. "
                 "It has been closed automatically."
             )
             raise ResourceClosedError(message)
 
-        def close(self: object):
+        def close(self):
             pass
 
     class _FakeConnection:
-        def __init__(self: object) -> None:
+        def __init__(self) -> None:
             self.invalidated = 0
 
-        def execute(self: object, *_args: object, **_kwargs: object):
+        def execute(self, *_args: object, **_kwargs: object):
             return _DesyncedResult()
 
-        def invalidate(self: object):
+        def invalidate(self):
             self.invalidated += 1
 
     class _FakeSession:
-        def __init__(self: object, connection: object) -> None:
+        def __init__(self, connection: object) -> None:
             self._connection = connection
 
-        def connection(self: object):
+        def connection(self):
             return self._connection
 
     fake_connection = _FakeConnection()
@@ -238,7 +238,7 @@ def test_desync_forensics_capture_fingerprints_the_stale_response():
         _result = _FakePrevResult()
         _sock = None
 
-        def thread_id(self: object):
+        def thread_id(self):
             return 555001
 
     class _FakeConnection:
@@ -287,7 +287,7 @@ def test_desync_forensics_logs_only_packet_header_not_payload():
             _result = None
             _sock = left
 
-            def thread_id(self: object):
+            def thread_id(self):
                 return 1
 
         class _FakeConnection:

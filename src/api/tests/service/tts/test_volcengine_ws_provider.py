@@ -55,25 +55,25 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
     captured = {}
 
     class FakeProtocol:
-        def encode_start_connection(self: object):
+        def encode_start_connection(self):
             return b"start_connection"
 
-        def encode_start_session(self: object, **kwargs: object):
+        def encode_start_session(self, **kwargs: object):
             captured["start_session_kwargs"] = kwargs
             return b"start_session"
 
-        def encode_task_request(self: object, session_id: object, text: object):
+        def encode_task_request(self, session_id: object, text: object):
             _ = (session_id, text)
             return b"task_request"
 
-        def encode_finish_session(self: object, session_id: object):
+        def encode_finish_session(self, session_id: object):
             _ = session_id
             return b"finish_session"
 
-        def encode_finish_connection(self: object):
+        def encode_finish_connection(self):
             return b"finish_connection"
 
-        def decode_frame(self: object, message: object):
+        def decode_frame(self, message: object):
             if message == b"connection_started":
                 return SimpleNamespace(
                     event=volcengine_provider.Event.CONNECTION_STARTED,
@@ -139,7 +139,7 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
 
     class FakeWebSocketApp:
         def __init__(
-            self: object,
+            self,
             url: object,
             header: object,
             on_message: object,
@@ -155,11 +155,11 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
             self.session_started_sent = False
             captured["ws"] = self
 
-        def run_forever(self: object, **kwargs: object):
+        def run_forever(self, **kwargs: object):
             _ = kwargs
             self.on_open(self)
 
-        def send(self: object, frame: object, opcode: object = None):
+        def send(self, frame: object, opcode: object = None):
             _ = opcode
             self.sent.append(frame)
             if frame == b"start_connection":
@@ -179,11 +179,11 @@ def test_volcengine_ws_waits_for_session_started_before_task_request(
                 self.on_message(self, b"subtitle")
                 self.on_message(self, b"session_finished")
 
-        def _emit_session_started(self: object):
+        def _emit_session_started(self):
             self.session_started_sent = True
             self.on_message(self, b"session_started")
 
-        def close(self: object):
+        def close(self):
             self.on_close(self, None, None)
 
     fake_websocket = SimpleNamespace(

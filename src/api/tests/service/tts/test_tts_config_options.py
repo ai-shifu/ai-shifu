@@ -8,7 +8,7 @@ from flaskr.api.tts import base
 
 
 class _FakeMinimaxProvider:
-    def get_provider_config(self: object):
+    def get_provider_config(self):
         return base.ProviderConfig(
             name="MiniMax",
             label="MiniMax",
@@ -25,7 +25,7 @@ class _FakeMinimaxProvider:
 
 
 class _FakeBaiduProvider:
-    def get_provider_config(self: object):
+    def get_provider_config(self):
         return base.ProviderConfig(
             name="baidu",
             label="Baidu",
@@ -104,7 +104,7 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
 
 class _FakeRate:
     def __init__(
-        self: object,
+        self,
         credits_per_unit: object,
         unit_size: object,
         provider: object,
@@ -379,7 +379,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch: objec
     from flaskr.i18n import clear_language, set_language
 
     class _FakeVolcengineProvider:
-        def get_provider_config(self: object):
+        def get_provider_config(self):
             return base.ProviderConfig(
                 name="volcengine",
                 label="火山引擎",

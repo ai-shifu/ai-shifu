@@ -31,7 +31,7 @@ class AlipayProvider(PaymentProvider):
     channel = "alipay"
 
     def create_payment(
-        self: object, *, request: PaymentRequest, app: Flask
+        self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         """Create a payment through this provider."""
         if request.channel != "alipay_qr":
@@ -95,13 +95,13 @@ class AlipayProvider(PaymentProvider):
         )
 
     def create_subscription(
-        self: object, *, request: PaymentRequest, app: Flask
+        self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
         """Create a native Alipay payment for a subscription request."""
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
-        self: object, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
         """Verify and decode a provider webhook payload."""
         del headers
@@ -112,7 +112,7 @@ class AlipayProvider(PaymentProvider):
         return self._notification_from_payload(payload)
 
     def handle_notification(
-        self: object, *, payload: dict[str, Any], app: Flask
+        self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
         """Verify and normalize a provider notification for later application."""
         normalized_payload = dict(payload or {})
@@ -128,7 +128,7 @@ class AlipayProvider(PaymentProvider):
         return self._notification_from_payload(normalized_payload)
 
     def sync_reference(
-        self: object, *, provider_reference: str, reference_type: str, app: Flask
+        self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
         """Query a provider payment reference without applying local state changes."""
         normalized_reference_type = str(reference_type or "").strip().lower()
@@ -154,14 +154,14 @@ class AlipayProvider(PaymentProvider):
         )
 
     def refund_payment(
-        self: object, *, request: PaymentRefundRequest, app: Flask
+        self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
         """Raise because this provider does not support payment refunds."""
         del request, app
         message = "Alipay refunds are not supported"
         raise RuntimeError(message)
 
-    def _ensure_client(self: object, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> Any:
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
@@ -187,7 +187,7 @@ class AlipayProvider(PaymentProvider):
             logger=app.logger,
         )
 
-    def _load_sdk(self: object, app: Flask) -> dict[str, Any]:
+    def _load_sdk(self, app: Flask) -> dict[str, Any]:
         try:
             from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
             from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
@@ -218,7 +218,7 @@ class AlipayProvider(PaymentProvider):
         }
 
     def _verify_notification_signature(
-        self: object,
+        self,
         payload: dict[str, Any],
         app: Flask,
     ) -> bool:
@@ -247,7 +247,7 @@ class AlipayProvider(PaymentProvider):
         return bool(verify_with_rsa(public_key, signed_content, sign))
 
     def _notification_from_payload(
-        self: object,
+        self,
         payload: dict[str, Any],
     ) -> PaymentNotificationResult:
         return PaymentNotificationResult(

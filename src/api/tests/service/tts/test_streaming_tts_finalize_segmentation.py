@@ -42,7 +42,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_process_chunk_submits_only_after_sentence_boundary(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -77,7 +77,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_in_segments_splits_at_sentence_boundaries(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -124,7 +124,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_does_not_split_by_char_count_without_sentence(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -163,7 +163,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_short_text(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -201,7 +201,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_empty_string(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -220,7 +220,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_whitespace_only(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -239,7 +239,7 @@ class TestFinalizeSegmentation:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_logs_segment_info(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -276,7 +276,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_tencent_empty_audio_segment_retries_once(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_record_usage: object,
@@ -323,7 +323,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_tencent_empty_audio_failure_logs_text_after_retry(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_sleep: object,
@@ -370,7 +370,7 @@ class TestStreamingSynthesisRetries:
         ["tencent", "tencent_texttovoice", "volcengine", "minimax"],
     )
     def test_non_speakable_segment_skips_configured_provider_call(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_record_usage: object,
@@ -411,7 +411,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.MinimaxTTSProvider")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_minimax_http_stream_skips_non_speakable_request(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_minimax_provider: object,
         mock_logger: object,
@@ -441,7 +441,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_timestamp_stream_skips_non_speakable_request(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_logger: object,
@@ -472,7 +472,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_empty_audio_segment_retries_once(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_record_usage: object,
@@ -527,7 +527,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_finalizes_whole_text_with_provider_subtitles(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_concat_audio: object,
@@ -603,7 +603,7 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_whole_text_empty_audio_retries_once(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_concat_audio: object,
@@ -662,7 +662,7 @@ class TestOffsetDriftRegression:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_bold_spanning_chunks_no_text_loss(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -712,7 +712,7 @@ class TestOffsetDriftRegression:
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_link_spanning_chunks_no_text_loss(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
@@ -754,7 +754,7 @@ class TestFinalizeDelayManagement:
     @patch("flaskr.service.tts.streaming_tts.synthesize_text")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_ready_segments_use_provider_subtitles_bounded_to_duration(
-        self: object,
+        self,
         mock_is_configured: object,
         mock_synthesize_text: object,
         mock_record_segment_usage: object,
@@ -805,7 +805,7 @@ class TestFinalizeDelayManagement:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
     def test_yield_ready_segments_adds_delay_between_segments(
-        self: object,
+        self,
         mock_sleep: object,
         mock_is_configured: object,
         mock_executor: object,

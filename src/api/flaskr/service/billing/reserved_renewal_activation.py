@@ -58,7 +58,7 @@ class ExpireBucketBalanceForTransition(Protocol):
     """Define the interface for expire bucket balance for transition."""
 
     def __call__(
-        self: object,
+        self,
         app: Flask,
         *,
         wallet: CreditWallet,

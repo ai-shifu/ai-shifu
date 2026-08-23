@@ -35,28 +35,26 @@ def test_send_order_feishu_formats_notification(app: object, monkeypatch: object
     monkeypatch.setattr(order_funs, "get_shifu_info", get_shifu_info)
 
     class FakeQuery:
-        def __init__(
-            self: object, first_value: object = None, count_value: object = 0
-        ) -> None:
+        def __init__(self, first_value: object = None, count_value: object = 0) -> None:
             self._first_value = first_value
             self._count_value = count_value
 
-        def filter(self: object, *_args: object, **_kwargs: object):
+        def filter(self, *_args: object, **_kwargs: object):
             return self
 
-        def first(self: object):
+        def first(self):
             return self._first_value
 
-        def count(self: object):
+        def count(self):
             return self._count_value
 
     class FakeColumn:
         __hash__ = None
 
-        def __eq__(self: object, other: object) -> bool:
+        def __eq__(self, other: object) -> bool:
             return True
 
-        def __ge__(self: object, other: object) -> bool:
+        def __ge__(self, other: object) -> bool:
             return True
 
     class FakeUserConversion:

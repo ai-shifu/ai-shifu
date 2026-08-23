@@ -134,7 +134,7 @@ class TestShifuPermissions:
     """Verify shifu permissions behavior."""
 
     def test_list_permissions_only_active(
-        self: object, monkeypatch: object, test_client: object, app: object
+        self, monkeypatch: object, test_client: object, app: object
     ):
         shifu_bid = "test-permission-list"
         owner_id = "owner-1"
@@ -172,7 +172,7 @@ class TestShifuPermissions:
         assert items[0]["user_id"] == active_user
 
     def test_remove_permissions_soft_delete(
-        self: object, monkeypatch: object, test_client: object, app: object
+        self, monkeypatch: object, test_client: object, app: object
     ):
         shifu_bid = "test-permission-remove"
         owner_id = "owner-2"
@@ -201,7 +201,7 @@ class TestShifuPermissions:
             assert auth.status == 0
 
     def test_grant_view_permission_does_not_promote_creator(
-        self: object, monkeypatch: object, test_client: object, app: object
+        self, monkeypatch: object, test_client: object, app: object
     ):
         shifu_bid = "test-permission-grant-view"
         owner_id = "owner-grant-view"
@@ -239,7 +239,7 @@ class TestShifuPermissions:
         ],
     )
     def test_grant_authoring_permission_promotes_creator_and_bootstraps_trial(
-        self: object,
+        self,
         monkeypatch: object,
         test_client: object,
         app: object,

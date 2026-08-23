@@ -28,7 +28,7 @@ class RuffD103PolicyTest(unittest.TestCase):
             message = "ruff is not installed"
             raise unittest.SkipTest(message)
 
-    def run_ruff(self: object, filename: str) -> subprocess.CompletedProcess[str]:
+    def run_ruff(self, filename: str) -> subprocess.CompletedProcess[str]:
         """Run configured Ruff against fixture source at one repository path."""
         return subprocess.run(
             [
@@ -48,7 +48,7 @@ class RuffD103PolicyTest(unittest.TestCase):
         )
 
     def test_semantic_exception_boundaries_allow_undocumented_functions(
-        self: object,
+        self,
     ) -> None:
         """Keep D103 exceptions limited to tests, fixtures, and migration history."""
         exception_filenames = (
@@ -63,7 +63,7 @@ class RuffD103PolicyTest(unittest.TestCase):
                 result = self.run_ruff(filename)
                 assert "D103" not in result.stdout, result.stdout + result.stderr
 
-    def test_production_function_requires_a_docstring(self: object) -> None:
+    def test_production_function_requires_a_docstring(self) -> None:
         """Keep D103 enforced for public production functions."""
         result = self.run_ruff("src/api/flaskr/documentation_fixture.py")
 

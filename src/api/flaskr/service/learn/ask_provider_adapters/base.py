@@ -37,9 +37,7 @@ class AskProviderError(Exception):
     description safe to surface in the UI; the raw message stays for logs.
     """
 
-    def __init__(
-        self: object, message: str = "", user_message: str | None = None
-    ) -> None:
+    def __init__(self, message: str = "", user_message: str | None = None) -> None:
         """Store the raw provider error and optional UI-safe message."""
         super().__init__(message)
         self.user_message = user_message
@@ -59,7 +57,7 @@ class AskProviderAdapter(Protocol):
     provider: str
 
     def stream_answer(
-        self: object,
+        self,
         app: Flask,
         user_id: str,
         user_query: str,

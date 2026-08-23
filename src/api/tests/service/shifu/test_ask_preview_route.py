@@ -12,7 +12,7 @@ _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocke
 class _FakeObservation:
     """Mimics a Langfuse SDK v4 observation object."""
 
-    def __init__(self: object, kind: str = "span", **kwargs: object) -> None:
+    def __init__(self, kind: str = "span", **kwargs: object) -> None:
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
@@ -24,7 +24,7 @@ class _FakeObservation:
         self.span_calls = []
         self.last_span = None
 
-    def start_observation(self: object, as_type: object = "span", **kwargs: object):
+    def start_observation(self, as_type: object = "span", **kwargs: object):
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
@@ -33,17 +33,17 @@ class _FakeObservation:
             self.last_span = child
         return child
 
-    def update(self: object, **kwargs: object):
+    def update(self, **kwargs: object):
         self.updates.append(kwargs)
 
-    def set_trace_as_public(self: object):
+    def set_trace_as_public(self):
         self.public = True
 
-    def end(self: object):
+    def end(self):
         self.ended = True
 
     @property
-    def end_kwargs(self: object):
+    def end_kwargs(self):
         merged = {}
         for item in self.updates:
             merged.update(item)
@@ -51,11 +51,11 @@ class _FakeObservation:
 
 
 class _FakeLangfuseClient:
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         self.traces = []
 
     def start_observation(
-        self: object,
+        self,
         as_type: object = "span",
         trace_context: object = None,
         **kwargs: object,

@@ -48,7 +48,7 @@ class ReferralPlanRewardResult:
     ledger_bid: str = ""
     reused_existing_reward: bool = False
 
-    def to_dict(self: object) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize this value as a dictionary."""
         return {
             "inviter_user_bid": self.inviter_user_bid,
@@ -63,10 +63,10 @@ class ReferralPlanRewardResult:
 
 
 class _NullContext:
-    def __enter__(self: object) -> None:
+    def __enter__(self) -> None:
         return None
 
-    def __exit__(self: object, *_exc: object) -> bool | None:
+    def __exit__(self, *_exc: object) -> bool | None:
         return False
 
 

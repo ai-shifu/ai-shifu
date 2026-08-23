@@ -6,7 +6,7 @@ class BasePlugin:
 
     name: str = None
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Set the plugin name and leave its migration directory unset.
 
         Derives the name from the concrete class and keeps ``migration_dir`` empty
@@ -15,12 +15,12 @@ class BasePlugin:
         self.name = self.__class__.__name__
         self.migration_dir = None  # plugin migration dir
 
-    def on_load(self: object):
+    def on_load(self):
         """Run plugin initialization after loading."""
         if self.migration_dir:
             self._run_migrations()
 
-    def _run_migrations(self: object):
+    def _run_migrations(self):
         """Run the plugin migrations."""
         from alembic import command
         from alembic.config import Config
@@ -33,8 +33,8 @@ class BasePlugin:
 
         command.upgrade(alembic_cfg, "head")
 
-    def on_unload(self: object):
+    def on_unload(self):
         """Handle the plugin being unloaded."""
 
-    def on_reload(self: object):
+    def on_reload(self):
         """Handle the plugin being reloaded."""

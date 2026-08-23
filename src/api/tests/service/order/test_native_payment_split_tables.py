@@ -228,7 +228,7 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
 ) -> None:
     class FakeAlipayProvider:
         def sync_reference(
-            self: object,
+            self,
             *,
             provider_reference: object,
             reference_type: object,
@@ -315,7 +315,7 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
 ) -> None:
     class FakeAlipayProvider:
         def sync_reference(
-            self: object,
+            self,
             *,
             provider_reference: object,
             reference_type: object,

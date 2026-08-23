@@ -76,7 +76,7 @@ class AppliedBillingCampaignResult:
     campaign_price_amount: int = 0
     bonus_credit_amount: Decimal = Decimal(0)
 
-    def to_catalog_payload(self: object) -> dict[str, Any]:
+    def to_catalog_payload(self) -> dict[str, Any]:
         """Serialize the applied campaign for catalog output."""
         if not self.campaign_bid:
             return {}

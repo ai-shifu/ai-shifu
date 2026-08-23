@@ -1405,18 +1405,18 @@ def test_listen_run_persists_content_block_before_element_rows(app: object):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyLLMResult:
-            def __init__(self: object, content: object) -> None:
+            def __init__(self, content: object) -> None:
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
@@ -1426,20 +1426,20 @@ def test_listen_run_persists_content_block_before_element_rows(app: object):
                     )
                 ]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,
@@ -1599,7 +1599,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
 
         class DummyBlock:
             def __init__(
-                self: object, block_type: object, content: object, index: object
+                self, block_type: object, content: object, index: object
             ) -> None:
                 self.block_type = block_type
                 self.content = content
@@ -1607,18 +1607,18 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
 
         class DummyFormattedElement:
             def __init__(
-                self: object, content: object, element_type: object, number: object
+                self, content: object, element_type: object, number: object
             ) -> None:
                 self.content = content
                 self.type = element_type
                 self.number = number
 
         class DummyLLMResult:
-            def __init__(self: object, formatted_elements: object) -> None:
+            def __init__(self, formatted_elements: object) -> None:
                 self.formatted_elements = formatted_elements
 
         class FakeMarkdownFlow:
-            def __init__(self: object, *args: object, **kwargs: object) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
@@ -1628,20 +1628,20 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
                     )
                 ]
 
-            def set_visual_mode(self: object, *_args: object, **_kwargs: object):
+            def set_visual_mode(self, *_args: object, **_kwargs: object):
                 pass
 
-            def set_output_language(self: object, *_args: object, **_kwargs: object):
+            def set_output_language(self, *_args: object, **_kwargs: object):
                 return self
 
-            def get_all_blocks(self: object):
+            def get_all_blocks(self):
                 return self.blocks
 
-            def get_block(self: object, block_index: object):
+            def get_block(self, block_index: object):
                 return self.blocks[block_index]
 
             def process(
-                self: object,
+                self,
                 block_index: object,
                 mode: object,
                 variables: object = None,
@@ -1671,7 +1671,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
             next_element_index = 0
 
             def __init__(
-                self: object,
+                self,
                 generated_block_bid: object,
                 position: object,
                 stream_element_number: object,
@@ -1682,15 +1682,15 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object):
                 self.stream_element_number = stream_element_number
                 self.stream_element_type = stream_element_type
 
-            def process_chunk(self: object, chunk_content: object):
+            def process_chunk(self, chunk_content: object):
                 if False:
                     yield chunk_content
 
-            def drain_ready_segments(self: object):
+            def drain_ready_segments(self):
                 if False:
                     yield None
 
-            def finalize(self: object, *, commit: object = True):
+            def finalize(self, *, commit: object = True):
                 _ = commit
                 if self.stream_element_number == 0:
                     time.sleep(0.02)

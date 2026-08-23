@@ -59,21 +59,21 @@ class TypeStateMachine:
         # out_type == "element", sm.state == TypeState.BUILDING
     """
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Set the content-block type state machine to ``IDLE``."""
         self._state = TypeState.IDLE
 
     @property
-    def state(self: object) -> TypeState:
+    def state(self) -> TypeState:
         """Return the current parser state."""
         return self._state
 
     @property
-    def is_terminated(self: object) -> bool:
+    def is_terminated(self) -> bool:
         """Return whether the type state machine has terminated."""
         return self._state is TypeState.TERMINATED
 
-    def feed(self: object, trigger: TypeInput, *, is_new: bool = True) -> str:
+    def feed(self, trigger: TypeInput, *, is_new: bool = True) -> str:
         """Process *trigger* and return the ``type`` string for the SSE message.
 
         Parameters
@@ -132,6 +132,6 @@ class TypeStateMachine:
         message = f"Unknown trigger: {trigger!r}"
         raise ValueError(message)  # pragma: no cover
 
-    def reset(self: object) -> None:
+    def reset(self) -> None:
         """Reset the machine to ``IDLE``."""
         self._state = TypeState.IDLE

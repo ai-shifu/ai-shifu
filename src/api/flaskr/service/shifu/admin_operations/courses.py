@@ -418,7 +418,7 @@ _COURSES_SPLIT_SUBMODULES = (
 
 
 class _CoursesCompatibilityModule(type(sys)):
-    def __setattr__(self: object, name: object, value: object) -> None:
+    def __setattr__(self, name: object, value: object) -> None:
         super().__setattr__(name, value)
         for submodule in _COURSES_SPLIT_SUBMODULES:
             if hasattr(submodule, name):

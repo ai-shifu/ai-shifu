@@ -134,7 +134,7 @@ class MiniMaxVoiceCloneRunResult:
     voice_id: str = ""
     message: str = ""
 
-    def to_payload(self: object) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -202,7 +202,7 @@ def normalize_audio_blob(
 class MiniMaxVoiceCloneClient:
     """Call MiniMax APIs for voice-cloning workflows."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Load and validate MiniMax API credentials for voice cloning.
 
         Reads ``MINIMAX_API_KEY`` and optional ``MINIMAX_GROUP_ID`` from central
@@ -216,7 +216,7 @@ class MiniMaxVoiceCloneClient:
             raise ValueError(message)
 
     def upload_clone_audio(
-        self: object,
+        self,
         audio_bytes: bytes,
         filename: str,
         content_type: str,
@@ -230,7 +230,7 @@ class MiniMaxVoiceCloneClient:
         )
 
     def upload_prompt_audio(
-        self: object,
+        self,
         audio_bytes: bytes,
         filename: str,
         content_type: str,
@@ -244,7 +244,7 @@ class MiniMaxVoiceCloneClient:
         )
 
     def clone_voice(
-        self: object,
+        self,
         *,
         file_id: str,
         voice_id: str,
@@ -304,7 +304,7 @@ class MiniMaxVoiceCloneClient:
         )
 
     def _upload_file(
-        self: object,
+        self,
         *,
         audio_bytes: bytes,
         filename: str,
@@ -357,7 +357,7 @@ class MiniMaxVoiceCloneClient:
             trace_id=trace_id,
         )
 
-    def _headers(self: object, *, json_body: bool) -> dict[str, str]:
+    def _headers(self, *, json_body: bool) -> dict[str, str]:
         headers = {"Authorization": f"Bearer {self.api_key}"}
         if json_body:
             headers["Content-Type"] = "application/json"

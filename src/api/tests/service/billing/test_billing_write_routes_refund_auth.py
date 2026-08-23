@@ -32,7 +32,7 @@ class TestBillingWriteRoutesRefundAuth:
     """Verify billing write routes refund auth behavior."""
 
     def test_refund_paid_stripe_order_marks_order_refunded(
-        self: object, billing_write_client: object
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -107,7 +107,7 @@ class TestBillingWriteRoutesRefundAuth:
             )
 
     def test_refund_pingxx_order_returns_unsupported(
-        self: object, billing_write_client: object
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -140,9 +140,7 @@ class TestBillingWriteRoutesRefundAuth:
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             assert order.status == BILLING_ORDER_STATUS_PAID
 
-    def test_write_routes_require_creator(
-        self: object, billing_write_client: object
-    ) -> None:
+    def test_write_routes_require_creator(self, billing_write_client: object) -> None:
         client = billing_write_client["client"]
         response = client.post(
             "/api/billing/topups/checkout",

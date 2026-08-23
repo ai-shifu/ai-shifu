@@ -37,11 +37,11 @@ def _load_route_module(module_name: str):
 class DummyStripeProvider:
     """Simulate Stripe provider behavior for tests."""
 
-    def __init__(self: object, notification: PaymentNotificationResult) -> None:
+    def __init__(self, notification: PaymentNotificationResult) -> None:
         """Capture the notification returned by webhook verification."""
         self._notification = notification
 
-    def verify_webhook(self: object, *, headers: object, raw_body: object, app: object):
+    def verify_webhook(self, *, headers: object, raw_body: object, app: object):
         del headers, raw_body, app
         return self._notification
 

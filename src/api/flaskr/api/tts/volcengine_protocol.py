@@ -115,12 +115,12 @@ class VolcengineProtocol:
     PROTOCOL_VERSION = 0b0001
     HEADER_SIZE = 0b0001  # 4 bytes (multiplied by 4)
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Reset connection and session identifiers for a new exchange."""
         self.connection_id: str | None = None
         self.session_id: str | None = None
 
-    def encode_start_connection(self: object) -> bytes:
+    def encode_start_connection(self) -> bytes:
         """Encode StartConnection frame."""
         return self._encode_frame(
             message_type=MessageType.FULL_CLIENT_REQUEST,
@@ -131,7 +131,7 @@ class VolcengineProtocol:
             payload={},
         )
 
-    def encode_finish_connection(self: object) -> bytes:
+    def encode_finish_connection(self) -> bytes:
         """Encode FinishConnection frame."""
         return self._encode_frame(
             message_type=MessageType.FULL_CLIENT_REQUEST,
@@ -143,7 +143,7 @@ class VolcengineProtocol:
         )
 
     def encode_start_session(
-        self: object,
+        self,
         session_id: str,
         speaker: str,
         audio_format: str = "mp3",
@@ -234,7 +234,7 @@ class VolcengineProtocol:
             payload=payload,
         )
 
-    def encode_task_request(self: object, session_id: str, text: str) -> bytes:
+    def encode_task_request(self, session_id: str, text: str) -> bytes:
         """Encode TaskRequest frame with text to synthesize.
 
         Args:
@@ -264,7 +264,7 @@ class VolcengineProtocol:
             payload=payload,
         )
 
-    def encode_finish_session(self: object, session_id: str) -> bytes:
+    def encode_finish_session(self, session_id: str) -> bytes:
         """Encode FinishSession frame."""
         return self._encode_session_frame(
             message_type=MessageType.FULL_CLIENT_REQUEST,
@@ -276,7 +276,7 @@ class VolcengineProtocol:
             payload={},
         )
 
-    def decode_frame(self: object, data: bytes) -> ProtocolFrame:
+    def decode_frame(self, data: bytes) -> ProtocolFrame:
         """Decode a binary frame from server.
 
         Args:
@@ -413,7 +413,7 @@ class VolcengineProtocol:
         )
 
     def _encode_frame(
-        self: object,
+        self,
         message_type: MessageType,
         message_flags: int,
         serialization: SerializationMethod,
@@ -464,7 +464,7 @@ class VolcengineProtocol:
         return bytes(frame)
 
     def _encode_session_frame(
-        self: object,
+        self,
         message_type: MessageType,
         message_flags: int,
         serialization: SerializationMethod,

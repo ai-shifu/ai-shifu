@@ -29,12 +29,12 @@ def _patch_config(monkeypatch: object, config: object = None):
 
 
 class _FakeResponse:
-    def __init__(self: object, payload: object, status_code: object = 200) -> None:
+    def __init__(self, payload: object, status_code: object = 200) -> None:
         self._payload = payload
         self.status_code = status_code
         self.text = ""
 
-    def json(self: object):
+    def json(self):
         return self._payload
 
 
@@ -119,7 +119,7 @@ def test_query_status_converts_invalid_json_to_param_error(monkeypatch: object) 
         status_code = 200
         text = "<html>gateway error</html>"
 
-        def json(self: object):
+        def json(self):
             message = "no json"
             raise ValueError(message)
 

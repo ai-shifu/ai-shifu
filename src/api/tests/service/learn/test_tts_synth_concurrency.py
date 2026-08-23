@@ -15,11 +15,11 @@ class FakeRedis:
     Distinguishes acquire (key, max, ttl) from release (key) by arg count.
     """
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Initialize semaphore counters keyed by synthesis slot."""
         self.counters: dict[str, int] = {}
 
-    def eval(self: object, _script: object, _numkeys: object, *args: object):
+    def eval(self, _script: object, _numkeys: object, *args: object):
         key = args[0]
         if len(args) >= 3:  # acquire: key, max_count, ttl
             max_count = int(args[1])
@@ -38,11 +38,11 @@ class FakeRedis:
 class ExplodingRedis:
     """Redis stub whose .eval always raises, to exercise the fail-open path."""
 
-    def __init__(self: object) -> None:
+    def __init__(self) -> None:
         """Reset the count of intentionally failing Redis calls."""
         self.calls = 0
 
-    def eval(self: object, *_args: object, **_kwargs: object):
+    def eval(self, *_args: object, **_kwargs: object):
         self.calls += 1
         message = "redis down"
         raise RuntimeError(message)
