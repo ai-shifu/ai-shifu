@@ -575,7 +575,7 @@ def _build_course_query_shifu_bid_filter(course_query: str) -> ColumnElement[boo
     )
 
 
-def _apply_order_source_filter(query: object, order_source: str) -> Query:
+def _apply_order_source_filter(query: Query, order_source: str) -> Query:
     normalized_order_source = str(order_source or "").strip()
     if not normalized_order_source:
         return query

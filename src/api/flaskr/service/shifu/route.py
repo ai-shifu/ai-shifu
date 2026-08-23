@@ -2146,7 +2146,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         export_shifu(app, shifu_bid, str(file_path))
 
         @after_this_request
-        def cleanup(response: object) -> object:
+        def cleanup(response: Response) -> Response:
             try:
                 file_path.unlink()
                 Path(temp_dir).rmdir()
@@ -2575,7 +2575,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def get_minimax_tts_voice_api(voice_bid: object) -> str:
+    def get_minimax_tts_voice_api(voice_bid: str) -> str:
         from flaskr.service.tts.api import get_minimax_cloned_voice
 
         return make_common_response(
@@ -2591,7 +2591,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def retry_minimax_tts_voice_api(voice_bid: object) -> str:
+    def retry_minimax_tts_voice_api(voice_bid: str) -> str:
         from flaskr.service.tts.api import retry_minimax_voice_clone
 
         return make_common_response(
@@ -2604,7 +2604,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
 
     @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["DELETE"])
     @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def delete_minimax_tts_voice_api(voice_bid: object) -> str:
+    def delete_minimax_tts_voice_api(voice_bid: str) -> str:
         from flaskr.service.tts.api import delete_minimax_cloned_voice
 
         return make_common_response(

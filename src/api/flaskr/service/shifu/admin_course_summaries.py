@@ -851,9 +851,13 @@ def _build_outline_history_tree(
 
 
 def _merge_courses(
-    drafts: Iterable[DraftShifu],
-    published: Iterable[PublishedShifu],
-) -> object:
+    drafts: Iterable[DraftShifu | PublishedShifu | OperatorCourseListSeed],
+    published: Iterable[DraftShifu | PublishedShifu | OperatorCourseListSeed],
+) -> tuple[
+    list[DraftShifu | PublishedShifu | OperatorCourseListSeed],
+    set[str],
+    dict[str, str],
+]:
     course_map = {}
     published_bids: set[str] = set()
     selected_sources: dict[str, str] = {}
@@ -907,11 +911,11 @@ def _load_latest_course_versions(
 
 
 def _load_latest_courses_by_shifu_bids(
-    model: object,
+    model: type[DraftShifu | PublishedShifu],
     shifu_bids: Sequence[str],
     *,
     lightweight: bool = False,
-) -> object:
+) -> list[DraftShifu | PublishedShifu | OperatorCourseListSeed]:
     normalized_shifu_bids = [
         str(shifu_bid or "").strip() for shifu_bid in shifu_bids if shifu_bid
     ]

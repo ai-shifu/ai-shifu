@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
     from flask_sqlalchemy.query import Query
     from sqlalchemy.sql.elements import ColumnElement
-    from sqlalchemy.sql.selectable import CTE
+    from sqlalchemy.sql.selectable import CTE, Subquery
 
 
 @dataclass
@@ -882,15 +882,15 @@ def _resolve_course_quick_filter(value: str) -> str:
 
 
 def _apply_operator_course_list_filters(
-    query: object,
-    candidate_subquery: object,
+    query: Query,
+    candidate_subquery: Subquery,
     *,
     course_status: str,
     quick_filter: str,
     updated_start_time: datetime | None,
     updated_end_time: datetime | None,
     apply_updated_filters: bool,
-) -> object:
+) -> Query:
     if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
         query = query.filter(candidate_subquery.c.course_status == course_status)
     if quick_filter:
@@ -1012,7 +1012,7 @@ def _load_recent_paid_order_course_bids(
     }
 
 
-def _build_latest_billing_order_subquery(*, creator_bid: str) -> object:
+def _build_latest_billing_order_subquery(*, creator_bid: str) -> Subquery:
     normalized_creator_bid = str(creator_bid or "").strip()
     return (
         db.session.query(

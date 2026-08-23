@@ -189,7 +189,7 @@ _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
 )
 
 
-def _filter_out_reserved_credit_grant_ledgers(query: object) -> Query:
+def _filter_out_reserved_credit_grant_ledgers(query: Query) -> Query:
     bucket_credit_state_expr = db.func.lower(
         db.func.trim(
             db.func.coalesce(

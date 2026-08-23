@@ -697,7 +697,7 @@ def _assert_product_code_is_active_plan(product_code: str) -> None:
         raise_param_error("reward_product_code")
 
 
-def _apply_status_filter(query: object, status: str, *, now: datetime) -> Query:
+def _apply_status_filter(query: Query, status: str, *, now: datetime) -> Query:
     if status == "active":
         return query.filter(
             ReferralCampaign.campaign_status == REFERRAL_CAMPAIGN_STATUS_ACTIVE,
