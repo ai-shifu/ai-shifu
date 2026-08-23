@@ -533,7 +533,7 @@ def retry_on_deadlock(
     that connection.
     """
 
-    def decorator(func: object) -> Callable[P, R]:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         def wrapper(*args: object, **kwargs: object) -> R:
             attempt = 0
