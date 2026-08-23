@@ -1,7 +1,7 @@
 """Promo functions."""
 
 import decimal
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -88,7 +88,7 @@ def build_campaign_enabled_expression(model_or_columns: object) -> ColumnElement
     )
 
 
-def _app_context_scope(app: Flask) -> object:
+def _app_context_scope(app: Flask) -> AbstractContextManager[None]:
     return nullcontext() if has_app_context() else app.app_context()
 
 
