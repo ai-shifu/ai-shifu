@@ -184,6 +184,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from decimal import Decimal
 
+    from sqlalchemy.sql.elements import ColumnElement
+
 COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
 
 COURSE_CREDIT_USAGE_VIEW_RAW = "raw"
@@ -510,7 +512,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr() -> object:
+def _build_course_order_amount_expr() -> ColumnElement[Any]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),

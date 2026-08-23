@@ -49,9 +49,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from decimal import Decimal
 
+    from flask_sqlalchemy.query import Query
     from flaskr.service.shifu.admin_dtos_courses import (
         AdminOperationCourseSummaryDTO,
     )
+    from sqlalchemy.sql.elements import ColumnElement
     from sqlalchemy.sql.selectable import CTE
 
 
@@ -151,7 +153,7 @@ def _build_operator_visible_course_filter(
     shifu_bid_column: object,
     title_column: object,
     created_user_bid_column: object,
-) -> object:
+) -> ColumnElement[bool]:
     normalized_shifu_bid = db.func.trim(db.func.coalesce(shifu_bid_column, ""))
     normalized_title = db.func.trim(db.func.coalesce(title_column, ""))
     normalized_created_user_bid = db.func.trim(
@@ -180,7 +182,7 @@ def _build_latest_operator_course_rows_query(
     creator_bids: set[str] | None,
     start_time: datetime | None,
     end_time: datetime | None,
-) -> object:
+) -> Query | None:
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
     )
@@ -244,7 +246,7 @@ def _build_operator_course_candidate_query(
     start_time: datetime | None,
     end_time: datetime | None,
     include_activity: bool = False,
-) -> object:
+) -> Query | None:
     draft_rows_subquery = _build_latest_operator_course_rows_subquery(
         DraftShifu,
         shifu_bid=shifu_bid,
@@ -404,7 +406,7 @@ def _build_latest_outline_activity_subquery(
     candidate_bids_subquery: object,
     *,
     alias_name: str,
-) -> object:
+) -> CTE:
     latest_outline_rows_subquery = (
         db.session.query(
             model.shifu_bid.label("shifu_bid"),
@@ -463,7 +465,7 @@ def _build_operator_course_latest_activity_subquery(
     candidate_bids_subquery: object,
     draft_visible_subquery: object,
     published_visible_subquery: object,
-) -> object:
+) -> CTE:
     draft_outline_activity_subquery = _build_latest_outline_activity_subquery(
         DraftOutlineItem,
         candidate_bids_subquery,
@@ -544,7 +546,7 @@ def _build_latest_shifus_query(
     updated_start_time: datetime | None,
     updated_end_time: datetime | None,
     lightweight: bool = False,
-) -> object:
+) -> Query | list[DraftShifu | PublishedShifu]:
     is_mapped_model = hasattr(model, "__mapper__")
     latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
         model.deleted == 0
@@ -586,7 +588,7 @@ def _load_latest_shifus(
     updated_end_time: datetime | None,
     attach_prompt_flags: bool = False,
     lightweight: bool = False,
-) -> object:
+) -> list[DraftShifu | PublishedShifu | OperatorCourseListSeed]:
     ordered_query = _build_latest_shifus_query(
         model,
         shifu_bid=shifu_bid,
@@ -747,7 +749,9 @@ def _load_course_activity_map(
     return load_course_activity_map(drafts, published)
 
 
-def _load_latest_course_for_transfer(shifu_bid: str) -> object:
+def _load_latest_course_for_transfer(
+    shifu_bid: str,
+) -> DraftShifu | PublishedShifu | None:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,

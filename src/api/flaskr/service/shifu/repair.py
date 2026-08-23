@@ -19,6 +19,7 @@ from .shifu_outline_funcs import (
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flask_sqlalchemy.query import Query
 
 
 @dataclass
@@ -104,7 +105,7 @@ class OutlineStructureRepairResult:
         }
 
 
-def _apply_shifu_scope(query: object, shifu_bids: list[str] | str | None) -> object:
+def _apply_shifu_scope(query: Query, shifu_bids: list[str] | str | None) -> Query:
     if shifu_bids is None:
         return query
     if isinstance(shifu_bids, str):

@@ -314,7 +314,7 @@ def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
 def _build_follow_up_user_keyword_filter(
     user_bid_column: object,
     keyword: str,
-) -> object:
+) -> ColumnElement[bool] | None:
     normalized = _normalize_dashboard_identifier(keyword)
     if not normalized:
         return None

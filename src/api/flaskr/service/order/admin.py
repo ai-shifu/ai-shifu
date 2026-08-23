@@ -77,6 +77,7 @@ from sqlalchemy import case
 if TYPE_CHECKING:
     from flask import Flask
     from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.elements import ColumnElement
     from sqlalchemy.sql.selectable import Subquery
 
 ORDER_STATUS_KEY_MAP = {
@@ -556,7 +557,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
     return sorted(matched_shifu_bids)
 
 
-def _build_course_query_shifu_bid_filter(course_query: str) -> object:
+def _build_course_query_shifu_bid_filter(course_query: str) -> ColumnElement[bool]:
     normalized_course_query = str(course_query or "").strip()
     like_value = f"%{normalized_course_query}%"
     draft_course_bids = db.session.query(DraftShifu.shifu_bid).filter(

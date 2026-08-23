@@ -72,6 +72,7 @@ from sqlalchemy import and_, case, func, not_, or_
 if TYPE_CHECKING:
     from flask import Flask
     from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.elements import ColumnElement
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
@@ -275,7 +276,7 @@ def _build_user_keyword_query(keyword: str) -> Query:
 
 def _apply_keyword_filter(
     query: object, keyword: str, user_bid_field: object, *text_fields: object
-) -> object:
+) -> Query:
     normalized = str(keyword or "").strip().lower()
     if not normalized:
         return query
@@ -288,7 +289,7 @@ def _apply_keyword_filter(
     return query.filter(or_(*keyword_filters))
 
 
-def _build_coupon_status_filter(status: str) -> object:
+def _build_coupon_status_filter(status: str) -> ColumnElement[bool] | None:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
@@ -316,7 +317,7 @@ def _build_coupon_status_filter(status: str) -> object:
     return None
 
 
-def _build_campaign_status_filter(status: str) -> object:
+def _build_campaign_status_filter(status: str) -> ColumnElement[bool] | None:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None

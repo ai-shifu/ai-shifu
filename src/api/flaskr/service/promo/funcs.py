@@ -56,7 +56,7 @@ def is_campaign_enabled_for_runtime(campaign: object) -> bool:
     )
 
 
-def _blank_legacy_bid_expression(column: object) -> object:
+def _blank_legacy_bid_expression(column: object) -> ColumnElement[bool]:
     normalized = func.coalesce(column, "")
     normalized = func.replace(normalized, "\t", "")
     normalized = func.replace(normalized, "\n", "")

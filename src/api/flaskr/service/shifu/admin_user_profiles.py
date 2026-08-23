@@ -73,6 +73,7 @@ from sqlalchemy import case, or_
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from sqlalchemy.sql.elements import ColumnElement
     from sqlalchemy.sql.selectable import Subquery
 
 
@@ -249,7 +250,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr() -> object:
+def _build_course_order_amount_expr() -> ColumnElement[Any]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),
@@ -379,7 +380,7 @@ def _build_recent_learning_active_user_bid_subquery(
     *,
     since: datetime,
     until: datetime,
-) -> object:
+) -> Subquery:
     activity_at = db.func.coalesce(
         LearnProgressRecord.updated_at,
         LearnProgressRecord.created_at,
@@ -402,7 +403,7 @@ def _build_recent_paid_user_bid_subquery(
     *,
     since: datetime,
     until: datetime,
-) -> object:
+) -> Subquery:
     return (
         db.session.query(Order.user_bid.label("user_bid"))
         .filter(
@@ -417,7 +418,7 @@ def _build_recent_paid_user_bid_subquery(
     )
 
 
-def _build_registered_user_timestamp_subquery() -> object:
+def _build_registered_user_timestamp_subquery() -> Subquery:
     registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
     credential_subquery = (
         db.session.query(
