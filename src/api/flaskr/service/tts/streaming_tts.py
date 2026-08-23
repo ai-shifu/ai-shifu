@@ -962,9 +962,7 @@ class StreamingTTSProcessor:
         return int(default_ms or 0)
 
     @classmethod
-    def _minimax_raw_subtitle_key(
-        cls: object, raw_item: dict[str, Any]
-    ) -> tuple[str, int]:
+    def _minimax_raw_subtitle_key(cls, raw_item: dict[str, Any]) -> tuple[str, int]:
         text = cls._minimax_subtitle_text(raw_item)
         start_ms = cls._minimax_subtitle_time_ms(
             raw_item,

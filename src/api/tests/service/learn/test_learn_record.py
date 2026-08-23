@@ -28,7 +28,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
     """Verify learn record fallback behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-fallback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

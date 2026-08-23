@@ -284,7 +284,7 @@ class NextChapterInteractionTests(unittest.TestCase):
     """Verify next chapter interaction behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("next-chapter-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -572,7 +572,7 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
     """Verify exception gate feedback behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-feedback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -656,7 +656,7 @@ class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
     """Verify exception gate interaction persistence behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-interaction-persistence")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -810,7 +810,7 @@ class ReloadFromElementBidTests(unittest.TestCase):
     """Verify reload from element bid behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("reload-from-element-bid")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -2583,7 +2583,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
     """_phase_stream_content_block captures LLMResult.prompt (the exact user message markdown-flow sent to the LLM) and hands it to the recorder; prompt-less streams (preserved content) freeze the variables-rendered block source instead."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("stream-prompt-capture-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

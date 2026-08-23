@@ -103,7 +103,7 @@ class PingxxProvider(PaymentProvider):
     _NON_BMP_RE = re.compile(r"[\uD800-\uDFFF\U00010000-\U0010FFFF]")
 
     @classmethod
-    def _sanitize_str(cls: object, text: str) -> str:
+    def _sanitize_str(cls, text: str) -> str:
         """Strip characters outside the Unicode BMP.
 
         Some WeChat payment APIs (via Ping++) reject non-BMP Unicode

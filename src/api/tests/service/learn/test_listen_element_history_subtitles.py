@@ -8,7 +8,7 @@ class TestListenElementHistorySubtitles:
     """Verify listen element history subtitles behavior."""
 
     @classmethod
-    def setup_class(cls: object) -> None:
+    def setup_class(cls) -> None:
         cls.app = Flask("listen-element-history-subtitles")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

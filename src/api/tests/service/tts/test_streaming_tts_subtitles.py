@@ -8,7 +8,7 @@ class TestStreamingTtsSubtitles:
     """Verify streaming TTS subtitles behavior."""
 
     @classmethod
-    def setup_class(cls: object) -> None:
+    def setup_class(cls) -> None:
         cls.app = Flask("streaming-tts-subtitles")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

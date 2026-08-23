@@ -120,7 +120,7 @@ class TestGeneratedBlockListenTtsElementFirst:
     """Verify generated block listen TTS element first behavior."""
 
     @classmethod
-    def setup_class(cls: object) -> None:
+    def setup_class(cls) -> None:
         cls.app = Flask("generated-block-listen-tts")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

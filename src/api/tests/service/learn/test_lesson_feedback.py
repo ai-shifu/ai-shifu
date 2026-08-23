@@ -25,7 +25,7 @@ class LessonFeedbackTests(unittest.TestCase):
     """Verify lesson feedback behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("lesson-feedback-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",

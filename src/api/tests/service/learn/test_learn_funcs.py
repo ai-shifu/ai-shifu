@@ -44,7 +44,7 @@ class LearnRecordLoadTests(unittest.TestCase):
     """Verify learn record load behavior."""
 
     @classmethod
-    def setUpClass(cls: object) -> None:
+    def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
