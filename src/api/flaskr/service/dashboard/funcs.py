@@ -67,6 +67,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
     from sqlalchemy.sql.selectable import Subquery
 
 
@@ -146,7 +147,7 @@ def _dashboard_learner_keyword_matches(
 def _build_dashboard_learner_keyword_filter(
     user_bid_column: object,
     keyword: str,
-) -> object:
+) -> ColumnElement[bool] | None:
     normalized_keyword = _normalize_dashboard_identifier(keyword).strip()
     if not normalized_keyword:
         return None
