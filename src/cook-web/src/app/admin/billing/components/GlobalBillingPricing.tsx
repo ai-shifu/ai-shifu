@@ -901,7 +901,7 @@ function PlanCard({
         </div>
 
         <div
-          className='min-h-[96px] px-5 py-4 2xl:px-6'
+          className='min-h-[128px] px-5 py-4 2xl:px-6'
           data-testid={`global-plan-${tierSpec.tier}-estimate`}
         >
           <p className='text-xs font-medium text-muted-foreground'>
