@@ -1,164 +1,39 @@
 'use client';
 
-import React from 'react';
-import api from '@/api';
+import { useTranslation } from 'react-i18next';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
-import ProfileOnboardingConversation, {
-  type ProfileOnboardingRunSession,
-  type ProfileOnboardingSessionInfo,
-} from '@/components/profile-onboarding/ProfileOnboardingConversation';
+import ProfileOnboardingConversation from '@/components/profile-onboarding/ProfileOnboardingConversation';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
 import { Textarea } from '@/components/ui/Textarea';
-import { useToast } from '@/hooks/useToast';
-import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
-import { ErrorWithCode } from '@/lib/request';
-import { useTranslation } from 'react-i18next';
 import useOperatorGuard from '../useOperatorGuard';
-
-type ProfileOnboardingConfig = {
-  enabled?: boolean;
-  markdownflow?: string;
-  config_revision?: number;
-  allowed_variable_keys?: string[];
-  version?: number;
-  updated_by?: string;
-  updated_at?: string;
-};
+import { useProfileOnboardingAdminController } from './useProfileOnboardingAdminController';
 
 export default function ProfileOnboardingAdminPage() {
-  const { t, i18n } = useTranslation();
-  const { toast } = useToast();
+  const { t } = useTranslation();
   const { isReady } = useOperatorGuard();
-  const [enabled, setEnabled] = React.useState(false);
-  const [markdownflow, setMarkdownflow] = React.useState('');
-  const [configRevision, setConfigRevision] = React.useState(0);
-  const [updatedBy, setUpdatedBy] = React.useState('');
-  const [updatedAt, setUpdatedAt] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState('');
-  const [previewOpen, setPreviewOpen] = React.useState(false);
-  const [previewKey, setPreviewKey] = React.useState(0);
-  const [previewDraft, setPreviewDraft] = React.useState('');
-  const loadStartedRef = React.useRef(false);
-  const defaultMarkdownflow = t(
-    'module.profileOnboarding.admin.defaultMarkdownflow',
-  );
-
-  React.useEffect(() => {
-    if (!isReady || loadStartedRef.current) {
-      return;
-    }
-    loadStartedRef.current = true;
-    setLoading(true);
-    void api
-      .getAdminOperationProfileOnboardingConfig({})
-      .then((response: ProfileOnboardingConfig) => {
-        const loadedRevision = Number(
-          response.config_revision ?? response.version ?? 0,
-        );
-        const hasStoredConfiguration = loadedRevision > 0;
-        setEnabled(Boolean(response.enabled));
-        setMarkdownflow(
-          hasStoredConfiguration
-            ? (response.markdownflow ?? defaultMarkdownflow)
-            : response.markdownflow || defaultMarkdownflow,
-        );
-        setConfigRevision(loadedRevision);
-        setUpdatedBy(response.updated_by || '');
-        setUpdatedAt(response.updated_at || '');
-        setError('');
-      })
-      .catch((caughtError: unknown) => {
-        const typedError = caughtError as Partial<ErrorWithCode>;
-        setError(
-          typedError.message || t('module.profileOnboarding.admin.loadFailed'),
-        );
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [defaultMarkdownflow, isReady, t]);
-
-  const handleSave = React.useCallback(async () => {
-    if (enabled && !markdownflow.trim()) {
-      setError(t('module.profileOnboarding.admin.documentRequired'));
-      return;
-    }
-    const submittedConfig = {
-      enabled,
-      markdownflow,
-    };
-    setSaving(true);
-    setError('');
-    try {
-      const response = (await api.updateAdminOperationProfileOnboardingConfig({
-        enabled: submittedConfig.enabled,
-        markdownflow: submittedConfig.markdownflow,
-      })) as ProfileOnboardingConfig;
-      setEnabled(currentValue =>
-        currentValue === submittedConfig.enabled
-          ? Boolean(response.enabled)
-          : currentValue,
-      );
-      setMarkdownflow(currentValue =>
-        currentValue === submittedConfig.markdownflow
-          ? (response.markdownflow ?? submittedConfig.markdownflow)
-          : currentValue,
-      );
-      setConfigRevision(
-        Number(response.config_revision ?? response.version ?? configRevision),
-      );
-      setUpdatedBy(response.updated_by || updatedBy);
-      setUpdatedAt(response.updated_at || updatedAt);
-      toast({
-        title: t('module.profileOnboarding.admin.saveSuccess'),
-      });
-    } catch (caughtError) {
-      const typedError = caughtError as Partial<ErrorWithCode>;
-      setError(
-        typedError.message || t('module.profileOnboarding.admin.saveFailed'),
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [configRevision, enabled, markdownflow, t, toast, updatedAt, updatedBy]);
-
-  const createPreviewSession = React.useCallback(async () => {
-    setPreviewDraft('');
-    setError('');
-    return (await api.createAdminOperationProfileOnboardingPreview({
-      markdownflow,
-      language: i18n.resolvedLanguage ?? i18n.language,
-    })) as ProfileOnboardingSessionInfo;
-  }, [i18n.language, i18n.resolvedLanguage, markdownflow]);
-
-  const runPreviewSession = React.useCallback<ProfileOnboardingRunSession>(
-    ({
-      sessionId,
-      expectedBlockIndex,
-      requestId,
-      userInput,
-      onMessage,
-      onError,
-    }) =>
-      streamProfileOnboardingRuntime({
-        path: `/api/shifu/admin/operations/profile-onboarding/preview/${encodeURIComponent(sessionId)}/run`,
-        payload: {
-          expected_block_index: expectedBlockIndex,
-          request_id: requestId,
-          ...(userInput ? { user_input: userInput } : {}),
-        },
-        language: i18n.resolvedLanguage ?? i18n.language,
-        onMessage,
-        onError,
-      }),
-    [i18n.language, i18n.resolvedLanguage],
-  );
+  const {
+    enabled,
+    setEnabled,
+    markdownflow,
+    setMarkdownflow,
+    configRevision,
+    updatedBy,
+    updatedAt,
+    loading,
+    saving,
+    error,
+    previewOpen,
+    previewKey,
+    previewDraft,
+    save,
+    startPreview,
+    hidePreview,
+    previewConversationProps,
+  } = useProfileOnboardingAdminController(isReady);
 
   if (!isReady || loading) {
     return <Loading />;
@@ -185,11 +60,7 @@ export default function ProfileOnboardingAdminPage() {
             <Button
               type='button'
               variant='outline'
-              onClick={() => {
-                setPreviewDraft('');
-                setPreviewOpen(true);
-                setPreviewKey(key => key + 1);
-              }}
+              onClick={startPreview}
             >
               {previewOpen
                 ? t('module.profileOnboarding.admin.restartPreview')
@@ -198,7 +69,7 @@ export default function ProfileOnboardingAdminPage() {
             <Button
               type='button'
               disabled={saving}
-              onClick={handleSave}
+              onClick={save}
             >
               {t('module.profileOnboarding.admin.save')}
             </Button>
@@ -297,7 +168,7 @@ export default function ProfileOnboardingAdminPage() {
                   type='button'
                   variant='ghost'
                   size='sm'
-                  onClick={() => setPreviewOpen(false)}
+                  onClick={hidePreview}
                 >
                   {t('module.profileOnboarding.admin.hidePreview')}
                 </Button>
@@ -308,17 +179,7 @@ export default function ProfileOnboardingAdminPage() {
               <div className='mt-4'>
                 <ProfileOnboardingConversation
                   key={previewKey}
-                  createSession={createPreviewSession}
-                  runSession={runPreviewSession}
-                  onDraftReady={draft => setPreviewDraft(draft)}
-                  onRetry={() => setError('')}
-                  onError={caughtError => {
-                    setError(
-                      caughtError instanceof Error && caughtError.message
-                        ? caughtError.message
-                        : t('module.profileOnboarding.admin.previewFailed'),
-                    );
-                  }}
+                  {...previewConversationProps}
                 />
               </div>
               {previewDraft ? (
