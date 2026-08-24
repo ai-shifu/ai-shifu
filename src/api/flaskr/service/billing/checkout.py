@@ -44,6 +44,7 @@ from flaskr.util.uuid import generate_id
 
 from .campaigns import resolve_applied_billing_campaign
 from .consts import (
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_INTERVAL_LABELS,
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
@@ -635,6 +636,7 @@ def create_billing_subscription_checkout(
             conflicting_pending_orders.append(pending_order)
 
         for duplicate_order in duplicate_reusable_orders:
+            _prepare_pending_order_for_replacement(app, duplicate_order)
             _mark_billing_order_invalidated(
                 duplicate_order,
                 target_status=BILLING_ORDER_STATUS_CANCELED,
@@ -648,6 +650,7 @@ def create_billing_subscription_checkout(
 
         if reusable_order is not None:
             for conflicting_order in conflicting_pending_orders:
+                _prepare_pending_order_for_replacement(app, conflicting_order)
                 _mark_billing_order_invalidated(
                     conflicting_order,
                     target_status=BILLING_ORDER_STATUS_CANCELED,
@@ -688,12 +691,10 @@ def create_billing_subscription_checkout(
         if (
             provider_price_mapping is not None
             and resolved_campaign is not None
-            and resolved_campaign.campaign_bid
+            and _stripe_campaign_affects_charge_amount(resolved_campaign)
         ):
             raise_error("server.pay.payChannelNotSupport")
-        applied_campaign = (
-            None if provider_price_mapping is not None else resolved_campaign
-        )
+        applied_campaign = resolved_campaign
         db.session.add(subscription)
         db.session.flush()
 
@@ -701,7 +702,9 @@ def create_billing_subscription_checkout(
             0,
             (
                 int(applied_campaign.campaign_price_amount)
-                if applied_campaign is not None and applied_campaign.campaign_bid
+                if applied_campaign is not None
+                and applied_campaign.campaign_bid
+                and provider_price_mapping is None
                 else (
                     int(provider_price_mapping.unit_amount or 0)
                     if provider_price_mapping is not None
@@ -755,6 +758,7 @@ def create_billing_subscription_checkout(
             ),
         )
         for conflicting_order in conflicting_pending_orders:
+            _prepare_pending_order_for_replacement(app, conflicting_order)
             _mark_billing_order_invalidated(
                 conflicting_order,
                 target_status=BILLING_ORDER_STATUS_CANCELED,
@@ -818,12 +822,10 @@ def create_billing_topup_checkout(
         if (
             provider_price_mapping is not None
             and resolved_campaign is not None
-            and resolved_campaign.campaign_bid
+            and _stripe_campaign_affects_charge_amount(resolved_campaign)
         ):
             raise_error("server.pay.payChannelNotSupport")
-        applied_campaign = (
-            None if provider_price_mapping is not None else resolved_campaign
-        )
+        applied_campaign = resolved_campaign
         order_metadata_payload: dict[str, object] = {
             "checkout_type": "topup",
             "campaign": (
@@ -849,7 +851,9 @@ def create_billing_topup_checkout(
             ),
             payable_amount=(
                 int(applied_campaign.campaign_price_amount)
-                if applied_campaign is not None and applied_campaign.campaign_bid
+                if applied_campaign is not None
+                and applied_campaign.campaign_bid
+                and provider_price_mapping is None
                 else (
                     int(provider_price_mapping.unit_amount or 0)
                     if provider_price_mapping is not None
@@ -948,7 +952,23 @@ def _reopen_existing_billing_order_checkout(
     product: BillingProduct,
     requested_channel: str = "",
 ) -> BillingCheckoutResultDTO:
+    provider_price_mapping: BillingProductProviderPrice | None = None
     if _normalize_bid(order.payment_provider) == "stripe":
+        provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
+            app,
+            product=product,
+        )
+        order_metadata = (
+            order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        )
+        stored_provider_price_bid = _normalize_bid(
+            order_metadata.get("provider_price_bid")
+        )
+        if (
+            stored_provider_price_bid
+            and stored_provider_price_bid != provider_price_mapping.provider_price_bid
+        ):
+            raise_error("server.order.orderStatusError")
         stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
         if stored_checkout_result is not None:
             return stored_checkout_result
@@ -964,7 +984,13 @@ def _reopen_existing_billing_order_checkout(
         payment_mode=_resolve_billing_order_payment_mode(order),
         channel=order.channel,
         reused_existing_order=True,
+        provider_price_mapping=provider_price_mapping,
     )
+
+
+def _prepare_pending_order_for_replacement(app: Flask, order: BillingOrder) -> None:
+    if _normalize_bid(order.payment_provider) == "stripe":
+        _reconcile_stored_stripe_checkout_before_replacement(app, order)
 
 
 def _build_stored_stripe_checkout_result(
@@ -1462,6 +1488,14 @@ def _build_provider_price_order_metadata(
         "provider_price_unit_amount": int(mapping.unit_amount or 0),
         "provider_price_mapping": serialize_provider_price_mapping(mapping),
     }
+
+
+def _stripe_campaign_affects_charge_amount(campaign: object) -> bool:
+    return bool(
+        getattr(campaign, "campaign_bid", "")
+        and int(getattr(campaign, "benefit_type_code", 0) or 0)
+        == BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT
+    )
 
 
 def _lock_subscription_for_checkout(
