@@ -1070,6 +1070,9 @@ class ProfileResearchRuntime:
                     raise ProfileResearchSessionNotFound(msg)
                 processed_block_index = session.block_index
                 current_block = blocks[processed_block_index]
+                is_profile_draft_block = (
+                    processed_block_index == session.profile_draft_block_index
+                )
                 has_user_input = bool(normalized_user_input)
                 if current_block.block_type != BlockType.INTERACTION and has_user_input:
                     msg = "user_input is not expected for this block"
@@ -1115,6 +1118,10 @@ class ProfileResearchRuntime:
                     if not content:
                         continue
                     outcome.content += content
+                    if is_profile_draft_block:
+                        # The generated profile is a structured terminal result,
+                        # not part of the learner-visible MarkdownFlow transcript.
+                        continue
                     next_event = _event(
                         "interaction" if rendering_interaction else "content",
                         outcome.content,

@@ -43,7 +43,7 @@ import {
 const DEFAULT_MAX_LENGTH = 1000;
 const DEFAULT_NICKNAME_MAX_LENGTH = 64;
 
-type DialogPhase = 'collect' | 'processing' | 'save';
+type DialogPhase = 'collect' | 'save';
 type DialogConfirmation = 'discard' | 'replace-collection';
 type OptimizationStatus = 'idle' | 'success' | 'error';
 type CollectionTriggerSource = 'guided' | 'settings';
@@ -54,7 +54,6 @@ export type ProfileCollectionResult = {
     triggerSource: CollectionTriggerSource;
     sessionId: string;
   };
-  postProcess: 'optimize';
 };
 
 export type LearnerProfileDialogProps = {
@@ -596,15 +595,14 @@ export default function LearnerProfileDialog({
   }, [deferring, dirty, dismiss, dismissing, exitPolicy, saving]);
 
   const performOptimization = React.useCallback(
-    async (draft: string, automatic: boolean) => {
+    async (draft: string) => {
       const normalized = draft.trim();
-      if (!loaded || optimizing) {
-        return;
-      }
-
-      const invalidAutomaticDraft =
-        !normalized || countUnicodeCodePoints(normalized) > maxLength;
-      if (!automatic && invalidAutomaticDraft) {
+      if (
+        !loaded ||
+        optimizing ||
+        !normalized ||
+        countUnicodeCodePoints(normalized) > maxLength
+      ) {
         return;
       }
 
@@ -616,29 +614,6 @@ export default function LearnerProfileDialog({
       setOptimizationErrorMessage('');
       setOptimizationOriginal(draft);
       setError('');
-      if (automatic) {
-        setPhase('processing');
-      }
-
-      if (invalidAutomaticDraft) {
-        // Keep the processing transition perceptible before returning the raw
-        // collection result with a corrective status.
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
-        if (
-          !isCurrent(generation, scope) ||
-          request !== optimizeRequestRef.current
-        ) {
-          return;
-        }
-        setProfile(draft);
-        setOptimizationErrorMessage(
-          t('module.profileOnboarding.dialog.optimizeFailed'),
-        );
-        setOptimizationStatus('error');
-        setOptimizing(false);
-        setPhase('save');
-        return;
-      }
 
       try {
         const response = await optimizeLearnerProfile(normalized);
@@ -681,9 +656,6 @@ export default function LearnerProfileDialog({
           request === optimizeRequestRef.current
         ) {
           setOptimizing(false);
-          if (automatic) {
-            setPhase('save');
-          }
         }
       }
     },
@@ -691,21 +663,8 @@ export default function LearnerProfileDialog({
   );
 
   const optimizeProfile = React.useCallback(() => {
-    void performOptimization(profile, false);
+    void performOptimization(profile);
   }, [performOptimization, profile]);
-
-  const useCollectionDraft = React.useCallback(() => {
-    const draft = collectionResult?.draft;
-    if (!draft) {
-      return;
-    }
-    setProfile(draft);
-    setOptimizationStatus('idle');
-    setOptimizationErrorMessage('');
-    setOptimizationOriginal(draft);
-    setError('');
-    textareaRef.current?.focus();
-  }, [collectionResult]);
 
   const undoOptimization = React.useCallback(() => {
     if (optimizationOriginal === null) {
@@ -773,13 +732,10 @@ export default function LearnerProfileDialog({
       setActiveCollectionSessionId(result.completion.sessionId);
       setCollectionError('');
       setProfile(result.draft);
-      if (result.postProcess === 'optimize') {
-        void performOptimization(result.draft, true);
-      } else {
-        setPhase('save');
-      }
+      resetOptimization();
+      setPhase('save');
     },
-    [isCurrent, performOptimization],
+    [isCurrent, resetOptimization],
   );
 
   const cancelCollection = React.useCallback(() => {
@@ -877,7 +833,6 @@ export default function LearnerProfileDialog({
     optimizing ||
     !normalizedProfile ||
     profileLength > maxLength;
-  const showCollectionOptimizationActions = Boolean(collectionResult?.draft);
   const optimizationDescription = !normalizedProfile
     ? t('module.profileOnboarding.dialog.optimizeEmptyHint')
     : optimizationStatus === 'error'
@@ -996,19 +951,8 @@ export default function LearnerProfileDialog({
               {optimizationDescription}
             </p>
             <div className='flex flex-wrap gap-2'>
-              {showCollectionOptimizationActions ? (
-                <Button
-                  type='button'
-                  size='sm'
-                  variant='outline'
-                  className='min-h-10 flex-1 sm:flex-none'
-                  disabled={busy || optimizing}
-                  onClick={useCollectionDraft}
-                >
-                  {t('module.profileOnboarding.dialog.useResearchDraft')}
-                </Button>
-              ) : optimizationStatus === 'success' &&
-                optimizationOriginal !== null ? (
+              {optimizationStatus === 'success' &&
+              optimizationOriginal !== null ? (
                 <Button
                   type='button'
                   size='sm'
@@ -1041,9 +985,7 @@ export default function LearnerProfileDialog({
                 {t(
                   optimizing
                     ? 'module.profileOnboarding.dialog.optimizing'
-                    : showCollectionOptimizationActions
-                      ? 'module.profileOnboarding.dialog.retryOptimize'
-                      : 'module.profileOnboarding.dialog.optimize',
+                    : 'module.profileOnboarding.dialog.optimize',
                 )}
               </Button>
             </div>
@@ -1212,18 +1154,6 @@ export default function LearnerProfileDialog({
               </section>
             ) : phase === 'collect' ? (
               <section className='flex min-h-0 flex-1 flex-col'>
-                <div className='mb-3 shrink-0 [@media(max-height:620px)]:mb-2'>
-                  <h2
-                    ref={viewHeadingRef}
-                    tabIndex={-1}
-                    className='text-xl font-semibold leading-7 outline-none'
-                  >
-                    {t('module.profileOnboarding.guided.title')}
-                  </h2>
-                  <p className='mt-1 text-sm leading-6 text-muted-foreground'>
-                    {t('module.profileOnboarding.guided.description')}
-                  </p>
-                </div>
                 <div className='min-h-40 flex-1 [@media(max-height:620px)]:min-h-32'>
                   <ProfileOnboardingConversation
                     key={collectionKey}
@@ -1250,7 +1180,6 @@ export default function LearnerProfileDialog({
                                 : 'guided',
                             sessionId,
                           },
-                          postProcess: 'optimize',
                         },
                         collectionKey,
                         renderedGeneration,
@@ -1285,23 +1214,6 @@ export default function LearnerProfileDialog({
                     }}
                   />
                 </div>
-              </section>
-            ) : phase === 'processing' ? (
-              <section className='flex h-full min-h-64 flex-col items-center justify-center px-4 text-center'>
-                <Loader2
-                  className='size-8 animate-spin text-primary motion-reduce:animate-none'
-                  aria-hidden='true'
-                />
-                <h2
-                  ref={viewHeadingRef}
-                  tabIndex={-1}
-                  className='mt-5 text-xl font-semibold leading-7 outline-none'
-                >
-                  {t('module.profileOnboarding.dialog.autoOptimizing')}
-                </h2>
-                <p className='mt-2 max-w-md text-sm leading-6 text-muted-foreground'>
-                  {t('module.profileOnboarding.dialog.autoOptimizingHint')}
-                </p>
               </section>
             ) : (
               renderSave()

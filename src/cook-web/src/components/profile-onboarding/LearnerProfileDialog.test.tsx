@@ -341,13 +341,13 @@ describe('LearnerProfileDialog', () => {
       profileRequest.resolve(emptyProfile);
     });
 
-    expect(
-      await screen.findByText('module.profileOnboarding.guided.title'),
-    ).toBeInTheDocument();
     await waitForCollectionSession();
     expect(
-      screen.getByText('module.profileOnboarding.guided.description'),
-    ).toBeInTheDocument();
+      screen.queryByText('module.profileOnboarding.guided.title'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.profileOnboarding.guided.description'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText('module.profileOnboarding.dialog.unifiedDescription'),
     ).toBeInTheDocument();
@@ -520,7 +520,7 @@ describe('LearnerProfileDialog', () => {
       'settings',
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    await screen.findByDisplayValue('Optimized learner introduction');
+    await screen.findByDisplayValue('Collection draft');
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.complete',
@@ -656,11 +656,9 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
   });
 
-  test('auto-optimizes a terminal research draft without persisting early', async () => {
-    const optimization = deferred<{ optimized_learner_profile: string }>();
+  test('places a terminal collection draft directly in the editor without optimizing or persisting', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
-    mockOptimizeLearnerProfile.mockReturnValue(optimization.promise);
 
     renderDialog({ exitPolicy: 'blocking', presentation: 'blocking' });
     await waitForCollectionSession();
@@ -669,28 +667,8 @@ describe('LearnerProfileDialog', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
 
-    const optimizingHeading = await screen.findByText(
-      'module.profileOnboarding.dialog.autoOptimizing',
-    );
-    await waitFor(() => expect(optimizingHeading).toHaveFocus());
     expect(
-      screen.getByText('module.profileOnboarding.dialog.autoOptimizingHint'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('learner-profile-dialog-footer'),
-    ).toContainElement(informationUsageControl());
-    expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith('Collection draft');
-    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
-    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
-
-    await act(async () => {
-      optimization.resolve({
-        optimized_learner_profile: 'Optimized collection draft',
-      });
-    });
-
-    expect(
-      await screen.findByDisplayValue('Optimized collection draft'),
+      await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(
@@ -698,12 +676,19 @@ describe('LearnerProfileDialog', () => {
       ).toHaveFocus(),
     );
     expect(
-      screen.queryByText('module.profileOnboarding.steps.review'),
-    ).not.toBeInTheDocument();
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(informationUsageControl());
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.optimize',
+      }),
+    ).toBeEnabled();
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
   });
 
-  test('shows processing and preserves an over-limit collection draft with a visible failure', async () => {
+  test('places an over-limit collection draft in the editor without invoking optimization', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
 
@@ -714,13 +699,7 @@ describe('LearnerProfileDialog', () => {
     });
 
     expect(
-      await screen.findByText('module.profileOnboarding.dialog.autoOptimizing'),
-    ).toBeInTheDocument();
-    expect(
       await screen.findByDisplayValue('x'.repeat(1001)),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('module.profileOnboarding.dialog.optimizeFailed'),
     ).toBeInTheDocument();
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
     expect(
@@ -730,12 +709,9 @@ describe('LearnerProfileDialog', () => {
     ).toBeDisabled();
   });
 
-  test('keeps the research draft savable after automatic optimization fails and can retry', async () => {
+  test('optimizes a collected draft only after an explicit request and can undo it', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
-    mockOptimizeLearnerProfile
-      .mockRejectedValueOnce(new Error('Optimizer unavailable'))
-      .mockResolvedValueOnce({ optimized_learner_profile: 'Retried draft' });
 
     renderDialog({ exitPolicy: 'dismissible' });
     await waitForCollectionSession();
@@ -744,42 +720,21 @@ describe('LearnerProfileDialog', () => {
     expect(
       await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Optimizer unavailable')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.useResearchDraft',
-      }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.complete',
-      }),
-    ).toBeEnabled();
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.retryOptimize',
+        name: 'module.profileOnboarding.dialog.optimize',
       }),
     );
     expect(
-      await screen.findByDisplayValue('Retried draft'),
-    ).toBeInTheDocument();
-  });
-
-  test('can directly restore the raw collection draft after successful optimization', async () => {
-    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
-
-    renderDialog({ exitPolicy: 'blocking' });
-    await waitForCollectionSession();
-    fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    expect(
       await screen.findByDisplayValue('Optimized learner introduction'),
     ).toBeInTheDocument();
+    expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith('Collection draft');
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.useResearchDraft',
+        name: 'module.profileOnboarding.dialog.undoOptimize',
       }),
     );
     expect(profileInput()).toHaveValue('Collection draft');
@@ -792,14 +747,14 @@ describe('LearnerProfileDialog', () => {
     mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
     mockCompleteGuidedProfileOnboarding.mockResolvedValue({
       ...existingProfile,
-      learner_profile: 'Optimized learner introduction',
+      learner_profile: 'Collection draft',
       nickname: 'Taylor',
     });
 
     renderDialog({ exitPolicy: 'blocking', onSaved, onClose });
     await waitForCollectionSession();
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    await screen.findByDisplayValue('Optimized learner introduction');
+    await screen.findByDisplayValue('Collection draft');
     fireEvent.change(nicknameInput(), { target: { value: ' Taylor ' } });
     fireEvent.click(
       screen.getByRole('button', {
@@ -809,7 +764,7 @@ describe('LearnerProfileDialog', () => {
 
     await waitFor(() =>
       expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
-        learner_profile: 'Optimized learner introduction',
+        learner_profile: 'Collection draft',
         trigger_source: 'guided',
         session_id: SESSION_ID,
         nickname: 'Taylor',
@@ -867,7 +822,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'blocking' });
     await waitForCollectionSession();
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    await screen.findByDisplayValue('Optimized learner introduction');
+    await screen.findByDisplayValue('Collection draft');
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.complete',
@@ -876,7 +831,7 @@ describe('LearnerProfileDialog', () => {
 
     await waitFor(() =>
       expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
-        learner_profile: 'Optimized learner introduction',
+        learner_profile: 'Collection draft',
         trigger_source: 'guided',
         session_id: SESSION_ID,
       }),
@@ -890,20 +845,20 @@ describe('LearnerProfileDialog', () => {
       .mockRejectedValueOnce(new Error('Save unavailable'))
       .mockResolvedValueOnce({
         ...existingProfile,
-        learner_profile: 'Optimized learner introduction',
+        learner_profile: 'Collection draft',
       });
 
     renderDialog({ exitPolicy: 'blocking' });
     await waitForCollectionSession();
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    await screen.findByDisplayValue('Optimized learner introduction');
+    await screen.findByDisplayValue('Collection draft');
     const complete = screen.getByRole('button', {
       name: 'module.profileOnboarding.complete',
     });
     fireEvent.click(complete);
 
     expect(await screen.findByText('Save unavailable')).toBeInTheDocument();
-    expect(profileInput()).toHaveValue('Optimized learner introduction');
+    expect(profileInput()).toHaveValue('Collection draft');
     fireEvent.click(complete);
 
     await waitFor(() =>
@@ -1025,7 +980,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'dismissible' });
     await waitForCollectionSession(SESSION_ID);
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    await screen.findByDisplayValue('Optimized learner introduction');
+    await screen.findByDisplayValue('Collection draft');
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -1271,40 +1226,9 @@ describe('LearnerProfileDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
     expect(
-      await screen.findByDisplayValue('Optimized learner introduction'),
+      await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
-  });
-
-  test('keeps automatic optimization running when explicit defer fails', async () => {
-    const optimization = deferred<{ optimized_learner_profile: string }>();
-    const onDefer = jest.fn().mockResolvedValue(false);
-    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
-    mockOptimizeLearnerProfile.mockReturnValue(optimization.promise);
-    renderDialog({
-      exitPolicy: 'blocking',
-      presentation: 'blocking',
-      externalErrorMessage: 'Skip unavailable',
-      onDefer,
-    });
-    await waitForCollectionSession();
-    fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
-    await screen.findByText('module.profileOnboarding.dialog.autoOptimizing');
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
-    );
-    await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
-    expect(screen.getByText('Skip unavailable')).toBeInTheDocument();
-
-    await act(async () => {
-      optimization.resolve({
-        optimized_learner_profile: 'Optimized after failed defer',
-      });
-    });
-    expect(
-      await screen.findByDisplayValue('Optimized after failed defer'),
-    ).toBeInTheDocument();
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
   });
 
   test('confirms before discarding dirty settings edits', async () => {

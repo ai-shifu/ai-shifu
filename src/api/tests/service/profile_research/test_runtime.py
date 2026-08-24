@@ -257,7 +257,7 @@ def test_default_store_requires_shared_redis(monkeypatch: object) -> None:
         )
 
 
-def test_session_runs_direct_markdownflow_and_returns_profile_draft() -> None:
+def test_session_returns_profile_draft_only_in_terminal_metadata() -> None:
     _app, runtime, providers = _make_runtime(["- 称呼：", "小雨"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -304,8 +304,7 @@ def test_session_runs_direct_markdownflow_and_returns_profile_draft() -> None:
             request_id="summary-1",
         )
     )
-    content_events = [event for event in completed if event["event_type"] == "content"]
-    assert content_events[-1]["content"] == "- 称呼：小雨"
+    assert [event["event_type"] for event in completed] == ["done"]
     summary = _terminal(completed)["content"]
     assert summary["done"] is True
     assert summary["profile_draft"] == "- 称呼：小雨"

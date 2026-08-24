@@ -785,6 +785,39 @@ describe('ProfileOnboardingConversation', () => {
     ).toBe('画像草稿');
   });
 
+  test('hands the terminal profile draft to the editor without rendering it in the conversation', async () => {
+    const onDraftReady = jest.fn();
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'done',
+          is_terminal: true,
+          content: { done: true, profile_draft: '只进入编辑框的个人介绍' },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-terminal-draft' })}
+        runSession={runSession}
+        onDraftReady={onDraftReady}
+        onError={jest.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onDraftReady).toHaveBeenCalledWith(
+        '只进入编辑框的个人介绍',
+        'session-terminal-draft',
+      ),
+    );
+    expect(
+      screen.queryByText('只进入编辑框的个人介绍'),
+    ).not.toBeInTheDocument();
+  });
+
   test('ignores a trailing done event after a runtime error', async () => {
     const onDraftReady = jest.fn();
     const onError = jest.fn();

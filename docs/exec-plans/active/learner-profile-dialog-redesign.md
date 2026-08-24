@@ -17,6 +17,12 @@ the human teacher's course design.
       from operator configuration, learner and preview APIs, Redis sessions, and
       the admin editor. MarkdownFlow now owns the complete research conversation;
       the platform-locked profile summary remains the only appended instruction.
+- [x] 2026-08-24 CST: Simplified collection completion so the generated personal
+      introduction opens directly in the shared editor without automatic
+      optimization. The hidden summary block no longer emits learner-visible
+      MarkdownFlow content events.
+- [ ] 2026-08-24 CST: Complete the widened backend, frontend, i18n, repository,
+      and CI verification for the direct-to-editor completion contract.
 
 ## Surprises & Discoveries
 
@@ -47,6 +53,14 @@ available only to existing compatibility flows and courses.
 - Profile onboarding configuration contains only the enable switch and the
   MarkdownFlow document. Legacy stored `document_prompt` keys are ignored and
   disappear on the next save; they are never returned or executed.
+- The collection surface relies on the dialog title and permanent purpose
+  statement; it does not add a second question heading or a duration estimate.
+- The platform-generated profile draft is returned only as structured terminal
+  session metadata. It is never emitted as a learner-visible MarkdownFlow
+  content item.
+- A completed collection places that draft directly in the personal
+  introduction editor. AI optimization remains available only as an explicit
+  learner action from the existing optimization card.
 
 ## Outcomes & Retrospective
 
@@ -60,6 +74,7 @@ AI optimization organizes and elaborates explicitly stated learner context so
 later course delivery can more consistently use relevant examples,
 terminology, emphasis, and expression. It does not add personal facts, take
 control of course content or pedagogy, or persist any learner business state.
+Collection completion itself does not invoke this optimizer.
 
 ## Context and Orientation
 
@@ -116,6 +131,12 @@ legacy `sys_*` variables or make profile optimization a persistence action.
 - Optimization success remains editable and requires the normal Save action;
   undo restores the original in-memory draft. Failure, rejection, or an old
   backend leaves the draft and direct Save action available.
+- Finishing interactive collection switches directly to the save phase with
+  the generated profile draft in the editor and does not call the optimization
+  API. The learner may still choose **Improve with AI** afterward.
+- The platform summary block produces no `content` or `element` event for the
+  MarkdownFlow renderer; only the terminal `done` payload carries
+  `profile_draft` to the dialog boundary.
 - The optimizer receives JSON-wrapped untrusted input and returns plain text.
 - Course prompts receive canonical learner data only as JSON-encoded untrusted
   context. Learner data can personalize examples, terminology, emphasis,

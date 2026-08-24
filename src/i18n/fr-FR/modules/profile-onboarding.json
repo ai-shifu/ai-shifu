@@ -3,14 +3,14 @@
   "admin": {
     "configRevision": "Révision de configuration",
     "defaultMarkdownflow": "Faisons brièvement connaissance afin que les prochains cours vous correspondent mieux.\n?[%{{profile_address}}...Comment souhaitez-vous être appelé ?]\n?[%{{profile_background}}...Quel est votre parcours professionnel, votre identité et votre expérience pertinente ?]\n?[%{{profile_expression_style}}...Quel style d’expression préférez-vous ?]\n?[%{{profile_slide_style}}...Quel style de diapositives préférez-vous ?]\n?[%{{profile_recent_interests}}...Quels sujets vous intéressent récemment ?]",
-    "description": "Configurez la conversation de recherche du profil d’apprentissage. Une étape de synthèse verrouillée par la plateforme produit le profil final.",
+    "description": "Configurez la collecte interactive du profil d’apprentissage. La plateforme génère une présentation personnelle à la fin de la collecte.",
     "documentRequired": "Ajoutez un document MarkdownFlow exécutable avant d’activer le guide.",
     "enabled": "Activer la collecte du profil d’apprentissage",
     "enabledHint": "Ce bouton contrôle uniquement la collecte. Les profils enregistrés continuent de personnaliser les cours lorsqu’elle est désactivée.",
     "hidePreview": "Masquer l’aperçu",
     "loadFailed": "Échec du chargement de la configuration du guide du profil d’apprentissage",
-    "lockedSummaryHint": "La plateforme ajoute une étape non modifiable couvrant uniquement la façon de vous appeler, le parcours professionnel et l’expérience d’identité, le style d’expression, le style de diapositives et les centres d’intérêt récents.",
-    "lockedSummaryTitle": "Synthèse du profil verrouillée par la plateforme",
+    "lockedSummaryHint": "La plateforme génère uniquement la façon de vous appeler, le parcours professionnel et l’expérience d’identité, le style d’expression, le style de diapositives et les centres d’intérêt récents à partir des réponses. Le résultat ne s’affiche pas dans la conversation ; il s’ouvre dans l’éditeur de présentation personnelle pour vérification.",
+    "lockedSummaryTitle": "Présentation personnelle générée par la plateforme",
     "markdownflow": "Document de recherche MarkdownFlow",
     "markdownflowHint": "Toutes les capacités MarkdownFlow sont prises en charge. Le moteur officiel du serveur l’analyse lors de l’enregistrement et de l’aperçu ; la page n’utilise plus de validation par expression régulière.",
     "preview": "Lancer l’aperçu",
@@ -32,8 +32,6 @@
   "complete": "Confirmer et enregistrer",
   "completeCompact": "Enregistrer",
   "dialog": {
-    "autoOptimizing": "Organisation et amélioration de votre présentation…",
-    "autoOptimizingHint": "Patientez un instant. Vous pourrez vérifier et modifier le texte avant de l’enregistrer.",
     "cancel": "Annuler",
     "cancelResearch": "Annuler la collecte",
     "close": "Fermer",
@@ -75,7 +73,6 @@
     "replaceResearchDescription": "Répondre à nouveau remplacera les paramètres de personnalisation non enregistrés. Continuer ?",
     "replaceResearchTitle": "Répondre de nouveau aux questions ?",
     "retry": "Recharger",
-    "retryOptimize": "Améliorer de nouveau",
     "save": "Enregistrer le profil",
     "saveAndContinue": "Enregistrer et continuer",
     "saveChanges": "Enregistrer les modifications",
@@ -85,19 +82,16 @@
     "settingsTitle": "Présentez-vous à votre enseignant IA",
     "undoOptimize": "Annuler",
     "unifiedDescription": "Aidez votre enseignant IA à comprendre votre parcours et vos préférences, pour vous enseigner d’une manière qui vous convient mieux.",
-    "unifiedTitle": "Paramètres de personnalisation",
-    "useResearchDraft": "Utiliser la première version"
+    "unifiedTitle": "Paramètres de personnalisation"
   },
   "guided": {
-    "description": "Environ 1 minute.",
     "inputLimitError": "Cette réponse est trop longue ou comporte trop de choix. Raccourcissez-la, puis renvoyez-la ; vous pouvez continuer à la modifier.",
-    "missingDraft": "Nous n’avons pas pu terminer la synthèse. Répondez de nouveau aux questions.",
+    "missingDraft": "Nous n’avons pas pu générer votre présentation personnelle. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
     "starting": "Préparation de la première question…",
     "streamError": "Les questions se sont interrompues. Réessayez.",
-    "thinking": "Préparation de la suite à partir de votre réponse…",
-    "title": "Répondez à quelques questions"
+    "thinking": "Préparation de la suite à partir de votre réponse…"
   },
   "loadFailed": "Vos paramètres de personnalisation n’ont pas pu être chargés ; le cours a donc été ouvert. Réessayez plus tard.",
   "next": "Suivant",
