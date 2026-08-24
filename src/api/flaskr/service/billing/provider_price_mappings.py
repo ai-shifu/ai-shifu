@@ -6,8 +6,9 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from flask import current_app
+from flask import Flask, current_app
 from flaskr.dao import db
+from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
@@ -48,6 +49,14 @@ class ProviderPriceMappingValidationSummary:
     mapping: dict[str, Any] | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class ProviderPriceRuntimeScope:
+    """Identify the Stripe account scope used by runtime checkout."""
+
+    provider_account_id: str
+    livemode: bool
+
+
 def serialize_provider_price_mapping(
     mapping: BillingProductProviderPrice | None,
 ) -> dict[str, Any] | None:
@@ -77,6 +86,42 @@ def serialize_provider_price_mapping(
         "validation_error": mapping.validation_error or "",
         "metadata": metadata.to_metadata_json(),
     }
+
+
+def resolve_current_stripe_provider_price_scope(
+    app: Flask,
+    *,
+    adapter: StripeCatalogReadAdapter | None = None,
+) -> ProviderPriceRuntimeScope:
+    """Resolve the configured Stripe account and livemode for checkout."""
+    resolved_adapter = adapter or StripeCatalogReadAdapter()
+    try:
+        account = resolved_adapter.retrieve_account_snapshot(app)
+    except ProviderCatalogReadError as exc:
+        raise ProviderPriceMappingError(
+            exc.code,
+            "Unable to read the configured Stripe account",
+            {"provider": PROVIDER_STRIPE},
+        ) from exc
+
+    account_id = normalize_bid(account.account_id)
+    if not account_id:
+        code = "provider_account_missing"
+        message = "Configured Stripe account is missing an account identifier"
+        raise ProviderPriceMappingError(
+            code,
+            message,
+            {"provider": PROVIDER_STRIPE},
+        )
+    livemode = (
+        bool(account.livemode)
+        if account.livemode is not None
+        else _infer_stripe_livemode_from_secret_key()
+    )
+    return ProviderPriceRuntimeScope(
+        provider_account_id=account_id,
+        livemode=livemode,
+    )
 
 
 def list_provider_price_mappings(
@@ -144,6 +189,22 @@ def get_active_provider_price_mapping(
     return _select_single_active_mapping(rows, product_bid=normalize_bid(product_bid))
 
 
+def get_current_stripe_active_provider_price_mapping(
+    app: Flask,
+    *,
+    product_bid: str,
+    scope: ProviderPriceRuntimeScope | None = None,
+) -> BillingProductProviderPrice | None:
+    """Return the active Stripe mapping matching the current runtime scope."""
+    resolved_scope = scope or resolve_current_stripe_provider_price_scope(app)
+    return get_active_provider_price_mapping(
+        product_bid=product_bid,
+        provider=PROVIDER_STRIPE,
+        provider_account_id=resolved_scope.provider_account_id,
+        livemode=resolved_scope.livemode,
+    )
+
+
 def _select_single_active_mapping(
     rows: list[BillingProductProviderPrice],
     *,
@@ -156,6 +217,11 @@ def _select_single_active_mapping(
             {"product_bid": product_bid},
         )
     return rows[0] if rows else None
+
+
+def _infer_stripe_livemode_from_secret_key() -> bool:
+    secret_key = str(get_config("STRIPE_SECRET_KEY", "") or "").strip()
+    return secret_key.startswith("sk_live_")
 
 
 def upsert_provider_price_mapping(

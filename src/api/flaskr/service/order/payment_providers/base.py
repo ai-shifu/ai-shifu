@@ -142,6 +142,12 @@ class PaymentProvider(ABC):
         self, *, provider_reference: str, reference_type: str, app
     ) -> PaymentNotificationResult:
         """Synchronize a provider reference and return normalized state."""
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support reference sync"
-        )
+        message = f"{self.__class__.__name__} does not support reference sync"
+        raise NotImplementedError(message)
+
+    def expire_checkout_session(
+        self, *, session_id: str, app: object
+    ) -> dict[str, Any]:
+        """Expire an open provider checkout session if supported."""
+        message = f"{self.__class__.__name__} does not support checkout session expiry"
+        raise NotImplementedError(message)
