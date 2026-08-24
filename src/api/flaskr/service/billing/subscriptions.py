@@ -38,6 +38,7 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
@@ -921,8 +922,19 @@ def _repair_existing_paid_order_grant_bucket(
     if bucket is None:
         return False
 
+    normalized_order_bid = _normalize_bid(order.bill_order_bid)
     bucket_source_bid = _normalize_bid(bucket.source_bid)
-    if bucket_source_bid and bucket_source_bid != _normalize_bid(order.bill_order_bid):
+    is_topup_bucket = int(bucket.bucket_category or 0) == CREDIT_BUCKET_CATEGORY_TOPUP
+    is_shared_topup_replay = (
+        is_topup_bucket
+        and bucket_source_bid
+        and bucket_source_bid != normalized_order_bid
+    )
+    if (
+        bucket_source_bid
+        and bucket_source_bid != normalized_order_bid
+        and not is_topup_bucket
+    ):
         return False
 
     effective_to = grant_entry.expires_at
@@ -941,6 +953,34 @@ def _repair_existing_paid_order_grant_bucket(
     is_reserved_grant = (
         str(metadata.get("bucket_credit_state") or "").strip().lower() == "reserved"
     )
+    if is_topup_bucket and not is_reserved_grant:
+        bucket_ledgers = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.creator_bid == order.creator_bid,
+                CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+        grant_total = sum(
+            (
+                _to_decimal(row.amount)
+                for row in bucket_ledgers
+                if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+            ),
+            start=Decimal(0),
+        )
+        net_available = sum(
+            (_to_decimal(row.amount) for row in bucket_ledgers),
+            start=Decimal(0),
+        )
+        if grant_total > _to_decimal(bucket.original_credits):
+            bucket.original_credits = _quantize_credit_amount(grant_total)
+            changed = True
+        if net_available > _to_decimal(bucket.available_credits):
+            bucket.available_credits = _quantize_credit_amount(net_available)
+            changed = True
     if is_reserved_grant:
         subscription = _load_subscription_by_bid(order.subscription_bid)
         has_current_available_balance = _to_decimal(bucket.available_credits) > 0
@@ -958,19 +998,24 @@ def _repair_existing_paid_order_grant_bucket(
             ):
                 bucket.effective_to = current_cycle_window.end_at
                 changed = True
-    else:
+    elif not is_shared_topup_replay:
         if effective_from is not None and bucket.effective_from != effective_from:
             bucket.effective_from = effective_from
             changed = True
         if bucket.effective_to != effective_to:
             bucket.effective_to = effective_to
             changed = True
-    if bucket.source_bid != order.bill_order_bid:
+    if bucket.source_bid != order.bill_order_bid and (
+        not is_topup_bucket or not bucket_source_bid
+    ):
         bucket.source_bid = order.bill_order_bid
         changed = True
 
     previous_status = int(bucket.status or 0)
-    if previous_status == CREDIT_BUCKET_STATUS_EXPIRED and (
+    can_reuse_preserved_status = previous_status == CREDIT_BUCKET_STATUS_EXPIRED or (
+        previous_status == CREDIT_BUCKET_STATUS_CANCELED and is_topup_bucket
+    )
+    if can_reuse_preserved_status and (
         _to_decimal(bucket.available_credits) > 0
         or _to_decimal(bucket.reserved_credits) > 0
     ):
@@ -1076,7 +1121,10 @@ def _expire_credit_bucket_balance_for_transition(
 def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
     """Allow an explicitly re-funded bucket to re-enter runtime status sync."""
     current_status = int(bucket.status or 0)
-    if current_status == CREDIT_BUCKET_STATUS_EXPIRED:
+    if current_status == CREDIT_BUCKET_STATUS_EXPIRED or (
+        current_status == CREDIT_BUCKET_STATUS_CANCELED
+        and int(bucket.bucket_category or 0) == CREDIT_BUCKET_CATEGORY_TOPUP
+    ):
         bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
 
 

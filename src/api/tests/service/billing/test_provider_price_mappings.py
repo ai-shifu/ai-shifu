@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.config import config_overrides
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -30,6 +31,7 @@ from flaskr.service.billing.provider_catalog import (
 )
 from flaskr.service.billing.provider_price_mappings import (
     ProviderPriceMappingError,
+    _infer_stripe_livemode_from_secret_key,
     _select_single_active_mapping,
     activate_provider_price_mapping,
     get_active_provider_price_mapping,
@@ -60,6 +62,23 @@ class _FakeStripeCatalogAdapter(StripeCatalogReadAdapter):
             }
         )
         return self.snapshot
+
+
+@pytest.mark.parametrize(
+    ("secret_key", "expected_livemode"),
+    [
+        ("sk_live_123", True),
+        ("sk_test_123", False),
+        ("", False),
+        ("not-a-stripe-key", False),
+    ],
+)
+def test_infer_stripe_livemode_from_secret_key_prefix(
+    secret_key: str,
+    expected_livemode: bool,
+) -> None:
+    with config_overrides({"STRIPE_SECRET_KEY": secret_key}):
+        assert _infer_stripe_livemode_from_secret_key() is expected_livemode
 
 
 def _product(product_bid: str = "bill-product-mapping-growth") -> BillingProduct:

@@ -44,6 +44,7 @@ from flaskr.util.uuid import generate_id
 
 from .campaigns import resolve_applied_billing_campaign
 from .consts import (
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_INTERVAL_LABELS,
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
@@ -72,7 +73,12 @@ from .dtos import (
     BillingOrderSyncResultDTO,
     BillingRefundResultDTO,
 )
-from .models import BillingOrder, BillingProduct, BillingSubscription
+from .models import (
+    BillingOrder,
+    BillingProduct,
+    BillingProductProviderPrice,
+    BillingSubscription,
+)
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
 )
@@ -102,6 +108,12 @@ from .preorders import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import to_decimal as _to_decimal
+from .provider_price_mappings import (
+    ProviderPriceMappingError,
+    ProviderPriceRuntimeScope,
+    get_current_stripe_active_provider_price_mapping,
+    serialize_provider_price_mapping,
+)
 from .provider_state import (
     BillingOrderProviderUpdateResult,
 )
@@ -210,32 +222,6 @@ class ProviderReferenceReconcileResult:
 
 
 @dataclass(slots=True, frozen=True)
-class StripeLineItemPayload:
-    """Carry the payload for Stripe line item."""
-
-    currency: str
-    unit_amount: int
-    product_name: str
-    interval: str | None = None
-    interval_count: int | None = None
-    quantity: int = 1
-
-    def to_provider_payload(self) -> dict[str, Any]:
-        """Serialize this value for the payment provider."""
-        price_data: dict[str, Any] = {
-            "currency": self.currency,
-            "unit_amount": self.unit_amount,
-            "product_data": {"name": self.product_name},
-        }
-        if self.interval is not None:
-            price_data["recurring"] = {
-                "interval": self.interval,
-                "interval_count": self.interval_count or 1,
-            }
-        return {"price_data": price_data, "quantity": self.quantity}
-
-
-@dataclass(slots=True, frozen=True)
 class RefundProviderMetadata:
     """Carry metadata for refund provider."""
 
@@ -309,10 +295,20 @@ def _is_same_subscription_checkout_target(
     *,
     product_bid: str,
     order_type: int,
+    provider_price_bid: str = "",
 ) -> bool:
-    return _normalize_bid(order.product_bid) == _normalize_bid(product_bid) and int(
+    if _normalize_bid(order.product_bid) != _normalize_bid(product_bid) or int(
         order.order_type or 0
-    ) == int(order_type or 0)
+    ) != int(order_type or 0):
+        return False
+    normalized_provider_price_bid = _normalize_bid(provider_price_bid)
+    if not normalized_provider_price_bid:
+        return True
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    return (
+        _normalize_bid(metadata.get("provider_price_bid"))
+        == normalized_provider_price_bid
+    )
 
 
 def _is_managed_pending_subscription_checkout_order(order: BillingOrder) -> bool:
@@ -504,8 +500,13 @@ def create_billing_subscription_checkout(
     with app.app_context(), _subscription_checkout_lock(app, normalized_creator_bid):
         now = now_utc()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
+        provider_price_mapping: BillingProductProviderPrice | None = None
         if payment_provider == "stripe":
             channel = "checkout_session"
+            provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
+                app,
+                product=product,
+            )
 
         current_subscription = _load_primary_active_subscription(
             normalized_creator_bid,
@@ -621,6 +622,11 @@ def create_billing_subscription_checkout(
                 pending_order,
                 product_bid=product.product_bid,
                 order_type=order_type,
+                provider_price_bid=(
+                    provider_price_mapping.provider_price_bid
+                    if provider_price_mapping is not None
+                    else ""
+                ),
             ):
                 if reusable_order is None:
                     reusable_order = pending_order
@@ -630,6 +636,7 @@ def create_billing_subscription_checkout(
             conflicting_pending_orders.append(pending_order)
 
         for duplicate_order in duplicate_reusable_orders:
+            _prepare_pending_order_for_replacement(app, duplicate_order)
             _mark_billing_order_invalidated(
                 duplicate_order,
                 target_status=BILLING_ORDER_STATUS_CANCELED,
@@ -643,6 +650,7 @@ def create_billing_subscription_checkout(
 
         if reusable_order is not None:
             for conflicting_order in conflicting_pending_orders:
+                _prepare_pending_order_for_replacement(app, conflicting_order)
                 _mark_billing_order_invalidated(
                     conflicting_order,
                     target_status=BILLING_ORDER_STATUS_CANCELED,
@@ -672,7 +680,7 @@ def create_billing_subscription_checkout(
             checkout_action == CHECKOUT_ACTION_PREORDER
             and order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
         )
-        applied_campaign = (
+        resolved_campaign = (
             resolve_applied_billing_campaign(
                 product,
                 order_type=order_type,
@@ -680,6 +688,13 @@ def create_billing_subscription_checkout(
             if not is_preorder_renewal
             else None
         )
+        if (
+            provider_price_mapping is not None
+            and resolved_campaign is not None
+            and _stripe_campaign_affects_charge_amount(resolved_campaign)
+        ):
+            raise_error("server.pay.payChannelNotSupport")
+        applied_campaign = resolved_campaign
         db.session.add(subscription)
         db.session.flush()
 
@@ -687,13 +702,23 @@ def create_billing_subscription_checkout(
             0,
             (
                 int(applied_campaign.campaign_price_amount)
-                if applied_campaign is not None and applied_campaign.campaign_bid
-                else int(product.price_amount or 0)
+                if applied_campaign is not None
+                and applied_campaign.campaign_bid
+                and provider_price_mapping is None
+                else (
+                    int(provider_price_mapping.unit_amount or 0)
+                    if provider_price_mapping is not None
+                    else int(product.price_amount or 0)
+                )
             )
             - prepaid_offset_amount,
         )
 
         order_metadata_payload = {**order_metadata}
+        if provider_price_mapping is not None:
+            order_metadata_payload.update(
+                _build_provider_price_order_metadata(provider_price_mapping)
+            )
         if applied_campaign is not None:
             order_metadata_payload["campaign"] = (
                 applied_campaign.to_catalog_payload() or None
@@ -708,7 +733,11 @@ def create_billing_subscription_checkout(
             order_type=order_type,
             product_bid=product.product_bid,
             subscription_bid=subscription.subscription_bid,
-            currency=product.currency,
+            currency=(
+                provider_price_mapping.currency.upper()
+                if provider_price_mapping is not None
+                else product.currency
+            ),
             payable_amount=payable_amount,
             paid_amount=0,
             payment_provider=payment_provider,
@@ -729,6 +758,7 @@ def create_billing_subscription_checkout(
             ),
         )
         for conflicting_order in conflicting_pending_orders:
+            _prepare_pending_order_for_replacement(app, conflicting_order)
             _mark_billing_order_invalidated(
                 conflicting_order,
                 target_status=BILLING_ORDER_STATUS_CANCELED,
@@ -754,6 +784,7 @@ def create_billing_subscription_checkout(
                 payment_provider=payment_provider,
                 payment_mode="subscription",
                 channel=channel,
+                provider_price_mapping=provider_price_mapping,
             )
         db.session.commit()
         _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
@@ -775,23 +806,59 @@ def create_billing_topup_checkout(
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
+        provider_price_mapping: BillingProductProviderPrice | None = None
+        if payment_provider == "stripe":
+            channel = "checkout_session"
+            provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
+                app,
+                product=product,
+            )
         if _load_effective_topup_subscription(normalized_creator_bid) is None:
             raise_error("server.billing.subscriptionInactive")
-        applied_campaign = resolve_applied_billing_campaign(
+        resolved_campaign = resolve_applied_billing_campaign(
             product,
             order_type=BILLING_ORDER_TYPE_TOPUP,
         )
+        if (
+            provider_price_mapping is not None
+            and resolved_campaign is not None
+            and _stripe_campaign_affects_charge_amount(resolved_campaign)
+        ):
+            raise_error("server.pay.payChannelNotSupport")
+        applied_campaign = resolved_campaign
+        order_metadata_payload: dict[str, object] = {
+            "checkout_type": "topup",
+            "campaign": (
+                applied_campaign.to_catalog_payload()
+                if applied_campaign is not None
+                else None
+            ),
+        }
+        if provider_price_mapping is not None:
+            order_metadata_payload.update(
+                _build_provider_price_order_metadata(provider_price_mapping)
+            )
         order = BillingOrder(
             bill_order_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
             order_type=BILLING_ORDER_TYPE_TOPUP,
             product_bid=product.product_bid,
             subscription_bid="",
-            currency=product.currency,
+            currency=(
+                provider_price_mapping.currency.upper()
+                if provider_price_mapping is not None
+                else product.currency
+            ),
             payable_amount=(
                 int(applied_campaign.campaign_price_amount)
-                if applied_campaign.campaign_bid
-                else int(product.price_amount or 0)
+                if applied_campaign is not None
+                and applied_campaign.campaign_bid
+                and provider_price_mapping is None
+                else (
+                    int(provider_price_mapping.unit_amount or 0)
+                    if provider_price_mapping is not None
+                    else int(product.price_amount or 0)
+                )
             ),
             paid_amount=0,
             payment_provider=payment_provider,
@@ -799,15 +866,18 @@ def create_billing_topup_checkout(
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=_normalize_json_object(
-                {
-                    "checkout_type": "topup",
-                    "campaign": applied_campaign.to_catalog_payload() or None,
-                }
+                order_metadata_payload
             ).to_metadata_json(),
-            campaign_bid=applied_campaign.campaign_bid,
-            campaign_benefit_type=applied_campaign.benefit_type_code,
-            campaign_discount_amount=applied_campaign.discount_amount,
-            campaign_bonus_credit_amount=applied_campaign.bonus_credit_amount,
+            campaign_bid=applied_campaign.campaign_bid if applied_campaign else "",
+            campaign_benefit_type=(
+                applied_campaign.benefit_type_code if applied_campaign else 0
+            ),
+            campaign_discount_amount=(
+                applied_campaign.discount_amount if applied_campaign else 0
+            ),
+            campaign_bonus_credit_amount=(
+                applied_campaign.bonus_credit_amount if applied_campaign else 0
+            ),
         )
         db.session.add(order)
         db.session.flush()
@@ -820,6 +890,7 @@ def create_billing_topup_checkout(
             payment_provider=payment_provider,
             payment_mode="one_time",
             channel=channel,
+            provider_price_mapping=provider_price_mapping,
         )
         db.session.commit()
         return checkout_result
@@ -881,10 +952,25 @@ def _reopen_existing_billing_order_checkout(
     product: BillingProduct,
     requested_channel: str = "",
 ) -> BillingCheckoutResultDTO:
+    provider_price_mapping: BillingProductProviderPrice | None = None
     if _normalize_bid(order.payment_provider) == "stripe":
-        stored_checkout_result = _build_stored_stripe_checkout_result(order)
+        provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
+            app,
+            product=product,
+        )
+        order_metadata = (
+            order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        )
+        if not _stored_provider_price_snapshot_matches_mapping(
+            order,
+            provider_price_mapping,
+            metadata=order_metadata,
+        ):
+            raise_error("server.order.orderStatusError")
+        stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
         if stored_checkout_result is not None:
             return stored_checkout_result
+        _reconcile_stored_stripe_checkout_before_replacement(app, order)
 
     order.channel = requested_channel or _normalize_bid(order.channel) or "alipay_qr"
     return _create_provider_checkout(
@@ -896,10 +982,17 @@ def _reopen_existing_billing_order_checkout(
         payment_mode=_resolve_billing_order_payment_mode(order),
         channel=order.channel,
         reused_existing_order=True,
+        provider_price_mapping=provider_price_mapping,
     )
 
 
+def _prepare_pending_order_for_replacement(app: Flask, order: BillingOrder) -> None:
+    if _normalize_bid(order.payment_provider) == "stripe":
+        _reconcile_stored_stripe_checkout_before_replacement(app, order)
+
+
 def _build_stored_stripe_checkout_result(
+    app: Flask,
     order: BillingOrder,
 ) -> BillingCheckoutResultDTO | None:
     if _normalize_bid(order.payment_provider) != "stripe":
@@ -917,6 +1010,12 @@ def _build_stored_stripe_checkout_result(
         or _normalize_bid(order.provider_reference_id)
         or None
     )
+    if not _stored_stripe_checkout_urls_match_current_origin(
+        app,
+        order=order,
+        checkout_payload=checkout_payload,
+    ):
+        return None
     if not redirect_url:
         return None
 
@@ -930,6 +1029,124 @@ def _build_stored_stripe_checkout_result(
     response["redirect_url"] = redirect_url
     response["checkout_session_id"] = checkout_session_id
     return BillingCheckoutResultDTO(**response)
+
+
+def _as_plain_dict(payload: object) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    if hasattr(payload, "to_dict"):
+        return payload.to_dict()
+    return {}
+
+
+def _reconcile_stored_stripe_checkout_before_replacement(
+    app: Flask,
+    order: BillingOrder,
+) -> None:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    checkout_payload = (
+        metadata.get("checkout", {})
+        if isinstance(metadata.get("checkout"), dict)
+        else {}
+    )
+    checkout_session_id = (
+        _normalize_bid(checkout_payload.get("id"))
+        or _normalize_bid(order.provider_reference_id)
+        or ""
+    )
+    if not checkout_session_id:
+        return
+
+    provider = get_payment_provider("stripe")
+    try:
+        session = _as_plain_dict(
+            provider.retrieve_checkout_session(
+                session_id=checkout_session_id,
+                app=app,
+            )
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to retrieve Stripe checkout session %s before billing order %s replacement: %s",
+            checkout_session_id,
+            order.bill_order_bid,
+            exc,
+        )
+        raise_error("server.order.orderStatusError")
+
+    session_status = str(session.get("status") or "").strip().lower()
+    payment_status = str(session.get("payment_status") or "").strip().lower()
+    if session_status == "expired":
+        return
+    if session_status == "complete" or payment_status == "paid":
+        app.logger.warning(
+            "Refusing to replace billing order %s checkout because Stripe session %s is already %s/%s",
+            order.bill_order_bid,
+            checkout_session_id,
+            session_status,
+            payment_status,
+        )
+        raise_error("server.order.orderStatusError")
+    if session_status != "open":
+        app.logger.warning(
+            "Refusing to replace billing order %s checkout because Stripe session %s has unsafe status %s/%s",
+            order.bill_order_bid,
+            checkout_session_id,
+            session_status,
+            payment_status,
+        )
+        raise_error("server.order.orderStatusError")
+
+    try:
+        provider.expire_checkout_session(
+            session_id=checkout_session_id,
+            app=app,
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to expire Stripe checkout session %s before billing order %s replacement: %s",
+            checkout_session_id,
+            order.bill_order_bid,
+            exc,
+        )
+        raise_error("server.order.orderStatusError")
+
+
+def _stored_stripe_checkout_urls_match_current_origin(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    checkout_payload: dict[str, Any],
+) -> bool:
+    stored_success_url = str(checkout_payload.get("success_url") or "").strip()
+    stored_cancel_url = str(checkout_payload.get("cancel_url") or "").strip()
+
+    # Older stored payloads may not include callback URLs; keep legacy reuse.
+    if not stored_success_url and not stored_cancel_url:
+        return True
+
+    expected_success_url = _inject_billing_query(
+        build_stripe_billing_result_url(),
+        order.bill_order_bid,
+    )
+    expected_cancel_url = _inject_billing_query(
+        build_stripe_billing_result_url(canceled=True),
+        order.bill_order_bid,
+    )
+
+    if stored_success_url and stored_success_url != expected_success_url:
+        app.logger.info(
+            "Skipping Stripe checkout reuse for billing order %s because success_url changed",
+            order.bill_order_bid,
+        )
+        return False
+    if stored_cancel_url and stored_cancel_url != expected_cancel_url:
+        app.logger.info(
+            "Skipping Stripe checkout reuse for billing order %s because cancel_url changed",
+            order.bill_order_bid,
+        )
+        return False
+    return True
 
 
 def refund_billing_order(
@@ -1237,6 +1454,103 @@ def _resolve_billing_payment_channel(
     )
 
 
+def _resolve_required_stripe_provider_price_mapping(
+    app: Flask,
+    *,
+    product: BillingProduct,
+    scope: ProviderPriceRuntimeScope | None = None,
+) -> BillingProductProviderPrice:
+    try:
+        mapping = get_current_stripe_active_provider_price_mapping(
+            app,
+            product_bid=product.product_bid,
+            scope=scope,
+        )
+    except ProviderPriceMappingError:
+        raise_error("server.pay.payChannelNotSupport")
+    if mapping is None:
+        raise_error("server.pay.payChannelNotSupport")
+    return mapping
+
+
+def _build_provider_price_order_metadata(
+    mapping: BillingProductProviderPrice,
+) -> dict[str, object]:
+    return {
+        "provider_price_bid": mapping.provider_price_bid,
+        "provider_account_id": mapping.provider_account_id,
+        "provider_product_id": mapping.provider_product_id,
+        "provider_price_id": mapping.provider_price_id,
+        "provider_price_livemode": bool(mapping.livemode),
+        "provider_price_currency": mapping.currency,
+        "provider_price_unit_amount": int(mapping.unit_amount or 0),
+        "provider_price_mapping": serialize_provider_price_mapping(mapping),
+    }
+
+
+def _stored_provider_price_snapshot_matches_mapping(
+    order: BillingOrder,
+    mapping: BillingProductProviderPrice,
+    *,
+    metadata: dict[str, object] | None = None,
+) -> bool:
+    order_metadata = metadata or (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    snapshot_keys = {
+        "provider_price_bid",
+        "provider_account_id",
+        "provider_product_id",
+        "provider_price_id",
+        "provider_price_livemode",
+        "provider_price_currency",
+        "provider_price_unit_amount",
+    }
+    has_snapshot = any(
+        order_metadata.get(key) not in {None, ""} for key in snapshot_keys
+    )
+    if not has_snapshot:
+        return str(order.currency or "").strip().upper() == str(
+            mapping.currency or ""
+        ).strip().upper() and int(order.payable_amount or 0) == int(
+            mapping.unit_amount or 0
+        )
+
+    expected = {
+        "provider_price_bid": mapping.provider_price_bid,
+        "provider_account_id": mapping.provider_account_id,
+        "provider_product_id": mapping.provider_product_id,
+        "provider_price_id": mapping.provider_price_id,
+        "provider_price_livemode": bool(mapping.livemode),
+        "provider_price_currency": str(mapping.currency or "").strip().upper(),
+        "provider_price_unit_amount": int(mapping.unit_amount or 0),
+    }
+    return (
+        _normalize_bid(order_metadata.get("provider_price_bid"))
+        == _normalize_bid(expected["provider_price_bid"])
+        and _normalize_bid(order_metadata.get("provider_account_id"))
+        == _normalize_bid(expected["provider_account_id"])
+        and _normalize_bid(order_metadata.get("provider_product_id"))
+        == _normalize_bid(expected["provider_product_id"])
+        and _normalize_bid(order_metadata.get("provider_price_id"))
+        == _normalize_bid(expected["provider_price_id"])
+        and bool(order_metadata.get("provider_price_livemode"))
+        == bool(expected["provider_price_livemode"])
+        and str(order_metadata.get("provider_price_currency") or "").strip().upper()
+        == expected["provider_price_currency"]
+        and int(order_metadata.get("provider_price_unit_amount") or 0)
+        == expected["provider_price_unit_amount"]
+    )
+
+
+def _stripe_campaign_affects_charge_amount(campaign: object) -> bool:
+    return bool(
+        getattr(campaign, "campaign_bid", "")
+        and int(getattr(campaign, "benefit_type_code", 0) or 0)
+        == BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT
+    )
+
+
 def _lock_subscription_for_checkout(
     subscription: BillingSubscription,
 ) -> BillingSubscription:
@@ -1412,6 +1726,7 @@ def _create_provider_checkout(
     payment_mode: str,
     channel: str,
     reused_existing_order: bool = False,
+    provider_price_mapping: BillingProductProviderPrice | None = None,
 ) -> BillingCheckoutResultDTO:
     provider = get_payment_provider(payment_provider)
     product_name = _resolve_checkout_product_name(product)
@@ -1421,9 +1736,26 @@ def _create_provider_checkout(
         "creator_bid": creator_bid,
         "product_bid": product.product_bid,
     }
+    order_metadata = (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    provider_price_bid = _normalize_bid(order_metadata.get("provider_price_bid"))
+    if provider_price_bid:
+        metadata["provider_price_bid"] = provider_price_bid
     provider_options: dict[str, Any] = {"metadata": metadata}
 
     if payment_provider == "stripe":
+        if provider_price_mapping is None:
+            provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
+                app,
+                product=product,
+            )
+        if not _stored_provider_price_snapshot_matches_mapping(
+            order,
+            provider_price_mapping,
+            metadata=order_metadata,
+        ):
+            raise_error("server.order.orderStatusError")
         provider_options["mode"] = "checkout_session"
         provider_options["success_url"] = _inject_billing_query(
             build_stripe_billing_result_url(),
@@ -1436,13 +1768,11 @@ def _create_provider_checkout(
         provider_options["session_params"] = {
             "mode": "subscription" if payment_mode == "subscription" else "payment",
         }
-        stripe_line_item_amount = int(order.payable_amount or 0)
         if payment_mode == "subscription":
             provider_options["session_params"]["subscription_data"] = {
                 "metadata": metadata
             }
-            product_amount = int(product.price_amount or 0)
-            stripe_line_item_amount = product_amount
+            product_amount = int(provider_price_mapping.unit_amount or 0)
             first_invoice_discount_amount = max(
                 product_amount - int(order.payable_amount or 0),
                 0,
@@ -1452,12 +1782,10 @@ def _create_provider_checkout(
                     first_invoice_discount_amount
                 )
         provider_options["line_items"] = [
-            _build_stripe_line_item(
-                product,
-                product_name=product_name,
-                payment_mode=payment_mode,
-                unit_amount=stripe_line_item_amount,
-            ).to_provider_payload()
+            {
+                "price": provider_price_mapping.provider_price_id,
+                "quantity": 1,
+            }
         ]
     elif payment_provider == "pingxx":
         provider_options.update(
@@ -1506,6 +1834,11 @@ def _create_provider_checkout(
             **(
                 dict(order.metadata_json)
                 if isinstance(order.metadata_json, dict)
+                else {}
+            ),
+            **(
+                _build_provider_price_order_metadata(provider_price_mapping)
+                if payment_provider == "stripe"
                 else {}
             ),
             "provider": payment_provider,
@@ -1893,30 +2226,6 @@ def _resolve_billing_order_payment_mode(order: BillingOrder) -> str:
     if order_label.startswith("subscription_"):
         return "subscription"
     return "one_time"
-
-
-def _build_stripe_line_item(
-    product: BillingProduct,
-    *,
-    product_name: str,
-    payment_mode: str,
-    unit_amount: int,
-) -> StripeLineItemPayload:
-    interval: str | None = None
-    interval_count: int | None = None
-    if payment_mode == "subscription":
-        interval = BILLING_INTERVAL_LABELS.get(product.billing_interval)
-        if interval in {None, "none"}:
-            raise_param_error("product_bid")
-        interval_count = int(product.billing_interval_count or 1)
-    return StripeLineItemPayload(
-        currency=str(product.currency or "CNY").lower(),
-        unit_amount=int(unit_amount or 0),
-        product_name=product_name,
-        interval=interval,
-        interval_count=interval_count,
-        quantity=1,
-    )
 
 
 def _resolve_checkout_product_name(product: BillingProduct) -> str:
