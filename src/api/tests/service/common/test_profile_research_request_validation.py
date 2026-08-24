@@ -7,6 +7,7 @@ from flaskr.service.common import profile_research_request_validation
 from flaskr.service.common.models import AppError
 from flaskr.service.common.profile_research_request_validation import (
     normalize_profile_research_session_id,
+    parse_profile_research_run_request,
     profile_research_run_identity,
     profile_research_user_input,
 )
@@ -126,3 +127,26 @@ def test_run_identity_uses_the_callers_envelope_for_unpaired_fields(
         )
 
     assert rejected_parameters == ["profile_onboarding_preview"]
+
+
+def test_run_request_parser_returns_one_typed_validated_envelope() -> None:
+    result = parse_profile_research_run_request(
+        {
+            "user_input": {"style": ["brief"]},
+            "expected_block_index": 3,
+            "request_id": " request-3 ",
+        },
+        parameter_name="profile_onboarding_session",
+    )
+
+    assert result.user_input == {"style": ["brief"]}
+    assert result.expected_block_index == 3
+    assert result.request_id == "request-3"
+
+
+def test_run_request_parser_rejects_unknown_fields_with_the_envelope_name() -> None:
+    with pytest.raises(AppError):
+        parse_profile_research_run_request(
+            {"unexpected": True},
+            parameter_name="profile_onboarding_preview",
+        )

@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from flaskr.service.common.models import raise_param_error
 
 _PROFILE_RESEARCH_SESSION_ID_LENGTH = 32
 _PROFILE_RESEARCH_SESSION_ID_ALPHABET = frozenset("0123456789abcdef")
+
+
+@dataclass(frozen=True)
+class ProfileResearchRunRequest:
+    """Validated input for one learner or operator runtime step."""
+
+    user_input: dict[str, list[str]] | None
+    expected_block_index: int | None
+    request_id: str | None
 
 
 def normalize_profile_research_session_id(value: object) -> str:
@@ -69,3 +80,24 @@ def profile_research_run_identity(
     ):
         raise_param_error("request_id")
     return expected_block_index, request_id.strip()
+
+
+def parse_profile_research_run_request(
+    payload: dict, *, parameter_name: str
+) -> ProfileResearchRunRequest:
+    """Validate one complete run envelope with caller-specific error naming."""
+    if set(payload) - {"user_input", "expected_block_index", "request_id"}:
+        raise_param_error(parameter_name)
+    user_input = profile_research_user_input(
+        payload,
+        parameter_name=parameter_name,
+    )
+    expected_block_index, request_id = profile_research_run_identity(
+        payload,
+        parameter_name=parameter_name,
+    )
+    return ProfileResearchRunRequest(
+        user_input=user_input,
+        expected_block_index=expected_block_index,
+        request_id=request_id,
+    )

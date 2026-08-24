@@ -140,7 +140,7 @@ def test_profile_onboarding_complete_writes_allowed_system_profiles(
 
     checked_text = []
     monkeypatch.setattr(
-        "flaskr.service.profile.onboarding.check_text_content",
+        "flaskr.service.profile.legacy_onboarding.check_text_content",
         lambda _app, user_id, value: checked_text.append((user_id, value)) or True,
     )
 
@@ -191,11 +191,11 @@ def test_profile_onboarding_routes_delegate(
     )
 
     monkeypatch.setattr(
-        "flaskr.route.user.get_profile_onboarding_status",
+        "flaskr.route.profile.get_profile_onboarding_status",
         lambda _app, user_id: {"enabled": True, "should_show": True, "user": user_id},
     )
     monkeypatch.setattr(
-        "flaskr.route.user.complete_profile_onboarding",
+        "flaskr.route.profile.complete_profile_onboarding",
         lambda _app, user_id, skipped, variables: {
             "completed": True,
             "skipped": skipped,
@@ -204,11 +204,11 @@ def test_profile_onboarding_routes_delegate(
         },
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.admin_operations.route.get_operator_profile_onboarding_config",
+        "flaskr.route.admin_profile_onboarding.get_operator_profile_onboarding_config",
         lambda _app: {"enabled": False},
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.admin_operations.route.update_operator_profile_onboarding_config",
+        "flaskr.route.admin_profile_onboarding.update_operator_profile_onboarding_config",
         lambda _app, payload, operator_user_bid: {
             "enabled": payload["enabled"],
             "operator": operator_user_bid,
@@ -256,14 +256,14 @@ def test_learner_profile_routes_delegate(
     )
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.user.get_learner_profile",
+        "flaskr.route.profile.get_learner_profile",
         lambda **kwargs: (
             calls.append(("get", kwargs))
             or {"learner_profile": "old", "nickname": "Old name"}
         ),
     )
     monkeypatch.setattr(
-        "flaskr.route.user.replace_learner_profile",
+        "flaskr.route.profile.replace_learner_profile",
         lambda _app, **kwargs: (
             calls.append(("put", kwargs))
             or {
@@ -273,7 +273,7 @@ def test_learner_profile_routes_delegate(
         ),
     )
     monkeypatch.setattr(
-        "flaskr.route.user.clear_learner_profile",
+        "flaskr.route.profile.clear_learner_profile",
         lambda **kwargs: calls.append(("delete", kwargs)) or {"learner_profile": ""},
     )
 
@@ -347,7 +347,7 @@ def test_learner_profile_update_omits_optional_nickname(
     )
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.user.replace_learner_profile",
+        "flaskr.route.profile.replace_learner_profile",
         lambda _app, **kwargs: calls.append(kwargs) or kwargs,
     )
 
@@ -378,13 +378,13 @@ def test_learner_profile_optimize_route_delegates_without_persistence(
     )
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.user.optimize_learner_profile",
+        "flaskr.route.profile.optimize_learner_profile",
         lambda _app, **kwargs: (
             calls.append(kwargs) or {"optimized_learner_profile": "optimized profile"}
         ),
     )
     monkeypatch.setattr(
-        "flaskr.route.user.learner_profile_optimization_admission",
+        "flaskr.route.profile.learner_profile_optimization_admission",
         nullcontext_admission,
     )
 

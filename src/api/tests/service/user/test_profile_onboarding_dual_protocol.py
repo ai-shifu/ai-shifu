@@ -571,7 +571,7 @@ def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
     )
     moderated_values = []
     monkeypatch.setattr(
-        "flaskr.service.profile.onboarding.check_text_content",
+        "flaskr.service.profile.legacy_onboarding.check_text_content",
         lambda _app, _user_id, value: moderated_values.append(value) or True,
     )
     monkeypatch.setattr(
@@ -657,7 +657,7 @@ def test_legacy_complete_filters_unknown_variables_before_moderation_and_storage
     )
     moderated_values = []
     monkeypatch.setattr(
-        "flaskr.service.profile.onboarding.check_text_content",
+        "flaskr.service.profile.legacy_onboarding.check_text_content",
         lambda _app, _user_id, value: moderated_values.append(value) or True,
     )
     monkeypatch.setattr(
@@ -727,7 +727,7 @@ def test_complete_routes_keep_legacy_and_v2_persistence_strictly_isolated(
         },
     )
     monkeypatch.setattr(
-        "flaskr.service.profile.onboarding.check_text_content",
+        "flaskr.service.profile.legacy_onboarding.check_text_content",
         lambda *_args, **_kwargs: True,
     )
     monkeypatch.setattr(
@@ -1095,7 +1095,7 @@ def test_late_v2_skip_reconstructs_completed_state_before_session_cleanup(
         cleanup_observations.append((user_bid, session_id or "", state.status))
 
     monkeypatch.setattr(
-        "flaskr.route.user._delete_profile_onboarding_session",
+        "flaskr.route.profile._delete_profile_onboarding_session",
         observe_cleanup,
     )
 

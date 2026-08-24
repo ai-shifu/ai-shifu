@@ -5,9 +5,11 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 
-from flask import Flask, Response, request
+from flask import Flask, request
 from flaskr.common.config import get_config
-from flaskr.i18n import get_current_language, get_i18n_list
+from flaskr.route.admin_profile_onboarding import (
+    register_operator_profile_onboarding_routes,
+)
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.api import (
     build_operator_credit_orders_overview,
@@ -15,11 +17,6 @@ from flaskr.service.billing.api import (
     get_operator_credit_order_detail,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.common.profile_research_request_validation import (
-    normalize_profile_research_session_id,
-    profile_research_run_identity,
-    profile_research_user_input,
-)
 from flaskr.service.order.api import (
     get_operator_order_detail,
     get_operator_order_overview,
@@ -86,12 +83,6 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     requeue_operator_credit_notification,
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
-)
-from flaskr.service.shifu.admin_operations.profile_onboarding import (
-    create_operator_profile_onboarding_preview_session,
-    get_operator_profile_onboarding_config,
-    stream_operator_profile_onboarding_preview_session,
-    update_operator_profile_onboarding_config,
 )
 from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_credit_usage_detail,
@@ -275,46 +266,6 @@ def _require_operator() -> None:
         raise_error("server.shifu.noPermission")
 
 
-def _profile_onboarding_json_object(parameter_name: str) -> dict:
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        raise_param_error(parameter_name)
-    return payload
-
-
-def _reject_profile_onboarding_unknown_fields(
-    payload: dict, *, allowed_fields: set[str], parameter_name: str
-) -> None:
-    if set(payload) - allowed_fields:
-        raise_param_error(parameter_name)
-
-
-def _normalize_profile_onboarding_language(_app: Flask, raw_language: str) -> str:
-    normalized = raw_language.strip().replace("_", "-")
-    parts = [part for part in normalized.split("-") if part]
-    if not parts:
-        raise_param_error("language")
-    normalized_parts = [parts[0].lower()]
-    for part in parts[1:]:
-        if len(part) == 2 and part.isalpha():
-            normalized_parts.append(part.upper())
-        elif len(part) == 4 and part.isalpha():
-            normalized_parts.append(part.title())
-        else:
-            normalized_parts.append(part)
-    normalized = "-".join(normalized_parts)
-    supported_languages = get_i18n_list()
-    for supported_language in supported_languages:
-        if supported_language.lower() == normalized.lower():
-            return supported_language
-    primary_language = normalized.split("-", 1)[0].lower()
-    for supported_language in supported_languages:
-        if supported_language.split("-", 1)[0].lower() == primary_language:
-            return supported_language
-    raise_param_error("language")
-    return ""  # pragma: no cover
-
-
 def _normalize_contacts(raw_contacts: object) -> list[str]:
     """Split and normalize contact identifiers from request payloads."""
     if isinstance(raw_contacts, str):
@@ -357,6 +308,11 @@ def register_admin_operations_routes(
     app: Flask, *, path_prefix: str = "/api/shifu"
 ) -> None:
     """Register operator admin operation routes."""
+    register_operator_profile_onboarding_routes(
+        app,
+        path_prefix,
+        require_operator=_require_operator,
+    )
 
     @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
     def admin_operations_courses() -> str:
@@ -1056,116 +1012,6 @@ def register_admin_operations_routes(
                 payload=payload,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
             )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/profile-onboarding",
-        methods=["GET"],
-    )
-    def admin_operation_profile_onboarding_config() -> str:
-        """Get operator profile onboarding config."""
-        _require_operator()
-        return make_common_response(get_operator_profile_onboarding_config(app))
-
-    @app.route(
-        path_prefix + "/admin/operations/profile-onboarding",
-        methods=["POST"],
-    )
-    def admin_operation_update_profile_onboarding_config() -> str:
-        """Update operator profile onboarding config."""
-        _require_operator()
-        payload = _profile_onboarding_json_object("profile_onboarding_config")
-        _reject_profile_onboarding_unknown_fields(
-            payload,
-            allowed_fields={"enabled", "markdownflow"},
-            parameter_name="profile_onboarding_config",
-        )
-        return make_common_response(
-            update_operator_profile_onboarding_config(
-                app,
-                payload=payload,
-                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/profile-onboarding/preview",
-        methods=["POST"],
-    )
-    def admin_operation_create_profile_onboarding_preview() -> str:
-        """Create an isolated preview from the operator's unsaved editor draft."""
-        _require_operator()
-        payload = _profile_onboarding_json_object("profile_onboarding_preview")
-        _reject_profile_onboarding_unknown_fields(
-            payload,
-            allowed_fields={"markdownflow", "language"},
-            parameter_name="profile_onboarding_preview",
-        )
-        markdownflow = payload.get("markdownflow")
-        language = payload.get("language")
-        if not isinstance(markdownflow, str) or not markdownflow.strip():
-            raise_param_error("markdownflow")
-        if language is not None and (
-            not isinstance(language, str) or not language.strip()
-        ):
-            raise_param_error("language")
-        config = get_operator_profile_onboarding_config(app)
-        return make_common_response(
-            create_operator_profile_onboarding_preview_session(
-                app,
-                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
-                markdownflow=markdownflow.strip(),
-                config_revision=int(
-                    config.get("config_revision") or config.get("version") or 0
-                ),
-                output_language=(
-                    _normalize_profile_onboarding_language(app, language)
-                    if language is not None
-                    else get_current_language()
-                ),
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/profile-onboarding/preview/<session_id>/run",
-        methods=["POST"],
-    )
-    def admin_operation_run_profile_onboarding_preview(session_id: str) -> Response:
-        """Stream one owner- and preview-purpose-scoped cursor step."""
-        _require_operator()
-        normalized_session_id = normalize_profile_research_session_id(session_id)
-        payload = _profile_onboarding_json_object("profile_onboarding_preview")
-        _reject_profile_onboarding_unknown_fields(
-            payload,
-            allowed_fields={"user_input", "expected_block_index", "request_id"},
-            parameter_name="profile_onboarding_preview",
-        )
-        user_input = profile_research_user_input(
-            payload,
-            parameter_name="user_input",
-        )
-        expected_block_index, request_id = profile_research_run_identity(
-            payload,
-            parameter_name="profile_onboarding_preview",
-        )
-        operator_user_bid = str(getattr(request.user, "user_id", "") or "")
-        from flaskr.service.profile_research.api import (
-            build_profile_research_sse_response,
-        )
-
-        return build_profile_research_sse_response(
-            app,
-            event_iter_factory=lambda: (
-                stream_operator_profile_onboarding_preview_session(
-                    app,
-                    operator_user_bid=operator_user_bid,
-                    session_id=normalized_session_id,
-                    user_input=user_input,
-                    expected_block_index=expected_block_index,
-                    request_id=request_id,
-                )
-            ),
-            log_context="operator profile onboarding preview",
         )
 
     @app.route(
