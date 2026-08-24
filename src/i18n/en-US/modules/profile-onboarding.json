@@ -97,7 +97,7 @@
   "loadFailed": "Your personalization settings could not be loaded, so the course was opened. Please try again later.",
   "next": "Next",
   "profileLabel": "Your background and preferences",
-  "profilePlaceholder": "For example: what to call you, your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
+  "profilePlaceholder": "For example: your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
   "refreshPending": "Saved. The course is updating, so please refresh the page shortly.",
   "review": {
     "description": "Your AI teacher will use this to adapt how and what it teaches.",

@@ -97,7 +97,7 @@
   "loadFailed": "个性化设置暂时加载失败，已直接为你打开课程，请稍后重试。",
   "next": "下一步",
   "profileLabel": "你的背景和偏好",
-  "profilePlaceholder": "例如：希望怎样称呼你、你的工作或学习背景、相关经验、喜欢的讲解和幻灯片风格，以及最近关注的事情",
+  "profilePlaceholder": "例如：你的工作或学习背景、相关经验、喜欢的讲解和幻灯片风格，以及最近关注的事情",
   "refreshPending": "已保存。课程正在更新，请稍后刷新页面。",
   "review": {
     "description": "AI 老师会据此调整讲课形式和内容。",

@@ -97,7 +97,7 @@
   "loadFailed": "Vos paramètres de personnalisation n’ont pas pu être chargés ; le cours a donc été ouvert. Réessayez plus tard.",
   "next": "Suivant",
   "profileLabel": "Votre parcours et vos préférences",
-  "profilePlaceholder": "Par exemple : la façon de vous appeler, votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
+  "profilePlaceholder": "Par exemple : votre parcours professionnel ou scolaire, votre expérience, vos styles d’explication et de diapositives préférés, ainsi que vos centres d’intérêt du moment",
   "refreshPending": "Enregistré. Le cours est en cours de mise à jour ; actualisez la page dans un instant.",
   "review": {
     "description": "Votre enseignant IA s’en servira pour adapter la forme et le contenu du cours.",
