@@ -8,11 +8,11 @@ AI-Shifu only supplies its content ref, portal target, and layout context.
 
 ## Progress
 
-- [x] 2026-08-24 19:00 CST: Published `markdown-flow-ui@0.2.12` with public
+- [x] 2026-08-24 11:00 UTC: Published `markdown-flow-ui@0.2.14` with public
   hook/button exports and working ESM/CJS package targets.
-- [x] 2026-08-24 19:00 CST: Replaced NewChatComp's generic scroll state,
+- [x] 2026-08-24 11:00 UTC: Replaced NewChatComp's generic scroll state,
   listeners, icon, and dedicated styles with the library API.
-- [x] 2026-08-24 19:00 CST: Passed focused Jest, TypeScript, lint, format,
+- [x] 2026-08-24 11:00 UTC: Passed focused Jest, TypeScript, lint, format,
   translation, harness, and architecture checks; missing ruff remains an
   environment-only dev-tool failure.
 - [ ] Create ready PRs and complete CI/review follow-up.
@@ -21,8 +21,8 @@ AI-Shifu only supplies its content ref, portal target, and layout context.
 
 - The existing package's CJS files used `.cjs.js` under `type: module` and
   preserved pnpm-resolved dependency paths, so a real packed consumer failed.
-- The package must externalize dependencies and emit `.cjs` files; CSS is
-  provided through the published CSS entry rather than runtime JS imports.
+- The package emits `.cjs` files for CommonJS consumers; CSS is provided
+  through the published CSS entry rather than runtime JS imports.
 
 ## Decision Log
 
@@ -36,14 +36,14 @@ AI-Shifu only supplies its content ref, portal target, and layout context.
 ## Outcomes & Retrospective
 
 The library is now the owner of the generic behavior and the AI-Shifu page no
-longer duplicates its algorithm. Remaining work is publication/PR/CI closure
-and browser-level visual confirmation.
+longer duplicates its algorithm. Remaining work is CI closure and browser-level
+visual confirmation.
 
 ## Context and Orientation
 
 The library branch is `sunner/migrate-scroll-down` in the markdown-flow-ui
 worktree. The AI-Shifu branch uses a separate worktree at
-`/private/tmp/ai-shifu-scroll-down` and consumes the released `0.2.12` pin.
+`/private/tmp/ai-shifu-scroll-down` and consumes the released `0.2.14` pin.
 
 ## Plan of Work
 
@@ -74,7 +74,8 @@ version; do not rewrite published versions or modify another worktree.
 
 ## Interfaces and Dependencies
 
-- `markdown-flow-ui/renderer`: `useScrollToBottom`, `ScrollToBottomButton`,
+- `markdown-flow-ui/scroll` and `markdown-flow-ui/renderer`:
+  `useScrollToBottom`, `ScrollToBottomButton`,
   `ScrollableMarkdownFlow`.
 - AI-Shifu `NewChatComp.tsx`: content ref, localized aria label, portal target,
   and host layout classes.

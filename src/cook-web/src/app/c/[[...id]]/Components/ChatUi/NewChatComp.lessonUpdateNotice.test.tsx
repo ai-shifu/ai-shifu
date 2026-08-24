@@ -15,15 +15,17 @@ jest.mock('markdown-flow-ui/scroll', () => ({
       />
     ) : null,
   useScrollToBottom: () => ({
-    showScrollToBottom: false,
+    showScrollToBottom: mockShowScrollToBottom,
     isAtBottom: true,
     followNewContent: true,
-    scrollToBottom: jest.fn(),
+    scrollToBottom: mockScrollToBottom,
     refresh: jest.fn(),
   }),
 }));
 
 const mockUseChatLogicHook = jest.fn();
+const mockScrollToBottom = jest.fn();
+let mockShowScrollToBottom = false;
 let mockCourseAvatar = '';
 let mockLearningMode = 'listen';
 let mockLogoHorizontal = '';
@@ -424,6 +426,8 @@ describe('NewChatComponents', () => {
     mockOfficialSiteUrl = 'https://official.example.com';
     mockLessonPdfReady = false;
     mockLessonPdfPreparing = false;
+    mockShowScrollToBottom = false;
+    mockScrollToBottom.mockReset();
     documentVisibilityState = 'visible';
     visibilityStateSpy = jest
       .spyOn(document, 'visibilityState', 'get')
@@ -477,6 +481,32 @@ describe('NewChatComponents', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText('本节课程已更新，建议重修'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the localized scroll control and scrolls to the bottom in read mode', async () => {
+    mockLearningMode = 'read';
+    mockShowScrollToBottom = true;
+
+    renderNewChatComponents();
+
+    const scrollButton = screen.getByRole('button', {
+      name: '滚动到底部',
+    });
+    expect(scrollButton).toBeInTheDocument();
+
+    await userEvent.click(scrollButton);
+
+    expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render the scroll control in slide mode', () => {
+    mockShowScrollToBottom = true;
+
+    renderNewChatComponents();
+
+    expect(
+      screen.queryByRole('button', { name: '滚动到底部' }),
     ).not.toBeInTheDocument();
   });
 

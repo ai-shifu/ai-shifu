@@ -437,7 +437,10 @@ export const NewChatComponents = ({
   });
 
   const { showScrollToBottom, scrollToBottom } = useScrollToBottom(chatRef, {
-    contentVersion: items,
+    contentVersion: useMemo(
+      () => ({ isSlideMode, items }),
+      [isSlideMode, items],
+    ),
     scrollThreshold: 150,
   });
 
@@ -1296,7 +1299,7 @@ export const NewChatComponents = ({
       ariaLabel={t('module.chat.scrollToBottom')}
       className={
         mobileStyle
-          ? '!fixed !bottom-[60px] !left-1/2 !right-auto !z-50 !-translate-x-1/2'
+          ? '!fixed !bottom-[60px] !left-1/2 !right-auto !z-50 !-translate-x-1/2 !pointer-events-auto'
           : '!absolute !bottom-[90px] !left-1/2 !right-auto !z-20 !-translate-x-1/2'
       }
       portalTarget={mobileStyle ? portalTarget : null}
