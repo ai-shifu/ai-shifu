@@ -15,8 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN202/ANN401 and the selected rules below) / SLF001 /
-#   PLC0415 / PLR2004
+# - SLF001 / PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -181,16 +180,9 @@ select = [
     # methods: `__init__`/`__exit__`/`__json__` and friends have a fixed contract,
     # so the return type is never a judgement call and writing it down keeps the
     # serialization dunders (`__json__` returning a dict vs an enum value's str)
-    # readable at a glance.
-    "ANN001",  # missing type for function arguments
-    "ANN002",  # missing type for *args
-    "ANN003",  # missing type for **kwargs
-    "ANN201",  # missing return type for a public function
-    "ANN202",  # missing return type for a private function
-    "ANN204",  # missing return type on a special method
-    "ANN205",  # missing return type on a staticmethod
-    "ANN206",  # missing return type on a classmethod
-    "ANN401",  # dynamically typed expressions (Any)
+    # readable at a glance. The complete family passes on the current
+    # baseline, so keep the family selected as new ANN rules are added.
+    "ANN",     # flake8-annotations
 
     # --- Boolean arguments ------------------------------------------------
     # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
