@@ -953,12 +953,10 @@ def _reopen_existing_billing_order_checkout(
         order_metadata = (
             order.metadata_json if isinstance(order.metadata_json, dict) else {}
         )
-        stored_provider_price_bid = _normalize_bid(
-            order_metadata.get("provider_price_bid")
-        )
-        if (
-            stored_provider_price_bid
-            and stored_provider_price_bid != provider_price_mapping.provider_price_bid
+        if not _stored_provider_price_snapshot_matches_mapping(
+            order,
+            provider_price_mapping,
+            metadata=order_metadata,
         ):
             raise_error("server.order.orderStatusError")
         stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
@@ -1482,6 +1480,61 @@ def _build_provider_price_order_metadata(
     }
 
 
+def _stored_provider_price_snapshot_matches_mapping(
+    order: BillingOrder,
+    mapping: BillingProductProviderPrice,
+    *,
+    metadata: dict[str, object] | None = None,
+) -> bool:
+    order_metadata = metadata or (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    snapshot_keys = {
+        "provider_price_bid",
+        "provider_account_id",
+        "provider_product_id",
+        "provider_price_id",
+        "provider_price_livemode",
+        "provider_price_currency",
+        "provider_price_unit_amount",
+    }
+    has_snapshot = any(
+        order_metadata.get(key) not in {None, ""} for key in snapshot_keys
+    )
+    if not has_snapshot:
+        return str(order.currency or "").strip().upper() == str(
+            mapping.currency or ""
+        ).strip().upper() and int(order.payable_amount or 0) == int(
+            mapping.unit_amount or 0
+        )
+
+    expected = {
+        "provider_price_bid": mapping.provider_price_bid,
+        "provider_account_id": mapping.provider_account_id,
+        "provider_product_id": mapping.provider_product_id,
+        "provider_price_id": mapping.provider_price_id,
+        "provider_price_livemode": bool(mapping.livemode),
+        "provider_price_currency": str(mapping.currency or "").strip().upper(),
+        "provider_price_unit_amount": int(mapping.unit_amount or 0),
+    }
+    return (
+        _normalize_bid(order_metadata.get("provider_price_bid"))
+        == _normalize_bid(expected["provider_price_bid"])
+        and _normalize_bid(order_metadata.get("provider_account_id"))
+        == _normalize_bid(expected["provider_account_id"])
+        and _normalize_bid(order_metadata.get("provider_product_id"))
+        == _normalize_bid(expected["provider_product_id"])
+        and _normalize_bid(order_metadata.get("provider_price_id"))
+        == _normalize_bid(expected["provider_price_id"])
+        and bool(order_metadata.get("provider_price_livemode"))
+        is bool(expected["provider_price_livemode"])
+        and str(order_metadata.get("provider_price_currency") or "").strip().upper()
+        == expected["provider_price_currency"]
+        and int(order_metadata.get("provider_price_unit_amount") or 0)
+        == expected["provider_price_unit_amount"]
+    )
+
+
 def _stripe_campaign_affects_charge_amount(campaign: object) -> bool:
     return bool(
         getattr(campaign, "campaign_bid", "")
@@ -1689,9 +1742,10 @@ def _create_provider_checkout(
                 app,
                 product=product,
             )
-        if (
-            provider_price_bid
-            and provider_price_bid != provider_price_mapping.provider_price_bid
+        if not _stored_provider_price_snapshot_matches_mapping(
+            order,
+            provider_price_mapping,
+            metadata=order_metadata,
         ):
             raise_error("server.order.orderStatusError")
         provider_options["mode"] = "checkout_session"
