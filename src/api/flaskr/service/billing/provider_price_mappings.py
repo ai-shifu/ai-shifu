@@ -382,7 +382,10 @@ def restore_retired_provider_price_mapping(
 ) -> BillingProductProviderPrice:
     """Restore a retired provider-price mapping to draft for revalidation."""
     mapping = _load_mapping(provider_price_bid)
-    if int(mapping.status or 0) != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+    current_status = int(mapping.status or 0)
+    if current_status == BILLING_PROVIDER_PRICE_STATUS_DRAFT:
+        return mapping
+    if current_status != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
         error_code = "provider_price_mapping_not_retired"
         raise ProviderPriceMappingError(
             error_code,

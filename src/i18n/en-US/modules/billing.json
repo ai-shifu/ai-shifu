@@ -169,6 +169,7 @@
         "cancel": "Cancel",
         "configure": "Configure",
         "create": "Add price",
+        "restore": "Restore to draft",
         "retire": "Unlist",
         "saveDraft": "Save draft",
         "validate": "Check",

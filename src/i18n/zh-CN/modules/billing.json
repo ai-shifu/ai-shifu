@@ -169,6 +169,7 @@
         "cancel": "取消",
         "configure": "配置价格",
         "create": "新增价格",
+        "restore": "恢复到待启用",
         "retire": "下架",
         "saveDraft": "保存草稿",
         "validate": "校验",
