@@ -28,7 +28,8 @@ facades.
       controllers.
 - [x] 2026-08-25 CST: Added pure reducer/model suites while retaining the
       characterization suites, and reconciled the completed dialog plan.
-- [ ] Pass focused, static, repository, visual, and GitHub CI gates.
+- [x] 2026-08-25 CST: Passed focused, static, repository, visual, and GitHub
+      CI gates after rebasing onto `origin/main` at `440bd1244`.
 
 ## Surprises & Discoveries
 
@@ -68,7 +69,31 @@ facades.
 
 ## Outcomes & Retrospective
 
-This section will be updated after the refactor and verification complete.
+The refactor separated the profile-research runtime, legacy protocol, learner
+and operator routes, guided conversation lifecycle, learner-profile dialog,
+course gate, and operator configuration flow behind their existing public
+facades. No user-facing copy, layout, interaction, wire contract, persistence,
+Redis lifecycle, analytics payload, or deployment behavior changed.
+
+The preserved characterization suites and new pure model suites passed after a
+conflict-free rebase onto the latest `main`. Focused backend verification
+reported 370 passing tests, focused frontend verification reported 99 passing
+tests, and the complete frontend Jest suite reported 1,351 passing tests. Ruff,
+TypeScript, ESLint, Prettier, translations, architecture, repository harness,
+development-tool, and lefthook gates passed. GitHub backend, frontend, static,
+runtime-harness, security, formatting, and review checks were green.
+
+Browser regression covered desktop, mobile portrait, narrow French, and short
+landscape layouts across collection, explicit completion handoff, save,
+retryable error, and blocking footer states. The dialog retained one scroll
+region, fixed shell geometry, full French header text, and the existing focus
+and exit behavior.
+
+The main maintenance benefit is explicit ownership: state transitions and
+transport lifecycles can now be tested independently while the stable facades
+continue to protect callers. Keeping the large characterization suites intact
+was preferable to combining test movement with production refactoring; future
+changes can split those fixtures incrementally without weakening coverage.
 
 ## Context and Orientation
 
