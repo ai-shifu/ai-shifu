@@ -12,6 +12,7 @@ from flaskr import dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
     BILLING_INTERVAL_DAY,
@@ -98,6 +99,7 @@ from tests.service.billing.route_loader import (
 
 __all__ = [
     "ALLOCATION_INTERVAL_PER_CYCLE",
+    "BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS",
     "BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT",
     "BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED",
     "BILLING_INTERVAL_DAY",

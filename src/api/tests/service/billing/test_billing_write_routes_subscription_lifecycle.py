@@ -313,6 +313,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
 
         assert refreshed["code"] == ERROR_CODE["server.order.orderStatusError"]
         assert len(billing_write_client["stripe_requests"]) == 1
+        assert billing_write_client["stripe_expire_requests"] == []
 
     def test_subscription_checkout_cancels_pending_order_when_switching_package(
         self, billing_write_client
@@ -342,6 +343,9 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             second_checkout["data"]["bill_order_bid"]
             != first_checkout["data"]["bill_order_bid"]
         )
+        assert billing_write_client["stripe_expire_requests"] == [
+            {"session_id": "cs_billing_test"}
+        ]
 
         with app.app_context():
             old_order = BillingOrder.query.filter_by(

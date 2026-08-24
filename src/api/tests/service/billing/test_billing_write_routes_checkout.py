@@ -7,6 +7,7 @@ from tests.service.billing import (
 )
 from tests.service.billing.billing_write_routes_test_helpers import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
     BILLING_INTERVAL_DAY,
@@ -400,6 +401,68 @@ class TestBillingWriteRoutesCheckout:
 
         assert payload["code"] == ERROR_CODE["server.pay.payChannelNotSupport"]
         assert billing_write_client["stripe_requests"] == []
+
+    def test_stripe_subscription_checkout_allows_bonus_only_campaign(
+        self,
+        billing_write_client: object,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-stripe-bonus",
+                    name="Stripe bonus campaign",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
+                    discount_type=0,
+                    discount_amount=0,
+                    discount_percent=Decimal("0"),
+                    bonus_credit_amount=Decimal("5.0000000000"),
+                    enabled=1,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-stripe-bonus",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    discount_type=0,
+                    discount_amount=0,
+                    discount_percent=Decimal("0"),
+                    campaign_price_amount=990,
+                    bonus_credit_amount=Decimal("5.0000000000"),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["payable_amount"] == 990
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        assert stripe_request["extra"]["line_items"][0]["price"] == (
+            "price_bill-product-plan-monthly"
+        )
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"]
+            ).one()
+            assert order.campaign_bid == "campaign-stripe-bonus"
+            assert order.campaign_bonus_credit_amount == Decimal("5.0000000000")
 
     def test_subscription_checkout_rejects_lower_tier_plan_while_active(
         self, billing_write_client
