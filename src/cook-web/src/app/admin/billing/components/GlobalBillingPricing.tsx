@@ -695,7 +695,7 @@ function PlanCard({
   const featureIncludeKey = PLAN_FEATURE_INCLUDE_KEYS[tierSpec.tier];
   const pricingDetailsClassName =
     cycle === 'annual' ? 'min-h-[98px]' : 'min-h-[86px]';
-  const creditsBoxClassName = 'min-h-[110px]';
+  const creditsBoxClassName = 'min-h-[150px]';
 
   return (
     <Card
