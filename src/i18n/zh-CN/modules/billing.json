@@ -180,6 +180,7 @@
       },
       "confirm": {
         "activate": "确认上架 {productName}？上架后，该商品后续支付将使用这个收款价格。",
+        "restore": "确认恢复 {productName}？恢复后会回到待启用状态，需要重新校验后再上架。",
         "retire": "确认下架 {productName}？下架后，该商品将暂时无法使用固定价格支付。"
       },
       "description": "管理海外套餐和积分包的收款价格，确保用户看到的价格、实际支付金额和到账权益一致。",
@@ -300,6 +301,8 @@
         "activateSuccess": "价格已上架",
         "createFailed": "价格保存失败",
         "createSuccess": "价格已保存",
+        "restoreFailed": "价格恢复失败",
+        "restoreSuccess": "价格已恢复为待启用",
         "retireFailed": "价格下架失败",
         "retireSuccess": "价格已下架",
         "validateFailed": "价格校验失败",

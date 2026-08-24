@@ -25,6 +25,7 @@ from .provider_price_mappings import (
     ProviderPriceMappingValidationSummary,
     activate_provider_price_mapping,
     list_provider_price_mappings,
+    restore_retired_provider_price_mapping,
     retire_provider_price_mapping,
     serialize_provider_price_mapping,
     upsert_provider_price_mapping,
@@ -158,6 +159,17 @@ def retire_admin_billing_provider_price_mapping(
 ) -> dict[str, Any]:
     with _maybe_app_context(app):
         mapping = retire_provider_price_mapping(provider_price_bid)
+        return {"mapping": serialize_provider_price_mapping(mapping)}
+
+
+def restore_admin_billing_provider_price_mapping(
+    app: Flask,
+    *,
+    provider_price_bid: str,
+) -> dict[str, Any]:
+    """Restore a retired provider price mapping to draft."""
+    with _maybe_app_context(app):
+        mapping = restore_retired_provider_price_mapping(provider_price_bid)
         return {"mapping": serialize_provider_price_mapping(mapping)}
 
 

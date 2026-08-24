@@ -180,6 +180,7 @@
       },
       "confirm": {
         "activate": "Mettre {productName} en ligne ? Les prochains paiements de ce produit utiliseront ce prix.",
+        "restore": "Restaurer {productName} ? Le prix reviendra en brouillon et devra être contrôlé avant la remise en ligne.",
         "retire": "Retirer {productName} ? Le produit n’aura temporairement plus de checkout à prix fixe."
       },
       "description": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et droits accordés.",
@@ -300,6 +301,8 @@
         "activateSuccess": "Prix mis en ligne",
         "createFailed": "Échec de l’enregistrement",
         "createSuccess": "Prix enregistré",
+        "restoreFailed": "Échec de la restauration du prix",
+        "restoreSuccess": "Prix restauré en brouillon",
         "retireFailed": "Échec du retrait du prix",
         "retireSuccess": "Prix retiré",
         "validateFailed": "Échec du contrôle",
