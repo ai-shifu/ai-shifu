@@ -246,6 +246,83 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert orders[0].status == BILLING_ORDER_STATUS_PENDING
             assert orders[0].expires_at is not None
 
+    def test_subscription_checkout_refreshes_stripe_session_when_callback_url_changes(
+        self, billing_write_client: object
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            metadata = dict(order.metadata_json)
+            metadata["checkout"] = {
+                **metadata["checkout"],
+                "success_url": "https://old.example.com/payment/stripe/billing-result",
+            }
+            order.metadata_json = metadata
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
+        assert len(billing_write_client["stripe_requests"]) == 2
+        assert billing_write_client["stripe_expire_requests"] == [
+            {"session_id": "cs_billing_test"}
+        ]
+
+    def test_pending_subscription_checkout_route_rejects_stale_stripe_price_mapping(
+        self, billing_write_client: object
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            metadata = dict(order.metadata_json)
+            metadata["provider_price_bid"] = "mapping-old-price"
+            metadata["checkout"] = {**metadata["checkout"], "url": ""}
+            order.metadata_json = metadata
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        refreshed = client.post(
+            f"/api/billing/orders/{bill_order_bid}/checkout",
+            json={"channel": "checkout_session"},
+        ).get_json(force=True)
+
+        assert refreshed["code"] == ERROR_CODE["server.order.orderStatusError"]
+        assert len(billing_write_client["stripe_requests"]) == 1
+
     def test_subscription_checkout_cancels_pending_order_when_switching_package(
         self, billing_write_client: object
     ) -> None:

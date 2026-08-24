@@ -136,9 +136,10 @@ class TestBillingWriteRoutesTopup:
         assert checkout["data"]["provider"] == "stripe"
         stripe_request = billing_write_client["stripe_requests"][-1]
         assert stripe_request["extra"]["session_params"]["mode"] == "payment"
-        price_data = stripe_request["extra"]["line_items"][0]["price_data"]
-        assert price_data["unit_amount"] == 5000
-        assert "recurring" not in price_data
+        assert stripe_request["extra"]["line_items"][0]["price"] == (
+            "price_bill-product-topup-small"
+        )
+        assert "price_data" not in stripe_request["extra"]["line_items"][0]
 
     def test_topup_grant_expires_with_current_subscription_period(
         self, billing_write_client: object
