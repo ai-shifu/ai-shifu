@@ -404,6 +404,10 @@ describe('LearnerProfileDialog', () => {
     expect(
       await screen.findByDisplayValue(existingProfile.learner_profile),
     ).toBeInTheDocument();
+    expect(profileInput()).toHaveAttribute(
+      'placeholder',
+      'module.profileOnboarding.profilePlaceholder',
+    );
     expect(
       screen.queryByText('module.profileOnboarding.dialog.loading'),
     ).not.toBeInTheDocument();

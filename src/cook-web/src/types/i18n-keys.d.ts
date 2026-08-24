@@ -3141,7 +3141,6 @@ export type I18nKey =
   | 'module.profileOnboarding.dialog.optimizeSuccess'
   | 'module.profileOnboarding.dialog.optimizing'
   | 'module.profileOnboarding.dialog.profileLabel'
-  | 'module.profileOnboarding.dialog.profilePlaceholder'
   | 'module.profileOnboarding.dialog.replaceResearchConfirm'
   | 'module.profileOnboarding.dialog.replaceResearchDescription'
   | 'module.profileOnboarding.dialog.replaceResearchTitle'

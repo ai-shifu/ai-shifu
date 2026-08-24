@@ -951,7 +951,7 @@ export default function LearnerProfileDialog({
           value={profile}
           maxLength={maxLength}
           disabled={!loaded || busy || optimizing}
-          placeholder={t('module.profileOnboarding.dialog.profilePlaceholder')}
+          placeholder={t('module.profileOnboarding.profilePlaceholder')}
           descriptionId='learner-profile-optimization-status'
           onChange={value => {
             setProfile(value);
