@@ -18,6 +18,9 @@ import {
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
 let mockBillingSubscription: BillingSubscription | null = null;
+let mockBillingOverview:
+  | { subscription: BillingSubscription | null }
+  | undefined;
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -29,9 +32,7 @@ jest.mock('@/hooks/useToast', () => ({
 
 jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: () => ({
-    data: {
-      subscription: mockBillingSubscription,
-    },
+    data: mockBillingOverview,
   }),
 }));
 
@@ -218,6 +219,12 @@ const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
 const mockRememberStripeCheckoutSession =
   rememberStripeCheckoutSession as jest.Mock;
 
+function expectSessionStoredBeforeRedirect() {
+  expect(
+    mockRememberStripeCheckoutSession.mock.invocationCallOrder[0],
+  ).toBeLessThan(mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0]);
+}
+
 function plan(
   productCode: string,
   billingInterval: 'month' | 'year',
@@ -292,6 +299,9 @@ describe('GlobalBillingPricing', () => {
     mockOpenBillingCheckoutUrl.mockReset();
     mockRememberStripeCheckoutSession.mockReset();
     mockBillingSubscription = null;
+    mockBillingOverview = {
+      subscription: mockBillingSubscription,
+    };
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
@@ -518,6 +528,7 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/session',
     );
+    expectSessionStoredBeforeRedirect();
     expect(mockCheckoutTopup).not.toHaveBeenCalled();
   });
 
@@ -587,6 +598,7 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/topup',
     );
+    expectSessionStoredBeforeRedirect();
   });
 
   test('uses immediate upgrade and disables unsupported active plan transitions', async () => {
@@ -604,6 +616,9 @@ describe('GlobalBillingPricing', () => {
       next_product_bid: null,
       last_renewed_at: null,
       last_failed_at: null,
+    };
+    mockBillingOverview = {
+      subscription: mockBillingSubscription,
     };
     mockCheckoutSubscription.mockResolvedValue({
       bill_order_bid: 'order-upgrade',
@@ -648,6 +663,80 @@ describe('GlobalBillingPricing', () => {
       action: 'upgrade_immediate',
       payment_provider: 'stripe',
       product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessMonthly}`,
+    });
+    expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+      'https://checkout.stripe.test/upgrade',
+    );
+  });
+
+  test('keeps plan checkout disabled until the billing overview resolves', async () => {
+    const user = userEvent.setup();
+    mockBillingOverview = undefined;
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-business-annual',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      redirect_url: 'https://checkout.stripe.test/session',
+    });
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    const choosePlanButton = within(business).getByRole('button', {
+      name: 'Choose plan',
+    });
+
+    expect(choosePlanButton).toBeDisabled();
+    await act(async () => {
+      await user.click(choosePlanButton);
+    });
+
+    expect(mockCheckoutSubscription).not.toHaveBeenCalled();
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  test('allows upgrades from retired global SKUs so the backend can validate migration', async () => {
+    const user = userEvent.setup();
+    mockBillingSubscription = {
+      subscription_bid: 'sub-retired-growth',
+      product_bid: 'bid-retired-global-growth-yearly',
+      product_code: 'retired-global-growth-yearly',
+      status: 'active',
+      billing_provider: 'stripe',
+      current_period_start_at: null,
+      current_period_end_at: null,
+      grace_period_end_at: null,
+      cancel_at_period_end: false,
+      next_product_bid: null,
+      last_renewed_at: null,
+      last_failed_at: null,
+    };
+    mockBillingOverview = {
+      subscription: mockBillingSubscription,
+    };
+    mockCheckoutSubscription.mockResolvedValue({
+      bill_order_bid: 'order-legacy-upgrade',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      redirect_url: 'https://checkout.stripe.test/legacy-upgrade',
+    });
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    const upgradeButton = within(business).getByRole('button', {
+      name: 'Upgrade now',
+    });
+
+    expect(upgradeButton).toBeEnabled();
+    await act(async () => {
+      await user.click(upgradeButton);
+    });
+
+    expect(mockCheckoutSubscription).toHaveBeenCalledWith({
+      action: 'upgrade_immediate',
+      payment_provider: 'stripe',
+      product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
     });
   });
 

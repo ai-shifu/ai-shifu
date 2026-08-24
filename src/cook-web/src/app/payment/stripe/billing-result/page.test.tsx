@@ -9,12 +9,21 @@ import {
 
 import StripeBillingResultPage from './page';
 import api from '@/api';
+import { buildBillingSwrKey } from '@/lib/billing';
 import request from '@/lib/request';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 
 const mockPush = jest.fn();
 const mockSearchParams = new URLSearchParams();
-const mockMutateSWRCache = jest.fn();
+const mockMutateSWRCache = jest.fn(
+  async (...args: [unknown, unknown?, unknown?]) => {
+    const [, fetcher] = args;
+    if (typeof fetcher === 'function') {
+      return (fetcher as () => Promise<unknown>)();
+    }
+    return fetcher;
+  },
+);
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -33,7 +42,8 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('swr', () => ({
-  mutate: (...args: unknown[]) => mockMutateSWRCache(...args),
+  mutate: (key: unknown, fetcher?: unknown, options?: unknown) =>
+    mockMutateSWRCache(key, fetcher, options),
 }));
 
 jest.mock('@/api', () => ({
@@ -67,7 +77,7 @@ describe('StripeBillingResultPage', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockRequestPost.mockReset();
-    mockMutateSWRCache.mockReset();
+    mockMutateSWRCache.mockClear();
     mockGetBillingOverview.mockReset();
     mockGetBillingWalletBuckets.mockReset();
     mockGetBillingLedger.mockReset();
@@ -102,6 +112,33 @@ describe('StripeBillingResultPage', () => {
     await waitFor(() => {
       expect(mockMutateSWRCache).toHaveBeenCalledTimes(3);
     });
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(
+      buildBillingSwrKey('creator-billing-overview'),
+      expect.any(Function),
+      { revalidate: false },
+    );
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(
+      buildBillingSwrKey('billing-wallet-buckets'),
+      expect.any(Function),
+      { revalidate: false },
+    );
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(
+      buildBillingSwrKey('billing-ledger-recent', 1, 20),
+      expect.any(Function),
+      { revalidate: false },
+    );
+    expect(mockGetBillingOverview).toHaveBeenCalledWith(
+      {},
+      { skipErrorToast: true },
+    );
+    expect(mockGetBillingWalletBuckets).toHaveBeenCalledWith(
+      {},
+      { skipErrorToast: true },
+    );
+    expect(mockGetBillingLedger).toHaveBeenCalledWith(
+      { page_index: 1, page_size: 20 },
+      { skipErrorToast: true },
+    );
     expect(
       await screen.findByText('module.billing.result.countdown:3'),
     ).toBeInTheDocument();
