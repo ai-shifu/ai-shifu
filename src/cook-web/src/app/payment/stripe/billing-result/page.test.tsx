@@ -16,7 +16,8 @@ import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 const mockPush = jest.fn();
 const mockSearchParams = new URLSearchParams();
 const mockMutateSWRCache = jest.fn(
-  async (_key: unknown, fetcher?: unknown, _options?: unknown) => {
+  async (...args: [unknown, unknown?, unknown?]) => {
+    const [, fetcher] = args;
     if (typeof fetcher === 'function') {
       return (fetcher as () => Promise<unknown>)();
     }
