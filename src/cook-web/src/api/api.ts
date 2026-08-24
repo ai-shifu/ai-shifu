@@ -309,6 +309,8 @@ const api = {
     'POST /admin/billing/provider-prices/{provider_price_bid}/activate',
   retireAdminBillingProviderPrice:
     'POST /admin/billing/provider-prices/{provider_price_bid}/retire',
+  restoreAdminBillingProviderPrice:
+    'POST /admin/billing/provider-prices/{provider_price_bid}/restore',
   getAdminBillingCampaigns: 'GET /admin/billing/campaigns',
   createAdminBillingCampaign: 'POST /admin/billing/campaigns',
   getAdminBillingCampaignDetail: 'GET /admin/billing/campaigns/{campaign_bid}',

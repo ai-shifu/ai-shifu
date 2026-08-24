@@ -377,6 +377,35 @@ def retire_provider_price_mapping(
     return mapping
 
 
+def restore_retired_provider_price_mapping(
+    provider_price_bid: str,
+) -> BillingProductProviderPrice:
+    """Restore a retired provider-price mapping to draft for revalidation."""
+    mapping = _load_mapping(provider_price_bid)
+    current_status = int(mapping.status or 0)
+    if current_status == BILLING_PROVIDER_PRICE_STATUS_DRAFT:
+        mapping.validated_at = None
+        mapping.activated_at = None
+        mapping.retired_at = None
+        mapping.validation_error = ""
+        db.session.flush()
+        return mapping
+    if current_status != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        error_code = "provider_price_mapping_not_retired"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Only retired provider price mappings can be restored",
+            {"provider_price_bid": mapping.provider_price_bid},
+        )
+    mapping.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
+    mapping.validated_at = None
+    mapping.activated_at = None
+    mapping.retired_at = None
+    mapping.validation_error = ""
+    db.session.flush()
+    return mapping
+
+
 def _load_product(product_bid: str) -> BillingProduct:
     normalized_product_bid = _require_value(product_bid, "product_bid")
     product = BillingProduct.query.filter(
