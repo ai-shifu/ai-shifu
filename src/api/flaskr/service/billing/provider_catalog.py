@@ -142,6 +142,51 @@ class StripeCatalogReadAdapter:
             price=_normalize_stripe_price(price),
         )
 
+    def retrieve_account_snapshot(self, app: Flask) -> ProviderAccountSnapshot:
+        """Read the current Stripe account snapshot."""
+        stripe, request_options = self._client_options(app)
+        try:
+            account = _to_plain_dict(stripe.Account.retrieve(**request_options))
+        except Exception as exc:
+            message = "stripe_catalog_retrieve_failed"
+            raise ProviderCatalogReadError(
+                message,
+                _build_safe_stripe_error_message(exc),
+            ) from None
+        return normalize_stripe_account_snapshot(account)
+
+    def list_product_snapshots(self, app: Flask) -> list[ProviderProductSnapshot]:
+        """List Stripe product snapshots for reconcile."""
+        stripe, request_options = self._client_options(app)
+        try:
+            products = stripe.Product.list(limit=100, **request_options)
+        except Exception as exc:
+            message = "stripe_catalog_retrieve_failed"
+            raise ProviderCatalogReadError(
+                message,
+                _build_safe_stripe_error_message(exc),
+            ) from None
+        return [
+            normalize_stripe_product_snapshot(item)
+            for item in _iter_stripe_list_items(products)
+        ]
+
+    def list_price_snapshots(self, app: Flask) -> list[ProviderPriceSnapshot]:
+        """List Stripe price snapshots for reconcile."""
+        stripe, request_options = self._client_options(app)
+        try:
+            prices = stripe.Price.list(limit=100, **request_options)
+        except Exception as exc:
+            message = "stripe_catalog_retrieve_failed"
+            raise ProviderCatalogReadError(
+                message,
+                _build_safe_stripe_error_message(exc),
+            ) from None
+        return [
+            normalize_stripe_price_snapshot(item)
+            for item in _iter_stripe_list_items(prices)
+        ]
+
 
 def validate_provider_price_mapping(
     product: BillingProduct,
@@ -520,6 +565,13 @@ def _append_mismatch(
 
 
 def _normalize_stripe_account(payload: dict[str, Any]) -> ProviderAccountSnapshot:
+    return normalize_stripe_account_snapshot(payload)
+
+
+def normalize_stripe_account_snapshot(
+    payload: dict[str, object],
+) -> ProviderAccountSnapshot:
+    """Normalize a raw Stripe account payload."""
     return ProviderAccountSnapshot(
         provider="stripe",
         account_id=str(payload.get("id") or "").strip(),
@@ -529,6 +581,13 @@ def _normalize_stripe_account(payload: dict[str, Any]) -> ProviderAccountSnapsho
 
 
 def _normalize_stripe_product(payload: dict[str, Any]) -> ProviderProductSnapshot:
+    return normalize_stripe_product_snapshot(payload)
+
+
+def normalize_stripe_product_snapshot(
+    payload: dict[str, object],
+) -> ProviderProductSnapshot:
+    """Normalize a raw Stripe product payload."""
     return ProviderProductSnapshot(
         provider="stripe",
         product_id=str(payload.get("id") or "").strip(),
@@ -540,6 +599,13 @@ def _normalize_stripe_product(payload: dict[str, Any]) -> ProviderProductSnapsho
 
 
 def _normalize_stripe_price(payload: dict[str, Any]) -> ProviderPriceSnapshot:
+    return normalize_stripe_price_snapshot(payload)
+
+
+def normalize_stripe_price_snapshot(
+    payload: dict[str, object],
+) -> ProviderPriceSnapshot:
+    """Normalize a raw Stripe price payload."""
     recurring = _to_plain_dict(payload.get("recurring") or {})
     raw_unit_amount = payload.get("unit_amount")
     return ProviderPriceSnapshot(
@@ -591,6 +657,16 @@ def _to_plain_dict(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return dict(value)
     return {}
+
+
+def _iter_stripe_list_items(value: object) -> list[dict[str, object]]:
+    if hasattr(value, "auto_paging_iter"):
+        return [_to_plain_dict(item) for item in value.auto_paging_iter()]
+    payload = _to_plain_dict(value)
+    data = payload.get("data", [])
+    if not isinstance(data, list):
+        return []
+    return [_to_plain_dict(item) for item in data]
 
 
 def _coerce_optional_bool(value: Any) -> bool | None:

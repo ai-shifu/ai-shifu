@@ -1799,6 +1799,56 @@ class TestAdminBillingRoutes:
         assert payload["code"] == 0
         assert payload["data"]["mapping"]["status_label"] == "retired"
 
+    def test_admin_billing_provider_catalog_route_lists_inbox(
+        self, admin_billing_client: object, monkeypatch: object
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def _build_page(**kwargs: object) -> dict[str, object]:
+            captured.update(kwargs)
+            return {"snapshots": [], "events": []}
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "build_admin_provider_catalog_inbox_page",
+            _build_page,
+        )
+        client = admin_billing_client["client"]
+
+        response = client.get(
+            "/api/admin/billing/provider-catalog?object_type=price&livemode=false&limit=5"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"] == {"snapshots": [], "events": []}
+        assert captured["object_type"] == "price"
+        assert captured["livemode"] is False
+        assert captured["limit"] == 5
+
+    def test_admin_billing_provider_catalog_reconcile_route(
+        self, admin_billing_client: object, monkeypatch: object
+    ) -> None:
+        called = {"count": 0}
+
+        def _reconcile(_app: Flask) -> dict[str, object]:
+            called["count"] += 1
+            return {"processed": 2}
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "run_admin_provider_catalog_reconcile",
+            _reconcile,
+        )
+        client = admin_billing_client["client"]
+
+        response = client.post("/api/admin/billing/provider-catalog/reconcile")
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"] == {"processed": 2}
+        assert called == {"count": 1}
+
     def test_admin_billing_provider_prices_reject_non_operator(
         self,
         admin_billing_client,

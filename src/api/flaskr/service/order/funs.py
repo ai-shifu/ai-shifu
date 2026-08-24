@@ -1493,6 +1493,14 @@ def handle_stripe_webhook(
     event = notification.provider_payload or {}
     event_type = notification.status
     data_object = event.get("data", {}).get("object", {}) or {}
+    from flaskr.service.billing.webhooks import (
+        apply_billing_stripe_catalog_notification,
+        is_billing_stripe_catalog_event,
+    )
+
+    if is_billing_stripe_catalog_event(event_type):
+        return apply_billing_stripe_catalog_notification(app, notification)
+
     metadata = data_object.get("metadata", {}) or {}
     bill_order_bid = metadata.get("bill_order_bid", "")
     is_billing_subscription_event = bool(

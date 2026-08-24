@@ -49,6 +49,12 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
 )
 from .primitives import normalize_bid as _normalize_bid
+from .provider_catalog_sync import (
+    apply_stripe_catalog_notification as _apply_stripe_catalog_notification,
+)
+from .provider_catalog_sync import (
+    is_stripe_catalog_event as _is_stripe_catalog_event,
+)
 from .provider_state import (
     BillingOrderProviderUpdateResult,
 )
@@ -155,6 +161,20 @@ def handle_billing_stripe_webhook(
         )
 
     return apply_billing_stripe_notification(app, notification)
+
+
+def is_billing_stripe_catalog_event(event_type: object) -> bool:
+    """Return whether a Stripe event type belongs to billing catalog sync."""
+    return _is_stripe_catalog_event(event_type)
+
+
+def apply_billing_stripe_catalog_notification(
+    app: Flask,
+    notification: PaymentNotificationResult,
+) -> tuple[dict[str, object], int]:
+    """Apply a Stripe catalog notification and return a route response."""
+    result = _apply_stripe_catalog_notification(app, notification)
+    return result.to_response_dict(), result.status_code
 
 
 def apply_billing_stripe_notification(

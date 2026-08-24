@@ -30,6 +30,8 @@ from .consts import (
     BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PROVIDER_CATALOG_EVENT_STATUS_RECEIVED,
+    BILLING_PROVIDER_CATALOG_HEALTH_UNLINKED,
     BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
     BILLING_PROVIDER_PRICE_STATUS_DRAFT,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -356,6 +358,293 @@ class BillingProductProviderPrice(BillingTableMixin, db.Model):
         JSON,
         nullable=True,
         comment="Provider price mapping metadata",
+    )
+
+
+class BillingProviderCatalogSnapshot(BillingTableMixin, db.Model):
+    """Persist the latest provider catalog object snapshot."""
+
+    __tablename__ = "bill_provider_catalog_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "catalog_snapshot_bid",
+            name="uq_bill_provider_catalog_snapshots_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "object_type",
+            "object_id",
+            "live_scope",
+            name="uq_bill_provider_catalog_snapshots_object",
+        ),
+        Index(
+            "ix_bill_provider_catalog_snapshots_parent",
+            "provider",
+            "provider_account_id",
+            "parent_object_id",
+        ),
+        Index(
+            "ix_bill_provider_catalog_snapshots_health",
+            "provider",
+            "health_status",
+            "updated_at",
+        ),
+        {"comment": "Provider catalog object snapshots"},
+    )
+
+    catalog_snapshot_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog snapshot business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    object_type = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object type",
+    )
+    object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object identifier",
+    )
+    parent_object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Parent provider catalog object identifier",
+    )
+    active = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider active flag",
+    )
+    provider_created_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Provider creation timestamp",
+    )
+    last_event_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Latest applied provider event identifier",
+    )
+    last_event_type = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="Latest applied provider event type",
+    )
+    last_event_created_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest applied provider event timestamp",
+    )
+    last_seen_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest local sync timestamp",
+    )
+    health_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_PROVIDER_CATALOG_HEALTH_UNLINKED,
+        index=True,
+        comment="Provider catalog health status",
+    )
+    pending_issue_code = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="Pending catalog issue code",
+    )
+    linked_product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Suggested or linked billing product business identifier",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Provider catalog metadata",
+    )
+    raw_payload = Column(
+        JSON,
+        nullable=True,
+        comment="Provider catalog raw payload",
+    )
+    live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 THEN 'live' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live catalog snapshot",
+    )
+
+
+class BillingProviderCatalogEvent(BillingTableMixin, db.Model):
+    """Persist provider catalog webhook and reconcile inbox events."""
+
+    __tablename__ = "bill_provider_catalog_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "catalog_event_bid",
+            name="uq_bill_provider_catalog_events_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_event_id",
+            "live_scope",
+            name="uq_bill_provider_catalog_events_provider_event",
+        ),
+        Index(
+            "ix_bill_provider_catalog_events_object",
+            "provider",
+            "provider_account_id",
+            "object_type",
+            "object_id",
+        ),
+        Index(
+            "ix_bill_provider_catalog_events_status",
+            "processing_status",
+            "created_at",
+        ),
+        {"comment": "Provider catalog event inbox"},
+    )
+
+    catalog_event_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog event business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_event_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider event identifier",
+    )
+    event_type = Column(
+        String(128),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider event type",
+    )
+    event_source = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Webhook, reconcile, or manual sync source",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    object_type = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object type",
+    )
+    object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object identifier",
+    )
+    parent_object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Parent provider catalog object identifier",
+    )
+    event_created_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Provider event timestamp",
+    )
+    processed_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Local processing timestamp",
+    )
+    processing_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_PROVIDER_CATALOG_EVENT_STATUS_RECEIVED,
+        index=True,
+        comment="Provider catalog event processing status",
+    )
+    processing_error = Column(
+        Text,
+        nullable=True,
+        comment="Safe processing error summary",
+    )
+    raw_payload = Column(
+        JSON,
+        nullable=True,
+        comment="Provider catalog event raw payload",
+    )
+    live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 THEN 'live' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live provider event",
     )
 
 
