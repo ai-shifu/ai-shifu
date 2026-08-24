@@ -168,20 +168,20 @@ select = [
     "S",
 
     # --- Type annotations -------------------------------------------------
-    # flake8-annotations is otherwise off (see the header). Every callable
-    # parameter now names its input contract; `object` marks intentionally
-    # heterogeneous values at dynamic boundaries. Variadic parameters name the
-    # element/value type after the stars; use a concrete homogeneous type when
-    # known and `object` for intentionally heterogeneous forwarding. ANN205 is
-    # small enough to keep enforced, and a staticmethod is where a
-    # missing return type hides the most, since there is no `self` to infer from.
-    # ANN206 covers the classmethod counterpart, mostly alternative constructors
-    # and frozen-clock `now()` doubles. ANN204 is the same bet for special
-    # methods: `__init__`/`__exit__`/`__json__` and friends have a fixed contract,
-    # so the return type is never a judgement call and writing it down keeps the
-    # serialization dunders (`__json__` returning a dict vs an enum value's str)
-    # readable at a glance. The complete family passes on the current
-    # baseline, so keep the family selected as new ANN rules are added.
+    # flake8-annotations is selected as a family: every function signature names
+    # its inputs (ANN001-ANN003) and its result (ANN201/ANN202/ANN204-ANN206),
+    # and ANN401 keeps `typing.Any` out of both positions. `object` marks
+    # intentionally heterogeneous values at dynamic boundaries. Variadic
+    # parameters name the element/value type after the stars; use a concrete
+    # homogeneous type when known and `object` for intentionally heterogeneous
+    # forwarding. Return types matter most where there is no `self` to infer
+    # from (ANN205 staticmethods, ANN206 classmethods -- mostly alternative
+    # constructors and frozen-clock `now()` doubles) and on the special methods
+    # ANN204 covers: `__init__`/`__exit__`/`__json__` and friends have a fixed
+    # contract, so writing the return type down keeps the serialization dunders
+    # (`__json__` returning a dict vs an enum value's str) readable at a glance.
+    # The complete family passes on the current baseline, so keep the family
+    # selected as new ANN rules are added.
     "ANN",     # flake8-annotations
 
     # --- Boolean arguments ------------------------------------------------

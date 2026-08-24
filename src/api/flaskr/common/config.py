@@ -2132,11 +2132,11 @@ class Config(FlaskConfig):
             raise
         self._populate_redis_prefixes()
 
-    def __getitem__(self, key: object) -> object:
+    def __getitem__(self, key: str) -> object:
         """Get configuration value using enhanced config first, with fallback to parent."""
         return self.get(key)
 
-    def __getattr__(self, key: object) -> object:
+    def __getattr__(self, key: str) -> object:
         """Get configuration attribute using enhanced config first."""
         try:
             return self.enhanced.get(key)
@@ -2146,7 +2146,7 @@ class Config(FlaskConfig):
         except Exception:
             return getattr(self.parent, key)
 
-    def __setitem__(self, key: object, value: object) -> None:
+    def __setitem__(self, key: str, value: object) -> None:
         """Set configuration value."""
         self.parent.__setitem__(key, value)
         os.environ[key] = str(value)
@@ -2166,7 +2166,7 @@ class Config(FlaskConfig):
             )
             self.parent.setdefault(key, derived_value)
 
-    def get(self, key: object, default: object = None) -> object:
+    def get(self, key: str, default: object = None) -> object:
         """Get configuration value with fallback to parent and optional default.
 
         This method maintains compatibility with Flask's Config.get() API.
@@ -2236,7 +2236,7 @@ class Config(FlaskConfig):
         """Delegate callable compatibility behavior to the parent config."""
         return self.parent.__call__(*args, **kwds)
 
-    def setdefault(self, key: object, default: object = None) -> object:
+    def setdefault(self, key: str, default: object = None) -> object:
         """Set default value if key doesn't exist.
 
         This method maintains compatibility with Flask's Config.setdefault() API.
