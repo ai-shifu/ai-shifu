@@ -100,7 +100,7 @@ class AuthProvider(ABC):
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
         """Validate a user based on the incoming verification request."""
 
-    def begin_oauth(self, app: Flask, metadata: dict[str, Any]) -> Any:
+    def begin_oauth(self, app: Flask, metadata: dict[str, object]) -> object:
         """Initiate an OAuth flow (optional)."""
         message = f"Provider '{self.provider_name}' does not support OAuth begin"
         raise NotImplementedError(message)

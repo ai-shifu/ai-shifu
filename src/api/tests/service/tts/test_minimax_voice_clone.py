@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 import pytest
 from flask import Flask
@@ -558,7 +558,7 @@ def test_execute_clone_processing_uses_row_values_inside_app_context(
             self.billing_reservation_bid = ""
             self.estimated_credits = Decimal(0)
 
-        def __getattribute__(self, name: object) -> Any:
+        def __getattribute__(self, name: object) -> object:
             protected = {
                 "voice_bid",
                 "voice_id",

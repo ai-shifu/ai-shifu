@@ -709,7 +709,7 @@ def test_installed_but_disabled_saas_plugin_falls_back(
     """A deployment can ship the plugin package without configuring its database; SAAS_PLUGIN_ENABLED then stays false and the plugin bind points at an unreachable host, so customization reads must not touch it."""
 
     class _ExplodingModule:
-        def __getattr__(self, name: object) -> Any:
+        def __getattr__(self, name: object) -> object:
             message = "SaaS plugin must not be used while SAAS_PLUGIN_ENABLED is false"
             raise AssertionError(message)
 

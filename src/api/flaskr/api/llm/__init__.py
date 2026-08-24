@@ -63,7 +63,7 @@ _original_asyncio_run = asyncio.run
 _background_asyncio_tasks: set[asyncio.Task] = set()
 
 
-def _safe_asyncio_run(coro: object, *args: object, **kwargs: object) -> Any | None:
+def _safe_asyncio_run(coro: object, *args: object, **kwargs: object) -> object | None:
     try:
         return _original_asyncio_run(coro, *args, **kwargs)
     except RuntimeError as exc:
@@ -447,7 +447,7 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
-) -> Any:
+) -> object:
     try:
         # Routed ids are the application-level identity. LiteLLM completion uses
         # the stripped provider model id, which can collide across routes (for

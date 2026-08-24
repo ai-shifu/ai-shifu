@@ -204,7 +204,7 @@ class ProviderReferenceReconcileResult:
             "payment_provider": self.payment_provider,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 

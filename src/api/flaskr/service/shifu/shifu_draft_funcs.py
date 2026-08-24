@@ -411,7 +411,7 @@ def save_shifu_draft_info(
     ask_model: str | None = None,
     ask_temperature: float | None = None,
     ask_system_prompt: str | None = None,
-    ask_provider_config: Any = None,
+    ask_provider_config: object = None,
 ) -> ShifuDetailDto:
     """Save shifu draft info.
 

@@ -68,7 +68,7 @@ class MockClient:
     def __init__(self, *args: object, **kwargs: object) -> None:
         """Initialize the no-op Langfuse client."""
 
-    def __getattr__(self, name: object) -> Any:
+    def __getattr__(self, name: object) -> object:
         """Return a no-op callable for any Langfuse operation."""
 
         def method(*args: object, **kwargs: object) -> object:
@@ -372,7 +372,7 @@ class TraceAttributePropagation:
         return dict(updated)
 
     @contextmanager
-    def scope(self, delegate: Any) -> Iterator[None]:
+    def scope(self, delegate: object) -> Iterator[None]:
         """Propagate the collected attributes to observations started inside.
 
         Entering ``propagate_attributes()`` also writes the attributes on the
@@ -393,7 +393,7 @@ class TraceAttributePropagation:
         ):
             yield
 
-    def apply_to(self, delegate: Any) -> None:
+    def apply_to(self, delegate: object) -> None:
         """Set the current attributes on an already started observation."""
         with self.scope(delegate):
             pass
@@ -404,7 +404,7 @@ class LangfuseObservationHandle:
 
     def __init__(
         self,
-        delegate: Any,
+        delegate: object,
         trace_id: str = "",
         propagation: TraceAttributePropagation | None = None,
     ) -> None:
@@ -422,7 +422,7 @@ class LangfuseObservationHandle:
         delegate_id = getattr(self._delegate, "id", "")
         return delegate_id if isinstance(delegate_id, str) else ""
 
-    def _child(self, delegate: Any) -> "LangfuseObservationHandle":
+    def _child(self, delegate: object) -> "LangfuseObservationHandle":
         return LangfuseObservationHandle(delegate, self.trace_id, self._propagation)
 
     def span(self, **kwargs: object) -> "LangfuseObservationHandle":

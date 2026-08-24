@@ -69,7 +69,7 @@ class IdNormalizer:
         value = HEX_ID_RE.sub(self._replace_match, value)
         return ISO_TS_RE.sub("<TS>", value)
 
-    def normalize_value(self, value: Any, field_name: str | None = None) -> Any:
+    def normalize_value(self, value: object, field_name: str | None = None) -> object:
         if isinstance(value, str):
             return self.normalize_string(value)
         if isinstance(value, bool):

@@ -437,7 +437,7 @@ class CreditUsageRateSeed:
     effective_to: datetime | None
     status: int
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return an attribute value by key."""
         return getattr(self, key)
 

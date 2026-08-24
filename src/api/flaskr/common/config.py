@@ -44,13 +44,13 @@ class EnvVar:
             )
             raise ValueError(message)
 
-    def validate_value(self, value: Any) -> bool:
+    def validate_value(self, value: object) -> bool:
         """Validate the environment variable value."""
         if self.validator:
             return self.validator(value)
         return True
 
-    def convert_type(self, value: Any) -> Any:
+    def convert_type(self, value: object) -> object:
         """Convert string value to the specified type."""
         # Trim whitespace from string values before conversion
         if isinstance(value, str):
@@ -1876,7 +1876,7 @@ class EnhancedConfig:
             raise EnvironmentConfigError("\n\n".join(errors))
         self._validated = True
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str) -> object:
         """Get configuration value with type conversion."""
         if key in self._cache:
             return self._cache[key]
@@ -2132,11 +2132,11 @@ class Config(FlaskConfig):
             raise
         self._populate_redis_prefixes()
 
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key: object) -> object:
         """Get configuration value using enhanced config first, with fallback to parent."""
         return self.get(key)
 
-    def __getattr__(self, key: Any) -> Any:
+    def __getattr__(self, key: object) -> object:
         """Get configuration attribute using enhanced config first."""
         try:
             return self.enhanced.get(key)
@@ -2146,7 +2146,7 @@ class Config(FlaskConfig):
         except Exception:
             return getattr(self.parent, key)
 
-    def __setitem__(self, key: Any, value: Any) -> None:
+    def __setitem__(self, key: object, value: object) -> None:
         """Set configuration value."""
         self.parent.__setitem__(key, value)
         os.environ[key] = str(value)
@@ -2166,7 +2166,7 @@ class Config(FlaskConfig):
             )
             self.parent.setdefault(key, derived_value)
 
-    def get(self, key: Any, default: Any = None) -> Any:
+    def get(self, key: object, default: object = None) -> object:
         """Get configuration value with fallback to parent and optional default.
 
         This method maintains compatibility with Flask's Config.get() API.
@@ -2232,11 +2232,11 @@ class Config(FlaskConfig):
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
+    def __call__(self, *args: object, **kwds: object) -> object:
         """Delegate callable compatibility behavior to the parent config."""
         return self.parent.__call__(*args, **kwds)
 
-    def setdefault(self, key: Any, default: Any = None) -> Any:
+    def setdefault(self, key: object, default: object = None) -> object:
         """Set default value if key doesn't exist.
 
         This method maintains compatibility with Flask's Config.setdefault() API.

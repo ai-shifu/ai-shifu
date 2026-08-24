@@ -112,7 +112,7 @@ class AlipayProvider(PaymentProvider):
         return self._notification_from_payload(payload)
 
     def handle_notification(
-        self, *, payload: dict[str, Any], app: Flask
+        self, *, payload: dict[str, object], app: Flask
     ) -> PaymentNotificationResult:
         """Verify and normalize a provider notification for later application."""
         normalized_payload = dict(payload or {})
@@ -161,7 +161,7 @@ class AlipayProvider(PaymentProvider):
         message = "Alipay refunds are not supported"
         raise RuntimeError(message)
 
-    def _ensure_client(self, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> object:
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
@@ -187,7 +187,7 @@ class AlipayProvider(PaymentProvider):
             logger=app.logger,
         )
 
-    def _load_sdk(self, app: Flask) -> dict[str, Any]:
+    def _load_sdk(self, app: Flask) -> dict[str, object]:
         try:
             from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
             from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
@@ -219,7 +219,7 @@ class AlipayProvider(PaymentProvider):
 
     def _verify_notification_signature(
         self,
-        payload: dict[str, Any],
+        payload: dict[str, object],
         app: Flask,
     ) -> bool:
         self._load_sdk(app)
@@ -248,7 +248,7 @@ class AlipayProvider(PaymentProvider):
 
     def _notification_from_payload(
         self,
-        payload: dict[str, Any],
+        payload: dict[str, object],
     ) -> PaymentNotificationResult:
         return PaymentNotificationResult(
             order_bid=str(payload.get("out_trade_no") or ""),

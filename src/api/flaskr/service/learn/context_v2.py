@@ -1721,7 +1721,7 @@ class RunScriptContextV2:
             return None
         return context_local.current_context
 
-    def append_langfuse_output(self, value: Any) -> None:
+    def append_langfuse_output(self, value: object) -> None:
         """Buffer output content for active Langfuse trace finalization."""
         if not hasattr(self, "_langfuse_output_chunks"):
             self._langfuse_output_chunks = []

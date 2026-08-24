@@ -512,7 +512,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr() -> ColumnElement[Any]:
+def _build_course_order_amount_expr() -> ColumnElement[object]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),

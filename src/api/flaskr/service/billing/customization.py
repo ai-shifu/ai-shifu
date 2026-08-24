@@ -1323,7 +1323,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
     return output.getvalue()
 
 
-def _saas_funcs(*, required: bool = True) -> Any | None:
+def _saas_funcs(*, required: bool = True) -> object | None:
     try:
         module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"

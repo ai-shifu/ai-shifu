@@ -77,7 +77,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     class FlaskTask(Task):
         abstract = True
 
-        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        def __call__(self, *args: object, **kwargs: object) -> object:
             with resolved_flask_app.app_context():
                 return self.run(*args, **kwargs)
 
