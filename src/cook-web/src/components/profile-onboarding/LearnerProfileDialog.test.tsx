@@ -276,6 +276,10 @@ const saveButton = () =>
   screen.getByRole('button', {
     name: 'module.profileOnboarding.dialog.saveChanges',
   });
+const informationUsageControl = () =>
+  screen.getByTestId('learner-profile-information-usage');
+const informationUsageSummary = () =>
+  informationUsageControl().querySelector('summary') as HTMLElement;
 const waitForCollectionSession = async (sessionId = SESSION_ID) => {
   await waitFor(() =>
     expect(screen.getByTestId('mock-collection-session')).toHaveTextContent(
@@ -353,14 +357,29 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.getByTestId('mock-profile-onboarding-conversation').parentElement,
     ).toHaveClass('min-h-40', '[@media(max-height:620px)]:min-h-32');
-    const informationUsage = screen
-      .getByText('module.profileOnboarding.dialog.informationUsageTitle')
-      .closest('details');
-    expect(informationUsage).not.toHaveAttribute('open');
-    fireEvent.click(
-      screen.getByText('module.profileOnboarding.dialog.informationUsageTitle'),
-    );
-    expect(informationUsage).toHaveAttribute('open');
+    expect(
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(informationUsageControl());
+    expect(informationUsageControl()).not.toHaveAttribute('open');
+    fireEvent.click(informationUsageSummary());
+    expect(informationUsageControl()).toHaveAttribute('open');
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.dialog.informationUsagePurpose',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.profileOnboarding.dialog.informationUsageSensitive',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.profileOnboarding.dialog.informationUsageEditable',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(informationUsageSummary());
+    expect(informationUsageControl()).not.toHaveAttribute('open');
     expect(
       screen.queryByText('module.profileOnboarding.steps.collect'),
     ).not.toBeInTheDocument();
@@ -560,6 +579,7 @@ describe('LearnerProfileDialog', () => {
       'learner-profile-dialog-left-actions',
     );
     expect(leftActions).toHaveClass('mr-auto', 'justify-start');
+    expect(leftActions).toContainElement(informationUsageControl());
     expect(leftActions).toContainElement(interactiveCollectionButton);
 
     const saveActions = screen.getByTestId(
@@ -656,6 +676,9 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.getByText('module.profileOnboarding.dialog.autoOptimizingHint'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(informationUsageControl());
     expect(mockOptimizeLearnerProfile).toHaveBeenCalledWith('Collection draft');
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
@@ -915,6 +938,9 @@ describe('LearnerProfileDialog', () => {
       ).toHaveFocus(),
     );
     expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(informationUsageControl());
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
     );

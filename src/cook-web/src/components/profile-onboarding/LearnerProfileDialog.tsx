@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Loader2, Sparkles, X } from 'lucide-react';
+import { CircleHelp, Loader2, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   completeGuidedProfileOnboarding,
@@ -17,7 +17,7 @@ import {
   type ProfileOnboardingV2Status,
 } from '@/api/learnerProfile';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { Button } from '@/components/ui/Button';
+import { Button, buttonVariants } from '@/components/ui/Button';
 import {
   Dialog,
   DialogContent,
@@ -1053,6 +1053,47 @@ export default function LearnerProfileDialog({
     </div>
   );
 
+  const informationUsageControl = (
+    <details
+      data-testid='learner-profile-information-usage'
+      className='group relative min-w-0 max-sm:w-full'
+    >
+      <summary
+        className={cn(
+          buttonVariants({ variant: 'ghost' }),
+          'min-h-10 min-w-0 list-none justify-start px-2 text-left text-sm font-normal text-muted-foreground !whitespace-normal hover:text-foreground max-sm:w-full [&::-webkit-details-marker]:hidden',
+        )}
+      >
+        <span className='flex min-w-0 items-center gap-2'>
+          <CircleHelp
+            className='size-4 shrink-0'
+            aria-hidden='true'
+          />
+          {t('module.profileOnboarding.dialog.informationUsageTitle')}
+        </span>
+      </summary>
+      <div
+        role='note'
+        className='absolute bottom-[calc(100%+0.5rem)] left-0 z-[110] w-[min(22rem,calc(100vw-2rem))] rounded-xl border bg-popover p-4 text-popover-foreground shadow-md'
+      >
+        <p className='font-medium leading-6'>
+          {t('module.profileOnboarding.dialog.informationUsageTitle')}
+        </p>
+        <ul className='mt-2 list-disc space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground'>
+          <li>
+            {t('module.profileOnboarding.dialog.informationUsagePurpose')}
+          </li>
+          <li>
+            {t('module.profileOnboarding.dialog.informationUsageSensitive')}
+          </li>
+          <li>
+            {t('module.profileOnboarding.dialog.informationUsageEditable')}
+          </li>
+        </ul>
+      </div>
+    </details>
+  );
+
   return (
     <>
       <Dialog
@@ -1244,28 +1285,6 @@ export default function LearnerProfileDialog({
                     }}
                   />
                 </div>
-                <details className='mt-3 max-h-[min(10rem,35dvh)] shrink-0 overflow-y-auto rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground [@media(max-height:620px)]:mt-2'>
-                  <summary className='cursor-pointer font-medium text-foreground'>
-                    {t('module.profileOnboarding.dialog.informationUsageTitle')}
-                  </summary>
-                  <ul className='mt-2 list-disc space-y-1 pl-5 leading-5'>
-                    <li>
-                      {t(
-                        'module.profileOnboarding.dialog.informationUsagePurpose',
-                      )}
-                    </li>
-                    <li>
-                      {t(
-                        'module.profileOnboarding.dialog.informationUsageSensitive',
-                      )}
-                    </li>
-                    <li>
-                      {t(
-                        'module.profileOnboarding.dialog.informationUsageEditable',
-                      )}
-                    </li>
-                  </ul>
-                </details>
               </section>
             ) : phase === 'processing' ? (
               <section className='flex h-full min-h-64 flex-col items-center justify-center px-4 text-center'>
@@ -1304,133 +1323,139 @@ export default function LearnerProfileDialog({
           >
             {confirmation ? (
               <>
-                <Button
-                  type='button'
-                  variant='outline'
-                  className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
-                  onClick={() => setConfirmation(null)}
-                >
-                  {t('module.profileOnboarding.dialog.keepEditing')}
-                </Button>
-                <Button
-                  type='button'
-                  className={cn(
-                    'min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none',
-                    confirmation === 'discard' &&
-                      'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-                  )}
-                  onClick={() => {
-                    const action = confirmation;
-                    setConfirmation(null);
-                    if (action === 'discard') {
-                      void dismiss();
-                    } else {
-                      beginCollection(preferredCollectionIntent, true);
-                    }
-                  }}
-                >
-                  {t(
-                    confirmation === 'discard'
-                      ? 'module.profileOnboarding.dialog.discard'
-                      : 'module.profileOnboarding.dialog.replaceResearchConfirm',
-                  )}
-                </Button>
-              </>
-            ) : (
-              <>
-                {phase !== 'save' && exitPolicy === 'blocking' ? (
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    className='mr-auto min-h-11 px-3 text-muted-foreground !whitespace-normal'
-                    disabled={
-                      !onDefer || saving || deferring || externalSubmitting
-                    }
-                    onClick={() => void deferOnboarding()}
-                  >
-                    {deferring || externalSubmitting
-                      ? t('module.profileOnboarding.skipping')
-                      : t('module.profileOnboarding.skip')}
-                  </Button>
-                ) : phase === 'collect' ? (
+                <div className='mr-auto flex w-full min-w-0 items-center justify-start sm:w-auto'>
+                  {informationUsageControl}
+                </div>
+                <div className='ml-auto flex w-full min-w-0 items-center justify-end gap-2.5 sm:w-auto sm:gap-3'>
                   <Button
                     type='button'
                     variant='outline'
                     className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                    onClick={() => setConfirmation(null)}
+                  >
+                    {t('module.profileOnboarding.dialog.keepEditing')}
+                  </Button>
+                  <Button
+                    type='button'
+                    className={cn(
+                      'min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none',
+                      confirmation === 'discard' &&
+                        'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+                    )}
+                    onClick={() => {
+                      const action = confirmation;
+                      setConfirmation(null);
+                      if (action === 'discard') {
+                        void dismiss();
+                      } else {
+                        beginCollection(preferredCollectionIntent, true);
+                      }
+                    }}
+                  >
+                    {t(
+                      confirmation === 'discard'
+                        ? 'module.profileOnboarding.dialog.discard'
+                        : 'module.profileOnboarding.dialog.replaceResearchConfirm',
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : phase === 'save' ? (
+              <>
+                <div
+                  data-testid='learner-profile-dialog-left-actions'
+                  className='mr-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:gap-3'
+                >
+                  {informationUsageControl}
+                  {guidedAvailable ? (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      className='min-h-11 min-w-0 !whitespace-normal'
+                      disabled={busy || optimizing}
+                      onClick={requestCollection}
+                    >
+                      {t(
+                        'module.profileOnboarding.dialog.interactiveCollection',
+                      )}
+                    </Button>
+                  ) : null}
+                  {exitPolicy === 'blocking' ? (
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
+                      disabled={
+                        !onDefer || saving || deferring || externalSubmitting
+                      }
+                      onClick={() => void deferOnboarding()}
+                    >
+                      {deferring || externalSubmitting
+                        ? t('module.profileOnboarding.skipping')
+                        : t('module.profileOnboarding.skip')}
+                    </Button>
+                  ) : null}
+                </div>
+                <div
+                  data-testid='learner-profile-dialog-save-actions'
+                  className='ml-auto flex w-full min-w-0 items-center justify-end gap-2.5 sm:w-auto sm:gap-3'
+                >
+                  {exitPolicy === 'dismissible' ? (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                      disabled={busy}
+                      onClick={requestClose}
+                    >
+                      {t('module.profileOnboarding.dialog.cancel')}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type='button'
+                    className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
+                    disabled={!canSave}
+                    onClick={() => void saveProfile()}
+                  >
+                    {saving
+                      ? t('module.profileOnboarding.dialog.saving')
+                      : primaryLabel}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  data-testid='learner-profile-dialog-left-actions'
+                  className='mr-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:gap-3'
+                >
+                  {informationUsageControl}
+                  {exitPolicy === 'blocking' ? (
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
+                      disabled={
+                        !onDefer || saving || deferring || externalSubmitting
+                      }
+                      onClick={() => void deferOnboarding()}
+                    >
+                      {deferring || externalSubmitting
+                        ? t('module.profileOnboarding.skipping')
+                        : t('module.profileOnboarding.skip')}
+                    </Button>
+                  ) : null}
+                </div>
+                {phase === 'collect' && exitPolicy === 'dismissible' ? (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    className='ml-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
                     disabled={busy}
                     onClick={cancelCollection}
                   >
                     {t('module.profileOnboarding.dialog.cancelResearch')}
                   </Button>
-                ) : null}
-
-                {phase === 'save' ? (
-                  <>
-                    {guidedAvailable || exitPolicy === 'blocking' ? (
-                      <div
-                        data-testid='learner-profile-dialog-left-actions'
-                        className='mr-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:gap-3'
-                      >
-                        {guidedAvailable ? (
-                          <Button
-                            type='button'
-                            variant='outline'
-                            className='min-h-11 min-w-0 !whitespace-normal'
-                            disabled={busy || optimizing}
-                            onClick={requestCollection}
-                          >
-                            {t(
-                              'module.profileOnboarding.dialog.interactiveCollection',
-                            )}
-                          </Button>
-                        ) : null}
-                        {exitPolicy === 'blocking' ? (
-                          <Button
-                            type='button'
-                            variant='ghost'
-                            className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
-                            disabled={
-                              !onDefer ||
-                              saving ||
-                              deferring ||
-                              externalSubmitting
-                            }
-                            onClick={() => void deferOnboarding()}
-                          >
-                            {deferring || externalSubmitting
-                              ? t('module.profileOnboarding.skipping')
-                              : t('module.profileOnboarding.skip')}
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    <div
-                      data-testid='learner-profile-dialog-save-actions'
-                      className='ml-auto flex w-full min-w-0 items-center justify-end gap-2.5 sm:w-auto sm:gap-3'
-                    >
-                      {exitPolicy === 'dismissible' ? (
-                        <Button
-                          type='button'
-                          variant='outline'
-                          className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
-                          disabled={busy}
-                          onClick={requestClose}
-                        >
-                          {t('module.profileOnboarding.dialog.cancel')}
-                        </Button>
-                      ) : null}
-                      <Button
-                        type='button'
-                        className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
-                        disabled={!canSave}
-                        onClick={() => void saveProfile()}
-                      >
-                        {saving
-                          ? t('module.profileOnboarding.dialog.saving')
-                          : primaryLabel}
-                      </Button>
-                    </div>
-                  </>
                 ) : null}
               </>
             )}
