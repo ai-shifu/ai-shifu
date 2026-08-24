@@ -33,6 +33,7 @@ from flaskr.service.billing.provider_price_mappings import (
     _select_single_active_mapping,
     activate_provider_price_mapping,
     get_active_provider_price_mapping,
+    restore_retired_provider_price_mapping,
     upsert_provider_price_mapping,
     validate_provider_price_mapping_by_bid,
 )
@@ -244,6 +245,54 @@ def test_provider_price_mapping_rejects_retired_rebind(app: object) -> None:
         assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_RETIRED
         assert mapping.product_bid == product_bid
         assert mapping.provider_product_id == "prod_growth"
+
+
+def test_provider_price_mapping_restores_retired_mapping_to_draft(app: object) -> None:
+    product_bid = "bill-product-mapping-restore-retired"
+    with app.app_context():
+        db.session.add(_product(product_bid))
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_restore_retired",
+        )
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        mapping.validated_at = now_utc()
+        mapping.activated_at = now_utc()
+        mapping.retired_at = now_utc()
+        mapping.validation_error = "stale"
+        db.session.commit()
+
+        restored = restore_retired_provider_price_mapping(mapping.provider_price_bid)
+        db.session.commit()
+
+        assert restored.provider_price_bid == mapping.provider_price_bid
+        assert restored.status == BILLING_PROVIDER_PRICE_STATUS_DRAFT
+        assert restored.validated_at is None
+        assert restored.activated_at is None
+        assert restored.retired_at is None
+        assert restored.validation_error == ""
+        assert restored.provider_price_id == "price_restore_retired"
+
+
+def test_provider_price_mapping_restore_rejects_non_retired_mapping(
+    app: object,
+) -> None:
+    product_bid = "bill-product-mapping-restore-draft"
+    with app.app_context():
+        db.session.add(_product(product_bid))
+        db.session.commit()
+        mapping = _bind_mapping(
+            product_bid=product_bid,
+            provider_price_id="price_restore_draft",
+        )
+        db.session.commit()
+
+        with pytest.raises(ProviderPriceMappingError) as exc_info:
+            restore_retired_provider_price_mapping(mapping.provider_price_bid)
+
+        assert exc_info.value.code == "provider_price_mapping_not_retired"
+        assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_DRAFT
 
 
 def test_provider_price_validate_keeps_retired_mapping_terminal(app: Flask) -> None:

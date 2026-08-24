@@ -27,6 +27,7 @@ jest.mock('@/api', () => ({
     validateAdminBillingProviderPrice: jest.fn(),
     activateAdminBillingProviderPrice: jest.fn(),
     retireAdminBillingProviderPrice: jest.fn(),
+    restoreAdminBillingProviderPrice: jest.fn(),
   },
 }));
 
@@ -172,6 +173,8 @@ const mockActivateAdminBillingProviderPrice =
   api.activateAdminBillingProviderPrice as jest.Mock;
 const mockRetireAdminBillingProviderPrice =
   api.retireAdminBillingProviderPrice as jest.Mock;
+const mockRestoreAdminBillingProviderPrice =
+  api.restoreAdminBillingProviderPrice as jest.Mock;
 
 const renderPanel = () =>
   render(
@@ -188,6 +191,7 @@ describe('AdminBillingProviderPricesPanel', () => {
     mockValidateAdminBillingProviderPrice.mockReset();
     mockActivateAdminBillingProviderPrice.mockReset();
     mockRetireAdminBillingProviderPrice.mockReset();
+    mockRestoreAdminBillingProviderPrice.mockReset();
     mockGetAdminBillingProviderPrices.mockResolvedValue({
       products: [
         {
@@ -229,6 +233,9 @@ describe('AdminBillingProviderPricesPanel', () => {
       mapping: null,
     });
     mockRetireAdminBillingProviderPrice.mockResolvedValue({});
+    mockRestoreAdminBillingProviderPrice.mockResolvedValue({
+      mapping: { status_label: 'draft' },
+    });
   });
 
   test('validates the saved draft automatically', async () => {
@@ -388,6 +395,80 @@ describe('AdminBillingProviderPricesPanel', () => {
         },
         { skipErrorToast: true },
       );
+    });
+  });
+
+  test('restores a retired price to draft before it can be checked again', async () => {
+    mockGetAdminBillingProviderPrices.mockResolvedValue({
+      products: [
+        {
+          product_bid: 'bill-product-global-scale-monthly',
+          product_code: 'creator-global-scale-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.scale.title',
+          description: '',
+          currency: 'USD',
+          price_amount: 9900,
+          credit_amount: 100,
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          plan_tier: 'scale',
+          sort_order: 10,
+        },
+      ],
+      mappings: [],
+      active_by_scope: {},
+      history_by_product: {
+        'bill-product-global-scale-monthly': [
+          {
+            provider_price_bid: 'provider-price-retired',
+            product_bid: 'bill-product-global-scale-monthly',
+            provider: 'stripe',
+            provider_account_id: 'acct_1',
+            provider_product_id: 'prod_1',
+            provider_price_id: 'price_1',
+            livemode: false,
+            currency: 'USD',
+            unit_amount: 9900,
+            billing_mode: 0,
+            billing_interval: 0,
+            billing_interval_count: 1,
+            status: 0,
+            status_label: 'retired',
+          },
+        ],
+      },
+      status_options: [],
+    });
+
+    renderPanel();
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.admin.providerPrices.actions.activate',
+      }),
+    );
+    expect(
+      screen.getByText(
+        'module.billing.admin.providerPrices.confirm.restore:creator-global-scale-monthly module.billing.admin.providerPrices.billingLabel.monthly',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockRestoreAdminBillingProviderPrice).toHaveBeenCalledWith(
+        {
+          provider_price_bid: 'provider-price-retired',
+        },
+        { skipErrorToast: true },
+      );
+      expect(mockActivateAdminBillingProviderPrice).not.toHaveBeenCalled();
+      expect(mockValidateAdminBillingProviderPrice).not.toHaveBeenCalled();
     });
   });
 
