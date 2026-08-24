@@ -244,11 +244,9 @@ function formatMappingScope(
   t: (key: string, options?: Record<string, unknown>) => string,
   mapping: AdminBillingProviderPriceMapping,
 ): string {
-  const mode = t(
+  return t(
     `module.billing.admin.providerPrices.environment.${mapping.livemode ? 'live' : 'test'}`,
   );
-  const account = String(mapping.provider_account_id || '').trim();
-  return account ? `${mode} · ${account}` : mode;
 }
 
 export function AdminBillingProviderPricesPanel() {
@@ -706,9 +704,6 @@ export function AdminBillingProviderPricesPanel() {
                               i18n.language,
                             )}
                           </div>
-                          <div className='break-all text-xs text-muted-foreground'>
-                            {mapping.provider_price_id}
-                          </div>
                         </div>
                       ) : (
                         <span className='text-muted-foreground'>
@@ -862,15 +857,6 @@ export function AdminBillingProviderPricesPanel() {
           </SheetHeader>
           {issueMapping ? (
             <div className='space-y-5 px-5 py-5'>
-              <div className='rounded-lg border bg-muted/30 p-3 text-sm'>
-                <div className='text-xs text-muted-foreground'>
-                  {t('module.billing.admin.providerPrices.issueDrawer.priceId')}
-                </div>
-                <div className='mt-1 break-all text-xs text-foreground'>
-                  {issueMapping.provider_price_id ||
-                    resolveBillingEmptyLabel(t)}
-                </div>
-              </div>
               <div className='space-y-3'>
                 <div className='text-sm font-medium text-foreground'>
                   {t('module.billing.admin.providerPrices.issueDrawer.issues')}

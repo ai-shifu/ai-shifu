@@ -516,3 +516,23 @@ def test_provider_price_mapping_reports_missing_metadata_as_warning_only() -> No
         "price_metadata_credit_amount_missing",
         "price_metadata_billing_interval_missing",
     } == {issue.code for issue in result.warnings}
+
+
+def test_provider_price_mapping_accepts_metadata_key_with_hidden_whitespace() -> None:
+    result = _validate(
+        _plan_product(product_code="creator-global-studio-monthly"),
+        _snapshot(
+            price_metadata={
+                "product_code": "creator-global-studio-monthly",
+                "credit_amount": "1000",
+                "billing_interval\t": "month",
+            },
+        ),
+    )
+
+    assert result.valid is True
+    assert result.errors == []
+    assert not any(
+        issue.code == "price_metadata_billing_interval_missing"
+        for issue in result.warnings
+    )

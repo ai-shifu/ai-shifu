@@ -361,8 +361,14 @@ describe('AdminBillingProviderPricesPanel', () => {
 
     renderPanel();
 
-    expect(await screen.findByText('price_draft')).toBeInTheDocument();
-    expect(screen.getByText('price_active')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'module.billing.admin.providerPrices.status.draft',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.admin.providerPrices.status.active'),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', {
