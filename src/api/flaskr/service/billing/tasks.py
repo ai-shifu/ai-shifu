@@ -63,6 +63,7 @@ from .notifications import (
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
+from .provider_catalog_sync import reconcile_stripe_catalog
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets
@@ -521,6 +522,16 @@ def reconcile_provider_reference_task(
     )
     payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.reconcile_provider_reference"
+    return payload
+
+
+@shared_task(name="billing.reconcile_provider_catalog")
+def reconcile_provider_catalog_task() -> dict[str, object]:
+    """Reconcile Stripe catalog Product and Price snapshots."""
+    app = _create_task_app()
+    payload = reconcile_stripe_catalog(app)
+    payload = _serialize_task_payload(payload)
+    payload["task_name"] = "billing.reconcile_provider_catalog"
     return payload
 
 
