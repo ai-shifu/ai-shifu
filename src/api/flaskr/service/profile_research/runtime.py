@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 from collections.abc import Callable, Generator, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -16,470 +15,83 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
     get_request_trace_id,
 )
-from flaskr.api.llm import chat_llm
-from flaskr.common.cache_provider import CacheLock, CacheProvider, redis_cache
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.dao import (
     invalidate_session,
     is_protocol_interrupt_error,
     release_session_classified,
 )
-from flaskr.service.metering.api import UsageContext
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.profile_research.document import (
+    _append_profile_summary,
+    validate_profile_research_document,
+)
+from flaskr.service.profile_research.events import (
+    _compact_replay_events,
+    _expand_replay_events,
+)
+from flaskr.service.profile_research.events import (
+    _profile_research_event as _event,
+)
+from flaskr.service.profile_research.provider import _ProfileResearchLLMProvider
+from flaskr.service.profile_research.session import (
+    ALLOWED_PROFILE_RESEARCH_PURPOSES as _ALLOWED_PURPOSES,
+)
+from flaskr.service.profile_research.session import (
+    MAX_BLOCK_COUNT as _MAX_BLOCK_COUNT,
+)
+from flaskr.service.profile_research.session import (
+    PROFILE_ONBOARDING_PREVIEW_PURPOSE,
+    PROFILE_ONBOARDING_PURPOSE,
+    PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
+    PROFILE_RESEARCH_SESSION_TTL_SECONDS,
+    ProfileResearchError,
+    ProfileResearchSessionBusy,
+    ProfileResearchSessionBusyError,
+    ProfileResearchSessionNotFound,
+    ProfileResearchSessionNotFoundError,
+    ProfileResearchValidationError,
+    _acquire_profile_research_lock,
+    _hold_profile_research_lock,
+    _ProfileResearchSession,
+    _ProfileResearchSessionStore,
+)
+from flaskr.service.profile_research.session import (
+    _normalize_profile_research_user_input as _normalize_user_input,
+)
+from flaskr.service.profile_research.session import (
+    _normalize_session_variables as _normalize_variables,
+)
 from flaskr.util import generate_id
-from flaskr.util.prompt_loader import load_prompt_template
 from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
     BlockType,
-    InteractionParser,
     LLMProvider,
     LLMResult,
     MarkdownFlow,
     ProcessMode,
 )
 
-PROFILE_ONBOARDING_PURPOSE = "profile-onboarding"
-PROFILE_ONBOARDING_PREVIEW_PURPOSE = "profile-onboarding-preview"
-_ALLOWED_PURPOSES = frozenset(
-    {PROFILE_ONBOARDING_PURPOSE, PROFILE_ONBOARDING_PREVIEW_PURPOSE}
-)
+__all__ = [
+    "PROFILE_ONBOARDING_PREVIEW_PURPOSE",
+    "PROFILE_ONBOARDING_PURPOSE",
+    "PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS",
+    "PROFILE_RESEARCH_SESSION_TTL_SECONDS",
+    "ProfileResearchError",
+    "ProfileResearchRuntime",
+    "ProfileResearchSessionBusy",
+    "ProfileResearchSessionBusyError",
+    "ProfileResearchSessionNotFound",
+    "ProfileResearchSessionNotFoundError",
+    "ProfileResearchValidationError",
+    "build_profile_research_sse_response",
+    "delete_active_profile_research_session",
+    "delete_profile_research_session",
+    "start_profile_research_session",
+    "stream_profile_research_session",
+    "validate_profile_research_document",
+]
 
-PROFILE_RESEARCH_SESSION_TTL_SECONDS = 30 * 60
-# All supported API entrypoints configure a 300-second Gunicorn worker timeout.
-# Leave one minute of headroom without making a hard-killed run keep its session
-# busy for the rest of the conversation lifetime.
-PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS = 6 * 60
-_SESSION_SCHEMA_VERSION = 1
-_MAX_DOCUMENT_CODEPOINTS = 100_000
-_MAX_BLOCK_COUNT = 100
-_MAX_INPUT_KEY_CODEPOINTS = 256
-_MAX_INPUT_KEY_COUNT = 100
-_MAX_INPUT_VALUES_PER_KEY = 100
-_MAX_INPUT_VALUE_COUNT = 100
-_MAX_INPUT_VALUE_CODEPOINTS = 4_000
-_MAX_INPUT_TOTAL_CODEPOINTS = 10_000
-_REPLAY_DELTA_MARKER = "_profile_replay_delta"
 _NICKNAME_VARIABLE_KEY = "sys_user_nickname"
-
-
-class ProfileResearchError(ValueError):
-    """Base error with a response-safe code."""
-
-    public_code = "transient_markdownflow_error"
-
-
-class ProfileResearchValidationError(ProfileResearchError):
-    """Signal invalid documents, runtime configuration, or learner input."""
-
-    public_code = "transient_markdownflow_invalid"
-
-
-class ProfileResearchSessionNotFoundError(ProfileResearchError):
-    """Signal a missing, expired, or unauthorized research session."""
-
-    public_code = "transient_markdownflow_session_not_found"
-
-
-class ProfileResearchSessionBusyError(ProfileResearchError):
-    """Signal concurrent work on the same owner-scoped research session."""
-
-    public_code = "transient_markdownflow_session_busy"
-
-
-ProfileResearchSessionNotFound = ProfileResearchSessionNotFoundError
-ProfileResearchSessionBusy = ProfileResearchSessionBusyError
-
-
-def _acquire_profile_research_lock(lock: CacheLock) -> None:
-    if not bool(lock.acquire(blocking=False)):
-        msg = "session is busy"
-        raise ProfileResearchSessionBusy(msg)
-
-
-@contextlib.contextmanager
-def _hold_profile_research_lock(
-    lock: CacheLock | None,
-) -> Generator[None, None, None]:
-    if lock is None:
-        yield
-        return
-    if not bool(lock.acquire(blocking=False)):
-        msg = "session is busy"
-        raise ProfileResearchSessionBusy(msg)
-    try:
-        yield
-    finally:
-        with contextlib.suppress(Exception):
-            lock.release()
-
-
-def _normalize_variables(raw: object) -> dict[str, str | list[str]]:
-    if raw is None:
-        return {}
-    if not isinstance(raw, Mapping):
-        msg = "invalid session variables"
-        raise ProfileResearchSessionNotFound(msg)
-    variables: dict[str, str | list[str]] = {}
-    for raw_key, raw_value in raw.items():
-        key = str(raw_key)
-        if isinstance(raw_value, list):
-            variables[key] = [str(value) for value in raw_value]
-        elif raw_value is not None:
-            variables[key] = str(raw_value)
-    return variables
-
-
-def _normalize_context(raw: object) -> list[dict[str, str]]:
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        msg = "invalid session context"
-        raise ProfileResearchSessionNotFound(msg)
-    context: list[dict[str, str]] = []
-    for raw_message in raw:
-        if not isinstance(raw_message, Mapping):
-            continue
-        role = str(raw_message.get("role") or "").strip()
-        content = str(raw_message.get("content") or "")
-        if not role or not content.strip():
-            continue
-        message = {"role": role, "content": content}
-        if USER_ANSWER_CONTEXT_KEY in raw_message:
-            message[USER_ANSWER_CONTEXT_KEY] = str(
-                raw_message.get(USER_ANSWER_CONTEXT_KEY) or ""
-            )
-        context.append(message)
-    return context
-
-
-def _normalize_user_input(
-    raw: Mapping[str, Any] | None,
-) -> dict[str, list[str]]:
-    if raw is None:
-        return {}
-    if not isinstance(raw, Mapping):
-        msg = "user_input must be an object"
-        raise ProfileResearchValidationError(msg)
-    if len(raw) > _MAX_INPUT_KEY_COUNT:
-        msg = "user_input has too many keys"
-        raise ProfileResearchValidationError(msg)
-    normalized: dict[str, list[str]] = {}
-    total_value_count = 0
-    total_length = 0
-    for raw_key, raw_values in raw.items():
-        if not isinstance(raw_key, str) or not raw_key.strip():
-            msg = "user_input key is invalid"
-            raise ProfileResearchValidationError(msg)
-        if len(raw_key) > _MAX_INPUT_KEY_CODEPOINTS:
-            msg = "user_input key is too long"
-            raise ProfileResearchValidationError(msg)
-        if (
-            not isinstance(raw_values, list)
-            or not raw_values
-            or len(raw_values) > _MAX_INPUT_VALUES_PER_KEY
-        ):
-            msg = "user_input values are invalid"
-            raise ProfileResearchValidationError(msg)
-        total_value_count += len(raw_values)
-        if total_value_count > _MAX_INPUT_VALUE_COUNT:
-            msg = "user_input has too many values"
-            raise ProfileResearchValidationError(msg)
-        values: list[str] = []
-        for raw_value in raw_values:
-            if not isinstance(raw_value, str):
-                msg = "user_input values must be strings"
-                raise ProfileResearchValidationError(msg)
-            if not raw_value.strip():
-                msg = "user_input values must not be blank"
-                raise ProfileResearchValidationError(msg)
-            if len(raw_value) > _MAX_INPUT_VALUE_CODEPOINTS:
-                msg = "user_input value is too long"
-                raise ProfileResearchValidationError(msg)
-            total_length += len(raw_value)
-            values.append(raw_value)
-        normalized[raw_key] = values
-    if total_length > _MAX_INPUT_TOTAL_CODEPOINTS:
-        msg = "user_input is too long"
-        raise ProfileResearchValidationError(msg)
-    return normalized
-
-
-@dataclass
-class _ProfileResearchSession:
-    session_id: str
-    user_bid: str
-    purpose: str
-    document: str
-    model: str
-    temperature: float
-    output_language: str
-    config_revision: int
-    block_index: int
-    block_count: int
-    profile_draft_block_index: int
-    variables: dict[str, str | list[str]] = field(default_factory=dict)
-    context: list[dict[str, str]] = field(default_factory=list)
-    awaiting_input: bool = False
-    done: bool = False
-    profile_draft: str = ""
-    last_request_id: str = ""
-    last_expected_block_index: int | None = None
-    last_user_input: dict[str, list[str]] = field(default_factory=dict)
-    last_events: list[dict[str, Any]] = field(default_factory=list)
-
-    def to_cache_payload(self) -> dict[str, Any]:
-        return {
-            "schema_version": _SESSION_SCHEMA_VERSION,
-            "session_id": self.session_id,
-            "user_bid": self.user_bid,
-            "purpose": self.purpose,
-            "document": self.document,
-            "model": self.model,
-            "temperature": self.temperature,
-            "output_language": self.output_language,
-            "config_revision": self.config_revision,
-            "block_index": self.block_index,
-            "block_count": self.block_count,
-            "profile_draft_block_index": self.profile_draft_block_index,
-            "variables": self.variables,
-            "context": self.context,
-            "awaiting_input": self.awaiting_input,
-            "done": self.done,
-            "profile_draft": self.profile_draft,
-            "last_request_id": self.last_request_id,
-            "last_expected_block_index": self.last_expected_block_index,
-            "last_user_input": self.last_user_input,
-            "last_events": self.last_events,
-        }
-
-    @classmethod
-    def from_cache_payload(cls, payload: Mapping[str, Any]) -> _ProfileResearchSession:
-        if int(payload.get("schema_version") or 0) != _SESSION_SCHEMA_VERSION:
-            msg = "session schema mismatch"
-            raise ProfileResearchSessionNotFound(msg)
-        try:
-            raw_events = payload.get("last_events")
-            if raw_events is None:
-                events: list[dict[str, Any]] = []
-            elif isinstance(raw_events, list):
-                events = [
-                    dict(event) for event in raw_events if isinstance(event, Mapping)
-                ]
-            else:
-                msg = "invalid replay events"
-                raise ProfileResearchSessionNotFound(msg)
-            last_expected_block_index = payload.get("last_expected_block_index")
-            return cls(
-                session_id=str(payload["session_id"]),
-                user_bid=str(payload["user_bid"]),
-                purpose=str(payload["purpose"]),
-                document=str(payload["document"]),
-                model=str(payload["model"]),
-                temperature=float(payload["temperature"]),
-                output_language=str(payload.get("output_language") or ""),
-                config_revision=int(payload.get("config_revision") or 0),
-                block_index=int(payload["block_index"]),
-                block_count=int(payload["block_count"]),
-                profile_draft_block_index=int(payload["profile_draft_block_index"]),
-                variables=_normalize_variables(payload.get("variables")),
-                context=_normalize_context(payload.get("context")),
-                awaiting_input=bool(payload.get("awaiting_input", False)),
-                done=bool(payload.get("done", False)),
-                profile_draft=str(payload.get("profile_draft") or ""),
-                last_request_id=str(payload.get("last_request_id") or ""),
-                last_expected_block_index=(
-                    int(last_expected_block_index)
-                    if last_expected_block_index is not None
-                    else None
-                ),
-                last_user_input=_normalize_user_input(
-                    payload.get("last_user_input") or None
-                ),
-                last_events=events,
-            )
-        except ProfileResearchError:
-            raise
-        except (KeyError, TypeError, ValueError) as exc:
-            msg = "invalid session payload"
-            raise ProfileResearchSessionNotFound(msg) from exc
-
-    def to_view(self) -> dict[str, Any]:
-        return {
-            "session_id": self.session_id,
-            "purpose": self.purpose,
-            "block_index": self.block_index,
-            "block_count": self.block_count,
-            "profile_draft_block_index": self.profile_draft_block_index,
-            "awaiting_input": self.awaiting_input,
-            "done": self.done,
-            "expires_in": PROFILE_RESEARCH_SESSION_TTL_SECONDS,
-            "config_revision": self.config_revision,
-        }
-
-
-class _ProfileResearchSessionStore:
-    def __init__(
-        self,
-        app: Flask,
-        *,
-        cache: CacheProvider = redis_cache,
-        ttl_seconds: int = PROFILE_RESEARCH_SESSION_TTL_SECONDS,
-    ) -> None:
-        prefix = str(app.config.get("REDIS_KEY_PREFIX", "") or "")
-        self._key_prefix = f"{prefix}profile_research:"
-        self._cache = cache
-        self._ttl_seconds = int(ttl_seconds)
-
-    def _key(self, session_id: str) -> str:
-        return f"{self._key_prefix}{session_id}"
-
-    def _active_key(self, user_bid: str, purpose: str) -> str:
-        owner = str(user_bid or "").strip().encode("utf-8")
-        owner_digest = hashlib.sha256(owner).hexdigest()
-        return f"{self._key_prefix}active:{str(purpose).strip()}:{owner_digest}"
-
-    def save(self, session: _ProfileResearchSession) -> None:
-        self._cache.setex(
-            self._key(session.session_id),
-            self._ttl_seconds,
-            json.dumps(session.to_cache_payload(), ensure_ascii=False),
-        )
-        self.refresh_active(session)
-
-    def load(self, session_id: str) -> _ProfileResearchSession:
-        raw = self._cache.get(self._key(session_id))
-        if raw is None:
-            msg = "session not found"
-            raise ProfileResearchSessionNotFound(msg)
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
-        try:
-            payload = json.loads(str(raw))
-        except (TypeError, ValueError) as exc:
-            msg = "invalid session payload"
-            raise ProfileResearchSessionNotFound(msg) from exc
-        if not isinstance(payload, Mapping):
-            msg = "invalid session payload"
-            raise ProfileResearchSessionNotFound(msg)
-        return _ProfileResearchSession.from_cache_payload(payload)
-
-    def delete(self, session_id: str) -> None:
-        self._cache.delete(self._key(session_id))
-
-    def active_session_id(self, *, user_bid: str, purpose: str) -> str | None:
-        raw = self._cache.get(self._active_key(user_bid, purpose))
-        if raw is None:
-            return None
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
-        normalized = str(raw).strip()
-        return normalized or None
-
-    def refresh_active(self, session: _ProfileResearchSession) -> None:
-        self._cache.setex(
-            self._active_key(session.user_bid, session.purpose),
-            self._ttl_seconds,
-            session.session_id,
-        )
-
-    def clear_active(self, session: _ProfileResearchSession) -> None:
-        active_session_id = self.active_session_id(
-            user_bid=session.user_bid,
-            purpose=session.purpose,
-        )
-        if active_session_id == session.session_id:
-            self._cache.delete(self._active_key(session.user_bid, session.purpose))
-
-    def lock(self, session_id: str) -> CacheLock:
-        return self._cache.lock(
-            f"{self._key(session_id)}:lock",
-            timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
-            blocking_timeout=0,
-        )
-
-    def owner_lock(self, *, user_bid: str, purpose: str) -> CacheLock:
-        return self._cache.lock(
-            f"{self._active_key(user_bid, purpose)}:lock",
-            timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
-            blocking_timeout=0,
-        )
-
-
-class _ProfileResearchLLMProvider(LLMProvider):
-    """Thin adapter that keeps MarkdownFlow on the shared LLM route."""
-
-    def __init__(
-        self, app: Flask, session: _ProfileResearchSession, span: object
-    ) -> None:
-        self._app = app
-        self._session = session
-        self._span = span
-        self.output_chunks: list[str] = []
-
-    def _invoke(
-        self,
-        messages: list[dict[str, str]],
-        *,
-        model: str | None,
-        temperature: float | None,
-        stream: bool,
-    ) -> Generator[str, None, None]:
-        if not messages:
-            msg = "No messages provided"
-            raise ValueError(msg)
-        actual_model = model or self._session.model
-        actual_temperature = (
-            temperature if temperature is not None else self._session.temperature
-        )
-        responses = chat_llm(
-            self._app,
-            self._session.user_bid,
-            self._span,
-            model=actual_model,
-            messages=messages,
-            stream=stream,
-            generation_name="profile_research_markdownflow",
-            temperature=actual_temperature,
-            usage_context=UsageContext(
-                user_bid=self._session.user_bid,
-                usage_scene=BILL_USAGE_SCENE_DEBUG,
-                billable=0,
-            ),
-            usage_scene=BILL_USAGE_SCENE_DEBUG,
-            billable=0,
-        )
-        for response in responses:
-            if response.result:
-                self.output_chunks.append(response.result)
-                yield response.result
-
-    def complete(
-        self,
-        messages: list[dict[str, str]],
-        model: str | None = None,
-        temperature: float | None = None,
-    ) -> str:
-        return "".join(
-            self._invoke(
-                messages,
-                model=model,
-                temperature=temperature,
-                stream=False,
-            )
-        )
-
-    def stream(
-        self,
-        messages: list[dict[str, str]],
-        model: str | None = None,
-        temperature: float | None = None,
-    ) -> Generator[str, None, None]:
-        yield from self._invoke(
-            messages,
-            model=model,
-            temperature=temperature,
-            stream=True,
-        )
 
 
 @dataclass
@@ -491,96 +103,30 @@ class _StepOutcome:
     answer_values: list[str] = field(default_factory=list)
 
 
+@dataclass
+class _RunAdmission:
+    session: _ProfileResearchSession
+    user_input: dict[str, list[str]]
+    immediate_events: list[dict[str, Any]] | None = None
+    refresh_session: bool = False
+
+
+@dataclass
+class _BlockExecution:
+    processed_block_index: int
+    current_block: Any
+    has_user_input: bool
+    outcome: _StepOutcome
+    rerendered_interaction: str
+    streamed_events: list[dict[str, Any]]
+
+
 def _iter_results(
     result: LLMResult | Iterable[LLMResult],
 ) -> Iterable[LLMResult]:
     if isinstance(result, LLMResult):
         return (result,)
     return result
-
-
-def _event(
-    event_type: str,
-    content: object,
-    *,
-    generated_block_bid: str | None = None,
-    run_session_bid: str | None = None,
-    is_terminal: bool | None = None,
-) -> dict[str, Any]:
-    event: dict[str, Any] = {
-        "type": event_type,
-        "event_type": event_type,
-        "content": content,
-    }
-    if generated_block_bid is not None:
-        event["generated_block_bid"] = generated_block_bid
-    if run_session_bid is not None:
-        event["run_session_bid"] = run_session_bid
-    if is_terminal is not None:
-        event["is_terminal"] = is_terminal
-    return event
-
-
-def _replay_stream_key(event: Mapping[str, Any]) -> tuple[str, str, str] | None:
-    content = event.get("content")
-    event_type = str(event.get("event_type") or "")
-    if (
-        not isinstance(content, str)
-        or event.get("is_terminal")
-        or event_type not in {"content", "interaction"}
-    ):
-        return None
-    return (
-        event_type,
-        str(event.get("generated_block_bid") or ""),
-        str(event.get("run_session_bid") or ""),
-    )
-
-
-def _compact_replay_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Store cumulative stream events as deltas without changing replay output."""
-    previous_content: dict[tuple[str, str, str], str] = {}
-    compacted: list[dict[str, Any]] = []
-    for event in events:
-        stored_event = dict(event)
-        stream_key = _replay_stream_key(stored_event)
-        if stream_key is not None:
-            content = str(stored_event["content"])
-            previous = previous_content.get(stream_key, "")
-            if content.startswith(previous):
-                stored_event["content"] = content[len(previous) :]
-                stored_event[_REPLAY_DELTA_MARKER] = True
-            previous_content[stream_key] = content
-        compacted.append(stored_event)
-    return compacted
-
-
-def _expand_replay_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    cumulative_content: dict[tuple[str, str, str], str] = {}
-    expanded: list[dict[str, Any]] = []
-    for event in events:
-        replay_event = dict(event)
-        is_delta = bool(replay_event.pop(_REPLAY_DELTA_MARKER, False))
-        stream_key = _replay_stream_key(replay_event)
-        if stream_key is not None:
-            content = str(replay_event["content"])
-            if is_delta:
-                content = cumulative_content.get(stream_key, "") + content
-                replay_event["content"] = content
-            cumulative_content[stream_key] = content
-        expanded.append(replay_event)
-    return expanded
-
-
-def _profile_summary_prompt() -> str:
-    research_source_prompt = load_prompt_template("profile_research_summary").strip()
-    optimizer_prompt = load_prompt_template("learner_profile_optimizer").strip()
-    return f"{research_source_prompt}\n\n{optimizer_prompt}"
-
-
-def _append_profile_summary(document: str) -> str:
-    summary_prompt = _profile_summary_prompt()
-    return f"{document.rstrip()}\n\n---\n\n{summary_prompt}"
 
 
 def _collected_nickname(session: _ProfileResearchSession) -> str | None:
@@ -593,82 +139,6 @@ def _collected_nickname(session: _ProfileResearchSession) -> str | None:
         if normalized_values:
             return ", ".join(normalized_values)
     return None
-
-
-def validate_profile_research_document(document: str) -> dict[str, Any]:
-    """Validate the configured document with MarkdownFlow's own parser."""
-    if not isinstance(document, str) or not document.strip():
-        msg = "document is empty"
-        raise ProfileResearchValidationError(msg)
-    if len(document) > _MAX_DOCUMENT_CODEPOINTS:
-        msg = "document is too long"
-        raise ProfileResearchValidationError(msg)
-    flow = MarkdownFlow(document=document)
-    blocks = flow.get_all_blocks()
-    if not blocks:
-        msg = "document has no blocks"
-        raise ProfileResearchValidationError(msg)
-    if len(blocks) >= _MAX_BLOCK_COUNT:
-        msg = "document has too many blocks"
-        raise ProfileResearchValidationError(msg)
-    interaction_count = sum(
-        block.block_type == BlockType.INTERACTION for block in blocks
-    )
-    if interaction_count == 0:
-        msg = "document must contain an interaction"
-        raise ProfileResearchValidationError(msg)
-    interaction_parser = InteractionParser()
-    for block in blocks:
-        if block.block_type != BlockType.INTERACTION:
-            continue
-        parsed_interaction = interaction_parser.parse(block.content)
-        variable_name = parsed_interaction.get("variable")
-        if (
-            isinstance(variable_name, str)
-            and len(variable_name) > _MAX_INPUT_KEY_CODEPOINTS
-        ):
-            msg = "interaction variable name is too long"
-            raise ProfileResearchValidationError(msg)
-        question = parsed_interaction.get("question")
-        has_question = isinstance(question, str) and bool(question.strip())
-        buttons = parsed_interaction.get("buttons")
-        button_values: list[str] = []
-        if isinstance(buttons, list):
-            if len(buttons) > _MAX_INPUT_VALUE_COUNT:
-                msg = "interaction options exceed runtime input limits"
-                raise ProfileResearchValidationError(msg)
-            for button in buttons:
-                display = button.get("display") if isinstance(button, dict) else None
-                value = button.get("value") if isinstance(button, dict) else None
-                if (
-                    not isinstance(display, str)
-                    or not display.strip()
-                    or not isinstance(value, str)
-                    or not value.strip()
-                ):
-                    msg = "interaction has no answerable input"
-                    raise ProfileResearchValidationError(msg)
-                if len(value) > _MAX_INPUT_VALUE_CODEPOINTS:
-                    msg = "interaction options exceed runtime input limits"
-                    raise ProfileResearchValidationError(msg)
-                button_values.append(value)
-            if (
-                parsed_interaction.get("is_multi_select")
-                and sum(len(value) for value in button_values)
-                > _MAX_INPUT_TOTAL_CODEPOINTS
-            ):
-                msg = "interaction options exceed runtime input limits"
-                raise ProfileResearchValidationError(msg)
-        has_usable_button = bool(button_values)
-        if not has_question and not has_usable_button:
-            msg = "interaction has no answerable input"
-            raise ProfileResearchValidationError(msg)
-    return {
-        "block_count": len(blocks),
-        "interaction_block_count": interaction_count,
-        "content_block_count": len(blocks) - interaction_count,
-        "variables": list(flow.extract_variables()),
-    }
 
 
 class ProfileResearchRuntime:
@@ -986,6 +456,280 @@ class ProfileResearchRuntime:
                 {"role": "assistant", "content": outcome.content.strip()}
             )
 
+    def _admit_run(
+        self,
+        *,
+        user_bid: str,
+        session_id: str,
+        purpose: str,
+        user_input: Mapping[str, Any] | None,
+        expected_block_index: int | None,
+        request_id: str | None,
+    ) -> _RunAdmission:
+        session = self._load_authorized_session(
+            user_bid=user_bid,
+            session_id=session_id,
+            expected_purpose=purpose,
+        )
+        active_session_id = self.store.active_session_id(
+            user_bid=session.user_bid,
+            purpose=session.purpose,
+        )
+        if active_session_id is None:
+            # Sessions created by old workers do not have an active pointer.
+            # Claim them on first run while holding the owner-purpose lock.
+            self.store.refresh_active(session)
+        elif active_session_id != session.session_id:
+            msg = "session not found"
+            raise ProfileResearchSessionNotFound(msg)
+
+        normalized_user_input = _normalize_user_input(user_input)
+        replay = self._replay_or_validate_request(
+            session,
+            request_id=request_id,
+            expected_block_index=expected_block_index,
+            user_input=normalized_user_input,
+        )
+        if replay is not None:
+            return _RunAdmission(
+                session=session,
+                user_input=normalized_user_input,
+                immediate_events=replay,
+                refresh_session=True,
+            )
+        if session.done:
+            return _RunAdmission(
+                session=session,
+                user_input=normalized_user_input,
+                immediate_events=[
+                    _event(
+                        "done",
+                        self._summary(
+                            session,
+                            processed_block_index=max(session.block_index - 1, 0),
+                            advanced=False,
+                        ),
+                        run_session_bid=session.session_id,
+                        is_terminal=True,
+                    )
+                ],
+            )
+        return _RunAdmission(session=session, user_input=normalized_user_input)
+
+    def _execute_block(
+        self,
+        *,
+        session: _ProfileResearchSession,
+        user_input: dict[str, list[str]],
+    ) -> Generator[dict[str, Any], None, _BlockExecution]:
+        request_trace_id = get_request_trace_id()
+        trace, root_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload={
+                "id": request_trace_id,
+                "name": "profile_research_markdownflow",
+                "user_id": session.user_bid,
+                "session_id": session.session_id,
+                "metadata": {
+                    "purpose": session.purpose,
+                    "config_revision": session.config_revision,
+                    "block_index": session.block_index,
+                },
+            },
+            root_span_payload={"name": "profile_research_step"},
+        )
+        provider = self._provider_factory(self.app, session, root_span)
+        events: list[dict[str, Any]] = []
+        outcome = _StepOutcome()
+        rerendered_interaction = ""
+        try:
+            flow = self._build_flow(session, provider)
+            blocks = flow.get_all_blocks()
+            if len(blocks) != session.block_count:
+                msg = "session document changed"
+                raise ProfileResearchSessionNotFound(msg)
+            if session.block_index < 0 or session.block_index >= len(blocks):
+                msg = "invalid session cursor"
+                raise ProfileResearchSessionNotFound(msg)
+            processed_block_index = session.block_index
+            current_block = blocks[processed_block_index]
+            is_profile_draft_block = (
+                processed_block_index == session.profile_draft_block_index
+            )
+            has_user_input = bool(user_input)
+            if current_block.block_type != BlockType.INTERACTION and has_user_input:
+                msg = "user_input is not expected for this block"
+                raise ProfileResearchValidationError(msg)
+            rendering_interaction = (
+                current_block.block_type == BlockType.INTERACTION and not has_user_input
+            )
+            result = flow.process(
+                block_index=processed_block_index,
+                mode=(
+                    ProcessMode.COMPLETE
+                    if rendering_interaction
+                    else ProcessMode.STREAM
+                ),
+                context=session.context or None,
+                variables=session.variables,
+                user_input=user_input or None,
+            )
+            generated_block_bid = (
+                f"profile-research:{session.session_id}:{processed_block_index}"
+            )
+            event_bid = (
+                f"{generated_block_bid}:feedback"
+                if current_block.block_type == BlockType.INTERACTION and has_user_input
+                else generated_block_bid
+            )
+            for llm_result in _iter_results(result):
+                variables = getattr(llm_result, "variables", None)
+                if variables is not None:
+                    outcome.input_accepted = True
+                    outcome.variable_updates.update(_normalize_variables(variables))
+                metadata = getattr(llm_result, "metadata", None)
+                if isinstance(metadata, Mapping):
+                    raw_answer = metadata.get("answer")
+                    if isinstance(raw_answer, list):
+                        outcome.answer_values = [str(value) for value in raw_answer]
+                prompt = str(getattr(llm_result, "prompt", "") or "")
+                if prompt and not outcome.prompt:
+                    outcome.prompt = prompt
+                content = str(getattr(llm_result, "content", "") or "")
+                if not content:
+                    continue
+                outcome.content += content
+                if is_profile_draft_block:
+                    # The generated profile is a structured terminal result,
+                    # not part of the learner-visible MarkdownFlow transcript.
+                    continue
+                next_event = _event(
+                    "interaction" if rendering_interaction else "content",
+                    outcome.content,
+                    generated_block_bid=event_bid,
+                    run_session_bid=session.session_id,
+                    is_terminal=False,
+                )
+                events.append(next_event)
+                yield next_event
+            if rendering_interaction and not outcome.content.strip():
+                msg = "MarkdownFlow returned an empty interaction"
+                raise ProfileResearchError(msg)
+            if (
+                current_block.block_type == BlockType.INTERACTION
+                and has_user_input
+                and not outcome.input_accepted
+            ):
+                rerendered = flow.process(
+                    block_index=processed_block_index,
+                    mode=ProcessMode.COMPLETE,
+                    context=session.context or None,
+                    variables=session.variables,
+                    user_input=None,
+                )
+                rerendered_interaction = "".join(
+                    str(getattr(item, "content", "") or "")
+                    for item in _iter_results(rerendered)
+                )
+                if not rerendered_interaction:
+                    msg = "MarkdownFlow returned an empty interaction"
+                    raise ProfileResearchError(msg)
+        finally:
+            finalize_langfuse_trace(
+                trace=trace,
+                root_span=root_span,
+                trace_payload={
+                    "output": "".join(getattr(provider, "output_chunks", []))
+                },
+                root_span_payload={
+                    "output": "".join(getattr(provider, "output_chunks", []))
+                },
+            )
+
+        return _BlockExecution(
+            processed_block_index=processed_block_index,
+            current_block=current_block,
+            has_user_input=has_user_input,
+            outcome=outcome,
+            rerendered_interaction=rerendered_interaction,
+            streamed_events=events,
+        )
+
+    def _finalize_run(
+        self,
+        *,
+        session: _ProfileResearchSession,
+        execution: _BlockExecution,
+        user_input: dict[str, list[str]],
+        expected_block_index: int | None,
+        request_id: str | None,
+    ) -> list[dict[str, Any]]:
+        current_block = execution.current_block
+        outcome = execution.outcome
+        processed_block_index = execution.processed_block_index
+        advanced = current_block.block_type != BlockType.INTERACTION
+        if current_block.block_type == BlockType.INTERACTION:
+            advanced = execution.has_user_input and outcome.input_accepted
+        if (
+            processed_block_index == session.profile_draft_block_index
+            and not outcome.content.strip()
+        ):
+            msg = "profile draft is empty"
+            raise ProfileResearchError(msg)
+
+        trailing_events: list[dict[str, Any]] = []
+        if advanced:
+            session.variables.update(outcome.variable_updates)
+            self._update_context(
+                session,
+                current_block=current_block,
+                user_input=user_input,
+                outcome=outcome,
+            )
+            if processed_block_index == session.profile_draft_block_index:
+                session.profile_draft = outcome.content.strip()
+            session.block_index += 1
+        elif (
+            current_block.block_type == BlockType.INTERACTION
+            and execution.has_user_input
+        ):
+            trailing_events.append(
+                _event(
+                    "interaction",
+                    execution.rerendered_interaction,
+                    generated_block_bid=(
+                        f"profile-research:{session.session_id}:{processed_block_index}"
+                    ),
+                    run_session_bid=session.session_id,
+                    is_terminal=False,
+                )
+            )
+
+        session.awaiting_input = (
+            current_block.block_type == BlockType.INTERACTION and not advanced
+        )
+        session.done = session.block_index >= session.block_count
+        terminal_event = _event(
+            "done",
+            self._summary(
+                session,
+                processed_block_index=processed_block_index,
+                advanced=advanced,
+            ),
+            run_session_bid=session.session_id,
+            is_terminal=True,
+        )
+        all_events = [*execution.streamed_events, *trailing_events, terminal_event]
+        self._remember_request(
+            session,
+            request_id=request_id,
+            expected_block_index=expected_block_index,
+            user_input=user_input,
+            events=all_events,
+        )
+        self.store.save(session)
+        return [*trailing_events, terminal_event]
+
     def stream_session(
         self,
         *,
@@ -1019,230 +763,31 @@ class ProfileResearchRuntime:
                 owner_lock.release()
             raise
         try:
-            session = self._load_authorized_session(
+            admission = self._admit_run(
                 user_bid=normalized_user_bid,
                 session_id=normalized_session_id,
-                expected_purpose=normalized_purpose,
-            )
-            active_session_id = self.store.active_session_id(
-                user_bid=session.user_bid,
-                purpose=session.purpose,
-            )
-            if active_session_id is None:
-                # Sessions created by old workers do not have an active pointer.
-                # Claim them on first run while holding the owner-purpose lock.
-                self.store.refresh_active(session)
-            elif active_session_id != session.session_id:
-                msg = "session not found"
-                raise ProfileResearchSessionNotFound(msg)
-            normalized_user_input = _normalize_user_input(user_input)
-            replay = self._replay_or_validate_request(
-                session,
-                request_id=request_id,
+                purpose=normalized_purpose,
+                user_input=user_input,
                 expected_block_index=expected_block_index,
-                user_input=normalized_user_input,
+                request_id=request_id,
             )
-            if replay is not None:
-                self.store.save(session)
-                yield from replay
-                return
-            if session.done:
-                yield _event(
-                    "done",
-                    self._summary(
-                        session,
-                        processed_block_index=max(session.block_index - 1, 0),
-                        advanced=False,
-                    ),
-                    run_session_bid=session.session_id,
-                    is_terminal=True,
-                )
+            if admission.immediate_events is not None:
+                if admission.refresh_session:
+                    self.store.save(admission.session)
+                yield from admission.immediate_events
                 return
 
-            request_trace_id = get_request_trace_id()
-            trace, root_span = create_trace_with_root_span(
-                client=get_langfuse_client(),
-                trace_payload={
-                    "id": request_trace_id,
-                    "name": "profile_research_markdownflow",
-                    "user_id": session.user_bid,
-                    "session_id": session.session_id,
-                    "metadata": {
-                        "purpose": session.purpose,
-                        "config_revision": session.config_revision,
-                        "block_index": session.block_index,
-                    },
-                },
-                root_span_payload={"name": "profile_research_step"},
+            execution = yield from self._execute_block(
+                session=admission.session,
+                user_input=admission.user_input,
             )
-            provider = self._provider_factory(self.app, session, root_span)
-            events: list[dict[str, Any]] = []
-            outcome = _StepOutcome()
-            rerendered_interaction = ""
-            try:
-                flow = self._build_flow(session, provider)
-                blocks = flow.get_all_blocks()
-                if len(blocks) != session.block_count:
-                    msg = "session document changed"
-                    raise ProfileResearchSessionNotFound(msg)
-                if session.block_index < 0 or session.block_index >= len(blocks):
-                    msg = "invalid session cursor"
-                    raise ProfileResearchSessionNotFound(msg)
-                processed_block_index = session.block_index
-                current_block = blocks[processed_block_index]
-                is_profile_draft_block = (
-                    processed_block_index == session.profile_draft_block_index
-                )
-                has_user_input = bool(normalized_user_input)
-                if current_block.block_type != BlockType.INTERACTION and has_user_input:
-                    msg = "user_input is not expected for this block"
-                    raise ProfileResearchValidationError(msg)
-                rendering_interaction = (
-                    current_block.block_type == BlockType.INTERACTION
-                    and not has_user_input
-                )
-                result = flow.process(
-                    block_index=processed_block_index,
-                    mode=(
-                        ProcessMode.COMPLETE
-                        if rendering_interaction
-                        else ProcessMode.STREAM
-                    ),
-                    context=session.context or None,
-                    variables=session.variables,
-                    user_input=normalized_user_input or None,
-                )
-                generated_block_bid = (
-                    f"profile-research:{session.session_id}:{processed_block_index}"
-                )
-                event_bid = (
-                    f"{generated_block_bid}:feedback"
-                    if current_block.block_type == BlockType.INTERACTION
-                    and has_user_input
-                    else generated_block_bid
-                )
-                for llm_result in _iter_results(result):
-                    variables = getattr(llm_result, "variables", None)
-                    if variables is not None:
-                        outcome.input_accepted = True
-                        outcome.variable_updates.update(_normalize_variables(variables))
-                    metadata = getattr(llm_result, "metadata", None)
-                    if isinstance(metadata, Mapping):
-                        raw_answer = metadata.get("answer")
-                        if isinstance(raw_answer, list):
-                            outcome.answer_values = [str(value) for value in raw_answer]
-                    prompt = str(getattr(llm_result, "prompt", "") or "")
-                    if prompt and not outcome.prompt:
-                        outcome.prompt = prompt
-                    content = str(getattr(llm_result, "content", "") or "")
-                    if not content:
-                        continue
-                    outcome.content += content
-                    if is_profile_draft_block:
-                        # The generated profile is a structured terminal result,
-                        # not part of the learner-visible MarkdownFlow transcript.
-                        continue
-                    next_event = _event(
-                        "interaction" if rendering_interaction else "content",
-                        outcome.content,
-                        generated_block_bid=event_bid,
-                        run_session_bid=session.session_id,
-                        is_terminal=False,
-                    )
-                    events.append(next_event)
-                    yield next_event
-                if rendering_interaction and not outcome.content.strip():
-                    msg = "MarkdownFlow returned an empty interaction"
-                    raise ProfileResearchError(msg)
-                if (
-                    current_block.block_type == BlockType.INTERACTION
-                    and has_user_input
-                    and not outcome.input_accepted
-                ):
-                    rerendered = flow.process(
-                        block_index=processed_block_index,
-                        mode=ProcessMode.COMPLETE,
-                        context=session.context or None,
-                        variables=session.variables,
-                        user_input=None,
-                    )
-                    rerendered_interaction = "".join(
-                        str(getattr(item, "content", "") or "")
-                        for item in _iter_results(rerendered)
-                    )
-                    if not rerendered_interaction:
-                        msg = "MarkdownFlow returned an empty interaction"
-                        raise ProfileResearchError(msg)
-            finally:
-                finalize_langfuse_trace(
-                    trace=trace,
-                    root_span=root_span,
-                    trace_payload={
-                        "output": "".join(getattr(provider, "output_chunks", []))
-                    },
-                    root_span_payload={
-                        "output": "".join(getattr(provider, "output_chunks", []))
-                    },
-                )
-
-            advanced = current_block.block_type != BlockType.INTERACTION
-            if current_block.block_type == BlockType.INTERACTION:
-                advanced = has_user_input and outcome.input_accepted
-            if (
-                processed_block_index == session.profile_draft_block_index
-                and not outcome.content.strip()
-            ):
-                msg = "profile draft is empty"
-                raise ProfileResearchError(msg)
-
-            if advanced:
-                session.variables.update(outcome.variable_updates)
-                self._update_context(
-                    session,
-                    current_block=current_block,
-                    user_input=normalized_user_input,
-                    outcome=outcome,
-                )
-                if processed_block_index == session.profile_draft_block_index:
-                    session.profile_draft = outcome.content.strip()
-                session.block_index += 1
-            elif current_block.block_type == BlockType.INTERACTION and has_user_input:
-                interaction_event = _event(
-                    "interaction",
-                    rerendered_interaction,
-                    generated_block_bid=(
-                        f"profile-research:{session.session_id}:{processed_block_index}"
-                    ),
-                    run_session_bid=session.session_id,
-                    is_terminal=False,
-                )
-                events.append(interaction_event)
-                yield interaction_event
-
-            session.awaiting_input = (
-                current_block.block_type == BlockType.INTERACTION and not advanced
-            )
-            session.done = session.block_index >= session.block_count
-            terminal_event = _event(
-                "done",
-                self._summary(
-                    session,
-                    processed_block_index=processed_block_index,
-                    advanced=advanced,
-                ),
-                run_session_bid=session.session_id,
-                is_terminal=True,
-            )
-            events.append(terminal_event)
-            self._remember_request(
-                session,
-                request_id=request_id,
+            yield from self._finalize_run(
+                session=admission.session,
+                execution=execution,
+                user_input=admission.user_input,
                 expected_block_index=expected_block_index,
-                user_input=normalized_user_input,
-                events=events,
+                request_id=request_id,
             )
-            self.store.save(session)
-            yield terminal_event
         finally:
             with contextlib.suppress(Exception):
                 lock.release()

@@ -22,6 +22,7 @@ from flaskr.common.cache_provider import (
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.profile_research import api
 from flaskr.service.profile_research import runtime as profile_research_runtime
+from flaskr.service.profile_research.document import _profile_summary_prompt
 from flaskr.service.profile_research.runtime import (
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
     PROFILE_ONBOARDING_PURPOSE,
@@ -973,9 +974,7 @@ def test_session_snapshots_summary_and_model_settings() -> None:
     stored = runtime.store.load(view["session_id"])
     app.config.update(DEFAULT_LLM_MODEL="changed-model", DEFAULT_LLM_TEMPERATURE=1.7)
 
-    assert stored.document == (
-        f"{document}\n\n---\n\n{profile_research_runtime._profile_summary_prompt()}"
-    )
+    assert stored.document == (f"{document}\n\n---\n\n{_profile_summary_prompt()}")
     assert stored.model == "gpt-test"
     assert stored.temperature == 0.3
     assert stored.output_language == "zh-CN"
@@ -989,7 +988,7 @@ def test_session_snapshots_summary_and_model_settings() -> None:
 
 
 def test_profile_summary_prompt_requires_plain_text_without_placeholders() -> None:
-    summary_prompt = profile_research_runtime._profile_summary_prompt()
+    summary_prompt = _profile_summary_prompt()
     optimizer_prompt = load_prompt_template("learner_profile_optimizer").strip()
 
     assert summary_prompt.endswith(optimizer_prompt)
@@ -1038,9 +1037,10 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(
         yield SimpleNamespace(result="画像结果")
 
     monkeypatch.setattr(
-        "flaskr.service.profile_research.runtime.chat_llm",
+        "flaskr.service.profile_research.provider.chat_llm",
         fake_chat_llm,
     )
+
     provider = _ProfileResearchLLMProvider(runtime.app, session, MockClient())
 
     assert provider.complete([{"role": "user", "content": "整理画像"}]) == "画像结果"
