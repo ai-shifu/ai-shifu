@@ -2,14 +2,14 @@
   "__namespace__": "module.profileOnboarding",
   "admin": {
     "configRevision": "Révision de configuration",
-    "defaultMarkdownflow": "Faisons brièvement connaissance afin que les prochains cours vous correspondent mieux.\n?[%{{profile_address}}...Comment souhaitez-vous être appelé ?]\n?[%{{profile_background}}...Quel est votre parcours professionnel, votre identité et votre expérience pertinente ?]\n?[%{{profile_expression_style}}...Quel style d’expression préférez-vous ?]\n?[%{{profile_slide_style}}...Quel style de diapositives préférez-vous ?]\n?[%{{profile_recent_interests}}...Quels sujets vous intéressent récemment ?]",
+    "defaultMarkdownflow": "Faisons brièvement connaissance afin que les prochains cours vous correspondent mieux.\n?[%{{sys_user_nickname}}...Comment souhaitez-vous être appelé ?]\n?[%{{profile_background}}...Quel est votre parcours professionnel, votre identité et votre expérience pertinente ?]\n?[%{{profile_expression_style}}...Quel style d’expression préférez-vous ?]\n?[%{{profile_slide_style}}...Quel style de diapositives préférez-vous ?]\n?[%{{profile_recent_interests}}...Quels sujets vous intéressent récemment ?]",
     "description": "Configurez la collecte interactive du profil d’apprentissage. La plateforme génère une présentation personnelle à la fin de la collecte.",
     "documentRequired": "Ajoutez un document MarkdownFlow exécutable avant d’activer le guide.",
     "enabled": "Activer la collecte du profil d’apprentissage",
     "enabledHint": "Ce bouton contrôle uniquement la collecte. Les profils enregistrés continuent de personnaliser les cours lorsqu’elle est désactivée.",
     "hidePreview": "Masquer l’aperçu",
     "loadFailed": "Échec du chargement de la configuration du guide du profil d’apprentissage",
-    "lockedSummaryHint": "La plateforme génère uniquement la façon de vous appeler, le parcours professionnel et l’expérience d’identité, le style d’expression, le style de diapositives et les centres d’intérêt récents à partir des réponses. Le résultat ne s’affiche pas dans la conversation ; il s’ouvre dans l’éditeur de présentation personnelle pour vérification.",
+    "lockedSummaryHint": "La réponse sys_user_nickname est enregistrée séparément comme appellation. Les autres réponses réutilisent les règles de « M’aider à améliorer » pour générer la présentation personnelle, visible uniquement dans l’éditeur pour vérification et jamais dans la conversation.",
     "lockedSummaryTitle": "Présentation personnelle générée par la plateforme",
     "markdownflow": "Document de recherche MarkdownFlow",
     "markdownflowHint": "Toutes les capacités MarkdownFlow sont prises en charge. Le moteur officiel du serveur l’analyse lors de l’enregistrement et de l’aperçu ; la page n’utilise plus de validation par expression régulière.",
@@ -85,11 +85,13 @@
     "unifiedTitle": "Paramètres de personnalisation"
   },
   "guided": {
+    "collectionComplete": "Vos informations sont prêtes à être vérifiées.",
     "inputLimitError": "Cette réponse est trop longue ou comporte trop de choix. Raccourcissez-la, puis renvoyez-la ; vous pouvez continuer à la modifier.",
     "missingDraft": "Nous n’avons pas pu générer votre présentation personnelle. Répondez de nouveau aux questions.",
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
-    "starting": "Préparation de la première question…",
+    "reviewCollection": "Vérifier et confirmer",
+    "starting": "Préparation de votre accueil…",
     "streamError": "Les questions se sont interrompues. Réessayez.",
     "thinking": "Préparation de la suite à partir de votre réponse…"
   },

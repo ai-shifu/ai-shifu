@@ -42,7 +42,7 @@ const translateKey = (
 };
 
 type ConversationControl = {
-  deliverDraft: (draft?: string) => void;
+  deliverDraft: (draft?: string, nickname?: string) => void;
   deliverError: (error?: Error) => void;
   sessionId: () => string;
 };
@@ -62,9 +62,9 @@ function MockProfileOnboardingConversation(
   React.useEffect(() => {
     mountedRef.current = true;
     const control: ConversationControl = {
-      deliverDraft: (draft = 'Collection draft') => {
+      deliverDraft: (draft = 'Collection draft', nickname?: string) => {
         if (mountedRef.current && sessionIdRef.current) {
-          propsRef.current.onDraftReady(draft, sessionIdRef.current);
+          propsRef.current.onDraftReady(draft, sessionIdRef.current, nickname);
         }
       },
       deliverError: (error = new Error('Collection failed')) => {
@@ -286,6 +286,12 @@ const waitForCollectionSession = async (sessionId = SESSION_ID) => {
       sessionId,
     ),
   );
+};
+const continueCollectionToSave = async () => {
+  const button = await screen.findByRole('button', {
+    name: 'module.profileOnboarding.guided.reviewCollection',
+  });
+  fireEvent.click(button);
 };
 
 describe('LearnerProfileDialog', () => {
@@ -520,6 +526,7 @@ describe('LearnerProfileDialog', () => {
       'settings',
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
     fireEvent.click(
       screen.getByRole('button', {
@@ -656,7 +663,7 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
   });
 
-  test('places a terminal collection draft directly in the editor without optimizing or persisting', async () => {
+  test('waits for explicit review guidance before placing a terminal collection draft in the editor', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
 
@@ -667,6 +674,23 @@ describe('LearnerProfileDialog', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
 
+    expect(
+      await screen.findByText(
+        'module.profileOnboarding.guided.collectionComplete',
+      ),
+    ).toBeInTheDocument();
+    const reviewButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.guided.reviewCollection',
+    });
+    expect(reviewButton).toHaveFocus();
+    expect(
+      screen.queryByLabelText('module.profileOnboarding.dialog.profileLabel'),
+    ).not.toBeInTheDocument();
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+
+    fireEvent.click(reviewButton);
     expect(
       await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
@@ -697,6 +721,7 @@ describe('LearnerProfileDialog', () => {
     act(() => {
       mockConversationControls.at(-1)?.deliverDraft('x'.repeat(1001));
     });
+    await continueCollectionToSave();
 
     expect(
       await screen.findByDisplayValue('x'.repeat(1001)),
@@ -716,6 +741,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'dismissible' });
     await waitForCollectionSession();
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    await continueCollectionToSave();
 
     expect(
       await screen.findByDisplayValue('Collection draft'),
@@ -740,7 +766,7 @@ describe('LearnerProfileDialog', () => {
     expect(profileInput()).toHaveValue('Collection draft');
   });
 
-  test('persists a guided result once with its session, trigger, and changed nickname', async () => {
+  test('persists a guided result once with its session, trigger, and collected nickname', async () => {
     const onSaved = jest.fn();
     const onClose = jest.fn();
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
@@ -753,9 +779,14 @@ describe('LearnerProfileDialog', () => {
 
     renderDialog({ exitPolicy: 'blocking', onSaved, onClose });
     await waitForCollectionSession();
-    fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    act(() => {
+      mockConversationControls
+        .at(-1)
+        ?.deliverDraft('Collection draft', 'Taylor');
+    });
+    await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
-    fireEvent.change(nicknameInput(), { target: { value: ' Taylor ' } });
+    expect(nicknameInput()).toHaveValue('Taylor');
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.complete',
@@ -822,6 +853,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'blocking' });
     await waitForCollectionSession();
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
     fireEvent.click(
       screen.getByRole('button', {
@@ -851,6 +883,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'blocking' });
     await waitForCollectionSession();
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
     const complete = screen.getByRole('button', {
       name: 'module.profileOnboarding.complete',
@@ -980,6 +1013,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'dismissible' });
     await waitForCollectionSession(SESSION_ID);
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
 
     fireEvent.click(
@@ -1225,6 +1259,7 @@ describe('LearnerProfileDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    await continueCollectionToSave();
     expect(
       await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();

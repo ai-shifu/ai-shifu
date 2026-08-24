@@ -2,14 +2,14 @@
   "__namespace__": "module.profileOnboarding",
   "admin": {
     "configRevision": "Config revision",
-    "defaultMarkdownflow": "Let's get to know you briefly so future courses can fit you better.\n?[%{{profile_address}}...What would you like to be called?]\n?[%{{profile_background}}...What is your professional background, identity, and relevant experience?]\n?[%{{profile_expression_style}}...What expression style do you prefer?]\n?[%{{profile_slide_style}}...What slide style do you prefer?]\n?[%{{profile_recent_interests}}...What have you been focusing on recently?]",
+    "defaultMarkdownflow": "Let's get to know you briefly so future courses can fit you better.\n?[%{{sys_user_nickname}}...What would you like to be called?]\n?[%{{profile_background}}...What is your professional background, identity, and relevant experience?]\n?[%{{profile_expression_style}}...What expression style do you prefer?]\n?[%{{profile_slide_style}}...What slide style do you prefer?]\n?[%{{profile_recent_interests}}...What have you been focusing on recently?]",
     "description": "Configure interactive learning-profile collection. The platform generates a personal introduction draft when collection finishes.",
     "documentRequired": "Add a runnable MarkdownFlow document before enabling the guide.",
     "enabled": "Enable learning-profile collection",
     "enabledHint": "This switch controls collection only. Saved profiles continue to personalize courses when collection is off.",
     "hidePreview": "Hide preview",
     "loadFailed": "Failed to load the learning-profile guide configuration",
-    "lockedSummaryHint": "The platform generates only form of address, professional background and identity experience, expression style, slide style, and recent interests from the answers. The result is not shown in the conversation; it opens in the personal introduction editor for review.",
+    "lockedSummaryHint": "The sys_user_nickname answer is saved separately as the learner's nickname. Other answers reuse the “Help me improve” rules to generate the personal introduction, which opens only in the editor for review and is not shown in the conversation.",
     "lockedSummaryTitle": "Platform-generated personal introduction",
     "markdownflow": "MarkdownFlow research document",
     "markdownflowHint": "Full MarkdownFlow is supported. The official server runtime parses it during save and preview; the page no longer uses regex validation.",
@@ -85,11 +85,13 @@
     "unifiedTitle": "Personalization settings"
   },
   "guided": {
+    "collectionComplete": "Your information is ready to review.",
     "inputLimitError": "This answer is too long or has too many selections. Shorten it, then submit again; you can keep editing it.",
     "missingDraft": "We could not generate your personal introduction. Please answer the questions again.",
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
-    "starting": "Preparing the first question…",
+    "reviewCollection": "Review and confirm",
+    "starting": "Preparing your welcome…",
     "streamError": "The questions stopped unexpectedly. Try again.",
     "thinking": "Continuing from your answer…"
   },

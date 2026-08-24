@@ -53,7 +53,11 @@ export type ProfileOnboardingConversationProps = {
   disabled?: boolean;
   errorMessage?: string;
   onSessionStarted?: (sessionId: string) => void;
-  onDraftReady: (profileDraft: string, sessionId: string) => void;
+  onDraftReady: (
+    profileDraft: string,
+    sessionId: string,
+    nickname?: string,
+  ) => void;
   onError: (error: unknown) => void;
   onRetry?: () => void;
 };
@@ -174,6 +178,22 @@ export const resolveProfileDraftFromRunEvent = (
   const payload = asObject(event.content);
   const draft = payload?.profile_draft;
   return typeof draft === 'string' ? draft.trim() : '';
+};
+
+export const resolveProfileNicknameFromRunEvent = (
+  event: ProfileOnboardingStreamEvent,
+): string => {
+  const topLevelNickname = (
+    event as ProfileOnboardingStreamEvent & {
+      nickname?: unknown;
+    }
+  ).nickname;
+  if (typeof topLevelNickname === 'string') {
+    return topLevelNickname.trim();
+  }
+  const payload = asObject(event.content);
+  const nickname = payload?.nickname;
+  return typeof nickname === 'string' ? nickname.trim() : '';
 };
 
 const resolveRunDone = (event: ProfileOnboardingStreamEvent) => {
@@ -414,6 +434,7 @@ export default function ProfileOnboardingConversation({
       setRunInFlight(false);
       stopStream();
       const draft = resolveProfileDraftFromRunEvent(event);
+      const nickname = resolveProfileNicknameFromRunEvent(event);
       if (resolveRunDone(event)) {
         setLoading(false);
         if (!draft) {
@@ -424,7 +445,11 @@ export default function ProfileOnboardingConversation({
           );
           return;
         }
-        onDraftReadyRef.current(draft, sessionIdRef.current);
+        if (nickname) {
+          onDraftReadyRef.current(draft, sessionIdRef.current, nickname);
+        } else {
+          onDraftReadyRef.current(draft, sessionIdRef.current);
+        }
         return;
       }
 

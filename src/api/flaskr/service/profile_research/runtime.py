@@ -59,6 +59,7 @@ _MAX_INPUT_VALUE_COUNT = 100
 _MAX_INPUT_VALUE_CODEPOINTS = 4_000
 _MAX_INPUT_TOTAL_CODEPOINTS = 10_000
 _REPLAY_DELTA_MARKER = "_profile_replay_delta"
+_NICKNAME_VARIABLE_KEY = "sys_user_nickname"
 
 
 class ProfileResearchError(ValueError):
@@ -571,9 +572,27 @@ def _expand_replay_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return expanded
 
 
+def _profile_summary_prompt() -> str:
+    research_source_prompt = load_prompt_template("profile_research_summary").strip()
+    optimizer_prompt = load_prompt_template("learner_profile_optimizer").strip()
+    return f"{research_source_prompt}\n\n{optimizer_prompt}"
+
+
 def _append_profile_summary(document: str) -> str:
-    summary_prompt = load_prompt_template("profile_research_summary").strip()
+    summary_prompt = _profile_summary_prompt()
     return f"{document.rstrip()}\n\n---\n\n{summary_prompt}"
+
+
+def _collected_nickname(session: _ProfileResearchSession) -> str | None:
+    raw_nickname = session.variables.get(_NICKNAME_VARIABLE_KEY)
+    if isinstance(raw_nickname, str):
+        normalized = raw_nickname.strip()
+        return normalized or None
+    if isinstance(raw_nickname, list):
+        normalized_values = [value.strip() for value in raw_nickname if value.strip()]
+        if normalized_values:
+            return ", ".join(normalized_values)
+    return None
 
 
 def validate_profile_research_document(document: str) -> dict[str, Any]:
@@ -884,6 +903,7 @@ class ProfileResearchRuntime:
             "awaiting_input": session.awaiting_input,
             "done": session.done,
             "profile_draft": session.profile_draft if session.done else None,
+            "nickname": _collected_nickname(session) if session.done else None,
             "config_revision": session.config_revision,
         }
 

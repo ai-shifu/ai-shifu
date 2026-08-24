@@ -2,14 +2,14 @@
   "__namespace__": "module.profileOnboarding",
   "admin": {
     "configRevision": "配置修订号",
-    "defaultMarkdownflow": "我们先简单认识一下，让之后的课程更贴合你。\n?[%{{profile_address}}...平时希望怎么称呼你？]\n?[%{{profile_background}}...你的职业背景、身份和相关经验是什么？]\n?[%{{profile_expression_style}}...你喜欢怎样的表达风格？]\n?[%{{profile_slide_style}}...你喜欢怎样的幻灯片风格？]\n?[%{{profile_recent_interests}}...最近在关注哪些事情？]",
+    "defaultMarkdownflow": "我们先简单认识一下，让之后的课程更贴合你。\n?[%{{sys_user_nickname}}...平时希望怎么称呼你？]\n?[%{{profile_background}}...你的职业背景、身份和相关经验是什么？]\n?[%{{profile_expression_style}}...你喜欢怎样的表达风格？]\n?[%{{profile_slide_style}}...你喜欢怎样的幻灯片风格？]\n?[%{{profile_recent_interests}}...最近在关注哪些事情？]",
     "description": "配置学习画像互动收集。收集结束后，平台会生成个人介绍草稿。",
     "documentRequired": "启用引导前，请先填写可运行的 MarkdownFlow 文档。",
     "enabled": "启用学习画像收集",
     "enabledHint": "此开关只控制是否继续收集；关闭后，已保存的画像仍会用于个性化课程。",
     "hidePreview": "收起预览",
     "loadFailed": "学习画像引导配置加载失败",
-    "lockedSummaryHint": "平台会根据回答生成称呼、职业背景与身份经验、表达风格、幻灯片风格和近期关注五类内容。生成结果不会显示在对话中，只会进入个人介绍编辑框供用户确认。",
+    "lockedSummaryHint": "sys_user_nickname 的回答会单独写入称呼；其余回答会复用“帮我优化”的规则生成个人介绍。生成结果不会显示在对话中，只会进入编辑框供用户确认。",
     "lockedSummaryTitle": "平台生成的个人介绍",
     "markdownflow": "MarkdownFlow 调研文档",
     "markdownflowHint": "支持完整 MarkdownFlow 能力；保存与预览时由服务端官方运行时解析，不再使用页面正则校验。",
@@ -85,11 +85,13 @@
     "unifiedTitle": "个性化设置"
   },
   "guided": {
+    "collectionComplete": "信息已经收集好了。",
     "inputLimitError": "回答太长或选择太多，请精简后再提交。你的回答仍可继续修改。",
     "missingDraft": "没能生成个人介绍，请重新回答问题。",
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
-    "starting": "正在准备第一个问题…",
+    "reviewCollection": "查看并确认",
+    "starting": "正在准备欢迎仪式…",
     "streamError": "提问意外中断了，请再试一次。",
     "thinking": "正在根据你的回答继续…"
   },

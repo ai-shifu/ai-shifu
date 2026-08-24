@@ -10,6 +10,7 @@ import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import ProfileOnboardingConversation, {
   isProfileOnboardingSubmissionWithinLimits,
   resolveProfileDraftFromRunEvent,
+  resolveProfileNicknameFromRunEvent,
 } from './ProfileOnboardingConversation';
 
 const ANSWER_GUIDED_QUESTION_LABEL = 'answer guided question';
@@ -783,6 +784,12 @@ describe('ProfileOnboardingConversation', () => {
         content: JSON.stringify({ profile_draft: '画像草稿' }),
       }),
     ).toBe('画像草稿');
+    expect(
+      resolveProfileNicknameFromRunEvent({
+        type: 'done',
+        content: JSON.stringify({ nickname: ' 小雨 ' }),
+      }),
+    ).toBe('小雨');
   });
 
   test('hands the terminal profile draft to the editor without rendering it in the conversation', async () => {
@@ -792,7 +799,11 @@ describe('ProfileOnboardingConversation', () => {
         onMessage({
           type: 'done',
           is_terminal: true,
-          content: { done: true, profile_draft: '只进入编辑框的个人介绍' },
+          content: {
+            done: true,
+            profile_draft: '只进入编辑框的个人介绍',
+            nickname: '小雨',
+          },
         });
       });
       return { close: jest.fn() };
@@ -811,6 +822,7 @@ describe('ProfileOnboardingConversation', () => {
       expect(onDraftReady).toHaveBeenCalledWith(
         '只进入编辑框的个人介绍',
         'session-terminal-draft',
+        '小雨',
       ),
     );
     expect(

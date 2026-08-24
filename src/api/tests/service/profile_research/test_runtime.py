@@ -258,10 +258,10 @@ def test_default_store_requires_shared_redis(monkeypatch: object) -> None:
 
 
 def test_session_returns_profile_draft_only_in_terminal_metadata() -> None:
-    _app, runtime, providers = _make_runtime(["- 称呼：", "小雨"])
+    _app, runtime, providers = _make_runtime(["背景：", "产品经理"])
     session = runtime.start_session(
         user_bid="user-1",
-        document="?[%{{role}} 学生//student | 老师//teacher]",
+        document="?[%{{sys_user_nickname}}...平时希望怎么称呼你？]",
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=7,
         output_language=None,
@@ -286,13 +286,14 @@ def test_session_returns_profile_draft_only_in_terminal_metadata() -> None:
         runtime.stream_session(
             user_bid="user-1",
             session_id=session_id,
-            user_input={"role": ["student"]},
+            user_input={"sys_user_nickname": ["小雨"]},
             expected_purpose=PROFILE_ONBOARDING_PURPOSE,
             expected_block_index=0,
             request_id="answer-1",
         )
     )
     assert _terminal(answered)["content"]["next_block_index"] == 1
+    assert _terminal(answered)["content"]["nickname"] is None
 
     completed = list(
         runtime.stream_session(
@@ -307,10 +308,11 @@ def test_session_returns_profile_draft_only_in_terminal_metadata() -> None:
     assert [event["event_type"] for event in completed] == ["done"]
     summary = _terminal(completed)["content"]
     assert summary["done"] is True
-    assert summary["profile_draft"] == "- 称呼：小雨"
+    assert summary["profile_draft"] == "背景：产品经理"
+    assert summary["nickname"] == "小雨"
     assert summary["config_revision"] == 7
     assert any(
-        "student" in str(messages)
+        "小雨" in str(messages)
         for provider in providers
         for messages in provider.messages
     )
@@ -972,8 +974,7 @@ def test_session_snapshots_summary_and_model_settings() -> None:
     app.config.update(DEFAULT_LLM_MODEL="changed-model", DEFAULT_LLM_TEMPERATURE=1.7)
 
     assert stored.document == (
-        f"{document}\n\n---\n\n"
-        f"{load_prompt_template('profile_research_summary').strip()}"
+        f"{document}\n\n---\n\n{profile_research_runtime._profile_summary_prompt()}"
     )
     assert stored.model == "gpt-test"
     assert stored.temperature == 0.3
@@ -988,13 +989,15 @@ def test_session_snapshots_summary_and_model_settings() -> None:
 
 
 def test_profile_summary_prompt_requires_plain_text_without_placeholders() -> None:
-    summary_prompt = load_prompt_template("profile_research_summary")
+    summary_prompt = profile_research_runtime._profile_summary_prompt()
+    optimizer_prompt = load_prompt_template("learner_profile_optimizer").strip()
 
-    assert "plain-text profile" in summary_prompt
-    assert "Do not use Markdown, JSON, XML, YAML" in summary_prompt
-    assert "template or variable placeholder syntax" in summary_prompt
-    assert "How to address the user" in summary_prompt
-    assert "Preferred slide style" in summary_prompt
+    assert summary_prompt.endswith(optimizer_prompt)
+    assert "detailed reusable profile" in summary_prompt
+    assert "exclude names, nicknames, and forms of address" in summary_prompt
+    assert "plain text" in summary_prompt
+    assert "Never invent personal facts" in summary_prompt
+    assert "within 1000 Unicode code points" in summary_prompt
     assert "{{" not in summary_prompt
 
 

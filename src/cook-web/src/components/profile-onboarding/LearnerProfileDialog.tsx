@@ -50,6 +50,7 @@ type CollectionTriggerSource = 'guided' | 'settings';
 
 export type ProfileCollectionResult = {
   draft: string;
+  nickname?: string;
   completion: {
     triggerSource: CollectionTriggerSource;
     sessionId: string;
@@ -94,6 +95,7 @@ export default function LearnerProfileDialog({
     React.useState('');
   const [collectionResult, setCollectionResult] =
     React.useState<ProfileCollectionResult | null>(null);
+  const [collectionReady, setCollectionReady] = React.useState(false);
   const [collectionError, setCollectionError] = React.useState('');
   const [collectionKey, setCollectionKey] = React.useState(0);
   const [profile, setProfile] = React.useState('');
@@ -134,6 +136,9 @@ export default function LearnerProfileDialog({
   const viewHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const confirmationHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const contentScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const collectionContinueButtonRef = React.useRef<HTMLButtonElement | null>(
+    null,
+  );
   const translationRef = React.useRef(t);
   const mountedRef = React.useRef(false);
   const openRef = React.useRef(open);
@@ -183,6 +188,7 @@ export default function LearnerProfileDialog({
       setCollectionIntent(intent);
       setActiveCollectionSessionId('');
       setCollectionError('');
+      setCollectionReady(false);
       setCollectionKey(journey);
       setPhase('collect');
       resetOptimization();
@@ -332,6 +338,7 @@ export default function LearnerProfileDialog({
     setConfirmation(null);
     setActiveCollectionSessionId('');
     setCollectionResult(null);
+    setCollectionReady(false);
     setCollectionError('');
     setGuidedAvailable(false);
     setManualFallback(false);
@@ -388,6 +395,12 @@ export default function LearnerProfileDialog({
       viewHeadingRef.current?.focus();
     }
   }, [confirmation, loaded, phase]);
+
+  React.useEffect(() => {
+    if (phase === 'collect' && collectionReady) {
+      collectionContinueButtonRef.current?.focus();
+    }
+  }, [collectionReady, phase]);
 
   const runOnSaved = React.useCallback(
     async (generation: number, scope: string) => {
@@ -732,11 +745,22 @@ export default function LearnerProfileDialog({
       setActiveCollectionSessionId(result.completion.sessionId);
       setCollectionError('');
       setProfile(result.draft);
+      if (result.nickname !== undefined) {
+        setNickname(result.nickname);
+      }
       resetOptimization();
-      setPhase('save');
+      setCollectionReady(true);
     },
     [isCurrent, resetOptimization],
   );
+
+  const continueToSave = React.useCallback(() => {
+    if (!collectionReady || !collectionResult || busy) {
+      return;
+    }
+    setCollectionReady(false);
+    setPhase('save');
+  }, [busy, collectionReady, collectionResult]);
 
   const cancelCollection = React.useCallback(() => {
     collectionJourneyRef.current += 1;
@@ -745,6 +769,7 @@ export default function LearnerProfileDialog({
     setOptimizing(false);
     setActiveCollectionSessionId(collectionResult?.completion.sessionId ?? '');
     setCollectionError('');
+    setCollectionReady(false);
     setPhase('save');
     resetOptimization();
   }, [collectionResult, resetOptimization]);
@@ -1169,10 +1194,13 @@ export default function LearnerProfileDialog({
                         setActiveCollectionSessionId(sessionId);
                       }
                     }}
-                    onDraftReady={(draft, sessionId) =>
+                    onDraftReady={(draft, sessionId, collectedNickname) =>
                       acceptCollectionResult(
                         {
                           draft,
+                          ...(collectedNickname
+                            ? { nickname: collectedNickname }
+                            : {}),
                           completion: {
                             triggerSource:
                               collectionIntent === 'settings'
@@ -1214,6 +1242,14 @@ export default function LearnerProfileDialog({
                     }}
                   />
                 </div>
+                {collectionReady ? (
+                  <div
+                    role='status'
+                    className='mt-3 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
+                  >
+                    {t('module.profileOnboarding.guided.collectionComplete')}
+                  </div>
+                ) : null}
               </section>
             ) : (
               renderSave()
@@ -1358,7 +1394,20 @@ export default function LearnerProfileDialog({
                     </Button>
                   ) : null}
                 </div>
-                {phase === 'collect' && exitPolicy === 'dismissible' ? (
+                {phase === 'collect' && collectionReady ? (
+                  <Button
+                    ref={collectionContinueButtonRef}
+                    type='button'
+                    className='ml-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                    disabled={busy}
+                    onClick={continueToSave}
+                  >
+                    {t('module.profileOnboarding.guided.reviewCollection')}
+                  </Button>
+                ) : null}
+                {phase === 'collect' &&
+                !collectionReady &&
+                exitPolicy === 'dismissible' ? (
                   <Button
                     type='button'
                     variant='outline'
