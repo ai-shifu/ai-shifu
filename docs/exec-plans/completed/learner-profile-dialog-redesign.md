@@ -11,8 +11,7 @@ the human teacher's course design.
 ## Progress
 
 - [x] 2026-08-15 CST: The dialog, canonical profile contract, optimizer,
-      compatibility behavior, and focused validation are implemented. The plan
-      remains active only while its pull request completes review and CI.
+      compatibility behavior, and focused validation are implemented.
 - [x] 2026-08-24 CST: Removed the separate profile-research document prompt
       from operator configuration, learner and preview APIs, Redis sessions, and
       the admin editor. MarkdownFlow now owns the complete research conversation;
@@ -21,8 +20,9 @@ the human teacher's course design.
       introduction opens directly in the shared editor without automatic
       optimization. The hidden summary block no longer emits learner-visible
       MarkdownFlow content events.
-- [ ] 2026-08-24 CST: Complete the widened backend, frontend, i18n, repository,
-      and CI verification for the direct-to-editor completion contract.
+- [x] 2026-08-24 CST: Completed the widened backend, frontend, i18n,
+      repository, and CI verification for the direct-to-editor completion
+      contract.
 - [x] 2026-08-24 CST: Added an explicit collection-complete handoff before the
       save editor, carried `sys_user_nickname` into canonical nickname saving,
       and made the hidden research summary reuse the manual optimizer rules.
@@ -35,8 +35,9 @@ available only to existing compatibility flows and courses.
 
 ## Decision Log
 
-- The dialog follows one flow: purpose, nickname, long-term introduction,
-  AI optimization, then save.
+- The dialog follows one flow: collect learner context when needed, review the
+  nickname and long-term introduction, optionally improve the introduction,
+  then save.
 - Nickname and introduction are independent inputs. The system never extracts a
   nickname from introduction prose; an exact `sys_user_nickname` MarkdownFlow
   assignment is carried separately into the nickname input and final save.
@@ -100,12 +101,12 @@ Collection completion itself does not invoke this optimizer.
   `src/api/flaskr/service/profile/learner_profile_optimizer.py` and
   `src/api/flaskr/service/profile/learner_profile_optimizer_admission.py`
 - Learner-profile routes:
-  `src/api/flaskr/route/user.py`
+  `src/api/flaskr/route/profile.py`
 
 ## Plan of Work
 
-No implementation work remains. Keep this plan active until the associated PR
-merges; future changes must preserve the final contracts below.
+Implementation and verification are complete. Future changes must preserve the
+final contracts below.
 
 ## Concrete Steps
 
@@ -117,9 +118,9 @@ legacy `sys_*` variables or make profile optimization a persistence action.
 
 - Opening learner settings keeps the lesson visible and opens the same
   accessible dialog used for first-time onboarding.
-- The dialog exposes a separate nickname field and long-term introduction;
-  guidance cards are informational and do not fill the editor.
-- The introduction editor uses `clamp(7rem, 16dvh, 11rem)`, is not manually
+- The dialog exposes a separate nickname field and long-term introduction; the
+  permanent purpose statement explains why the information is collected.
+- The introduction editor uses `clamp(7rem, 18dvh, 12rem)`, is not manually
   resizable, and scrolls internally when content overflows.
 - Canonical PUT accepts an empty introduction, preserves an omitted nickname,
   and clears a supplied empty nickname. DELETE remains a compatibility API that

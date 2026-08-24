@@ -17,12 +17,17 @@ facades.
 
 - [x] 2026-08-24 CST: Confirmed a clean worktree at the green PR head, reviewed
       the frontend and backend hotspots, and selected an in-PR deep refactor.
-- [ ] Split the profile-research runtime behind its existing public API.
-- [ ] Isolate legacy onboarding projection and learner/admin route registration.
-- [ ] Replace dialog and conversation boolean clusters with explicit state
+- [x] 2026-08-24 CST: Split the profile-research runtime behind its existing
+      public API.
+- [x] 2026-08-24 CST: Isolated legacy onboarding projection and learner/admin
+      route registration.
+- [x] 2026-08-24 CST: Replaced dialog and conversation boolean clusters with
+      explicit state
       models and controller hooks.
-- [ ] Extract the course gate and admin configuration controllers.
-- [ ] Reorganize tests and reconcile the completed feature plans.
+- [x] 2026-08-24 CST: Extracted the course gate and admin configuration
+      controllers.
+- [x] 2026-08-25 CST: Added pure reducer/model suites while retaining the
+      characterization suites, and reconciled the completed dialog plan.
 - [ ] Pass focused, static, repository, visual, and GitHub CI gates.
 
 ## Surprises & Discoveries
@@ -32,8 +37,16 @@ facades.
 - Private runtime tests patch implementation paths directly. Those patches may
   move with internal modules, while `flaskr.service.profile_research.api`
   remains the supported boundary.
-- The active learner-profile plan already records the direct-to-editor
-  completion contract but remains active only because PR #2308 has not merged.
+- The learner-profile dialog plan already recorded the direct-to-editor
+  completion contract and was complete independently of the PR merge, so it
+  was reconciled and archived during this refactor.
+- The oversized characterization suites are valuable behavioral anchors. They
+  remain intact instead of being mechanically moved; the new reducer and model
+  suites now own pure transition coverage without duplicating integration
+  setup.
+- Browser viewport overrides recreate the responsive course shell in the local
+  harness. Visual checks therefore opened each target state after applying its
+  viewport rather than treating the override as an in-session resize test.
 
 ## Decision Log
 
@@ -59,11 +72,11 @@ This section will be updated after the refactor and verification complete.
 
 ## Context and Orientation
 
-Frontend orchestration currently lives in the profile-onboarding dialog and
-conversation components, with course gating embedded in the catch-all course
-page. Backend orchestration lives in `service/profile_research/runtime.py`,
-while compatibility and V2 state share `service/profile/onboarding.py`; learner
-and operator endpoints are embedded in two large route registrars.
+Frontend orchestration now lives behind dialog, conversation, course-gate, and
+operator controller hooks, while the public components remain stable facades.
+Backend orchestration remains exposed by `service.profile_research.api`, with
+Redis sessions, documents, events, providers, legacy projection, and focused
+route registration separated behind that boundary.
 
 ## Plan of Work
 
@@ -72,7 +85,8 @@ validation, event replay, and provider concerns. Then isolate legacy protocol
 code and route registration. Refactor the frontend from the inside out:
 conversation model/controller, dialog reducer/controller/views, and finally
 host-page controllers. Keep characterization tests green after each layer,
-then split test files and fixtures without dropping cases.
+then add focused model suites and reconcile the existing feature plans without
+dropping characterization cases.
 
 ## Concrete Steps
 
@@ -84,8 +98,9 @@ then split test files and fixtures without dropping cases.
 5. Extract conversation pure adapters and one session-state controller.
 6. Add the dialog reducer, selectors, async controller, and presentation views.
 7. Extract the course gate and operator configuration/preview controller.
-8. Split oversized tests by behavior, reconcile the feature plans, regenerate
-   repository docs, and run every required gate.
+8. Add focused reducer/model tests, retain the behavioral characterization
+   suites, reconcile the feature plans, regenerate repository docs, and run
+   every required gate.
 
 ## Validation and Acceptance
 
