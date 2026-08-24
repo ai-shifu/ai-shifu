@@ -8,6 +8,10 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 
 let mockSearchParamsValue = '';
 
+jest.mock('sse.js', () => ({
+  SSE: jest.fn(),
+}));
+
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: ['123'] }),
   useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
