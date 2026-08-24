@@ -543,8 +543,15 @@ describe('GlobalBillingPricing', () => {
 
     const smallPack = screen.getByTestId('global-credit-pack-250');
     const largePack = screen.getByTestId('global-credit-pack-3000');
+    expect(screen.getByTestId('global-credit-pack-grid')).toHaveClass(
+      'grid',
+      'md:grid-cols-2',
+    );
     expect(within(smallPack).getByText('$29')).toBeInTheDocument();
     expect(within(largePack).getByText('$279')).toBeInTheDocument();
+    expect(
+      within(largePack).getByRole('button', { name: 'Buy credits' }),
+    ).toHaveClass('min-w-32');
     expect(
       screen.getByText('Credits are added immediately and never expire.'),
     ).toBeInTheDocument();

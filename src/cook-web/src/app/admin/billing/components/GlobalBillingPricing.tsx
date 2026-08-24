@@ -472,11 +472,8 @@ export function GlobalBillingPricing() {
             {globalProducts ? (
               <div className='space-y-6'>
                 <div
-                  className='mx-auto grid max-w-3xl gap-4 px-1'
-                  style={{
-                    gridTemplateColumns:
-                      'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-                  }}
+                  className='grid gap-4 px-1 md:grid-cols-2'
+                  data-testid='global-credit-pack-grid'
                 >
                   {CREDIT_PACK_CODES.map(code => {
                     const product = globalProducts.get(
@@ -494,7 +491,7 @@ export function GlobalBillingPricing() {
                     return (
                       <TopupCard
                         key={code}
-                        actionClassName='min-h-11'
+                        actionClassName='min-h-11 min-w-32'
                         actionLabel={t(
                           'module.billing.globalPricing.actions.buyCredits',
                         )}
@@ -522,7 +519,7 @@ export function GlobalBillingPricing() {
                     );
                   })}
                 </div>
-                <div className='mx-auto max-w-3xl text-sm leading-6 text-muted-foreground'>
+                <div className='w-full text-sm leading-6 text-muted-foreground'>
                   <ul className='list-disc space-y-2 pl-5'>
                     <li>
                       {t(
