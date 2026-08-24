@@ -481,7 +481,6 @@ def test_dual_get_contract_covers_fresh_legacy_canonical_v2_and_fail_open(
     enabled_config = {
         "enabled": True,
         "markdownflow": VALID_GUIDED_FLOW,
-        "document_prompt": "Keep the result concise.",
         "revision": 9,
     }
     _set_config(monkeypatch, enabled_config)

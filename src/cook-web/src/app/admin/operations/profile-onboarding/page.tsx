@@ -22,7 +22,6 @@ import useOperatorGuard from '../useOperatorGuard';
 type ProfileOnboardingConfig = {
   enabled?: boolean;
   markdownflow?: string;
-  document_prompt?: string;
   config_revision?: number;
   allowed_variable_keys?: string[];
   version?: number;
@@ -36,7 +35,6 @@ export default function ProfileOnboardingAdminPage() {
   const { isReady } = useOperatorGuard();
   const [enabled, setEnabled] = React.useState(false);
   const [markdownflow, setMarkdownflow] = React.useState('');
-  const [documentPrompt, setDocumentPrompt] = React.useState('');
   const [configRevision, setConfigRevision] = React.useState(0);
   const [updatedBy, setUpdatedBy] = React.useState('');
   const [updatedAt, setUpdatedAt] = React.useState('');
@@ -49,9 +47,6 @@ export default function ProfileOnboardingAdminPage() {
   const loadStartedRef = React.useRef(false);
   const defaultMarkdownflow = t(
     'module.profileOnboarding.admin.defaultMarkdownflow',
-  );
-  const defaultDocumentPrompt = t(
-    'module.profileOnboarding.admin.defaultDocumentPrompt',
   );
 
   React.useEffect(() => {
@@ -73,11 +68,6 @@ export default function ProfileOnboardingAdminPage() {
             ? (response.markdownflow ?? defaultMarkdownflow)
             : response.markdownflow || defaultMarkdownflow,
         );
-        setDocumentPrompt(
-          hasStoredConfiguration
-            ? (response.document_prompt ?? defaultDocumentPrompt)
-            : response.document_prompt || defaultDocumentPrompt,
-        );
         setConfigRevision(loadedRevision);
         setUpdatedBy(response.updated_by || '');
         setUpdatedAt(response.updated_at || '');
@@ -92,7 +82,7 @@ export default function ProfileOnboardingAdminPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [defaultDocumentPrompt, defaultMarkdownflow, isReady, t]);
+  }, [defaultMarkdownflow, isReady, t]);
 
   const handleSave = React.useCallback(async () => {
     if (enabled && !markdownflow.trim()) {
@@ -102,7 +92,6 @@ export default function ProfileOnboardingAdminPage() {
     const submittedConfig = {
       enabled,
       markdownflow,
-      documentPrompt,
     };
     setSaving(true);
     setError('');
@@ -110,7 +99,6 @@ export default function ProfileOnboardingAdminPage() {
       const response = (await api.updateAdminOperationProfileOnboardingConfig({
         enabled: submittedConfig.enabled,
         markdownflow: submittedConfig.markdownflow,
-        document_prompt: submittedConfig.documentPrompt,
       })) as ProfileOnboardingConfig;
       setEnabled(currentValue =>
         currentValue === submittedConfig.enabled
@@ -120,11 +108,6 @@ export default function ProfileOnboardingAdminPage() {
       setMarkdownflow(currentValue =>
         currentValue === submittedConfig.markdownflow
           ? (response.markdownflow ?? submittedConfig.markdownflow)
-          : currentValue,
-      );
-      setDocumentPrompt(currentValue =>
-        currentValue === submittedConfig.documentPrompt
-          ? (response.document_prompt ?? submittedConfig.documentPrompt)
           : currentValue,
       );
       setConfigRevision(
@@ -143,26 +126,16 @@ export default function ProfileOnboardingAdminPage() {
     } finally {
       setSaving(false);
     }
-  }, [
-    configRevision,
-    documentPrompt,
-    enabled,
-    markdownflow,
-    t,
-    toast,
-    updatedAt,
-    updatedBy,
-  ]);
+  }, [configRevision, enabled, markdownflow, t, toast, updatedAt, updatedBy]);
 
   const createPreviewSession = React.useCallback(async () => {
     setPreviewDraft('');
     setError('');
     return (await api.createAdminOperationProfileOnboardingPreview({
       markdownflow,
-      document_prompt: documentPrompt,
       language: i18n.resolvedLanguage ?? i18n.language,
     })) as ProfileOnboardingSessionInfo;
-  }, [documentPrompt, i18n.language, i18n.resolvedLanguage, markdownflow]);
+  }, [i18n.language, i18n.resolvedLanguage, markdownflow]);
 
   const runPreviewSession = React.useCallback<ProfileOnboardingRunSession>(
     ({
@@ -249,22 +222,6 @@ export default function ProfileOnboardingAdminPage() {
               checked={enabled}
               aria-label={t('module.profileOnboarding.admin.enabled')}
               onCheckedChange={setEnabled}
-            />
-          </div>
-
-          <div className='space-y-2'>
-            <Label htmlFor='profile-onboarding-document-prompt'>
-              {t('module.profileOnboarding.admin.documentPrompt')}
-            </Label>
-            <p className='text-sm text-muted-foreground'>
-              {t('module.profileOnboarding.admin.documentPromptHint')}
-            </p>
-            <Textarea
-              id='profile-onboarding-document-prompt'
-              value={documentPrompt}
-              minRows={4}
-              maxRows={8}
-              onChange={event => setDocumentPrompt(event.target.value)}
             />
           </div>
 

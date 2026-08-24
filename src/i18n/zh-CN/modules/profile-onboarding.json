@@ -2,11 +2,8 @@
   "__namespace__": "module.profileOnboarding",
   "admin": {
     "configRevision": "配置修订号",
-    "defaultDocumentPrompt": "用自然、简洁的对话了解学员与学习有关的个人情况。可以根据回答追问，但不要索取联系方式、精确住址、证件、健康或财务等敏感信息。",
     "defaultMarkdownflow": "我们先简单认识一下，让之后的课程更贴合你。\n?[%{{profile_address}}...平时希望怎么称呼你？]\n?[%{{profile_background}}...你的职业背景、身份和相关经验是什么？]\n?[%{{profile_expression_style}}...你喜欢怎样的表达风格？]\n?[%{{profile_slide_style}}...你喜欢怎样的幻灯片风格？]\n?[%{{profile_recent_interests}}...最近在关注哪些事情？]",
     "description": "配置学习画像调研对话。学员的最终画像由平台锁定的总结步骤生成。",
-    "documentPrompt": "调研对话提示词",
-    "documentPromptHint": "说明调研目标与边界；具体交互仍由下方 MarkdownFlow 文档定义。",
     "documentRequired": "启用引导前，请先填写可运行的 MarkdownFlow 文档。",
     "enabled": "启用学习画像收集",
     "enabledHint": "此开关只控制是否继续收集；关闭后，已保存的画像仍会用于个性化课程。",

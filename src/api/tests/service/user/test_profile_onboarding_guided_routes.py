@@ -5,9 +5,6 @@ from types import SimpleNamespace
 from typing import Never
 
 import pytest
-from flaskr.service.common.profile_onboarding import (
-    PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS,
-)
 from flaskr.service.profile_research.api import (
     ProfileResearchSessionBusy,
 )
@@ -43,7 +40,6 @@ def _markdownflow_for_preview_config_size(*, target_bytes: int) -> str:
     payload = module.build_profile_onboarding_config_payload(
         enabled=False,
         markdownflow=markdownflow_prefix,
-        document_prompt="",
         revision=6,
         updated_by="profile-route-user",
     )
@@ -473,7 +469,6 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
         lambda: {
             "enabled": True,
             "markdownflow": "  ?[Continue]  ",
-            "document_prompt": "  summary prompt  ",
             "revision": 12,
         },
     )
@@ -510,7 +505,6 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
         {
             "user_bid": user.user_id,
             "document": "?[Continue]",
-            "document_prompt": "summary prompt",
             "purpose": "profile-onboarding",
             "config_revision": 12,
             "output_language": "zh-CN",
@@ -529,7 +523,6 @@ def test_profile_onboarding_session_start_rejects_unsupported_language(
         lambda: {
             "enabled": True,
             "markdownflow": "?[continue]",
-            "document_prompt": "",
             "revision": 1,
         },
     )
@@ -645,7 +638,6 @@ def test_profile_onboarding_session_start_enforces_intent_eligibility(
         lambda: {
             "enabled": True,
             "markdownflow": "?[继续]",
-            "document_prompt": "",
             "revision": 1,
         },
     )
@@ -1082,7 +1074,6 @@ def test_operator_profile_onboarding_config_routes_delegate(
         json={
             "enabled": True,
             "markdownflow": "flow",
-            "document_prompt": "prompt",
         },
     )
 
@@ -1093,7 +1084,6 @@ def test_operator_profile_onboarding_config_routes_delegate(
             "payload": {
                 "enabled": True,
                 "markdownflow": "flow",
-                "document_prompt": "prompt",
             },
             "operator_user_bid": user.user_id,
         }
@@ -1122,7 +1112,6 @@ def test_operator_profile_onboarding_preview_start_is_isolated_and_purpose_scope
         headers={"Token": "token"},
         json={
             "markdownflow": "  unsaved editor flow  ",
-            "document_prompt": "  unsaved prompt  ",
             "language": "fr_fr",
         },
     )
@@ -1135,7 +1124,6 @@ def test_operator_profile_onboarding_preview_start_is_isolated_and_purpose_scope
         {
             "user_bid": user.user_id,
             "document": "unsaved editor flow",
-            "document_prompt": "unsaved prompt",
             "purpose": "profile-onboarding-preview",
             "config_revision": 5,
             "output_language": "fr-FR",
@@ -1257,7 +1245,7 @@ def test_operator_profile_onboarding_preview_accepts_exact_publish_size(
     assert len(saved_sessions) == 1
 
 
-def test_operator_profile_onboarding_preview_rejects_oversized_document_prompt(
+def test_operator_profile_onboarding_preview_rejects_removed_document_prompt_field(
     monkeypatch: object, test_client: object
 ) -> None:
     _authenticate(monkeypatch)
@@ -1276,8 +1264,7 @@ def test_operator_profile_onboarding_preview_rejects_oversized_document_prompt(
         headers={"Token": "token"},
         json={
             "markdownflow": "?[Continue]",
-            "document_prompt": "x"
-            * (PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS + 1),
+            "document_prompt": "removed",
         },
     )
 
@@ -1370,6 +1357,11 @@ def test_operator_profile_onboarding_preview_start_maps_busy_error(
         None,
         [],
         {"enabled": True, "markdownflow": "flow", "revision": 4},
+        {
+            "enabled": True,
+            "markdownflow": "flow",
+            "document_prompt": "removed",
+        },
     ],
 )
 def test_operator_profile_onboarding_config_rejects_invalid_shapes(
@@ -1398,7 +1390,7 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
         ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview",
-            {"markdownflow": "flow", "document_prompt": 3},
+            {"markdownflow": "flow", "unexpected": 3},
         ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview",

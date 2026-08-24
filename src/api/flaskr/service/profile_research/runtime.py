@@ -209,7 +209,6 @@ class _ProfileResearchSession:
     user_bid: str
     purpose: str
     document: str
-    document_prompt: str
     model: str
     temperature: float
     output_language: str
@@ -234,7 +233,6 @@ class _ProfileResearchSession:
             "user_bid": self.user_bid,
             "purpose": self.purpose,
             "document": self.document,
-            "document_prompt": self.document_prompt,
             "model": self.model,
             "temperature": self.temperature,
             "output_language": self.output_language,
@@ -275,7 +273,6 @@ class _ProfileResearchSession:
                 user_bid=str(payload["user_bid"]),
                 purpose=str(payload["purpose"]),
                 document=str(payload["document"]),
-                document_prompt=str(payload.get("document_prompt") or ""),
                 model=str(payload["model"]),
                 temperature=float(payload["temperature"]),
                 output_language=str(payload.get("output_language") or ""),
@@ -677,7 +674,6 @@ class ProfileResearchRuntime:
         *,
         user_bid: str,
         document: str,
-        document_prompt: str | None,
         purpose: str,
         config_revision: int,
         output_language: str | None,
@@ -723,7 +719,6 @@ class ProfileResearchRuntime:
             user_bid=normalized_user_bid,
             purpose=normalized_purpose,
             document=snapshotted_document,
-            document_prompt=str(document_prompt or "").strip(),
             model=model,
             temperature=temperature,
             output_language=normalized_output_language,
@@ -860,15 +855,9 @@ class ProfileResearchRuntime:
         session: _ProfileResearchSession,
         provider: LLMProvider,
     ) -> MarkdownFlow:
-        document_prompt = (
-            None
-            if session.block_index == session.profile_draft_block_index
-            else session.document_prompt or None
-        )
         flow = MarkdownFlow(
             document=session.document,
             llm_provider=provider,
-            document_prompt=document_prompt,
         )
         flow.set_model(session.model)
         flow.set_temperature(session.temperature)
@@ -1239,7 +1228,6 @@ def start_profile_research_session(
     *,
     user_bid: str,
     document: str,
-    document_prompt: str | None = None,
     purpose: str,
     config_revision: int = 0,
     output_language: str | None = None,
@@ -1248,7 +1236,6 @@ def start_profile_research_session(
     return ProfileResearchRuntime(app).start_session(
         user_bid=user_bid,
         document=document,
-        document_prompt=document_prompt,
         purpose=purpose,
         config_revision=config_revision,
         output_language=output_language,

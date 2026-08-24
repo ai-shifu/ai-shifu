@@ -11,8 +11,12 @@ the human teacher's course design.
 ## Progress
 
 - [x] 2026-08-15 CST: The dialog, canonical profile contract, optimizer,
-  compatibility behavior, and focused validation are implemented. The plan
-  remains active only while its pull request completes review and CI.
+      compatibility behavior, and focused validation are implemented. The plan
+      remains active only while its pull request completes review and CI.
+- [x] 2026-08-24 CST: Removed the separate profile-research document prompt
+      from operator configuration, learner and preview APIs, Redis sessions, and
+      the admin editor. MarkdownFlow now owns the complete research conversation;
+      the platform-locked profile summary remains the only appended instruction.
 
 ## Surprises & Discoveries
 
@@ -40,6 +44,9 @@ available only to existing compatibility flows and courses.
   feature-specific environment variables.
 - `sys_user_nickname` and all legacy variable writers, readers, and runtime
   behavior remain unchanged.
+- Profile onboarding configuration contains only the enable switch and the
+  MarkdownFlow document. Legacy stored `document_prompt` keys are ignored and
+  disappear on the next save; they are never returned or executed.
 
 ## Outcomes & Retrospective
 

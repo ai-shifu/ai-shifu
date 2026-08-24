@@ -2,11 +2,8 @@
   "__namespace__": "module.profileOnboarding",
   "admin": {
     "configRevision": "Révision de configuration",
-    "defaultDocumentPrompt": "Menez une conversation naturelle et concise pour comprendre le contexte utile à l’apprentissage. Relancez si nécessaire, sans demander de coordonnées, d’adresse exacte, de pièce d’identité, de données de santé ou financières.",
     "defaultMarkdownflow": "Faisons brièvement connaissance afin que les prochains cours vous correspondent mieux.\n?[%{{profile_address}}...Comment souhaitez-vous être appelé ?]\n?[%{{profile_background}}...Quel est votre parcours professionnel, votre identité et votre expérience pertinente ?]\n?[%{{profile_expression_style}}...Quel style d’expression préférez-vous ?]\n?[%{{profile_slide_style}}...Quel style de diapositives préférez-vous ?]\n?[%{{profile_recent_interests}}...Quels sujets vous intéressent récemment ?]",
     "description": "Configurez la conversation de recherche du profil d’apprentissage. Une étape de synthèse verrouillée par la plateforme produit le profil final.",
-    "documentPrompt": "Prompt de la conversation de recherche",
-    "documentPromptHint": "Décrivez l’objectif et les limites de la recherche ; le document MarkdownFlow ci-dessous définit les interactions.",
     "documentRequired": "Ajoutez un document MarkdownFlow exécutable avant d’activer le guide.",
     "enabled": "Activer la collecte du profil d’apprentissage",
     "enabledHint": "Ce bouton contrôle uniquement la collecte. Les profils enregistrés continuent de personnaliser les cours lorsqu’elle est désactivée.",

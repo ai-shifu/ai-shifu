@@ -16,7 +16,6 @@ def test_profile_onboarding_config_uses_runtime_validation(
     current_config = {
         "enabled": False,
         "markdownflow": "",
-        "document_prompt": "",
         "revision": 4,
         "updated_by": "",
         "updated_at": "",
@@ -44,7 +43,6 @@ def test_profile_onboarding_config_uses_runtime_validation(
         payload={
             "enabled": True,
             "markdownflow": document,
-            "document_prompt": "Ask concise follow-up questions.",
         },
         operator_user_bid="operator-1",
     )
@@ -55,8 +53,9 @@ def test_profile_onboarding_config_uses_runtime_validation(
     assert result["config_revision"] == 5
     assert result["version"] == 5
     assert result["markdownflow"] == document
-    assert result["document_prompt"] == "Ask concise follow-up questions."
+    assert "document_prompt" not in result
     assert saved_payloads[0]["markdownflow"] == document
+    assert "document_prompt" not in saved_payloads[0]
     assert result["allowed_variable_keys"] == [
         "sys_user_nickname",
         "sys_user_style",
@@ -70,14 +69,6 @@ def test_profile_onboarding_config_uses_runtime_validation(
         ({"enabled": "false", "markdownflow": "?[Continue]"}, "enabled"),
         ({"enabled": True, "markdownflow": ""}, "markdownflow"),
         ({"enabled": False, "markdownflow": []}, "markdownflow"),
-        (
-            {
-                "enabled": False,
-                "markdownflow": "?[Continue]",
-                "document_prompt": {},
-            },
-            "document_prompt",
-        ),
     ],
 )
 def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
@@ -156,38 +147,6 @@ def test_profile_onboarding_config_rejects_oversized_button_values(
     assert saved_payloads == []
 
 
-def test_profile_onboarding_config_rejects_oversized_document_prompt(
-    app: object, monkeypatch: object
-) -> None:
-    from flaskr.service.common import profile_onboarding as module
-
-    saved_payloads: list[dict] = []
-    monkeypatch.setattr(
-        module,
-        "load_profile_onboarding_config_payload",
-        lambda: module.normalize_profile_onboarding_config_payload({}),
-    )
-    monkeypatch.setattr(
-        module,
-        "save_profile_onboarding_config_payload",
-        lambda _app, payload, **_kwargs: saved_payloads.append(payload),
-    )
-
-    with pytest.raises(AppError, match="document_prompt"):
-        module.update_profile_onboarding_config(
-            app,
-            payload={
-                "enabled": False,
-                "markdownflow": "",
-                "document_prompt": "x"
-                * (module.PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS + 1),
-            },
-            operator_user_bid="operator-1",
-        )
-
-    assert saved_payloads == []
-
-
 def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
     app: object, monkeypatch: object
 ) -> None:
@@ -204,7 +163,6 @@ def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
     payload = module.build_profile_onboarding_config_payload(
         enabled=False,
         markdownflow=markdownflow_prefix,
-        document_prompt="",
         revision=1,
         updated_by="operator-1",
     )
@@ -235,18 +193,8 @@ def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
     assert saved_values == [json.dumps(payload, ensure_ascii=False)]
 
 
-@pytest.mark.parametrize(
-    ("payload", "expected_document_prompt"),
-    [
-        ({"enabled": False, "markdownflow": ""}, "Keep this prompt."),
-        (
-            {"enabled": False, "markdownflow": "", "document_prompt": ""},
-            "",
-        ),
-    ],
-)
-def test_profile_onboarding_config_preserves_only_omitted_document_prompt(
-    app: object, monkeypatch: object, payload: object, expected_document_prompt: object
+def test_profile_onboarding_config_drops_legacy_document_prompt(
+    app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.common import profile_onboarding as module
 
@@ -270,12 +218,13 @@ def test_profile_onboarding_config_preserves_only_omitted_document_prompt(
 
     result = module.update_profile_onboarding_config(
         app,
-        payload=payload,
+        payload={"enabled": False, "markdownflow": ""},
         operator_user_bid="operator-1",
     )
 
-    assert saved_payloads[0]["document_prompt"] == expected_document_prompt
-    assert result["document_prompt"] == expected_document_prompt
+    assert "document_prompt" not in current_config
+    assert "document_prompt" not in saved_payloads[0]
+    assert "document_prompt" not in result
 
 
 def test_profile_onboarding_config_reads_legacy_version_as_revision() -> None:

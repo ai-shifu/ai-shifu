@@ -2,11 +2,8 @@
   "__namespace__": "module.profileOnboarding",
   "admin": {
     "configRevision": "Config revision",
-    "defaultDocumentPrompt": "Use a natural, concise conversation to learn profile context relevant to the learner's studies. Follow up when useful, but do not request contact details, exact addresses, IDs, health data, or financial data.",
     "defaultMarkdownflow": "Let's get to know you briefly so future courses can fit you better.\n?[%{{profile_address}}...What would you like to be called?]\n?[%{{profile_background}}...What is your professional background, identity, and relevant experience?]\n?[%{{profile_expression_style}}...What expression style do you prefer?]\n?[%{{profile_slide_style}}...What slide style do you prefer?]\n?[%{{profile_recent_interests}}...What have you been focusing on recently?]",
     "description": "Configure the learning-profile research conversation. A platform-locked summary step produces the learner's final profile.",
-    "documentPrompt": "Research conversation prompt",
-    "documentPromptHint": "Describe the research goal and boundaries; the MarkdownFlow document below defines the actual interactions.",
     "documentRequired": "Add a runnable MarkdownFlow document before enabling the guide.",
     "enabled": "Enable learning-profile collection",
     "enabledHint": "This switch controls collection only. Saved profiles continue to personalize courses when collection is off.",

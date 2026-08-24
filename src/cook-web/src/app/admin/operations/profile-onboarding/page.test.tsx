@@ -94,7 +94,6 @@ describe('ProfileOnboardingAdminPage', () => {
     mockGetConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      document_prompt: '只调研与学习有关的信息',
       allowed_variable_keys: [
         'sys_user_nickname',
         'sys_user_style',
@@ -107,11 +106,10 @@ describe('ProfileOnboardingAdminPage', () => {
     mockCreatePreview.mockResolvedValue({ session_id: 'preview-session-1' });
   });
 
-  test('saves arbitrary official MarkdownFlow variables and the document prompt', async () => {
+  test('saves arbitrary official MarkdownFlow variables without a separate prompt', async () => {
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
-      document_prompt: '根据回答自然追问',
       config_revision: 3,
     });
 
@@ -125,10 +123,6 @@ describe('ProfileOnboardingAdminPage', () => {
         value: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
       },
     });
-    fireEvent.change(screen.getByDisplayValue('只调研与学习有关的信息'), {
-      target: { value: '根据回答自然追问' },
-    });
-
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
@@ -139,100 +133,9 @@ describe('ProfileOnboardingAdminPage', () => {
       expect(mockUpdateConfig).toHaveBeenCalledWith({
         enabled: true,
         markdownflow: '?[%{{arbitrary_runtime_variable}}...你的目标？]',
-        document_prompt: '根据回答自然追问',
       });
     });
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.profileOnboarding.admin.saveSuccess',
-    });
-  });
-
-  test('preserves an intentionally empty document prompt', async () => {
-    mockGetConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      document_prompt: '',
-      config_revision: 2,
-    });
-    mockUpdateConfig.mockResolvedValue({
-      enabled: false,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      document_prompt: '',
-      config_revision: 3,
-    });
-
-    render(<ProfileOnboardingAdminPage />);
-
-    expect(
-      await screen.findByLabelText(
-        'module.profileOnboarding.admin.documentPrompt',
-      ),
-    ).toHaveValue('');
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.admin.save',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: false,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-        document_prompt: '',
-      });
-    });
-  });
-
-  test('preserves document prompt edits made while a save is pending', async () => {
-    let resolveSave!: (value: {
-      enabled: boolean;
-      markdownflow: string;
-      document_prompt: string;
-      config_revision: number;
-    }) => void;
-    mockUpdateConfig.mockImplementation(
-      () =>
-        new Promise(resolve => {
-          resolveSave = resolve;
-        }),
-    );
-
-    render(<ProfileOnboardingAdminPage />);
-
-    const promptEditor = await screen.findByLabelText(
-      'module.profileOnboarding.admin.documentPrompt',
-    );
-    fireEvent.change(promptEditor, {
-      target: { value: '提交时的调研提示词' },
-    });
-    const saveButton = screen.getByRole('button', {
-      name: 'module.profileOnboarding.admin.save',
-    });
-    fireEvent.click(saveButton);
-
-    await waitFor(() => {
-      expect(mockUpdateConfig).toHaveBeenCalledWith({
-        enabled: true,
-        markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-        document_prompt: '提交时的调研提示词',
-      });
-    });
-    expect(saveButton).toBeDisabled();
-
-    fireEvent.change(promptEditor, {
-      target: { value: '请求期间继续编辑的提示词' },
-    });
-    resolveSave({
-      enabled: true,
-      markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      document_prompt: '提交时的调研提示词',
-      config_revision: 3,
-    });
-
-    await waitFor(() => {
-      expect(saveButton).not.toBeDisabled();
-    });
-    expect(promptEditor).toHaveValue('请求期间继续编辑的提示词');
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
     expect(mockToast).toHaveBeenCalledWith({
       title: 'module.profileOnboarding.admin.saveSuccess',
     });
@@ -242,13 +145,11 @@ describe('ProfileOnboardingAdminPage', () => {
     mockGetConfig.mockResolvedValue({
       enabled: false,
       markdownflow: '',
-      document_prompt: '原有总结要求',
       config_revision: 2,
     });
     mockUpdateConfig.mockResolvedValue({
       enabled: false,
       markdownflow: '',
-      document_prompt: '更新后的总结要求',
       config_revision: 3,
     });
 
@@ -258,9 +159,6 @@ describe('ProfileOnboardingAdminPage', () => {
       'module.profileOnboarding.admin.markdownflow',
     );
     expect(flowEditor).toHaveValue('');
-    fireEvent.change(screen.getByDisplayValue('原有总结要求'), {
-      target: { value: '更新后的总结要求' },
-    });
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.save',
@@ -271,7 +169,6 @@ describe('ProfileOnboardingAdminPage', () => {
       expect(mockUpdateConfig).toHaveBeenCalledWith({
         enabled: false,
         markdownflow: '',
-        document_prompt: '更新后的总结要求',
       });
     });
   });
@@ -280,7 +177,6 @@ describe('ProfileOnboardingAdminPage', () => {
     mockGetConfig.mockResolvedValue({
       enabled: false,
       markdownflow: '',
-      document_prompt: '',
       config_revision: 0,
       updated_by: '',
       updated_at: '',
@@ -293,9 +189,6 @@ describe('ProfileOnboardingAdminPage', () => {
         'module.profileOnboarding.admin.markdownflow',
       ),
     ).toHaveValue('module.profileOnboarding.admin.defaultMarkdownflow');
-    expect(
-      screen.getByLabelText('module.profileOnboarding.admin.documentPrompt'),
-    ).toHaveValue('module.profileOnboarding.admin.defaultDocumentPrompt');
   });
 
   test('accepts the legacy version alias and compatibility allowlist', async () => {
@@ -317,7 +210,6 @@ describe('ProfileOnboardingAdminPage', () => {
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      document_prompt: '只调研与学习有关的信息',
       allowed_variable_keys: ['sys_user_background'],
       version: 9,
     });
@@ -339,7 +231,6 @@ describe('ProfileOnboardingAdminPage', () => {
     mockGetConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '',
-      document_prompt: '',
       config_revision: 2,
     });
 
@@ -366,10 +257,6 @@ describe('ProfileOnboardingAdminPage', () => {
     fireEvent.change(flowEditor, {
       target: { value: '?[%{{unsaved_topic}}...未保存的问题？]' },
     });
-    fireEvent.change(screen.getByDisplayValue('只调研与学习有关的信息'), {
-      target: { value: '未保存的调研提示词' },
-    });
-
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.admin.preview',
@@ -382,7 +269,6 @@ describe('ProfileOnboardingAdminPage', () => {
     await waitFor(() => {
       expect(mockCreatePreview).toHaveBeenCalledWith({
         markdownflow: '?[%{{unsaved_topic}}...未保存的问题？]',
-        document_prompt: '未保存的调研提示词',
         language: 'zh-CN',
       });
     });

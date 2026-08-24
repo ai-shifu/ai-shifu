@@ -16,7 +16,6 @@ PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
 PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"
 PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
 PROFILE_ONBOARDING_VERSION = "profile-v2"
-PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS = 10_000
 PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES = 65_535
 ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS = (
     "sys_user_nickname",
@@ -33,7 +32,6 @@ def _default_config_payload() -> dict[str, object]:
     return {
         "enabled": False,
         "markdownflow": "",
-        "document_prompt": "",
         "revision": 0,
         "updated_by": "",
         "updated_at": "",
@@ -48,7 +46,6 @@ def normalize_profile_onboarding_config_payload(payload: object) -> dict[str, ob
             {
                 "enabled": bool(payload.get("enabled", False)),
                 "markdownflow": str(payload.get("markdownflow") or ""),
-                "document_prompt": str(payload.get("document_prompt") or ""),
                 "revision": int(payload.get("revision") or payload.get("version") or 0),
                 "updated_by": str(payload.get("updated_by") or ""),
                 "updated_at": str(payload.get("updated_at") or ""),
@@ -77,7 +74,6 @@ def build_profile_onboarding_config_payload(
     *,
     enabled: bool,
     markdownflow: str,
-    document_prompt: str,
     revision: int,
     updated_by: str,
 ) -> dict[str, Any]:
@@ -85,7 +81,6 @@ def build_profile_onboarding_config_payload(
     return {
         "enabled": enabled,
         "markdownflow": markdownflow,
-        "document_prompt": document_prompt,
         "revision": revision,
         "updated_by": updated_by,
         "updated_at": _now_iso(),
@@ -166,15 +161,6 @@ def update_profile_onboarding_config(
     if not isinstance(raw_markdownflow, str):
         raise_param_error("markdownflow")
     markdownflow = raw_markdownflow.strip()
-    if "document_prompt" in payload:
-        raw_document_prompt = payload["document_prompt"]
-        if not isinstance(raw_document_prompt, str):
-            raise_param_error("document_prompt")
-        document_prompt = raw_document_prompt.strip()
-        if len(document_prompt) > PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS:
-            raise_param_error("document_prompt")
-    else:
-        document_prompt = str(existing.get("document_prompt") or "")
     if markdownflow:
         validate_profile_onboarding_markdownflow(markdownflow)
     elif payload.get("enabled", False):
@@ -182,7 +168,6 @@ def update_profile_onboarding_config(
     next_payload = build_profile_onboarding_config_payload(
         enabled=bool(payload.get("enabled", False)),
         markdownflow=markdownflow,
-        document_prompt=document_prompt,
         revision=int(existing.get("revision") or 0) + 1,
         updated_by=operator_user_bid or "system",
     )

@@ -15,9 +15,6 @@ from flaskr.service.billing.api import (
     get_operator_credit_order_detail,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.common.profile_onboarding import (
-    PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS,
-)
 from flaskr.service.common.profile_research_request_validation import (
     normalize_profile_research_session_id,
     profile_research_run_identity,
@@ -1080,7 +1077,7 @@ def register_admin_operations_routes(
         payload = _profile_onboarding_json_object("profile_onboarding_config")
         _reject_profile_onboarding_unknown_fields(
             payload,
-            allowed_fields={"enabled", "markdownflow", "document_prompt"},
+            allowed_fields={"enabled", "markdownflow"},
             parameter_name="profile_onboarding_config",
         )
         return make_common_response(
@@ -1101,19 +1098,13 @@ def register_admin_operations_routes(
         payload = _profile_onboarding_json_object("profile_onboarding_preview")
         _reject_profile_onboarding_unknown_fields(
             payload,
-            allowed_fields={"markdownflow", "document_prompt", "language"},
+            allowed_fields={"markdownflow", "language"},
             parameter_name="profile_onboarding_preview",
         )
         markdownflow = payload.get("markdownflow")
-        document_prompt = payload.get("document_prompt", "")
         language = payload.get("language")
         if not isinstance(markdownflow, str) or not markdownflow.strip():
             raise_param_error("markdownflow")
-        if not isinstance(document_prompt, str):
-            raise_param_error("document_prompt")
-        document_prompt = document_prompt.strip()
-        if len(document_prompt) > PROFILE_ONBOARDING_DOCUMENT_PROMPT_MAX_CODEPOINTS:
-            raise_param_error("document_prompt")
         if language is not None and (
             not isinstance(language, str) or not language.strip()
         ):
@@ -1124,7 +1115,6 @@ def register_admin_operations_routes(
                 app,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 markdownflow=markdownflow.strip(),
-                document_prompt=document_prompt,
                 config_revision=int(
                     config.get("config_revision") or config.get("version") or 0
                 ),

@@ -112,7 +112,6 @@ def _start_test_session(
     return runtime.start_session(
         user_bid="user-1",
         document=document,
-        document_prompt=None,
         purpose=purpose,
         config_revision=revision,
         output_language=None,
@@ -221,7 +220,6 @@ def test_run_rejects_oversized_user_input(user_input: object) -> None:
     session = runtime.start_session(
         user_bid="user-1",
         document="?[...请回答]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -253,7 +251,6 @@ def test_default_store_requires_shared_redis(monkeypatch: object) -> None:
         runtime.start_session(
             user_bid="user-1",
             document="?[继续]",
-            document_prompt=None,
             purpose=PROFILE_ONBOARDING_PURPOSE,
             config_revision=1,
             output_language="en-US",
@@ -265,7 +262,6 @@ def test_session_runs_direct_markdownflow_and_returns_profile_draft() -> None:
     session = runtime.start_session(
         user_bid="user-1",
         document="?[%{{role}} 学生//student | 老师//teacher]",
-        document_prompt="只根据用户回答总结。",
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=7,
         output_language=None,
@@ -326,7 +322,6 @@ def test_identical_retry_replays_without_running_markdownflow_again() -> None:
     session = runtime.start_session(
         user_bid="user-1",
         document="?[%{{role}} 学生//student | 老师//teacher]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -420,7 +415,6 @@ def test_empty_initial_interaction_fails_without_advancing(monkeypatch: object) 
     session = runtime.start_session(
         user_bid="user-1",
         document="?[继续]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -461,7 +455,6 @@ def test_invalid_interaction_answer_keeps_the_question_available() -> None:
     session = runtime.start_session(
         user_bid="user-1",
         document="?[%{{role}} 学生//student | 老师//teacher]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -491,7 +484,6 @@ def test_invalid_answer_rerenders_the_interaction_through_markdownflow() -> None
     session = runtime.start_session(
         user_bid="user-1",
         document=("?[%{{choice}} 作为 {{role}} 的学生//student | 老师//teacher]"),
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -521,7 +513,6 @@ def test_owner_and_purpose_are_enforced_for_run_and_delete() -> None:
     session = runtime.start_session(
         user_bid="operator-1",
         document="?[继续]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PREVIEW_PURPOSE,
         config_revision=3,
         output_language=None,
@@ -687,7 +678,6 @@ def test_delete_uses_the_run_lock_before_removing_a_session() -> None:
     session = runtime.start_session(
         user_bid="user-1",
         document="?[继续]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -864,7 +854,6 @@ def test_content_context_keeps_the_exact_prompt_built_by_markdownflow() -> None:
             "print('profile')\n"
             "```\n\n---\n\n?[继续]"
         ),
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language="zh-CN",
@@ -903,7 +892,6 @@ def test_preserved_content_context_uses_markdownflow_output_without_placeholders
             "!===\n\n---\n\n"
             "结合上面的示例回应。\n\n---\n\n?[继续]"
         ),
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -941,7 +929,6 @@ def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> 
     session = runtime.start_session(
         user_bid="user-1",
         document=("?[产品经理//pm | 教师//teacher]\n\n---\n\n根据用户刚才的选择回应。"),
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,
@@ -972,13 +959,12 @@ def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> 
     )
 
 
-def test_session_snapshots_summary_prompt_and_model_settings() -> None:
+def test_session_snapshots_summary_and_model_settings() -> None:
     app, runtime, _providers = _make_runtime()
     document = "欢迎\n\n---\n\n?[继续]"
     view = runtime.start_session(
         user_bid="user-1",
         document=document,
-        document_prompt="只依据回答",
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=9,
         output_language="zh-CN",
@@ -990,44 +976,16 @@ def test_session_snapshots_summary_prompt_and_model_settings() -> None:
         f"{document}\n\n---\n\n"
         f"{load_prompt_template('profile_research_summary').strip()}"
     )
-    assert stored.document_prompt == "只依据回答"
     assert stored.model == "gpt-test"
     assert stored.temperature == 0.3
     assert stored.output_language == "zh-CN"
     assert stored.config_revision == 9
+    assert "document_prompt" not in stored.to_cache_payload()
 
-
-def test_locked_summary_does_not_inherit_operator_document_prompt() -> None:
-    _app, runtime, providers = _make_runtime(["称呼：小雨"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document="?[%{{role}} 学生//student | 老师//teacher]",
-        document_prompt="OPERATOR OVERRIDE: return JSON only",
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
+    restored = type(stored).from_cache_payload(
+        {**stored.to_cache_payload(), "document_prompt": "legacy value"}
     )
-
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input={"role": ["student"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-
-    summary_messages = providers[-1].messages[0]
-    assert "OPERATOR OVERRIDE" not in str(summary_messages)
-    assert "plain-text profile" in str(summary_messages)
+    assert "document_prompt" not in restored.to_cache_payload()
 
 
 def test_profile_summary_prompt_requires_plain_text_without_placeholders() -> None:
@@ -1046,7 +1004,6 @@ def test_markdownflow_receives_a_language_name_instead_of_a_locale_code() -> Non
     view = runtime.start_session(
         user_bid="user-1",
         document="?[继续]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language="zh-CN",
@@ -1065,7 +1022,6 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(
     view = runtime.start_session(
         user_bid="user-1",
         document="?[继续]",
-        document_prompt=None,
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language=None,

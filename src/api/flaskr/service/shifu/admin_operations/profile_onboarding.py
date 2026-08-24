@@ -43,7 +43,6 @@ def create_operator_profile_onboarding_preview_session(
     *,
     operator_user_bid: str,
     markdownflow: str,
-    document_prompt: str,
     config_revision: int,
     output_language: str,
 ) -> dict[str, Any]:
@@ -53,7 +52,6 @@ def create_operator_profile_onboarding_preview_session(
     preview_payload = build_profile_onboarding_config_payload(
         enabled=False,
         markdownflow=markdownflow,
-        document_prompt=document_prompt,
         revision=int(config_revision) + 1,
         updated_by=operator_user_bid or "system",
     )
@@ -71,7 +69,6 @@ def create_operator_profile_onboarding_preview_session(
             app,
             user_bid=operator_user_bid,
             document=markdownflow,
-            document_prompt=document_prompt,
             purpose=PROFILE_ONBOARDING_PREVIEW_PURPOSE,
             config_revision=config_revision,
             output_language=output_language,

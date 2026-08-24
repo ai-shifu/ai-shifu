@@ -522,7 +522,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 app,
                 user_bid=request.user.user_id,
                 document=document,
-                document_prompt=str(config.get("document_prompt") or "").strip(),
                 purpose=PROFILE_ONBOARDING_PURPOSE,
                 config_revision=int(
                     config.get("revision") or config.get("version") or 0
