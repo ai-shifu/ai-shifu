@@ -58,6 +58,13 @@ from flaskr.service.billing.entitlements import (
     grant_creator_manual_entitlement,
     serialize_creator_entitlements,
 )
+from flaskr.service.billing.provider_catalog_admin import (
+    build_admin_provider_catalog_inbox_page,
+)
+from flaskr.service.billing.provider_catalog_sync import (
+    run_admin_provider_catalog_reconcile,
+)
+from flaskr.service.billing.provider_price_mappings import ProviderPriceMappingError
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
@@ -165,8 +172,6 @@ def _to_optional_bool(value: object, field_name: str) -> bool:
 
 
 def _raise_provider_price_mapping_route_error(exc: Exception) -> None:
-    from flaskr.service.billing.provider_price_mappings import ProviderPriceMappingError
-
     if isinstance(exc, ProviderPriceMappingError):
         payload = provider_price_mapping_error_payload(exc)
         raise AppError(
@@ -865,6 +870,31 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         except Exception as exc:
             _raise_provider_price_mapping_route_error(exc)
         return make_common_response(result)
+
+    @app.route(admin_path_prefix + "/provider-catalog", methods=["GET"])
+    def admin_billing_provider_catalog_api() -> str:
+        _require_billing_operator_access(app)
+        raw_limit = request.args.get("limit", "100")
+        try:
+            limit = int(raw_limit)
+        except ValueError:
+            raise_param_error("limit")
+        return make_common_response(
+            build_admin_provider_catalog_inbox_page(
+                object_type=_get_optional_query_arg("object_type", max_length=32),
+                provider_account_id=_get_optional_query_arg(
+                    "provider_account_id", max_length=255
+                ),
+                livemode=_get_optional_bool_query_arg("livemode"),
+                health_status=_get_optional_query_arg("health_status", max_length=64),
+                limit=limit,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/provider-catalog/reconcile", methods=["POST"])
+    def admin_billing_provider_catalog_reconcile_api() -> str:
+        _require_billing_operator_access(app)
+        return make_common_response(run_admin_provider_catalog_reconcile(app))
 
     @app.route(
         admin_path_prefix + "/provider-prices/<provider_price_bid>/validate",
