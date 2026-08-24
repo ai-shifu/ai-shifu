@@ -306,17 +306,14 @@ describe('GlobalBillingPricing', () => {
 
     expect(planGrid).toHaveClass(
       'grid-cols-1',
-      'gap-3',
+      'gap-4',
       'sm:grid-cols-2',
       'xl:grid-cols-4',
+      '2xl:gap-5',
     );
     for (const card of [studio, growth, business, scale]) {
-      expect(card).toHaveClass(
-        'sm:row-span-7',
-        'sm:grid',
-        'sm:grid-rows-subgrid',
-        'sm:gap-y-0',
-      );
+      expect(card).toHaveClass('min-w-0', 'flex-col');
+      expect(card).not.toHaveClass('sm:grid-rows-subgrid');
     }
     for (const tier of ['studio', 'growth', 'business', 'scale']) {
       expect(
