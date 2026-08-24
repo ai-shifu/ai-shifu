@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from typing import Any
 
 from flask import Flask, has_app_context
@@ -18,7 +18,11 @@ from .consts import (
 )
 from .models import BillingProduct
 from .primitives import credit_decimal_to_number, normalize_bid, normalize_json_object
-from .provider_catalog import ProviderCatalogReadError, StripeCatalogReadAdapter
+from .provider_catalog import (
+    ProviderCatalogReadError,
+    ProviderCatalogSnapshot,
+    StripeCatalogReadAdapter,
+)
 from .provider_price_mappings import (
     PROVIDER_STRIPE,
     ProviderPriceMappingError,
@@ -99,6 +103,7 @@ def create_admin_billing_provider_price_mapping(
     *,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Create or update a draft provider price mapping from admin input."""
     with _maybe_app_context(app):
         provider_product_id = str(payload.get("provider_product_id") or "")
         provider_price_id = str(payload.get("provider_price_id") or "")
@@ -134,6 +139,7 @@ def validate_admin_billing_provider_price_mapping(
     *,
     provider_price_bid: str,
 ) -> dict[str, Any]:
+    """Validate a provider price mapping and persist its validation result."""
     with _maybe_app_context(app):
         return _serialize_validation_summary(
             validate_provider_price_mapping_by_bid(provider_price_bid)
@@ -145,6 +151,7 @@ def activate_admin_billing_provider_price_mapping(
     *,
     provider_price_bid: str,
 ) -> dict[str, Any]:
+    """Activate a validated provider price mapping for its billing product."""
     with _maybe_app_context(app):
         return _serialize_validation_summary(
             activate_provider_price_mapping(provider_price_bid)
@@ -156,12 +163,13 @@ def retire_admin_billing_provider_price_mapping(
     *,
     provider_price_bid: str,
 ) -> dict[str, Any]:
+    """Retire a provider price mapping from admin management."""
     with _maybe_app_context(app):
         mapping = retire_provider_price_mapping(provider_price_bid)
         return {"mapping": serialize_provider_price_mapping(mapping)}
 
 
-def _maybe_app_context(app: Flask):
+def _maybe_app_context(app: Flask) -> AbstractContextManager[object]:
     return nullcontext() if has_app_context() else app.app_context()
 
 
@@ -170,7 +178,7 @@ def _read_provider_snapshot(
     *,
     provider_product_id: str,
     provider_price_id: str,
-):
+) -> ProviderCatalogSnapshot:
     try:
         return StripeCatalogReadAdapter().retrieve_mapping_snapshot(
             app,
@@ -242,7 +250,7 @@ def _resolve_status_filter(status: str) -> int | None:
     return _STATUS_LABEL_TO_CODE[normalized]
 
 
-def _coerce_livemode(value: Any) -> bool:
+def _coerce_livemode(value: object) -> bool:
     if isinstance(value, bool):
         return value
     normalized = str(value or "").strip().lower()
@@ -254,7 +262,7 @@ def _coerce_livemode(value: Any) -> bool:
     return False
 
 
-def _coerce_metadata(value: Any) -> dict[str, Any]:
+def _coerce_metadata(value: object) -> dict[str, Any]:
     if value is None:
         return {}
     if not isinstance(value, dict):
@@ -265,6 +273,7 @@ def _coerce_metadata(value: Any) -> dict[str, Any]:
 def provider_price_mapping_error_payload(
     error: ProviderPriceMappingError,
 ) -> dict[str, Any]:
+    """Return a stable admin route error payload for provider price failures."""
     return {
         "code": error.code,
         "message": str(error),
