@@ -5,6 +5,24 @@ import { AppContext } from '../AppContext';
 import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
+jest.mock('markdown-flow-ui/renderer', () => ({
+  ScrollToBottomButton: ({ visible, onClick, ariaLabel }: any) =>
+    visible ? (
+      <button
+        type='button'
+        aria-label={ariaLabel}
+        onClick={onClick}
+      />
+    ) : null,
+  useScrollToBottom: () => ({
+    showScrollToBottom: false,
+    isAtBottom: true,
+    followNewContent: true,
+    scrollToBottom: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}));
+
 const mockUseChatLogicHook = jest.fn();
 let mockCourseAvatar = '';
 let mockLearningMode = 'listen';
@@ -23,6 +41,7 @@ jest.mock('react-i18next', () => {
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
     'module.chat.lessonFeedbackSubmit': '提交',
+    'module.chat.scrollToBottom': '滚动到底部',
     'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
     'module.chat.lessonUpdateRetakeAction': '重修',

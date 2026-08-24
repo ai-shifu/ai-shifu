@@ -1042,6 +1042,7 @@ export type I18nKey =
   | 'module.chat.lessonFeedbackPrompt'
   | 'module.chat.lessonFeedbackScoreRequired'
   | 'module.chat.lessonFeedbackSubmit'
+  | 'module.chat.scrollToBottom'
   | 'module.chat.lessonFeedbackSubmitted'
   | 'module.chat.lessonPdfContentInProgress'
   | 'module.chat.lessonPdfCourseQrLabel'
