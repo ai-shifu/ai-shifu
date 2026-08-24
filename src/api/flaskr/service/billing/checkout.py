@@ -1535,7 +1535,7 @@ def _stored_provider_price_snapshot_matches_mapping(
         and _normalize_bid(order_metadata.get("provider_price_id"))
         == _normalize_bid(expected["provider_price_id"])
         and bool(order_metadata.get("provider_price_livemode"))
-        is bool(expected["provider_price_livemode"])
+        == bool(expected["provider_price_livemode"])
         and str(order_metadata.get("provider_price_currency") or "").strip().upper()
         == expected["provider_price_currency"]
         and int(order_metadata.get("provider_price_unit_amount") or 0)
