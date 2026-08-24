@@ -300,6 +300,7 @@ class TestBillingWriteRoutesTopup:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         current_period_end_at = now_utc() + timedelta(days=30)
+        later_period_end_at = current_period_end_at + timedelta(days=30)
         add_active_subscription(
             app,
             subscription_bid="sub-topup-repeat-1",
@@ -325,6 +326,12 @@ class TestBillingWriteRoutesTopup:
                 source_bid=first_order_bid,
             ).one()
             initial_bucket_bid = initial_bucket.wallet_bucket_bid
+            subscription = BillingSubscription.query.filter_by(
+                creator_bid="creator-1",
+                subscription_bid="sub-topup-repeat-1",
+            ).one()
+            subscription.current_period_end_at = later_period_end_at
+            dao.db.session.commit()
 
         second_checkout = client.post(
             "/api/billing/topups/checkout",
@@ -361,10 +368,10 @@ class TestBillingWriteRoutesTopup:
             assert topup_buckets[0].wallet_bucket_bid == initial_bucket_bid
             assert topup_buckets[0].source_bid == second_order_bid
             assert topup_buckets[0].available_credits == 40
-            assert topup_buckets[0].effective_to == current_period_end_at
+            assert topup_buckets[0].effective_to == later_period_end_at
             assert wallet.available_credits == 40
             assert second_ledger.wallet_bucket_bid == initial_bucket_bid
-            assert second_ledger.expires_at == current_period_end_at
+            assert second_ledger.expires_at == later_period_end_at
 
     def test_trial_then_paid_then_topup_prefers_paid_subscription_for_overview_and_expiry(
         self, billing_write_client

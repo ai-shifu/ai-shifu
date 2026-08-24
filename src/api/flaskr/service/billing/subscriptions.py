@@ -902,11 +902,17 @@ def _repair_existing_paid_order_grant_bucket(
     if bucket is None:
         return False
 
+    normalized_order_bid = _normalize_bid(order.bill_order_bid)
     bucket_source_bid = _normalize_bid(bucket.source_bid)
     is_topup_bucket = int(bucket.bucket_category or 0) == CREDIT_BUCKET_CATEGORY_TOPUP
+    is_shared_topup_replay = (
+        is_topup_bucket
+        and bucket_source_bid
+        and bucket_source_bid != normalized_order_bid
+    )
     if (
         bucket_source_bid
-        and bucket_source_bid != _normalize_bid(order.bill_order_bid)
+        and bucket_source_bid != normalized_order_bid
         and not is_topup_bucket
     ):
         return False
@@ -972,7 +978,7 @@ def _repair_existing_paid_order_grant_bucket(
             ):
                 bucket.effective_to = current_cycle_window.end_at
                 changed = True
-    else:
+    elif not is_shared_topup_replay:
         if effective_from is not None and bucket.effective_from != effective_from:
             bucket.effective_from = effective_from
             changed = True
