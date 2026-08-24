@@ -540,10 +540,9 @@ describe('GlobalBillingPricing', () => {
 
     const smallPack = screen.getByTestId('global-credit-pack-250');
     const largePack = screen.getByTestId('global-credit-pack-3000');
-    expect(screen.getByTestId('global-credit-pack-grid')).toHaveClass(
-      'grid',
-      'md:grid-cols-2',
-    );
+    expect(screen.getByTestId('global-credit-pack-grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+    });
     expect(within(smallPack).getByText('$29')).toBeInTheDocument();
     expect(within(largePack).getByText('$279')).toBeInTheDocument();
     expect(

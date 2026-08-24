@@ -483,8 +483,12 @@ export function GlobalBillingPricing() {
             {globalProducts ? (
               <div className='space-y-6'>
                 <div
-                  className='grid gap-4 px-1 md:grid-cols-2'
+                  className='grid gap-4 px-1'
                   data-testid='global-credit-pack-grid'
+                  style={{
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+                  }}
                 >
                   {CREDIT_PACK_CODES.map(code => {
                     const product = globalProducts.get(
