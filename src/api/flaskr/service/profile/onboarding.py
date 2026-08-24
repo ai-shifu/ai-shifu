@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
-
-from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -74,6 +71,8 @@ _ECMASCRIPT_TRIM_CHARACTERS = frozenset(
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from flask import Flask
 
 
@@ -156,7 +155,8 @@ def _extract_official_interaction_raw_variable(content: str) -> str:
     stripped_content = content.strip()
     marker_end = stripped_content.find("}}", len(_MARKDOWNFLOW_VARIABLE_PREFIX))
     if marker_end < 0:
-        raise ValueError("official interaction variable cannot be projected")
+        msg = "official interaction variable cannot be projected"
+        raise ValueError(msg)
     return stripped_content[len(_MARKDOWNFLOW_VARIABLE_PREFIX) : marker_end]
 
 
@@ -226,7 +226,8 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
         original_content = str(block.content)
         block_start = document.find(original_content, document_cursor)
         if block_start < 0:
-            raise ValueError("official MarkdownFlow block cannot be projected")
+            msg = "official MarkdownFlow block cannot be projected"
+            raise ValueError(msg)
         block_end = block_start + len(original_content)
         projected_parts.append(document[document_cursor:block_start])
 
@@ -271,7 +272,8 @@ def _project_legacy_profile_onboarding_markdownflow(document: str) -> str:
                 )
                 changed = True
             if legacy_variable is None:
-                raise ValueError("legacy interaction variable cannot be projected")
+                msg = "legacy interaction variable cannot be projected"
+                raise ValueError(msg)
             if button_projection is not None:
                 content = _render_legacy_interaction_button_values(
                     projected_values=button_projection[0],
@@ -476,6 +478,8 @@ def _commit_v2_state_with_race_retry(
 
 
 def skip_profile_onboarding_v2(*, user_id: str) -> dict[str, Any]:
+    """Durably defer canonical onboarding without downgrading completion."""
+
     def operation() -> UserOnboardingState:
         # Match canonical completion's user -> state lock order. Besides
         # serializing skip against a concurrent completion, populate_existing

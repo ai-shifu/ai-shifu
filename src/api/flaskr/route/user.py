@@ -189,7 +189,9 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
     return normalized_language
 
 
-def _resolve_profile_onboarding_runtime_language(user, raw_language: str | None) -> str:
+def _resolve_profile_onboarding_runtime_language(
+    user: UserInfo, raw_language: str | None
+) -> str:
     """Resolve profile research to a bounded application-supported locale."""
     supported_languages = (
         tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
@@ -483,7 +485,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/profile-onboarding/session", methods=["POST"])
-    def create_profile_onboarding_session_api():
+    def create_profile_onboarding_session_api() -> str:
         """Create a transient guided-profile session from the live config."""
         payload = _request_json_object("profile_onboarding_session")
         _reject_unknown_fields(
@@ -550,7 +552,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         path_prefix + "/profile-onboarding/session/<session_id>/run",
         methods=["POST"],
     )
-    def run_profile_onboarding_session_api(session_id: str):
+    def run_profile_onboarding_session_api(session_id: str) -> Response:
         normalized_session_id = normalize_profile_research_session_id(session_id)
         payload = _request_json_object("profile_onboarding_session")
         _reject_unknown_fields(
@@ -637,7 +639,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(result)
 
     @app.route(path_prefix + "/profile-onboarding/skip", methods=["POST"])
-    def skip_profile_onboarding_api():
+    def skip_profile_onboarding_api() -> str:
         payload = _request_json_object("profile_onboarding")
         _reject_unknown_fields(
             payload,

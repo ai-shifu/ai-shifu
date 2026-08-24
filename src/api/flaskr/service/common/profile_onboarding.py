@@ -108,6 +108,7 @@ def validate_profile_onboarding_config_payload_size(
 def save_profile_onboarding_config_payload(
     app: Flask, payload: dict[str, Any], *, updated_by: str
 ) -> None:
+    """Persist a validated profile-onboarding configuration."""
     serialized_payload = validate_profile_onboarding_config_payload_size(payload)
     add_config(
         app,

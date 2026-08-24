@@ -1,3 +1,5 @@
+"""Verify shared profile-research request validation."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,7 +14,7 @@ from flaskr.service.common.profile_research_request_validation import (
 _SESSION_ID = "0123456789abcdef0123456789abcdef"
 
 
-def test_session_id_normalization_accepts_only_trimmed_lowercase_hex():
+def test_session_id_normalization_accepts_only_trimmed_lowercase_hex() -> None:
     assert normalize_profile_research_session_id(f"  {_SESSION_ID}  ") == _SESSION_ID
 
     for invalid in (None, False, "too-short", "G" * 32, "0" * 31):
@@ -20,7 +22,7 @@ def test_session_id_normalization_accepts_only_trimmed_lowercase_hex():
             normalize_profile_research_session_id(invalid)
 
 
-def test_user_input_validation_preserves_runtime_values():
+def test_user_input_validation_preserves_runtime_values() -> None:
     payload = {
         "user_input": {
             " preferred_style ": [" brief ", "full"],
@@ -48,7 +50,9 @@ def test_user_input_validation_preserves_runtime_values():
         {"answer": [1]},
     ],
 )
-def test_user_input_validation_rejects_invalid_transport_shapes(raw_user_input):
+def test_user_input_validation_rejects_invalid_transport_shapes(
+    raw_user_input: object,
+) -> None:
     with pytest.raises(AppError):
         profile_research_user_input(
             {"user_input": raw_user_input},
@@ -56,7 +60,7 @@ def test_user_input_validation_rejects_invalid_transport_shapes(raw_user_input):
         )
 
 
-def test_run_identity_normalizes_the_paired_cursor_and_request_id():
+def test_run_identity_normalizes_the_paired_cursor_and_request_id() -> None:
     assert profile_research_run_identity(
         {
             "expected_block_index": 2,
@@ -85,7 +89,7 @@ def test_run_identity_normalizes_the_paired_cursor_and_request_id():
         {"expected_block_index": 0, "request_id": "r" * 129},
     ],
 )
-def test_run_identity_rejects_invalid_cursor_or_request_id(payload):
+def test_run_identity_rejects_invalid_cursor_or_request_id(payload: object) -> None:
     with pytest.raises(AppError):
         profile_research_run_identity(
             payload,
@@ -101,8 +105,8 @@ def test_run_identity_rejects_invalid_cursor_or_request_id(payload):
     ],
 )
 def test_run_identity_uses_the_callers_envelope_for_unpaired_fields(
-    monkeypatch, payload
-):
+    monkeypatch: object, payload: object
+) -> None:
     rejected_parameters: list[str] = []
 
     def reject(parameter_name: str) -> None:

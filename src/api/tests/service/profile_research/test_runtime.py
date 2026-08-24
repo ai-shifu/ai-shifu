@@ -1,3 +1,5 @@
+"""Verify the Redis-backed profile-research runtime."""
+
 from __future__ import annotations
 
 import ast
@@ -46,12 +48,16 @@ class _FakeProvider(LLMProvider):
         self.output_chunks = output_chunks
         self.messages: list[list[dict[str, str]]] = []
 
-    def complete(self, messages, model=None, temperature=None):
+    def complete(
+        self, messages: object, model: object = None, temperature: object = None
+    ) -> object:
         del model, temperature
         self.messages.append(messages)
         return "".join(self.output_chunks)
 
-    def stream(self, messages, model=None, temperature=None):
+    def stream(
+        self, messages: object, model: object = None, temperature: object = None
+    ) -> object:
         del model, temperature
         self.messages.append(messages)
         yield from self.output_chunks
@@ -68,7 +74,7 @@ def _make_runtime(
     )
     providers: list[_FakeProvider] = []
 
-    def provider_factory(_app, _session, _span):
+    def provider_factory(_app: object, _session: object, _span: object) -> object:
         provider = _FakeProvider(output_chunks or ["- 称呼：小雨"])
         providers.append(provider)
         return provider
@@ -86,7 +92,9 @@ def _terminal(events: list[dict]) -> dict:
     return next(event for event in reversed(events) if event.get("is_terminal"))
 
 
-def _save_session_without_active_pointer(runtime: ProfileResearchRuntime, session):
+def _save_session_without_active_pointer(
+    runtime: ProfileResearchRuntime, session: object
+) -> None:
     runtime.store._cache.setex(
         runtime.store._key(session.session_id),
         PROFILE_RESEARCH_SESSION_TTL_SECONDS,
@@ -119,7 +127,7 @@ def _active_test_session_id(
     return runtime.store.active_session_id(user_bid="user-1", purpose=purpose)
 
 
-def test_service_has_no_learn_dependency():
+def test_service_has_no_learn_dependency() -> None:
     service_dir = Path(inspect.getsourcefile(ProfileResearchRuntime) or "").parent
     imports: list[str] = []
     for source_path in service_dir.glob("*.py"):
@@ -133,7 +141,7 @@ def test_service_has_no_learn_dependency():
     assert not any(name.startswith("flaskr.service.learn") for name in imports)
 
 
-def test_validation_uses_markdownflow_public_parser():
+def test_validation_uses_markdownflow_public_parser() -> None:
     metadata = validate_profile_research_document(
         "欢迎。\n\n---\n\n?[%{{arbitrary_identity}}...请介绍你的经历]"
     )
@@ -148,7 +156,9 @@ def test_validation_uses_markdownflow_public_parser():
         validate_profile_research_document("只有普通 Markdown")
 
 
-def test_validation_rejects_interaction_variable_longer_than_runtime_input_key():
+def test_validation_rejects_interaction_variable_longer_than_runtime_input_key() -> (
+    None
+):
     variable_name = "x" * 257
 
     with pytest.raises(ProfileResearchValidationError, match="variable name"):
@@ -164,7 +174,9 @@ def test_validation_rejects_interaction_variable_longer_than_runtime_input_key()
         "?[%{{learning_goal}}]",
     ],
 )
-def test_validation_rejects_interactions_without_answerable_input(document):
+def test_validation_rejects_interactions_without_answerable_input(
+    document: object,
+) -> None:
     with pytest.raises(ProfileResearchValidationError, match="answerable input"):
         validate_profile_research_document(document)
 
@@ -185,7 +197,9 @@ def test_validation_rejects_interactions_without_answerable_input(document):
         + "]",
     ],
 )
-def test_validation_rejects_options_outside_runtime_input_limits(document):
+def test_validation_rejects_options_outside_runtime_input_limits(
+    document: object,
+) -> None:
     with pytest.raises(ProfileResearchValidationError, match="runtime input limits"):
         validate_profile_research_document(document)
 
@@ -202,7 +216,7 @@ def test_validation_rejects_options_outside_runtime_input_limits(document):
         {"input": ["   "]},
     ],
 )
-def test_run_rejects_oversized_user_input(user_input):
+def test_run_rejects_oversized_user_input(user_input: object) -> None:
     _app, runtime, _providers = _make_runtime()
     session = runtime.start_session(
         user_bid="user-1",
@@ -224,14 +238,14 @@ def test_run_rejects_oversized_user_input(user_input):
         )
 
 
-def test_default_store_requires_shared_redis(monkeypatch):
+def test_default_store_requires_shared_redis(monkeypatch: object) -> None:
     app = Flask("profile-research-shared-store")
     app.config.update(
         DEFAULT_LLM_MODEL="gpt-test",
         DEFAULT_LLM_TEMPERATURE=0.3,
         REDIS_KEY_PREFIX="test:",
     )
-    monkeypatch.setattr(dao, "redis_client", None)
+    monkeypatch.setattr(dao, "get_redis_client", lambda: None)
     runtime = ProfileResearchRuntime(app)
 
     assert runtime.store._cache is redis_cache
@@ -246,7 +260,7 @@ def test_default_store_requires_shared_redis(monkeypatch):
         )
 
 
-def test_session_runs_direct_markdownflow_and_returns_profile_draft():
+def test_session_runs_direct_markdownflow_and_returns_profile_draft() -> None:
     _app, runtime, providers = _make_runtime(["- 称呼：", "小雨"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -307,7 +321,7 @@ def test_session_runs_direct_markdownflow_and_returns_profile_draft():
     )
 
 
-def test_identical_retry_replays_without_running_markdownflow_again():
+def test_identical_retry_replays_without_running_markdownflow_again() -> None:
     _app, runtime, providers = _make_runtime()
     session = runtime.start_session(
         user_bid="user-1",
@@ -368,7 +382,7 @@ def test_identical_retry_replays_without_running_markdownflow_again():
         )
 
 
-def test_retry_cache_stores_stream_content_as_linear_deltas():
+def test_retry_cache_stores_stream_content_as_linear_deltas() -> None:
     chunks = ["甲" * 100, "乙" * 100, "丙" * 100]
     original = [
         {
@@ -401,7 +415,7 @@ def test_retry_cache_stores_stream_content_as_linear_deltas():
     assert _expand_replay_events(stored) == original
 
 
-def test_empty_initial_interaction_fails_without_advancing(monkeypatch):
+def test_empty_initial_interaction_fails_without_advancing(monkeypatch: object) -> None:
     _app, runtime, _providers = _make_runtime()
     session = runtime.start_session(
         user_bid="user-1",
@@ -415,10 +429,10 @@ def test_empty_initial_interaction_fails_without_advancing(monkeypatch):
     parsed_flow = runtime._build_flow(stored, _FakeProvider([]))
 
     class _EmptyInteractionFlow:
-        def get_all_blocks(self):
+        def get_all_blocks(self) -> object:
             return parsed_flow.get_all_blocks()
 
-        def process(self, **_kwargs):
+        def process(self, **_kwargs: object) -> object:
             return []
 
     monkeypatch.setattr(
@@ -442,7 +456,7 @@ def test_empty_initial_interaction_fails_without_advancing(monkeypatch):
     assert unchanged.awaiting_input is False
 
 
-def test_invalid_interaction_answer_keeps_the_question_available():
+def test_invalid_interaction_answer_keeps_the_question_available() -> None:
     _app, runtime, _providers = _make_runtime(["请选择已有选项"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -472,7 +486,7 @@ def test_invalid_interaction_answer_keeps_the_question_available():
     assert summary["next_block_index"] == 0
 
 
-def test_invalid_answer_rerenders_the_interaction_through_markdownflow():
+def test_invalid_answer_rerenders_the_interaction_through_markdownflow() -> None:
     _app, runtime, _providers = _make_runtime(["请选择已有选项"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -502,7 +516,7 @@ def test_invalid_answer_rerenders_the_interaction_through_markdownflow():
     assert "{{role}}" not in interaction["content"]
 
 
-def test_owner_and_purpose_are_enforced_for_run_and_delete():
+def test_owner_and_purpose_are_enforced_for_run_and_delete() -> None:
     _app, runtime, _providers = _make_runtime()
     session = runtime.start_session(
         user_bid="operator-1",
@@ -530,7 +544,7 @@ def test_owner_and_purpose_are_enforced_for_run_and_delete():
         )
 
 
-def test_start_replaces_the_previous_idle_session_for_the_same_scope():
+def test_start_replaces_the_previous_idle_session_for_the_same_scope() -> None:
     _app, runtime, _providers = _make_runtime()
     first = _start_test_session(runtime)
     second = _start_test_session(
@@ -546,7 +560,7 @@ def test_start_replaces_the_previous_idle_session_for_the_same_scope():
     assert _active_test_session_id(runtime) == second["session_id"]
 
 
-def test_start_keeps_the_previous_session_when_its_old_worker_lock_is_busy():
+def test_start_keeps_the_previous_session_when_its_old_worker_lock_is_busy() -> None:
     _app, runtime, _providers = _make_runtime()
     previous = _start_test_session(runtime)
     previous_lock = runtime.store.lock(previous["session_id"])
@@ -566,7 +580,7 @@ def test_start_keeps_the_previous_session_when_its_old_worker_lock_is_busy():
     assert _active_test_session_id(runtime) == previous["session_id"]
 
 
-def test_owner_scope_lock_blocks_concurrent_runs_across_session_ids():
+def test_owner_scope_lock_blocks_concurrent_runs_across_session_ids() -> None:
     _app, runtime, providers = _make_runtime()
     active = _start_test_session(runtime)
     stale = replace(
@@ -597,7 +611,7 @@ def test_owner_scope_lock_blocks_concurrent_runs_across_session_ids():
         active_events.close()
 
 
-def test_first_run_claims_a_session_created_before_active_pointers():
+def test_first_run_claims_a_session_created_before_active_pointers() -> None:
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(runtime)
     session = runtime.store.load(view["session_id"])
@@ -617,7 +631,7 @@ def test_first_run_claims_a_session_created_before_active_pointers():
     assert _active_test_session_id(runtime) == view["session_id"]
 
 
-def test_stale_session_is_rejected_before_a_provider_is_created():
+def test_stale_session_is_rejected_before_a_provider_is_created() -> None:
     _app, runtime, providers = _make_runtime()
     active = _start_test_session(runtime)
     stale = replace(
@@ -640,7 +654,7 @@ def test_stale_session_is_rejected_before_a_provider_is_created():
     assert _active_test_session_id(runtime) == active["session_id"]
 
 
-def test_owner_admission_is_isolated_by_purpose():
+def test_owner_admission_is_isolated_by_purpose() -> None:
     _app, runtime, _providers = _make_runtime()
     learner = _start_test_session(runtime)
     learner_owner_lock = runtime.store.owner_lock(
@@ -668,7 +682,7 @@ def test_owner_admission_is_isolated_by_purpose():
     )
 
 
-def test_delete_uses_the_run_lock_before_removing_a_session():
+def test_delete_uses_the_run_lock_before_removing_a_session() -> None:
     _app, runtime, _providers = _make_runtime()
     session = runtime.start_session(
         user_bid="user-1",
@@ -705,7 +719,7 @@ def test_delete_uses_the_run_lock_before_removing_a_session():
     assert _active_test_session_id(runtime) is None
 
 
-def test_delete_active_session_removes_the_owner_purpose_session():
+def test_delete_active_session_removes_the_owner_purpose_session() -> None:
     _app, runtime, _providers = _make_runtime()
     learner = _start_test_session(runtime)
     preview = _start_test_session(
@@ -727,7 +741,7 @@ def test_delete_active_session_removes_the_owner_purpose_session():
     )
 
 
-def test_stale_cleanup_does_not_clear_the_replacement_active_pointer():
+def test_stale_cleanup_does_not_clear_the_replacement_active_pointer() -> None:
     _app, runtime, _providers = _make_runtime()
     first = _start_test_session(runtime)
     stale = runtime.store.load(first["session_id"])
@@ -748,7 +762,7 @@ def test_stale_cleanup_does_not_clear_the_replacement_active_pointer():
     assert runtime.store.load(replacement["session_id"]).config_revision == 2
 
 
-def test_save_refreshes_session_and_active_pointer_ttl_together():
+def test_save_refreshes_session_and_active_pointer_ttl_together() -> None:
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(runtime)
     session = runtime.store.load(view["session_id"])
@@ -764,7 +778,7 @@ def test_save_refreshes_session_and_active_pointer_ttl_together():
     assert cache.ttl(active_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
 
 
-def test_invalid_run_does_not_refresh_session_or_active_pointer_ttl():
+def test_invalid_run_does_not_refresh_session_or_active_pointer_ttl() -> None:
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(runtime)
     session = runtime.store.load(view["session_id"])
@@ -788,13 +802,15 @@ def test_invalid_run_does_not_refresh_session_or_active_pointer_ttl():
     assert cache._store[active_key].expires_at == active_expiry
 
 
-def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl():
+def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl() -> None:
     app = Flask("profile-research-lock-lease")
     app.config["REDIS_KEY_PREFIX"] = "test:"
     lock_calls = []
     expected_lock = object()
 
-    def record_lock(key, *, timeout=None, blocking_timeout=None):
+    def record_lock(
+        key: object, *, timeout: object = None, blocking_timeout: object = None
+    ) -> object:
         lock_calls.append(
             {
                 "key": key,
@@ -838,7 +854,7 @@ def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl():
     )
 
 
-def test_content_context_keeps_the_exact_prompt_built_by_markdownflow():
+def test_content_context_keeps_the_exact_prompt_built_by_markdownflow() -> None:
     _app, runtime, providers = _make_runtime(["收到"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -873,7 +889,9 @@ def test_content_context_keeps_the_exact_prompt_built_by_markdownflow():
     assert "__MDFLOW_CODE_BLOCK_" not in context[0]["content"]
 
 
-def test_preserved_content_context_uses_markdownflow_output_without_placeholders():
+def test_preserved_content_context_uses_markdownflow_output_without_placeholders() -> (
+    None
+):
     _app, runtime, providers = _make_runtime(["结合完成"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -918,7 +936,7 @@ def test_preserved_content_context_uses_markdownflow_output_without_placeholders
     assert "__MDFLOW_CODE_BLOCK_" not in str(sent_messages)
 
 
-def test_non_assignment_answer_reaches_the_next_markdownflow_content_block():
+def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> None:
     _app, runtime, providers = _make_runtime(["个性化回应"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -954,7 +972,7 @@ def test_non_assignment_answer_reaches_the_next_markdownflow_content_block():
     )
 
 
-def test_session_snapshots_summary_prompt_and_model_settings():
+def test_session_snapshots_summary_prompt_and_model_settings() -> None:
     app, runtime, _providers = _make_runtime()
     document = "欢迎\n\n---\n\n?[继续]"
     view = runtime.start_session(
@@ -979,7 +997,7 @@ def test_session_snapshots_summary_prompt_and_model_settings():
     assert stored.config_revision == 9
 
 
-def test_locked_summary_does_not_inherit_operator_document_prompt():
+def test_locked_summary_does_not_inherit_operator_document_prompt() -> None:
     _app, runtime, providers = _make_runtime(["称呼：小雨"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -1012,7 +1030,7 @@ def test_locked_summary_does_not_inherit_operator_document_prompt():
     assert "plain-text profile" in str(summary_messages)
 
 
-def test_profile_summary_prompt_requires_plain_text_without_placeholders():
+def test_profile_summary_prompt_requires_plain_text_without_placeholders() -> None:
     summary_prompt = load_prompt_template("profile_research_summary")
 
     assert "plain-text profile" in summary_prompt
@@ -1023,7 +1041,7 @@ def test_profile_summary_prompt_requires_plain_text_without_placeholders():
     assert "{{" not in summary_prompt
 
 
-def test_markdownflow_receives_a_language_name_instead_of_a_locale_code():
+def test_markdownflow_receives_a_language_name_instead_of_a_locale_code() -> None:
     _app, runtime, _providers = _make_runtime()
     view = runtime.start_session(
         user_bid="user-1",
@@ -1040,7 +1058,9 @@ def test_markdownflow_receives_a_language_name_instead_of_a_locale_code():
     assert flow.get_output_language() == "简体中文"
 
 
-def test_llm_provider_uses_shared_non_billable_route_without_redaction(monkeypatch):
+def test_llm_provider_uses_shared_non_billable_route_without_redaction(
+    monkeypatch: object,
+) -> None:
     _app, runtime, _providers = _make_runtime()
     view = runtime.start_session(
         user_bid="user-1",
@@ -1053,7 +1073,9 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(monkeypat
     session = runtime.store.load(view["session_id"])
     calls = []
 
-    def fake_chat_llm(app, user_id, span, **kwargs):
+    def fake_chat_llm(
+        app: object, user_id: object, span: object, **kwargs: object
+    ) -> object:
         calls.append((app, user_id, span, kwargs))
         yield SimpleNamespace(result="画像结果")
 
@@ -1073,7 +1095,9 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(monkeypat
     assert "usage_metadata" not in kwargs
 
 
-def test_sse_response_emits_public_error_without_course_dtos(monkeypatch):
+def test_sse_response_emits_public_error_without_course_dtos(
+    monkeypatch: object,
+) -> None:
     app = Flask("profile-research-sse")
     releases = []
     invalidations = []
@@ -1085,11 +1109,12 @@ def test_sse_response_emits_public_error_without_course_dtos(monkeypatch):
     monkeypatch.setattr(
         profile_research_runtime,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
-    def fail():
-        raise ProfileResearchValidationError("private detail")
+    def fail() -> object:
+        msg = "private detail"
+        raise ProfileResearchValidationError(msg)
         yield  # pragma: no cover
 
     with app.test_request_context("/"):
@@ -1108,12 +1133,14 @@ def test_sse_response_emits_public_error_without_course_dtos(monkeypatch):
     assert releases == ["profile research stream", "profile research stream"]
 
 
-def test_sse_response_normal_completion_releases_without_invalidation(monkeypatch):
+def test_sse_response_normal_completion_releases_without_invalidation(
+    monkeypatch: object,
+) -> None:
     app = Flask("profile-research-sse-normal")
     releases = []
     invalidations = []
 
-    def record_release(*, source):
+    def record_release(*, source: object) -> None:
         releases.append((source, sys.exc_info()[1]))
 
     monkeypatch.setattr(
@@ -1124,10 +1151,10 @@ def test_sse_response_normal_completion_releases_without_invalidation(monkeypatc
     monkeypatch.setattr(
         profile_research_runtime,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
-    def events():
+    def events() -> object:
         yield {"event_type": "done", "is_terminal": True}
 
     with app.test_request_context("/"):
@@ -1146,11 +1173,13 @@ def test_sse_response_normal_completion_releases_without_invalidation(monkeypatc
     ]
 
 
-def test_sse_disconnect_reaches_classified_release_with_generator_exit(monkeypatch):
+def test_sse_disconnect_reaches_classified_release_with_generator_exit(
+    monkeypatch: object,
+) -> None:
     app = Flask("profile-research-sse-close")
     releases = []
 
-    def record_release(*, source):
+    def record_release(*, source: object) -> None:
         releases.append((source, sys.exc_info()[1]))
 
     monkeypatch.setattr(
@@ -1159,7 +1188,7 @@ def test_sse_disconnect_reaches_classified_release_with_generator_exit(monkeypat
         record_release,
     )
 
-    def events():
+    def events() -> object:
         yield {"event_type": "content", "is_terminal": False}
         yield {"event_type": "done", "is_terminal": True}
 
@@ -1178,7 +1207,9 @@ def test_sse_disconnect_reaches_classified_release_with_generator_exit(monkeypat
     assert isinstance(releases[1][1], GeneratorExit)
 
 
-def test_sse_protocol_error_invalidates_before_final_release(monkeypatch):
+def test_sse_protocol_error_invalidates_before_final_release(
+    monkeypatch: object,
+) -> None:
     app = Flask("profile-research-sse-protocol-error")
     cleanup_events = []
 
@@ -1190,14 +1221,15 @@ def test_sse_protocol_error_invalidates_before_final_release(monkeypatch):
     monkeypatch.setattr(
         profile_research_runtime,
         "invalidate_session",
-        lambda *, source, session=None: (
+        lambda *, source, _session=None: (
             cleanup_events.append(("invalidate", source)) or True
         ),
     )
 
-    def events():
+    def events() -> object:
         yield {"event_type": "content", "is_terminal": False}
-        raise ResourceClosedError("private protocol detail")
+        msg = "private protocol detail"
+        raise ResourceClosedError(msg)
 
     with app.test_request_context("/"):
         response = build_profile_research_sse_response(
@@ -1216,7 +1248,7 @@ def test_sse_protocol_error_invalidates_before_final_release(monkeypatch):
     ]
 
 
-def test_public_api_exports_profile_research_boundary():
+def test_public_api_exports_profile_research_boundary() -> None:
     assert api.PROFILE_ONBOARDING_PURPOSE == PROFILE_ONBOARDING_PURPOSE
     assert callable(api.validate_profile_research_document)
     assert callable(api.start_profile_research_session)

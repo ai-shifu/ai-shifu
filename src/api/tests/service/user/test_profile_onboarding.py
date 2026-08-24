@@ -83,7 +83,7 @@ def test_profile_onboarding_config_accepts_official_markdownflow_variables(
     monkeypatch.setattr(
         module,
         "save_profile_onboarding_config_payload",
-        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
+        lambda _app, payload, **_kwargs: saved_payloads.append(payload),
     )
 
     result = module.update_profile_onboarding_config(

@@ -13,6 +13,8 @@ from flaskr.service.common.profile_onboarding import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from flask import Flask
 
 
@@ -88,7 +90,7 @@ def stream_operator_profile_onboarding_preview_session(
     user_input: dict[str, list[str]] | None,
     expected_block_index: int | None = None,
     request_id: str | None = None,
-):
+) -> Generator[dict[str, Any], None, None]:
     """Run one cursor step while enforcing owner and preview-purpose scope."""
     from flaskr.service.profile_research.api import (
         PROFILE_ONBOARDING_PREVIEW_PURPOSE,

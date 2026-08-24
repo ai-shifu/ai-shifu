@@ -17,7 +17,7 @@ from flaskr.api.langfuse import (
     get_request_trace_id,
 )
 from flaskr.api.llm import chat_llm
-from flaskr.common.cache_provider import CacheProvider, redis_cache
+from flaskr.common.cache_provider import CacheLock, CacheProvider, redis_cache
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.dao import (
     invalidate_session,
@@ -68,14 +68,20 @@ class ProfileResearchError(ValueError):
 
 
 class ProfileResearchValidationError(ProfileResearchError):
+    """Signal invalid documents, runtime configuration, or learner input."""
+
     public_code = "transient_markdownflow_invalid"
 
 
 class ProfileResearchSessionNotFoundError(ProfileResearchError):
+    """Signal a missing, expired, or unauthorized research session."""
+
     public_code = "transient_markdownflow_session_not_found"
 
 
 class ProfileResearchSessionBusyError(ProfileResearchError):
+    """Signal concurrent work on the same owner-scoped research session."""
+
     public_code = "transient_markdownflow_session_busy"
 
 
@@ -83,18 +89,22 @@ ProfileResearchSessionNotFound = ProfileResearchSessionNotFoundError
 ProfileResearchSessionBusy = ProfileResearchSessionBusyError
 
 
-def _acquire_profile_research_lock(lock) -> None:
+def _acquire_profile_research_lock(lock: CacheLock) -> None:
     if not bool(lock.acquire(blocking=False)):
-        raise ProfileResearchSessionBusy("session is busy")
+        msg = "session is busy"
+        raise ProfileResearchSessionBusy(msg)
 
 
 @contextlib.contextmanager
-def _hold_profile_research_lock(lock):
+def _hold_profile_research_lock(
+    lock: CacheLock | None,
+) -> Generator[None, None, None]:
     if lock is None:
         yield
         return
     if not bool(lock.acquire(blocking=False)):
-        raise ProfileResearchSessionBusy("session is busy")
+        msg = "session is busy"
+        raise ProfileResearchSessionBusy(msg)
     try:
         yield
     finally:
@@ -102,11 +112,12 @@ def _hold_profile_research_lock(lock):
             lock.release()
 
 
-def _normalize_variables(raw: Any) -> dict[str, str | list[str]]:
+def _normalize_variables(raw: object) -> dict[str, str | list[str]]:
     if raw is None:
         return {}
     if not isinstance(raw, Mapping):
-        raise ProfileResearchSessionNotFound("invalid session variables")
+        msg = "invalid session variables"
+        raise ProfileResearchSessionNotFound(msg)
     variables: dict[str, str | list[str]] = {}
     for raw_key, raw_value in raw.items():
         key = str(raw_key)
@@ -117,11 +128,12 @@ def _normalize_variables(raw: Any) -> dict[str, str | list[str]]:
     return variables
 
 
-def _normalize_context(raw: Any) -> list[dict[str, str]]:
+def _normalize_context(raw: object) -> list[dict[str, str]]:
     if raw is None:
         return []
     if not isinstance(raw, list):
-        raise ProfileResearchSessionNotFound("invalid session context")
+        msg = "invalid session context"
+        raise ProfileResearchSessionNotFound(msg)
     context: list[dict[str, str]] = []
     for raw_message in raw:
         if not isinstance(raw_message, Mapping):
@@ -145,43 +157,49 @@ def _normalize_user_input(
     if raw is None:
         return {}
     if not isinstance(raw, Mapping):
-        raise ProfileResearchValidationError("user_input must be an object")
+        msg = "user_input must be an object"
+        raise ProfileResearchValidationError(msg)
     if len(raw) > _MAX_INPUT_KEY_COUNT:
-        raise ProfileResearchValidationError("user_input has too many keys")
+        msg = "user_input has too many keys"
+        raise ProfileResearchValidationError(msg)
     normalized: dict[str, list[str]] = {}
     total_value_count = 0
     total_length = 0
     for raw_key, raw_values in raw.items():
         if not isinstance(raw_key, str) or not raw_key.strip():
-            raise ProfileResearchValidationError("user_input key is invalid")
+            msg = "user_input key is invalid"
+            raise ProfileResearchValidationError(msg)
         if len(raw_key) > _MAX_INPUT_KEY_CODEPOINTS:
-            raise ProfileResearchValidationError("user_input key is too long")
+            msg = "user_input key is too long"
+            raise ProfileResearchValidationError(msg)
         if (
             not isinstance(raw_values, list)
             or not raw_values
             or len(raw_values) > _MAX_INPUT_VALUES_PER_KEY
         ):
-            raise ProfileResearchValidationError("user_input values are invalid")
+            msg = "user_input values are invalid"
+            raise ProfileResearchValidationError(msg)
         total_value_count += len(raw_values)
         if total_value_count > _MAX_INPUT_VALUE_COUNT:
-            raise ProfileResearchValidationError("user_input has too many values")
+            msg = "user_input has too many values"
+            raise ProfileResearchValidationError(msg)
         values: list[str] = []
         for raw_value in raw_values:
             if not isinstance(raw_value, str):
-                raise ProfileResearchValidationError(
-                    "user_input values must be strings"
-                )
+                msg = "user_input values must be strings"
+                raise ProfileResearchValidationError(msg)
             if not raw_value.strip():
-                raise ProfileResearchValidationError(
-                    "user_input values must not be blank"
-                )
+                msg = "user_input values must not be blank"
+                raise ProfileResearchValidationError(msg)
             if len(raw_value) > _MAX_INPUT_VALUE_CODEPOINTS:
-                raise ProfileResearchValidationError("user_input value is too long")
+                msg = "user_input value is too long"
+                raise ProfileResearchValidationError(msg)
             total_length += len(raw_value)
             values.append(raw_value)
         normalized[raw_key] = values
     if total_length > _MAX_INPUT_TOTAL_CODEPOINTS:
-        raise ProfileResearchValidationError("user_input is too long")
+        msg = "user_input is too long"
+        raise ProfileResearchValidationError(msg)
     return normalized
 
 
@@ -238,7 +256,8 @@ class _ProfileResearchSession:
     @classmethod
     def from_cache_payload(cls, payload: Mapping[str, Any]) -> _ProfileResearchSession:
         if int(payload.get("schema_version") or 0) != _SESSION_SCHEMA_VERSION:
-            raise ProfileResearchSessionNotFound("session schema mismatch")
+            msg = "session schema mismatch"
+            raise ProfileResearchSessionNotFound(msg)
         try:
             raw_events = payload.get("last_events")
             if raw_events is None:
@@ -248,7 +267,8 @@ class _ProfileResearchSession:
                     dict(event) for event in raw_events if isinstance(event, Mapping)
                 ]
             else:
-                raise ProfileResearchSessionNotFound("invalid replay events")
+                msg = "invalid replay events"
+                raise ProfileResearchSessionNotFound(msg)
             last_expected_block_index = payload.get("last_expected_block_index")
             return cls(
                 session_id=str(payload["session_id"]),
@@ -282,7 +302,8 @@ class _ProfileResearchSession:
         except ProfileResearchError:
             raise
         except (KeyError, TypeError, ValueError) as exc:
-            raise ProfileResearchSessionNotFound("invalid session payload") from exc
+            msg = "invalid session payload"
+            raise ProfileResearchSessionNotFound(msg) from exc
 
     def to_view(self) -> dict[str, Any]:
         return {
@@ -330,15 +351,18 @@ class _ProfileResearchSessionStore:
     def load(self, session_id: str) -> _ProfileResearchSession:
         raw = self._cache.get(self._key(session_id))
         if raw is None:
-            raise ProfileResearchSessionNotFound("session not found")
+            msg = "session not found"
+            raise ProfileResearchSessionNotFound(msg)
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
         try:
             payload = json.loads(str(raw))
         except (TypeError, ValueError) as exc:
-            raise ProfileResearchSessionNotFound("invalid session payload") from exc
+            msg = "invalid session payload"
+            raise ProfileResearchSessionNotFound(msg) from exc
         if not isinstance(payload, Mapping):
-            raise ProfileResearchSessionNotFound("invalid session payload")
+            msg = "invalid session payload"
+            raise ProfileResearchSessionNotFound(msg)
         return _ProfileResearchSession.from_cache_payload(payload)
 
     def delete(self, session_id: str) -> None:
@@ -368,14 +392,14 @@ class _ProfileResearchSessionStore:
         if active_session_id == session.session_id:
             self._cache.delete(self._active_key(session.user_bid, session.purpose))
 
-    def lock(self, session_id: str):
+    def lock(self, session_id: str) -> CacheLock:
         return self._cache.lock(
             f"{self._key(session_id)}:lock",
             timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
             blocking_timeout=0,
         )
 
-    def owner_lock(self, *, user_bid: str, purpose: str):
+    def owner_lock(self, *, user_bid: str, purpose: str) -> CacheLock:
         return self._cache.lock(
             f"{self._active_key(user_bid, purpose)}:lock",
             timeout=PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
@@ -386,7 +410,9 @@ class _ProfileResearchSessionStore:
 class _ProfileResearchLLMProvider(LLMProvider):
     """Thin adapter that keeps MarkdownFlow on the shared LLM route."""
 
-    def __init__(self, app: Flask, session: _ProfileResearchSession, span: Any):
+    def __init__(
+        self, app: Flask, session: _ProfileResearchSession, span: object
+    ) -> None:
         self._app = app
         self._session = session
         self._span = span
@@ -401,7 +427,8 @@ class _ProfileResearchLLMProvider(LLMProvider):
         stream: bool,
     ) -> Generator[str, None, None]:
         if not messages:
-            raise ValueError("No messages provided")
+            msg = "No messages provided"
+            raise ValueError(msg)
         actual_model = model or self._session.model
         actual_temperature = (
             temperature if temperature is not None else self._session.temperature
@@ -466,7 +493,9 @@ class _StepOutcome:
     answer_values: list[str] = field(default_factory=list)
 
 
-def _iter_results(result: Any) -> Iterable[LLMResult]:
+def _iter_results(
+    result: LLMResult | Iterable[LLMResult],
+) -> Iterable[LLMResult]:
     if isinstance(result, LLMResult):
         return (result,)
     return result
@@ -474,7 +503,7 @@ def _iter_results(result: Any) -> Iterable[LLMResult]:
 
 def _event(
     event_type: str,
-    content: Any,
+    content: object,
     *,
     generated_block_bid: str | None = None,
     run_session_bid: str | None = None,
@@ -553,20 +582,25 @@ def _append_profile_summary(document: str) -> str:
 def validate_profile_research_document(document: str) -> dict[str, Any]:
     """Validate the configured document with MarkdownFlow's own parser."""
     if not isinstance(document, str) or not document.strip():
-        raise ProfileResearchValidationError("document is empty")
+        msg = "document is empty"
+        raise ProfileResearchValidationError(msg)
     if len(document) > _MAX_DOCUMENT_CODEPOINTS:
-        raise ProfileResearchValidationError("document is too long")
+        msg = "document is too long"
+        raise ProfileResearchValidationError(msg)
     flow = MarkdownFlow(document=document)
     blocks = flow.get_all_blocks()
     if not blocks:
-        raise ProfileResearchValidationError("document has no blocks")
+        msg = "document has no blocks"
+        raise ProfileResearchValidationError(msg)
     if len(blocks) >= _MAX_BLOCK_COUNT:
-        raise ProfileResearchValidationError("document has too many blocks")
+        msg = "document has too many blocks"
+        raise ProfileResearchValidationError(msg)
     interaction_count = sum(
         block.block_type == BlockType.INTERACTION for block in blocks
     )
     if interaction_count == 0:
-        raise ProfileResearchValidationError("document must contain an interaction")
+        msg = "document must contain an interaction"
+        raise ProfileResearchValidationError(msg)
     interaction_parser = InteractionParser()
     for block in blocks:
         if block.block_type != BlockType.INTERACTION:
@@ -577,18 +611,16 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
             isinstance(variable_name, str)
             and len(variable_name) > _MAX_INPUT_KEY_CODEPOINTS
         ):
-            raise ProfileResearchValidationError(
-                "interaction variable name is too long"
-            )
+            msg = "interaction variable name is too long"
+            raise ProfileResearchValidationError(msg)
         question = parsed_interaction.get("question")
         has_question = isinstance(question, str) and bool(question.strip())
         buttons = parsed_interaction.get("buttons")
         button_values: list[str] = []
         if isinstance(buttons, list):
             if len(buttons) > _MAX_INPUT_VALUE_COUNT:
-                raise ProfileResearchValidationError(
-                    "interaction options exceed runtime input limits"
-                )
+                msg = "interaction options exceed runtime input limits"
+                raise ProfileResearchValidationError(msg)
             for button in buttons:
                 display = button.get("display") if isinstance(button, dict) else None
                 value = button.get("value") if isinstance(button, dict) else None
@@ -598,25 +630,23 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
                     or not isinstance(value, str)
                     or not value.strip()
                 ):
-                    raise ProfileResearchValidationError(
-                        "interaction has no answerable input"
-                    )
+                    msg = "interaction has no answerable input"
+                    raise ProfileResearchValidationError(msg)
                 if len(value) > _MAX_INPUT_VALUE_CODEPOINTS:
-                    raise ProfileResearchValidationError(
-                        "interaction options exceed runtime input limits"
-                    )
+                    msg = "interaction options exceed runtime input limits"
+                    raise ProfileResearchValidationError(msg)
                 button_values.append(value)
             if (
                 parsed_interaction.get("is_multi_select")
                 and sum(len(value) for value in button_values)
                 > _MAX_INPUT_TOTAL_CODEPOINTS
             ):
-                raise ProfileResearchValidationError(
-                    "interaction options exceed runtime input limits"
-                )
+                msg = "interaction options exceed runtime input limits"
+                raise ProfileResearchValidationError(msg)
         has_usable_button = bool(button_values)
         if not has_question and not has_usable_button:
-            raise ProfileResearchValidationError("interaction has no answerable input")
+            msg = "interaction has no answerable input"
+            raise ProfileResearchValidationError(msg)
     return {
         "block_count": len(blocks),
         "interaction_block_count": interaction_count,
@@ -626,15 +656,18 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
 
 
 class ProfileResearchRuntime:
+    """Run owner-scoped guided profile collection on shared Redis state."""
+
     def __init__(
         self,
         app: Flask,
         *,
         store: _ProfileResearchSessionStore | None = None,
         provider_factory: Callable[
-            [Flask, _ProfileResearchSession, Any], LLMProvider
+            [Flask, _ProfileResearchSession, object], LLMProvider
         ] = _ProfileResearchLLMProvider,
     ) -> None:
+        """Initialize the runtime with shared storage and provider adapters."""
         self.app = app
         self.store = store or _ProfileResearchSessionStore(app)
         self._provider_factory = provider_factory
@@ -649,12 +682,15 @@ class ProfileResearchRuntime:
         config_revision: int,
         output_language: str | None,
     ) -> dict[str, Any]:
+        """Validate the document and create one owner-purpose session."""
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = str(purpose or "").strip()
         if not normalized_user_bid:
-            raise ProfileResearchValidationError("user_bid is required")
+            msg = "user_bid is required"
+            raise ProfileResearchValidationError(msg)
         if normalized_purpose not in _ALLOWED_PURPOSES:
-            raise ProfileResearchValidationError("purpose is invalid")
+            msg = "purpose is invalid"
+            raise ProfileResearchValidationError(msg)
         validate_profile_research_document(document)
 
         normalized_output_language = str(output_language or "").strip()
@@ -662,20 +698,25 @@ class ProfileResearchRuntime:
         flow = MarkdownFlow(snapshotted_document)
         blocks = flow.get_all_blocks()
         if not blocks or blocks[-1].block_type != BlockType.CONTENT:
-            raise ProfileResearchValidationError("profile summary block is invalid")
+            msg = "profile summary block is invalid"
+            raise ProfileResearchValidationError(msg)
         if len(blocks) > _MAX_BLOCK_COUNT:
-            raise ProfileResearchValidationError("document has too many blocks")
+            msg = "document has too many blocks"
+            raise ProfileResearchValidationError(msg)
 
         model = str(self.app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
         if not model:
-            raise ProfileResearchValidationError("LLM model is not configured")
+            msg = "LLM model is not configured"
+            raise ProfileResearchValidationError(msg)
         try:
             temperature = float(self.app.config.get("DEFAULT_LLM_TEMPERATURE", 0.3))
             revision = max(int(config_revision or 0), 0)
         except (TypeError, ValueError) as exc:
-            raise ProfileResearchValidationError("runtime config is invalid") from exc
+            msg = "runtime config is invalid"
+            raise ProfileResearchValidationError(msg) from exc
         if temperature < 0 or temperature > 2:
-            raise ProfileResearchValidationError("LLM temperature is invalid")
+            msg = "LLM temperature is invalid"
+            raise ProfileResearchValidationError(msg)
 
         session = _ProfileResearchSession(
             session_id=generate_id(self.app),
@@ -733,7 +774,8 @@ class ProfileResearchRuntime:
                 expected_purpose=None,
             ).purpose
         if normalized_purpose not in _ALLOWED_PURPOSES:
-            raise ProfileResearchSessionNotFound("session not found")
+            msg = "session not found"
+            raise ProfileResearchSessionNotFound(msg)
         return normalized_purpose
 
     def _load_authorized_session(
@@ -745,12 +787,14 @@ class ProfileResearchRuntime:
     ) -> _ProfileResearchSession:
         session = self.store.load(str(session_id or "").strip())
         if session.user_bid != str(user_bid or "").strip():
-            raise ProfileResearchSessionNotFound("session not found")
+            msg = "session not found"
+            raise ProfileResearchSessionNotFound(msg)
         if (
             expected_purpose is not None
             and session.purpose != str(expected_purpose).strip()
         ):
-            raise ProfileResearchSessionNotFound("session not found")
+            msg = "session not found"
+            raise ProfileResearchSessionNotFound(msg)
         return session
 
     def delete_session(
@@ -760,6 +804,7 @@ class ProfileResearchRuntime:
         session_id: str,
         expected_purpose: str | None,
     ) -> None:
+        """Delete an authorized session and its matching active pointer."""
         normalized_session_id = str(session_id or "").strip()
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = self._resolve_existing_session_purpose(
@@ -783,10 +828,12 @@ class ProfileResearchRuntime:
                 self.store.clear_active(session)
 
     def delete_active_session(self, *, user_bid: str, purpose: str) -> None:
+        """Delete the current owner-purpose session when one exists."""
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = str(purpose or "").strip()
         if not normalized_user_bid or normalized_purpose not in _ALLOWED_PURPOSES:
-            raise ProfileResearchSessionNotFound("session not found")
+            msg = "session not found"
+            raise ProfileResearchSessionNotFound(msg)
         owner_lock = self.store.owner_lock(
             user_bid=normalized_user_bid,
             purpose=normalized_purpose,
@@ -876,12 +923,12 @@ class ProfileResearchRuntime:
         if request_id is None and expected_block_index is None:
             return None
         if request_id is None or expected_block_index is None:
-            raise ProfileResearchValidationError(
-                "expected_block_index and request_id must be provided together"
-            )
+            msg = "expected_block_index and request_id must be provided together"
+            raise ProfileResearchValidationError(msg)
         normalized_request_id = str(request_id).strip()
         if not normalized_request_id or len(normalized_request_id) > 128:
-            raise ProfileResearchValidationError("request_id is invalid")
+            msg = "request_id is invalid"
+            raise ProfileResearchValidationError(msg)
         if normalized_request_id == session.last_request_id:
             if (
                 expected_block_index == session.last_expected_block_index
@@ -889,20 +936,18 @@ class ProfileResearchRuntime:
                 and session.last_events
             ):
                 return _expand_replay_events(session.last_events)
-            raise ProfileResearchValidationError(
-                "request_id was reused with different run input"
-            )
+            msg = "request_id was reused with different run input"
+            raise ProfileResearchValidationError(msg)
         if expected_block_index != session.block_index:
-            raise ProfileResearchValidationError(
-                "expected_block_index does not match the session cursor"
-            )
+            msg = "expected_block_index does not match the session cursor"
+            raise ProfileResearchValidationError(msg)
         return None
 
     def _update_context(
         self,
         session: _ProfileResearchSession,
         *,
-        current_block: Any,
+        current_block: object,
         user_input: dict[str, list[str]],
         outcome: _StepOutcome,
     ) -> None:
@@ -942,6 +987,7 @@ class ProfileResearchRuntime:
         expected_block_index: int | None = None,
         request_id: str | None = None,
     ) -> Generator[dict[str, Any], None, None]:
+        """Run one idempotent cursor step and stream public events."""
         normalized_session_id = str(session_id or "").strip()
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = self._resolve_existing_session_purpose(
@@ -954,7 +1000,8 @@ class ProfileResearchRuntime:
             purpose=normalized_purpose,
         )
         if not bool(owner_lock.acquire(blocking=False)):
-            raise ProfileResearchSessionBusy("session is busy")
+            msg = "session is busy"
+            raise ProfileResearchSessionBusy(msg)
         try:
             lock = self.store.lock(normalized_session_id)
             _acquire_profile_research_lock(lock)
@@ -977,7 +1024,8 @@ class ProfileResearchRuntime:
                 # Claim them on first run while holding the owner-purpose lock.
                 self.store.refresh_active(session)
             elif active_session_id != session.session_id:
-                raise ProfileResearchSessionNotFound("session not found")
+                msg = "session not found"
+                raise ProfileResearchSessionNotFound(msg)
             normalized_user_input = _normalize_user_input(user_input)
             replay = self._replay_or_validate_request(
                 session,
@@ -1026,16 +1074,17 @@ class ProfileResearchRuntime:
                 flow = self._build_flow(session, provider)
                 blocks = flow.get_all_blocks()
                 if len(blocks) != session.block_count:
-                    raise ProfileResearchSessionNotFound("session document changed")
+                    msg = "session document changed"
+                    raise ProfileResearchSessionNotFound(msg)
                 if session.block_index < 0 or session.block_index >= len(blocks):
-                    raise ProfileResearchSessionNotFound("invalid session cursor")
+                    msg = "invalid session cursor"
+                    raise ProfileResearchSessionNotFound(msg)
                 processed_block_index = session.block_index
                 current_block = blocks[processed_block_index]
                 has_user_input = bool(normalized_user_input)
                 if current_block.block_type != BlockType.INTERACTION and has_user_input:
-                    raise ProfileResearchValidationError(
-                        "user_input is not expected for this block"
-                    )
+                    msg = "user_input is not expected for this block"
+                    raise ProfileResearchValidationError(msg)
                 rendering_interaction = (
                     current_block.block_type == BlockType.INTERACTION
                     and not has_user_input
@@ -1087,9 +1136,8 @@ class ProfileResearchRuntime:
                     events.append(next_event)
                     yield next_event
                 if rendering_interaction and not outcome.content.strip():
-                    raise ProfileResearchError(
-                        "MarkdownFlow returned an empty interaction"
-                    )
+                    msg = "MarkdownFlow returned an empty interaction"
+                    raise ProfileResearchError(msg)
                 if (
                     current_block.block_type == BlockType.INTERACTION
                     and has_user_input
@@ -1107,9 +1155,8 @@ class ProfileResearchRuntime:
                         for item in _iter_results(rerendered)
                     )
                     if not rerendered_interaction:
-                        raise ProfileResearchError(
-                            "MarkdownFlow returned an empty interaction"
-                        )
+                        msg = "MarkdownFlow returned an empty interaction"
+                        raise ProfileResearchError(msg)
             finally:
                 finalize_langfuse_trace(
                     trace=trace,
@@ -1129,7 +1176,8 @@ class ProfileResearchRuntime:
                 processed_block_index == session.profile_draft_block_index
                 and not outcome.content.strip()
             ):
-                raise ProfileResearchError("profile draft is empty")
+                msg = "profile draft is empty"
+                raise ProfileResearchError(msg)
 
             if advanced:
                 session.variables.update(outcome.variable_updates)
@@ -1196,6 +1244,7 @@ def start_profile_research_session(
     config_revision: int = 0,
     output_language: str | None = None,
 ) -> dict[str, Any]:
+    """Create a profile-research session through the shared runtime."""
     return ProfileResearchRuntime(app).start_session(
         user_bid=user_bid,
         document=document,
@@ -1216,6 +1265,7 @@ def stream_profile_research_session(
     expected_block_index: int | None = None,
     request_id: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
+    """Stream one profile-research session cursor step."""
     yield from ProfileResearchRuntime(app).stream_session(
         user_bid=user_bid,
         session_id=session_id,
@@ -1233,6 +1283,7 @@ def delete_profile_research_session(
     session_id: str,
     expected_purpose: str | None = None,
 ) -> None:
+    """Delete one authorized profile-research session."""
     ProfileResearchRuntime(app).delete_session(
         user_bid=user_bid,
         session_id=session_id,
@@ -1246,6 +1297,7 @@ def delete_active_profile_research_session(
     user_bid: str,
     purpose: str,
 ) -> None:
+    """Delete the active session for one owner and purpose."""
     ProfileResearchRuntime(app).delete_active_session(
         user_bid=user_bid,
         purpose=purpose,
@@ -1262,9 +1314,10 @@ def build_profile_research_sse_response(
     event_iter_factory: Callable[[], Iterable[dict[str, Any]]],
     log_context: str,
 ) -> Response:
+    """Build an SSE response with safe errors and DB-session cleanup."""
     safe_log_context = str(log_context or "profile research")[:80]
 
-    def event_stream():
+    def event_stream() -> Generator[str, None, None]:
         try:
             for event in event_iter_factory():
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"

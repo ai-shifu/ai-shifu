@@ -1,8 +1,11 @@
+"""Verify legacy and canonical profile-onboarding protocol isolation."""
+
 from __future__ import annotations
 
 import json
 import re
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 from flaskr.dao import db
@@ -62,7 +65,7 @@ def _create_user(user_bid: str, *, learner_profile: str = "") -> None:
     db.session.commit()
 
 
-def _set_config(monkeypatch, payload: dict) -> None:
+def _set_config(monkeypatch: object, payload: dict) -> None:
     from flaskr.service.common import profile_onboarding as config_module
 
     monkeypatch.setattr(
@@ -72,7 +75,7 @@ def _set_config(monkeypatch, payload: dict) -> None:
     )
 
 
-def test_legacy_projection_replaces_assigned_unsafe_variable_names():
+def test_legacy_projection_replaces_assigned_unsafe_variable_names() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -90,7 +93,7 @@ def test_legacy_projection_replaces_assigned_unsafe_variable_names():
     ]
 
 
-def test_legacy_projection_replaces_raw_names_normalized_by_official_parser():
+def test_legacy_projection_replaces_raw_names_normalized_by_official_parser() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -104,7 +107,7 @@ def test_legacy_projection_replaces_raw_names_normalized_by_official_parser():
     )
 
 
-def test_legacy_projection_preserves_every_byte_around_changed_interactions():
+def test_legacy_projection_preserves_every_byte_around_changed_interactions() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -126,7 +129,7 @@ def test_legacy_projection_preserves_every_byte_around_changed_interactions():
     )
 
 
-def test_legacy_projection_uses_official_button_values_as_legacy_choices():
+def test_legacy_projection_uses_official_button_values_as_legacy_choices() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -149,7 +152,7 @@ def test_legacy_projection_uses_official_button_values_as_legacy_choices():
     }
 
 
-def test_legacy_projection_rebuilds_explicit_same_value_buttons():
+def test_legacy_projection_rebuilds_explicit_same_value_buttons() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -165,7 +168,7 @@ def test_legacy_projection_rebuilds_explicit_same_value_buttons():
     ]
 
 
-def test_legacy_projection_drops_unsupported_button_free_text_question():
+def test_legacy_projection_drops_unsupported_button_free_text_question() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -180,7 +183,7 @@ def test_legacy_projection_drops_unsupported_button_free_text_question():
     assert all("Other style?" not in option for option in legacy_step["options"])
 
 
-def test_legacy_projection_isolates_values_the_old_parser_would_trim():
+def test_legacy_projection_isolates_values_the_old_parser_would_trim() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -203,7 +206,7 @@ def test_legacy_projection_isolates_values_the_old_parser_would_trim():
     assert legacy_step["options"] == ["brief", "full"]
 
 
-def test_legacy_projection_matches_ecmascript_button_value_trimming():
+def test_legacy_projection_matches_ecmascript_button_value_trimming() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
         _strip_retiring_web_whitespace,
@@ -220,7 +223,7 @@ def test_legacy_projection_matches_ecmascript_button_value_trimming():
     assert projected == "?[%{{sys_user_style}} \u0085brief | full]"
 
 
-def test_legacy_projection_handles_mixed_interactions_without_collisions():
+def test_legacy_projection_handles_mixed_interactions_without_collisions() -> None:
     from flaskr.service.profile.onboarding import (
         _project_legacy_profile_onboarding_markdownflow,
     )
@@ -255,8 +258,8 @@ def test_legacy_projection_handles_mixed_interactions_without_collisions():
 
 
 def test_legacy_button_projection_completion_keeps_protocol_storage_isolated(
-    app, monkeypatch, test_client
-):
+    app: object, monkeypatch: object, test_client: object
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         PROFILE_ONBOARDING_STATE_KEY,
     )
@@ -329,8 +332,8 @@ def test_legacy_button_projection_completion_keeps_protocol_storage_isolated(
 
 
 def test_legacy_trimmed_button_projection_cannot_write_system_profile(
-    app, monkeypatch, test_client
-):
+    app: object, monkeypatch: object, test_client: object
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         PROFILE_ONBOARDING_STATE_KEY,
     )
@@ -391,11 +394,14 @@ def test_legacy_trimmed_button_projection_cannot_write_system_profile(
     assert set(values) == {PROFILE_ONBOARDING_STATE_KEY}
 
 
-def test_legacy_projection_failure_keeps_v2_guided_flow_available(app, monkeypatch):
+def test_legacy_projection_failure_keeps_v2_guided_flow_available(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile import onboarding as onboarding_service
 
     def raise_projection_error(_document: str) -> str:
-        raise RuntimeError("projection failed")
+        msg = "projection failed"
+        raise RuntimeError(msg)
 
     _set_config(
         monkeypatch,
@@ -427,8 +433,8 @@ def test_legacy_projection_failure_keeps_v2_guided_flow_available(app, monkeypat
 
 
 def test_fenced_markdownflow_remains_available_when_legacy_projection_cannot_map_it(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile.onboarding import get_profile_onboarding_status
 
     document = (
@@ -460,8 +466,8 @@ def test_fenced_markdownflow_remains_available_when_legacy_projection_cannot_map
 
 
 def test_dual_get_contract_covers_fresh_legacy_canonical_v2_and_fail_open(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_STATE_KEY,
@@ -549,8 +555,8 @@ def test_dual_get_contract_covers_fresh_legacy_canonical_v2_and_fail_open(
 
 
 def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
-    app, monkeypatch, test_client
-):
+    app: object, monkeypatch: object, test_client: object
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         PROFILE_ONBOARDING_STATE_KEY,
     )
@@ -636,8 +642,8 @@ def test_legacy_projection_completion_writes_only_the_legacy_sentinel(
 
 
 def test_legacy_complete_filters_unknown_variables_before_moderation_and_storage(
-    app, monkeypatch, test_client
-):
+    app: object, monkeypatch: object, test_client: object
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         PROFILE_ONBOARDING_STATE_KEY,
     )
@@ -705,8 +711,8 @@ def test_legacy_complete_filters_unknown_variables_before_moderation_and_storage
 
 
 def test_complete_routes_keep_legacy_and_v2_persistence_strictly_isolated(
-    app, monkeypatch, test_client
-):
+    app: object, monkeypatch: object, test_client: object
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         PROFILE_ONBOARDING_SCENE_KEY,
         PROFILE_ONBOARDING_STATE_KEY,
@@ -833,11 +839,14 @@ def test_complete_routes_keep_legacy_and_v2_persistence_strictly_isolated(
     assert mixed_state is None
 
 
-def test_status_fails_open_when_profile_config_cannot_be_loaded(app, monkeypatch):
+def test_status_fails_open_when_profile_config_cannot_be_loaded(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile import onboarding as onboarding_module
 
-    def raise_unavailable_config():
-        raise RuntimeError("config unavailable")
+    def raise_unavailable_config() -> Never:
+        msg = "config unavailable"
+        raise RuntimeError(msg)
 
     monkeypatch.setattr(
         onboarding_module,
@@ -859,7 +868,9 @@ def test_status_fails_open_when_profile_config_cannot_be_loaded(app, monkeypatch
     assert status["profile_v2"]["presentation"] == "hidden"
 
 
-def test_late_v2_skip_never_downgrades_a_completed_profile(app, monkeypatch):
+def test_late_v2_skip_never_downgrades_a_completed_profile(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile.onboarding import (
         complete_profile_onboarding_v2,
         skip_profile_onboarding_v2,
@@ -888,18 +899,20 @@ def test_late_v2_skip_never_downgrades_a_completed_profile(app, monkeypatch):
     assert state.trigger_source == "guided"
 
 
-def test_v2_skip_locks_user_then_state_before_deciding_status(app, monkeypatch):
+def test_v2_skip_locks_user_then_state_before_deciding_status(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile import onboarding as onboarding_module
 
     lock_reads: list[tuple[str, bool]] = []
     original_load_user = onboarding_module.load_learner_profile_user
     original_load_state = onboarding_module.load_learner_profile_state
 
-    def load_user(user_id: str, *, for_update: bool = False):
+    def load_user(user_id: str, *, for_update: bool = False) -> object:
         lock_reads.append(("user", for_update))
         return original_load_user(user_id, for_update=for_update)
 
-    def load_state(user_id: str, *, for_update: bool = False):
+    def load_state(user_id: str, *, for_update: bool = False) -> object:
         lock_reads.append(("state", for_update))
         return original_load_state(user_id, for_update=for_update)
 
@@ -924,7 +937,9 @@ def test_v2_skip_locks_user_then_state_before_deciding_status(app, monkeypatch):
     assert result["skipped"] is False
 
 
-def test_v2_complete_accepts_dormant_canonical_pasted_trigger(app, monkeypatch):
+def test_v2_complete_accepts_dormant_canonical_pasted_trigger(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile.onboarding import complete_profile_onboarding_v2
 
     monkeypatch.setattr(
@@ -950,7 +965,9 @@ def test_v2_complete_accepts_dormant_canonical_pasted_trigger(app, monkeypatch):
     assert state.trigger_source == "pasted"
 
 
-def test_v2_complete_atomically_saves_optional_nickname_semantics(app, monkeypatch):
+def test_v2_complete_atomically_saves_optional_nickname_semantics(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile.onboarding import complete_profile_onboarding_v2
 
     monkeypatch.setattr(
@@ -1013,7 +1030,9 @@ def test_v2_complete_atomically_saves_optional_nickname_semantics(app, monkeypat
     assert all(state.trigger_source == "guided" for state in states.values())
 
 
-def test_v2_complete_rolls_back_profile_nickname_and_state_together(app, monkeypatch):
+def test_v2_complete_rolls_back_profile_nickname_and_state_together(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile.onboarding import complete_profile_onboarding_v2
 
     monkeypatch.setattr(
@@ -1026,8 +1045,9 @@ def test_v2_complete_rolls_back_profile_nickname_and_state_together(app, monkeyp
         _create_user(user_id, learner_profile="Existing profile.")
         original_commit = db.session.commit
 
-        def fail_commit():
-            raise RuntimeError("database unavailable")
+        def fail_commit() -> Never:
+            msg = "database unavailable"
+            raise RuntimeError(msg)
 
         monkeypatch.setattr(db.session, "commit", fail_commit)
         with pytest.raises(RuntimeError, match="database unavailable"):
@@ -1049,8 +1069,8 @@ def test_v2_complete_rolls_back_profile_nickname_and_state_together(app, monkeyp
 
 
 def test_late_v2_skip_reconstructs_completed_state_before_session_cleanup(
-    app, monkeypatch, test_client
-):
+    app: object, monkeypatch: object, test_client: object
+) -> None:
     user_id = "protocol-profile-without-state"
     session_id = "0123456789abcdef0123456789abcdef"
 
@@ -1069,7 +1089,7 @@ def test_late_v2_skip_reconstructs_completed_state_before_session_cleanup(
 
     cleanup_observations: list[tuple[str, str, str]] = []
 
-    def observe_cleanup(_app, *, user_bid: str, session_id: str | None) -> None:
+    def observe_cleanup(_app: object, *, user_bid: str, session_id: str | None) -> None:
         # Force a fresh ORM session so cleanup can only observe committed state.
         db.session.remove()
         state = UserOnboardingState.query.filter_by(user_bid=user_bid).one()

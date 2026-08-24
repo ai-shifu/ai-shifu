@@ -1,3 +1,5 @@
+"""Verify the versioned profile-onboarding configuration contract."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +8,9 @@ import pytest
 from flaskr.service.common.models import AppError
 
 
-def test_profile_onboarding_config_uses_runtime_validation(app, monkeypatch):
+def test_profile_onboarding_config_uses_runtime_validation(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     current_config = {
@@ -31,7 +35,7 @@ def test_profile_onboarding_config_uses_runtime_validation(app, monkeypatch):
     monkeypatch.setattr(
         module,
         "save_profile_onboarding_config_payload",
-        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
+        lambda _app, payload, **_kwargs: saved_payloads.append(payload),
     )
 
     document = "?[ %{{role}} ...Tell me about your work ]\n\n---\n\nThanks."
@@ -77,8 +81,8 @@ def test_profile_onboarding_config_uses_runtime_validation(app, monkeypatch):
     ],
 )
 def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
-    app, monkeypatch, payload, field
-):
+    app: object, monkeypatch: object, payload: object, field: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     monkeypatch.setattr(
@@ -95,7 +99,9 @@ def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
         )
 
 
-def test_profile_onboarding_config_rejects_unanswerable_interaction(app, monkeypatch):
+def test_profile_onboarding_config_rejects_unanswerable_interaction(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_payloads: list[dict] = []
@@ -107,7 +113,7 @@ def test_profile_onboarding_config_rejects_unanswerable_interaction(app, monkeyp
     monkeypatch.setattr(
         module,
         "save_profile_onboarding_config_payload",
-        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
+        lambda _app, payload, **_kwargs: saved_payloads.append(payload),
     )
 
     with pytest.raises(AppError, match="markdownflow"):
@@ -120,7 +126,9 @@ def test_profile_onboarding_config_rejects_unanswerable_interaction(app, monkeyp
     assert saved_payloads == []
 
 
-def test_profile_onboarding_config_rejects_oversized_button_values(app, monkeypatch):
+def test_profile_onboarding_config_rejects_oversized_button_values(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_payloads: list[dict] = []
@@ -132,7 +140,7 @@ def test_profile_onboarding_config_rejects_oversized_button_values(app, monkeypa
     monkeypatch.setattr(
         module,
         "save_profile_onboarding_config_payload",
-        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
+        lambda _app, payload, **_kwargs: saved_payloads.append(payload),
     )
 
     with pytest.raises(AppError, match="markdownflow"):
@@ -148,7 +156,9 @@ def test_profile_onboarding_config_rejects_oversized_button_values(app, monkeypa
     assert saved_payloads == []
 
 
-def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkeypatch):
+def test_profile_onboarding_config_rejects_oversized_document_prompt(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_payloads: list[dict] = []
@@ -160,7 +170,7 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
     monkeypatch.setattr(
         module,
         "save_profile_onboarding_config_payload",
-        lambda _app, payload, *, updated_by: saved_payloads.append(payload),
+        lambda _app, payload, **_kwargs: saved_payloads.append(payload),
     )
 
     with pytest.raises(AppError, match="document_prompt"):
@@ -179,8 +189,8 @@ def test_profile_onboarding_config_rejects_oversized_document_prompt(app, monkey
 
 
 def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_values: list[str] = []
@@ -236,8 +246,8 @@ def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
     ],
 )
 def test_profile_onboarding_config_preserves_only_omitted_document_prompt(
-    app, monkeypatch, payload, expected_document_prompt
-):
+    app: object, monkeypatch: object, payload: object, expected_document_prompt: object
+) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     current_config = module.normalize_profile_onboarding_config_payload(
@@ -255,7 +265,7 @@ def test_profile_onboarding_config_preserves_only_omitted_document_prompt(
     monkeypatch.setattr(
         module,
         "save_profile_onboarding_config_payload",
-        lambda _app, saved_payload, *, updated_by: saved_payloads.append(saved_payload),
+        lambda _app, saved_payload, **_kwargs: saved_payloads.append(saved_payload),
     )
 
     result = module.update_profile_onboarding_config(
@@ -268,7 +278,7 @@ def test_profile_onboarding_config_preserves_only_omitted_document_prompt(
     assert result["document_prompt"] == expected_document_prompt
 
 
-def test_profile_onboarding_config_reads_legacy_version_as_revision():
+def test_profile_onboarding_config_reads_legacy_version_as_revision() -> None:
     from flaskr.service.common.profile_onboarding import (
         normalize_profile_onboarding_config_payload,
     )

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 
-from flask import Flask, request
+from flask import Flask, Response, request
 from flaskr.common.config import get_config
 from flaskr.i18n import get_current_language, get_i18n_list
 from flaskr.route.common import make_common_response
@@ -292,7 +292,7 @@ def _reject_profile_onboarding_unknown_fields(
         raise_param_error(parameter_name)
 
 
-def _normalize_profile_onboarding_language(app: Flask, raw_language: str) -> str:
+def _normalize_profile_onboarding_language(_app: Flask, raw_language: str) -> str:
     normalized = raw_language.strip().replace("_", "-")
     parts = [part for part in normalized.split("-") if part]
     if not parts:
@@ -306,7 +306,7 @@ def _normalize_profile_onboarding_language(app: Flask, raw_language: str) -> str
         else:
             normalized_parts.append(part)
     normalized = "-".join(normalized_parts)
-    supported_languages = get_i18n_list(app)
+    supported_languages = get_i18n_list()
     for supported_language in supported_languages:
         if supported_language.lower() == normalized.lower():
             return supported_language
@@ -1095,7 +1095,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/profile-onboarding/preview",
         methods=["POST"],
     )
-    def admin_operation_create_profile_onboarding_preview():
+    def admin_operation_create_profile_onboarding_preview() -> str:
         """Create an isolated preview from the operator's unsaved editor draft."""
         _require_operator()
         payload = _profile_onboarding_json_object("profile_onboarding_preview")
@@ -1140,7 +1140,7 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/profile-onboarding/preview/<session_id>/run",
         methods=["POST"],
     )
-    def admin_operation_run_profile_onboarding_preview(session_id: str):
+    def admin_operation_run_profile_onboarding_preview(session_id: str) -> Response:
         """Stream one owner- and preview-purpose-scoped cursor step."""
         _require_operator()
         normalized_session_id = normalize_profile_research_session_id(session_id)
