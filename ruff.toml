@@ -10,6 +10,8 @@
 # - `select` lists whole linters or prefixes wherever the codebase already
 #   satisfies every rule underneath. A rule is spelled out individually only
 #   when its prefix would drag in rules that do have violations.
+# - `select` is ordered by the kind of contract it protects, from core code
+#   correctness through runtime boundaries, API clarity, and audit rules.
 # - `ignore` carves the exceptions back out, one comment per reason.
 # - Groups that stay off entirely are listed under "Deliberately not selected"
 #   below, so the rationale survives the next Ruff upgrade.
@@ -57,6 +59,8 @@ select = [
     "ICN",     # import naming conventions
     "INT",     # gettext calls with f-strings
     "SLOT",    # subclasses of str/tuple/namedtuple without __slots__
+
+    # --- Runtime and boundary contracts ----------------------------------
     # INP001 requires an __init__.py next to importable modules, so a package
     # is never an implicit namespace package. Files loaded by path rather than
     # imported (entrypoints, operator scripts, Alembic revisions, fixtures)
@@ -65,13 +69,6 @@ select = [
     "YTT",     # sys.version checks that break on two-digit versions
     "EXE",     # shebang vs executable-bit consistency
     "ASYNC",   # blocking I/O / sleep / subprocess inside async functions
-    # T100/T201/T203 ban debugger and `print`/`pprint` calls in shipped code,
-    # where logging is the contract.
-    # Developer scripts, the inventory tooling and the test suites are console
-    # programs by design and are exempt below; the few remaining backend calls
-    # are CLI or debug output and say so inline.
-    "T",       # debugger / print calls
-    "ERA001",  # commented-out code
 
     # --- Datetime / UTC contract -----------------------------------------
     # Almost complete. The repo's UTC contract (AGENTS.md) stores naive-UTC
@@ -84,8 +81,14 @@ select = [
     # stays ignored below: naive `datetime(...)` literals are the storage
     # format itself.
     "DTZ",
+    "PTH",     # os.path calls that should use pathlib
+    # The TID family bans reaching into a parent package with `from ..x import
+    # y`, which hides which package a name really comes from; sibling-local
+    # `from .x` imports stay allowed. The boundary-checker fixture below must
+    # keep its parent-relative imports, since detecting them is what it tests.
+    "TID",     # complete flake8-tidy-imports family; clean on the baseline
 
-    # --- Logging ----------------------------------------------------------
+    # --- Logging and exception handling -----------------------------------
     # Logging calls pass values as positional interpolation arguments so message
     # rendering stays lazy. The group also catches real defects: G001/G003
     # format the message eagerly (and `+` can raise TypeError on non-string
@@ -99,6 +102,16 @@ select = [
     # keeps the source line in the traceback concise without changing the
     # exception type, rendered text, remaining arguments, or cause chain.
     "EM",      # flake8-errmsg (literal, f-string, and `.format()` messages)
+
+    # --- Console and source hygiene --------------------------------------
+    # T100/T201/T203 ban debugger and `print`/`pprint` calls in shipped code,
+    # where logging is the contract.
+    # Developer scripts, the inventory tooling and the test suites are console
+    # programs by design and are exempt below; the few remaining backend calls
+    # are CLI or debug output and say so inline.
+    "T",       # debugger / print calls
+    "ERA001",  # commented-out code
+    "TD002",   # TODO without an author
 
     # --- Pylint subsets ---------------------------------------------------
     "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
@@ -116,9 +129,7 @@ select = [
     # --- Pytest -----------------------------------------------------------
     "PT",      # flake8-pytest-style
 
-    # --- Paths, suppressions, shadowing, security -------------------------
-    "PTH",     # os.path calls that should use pathlib
-    "PGH",     # blanket noqa / type: ignore, invalid suppressions
+    # --- API and naming contracts -----------------------------------------
     # Remove unused callable parameters when the repository owns the complete
     # signature. Preserve framework, protocol, fixture, and test-double keyword
     # names and consume them explicitly. Promote fixed keyword-compatible
@@ -134,30 +145,6 @@ select = [
     # module filenames (N999). The two DTO modules whose camelCase fields ARE
     # the serialized JSON keys the frontend reads stay exempt from N815 below.
     "N",
-    # The TID family bans reaching into a parent package with `from ..x import
-    # y`, which hides which package a name really comes from; sibling-local
-    # `from .x` imports stay allowed. The boundary-checker fixture below must
-    # keep its parent-relative imports, since detecting them is what it tests.
-    "TID",     # complete flake8-tidy-imports family; clean on the baseline
-    "TD002",   # TODO without an author
-    # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
-    # this repo already satisfied is a security audit with zero current
-    # violations -- eval/exec, pickle and other unsafe deserializers,
-    # `shell=True`, disabled TLS verification, weak ciphers, XML parsers,
-    # Jinja autoescape -- so the group only guards against new ones. The
-    # members that do fire are documented individually:
-    # - S101: `assert` outside tests (python -O strips it, so it is not a
-    #   runtime guard); test suites and script self-tests are exempt below.
-    # - S110/S112: `except Exception: pass` / `continue`. A deliberate
-    #   best-effort block reads better as `contextlib.suppress(...)`, which the
-    #   repo already uses; a narrower `except OSError:` is not flagged either.
-    # - S603/S605/S607: every subprocess and shell invocation. Application code
-    #   justifies each one inline; developer tooling is exempt below.
-    # - S608: every SQL string built by interpolation. Values always use bound
-    #   parameters; the remaining sites interpolate table or column names, which
-    #   bound parameters cannot carry, and justify it inline. Applied Alembic
-    #   revisions must not be edited, so they are exempt below.
-    "S",
 
     # --- Type annotations -------------------------------------------------
     # flake8-annotations is selected as a family: every function signature names
@@ -194,13 +181,33 @@ select = [
     # (TC006/TC007).
     "TC",
 
-    # --- Docstrings -------------------------------------------------------
+    # --- Security and suppression hygiene ---------------------------------
+    "PGH",     # blanket noqa / type: ignore, invalid suppressions
+    # flake8-bandit is enabled as a whole. Every rule it adds beyond the ones
+    # this repo already satisfied is a security audit with zero current
+    # violations -- eval/exec, pickle and other unsafe deserializers,
+    # `shell=True`, disabled TLS verification, weak ciphers, XML parsers,
+    # Jinja autoescape -- so the group only guards against new ones. The
+    # members that do fire are documented individually:
+    # - S101: `assert` outside tests (python -O strips it, so it is not a
+    #   runtime guard); test suites and script self-tests are exempt below.
+    # - S110/S112: `except Exception: pass` / `continue`. A deliberate
+    #   best-effort block reads better as `contextlib.suppress(...)`, which the
+    #   repo already uses; a narrower `except OSError:` is not flagged either.
+    # - S603/S605/S607: every subprocess and shell invocation. Application code
+    #   justifies each one inline; developer tooling is exempt below.
+    # - S608: every SQL string built by interpolation. Values always use bound
+    #   parameters; the remaining sites interpolate table or column names, which
+    #   bound parameters cannot carry, and justify it inline. Applied Alembic
+    #   revisions must not be edited, so they are exempt below.
+    "S",
+
+    # --- Documentation and modernization ---------------------------------
     # pydocstyle is enabled as a whole; the members that would need thousands
     # of new docstrings, conflict with a selected sibling rule, or rewrite
     # embedded Swagger YAML are ignored below.
     "D",
 
-    # --- Modernization ----------------------------------------------------
     # UP040/UP046/UP047 remain selected through the UP prefix but stay dormant
     # while the repository supports Python 3.11; Ruff will activate them with
     # Python 3.12.
