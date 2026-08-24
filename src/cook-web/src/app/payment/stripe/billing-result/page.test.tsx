@@ -8,11 +8,13 @@ import {
 } from '@testing-library/react';
 
 import StripeBillingResultPage from './page';
+import api from '@/api';
 import request from '@/lib/request';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 
 const mockPush = jest.fn();
 const mockSearchParams = new URLSearchParams();
+const mockMutateSWRCache = jest.fn();
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -30,6 +32,19 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('swr', () => ({
+  mutate: (...args: unknown[]) => mockMutateSWRCache(...args),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getBillingOverview: jest.fn(),
+    getBillingWalletBuckets: jest.fn(),
+    getBillingLedger: jest.fn(),
+  },
+}));
+
 jest.mock('@/lib/request', () => ({
   __esModule: true,
   default: {
@@ -42,6 +57,9 @@ jest.mock('@/lib/stripe-storage', () => ({
 }));
 
 const mockRequestPost = request.post as jest.Mock;
+const mockGetBillingOverview = api.getBillingOverview as jest.Mock;
+const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
+const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockConsumeStripeCheckoutSession =
   consumeStripeCheckoutSession as jest.Mock;
 
@@ -49,7 +67,14 @@ describe('StripeBillingResultPage', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockRequestPost.mockReset();
+    mockMutateSWRCache.mockReset();
+    mockGetBillingOverview.mockReset();
+    mockGetBillingWalletBuckets.mockReset();
+    mockGetBillingLedger.mockReset();
     mockConsumeStripeCheckoutSession.mockReset();
+    mockGetBillingOverview.mockResolvedValue({});
+    mockGetBillingWalletBuckets.mockResolvedValue({});
+    mockGetBillingLedger.mockResolvedValue({ items: [] });
     mockSearchParams.forEach((_, key) => mockSearchParams.delete(key));
     jest.useRealTimers();
   });
@@ -74,6 +99,9 @@ describe('StripeBillingResultPage', () => {
     expect(
       await screen.findByText('module.billing.result.successTitle'),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockMutateSWRCache).toHaveBeenCalledTimes(3);
+    });
     expect(
       await screen.findByText('module.billing.result.countdown:3'),
     ).toBeInTheDocument();
