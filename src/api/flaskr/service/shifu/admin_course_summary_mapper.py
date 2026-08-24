@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from flask import current_app
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
 from flaskr.service.shifu.admin_shared import _format_decimal
@@ -14,7 +12,7 @@ def build_admin_operation_course_summary(
     *,
     user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: dict[str, Any] | None = None,
+    activity: dict[str, object] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     """Build admin operation course summary."""
     resolved_activity = activity or {}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
@@ -39,7 +39,7 @@ class CreatorUsageAdmission:
     subscription_status: int | None
     priority_class: str
 
-    def to_response_dict(self) -> dict[str, Any]:
+    def to_response_dict(self) -> dict[str, object]:
         """Serialize this result for an API response."""
         return {
             "allowed": self.allowed,
@@ -51,7 +51,7 @@ class CreatorUsageAdmission:
             "priority_class": self.priority_class,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -72,7 +72,7 @@ class UsageMetricCharge:
     rounded_units: Decimal
     consumed_credits: Decimal
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return an attribute value by key."""
         return getattr(self, key)
 
@@ -90,7 +90,7 @@ class UsageMetricBreakdownItem:
     rounding_mode: str
     consumed_credits: Decimal
 
-    def to_metadata_json(self) -> dict[str, Any]:
+    def to_metadata_json(self) -> dict[str, object]:
         """Serialize this value as JSON-compatible metadata."""
         return {
             "billing_metric": self.billing_metric,
@@ -112,7 +112,7 @@ class UsageBucketMetricBreakdownItem:
     billing_metric_code: int
     consumed_credits: Decimal
 
-    def to_metadata_json(self) -> dict[str, Any]:
+    def to_metadata_json(self) -> dict[str, object]:
         """Serialize this value as JSON-compatible metadata."""
         return {
             "billing_metric": self.billing_metric,
@@ -134,7 +134,7 @@ class UsageBucketBreakdownItem:
     effective_to: str | None = None
     metric_breakdown: list[UsageBucketMetricBreakdownItem] = field(default_factory=list)
 
-    def to_metadata_json(self) -> dict[str, Any]:
+    def to_metadata_json(self) -> dict[str, object]:
         """Serialize this value as JSON-compatible metadata."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
@@ -163,7 +163,7 @@ class UsageEntryMetadata:
     metric_breakdown: list[UsageMetricBreakdownItem]
     bucket_breakdown: list[UsageBucketBreakdownItem] = field(default_factory=list)
 
-    def to_metadata_json(self) -> dict[str, Any]:
+    def to_metadata_json(self) -> dict[str, object]:
         """Serialize this value as JSON-compatible metadata."""
         return {
             "usage_bid": self.usage_bid,

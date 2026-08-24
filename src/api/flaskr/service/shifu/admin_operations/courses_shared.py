@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 import sys
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flask import current_app
 from flaskr.dao import db
@@ -310,7 +310,7 @@ USER_STATE_TO_OPERATOR_STATUS = {
 }
 
 
-def _get_legacy_admin_symbol(name: str, fallback: Any) -> Any:
+def _get_legacy_admin_symbol(name: str, fallback: object) -> object:
     admin_module = sys.modules.get("flaskr.service.shifu.admin")
     if admin_module is None:
         return fallback
@@ -326,7 +326,7 @@ def _format_decimal(value: Decimal | None) -> str:
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> datetime | None:
+def _coerce_operator_datetime(value: object) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -363,7 +363,7 @@ def _format_average_score(value: Decimal | None) -> str:
     return f"{value:.1f}"
 
 
-def _normalize_metadata_json(value: Any) -> dict[str, Any]:
+def _normalize_metadata_json(value: object) -> dict[str, object]:
     if isinstance(value, dict):
         return value
     return {}
@@ -512,7 +512,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr() -> ColumnElement[Any]:
+def _build_course_order_amount_expr() -> ColumnElement[object]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),

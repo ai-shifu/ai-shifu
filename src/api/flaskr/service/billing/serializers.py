@@ -127,7 +127,7 @@ def _resolve_runtime_subscription_status(row: BillingSubscription) -> int:
 
 
 def serialize_catalog_campaign(
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingCatalogCampaignDTO | None:
     """Serialize catalog campaign."""
     if not payload:
@@ -189,8 +189,8 @@ def serialize_admin_campaign(
     has_custom_product_rules: bool = False,
     discount_type_code: int | None = None,
     discount_amount: int | None = None,
-    discount_percent: Any | None = None,
-    bonus_credit_amount: Any | None = None,
+    discount_percent: object | None = None,
+    bonus_credit_amount: object | None = None,
 ) -> AdminBillingCampaignDTO:
     """Serialize admin campaign."""
     _ = app
@@ -267,7 +267,7 @@ def serialize_admin_campaign_detail(
 def serialize_product(
     row: BillingProduct,
     *,
-    campaign_payload: dict[str, Any] | None = None,
+    campaign_payload: dict[str, object] | None = None,
 ) -> BillingPlanDTO | BillingTopupProductDTO:
     """Serialize product."""
     metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
@@ -554,7 +554,7 @@ def serialize_ledger_entry(
     app: Flask,
     row: CreditLedgerEntry,
     *,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     credit_asset_kind: str = "unknown",
 ) -> BillingLedgerItemDTO:
     """Serialize ledger entry."""

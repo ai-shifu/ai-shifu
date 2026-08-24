@@ -698,7 +698,7 @@ def _build_course_summary(
     course: object,
     user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: dict[str, Any] | None = None,
+    activity: dict[str, object] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
     return build_admin_operation_course_summary(
         course,
@@ -745,7 +745,7 @@ def _resolve_created_last_7d_window(
 def _load_course_activity_map(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     return load_course_activity_map(drafts, published)
 
 

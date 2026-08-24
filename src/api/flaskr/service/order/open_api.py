@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
@@ -49,7 +49,7 @@ def open_api_query_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Check if a user (by phone/email) has active order for a course."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, shifu_bid)
@@ -73,7 +73,7 @@ def open_api_grant_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Grant course access (create manual order).
 
     If the user already has an active order the existing order is
@@ -106,7 +106,7 @@ def open_api_revoke_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Revoke course access by setting order status to REFUND (503)."""
     verify_course_ownership(app, owner_bid, shifu_bid)
     normalized = normalize_contact_identifier(user_identify, user_identify_type)

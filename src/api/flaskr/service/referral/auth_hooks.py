@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.framework.plugin.plugin_manager import extension
 
@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 
 @extension("run_post_auth_extensions")
 def bind_referral_invite_post_auth(
-    context: Any,
+    context: object,
     *,
     app: Flask,
-) -> Any:
+) -> object:
     """Best-effort referral binding for new SMS-created users."""
     try:
         process_referral_post_auth(app, context)

@@ -585,7 +585,7 @@ def list_minimax_cloned_voices(
     shifu_bid: str = "",
     include_deleted: bool = False,
     provider: str = "",
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Return minimax cloned voices."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_provider = (provider or "").strip().lower()
@@ -611,7 +611,7 @@ def get_minimax_cloned_voice(
     *,
     owner_user_bid: str,
     voice_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Return minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
@@ -627,7 +627,7 @@ def retry_minimax_voice_clone(
     *,
     owner_user_bid: str,
     voice_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Retry minimax voice clone."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
@@ -656,7 +656,7 @@ def delete_minimax_cloned_voice(
     *,
     owner_user_bid: str,
     voice_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Delete minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
@@ -675,7 +675,7 @@ def build_minimax_clone_cost(
     *,
     creator_bid: str,
     shifu_bid: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build minimax clone cost."""
     normalized_creator_bid = _normalize_required(creator_bid, "creator_bid")
     estimate = estimate_voice_clone_operation_credits(app)
@@ -698,7 +698,7 @@ def build_minimax_clone_cost(
     }
 
 
-def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, Any]:
+def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, object]:
     """Serialize minimax cloned voice."""
     return {
         "voice_bid": row.voice_bid,
@@ -1193,5 +1193,5 @@ def _normalize_required(value: str, field_name: str) -> str:
     return normalized
 
 
-def _zero() -> Any:
+def _zero() -> object:
     return quantize_credit_amount(0)

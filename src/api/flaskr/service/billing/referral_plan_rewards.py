@@ -229,7 +229,7 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     )
 
 
-def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def _extract_order_metadata_datetime(metadata: object, key: str) -> datetime | None:
     from .queries import extract_order_metadata_datetime
 
     return extract_order_metadata_datetime(metadata, key)
@@ -383,7 +383,7 @@ def _resolve_order_shape(
     request: ReferralPlanRewardRequest,
     product: object,
     now: datetime,
-) -> tuple[object, int, datetime, datetime, dict[str, Any]]:
+) -> tuple[object, int, datetime, datetime, dict[str, object]]:
     consts = _billing_consts()
     models = _billing_models()
     active_subscription = _load_primary_active_subscription(

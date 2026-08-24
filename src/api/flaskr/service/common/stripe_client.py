@@ -25,7 +25,7 @@ def ensure_stripe_client(app: Flask) -> object:
     return stripe
 
 
-def build_stripe_request_options() -> dict[str, Any]:
+def build_stripe_request_options() -> dict[str, object]:
     """Build stripe request options."""
     secret_key = get_config("STRIPE_SECRET_KEY")
     if not secret_key:
@@ -39,6 +39,6 @@ def build_stripe_request_options() -> dict[str, Any]:
     return request_options
 
 
-def get_stripe_client_options(app: Flask) -> tuple[Any, dict[str, Any]]:
+def get_stripe_client_options(app: Flask) -> tuple[object, dict[str, object]]:
     """Return stripe client options."""
     return ensure_stripe_client(app), build_stripe_request_options()

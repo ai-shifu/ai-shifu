@@ -131,7 +131,7 @@ class BillingWebhookResult:
             payload["message"] = self.message
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a response field by key."""
         return self.to_response_dict()[key]
 
@@ -323,7 +323,7 @@ def apply_billing_stripe_notification(
 
 def handle_billing_pingxx_webhook(
     app: Flask,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingWebhookResult:
     """Handle Pingxx billing callbacks using the shared billing state machine."""
     event_type = str((payload or {}).get("type", "") or "")
@@ -409,7 +409,7 @@ def handle_billing_pingxx_webhook(
 
 def handle_billing_alipay_webhook(
     app: Flask,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingWebhookResult:
     """Handle billing alipay webhook."""
     provider = get_payment_provider("alipay")
@@ -530,7 +530,7 @@ def apply_billing_native_notification(
         )
 
 
-def _native_target_status(provider: str, payload: dict[str, Any]) -> int | None:
+def _native_target_status(provider: str, payload: dict[str, object]) -> int | None:
     return _BILLING_STATUS_BY_NATIVE_STATE.get(
         resolve_native_payment_state(provider, payload)
     )
@@ -552,7 +552,7 @@ def _native_raw_snapshot_status(
     return 0
 
 
-def _extract_native_amount(provider: str, payload: dict[str, Any]) -> int | None:
+def _extract_native_amount(provider: str, payload: dict[str, object]) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
         value = (

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
@@ -190,7 +190,7 @@ class TopupExpiryRepairRecord:
     effective_to: datetime
     ledger_bids: tuple[str, ...] = ()
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
@@ -213,7 +213,7 @@ class TopupExpiryRepairResult:
     repaired_records: list[TopupExpiryRepairRecord] = field(default_factory=list)
     skipped_bucket_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -225,7 +225,7 @@ class TopupExpiryRepairResult:
             "skipped_bucket_bids": list(self.skipped_bucket_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -244,7 +244,7 @@ class SubscriptionCycleRepairRecord:
     current_period_end_at: datetime
     reason: str
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """Serialize this result as an API payload."""
         return {
             "subscription_bid": self.subscription_bid,
@@ -271,7 +271,7 @@ class SubscriptionCycleRepairResult:
     repaired_records: list[SubscriptionCycleRepairRecord] = field(default_factory=list)
     skipped_subscription_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """Serialize this result as an API payload."""
         return {
             "status": self.status,
@@ -283,7 +283,7 @@ class SubscriptionCycleRepairResult:
             "skipped_subscription_bids": list(self.skipped_subscription_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
@@ -374,11 +374,11 @@ def _load_topup_expiry_subscription_for_bucket(
 
 def _merge_provider_metadata(
     *,
-    existing: Any,
+    existing: object,
     provider: str,
     source: str,
     event_type: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     event_time: datetime | None,
 ) -> JsonObjectMap:
     if isinstance(existing, JsonObjectMap):
@@ -412,7 +412,7 @@ def _resolve_pingxx_renewal_scheduled_at(
 def cancel_billing_subscription(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
     with app.app_context():
@@ -456,7 +456,7 @@ def cancel_billing_subscription(
 def resume_billing_subscription(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
     with app.app_context():
@@ -1080,7 +1080,7 @@ def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
         bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
 
 
-def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, Any]:
+def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, object]:
     return _normalize_json_object(
         {
             "bill_order_bid": order.bill_order_bid,

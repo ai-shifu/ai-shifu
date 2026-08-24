@@ -410,7 +410,7 @@ class AudioSegmentDTO(BaseModel):
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: dict[str, Any] | None = None,
+        av_contract: dict[str, object] | None = None,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
     ) -> None:
         """Build the audio segment payload."""
@@ -480,7 +480,7 @@ class AudioCompleteDTO(BaseModel):
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-        av_contract: dict[str, Any] | None = None,
+        av_contract: dict[str, object] | None = None,
         subtitle_cues: list[SubtitleCueDTO] | None = None,
     ) -> None:
         """Build the completed-audio payload."""
@@ -655,8 +655,8 @@ class ElementPayloadDTO(BaseModel):
         anchor_element_bid: str | None = None,
         ask_element_bid: str | None = None,
         user_input: str | None = None,
-        diff_payload: list[dict[str, Any]] | None = None,
-        asks: list[dict[str, Any]] | None = None,
+        diff_payload: list[dict[str, object]] | None = None,
+        asks: list[dict[str, object]] | None = None,
     ) -> None:
         """Build the composite element payload."""
         super().__init__(

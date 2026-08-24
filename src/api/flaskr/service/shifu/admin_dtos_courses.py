@@ -6,7 +6,6 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, ConfigDict, Field
@@ -143,7 +142,7 @@ class AdminOperationCourseOverviewDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course overview as JSON-compatible data."""
         return self.model_dump()
 
@@ -162,7 +161,7 @@ class AdminOperationCourseListDTO(BaseModel):
     total: int = Field(..., description="Total row count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course list as JSON-compatible data."""
         return {
             "items": [item.__json__() for item in self.items],
@@ -191,7 +190,7 @@ class AdminOperationCourseDetailBasicInfoDTO(BaseModel):
     created_at: datetime | None = Field(..., description="Created at", required=False)
     updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return operator course basic information as JSON-compatible data."""
         return self.model_dump()
 
@@ -242,7 +241,7 @@ class AdminOperationCourseDetailMetricsDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course detail metrics as JSON-compatible data."""
         return self.model_dump()
 
@@ -263,7 +262,7 @@ class AdminOperationEstimatedCreditComponentDTO(BaseModel):
         default=None, description="Credit multiplier label", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator estimated credit component as JSON-compatible data."""
         return self.model_dump()
 
@@ -284,7 +283,7 @@ class AdminOperationEstimatedCreditModeDTO(BaseModel):
         default=None, description="Whether the course currently enables this mode"
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator estimated credit mode as JSON-compatible data."""
         payload = self.model_dump(exclude={"llm", "tts"})
         payload["llm"] = self.llm.__json__()
@@ -309,7 +308,7 @@ class AdminOperationEstimatedCreditAssumptionsDTO(BaseModel):
         default=None, description="Calculation timestamp", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator estimated credit assumptions as JSON-compatible data."""
         return self.model_dump()
 
@@ -331,7 +330,7 @@ class AdminOperationEstimatedCreditCostDTO(BaseModel):
         ..., description="Estimation assumptions", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator estimated credit cost as JSON-compatible data."""
         return {
             "read": self.read.__json__(),
@@ -387,7 +386,7 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course detail chapter as JSON-compatible data."""
         payload = self.model_dump(exclude={"children"})
         payload["children"] = [child.__json__() for child in self.children]
@@ -430,7 +429,7 @@ class AdminOperationCourseUserDTO(BaseModel):
         default=None, description="Latest login timestamp", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course user as JSON-compatible data."""
         return self.model_dump()
 
@@ -443,7 +442,7 @@ class AdminOperationCoursePromptDTO(BaseModel):
         ..., description="Course-level system prompt", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course prompt as JSON-compatible data."""
         return self.model_dump()
 
@@ -464,7 +463,7 @@ class AdminOperationCourseChapterDetailDTO(BaseModel):
         ..., description="Resolved outline system prompt source", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course chapter detail as JSON-compatible data."""
         return self.model_dump()
 
@@ -488,7 +487,7 @@ class AdminOperationCourseDetailDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course detail as JSON-compatible data."""
         return {
             "basic_info": self.basic_info.__json__(),
@@ -515,7 +514,7 @@ class AdminOperationCourseFollowUpSummaryDTO(BaseModel):
         default=None, description="Latest follow-up timestamp", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course follow-up summary as JSON-compatible data."""
         return self.model_dump()
 
@@ -561,7 +560,7 @@ class AdminOperationCourseFollowUpItemDTO(BaseModel):
         default=None, description="Created at", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course follow-up item as JSON-compatible data."""
         return self.model_dump()
 
@@ -583,7 +582,7 @@ class AdminOperationCourseFollowUpListDTO(BaseModel):
     total: int = Field(..., description="Total row count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course follow-up list as JSON-compatible data."""
         return {
             "summary": self.summary.__json__(),
@@ -612,7 +611,7 @@ class AdminOperationCourseRatingSummaryDTO(BaseModel):
         default=None, description="Latest rating timestamp", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course rating summary as JSON-compatible data."""
         return self.model_dump()
 
@@ -652,7 +651,7 @@ class AdminOperationCourseRatingItemDTO(BaseModel):
         default=None, description="Rated at", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course rating item as JSON-compatible data."""
         return self.model_dump()
 
@@ -674,7 +673,7 @@ class AdminOperationCourseRatingListDTO(BaseModel):
     total: int = Field(..., description="Total row count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course rating list as JSON-compatible data."""
         return {
             "summary": self.summary.__json__(),
@@ -758,7 +757,7 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
         default=None, description="Created at", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course credit usage item as JSON-compatible data."""
         return self.model_dump()
 
@@ -800,7 +799,7 @@ class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
         default=None, description="Created at", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return credit-usage detail as JSON-compatible data."""
         return self.model_dump()
 
@@ -824,7 +823,7 @@ class AdminOperationCourseCreditUsageListDTO(BaseModel):
     total: int = Field(..., description="Total row count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course credit usage list as JSON-compatible data."""
         return {
             "view": self.view,
@@ -850,7 +849,7 @@ class AdminOperationCourseCreditUsageDetailListDTO(BaseModel):
     total: int = Field(..., description="Total row count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return credit-usage details as JSON-compatible data."""
         return {
             "items": [item.__json__() for item in self.items],
@@ -888,7 +887,7 @@ class AdminOperationCourseFollowUpDetailBasicInfoDTO(BaseModel):
         default=0, description="1-based follow-up turn index", required=False
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return basic follow-up information as JSON-compatible data."""
         return self.model_dump()
 
@@ -929,7 +928,7 @@ class AdminOperationCourseFollowUpCurrentRecordDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the current follow-up record as JSON-compatible data."""
         return self.model_dump()
 
@@ -949,7 +948,7 @@ class AdminOperationCourseFollowUpTimelineItemDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return a follow-up timeline item as JSON-compatible data."""
         return self.model_dump()
 
@@ -970,7 +969,7 @@ class AdminOperationCourseFollowUpDetailDTO(BaseModel):
         required=False,
     )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> dict[str, object]:
         """Return the operator course follow-up detail as JSON-compatible data."""
         return {
             "basic_info": self.basic_info.__json__(),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs
 
 from flaskr.common.public_urls import build_alipay_notify_url
@@ -112,7 +112,7 @@ class AlipayProvider(PaymentProvider):
         return self._notification_from_payload(payload)
 
     def handle_notification(
-        self, *, payload: dict[str, Any], app: Flask
+        self, *, payload: dict[str, object], app: Flask
     ) -> PaymentNotificationResult:
         """Verify and normalize a provider notification for later application."""
         normalized_payload = dict(payload or {})
@@ -161,7 +161,7 @@ class AlipayProvider(PaymentProvider):
         message = "Alipay refunds are not supported"
         raise RuntimeError(message)
 
-    def _ensure_client(self, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> object:
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
@@ -187,7 +187,7 @@ class AlipayProvider(PaymentProvider):
             logger=app.logger,
         )
 
-    def _load_sdk(self, app: Flask) -> dict[str, Any]:
+    def _load_sdk(self, app: Flask) -> dict[str, object]:
         try:
             from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
             from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
@@ -219,7 +219,7 @@ class AlipayProvider(PaymentProvider):
 
     def _verify_notification_signature(
         self,
-        payload: dict[str, Any],
+        payload: dict[str, object],
         app: Flask,
     ) -> bool:
         self._load_sdk(app)
@@ -248,7 +248,7 @@ class AlipayProvider(PaymentProvider):
 
     def _notification_from_payload(
         self,
-        payload: dict[str, Any],
+        payload: dict[str, object],
     ) -> PaymentNotificationResult:
         return PaymentNotificationResult(
             order_bid=str(payload.get("out_trade_no") or ""),
@@ -280,7 +280,9 @@ def _format_cny_amount(amount: int) -> str:
     return format(yuan, "f")
 
 
-def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, Any]:
+def _parse_alipay_response(
+    raw_response: object, response_key: str
+) -> dict[str, object]:
     if hasattr(raw_response, "to_dict"):
         raw_response = raw_response.to_dict()
     if isinstance(raw_response, str):
@@ -295,7 +297,7 @@ def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, An
     return raw_response
 
 
-def _parse_form_payload(raw_body: bytes | str) -> dict[str, Any]:
+def _parse_form_payload(raw_body: bytes | str) -> dict[str, object]:
     if isinstance(raw_body, bytes):
         raw_body = raw_body.decode("utf-8")
     raw_body = str(raw_body or "")

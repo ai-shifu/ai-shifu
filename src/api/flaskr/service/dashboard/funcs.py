@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -522,7 +522,7 @@ def _resolve_follow_up_source_from_element(
     answer_generated_block_bid: str,
     fallback_position: int,
     ask_created_at: datetime | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_answer_generated_block_bid = str(
         answer_generated_block_bid or ""
     ).strip()
@@ -612,7 +612,7 @@ def _resolve_follow_up_source_from_element(
 
 def _resolve_follow_up_source_from_blocks(
     ask_block: LearnGeneratedBlock,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     progress_record_bid = str(
         getattr(ask_block, "progress_record_bid", "") or ""
     ).strip()
@@ -682,7 +682,7 @@ def _resolve_follow_up_source(
     *,
     ask_block: LearnGeneratedBlock,
     answer_block: LearnGeneratedBlock | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     fallback_position = int(getattr(ask_block, "position", 0) or 0)
     if answer_block is not None:
         source = _resolve_follow_up_source_from_element(

@@ -107,7 +107,9 @@ class TrialOfferState:
         )
 
 
-def _trial_product_field(product_ref: Any, field: str, default: Any = "") -> Any:
+def _trial_product_field(
+    product_ref: object, field: str, default: object = ""
+) -> object:
     if isinstance(product_ref, BillingProduct):
         return getattr(product_ref, field, default)
     if isinstance(product_ref, dict):
@@ -115,7 +117,7 @@ def _trial_product_field(product_ref: Any, field: str, default: Any = "") -> Any
     return default
 
 
-def _trial_product_metadata(product_ref: Any) -> dict[str, Any]:
+def _trial_product_metadata(product_ref: object) -> dict[str, object]:
     if isinstance(product_ref, BillingProduct):
         payload = product_ref.metadata_json
     elif isinstance(product_ref, dict):
@@ -127,7 +129,7 @@ def _trial_product_metadata(product_ref: Any) -> dict[str, Any]:
     return dict(payload) if isinstance(payload, dict) else {}
 
 
-def _resolve_trial_valid_days(product_ref: Any) -> int:
+def _resolve_trial_valid_days(product_ref: object) -> int:
     metadata = _trial_product_metadata(product_ref)
     return _safe_to_positive_int(
         metadata.get(BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS),
@@ -135,7 +137,7 @@ def _resolve_trial_valid_days(product_ref: Any) -> int:
     )
 
 
-def _resolve_trial_highlights(product_ref: Any) -> tuple[str, ...]:
+def _resolve_trial_highlights(product_ref: object) -> tuple[str, ...]:
     metadata = _trial_product_metadata(product_ref)
     highlights = metadata.get("highlights")
     if not isinstance(highlights, list):
@@ -143,7 +145,7 @@ def _resolve_trial_highlights(product_ref: Any) -> tuple[str, ...]:
     return tuple(str(item) for item in highlights if str(item or "").strip())
 
 
-def _trial_product_public_enabled(product_ref: Any) -> bool:
+def _trial_product_public_enabled(product_ref: object) -> bool:
     metadata = _trial_product_metadata(product_ref)
     return _coerce_bool(
         metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG),
@@ -151,7 +153,7 @@ def _trial_product_public_enabled(product_ref: Any) -> bool:
     )
 
 
-def _resolve_trial_product_reference() -> BillingProduct | dict[str, Any] | None:
+def _resolve_trial_product_reference() -> BillingProduct | dict[str, object] | None:
     return (
         BillingProduct.query.filter(
             BillingProduct.deleted == 0,
@@ -164,7 +166,7 @@ def _resolve_trial_product_reference() -> BillingProduct | dict[str, Any] | None
 
 
 def _build_trial_offer_state(
-    product_ref: BillingProduct | dict[str, Any] | None,
+    product_ref: BillingProduct | dict[str, object] | None,
     *,
     enabled: bool,
     status: str,
@@ -361,7 +363,7 @@ def _bootstrap_trial_subscription(
     app: Flask,
     *,
     creator_bid: str,
-    product_ref: BillingProduct | dict[str, Any],
+    product_ref: BillingProduct | dict[str, object],
     trigger: str,
 ) -> None:
     valid_days = _resolve_trial_valid_days(product_ref)
@@ -492,8 +494,8 @@ def _resolve_trial_bootstrap_status(
     creator_bid: str,
     *,
     creator: UserEntity | None = None,
-    product_ref: BillingProduct | dict[str, Any] | None = None,
-) -> tuple[str, BillingProduct | dict[str, Any] | None]:
+    product_ref: BillingProduct | dict[str, object] | None = None,
+) -> tuple[str, BillingProduct | dict[str, object] | None]:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return "invalid_creator_bid", None
@@ -529,7 +531,7 @@ def _backfill_missing_creator_trial_credits(
     *,
     creator_bid: str = "",
     limit: int | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import queue
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
@@ -34,7 +34,7 @@ class _StreamTTSFinalizeJob:
 class StreamTTSFinalizeDrainer:
     """Finalize switched-out text TTS without blocking mdflow visual chunks."""
 
-    def __init__(self, run_context: Any, *, log_prefix: str) -> None:
+    def __init__(self, run_context: object, *, log_prefix: str) -> None:
         """Bind run finalization dependencies and create an empty job queue.
 
         Stores the run context, its Flask app, and the log prefix used by deferred

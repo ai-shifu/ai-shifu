@@ -31,7 +31,7 @@ PR3 scope notes (mirroring the emitter's PR1 conventions):
 """
 
 import queue
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common import raise_error
@@ -60,7 +60,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _runtime() -> Any:
+def _runtime() -> object:
     """Resolve the context_v2 module lazily.
 
     Lazy for two reasons: ``context_v2`` imports this module at load time

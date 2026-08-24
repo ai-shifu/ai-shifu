@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from flaskr.dao import db
 from flaskr.service.tts.models import (
     AUDIO_STATUS_COMPLETED,
@@ -24,11 +22,11 @@ def build_completed_audio_record(
     oss_object_key: str,
     duration_ms: int,
     file_size: int,
-    voice_settings: Any,
+    voice_settings: object,
     tts_model: str,
     text_length: int,
     segment_count: int,
-    subtitle_cues: list[dict[str, Any]] | None = None,
+    subtitle_cues: list[dict[str, object]] | None = None,
     position: int = 0,
     audio_format: str = "mp3",
     sample_rate: int = 24000,

@@ -48,7 +48,7 @@ USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 STATE_TTL = 900
 
 
-def _encode_state(app: object, payload: dict[str, Any]) -> str:
+def _encode_state(app: object, payload: dict[str, object]) -> str:
     now = int(time.time())
     return jwt.encode(
         {
@@ -62,7 +62,7 @@ def _encode_state(app: object, payload: dict[str, Any]) -> str:
     )
 
 
-def _decode_state(app: object, state: str) -> dict[str, Any] | None:
+def _decode_state(app: object, state: str) -> dict[str, object] | None:
     try:
         decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
     except jwt.exceptions.ExpiredSignatureError:
@@ -110,7 +110,7 @@ def _resolve_redirect_uri(app: object, explicit_uri: str | None = None) -> str:
 
 
 def _require_matching_initiator(
-    state_payload: dict[str, Any], current_user_id: str | None
+    state_payload: dict[str, object], current_user_id: str | None
 ) -> None:
     """Refuse a code meant for a different browser session.
 

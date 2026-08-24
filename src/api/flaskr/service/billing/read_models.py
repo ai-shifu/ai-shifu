@@ -577,7 +577,7 @@ def _resolve_usage_course_name(
 
 def _build_usage_metadata_map(
     rows: list[CreditLedgerEntry],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     usage_bids: list[str] = []
     for row in rows:
         if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_USAGE:
@@ -1186,7 +1186,7 @@ def _is_independent_entitlement_row(row: object) -> bool:
     )
 
 
-def _payload_bool(value: Any) -> bool:
+def _payload_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     normalized = str(value or "").strip().lower()
@@ -1217,8 +1217,8 @@ def build_operator_credit_orders_page(
     status: str = "",
     has_available_credits: bool = False,
     payment_provider: str = "",
-    start_time: Any = "",
-    end_time: Any = "",
+    start_time: object = "",
+    end_time: object = "",
 ) -> OperatorCreditOrdersPageDTO:
     """Return paginated operator-facing creator credit orders."""
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -1798,7 +1798,7 @@ def adjust_admin_billing_ledger(
     app: Flask,
     *,
     operator_user_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through wallet buckets."""
     normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))

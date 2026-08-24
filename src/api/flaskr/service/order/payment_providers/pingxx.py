@@ -54,7 +54,7 @@ def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     return wrapped
 
 
-def _get_pingpp_client() -> Any:
+def _get_pingpp_client() -> object:
     with _pingpp_client_state.lock:
         if _pingpp_client_state.client is not None:
             return _pingpp_client_state.client
@@ -76,7 +76,7 @@ class PingxxProvider(PaymentProvider):
 
     channel = "pingxx"
 
-    def _ensure_client(self, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> object:
         """Configure pingpp for the current owner context."""
         try:
             client = _get_pingpp_client()
@@ -101,7 +101,7 @@ class PingxxProvider(PaymentProvider):
         app.logger.info("Pingxx client initialized")
         return client
 
-    def ensure_client(self, app: Flask) -> Any:
+    def ensure_client(self, app: Flask) -> object:
         """Public wrapper for configuring the pingpp client."""
         return self._ensure_client(app)
 

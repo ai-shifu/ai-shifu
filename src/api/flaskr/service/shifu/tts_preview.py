@@ -6,7 +6,7 @@ import base64
 import json
 import uuid
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from flask import Response, current_app, stream_with_context
 from flaskr.api.tts import (
@@ -32,10 +32,12 @@ from flaskr.util.uuid import generate_id
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flaskr.api.tts.base import AudioSettings, VoiceSettings
+
 
 def _build_tts_preview_usage_metadata(
-    voice_settings: Any,
-    audio_settings: Any,
+    voice_settings: VoiceSettings,
+    audio_settings: AudioSettings,
 ) -> dict[str, object]:
     return {
         "voice_id": getattr(voice_settings, "voice_id", "") or "",

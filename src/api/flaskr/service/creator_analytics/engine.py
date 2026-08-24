@@ -75,7 +75,7 @@ def get_analytics_engine(app: Flask) -> Engine:
         return engine
 
 
-def run_query(app: Flask, stmt: Select) -> dict[str, Any]:
+def run_query(app: Flask, stmt: Select) -> dict[str, object]:
     """Execute ``stmt`` against the analytics engine and return columns/rows."""
     engine = get_analytics_engine(app)
     with engine.connect() as connection:

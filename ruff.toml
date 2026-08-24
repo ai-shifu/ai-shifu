@@ -15,8 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN202/ANN401 and the selected rules below) / SLF001 /
-#   PLC0415 / PLR2004
+# - SLF001 / PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -169,27 +168,21 @@ select = [
     "S",
 
     # --- Type annotations -------------------------------------------------
-    # flake8-annotations is otherwise off (see the header). Every callable
-    # parameter now names its input contract; `object` marks intentionally
-    # heterogeneous values at dynamic boundaries. Variadic parameters name the
-    # element/value type after the stars; use a concrete homogeneous type when
-    # known and `object` for intentionally heterogeneous forwarding. ANN205 is
-    # small enough to keep enforced, and a staticmethod is where a
-    # missing return type hides the most, since there is no `self` to infer from.
-    # ANN206 covers the classmethod counterpart, mostly alternative constructors
-    # and frozen-clock `now()` doubles. ANN204 is the same bet for special
-    # methods: `__init__`/`__exit__`/`__json__` and friends have a fixed contract,
-    # so the return type is never a judgement call and writing it down keeps the
-    # serialization dunders (`__json__` returning a dict vs an enum value's str)
-    # readable at a glance.
-    "ANN001",  # missing type for function arguments
-    "ANN002",  # missing type for *args
-    "ANN003",  # missing type for **kwargs
-    "ANN201",  # missing return type for a public function
-    "ANN202",  # missing return type for a private function
-    "ANN204",  # missing return type on a special method
-    "ANN205",  # missing return type on a staticmethod
-    "ANN206",  # missing return type on a classmethod
+    # flake8-annotations is selected as a family: every function signature names
+    # its inputs (ANN001-ANN003) and its result (ANN201/ANN202/ANN204-ANN206),
+    # and ANN401 keeps `typing.Any` out of both positions. `object` marks
+    # intentionally heterogeneous values at dynamic boundaries. Variadic
+    # parameters name the element/value type after the stars; use a concrete
+    # homogeneous type when known and `object` for intentionally heterogeneous
+    # forwarding. Return types matter most where there is no `self` to infer
+    # from (ANN205 staticmethods, ANN206 classmethods -- mostly alternative
+    # constructors and frozen-clock `now()` doubles) and on the special methods
+    # ANN204 covers: `__init__`/`__exit__`/`__json__` and friends have a fixed
+    # contract, so writing the return type down keeps the serialization dunders
+    # (`__json__` returning a dict vs an enum value's str) readable at a glance.
+    # The complete family passes on the current baseline, so keep the family
+    # selected as new ANN rules are added.
+    "ANN",     # flake8-annotations
 
     # --- Boolean arguments ------------------------------------------------
     # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the

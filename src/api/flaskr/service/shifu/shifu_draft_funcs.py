@@ -69,7 +69,7 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
 }
 
 
-def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
+def normalize_ask_provider_config(raw_config: object) -> dict[str, object]:
     """Normalize ask_provider_config into a stable object shape."""
     parsed: dict[str, Any] = {}
     if isinstance(raw_config, dict):
@@ -103,7 +103,7 @@ def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
     }
 
 
-def serialize_ask_provider_config(raw_config: Any) -> str:
+def serialize_ask_provider_config(raw_config: object) -> str:
     """Serialize ask_provider_config into canonical JSON for persistence."""
     normalized = normalize_ask_provider_config(raw_config)
     return json.dumps(normalized, ensure_ascii=False, sort_keys=True)
@@ -411,7 +411,7 @@ def save_shifu_draft_info(
     ask_model: str | None = None,
     ask_temperature: float | None = None,
     ask_system_prompt: str | None = None,
-    ask_provider_config: Any = None,
+    ask_provider_config: object = None,
 ) -> ShifuDetailDto:
     """Save shifu draft info.
 

@@ -259,7 +259,7 @@ def _run_guardrail(
     return chunks
 
 
-def _append_context_langfuse_output(context: Any, value: str) -> None:
+def _append_context_langfuse_output(context: object, value: str) -> None:
     append_output = getattr(context, "append_langfuse_output", None)
     if callable(append_output) and value:
         append_output(value)
@@ -267,10 +267,10 @@ def _append_context_langfuse_output(context: Any, value: str) -> None:
 
 def _finalize_ask_trace(
     *,
-    context: Any,
+    context: object,
     trace: LangfuseTraceHandle,
-    parent_observation: Any | None,
-    span: Any,
+    parent_observation: object | None,
+    span: object,
     trace_args: dict,
     response_text: str,
 ) -> None:
@@ -301,7 +301,7 @@ def handle_input_ask(
     is_preview: bool = False,
     last_position: int = -1,
     anchor_element_bid: str = "",
-    parent_observation: Any | None = None,
+    parent_observation: object | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 

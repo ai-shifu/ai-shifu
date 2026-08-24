@@ -20,7 +20,7 @@ class BillingBaseDTO(BaseModel):
         """Return aliased model fields as JSON-compatible data."""
         return self.model_dump(mode="python", by_alias=True)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a serialized DTO field by key."""
         return self.__json__()[key]
 

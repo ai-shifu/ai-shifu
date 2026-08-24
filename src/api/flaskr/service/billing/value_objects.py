@@ -30,7 +30,7 @@ class PageWindow(Generic[T]):
         }
 
 
-def _serialize_json_value(value: Any) -> Any:
+def _serialize_json_value(value: object) -> object:
     if isinstance(value, JsonObjectMap):
         return value.to_metadata_json()
     if isinstance(value, list):
@@ -44,11 +44,11 @@ class JsonObjectMap(MutableMapping[str, Any]):
 
     values: dict[str, Any] = field(default_factory=dict)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Return a stored JSON value by key."""
         return self.values[key]
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: object) -> None:
         """Store a JSON value under the normalized string key."""
         self.values[str(key)] = value
 
@@ -64,7 +64,7 @@ class JsonObjectMap(MutableMapping[str, Any]):
         """Return the number of stored JSON keys."""
         return len(self.values)
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: object = None) -> object:
         """Return the stored value for a key."""
         return self.values.get(key, default)
 

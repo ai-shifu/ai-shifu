@@ -422,7 +422,7 @@ def ensure_user_aggregate(
     app: Flask,
     *,
     user_bid: str,
-    defaults: dict[str, Any] | None = None,
+    defaults: dict[str, object] | None = None,
 ) -> tuple[UserAggregate, bool]:
     """Ensure a user aggregate exists for ``user_bid``.
 
@@ -445,7 +445,7 @@ def ensure_user_for_identifier(
     *,
     provider: str,
     identifier: str,
-    defaults: dict[str, Any] | None = None,
+    defaults: dict[str, object] | None = None,
 ) -> tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
     defaults = defaults or {}
@@ -576,7 +576,7 @@ def update_user_entity_fields(
 def upsert_user_entity(
     *,
     user_bid: str,
-    defaults: dict[str, Any] | None = None,
+    defaults: dict[str, object] | None = None,
 ) -> tuple[UserEntity, bool]:
     """Create or update user entity."""
     defaults = dict(defaults or {})

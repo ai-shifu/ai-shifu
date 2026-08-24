@@ -44,7 +44,7 @@ def build_visual_segments_for_block(
     app: Flask | None = None,
     raw_content: str,
     generated_block_bid: str,
-    av_contract: dict[str, Any] | None,
+    av_contract: dict[str, object] | None,
     element_index_offset: int = 0,
 ) -> tuple[list[VisualSegment], dict[int, str]]:
     """Build visual segments for one generated block from its av_contract.

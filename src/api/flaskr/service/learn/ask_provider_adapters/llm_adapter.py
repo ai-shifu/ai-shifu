@@ -1,7 +1,6 @@
 """Built-in LLM ask provider adapter."""
 
 from collections.abc import Generator
-from typing import Any
 
 from flask import Flask
 
@@ -23,8 +22,8 @@ class LlmAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""
