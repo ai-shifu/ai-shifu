@@ -295,6 +295,7 @@ describe('ProfileOnboardingConversation', () => {
 
   test('keeps an interaction read-only until its terminal done cursor arrives', async () => {
     let firstOnMessage: ((event: Record<string, unknown>) => void) | undefined;
+    const onRunInFlightChange = jest.fn();
     const runSession = jest.fn(({ onMessage }) => {
       firstOnMessage ??= onMessage;
       return { close: jest.fn() };
@@ -304,11 +305,13 @@ describe('ProfileOnboardingConversation', () => {
       <ProfileOnboardingConversation
         createSession={async () => ({ session_id: 'session-terminal-race' })}
         runSession={runSession}
+        onRunInFlightChange={onRunInFlightChange}
         onDraftReady={jest.fn()}
         onError={jest.fn()}
       />,
     );
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
+    expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
 
     act(() => {
       firstOnMessage?.({
@@ -327,6 +330,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     fireEvent.click(answerButton);
     expect(runSession).toHaveBeenCalledTimes(1);
+    expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
 
     act(() => {
       firstOnMessage?.({
@@ -336,8 +340,10 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
     await waitFor(() => expect(answerButton).toBeEnabled());
+    expect(onRunInFlightChange).toHaveBeenLastCalledWith(false);
     fireEvent.click(answerButton);
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+    expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         expectedBlockIndex: 1,

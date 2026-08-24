@@ -44,6 +44,7 @@ const translateKey = (
 type ConversationControl = {
   deliverDraft: (draft?: string, nickname?: string) => void;
   deliverError: (error?: Error) => void;
+  setRunInFlight: (runInFlight: boolean) => void;
   sessionId: () => string;
 };
 
@@ -70,6 +71,11 @@ function MockProfileOnboardingConversation(
       deliverError: (error = new Error('Collection failed')) => {
         if (mountedRef.current) {
           propsRef.current.onError(error);
+        }
+      },
+      setRunInFlight: (runInFlight: boolean) => {
+        if (mountedRef.current) {
+          propsRef.current.onRunInFlightChange?.(runInFlight);
         }
       },
       sessionId: () => sessionIdRef.current,
@@ -1324,6 +1330,37 @@ describe('LearnerProfileDialog', () => {
       await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
+  });
+
+  test('does not defer blocking onboarding during an active collection run', async () => {
+    const onClose = jest.fn();
+    const onDefer = jest.fn().mockResolvedValue(true);
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    renderDialog({
+      exitPolicy: 'blocking',
+      presentation: 'blocking',
+      onClose,
+      onDefer,
+    });
+    await waitForCollectionSession();
+
+    const skipButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.skip',
+    });
+    const conversation = mockConversationControls.at(-1)!;
+    act(() => conversation.setRunInFlight(true));
+
+    expect(skipButton).toBeDisabled();
+    fireEvent.click(skipButton);
+    expect(onDefer).not.toHaveBeenCalled();
+
+    act(() => conversation.setRunInFlight(false));
+    expect(skipButton).toBeEnabled();
+    fireEvent.click(skipButton);
+
+    await waitFor(() => expect(onDefer).toHaveBeenCalledWith(SESSION_ID));
+    expect(onClose).toHaveBeenCalledWith('dismiss');
   });
 
   test('confirms before discarding dirty settings edits', async () => {

@@ -59,6 +59,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const {
     phase,
     collectionKey,
+    collectionRunInFlight,
     guidedAvailable,
     manualFallback,
     optimizationStatus,
@@ -305,7 +306,11 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                     variant='ghost'
                     className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
                     disabled={
-                      !onDefer || saving || deferring || externalSubmitting
+                      !onDefer ||
+                      saving ||
+                      deferring ||
+                      collectionRunInFlight ||
+                      externalSubmitting
                     }
                     onClick={() => void deferOnboarding()}
                   >
@@ -355,7 +360,11 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                     variant='ghost'
                     className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
                     disabled={
-                      !onDefer || saving || deferring || externalSubmitting
+                      !onDefer ||
+                      saving ||
+                      deferring ||
+                      collectionRunInFlight ||
+                      externalSubmitting
                     }
                     onClick={() => void deferOnboarding()}
                   >

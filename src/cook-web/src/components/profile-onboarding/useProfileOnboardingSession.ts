@@ -40,6 +40,7 @@ type UseProfileOnboardingSessionParams = {
   disabled: boolean;
   messages: ProfileOnboardingSessionMessages;
   onSessionStarted?: (sessionId: string) => void;
+  onRunInFlightChange?: (runInFlight: boolean) => void;
   onDraftReady: (
     profileDraft: string,
     sessionId: string,
@@ -55,6 +56,7 @@ export const useProfileOnboardingSession = ({
   disabled,
   messages,
   onSessionStarted,
+  onRunInFlightChange,
   onDraftReady,
   onError,
   onRetry,
@@ -83,19 +85,30 @@ export const useProfileOnboardingSession = ({
   const createSessionRef = React.useRef(createSession);
   const runSessionRef = React.useRef(runSession);
   const onSessionStartedRef = React.useRef(onSessionStarted);
+  const onRunInFlightChangeRef = React.useRef(onRunInFlightChange);
   const onDraftReadyRef = React.useRef(onDraftReady);
   const onErrorRef = React.useRef(onError);
   const onRetryRef = React.useRef(onRetry);
   const disabledRef = React.useRef(disabled);
   const messagesRef = React.useRef(messages);
+  const runInFlightRef = React.useRef(false);
   createSessionRef.current = createSession;
   runSessionRef.current = runSession;
   onSessionStartedRef.current = onSessionStarted;
+  onRunInFlightChangeRef.current = onRunInFlightChange;
   onDraftReadyRef.current = onDraftReady;
   onErrorRef.current = onError;
   onRetryRef.current = onRetry;
   disabledRef.current = disabled;
   messagesRef.current = messages;
+
+  const setRunInFlight = React.useCallback((runInFlight: boolean) => {
+    if (runInFlightRef.current === runInFlight) {
+      return;
+    }
+    runInFlightRef.current = runInFlight;
+    onRunInFlightChangeRef.current?.(runInFlight);
+  }, []);
 
   const stopStream = React.useCallback(() => {
     streamRef.current?.close?.();
@@ -109,9 +122,10 @@ export const useProfileOnboardingSession = ({
     runtimeFailedRef.current = true;
     streamCompletedRef.current = true;
     stopStream();
+    setRunInFlight(false);
     dispatch({ type: 'fail', retryable: true });
     onErrorRef.current(new Error(messagesRef.current.retryableError));
-  }, [stopStream]);
+  }, [setRunInFlight, stopStream]);
 
   const handleEvent = React.useCallback(
     (event: ProfileOnboardingStreamEvent) => {
@@ -136,6 +150,7 @@ export const useProfileOnboardingSession = ({
         runtimeFailedRef.current = true;
         streamCompletedRef.current = true;
         stopStream();
+        setRunInFlight(false);
         dispatch({ type: 'fail', retryable });
         if (requiresFreshSession) {
           sessionIdRef.current = '';
@@ -161,6 +176,7 @@ export const useProfileOnboardingSession = ({
       }
       streamCompletedRef.current = true;
       stopStream();
+      setRunInFlight(false);
       const draft = resolveProfileDraftFromRunEvent(event);
       const nickname = resolveProfileNicknameFromRunEvent(event);
       if (resolveRunDone(event)) {
@@ -184,7 +200,7 @@ export const useProfileOnboardingSession = ({
         dispatch({ type: 'await_input' });
       }
     },
-    [stopStream],
+    [setRunInFlight, stopStream],
   );
 
   const runRequest = React.useCallback(
@@ -197,6 +213,7 @@ export const useProfileOnboardingSession = ({
       streamCompletedRef.current = false;
       runtimeFailedRef.current = false;
       awaitingInteractionRef.current = false;
+      setRunInFlight(true);
       dispatch({ type: 'start_run' });
       const runAttempt = ++runAttemptRef.current;
       try {
@@ -225,7 +242,7 @@ export const useProfileOnboardingSession = ({
         handleStreamError();
       }
     },
-    [handleEvent, handleStreamError, stopStream],
+    [handleEvent, handleStreamError, setRunInFlight, stopStream],
   );
 
   const runNext = React.useCallback(
@@ -244,6 +261,7 @@ export const useProfileOnboardingSession = ({
     const createAttempt = ++createAttemptRef.current;
     ++runAttemptRef.current;
     stopStream();
+    setRunInFlight(false);
     dispatch({ type: 'start_session' });
     sessionIdRef.current = '';
     blockIndexRef.current = 0;
@@ -280,7 +298,7 @@ export const useProfileOnboardingSession = ({
         dispatch({ type: 'fail', retryable: true });
         onErrorRef.current(new Error(messagesRef.current.streamError));
       });
-  }, [stopStream]);
+  }, [setRunInFlight, stopStream]);
 
   React.useEffect(() => {
     if (disabled || !initialRunPendingRef.current || !sessionIdRef.current) {
@@ -303,8 +321,9 @@ export const useProfileOnboardingSession = ({
       initialRunPendingRef.current = false;
       invalidatePendingAttempts();
       stopStream();
+      setRunInFlight(false);
     };
-  }, [invalidatePendingAttempts, startSession, stopStream]);
+  }, [invalidatePendingAttempts, setRunInFlight, startSession, stopStream]);
 
   const send = React.useCallback((content: OnSendContentParams) => {
     if (disabledRef.current || !streamCompletedRef.current) {

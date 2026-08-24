@@ -29,6 +29,7 @@ export type ProfileOnboardingConversationProps = {
   disabled?: boolean;
   errorMessage?: string;
   onSessionStarted?: (sessionId: string) => void;
+  onRunInFlightChange?: (runInFlight: boolean) => void;
   onDraftReady: (
     profileDraft: string,
     sessionId: string,
@@ -44,6 +45,7 @@ export default function ProfileOnboardingConversation({
   disabled = false,
   errorMessage = '',
   onSessionStarted,
+  onRunInFlightChange,
   onDraftReady,
   onError,
   onRetry,
@@ -68,6 +70,7 @@ export default function ProfileOnboardingConversation({
       missingDraft: t('module.profileOnboarding.guided.missingDraft'),
     },
     onSessionStarted,
+    onRunInFlightChange,
     onDraftReady,
     onError,
     onRetry,

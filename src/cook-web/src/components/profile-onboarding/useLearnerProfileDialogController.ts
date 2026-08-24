@@ -148,6 +148,7 @@ export const useLearnerProfileDialogController = ({
         patch: {
           phase: 'collect',
           collectionStatus: 'starting',
+          collectionRunInFlight: false,
           collectionIntent: intent,
           activeCollectionSessionId: '',
           collectionError: '',
@@ -695,6 +696,7 @@ export const useLearnerProfileDialogController = ({
           activeCollectionSessionId: result.completion.sessionId,
           collectionError: '',
           collectionStatus: 'ready',
+          collectionRunInFlight: false,
           optimizationStatus: 'idle',
           optimizationErrorMessage: '',
           optimizationOriginal: null,
@@ -725,6 +727,19 @@ export const useLearnerProfileDialogController = ({
       },
     });
   }, []);
+
+  const handleCollectionRunInFlightChange = React.useCallback(
+    (runInFlight: boolean) => {
+      if (stateRef.current.phase !== 'collect') {
+        return;
+      }
+      dispatch({
+        type: 'patch',
+        patch: { collectionRunInFlight: runInFlight },
+      });
+    },
+    [],
+  );
 
   const handleCollectionDraftReady = React.useCallback(
     (draft: string, sessionId: string, nickname?: string) => {
@@ -776,6 +791,7 @@ export const useLearnerProfileDialogController = ({
             ),
           ),
           collectionStatus: 'retryable_error',
+          collectionRunInFlight: false,
         },
       });
     },
@@ -798,7 +814,11 @@ export const useLearnerProfileDialogController = ({
     }
     dispatch({
       type: 'patch',
-      patch: { collectionStatus: 'starting', phase: 'save' },
+      patch: {
+        collectionStatus: 'starting',
+        collectionRunInFlight: false,
+        phase: 'save',
+      },
     });
   }, [exitPolicy, externalSubmitting]);
 
@@ -813,6 +833,7 @@ export const useLearnerProfileDialogController = ({
         activeCollectionSessionId: completion?.sessionId ?? '',
         collectionError: '',
         collectionStatus: 'starting',
+        collectionRunInFlight: false,
         phase: 'save',
         optimizationStatus: 'idle',
         optimizationErrorMessage: '',
@@ -844,6 +865,7 @@ export const useLearnerProfileDialogController = ({
       exitPolicy !== 'blocking' ||
       !onDefer ||
       current.submissionStatus !== 'idle' ||
+      current.collectionRunInFlight ||
       externalSubmitting
     ) {
       return;
@@ -947,6 +969,7 @@ export const useLearnerProfileDialogController = ({
       disabled: derived.busy,
       errorMessage: combinedCollectionError,
       onSessionStarted: handleSessionStarted,
+      onRunInFlightChange: handleCollectionRunInFlightChange,
       onDraftReady: handleCollectionDraftReady,
       onRetry: handleCollectionRetry,
       onError: handleCollectionError,

@@ -75,6 +75,7 @@ export type LearnerProfileDialogState = {
   loadStatus: LearnerProfileDialogLoadStatus;
   phase: LearnerProfileDialogPhase;
   collectionStatus: LearnerProfileCollectionStatus;
+  collectionRunInFlight: boolean;
   collectionIntent: ProfileOnboardingSessionIntent;
   activeCollectionSessionId: string;
   collectionResult: ProfileCollectionResult | null;
@@ -97,6 +98,7 @@ export const initialLearnerProfileDialogState: LearnerProfileDialogState = {
   loadStatus: 'closed',
   phase: 'save',
   collectionStatus: 'starting',
+  collectionRunInFlight: false,
   collectionIntent: 'onboarding',
   activeCollectionSessionId: '',
   collectionResult: null,

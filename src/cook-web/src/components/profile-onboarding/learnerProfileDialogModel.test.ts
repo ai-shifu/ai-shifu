@@ -65,6 +65,7 @@ describe('learnerProfileDialogModel', () => {
       patch: {
         phase: 'collect',
         collectionStatus: 'running',
+        collectionRunInFlight: true,
         activeCollectionSessionId: 'session-previous',
         confirmation: 'discard',
       },
