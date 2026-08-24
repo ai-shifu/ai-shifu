@@ -33,6 +33,7 @@ from flaskr.service.billing.consts import (
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
     BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+    BILLING_PROVIDER_PRICE_STATUS_RETIRED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -1761,6 +1762,7 @@ class TestAdminBillingRoutes:
         [
             ("validate", "validate_admin_billing_provider_price_mapping"),
             ("activate", "activate_admin_billing_provider_price_mapping"),
+            ("restore", "restore_admin_billing_provider_price_mapping"),
         ],
     )
     def test_admin_billing_provider_price_validation_routes_return_error_envelope(
@@ -1795,6 +1797,85 @@ class TestAdminBillingRoutes:
             "message": "Provider price is invalid",
             "details": {"provider_price_bid": "provider-price-admin"},
         }
+
+    def test_admin_billing_provider_prices_restore_mapping_route(
+        self,
+        admin_billing_client: dict[str, object],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        captured: dict[str, str] = {}
+
+        def _restore(_app: Flask, *, provider_price_bid: str) -> dict[str, object]:
+            captured["provider_price_bid"] = provider_price_bid
+            return {
+                "mapping": {
+                    "provider_price_bid": provider_price_bid,
+                    "status_label": "draft",
+                },
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "restore_admin_billing_provider_price_mapping",
+            _restore,
+        )
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin/restore"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["mapping"] == {
+            "provider_price_bid": "provider-price-admin",
+            "status_label": "draft",
+        }
+        assert captured == {"provider_price_bid": "provider-price-admin"}
+
+    def test_admin_billing_provider_prices_restore_mapping_to_draft(
+        self,
+        admin_billing_client: dict[str, object],
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
+
+        with app.app_context():
+            mapping = BillingProductProviderPrice(
+                provider_price_bid="provider-price-admin-restore",
+                product_bid="bill-product-plan-monthly",
+                provider="stripe",
+                provider_account_id="acct_test",
+                provider_product_id="prod_plan",
+                provider_price_id="price_plan_restore",
+                livemode=0,
+                currency="CNY",
+                unit_amount=9900,
+                billing_mode=7121,
+                billing_interval=7132,
+                billing_interval_count=1,
+                status=BILLING_PROVIDER_PRICE_STATUS_RETIRED,
+                validated_at=datetime(2026, 1, 1),
+                activated_at=datetime(2026, 1, 2),
+                retired_at=datetime(2026, 1, 3),
+                validation_error="stale",
+                deleted=0,
+            )
+            dao.db.session.add(mapping)
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin-restore/restore"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["mapping"]["status_label"] == "draft"
+        assert payload["data"]["mapping"]["validated_at"] is None
+        assert payload["data"]["mapping"]["activated_at"] is None
+        assert payload["data"]["mapping"]["retired_at"] is None
+        assert payload["data"]["mapping"]["validation_error"] == ""
 
     def test_admin_billing_provider_prices_retire_mapping(
         self,

@@ -169,6 +169,7 @@
         "cancel": "Cancel",
         "configure": "Configure",
         "create": "Add price",
+        "restore": "Restore to draft",
         "retire": "Unlist",
         "saveDraft": "Save draft",
         "validate": "Check",
@@ -180,6 +181,7 @@
       },
       "confirm": {
         "activate": "List {productName}? Future checkout for this product will use this payment price.",
+        "restore": "Restore {productName}? It will return to draft and must be checked again before listing.",
         "retire": "Unlist {productName}? The product will temporarily have no fixed-price checkout."
       },
       "description": "Manage payment prices for overseas plans and credit packs so displayed prices, checkout amounts, and granted benefits stay aligned.",
@@ -300,6 +302,8 @@
         "activateSuccess": "Price listed",
         "createFailed": "Failed to save price",
         "createSuccess": "Price saved",
+        "restoreFailed": "Failed to restore price",
+        "restoreSuccess": "Price restored to draft",
         "retireFailed": "Failed to unlist price",
         "retireSuccess": "Price unlisted",
         "validateFailed": "Price check failed",

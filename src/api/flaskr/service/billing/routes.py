@@ -15,6 +15,7 @@ from flaskr.service.billing.admin_provider_prices import (
     build_admin_billing_provider_prices_page,
     create_admin_billing_provider_price_mapping,
     provider_price_mapping_error_payload,
+    restore_admin_billing_provider_price_mapping,
     retire_admin_billing_provider_price_mapping,
     validate_admin_billing_provider_price_mapping,
 )
@@ -934,6 +935,21 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         try:
             with unit_of_work():
                 result = retire_admin_billing_provider_price_mapping(
+                    app, provider_price_bid=provider_price_bid
+                )
+        except Exception as exc:
+            _raise_provider_price_mapping_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix + "/provider-prices/<provider_price_bid>/restore",
+        methods=["POST"],
+    )
+    def admin_billing_provider_price_restore_api(provider_price_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            with unit_of_work():
+                result = restore_admin_billing_provider_price_mapping(
                     app, provider_price_bid=provider_price_bid
                 )
         except Exception as exc:

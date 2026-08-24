@@ -87,7 +87,7 @@ type CreateMappingResult = {
 };
 
 type ConfirmMappingAction = {
-  action: 'activate' | 'retire';
+  action: 'activate' | 'retire' | 'restore';
   mapping: AdminBillingProviderPriceMapping;
   productName: string;
 };
@@ -333,7 +333,7 @@ export function AdminBillingProviderPricesPanel() {
 
   const runAction = React.useCallback(
     async (
-      action: 'validate' | 'activate' | 'retire',
+      action: 'validate' | 'activate' | 'retire' | 'restore',
       mapping: AdminBillingProviderPriceMapping,
     ) => {
       const loadingKey = `${action}:${mapping.provider_price_bid}`;
@@ -351,10 +351,15 @@ export function AdminBillingProviderPricesPanel() {
                   params,
                   PASSIVE_REQUEST_CONFIG,
                 )) as AdminBillingProviderPriceValidationResult)
-              : await api.retireAdminBillingProviderPrice(
-                  params,
-                  PASSIVE_REQUEST_CONFIG,
-                );
+              : action === 'restore'
+                ? await api.restoreAdminBillingProviderPrice(
+                    params,
+                    PASSIVE_REQUEST_CONFIG,
+                  )
+                : await api.retireAdminBillingProviderPrice(
+                    params,
+                    PASSIVE_REQUEST_CONFIG,
+                  );
         const validationResult =
           result as AdminBillingProviderPriceValidationResult;
         const issueText =
@@ -388,7 +393,7 @@ export function AdminBillingProviderPricesPanel() {
 
   const requestAction = React.useCallback(
     (
-      action: 'validate' | 'activate' | 'retire',
+      action: 'validate' | 'activate' | 'retire' | 'restore',
       mapping: AdminBillingProviderPriceMapping,
       productName = '',
     ) => {
@@ -780,6 +785,25 @@ export function AdminBillingProviderPricesPanel() {
                               >
                                 {t(
                                   'module.billing.admin.providerPrices.actions.activate',
+                                )}
+                              </DropdownMenuItem>
+                            ) : null}
+                            {mapping?.status_label === 'retired' ? (
+                              <DropdownMenuItem
+                                disabled={
+                                  actionLoading ===
+                                  `restore:${mapping.provider_price_bid}`
+                                }
+                                onSelect={() =>
+                                  requestAction(
+                                    'restore',
+                                    mapping,
+                                    productDisplayName,
+                                  )
+                                }
+                              >
+                                {t(
+                                  'module.billing.admin.providerPrices.actions.restore',
                                 )}
                               </DropdownMenuItem>
                             ) : null}
