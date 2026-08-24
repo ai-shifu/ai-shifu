@@ -5,7 +5,7 @@ import { AppContext } from '../AppContext';
 import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
-jest.mock('markdown-flow-ui/renderer', () => ({
+jest.mock('markdown-flow-ui/scroll', () => ({
   ScrollToBottomButton: ({ visible, onClick, ariaLabel }: any) =>
     visible ? (
       <button

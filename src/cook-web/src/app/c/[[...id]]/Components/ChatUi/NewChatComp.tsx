@@ -82,7 +82,7 @@ import { Button } from '@/components/ui/Button';
 import {
   ScrollToBottomButton,
   useScrollToBottom,
-} from 'markdown-flow-ui/renderer';
+} from 'markdown-flow-ui/scroll';
 import { shouldHideReadModeContentForLoading } from './readModeRenderState';
 import {
   projectListenModeItems,
