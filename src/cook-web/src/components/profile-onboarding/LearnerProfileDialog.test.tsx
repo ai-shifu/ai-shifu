@@ -262,6 +262,7 @@ const renderDialog = (
     open: true,
     exitPolicy: 'dismissible',
     draftStorageScope: 'user-a',
+    autoStartCollection: true,
     onClose: jest.fn(),
     ...overrides,
   };
@@ -357,6 +358,12 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.getByText('module.profileOnboarding.dialog.unifiedDescription'),
     ).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveClass(
+      'outline-none',
+      'focus:outline-none',
+      'focus-within:outline-none',
+      'focus-within:ring-0',
+    );
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-y-auto',
     );
@@ -419,6 +426,28 @@ describe('LearnerProfileDialog', () => {
       );
     });
     expect(profileInput()).toHaveValue(existingProfile.learner_profile);
+  });
+
+  test('keeps an empty profile in the editor outside the course onboarding gate', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+
+    renderDialog({ autoStartCollection: false });
+
+    expect(
+      await screen.findByLabelText(
+        'module.profileOnboarding.dialog.profileLabel',
+      ),
+    ).toHaveValue('');
+    expect(
+      screen.queryByTestId('mock-profile-onboarding-conversation'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.interactiveCollection',
+      }),
+    ).toBeInTheDocument();
+    expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
   });
 
   test('keeps the same draft and load when the host upgrades the open dialog to onboarding', async () => {
@@ -620,6 +649,33 @@ describe('LearnerProfileDialog', () => {
     expect(optimizeButton).toHaveClass('bg-primary', 'shadow-sm');
     expect(
       screen.getByText('module.profileOnboarding.dialog.optimizeHint'),
+    ).toBeInTheDocument();
+  });
+
+  test('offers review after an existing profile starts collection from the menu flow', async () => {
+    renderDialog({ autoStartCollection: false });
+
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.interactiveCollection',
+      }),
+    );
+    await waitForCollectionSession();
+    expect(mockCreateProfileOnboardingSession).toHaveBeenCalledWith(
+      'en-US',
+      'settings',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
+    const reviewButton = await screen.findByRole('button', {
+      name: 'module.profileOnboarding.guided.reviewCollection',
+    });
+    expect(reviewButton).toHaveFocus();
+
+    fireEvent.click(reviewButton);
+    expect(
+      await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
   });
 

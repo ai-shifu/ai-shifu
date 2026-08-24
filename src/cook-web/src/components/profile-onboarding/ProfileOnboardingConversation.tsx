@@ -668,6 +668,13 @@ export default function ProfileOnboardingConversation({
   const visibleErrorMessage = submissionLimitError
     ? t('module.profileOnboarding.guided.inputLimitError')
     : errorMessage;
+  const latestItem = items[items.length - 1];
+  const streamingNonInteraction = Boolean(
+    runInFlight && latestItem && !latestItem.interaction,
+  );
+  const hasVisibleStatus = Boolean(
+    visibleErrorMessage || loading || streamingNonInteraction || retryAvailable,
+  );
 
   return (
     <div
@@ -692,41 +699,43 @@ export default function ProfileOnboardingConversation({
           aria-hidden='true'
         />
       </div>
-      <div
-        className={cn(
-          'flex min-h-9 shrink-0 items-center gap-2 text-sm text-muted-foreground',
-          !items.length && 'order-first',
-        )}
-        role={visibleErrorMessage ? 'alert' : 'status'}
-        aria-live={visibleErrorMessage ? 'assertive' : 'polite'}
-      >
-        {visibleErrorMessage ? (
-          <span className='min-w-0 flex-1 text-destructive'>
-            {visibleErrorMessage}
-          </span>
-        ) : loading ? (
-          <>
-            <Loader2
-              className='h-4 w-4 animate-spin motion-reduce:animate-none'
-              aria-hidden='true'
-            />
-            {items.length
-              ? t('module.profileOnboarding.guided.thinking')
-              : t('module.profileOnboarding.guided.starting')}
-          </>
-        ) : null}
-        {retryAvailable ? (
-          <Button
-            type='button'
-            size='sm'
-            variant='outline'
-            disabled={disabled}
-            onClick={handleRetry}
-          >
-            {t('module.profileOnboarding.guided.retry')}
-          </Button>
-        ) : null}
-      </div>
+      {hasVisibleStatus ? (
+        <div
+          className={cn(
+            'flex min-h-9 shrink-0 items-center gap-2 text-sm text-muted-foreground',
+            !items.length && 'order-first',
+          )}
+          role={visibleErrorMessage ? 'alert' : 'status'}
+          aria-live={visibleErrorMessage ? 'assertive' : 'polite'}
+        >
+          {visibleErrorMessage ? (
+            <span className='min-w-0 flex-1 text-destructive'>
+              {visibleErrorMessage}
+            </span>
+          ) : loading || streamingNonInteraction ? (
+            <>
+              <Loader2
+                className='h-4 w-4 animate-spin motion-reduce:animate-none'
+                aria-hidden='true'
+              />
+              {items.length
+                ? t('module.profileOnboarding.guided.thinking')
+                : t('module.profileOnboarding.guided.starting')}
+            </>
+          ) : null}
+          {retryAvailable ? (
+            <Button
+              type='button'
+              size='sm'
+              variant='outline'
+              disabled={disabled}
+              onClick={handleRetry}
+            >
+              {t('module.profileOnboarding.guided.retry')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

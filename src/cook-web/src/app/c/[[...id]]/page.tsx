@@ -412,6 +412,10 @@ export default function ChatPage() {
 
   const [learnerProfileDialogOpen, setLearnerProfileDialogOpen] =
     useState(false);
+  const [
+    profileOnboardingAutoStartCollection,
+    setProfileOnboardingAutoStartCollection,
+  ] = useState(false);
   const [profileOnboardingStatus, setProfileOnboardingStatus] =
     useState<ProfileOnboardingV2Status | null>(null);
   const profileOnboardingStatusRef = useRef(profileOnboardingStatus);
@@ -433,6 +437,7 @@ export default function ChatPage() {
     profileOnboardingEligibilityRef.current = 'complete';
     setProfileOnboardingStatus(null);
     setLearnerProfileDialogOpen(false);
+    setProfileOnboardingAutoStartCollection(false);
     setProfileOnboardingError('');
     setProfileOnboardingReadyScope(learnerProfileScope);
   }, [learnerProfileScope]);
@@ -472,6 +477,7 @@ export default function ChatPage() {
     profileOnboardingRequestIdRef.current += 1;
     profileOnboardingEligibilityRef.current = 'idle';
     setLearnerProfileDialogOpen(false);
+    setProfileOnboardingAutoStartCollection(false);
     setProfileOnboardingStatus(null);
     setProfileOnboardingSubmitting(false);
     setProfileOnboardingError('');
@@ -539,6 +545,7 @@ export default function ChatPage() {
           profileOnboardingEligibilityRef.current = 'show';
           setProfileOnboardingStatus(status);
           setProfileOnboardingError('');
+          setProfileOnboardingAutoStartCollection(true);
           setLearnerProfileDialogOpen(true);
           if (status.presentation === 'non_blocking') {
             setProfileOnboardingReadyScope(learnerProfileScope);
@@ -613,6 +620,7 @@ export default function ChatPage() {
       }
 
       setLearnerProfileDialogOpen(false);
+      setProfileOnboardingAutoStartCollection(false);
     },
     [releaseProfileOnboarding],
   );
@@ -924,6 +932,7 @@ export default function ChatPage() {
   // const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
 
   const onGoToSettingPersonal = useCallback(() => {
+    setProfileOnboardingAutoStartCollection(false);
     setLearnerProfileDialogOpen(true);
     if (mobileStyle) {
       onNavClose();
@@ -1152,6 +1161,7 @@ export default function ChatPage() {
         <LearnerProfileDialog
           key={learnerProfileScope}
           open={learnerProfileDialogOpen}
+          autoStartCollection={profileOnboardingAutoStartCollection}
           exitPolicy={
             profileOnboardingStatus?.presentation === 'blocking'
               ? 'blocking'

@@ -61,6 +61,7 @@ export type LearnerProfileDialogProps = {
   open: boolean;
   exitPolicy: 'blocking' | 'dismissible';
   draftStorageScope: string;
+  autoStartCollection?: boolean;
   presentation?: ProfileOnboardingPresentation;
   initialOnboardingStatus?: ProfileOnboardingV2Status;
   externalErrorMessage?: string;
@@ -77,6 +78,7 @@ export default function LearnerProfileDialog({
   open,
   exitPolicy,
   draftStorageScope,
+  autoStartCollection = false,
   presentation = 'hidden',
   initialOnboardingStatus,
   externalErrorMessage = '',
@@ -144,6 +146,7 @@ export default function LearnerProfileDialog({
   const openRef = React.useRef(open);
   const scopeRef = React.useRef(draftStorageScope);
   const presentationRef = React.useRef(presentation);
+  const autoStartCollectionRef = React.useRef(autoStartCollection);
   const initialOnboardingStatusRef = React.useRef(initialOnboardingStatus);
   const generationRef = React.useRef(0);
   const loadRequestRef = React.useRef(0);
@@ -151,11 +154,13 @@ export default function LearnerProfileDialog({
   const collectionJourneyRef = React.useRef(0);
   const collectionCompletionRef = React.useRef(false);
   const collectionShownAtRef = React.useRef<number | null>(null);
+  const autoCollectionStartedRef = React.useRef(false);
   const hasCanonicalProfileRef = React.useRef(false);
 
   openRef.current = open;
   scopeRef.current = draftStorageScope;
   presentationRef.current = presentation;
+  autoStartCollectionRef.current = autoStartCollection;
   initialOnboardingStatusRef.current = initialOnboardingStatus;
   translationRef.current = t;
 
@@ -279,7 +284,12 @@ export default function LearnerProfileDialog({
         if (!nextHasCanonicalProfile) {
           setManualFallback(!nextGuidedAvailable);
           setLoaded(true);
-          if (nextGuidedAvailable) {
+          if (
+            nextGuidedAvailable &&
+            autoStartCollectionRef.current &&
+            !autoCollectionStartedRef.current
+          ) {
+            autoCollectionStartedRef.current = true;
             beginCollection(
               nextCollectionIntent,
               false,
@@ -340,6 +350,7 @@ export default function LearnerProfileDialog({
     setCollectionResult(null);
     setCollectionReady(false);
     setCollectionError('');
+    autoCollectionStartedRef.current = false;
     setGuidedAvailable(false);
     setManualFallback(false);
     setError('');
@@ -377,6 +388,28 @@ export default function LearnerProfileDialog({
       collectionJourneyRef.current += 1;
     };
   }, [draftStorageScope, loadProfile, open, resetOptimization]);
+
+  React.useEffect(() => {
+    if (
+      !open ||
+      !autoStartCollection ||
+      autoCollectionStartedRef.current ||
+      !loaded ||
+      hasCanonicalProfileRef.current ||
+      !guidedAvailable
+    ) {
+      return;
+    }
+    autoCollectionStartedRef.current = true;
+    beginCollection(preferredCollectionIntent, false);
+  }, [
+    autoStartCollection,
+    beginCollection,
+    guidedAvailable,
+    loaded,
+    open,
+    preferredCollectionIntent,
+  ]);
 
   React.useLayoutEffect(() => {
     if (exitPolicy === 'blocking' && confirmation === 'discard') {
@@ -1085,7 +1118,7 @@ export default function LearnerProfileDialog({
               event.preventDefault();
             }
           }}
-          className='bottom-3 left-3 top-3 flex h-auto max-h-none w-[calc(100vw-24px)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl p-0 motion-reduce:animate-none motion-reduce:duration-0 sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2'
+          className='bottom-3 left-3 top-3 flex h-auto max-h-none w-[calc(100vw-24px)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none focus:outline-none focus-visible:outline-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 motion-reduce:animate-none motion-reduce:duration-0 sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2'
         >
           <div
             data-testid='learner-profile-mobile-handle'

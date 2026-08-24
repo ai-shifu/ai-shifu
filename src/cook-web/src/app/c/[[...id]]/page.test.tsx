@@ -48,6 +48,7 @@ interface MockNavDrawerProps {
 }
 
 interface MockLearnerProfileDialogProps {
+  autoStartCollection?: boolean;
   draftStorageScope: string;
   exitPolicy: 'blocking' | 'dismissible';
   externalErrorMessage?: string;
@@ -106,6 +107,7 @@ const mockNavDrawer = jest.fn(({ onPersonalInfoClick }: MockNavDrawerProps) => (
 ));
 const mockLearnerProfileDialog = jest.fn(
   ({
+    autoStartCollection,
     draftStorageScope,
     exitPolicy,
     externalErrorMessage,
@@ -125,6 +127,7 @@ const mockLearnerProfileDialog = jest.fn(
     return (
       <div
         data-testid='learner-profile-dialog'
+        data-auto-start-collection={String(Boolean(autoStartCollection))}
         data-exit-policy={exitPolicy}
         data-presentation={presentation}
         data-scope={draftStorageScope}
@@ -542,6 +545,7 @@ describe('ChatPage profile onboarding gate', () => {
     render(<ChatPage />);
 
     const dialog = await screen.findByTestId('learner-profile-dialog');
+    expect(dialog).toHaveAttribute('data-auto-start-collection', 'true');
     expect(dialog).toHaveAttribute('data-exit-policy', 'blocking');
     expect(dialog).toHaveAttribute('data-presentation', 'blocking');
     expect(dialog).toHaveAttribute('data-status-presentation', 'blocking');
@@ -565,6 +569,10 @@ describe('ChatPage profile onboarding gate', () => {
 
     fireEvent.click(
       screen.getByRole('button', { name: openLearnerProfileLabel }),
+    );
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-auto-start-collection',
+      'false',
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
       'data-exit-policy',
@@ -614,6 +622,7 @@ describe('ChatPage profile onboarding gate', () => {
     render(<ChatPage />);
 
     const dialog = await screen.findByTestId('learner-profile-dialog');
+    expect(dialog).toHaveAttribute('data-auto-start-collection', 'true');
     expect(dialog).toHaveAttribute('data-exit-policy', 'dismissible');
     expect(dialog).toHaveAttribute('data-presentation', 'non_blocking');
     expect(screen.getByTestId('chat-ui')).toHaveAttribute(
@@ -630,6 +639,10 @@ describe('ChatPage profile onboarding gate', () => {
 
     fireEvent.click(
       screen.getByRole('button', { name: openLearnerProfileLabel }),
+    );
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-auto-start-collection',
+      'false',
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
       'data-exit-policy',

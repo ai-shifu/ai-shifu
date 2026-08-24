@@ -324,6 +324,7 @@ describe('ProfileOnboardingConversation', () => {
       name: ANSWER_GUIDED_QUESTION_LABEL,
     });
     expect(answerButton).toBeDisabled();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     fireEvent.click(answerButton);
     expect(runSession).toHaveBeenCalledTimes(1);
 
@@ -343,6 +344,83 @@ describe('ProfileOnboardingConversation', () => {
         userInput: { profile_goal: ['学会 AI'] },
       }),
     );
+  });
+
+  test('keeps progress visible after the final response until the profile draft is ready', async () => {
+    let finalOnMessage: ((event: Record<string, unknown>) => void) | undefined;
+    const onDraftReady = jest.fn();
+    const runSession = jest
+      .fn()
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'final-interaction',
+              element_type: 'interaction',
+              content: '?[%{{profile_goal}}...最后一个问题]',
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_block_index: 1 },
+          });
+        });
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        finalOnMessage = onMessage;
+        return { close: jest.fn() };
+      });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-final-progress' })}
+        runSession={runSession}
+        onDraftReady={onDraftReady}
+        onError={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: ANSWER_GUIDED_QUESTION_LABEL,
+      }),
+    );
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      finalOnMessage?.({
+        type: 'element',
+        content: {
+          element_bid: 'final-feedback',
+          element_type: 'content',
+          content: '信息收集完成。',
+        },
+      });
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.profileOnboarding.guided.thinking',
+    );
+    expect(onDraftReady).not.toHaveBeenCalled();
+
+    act(() => {
+      finalOnMessage?.({
+        type: 'done',
+        is_terminal: true,
+        content: { done: true, profile_draft: '最终个人介绍' },
+      });
+    });
+
+    await waitFor(() =>
+      expect(onDraftReady).toHaveBeenCalledWith(
+        '最终个人介绍',
+        'session-final-progress',
+      ),
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   test('makes the active question read-only while the parent action is pending', async () => {

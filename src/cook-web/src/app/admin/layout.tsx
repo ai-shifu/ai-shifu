@@ -399,6 +399,7 @@ const MainInterface = ({
         <LearnerProfileDialog
           key={learnerProfileSettingsScope}
           open
+          autoStartCollection={false}
           exitPolicy='dismissible'
           draftStorageScope={learnerProfileSettingsScope}
           onSaved={handleLearnerProfileSaved}
