@@ -72,6 +72,10 @@ class JsonObjectMap(MutableMapping[str, Any]):
         """Return a shallow copy of this JSON object map."""
         return JsonObjectMap(values=dict(self.values))
 
+    def __json__(self) -> dict[str, Any]:
+        """Serialize this value for the shared JSON response formatter."""
+        return self.to_metadata_json()
+
     def to_metadata_json(self) -> dict[str, Any]:
         """Serialize this value as JSON-compatible metadata."""
         return {

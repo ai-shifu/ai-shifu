@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.customization as billing_customization_module
@@ -31,6 +31,8 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_TYPE_PLAN,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -59,12 +61,14 @@ from flaskr.service.billing.models import (
     BillingCampaignProduct,
     BillingEntitlement,
     BillingOrder,
+    BillingProductProviderPrice,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.provider_price_mappings import ProviderPriceMappingError
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
     build_admin_bill_daily_ledger_summary_page,
@@ -155,7 +159,13 @@ def admin_billing_client(monkeypatch: object) -> Iterator[dict[str, object]]:
 
     @app.errorhandler(AppError)
     def _handle_app_exception(error: AppError) -> object:
-        response = jsonify({"code": error.code, "message": error.message})
+        response = jsonify(
+            {
+                "code": error.code,
+                "message": error.message,
+                **(error.payload or {}),
+            }
+        )
         response.status_code = 200
         return response
 
@@ -835,6 +845,7 @@ class TestAdminBillingRoutes:
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
 
         create_response = client.post(
             "/api/admin/billing/campaigns",
@@ -1462,6 +1473,7 @@ class TestAdminBillingRoutes:
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
 
         with app.app_context():
             create_user_entity(
@@ -1594,3 +1606,243 @@ class TestAdminBillingRoutes:
 
         assert isinstance(detail, AdminBillingCampaignDetailDTO)
         assert detail.campaign.campaign_bid == "campaign-builder-1"
+
+    def test_admin_billing_provider_prices_lists_products_and_mappings(
+        self,
+        admin_billing_client: dict[str, object],
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingProductProviderPrice(
+                    provider_price_bid="provider-price-admin-active",
+                    product_bid="bill-product-plan-monthly",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_plan",
+                    provider_price_id="price_plan_month",
+                    livemode=0,
+                    currency="CNY",
+                    unit_amount=9900,
+                    billing_mode=7121,
+                    billing_interval=7132,
+                    billing_interval_count=1,
+                    status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+                    metadata_json={"source": "route-test"},
+                    deleted=0,
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.get("/api/admin/billing/provider-prices?livemode=false")
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        product_bids = {item["product_bid"] for item in payload["data"]["products"]}
+        assert "bill-product-plan-monthly" in product_bids
+        assert (
+            payload["data"]["active_by_scope"][
+                "bill-product-plan-monthly:stripe:acct_test:test"
+            ]["provider_price_id"]
+            == "price_plan_month"
+        )
+        assert (
+            payload["data"]["history_by_product"]["bill-product-plan-monthly"][0][
+                "status_label"
+            ]
+            == "active"
+        )
+
+    def test_admin_billing_provider_prices_create_draft_mapping(
+        self,
+        admin_billing_client: dict[str, object],
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.post(
+            "/api/admin/billing/provider-prices",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "provider_account_id": "acct_test",
+                "provider_product_id": "prod_plan",
+                "provider_price_id": "price_plan_month_new",
+                "livemode": False,
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["created"] is True
+        assert payload["data"]["mapping"]["status_label"] == "draft"
+        assert payload["data"]["mapping"]["provider_price_id"] == "price_plan_month_new"
+
+        list_response = client.get("/api/admin/billing/provider-prices?livemode=false")
+        list_payload = list_response.get_json(force=True)
+
+        assert list_payload["code"] == 0
+        assert (
+            list_payload["data"]["history_by_product"]["bill-product-plan-monthly"][0][
+                "provider_price_id"
+            ]
+            == "price_plan_month_new"
+        )
+
+    def test_admin_billing_provider_prices_validate_mapping_route(
+        self,
+        admin_billing_client: dict[str, object],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        captured: dict[str, str] = {}
+
+        def _validate(_app: Flask, *, provider_price_bid: str) -> dict[str, object]:
+            captured["provider_price_bid"] = provider_price_bid
+            return {
+                "valid": True,
+                "mapping": {"provider_price_bid": provider_price_bid},
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "validate_admin_billing_provider_price_mapping",
+            _validate,
+        )
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin/validate"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["valid"] is True
+        assert (
+            payload["data"]["mapping"]["provider_price_bid"] == "provider-price-admin"
+        )
+        assert captured == {"provider_price_bid": "provider-price-admin"}
+
+    def test_admin_billing_provider_prices_activate_mapping_route(
+        self,
+        admin_billing_client: dict[str, object],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = admin_billing_client["client"]
+        captured: dict[str, str] = {}
+
+        def _activate(_app: Flask, *, provider_price_bid: str) -> dict[str, object]:
+            captured["provider_price_bid"] = provider_price_bid
+            return {
+                "valid": True,
+                "mapping": {"provider_price_bid": provider_price_bid},
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "activate_admin_billing_provider_price_mapping",
+            _activate,
+        )
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin/activate"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["valid"] is True
+        assert (
+            payload["data"]["mapping"]["provider_price_bid"] == "provider-price-admin"
+        )
+        assert captured == {"provider_price_bid": "provider-price-admin"}
+
+    @pytest.mark.parametrize(
+        ("action", "helper_name"),
+        [
+            ("validate", "validate_admin_billing_provider_price_mapping"),
+            ("activate", "activate_admin_billing_provider_price_mapping"),
+        ],
+    )
+    def test_admin_billing_provider_price_validation_routes_return_error_envelope(
+        self,
+        admin_billing_client: dict[str, object],
+        monkeypatch: pytest.MonkeyPatch,
+        action: str,
+        helper_name: str,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        def _raise_error(_app: Flask, *, provider_price_bid: str) -> Never:
+            code = "provider_price_invalid"
+            message = "Provider price is invalid"
+            raise ProviderPriceMappingError(
+                code,
+                message,
+                {"provider_price_bid": provider_price_bid},
+            )
+
+        monkeypatch.setattr(billing_routes_module, helper_name, _raise_error)
+
+        response = client.post(
+            f"/api/admin/billing/provider-prices/provider-price-admin/{action}"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 9999
+        assert payload["message"] == "Provider price is invalid"
+        assert payload["provider_price_mapping_error"] == {
+            "code": "provider_price_invalid",
+            "message": "Provider price is invalid",
+            "details": {"provider_price_bid": "provider-price-admin"},
+        }
+
+    def test_admin_billing_provider_prices_retire_mapping(
+        self,
+        admin_billing_client: dict[str, object],
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingProductProviderPrice(
+                    provider_price_bid="provider-price-admin-retire",
+                    product_bid="bill-product-plan-monthly",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_plan",
+                    provider_price_id="price_plan_retire",
+                    livemode=0,
+                    currency="CNY",
+                    unit_amount=9900,
+                    billing_mode=7121,
+                    billing_interval=7132,
+                    billing_interval_count=1,
+                    status=BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+                    deleted=0,
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/admin/billing/provider-prices/provider-price-admin-retire/retire"
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["mapping"]["status_label"] == "retired"
+
+    def test_admin_billing_provider_prices_reject_non_operator(
+        self,
+        admin_billing_client: dict[str, object],
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.get(
+            "/api/admin/billing/provider-prices",
+            headers={"X-Operator": "0"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == ERROR_CODE["server.shifu.noPermission"]

@@ -586,7 +586,18 @@ def _normalize_stripe_reference_id(value: object) -> str:
 
 def _normalize_metadata(value: object) -> dict[str, object]:
     payload = _to_plain_dict(value or {})
-    return payload if isinstance(payload, dict) else {}
+    if not isinstance(payload, dict):
+        return {}
+    normalized: dict[str, Any] = {}
+    for key, item in payload.items():
+        normalized_key = str(key or "").strip()
+        if not normalized_key:
+            continue
+        # Stripe accepts whitespace in metadata keys. Normalize it here so an
+        # invisible tab does not make an otherwise valid Price fail validation.
+        if normalized_key not in normalized or normalized_key == key:
+            normalized[normalized_key] = item
+    return normalized
 
 
 def _to_plain_dict(value: object) -> dict[str, object]:

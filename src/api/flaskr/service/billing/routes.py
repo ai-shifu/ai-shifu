@@ -10,6 +10,14 @@ from flaskr.service.billing.admin_ops_state import (
     build_admin_billing_ops_state,
     update_admin_billing_config_status,
 )
+from flaskr.service.billing.admin_provider_prices import (
+    activate_admin_billing_provider_price_mapping,
+    build_admin_billing_provider_prices_page,
+    create_admin_billing_provider_price_mapping,
+    provider_price_mapping_error_payload,
+    retire_admin_billing_provider_price_mapping,
+    validate_admin_billing_provider_price_mapping,
+)
 from flaskr.service.billing.admin_target_users import (
     resolve_admin_entitlement_grant_target,
     resolve_existing_admin_billing_target_user_bid,
@@ -66,7 +74,7 @@ from flaskr.service.billing.subscriptions import (
     resume_billing_subscription,
 )
 from flaskr.service.billing.trials import acknowledge_trial_welcome_dialog
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import AppError, raise_error, raise_param_error
 
 from .primitives import is_billing_enabled
 
@@ -153,6 +161,19 @@ def _to_optional_bool(value: object, field_name: str) -> bool:
         return False
     raise_param_error(field_name)
     return None
+
+
+def _raise_provider_price_mapping_route_error(exc: Exception) -> None:
+    from flaskr.service.billing.provider_price_mappings import ProviderPriceMappingError
+
+    if isinstance(exc, ProviderPriceMappingError):
+        payload = provider_price_mapping_error_payload(exc)
+        raise AppError(
+            payload["message"],
+            9999,
+            {"provider_price_mapping_error": payload},
+        )
+    raise exc
 
 
 @inject
@@ -815,6 +836,79 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 payload={**payload, "creator_bid": target_creator_bid},
             )
         )
+
+    @app.route(admin_path_prefix + "/provider-prices", methods=["GET"])
+    def admin_billing_provider_prices_api() -> str:
+        _require_billing_operator_access(app)
+        return make_common_response(
+            build_admin_billing_provider_prices_page(
+                app,
+                product_bid=_get_optional_query_arg("product_bid"),
+                provider_account_id=_get_optional_query_arg(
+                    "provider_account_id", max_length=255
+                ),
+                livemode=_get_optional_bool_query_arg("livemode"),
+                status=_get_optional_query_arg("status"),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/provider-prices", methods=["POST"])
+    def admin_billing_provider_price_create_api() -> str:
+        _require_billing_operator_access(app)
+        try:
+            with unit_of_work():
+                result = create_admin_billing_provider_price_mapping(
+                    app,
+                    payload=request.get_json(silent=True) or {},
+                )
+        except Exception as exc:
+            _raise_provider_price_mapping_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix + "/provider-prices/<provider_price_bid>/validate",
+        methods=["POST"],
+    )
+    def admin_billing_provider_price_validate_api(provider_price_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            with unit_of_work():
+                result = validate_admin_billing_provider_price_mapping(
+                    app, provider_price_bid=provider_price_bid
+                )
+        except Exception as exc:
+            _raise_provider_price_mapping_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix + "/provider-prices/<provider_price_bid>/activate",
+        methods=["POST"],
+    )
+    def admin_billing_provider_price_activate_api(provider_price_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            with unit_of_work():
+                result = activate_admin_billing_provider_price_mapping(
+                    app, provider_price_bid=provider_price_bid
+                )
+        except Exception as exc:
+            _raise_provider_price_mapping_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix + "/provider-prices/<provider_price_bid>/retire",
+        methods=["POST"],
+    )
+    def admin_billing_provider_price_retire_api(provider_price_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            with unit_of_work():
+                result = retire_admin_billing_provider_price_mapping(
+                    app, provider_price_bid=provider_price_bid
+                )
+        except Exception as exc:
+            _raise_provider_price_mapping_route_error(exc)
+        return make_common_response(result)
 
     @app.route(admin_path_prefix + "/products/options", methods=["GET"])
     def admin_billing_campaign_product_options_api() -> str:
