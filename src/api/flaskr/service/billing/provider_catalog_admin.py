@@ -55,12 +55,24 @@ def build_admin_provider_catalog_inbox_page(
         .limit(resolved_limit)
         .all()
     )
-    events = (
-        BillingProviderCatalogEvent.query.filter(
-            BillingProviderCatalogEvent.deleted == 0,
-            BillingProviderCatalogEvent.provider == PROVIDER_STRIPE,
+    event_query = BillingProviderCatalogEvent.query.filter(
+        BillingProviderCatalogEvent.deleted == 0,
+        BillingProviderCatalogEvent.provider == PROVIDER_STRIPE,
+    )
+    if normalized_object_type:
+        event_query = event_query.filter(
+            BillingProviderCatalogEvent.object_type == normalized_object_type
         )
-        .order_by(
+    if normalized_account_id:
+        event_query = event_query.filter(
+            BillingProviderCatalogEvent.provider_account_id == normalized_account_id
+        )
+    if livemode is not None:
+        event_query = event_query.filter(
+            BillingProviderCatalogEvent.livemode == int(bool(livemode))
+        )
+    events = (
+        event_query.order_by(
             BillingProviderCatalogEvent.created_at.desc(),
             BillingProviderCatalogEvent.id.desc(),
         )
