@@ -286,12 +286,20 @@ def test_provider_price_mapping_restore_is_idempotent_for_draft_mapping(
             product_bid=product_bid,
             provider_price_id="price_restore_draft",
         )
+        mapping.validated_at = now_utc()
+        mapping.activated_at = now_utc()
+        mapping.retired_at = now_utc()
+        mapping.validation_error = "stale"
         db.session.commit()
 
         restored = restore_retired_provider_price_mapping(mapping.provider_price_bid)
 
         assert restored.provider_price_bid == mapping.provider_price_bid
         assert mapping.status == BILLING_PROVIDER_PRICE_STATUS_DRAFT
+        assert mapping.validated_at is None
+        assert mapping.activated_at is None
+        assert mapping.retired_at is None
+        assert mapping.validation_error == ""
 
 
 def test_provider_price_mapping_restore_rejects_active_mapping(app: object) -> None:

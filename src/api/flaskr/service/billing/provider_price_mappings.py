@@ -384,6 +384,11 @@ def restore_retired_provider_price_mapping(
     mapping = _load_mapping(provider_price_bid)
     current_status = int(mapping.status or 0)
     if current_status == BILLING_PROVIDER_PRICE_STATUS_DRAFT:
+        mapping.validated_at = None
+        mapping.activated_at = None
+        mapping.retired_at = None
+        mapping.validation_error = ""
+        db.session.flush()
         return mapping
     if current_status != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
         error_code = "provider_price_mapping_not_retired"
