@@ -268,6 +268,7 @@ export function GlobalBillingPricing() {
     { revalidateOnFocus: false },
   );
   const { data: overview } = useBillingOverview();
+  const hasResolvedOverview = overview !== undefined;
   const globalProducts = React.useMemo(
     () => resolveGlobalProducts(data),
     [data],
@@ -290,6 +291,14 @@ export function GlobalBillingPricing() {
       sourceTab: PricingTab;
       checkoutAction?: BillingSubscriptionCheckoutAction;
     }) => {
+      if (product.product_type === 'plan' && !hasResolvedOverview) {
+        toast({
+          title: t('common.core.requestFailed'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const loadingKey = buildCheckoutLoadingKey(product);
       setCheckoutLoadingKey(loadingKey);
       try {
@@ -344,7 +353,7 @@ export function GlobalBillingPricing() {
         setCheckoutLoadingKey('');
       }
     },
-    [t, trackEvent],
+    [hasResolvedOverview, t, trackEvent],
   );
 
   return (
@@ -422,6 +431,7 @@ export function GlobalBillingPricing() {
                     cycle={billingCycle}
                     products={globalProducts}
                     activeSubscription={activeSubscription}
+                    hasResolvedOverview={hasResolvedOverview}
                     locale={locale}
                     onViewMonthly={() => setBillingCycle('monthly')}
                     checkoutLoadingKey={checkoutLoadingKey}
@@ -595,6 +605,7 @@ function PlanCard({
   cycle,
   products,
   activeSubscription,
+  hasResolvedOverview,
   locale,
   onViewMonthly,
   checkoutLoadingKey,
@@ -604,6 +615,7 @@ function PlanCard({
   cycle: BillingCycle;
   products: Map<string, GlobalBillingProduct>;
   activeSubscription: BillingSubscription | null;
+  hasResolvedOverview: boolean;
   locale: string;
   onViewMonthly: () => void;
   checkoutLoadingKey: string;
@@ -629,6 +641,9 @@ function PlanCard({
   const isCurrentPlan = activeSubscription?.product_bid === product.product_bid;
   const currentTierRank = resolvePlanTierRank(activeSubscription?.product_code);
   const targetTierRank = resolvePlanTierRank(product.product_code);
+  const legacyActiveSubscription = Boolean(
+    activeSubscription && currentTierRank < 0,
+  );
   const annualSubscriptionSwitchToMonthlyUnsupported =
     cycle === 'monthly' &&
     activeSubscriptionProduct?.billing_interval === 'year' &&
@@ -645,16 +660,19 @@ function PlanCard({
     !monthlyOnly &&
     !annualSubscriptionSwitchToMonthlyUnsupported &&
     !sameTierCycleSwitchUnsupported &&
+    !legacyActiveSubscription &&
     currentTierRank >= 0 &&
     targetTierRank >= 0 &&
     targetTierRank < currentTierRank;
   const supportedImmediateUpgrade =
     !activeSubscription ||
+    legacyActiveSubscription ||
     (currentTierRank >= 0 &&
       targetTierRank >= 0 &&
       targetTierRank > currentTierRank);
   const unsupportedActivePlanTransition =
     Boolean(activeSubscription) &&
+    !legacyActiveSubscription &&
     !isCurrentPlan &&
     !monthlyOnly &&
     !annualSubscriptionSwitchToMonthlyUnsupported &&
@@ -837,7 +855,7 @@ function PlanCard({
         ) : (
           <Button
             className='min-h-11 w-full'
-            disabled={isCheckingOut}
+            disabled={!hasResolvedOverview || isCheckingOut}
             onClick={() =>
               onPaymentClick({
                 product,
