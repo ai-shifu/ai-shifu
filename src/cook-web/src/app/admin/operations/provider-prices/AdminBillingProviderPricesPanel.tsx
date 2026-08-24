@@ -240,15 +240,6 @@ function getActiveProductMapping(
   return mappings.find(mapping => mapping.status_label === 'active') || null;
 }
 
-function formatMappingScope(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  mapping: AdminBillingProviderPriceMapping,
-): string {
-  return t(
-    `module.billing.admin.providerPrices.environment.${mapping.livemode ? 'live' : 'test'}`,
-  );
-}
-
 export function AdminBillingProviderPricesPanel() {
   const { t, i18n } = useTranslation();
   const [productFilter, setProductFilter] = React.useState(ALL_PRODUCTS);
@@ -721,11 +712,6 @@ export function AdminBillingProviderPricesPanel() {
                             `module.billing.admin.providerPrices.health.${status}`,
                           )}
                         </Badge>
-                        {mapping ? (
-                          <div className='break-all text-xs text-muted-foreground'>
-                            {formatMappingScope(t, mapping)}
-                          </div>
-                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell className='align-top text-sm text-muted-foreground'>
