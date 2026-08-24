@@ -394,7 +394,7 @@ def test_legacy_trimmed_button_projection_cannot_write_system_profile(
     assert set(values) == {PROFILE_ONBOARDING_STATE_KEY}
 
 
-def test_legacy_projection_failure_keeps_v2_guided_flow_available(
+def test_legacy_projection_failure_hides_only_the_legacy_guided_flow(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile import onboarding as onboarding_service
@@ -424,24 +424,21 @@ def test_legacy_projection_failure_keeps_v2_guided_flow_available(
             user_id="legacy-projection-failure",
         )
 
-    assert status["enabled"] is True
-    assert status["should_show"] is True
-    assert status["markdownflow"] == LEGACY_NONASSIGNMENT_FLOW
+    assert status["enabled"] is False
+    assert status["should_show"] is False
+    assert status["markdownflow"] == ""
     assert status["profile_v2"]["guided_available"] is True
     assert status["profile_v2"]["should_show"] is True
     assert status["profile_v2"]["presentation"] == "blocking"
 
 
-def test_fenced_markdownflow_remains_available_when_legacy_projection_cannot_map_it(
+def test_fenced_nonassignment_flow_remains_available_only_to_v2(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile.onboarding import get_profile_onboarding_status
 
     document = (
-        "Here is an example.\n\n"
-        "```python\nprint('hello')\n```\n\n"
-        "---\n\n"
-        "?[%{{learning_goal}}...What would you like to learn?]"
+        "Here is an example.\n\n```python\nprint('hello')\n```\n\n---\n\n?[Continue]"
     )
     _set_config(
         monkeypatch,
@@ -459,9 +456,11 @@ def test_fenced_markdownflow_remains_available_when_legacy_projection_cannot_map
             user_id="fenced-profile-onboarding",
         )
 
-    assert status["enabled"] is True
-    assert status["markdownflow"] == document
+    assert status["enabled"] is False
+    assert status["should_show"] is False
+    assert status["markdownflow"] == ""
     assert status["profile_v2"]["guided_available"] is True
+    assert status["profile_v2"]["should_show"] is True
     assert status["profile_v2"]["presentation"] == "blocking"
 
 

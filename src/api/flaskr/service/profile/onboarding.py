@@ -63,6 +63,7 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     configured_enabled = bool(config_payload.get("enabled"))
     markdownflow = str(config_payload.get("markdownflow") or "").strip()
     guided_available = configured_enabled and bool(markdownflow)
+    legacy_guided_available = guided_available
     legacy_markdownflow = markdownflow
     if guided_available:
         try:
@@ -70,15 +71,18 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
         except Exception:
             app.logger.warning("profile onboarding config is invalid", exc_info=True)
             guided_available = False
+            legacy_guided_available = False
         else:
             try:
                 legacy_markdownflow = _project_legacy_profile_onboarding_markdownflow(
                     markdownflow
                 )
             except Exception:
-                # The retiring wire projection is best-effort. Officially valid
-                # documents must remain available to the V2 runtime even when
-                # MarkdownFlow preprocessing prevents an exact legacy rewrite.
+                # Keep an officially valid document available to the V2
+                # runtime, but do not expose a flow the retiring client cannot
+                # parse into an answerable question.
+                legacy_guided_available = False
+                legacy_markdownflow = ""
                 app.logger.warning(
                     "profile onboarding legacy projection unavailable",
                     exc_info=True,
@@ -126,8 +130,8 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     return {
         # The legacy client has no guided-availability field, so expose a
         # broken config as disabled during the rolling deploy.
-        "enabled": guided_available,
-        "should_show": guided_available
+        "enabled": legacy_guided_available,
+        "should_show": legacy_guided_available
         and not legacy_handled
         and not canonical_handled,
         "markdownflow": legacy_markdownflow,
