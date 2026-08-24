@@ -120,9 +120,9 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.actions.checkoutLoading':
           'Opening checkout...',
         'module.billing.globalPricing.actions.cycleSwitchDisabled':
-          'Cycle switch unavailable',
+          'Billing cycle change unavailable',
         'module.billing.globalPricing.actions.viewMonthly': 'View monthly plan',
-        'module.billing.globalPricing.approximatePricePrefix': 'About',
+        'module.billing.globalPricing.approximatePricePrefix': 'Approx.',
         'module.billing.checkout.unsupported':
           'This payment method is not available right now.',
         'module.billing.globalPricing.checkoutNotice':
@@ -176,11 +176,11 @@ jest.mock('react-i18next', () => ({
         'module.billing.package.actions.downgradeDisabled':
           'Downgrade unavailable',
         'module.billing.package.actions.monthlySwitchDisabled':
-          'Monthly switch unavailable',
+          'Monthly billing unavailable',
         'module.billing.package.actions.upgradeNow': 'Upgrade now',
       };
       if (key === 'module.billing.globalPricing.billedAnnually') {
-        return `Billed ${options?.price} every 12 months`;
+        return `Billed ${options?.price} every 12 months.`;
       }
       if (key === 'module.billing.globalPricing.annualSavings') {
         return `Save ${options?.amount} per year (${options?.percent}%)`;
@@ -617,7 +617,9 @@ describe('GlobalBillingPricing', () => {
 
     const growth = await screen.findByTestId('global-plan-growth');
     expect(
-      within(growth).getByRole('button', { name: 'Cycle switch unavailable' }),
+      within(growth).getByRole('button', {
+        name: 'Billing cycle change unavailable',
+      }),
     ).toBeDisabled();
 
     await act(async () => {
