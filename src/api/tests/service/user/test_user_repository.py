@@ -1,25 +1,35 @@
 """transactional_session termination-classification behavior."""
 
 
-def test_transactional_session_classifies_before_savepoint_rollback(app, monkeypatch):
-    """Abnormal terminations must invalidate WITHOUT any savepoint rollback
-    reaching the wire; ordinary errors keep the legacy full-rollback path.
-    """
+def test_transactional_session_classifies_before_savepoint_rollback(
+    app: object, monkeypatch: object
+) -> None:
+    """Abnormal terminations must invalidate WITHOUT any savepoint rollback reaching the wire; ordinary errors keep the legacy full-rollback path."""
+    _ = app
     import flaskr.service.user.repository as repo_module
     from sqlalchemy.exc import ResourceClosedError
 
     events = []
+
+    def invalidate(*, source: object, session: object = None) -> object:
+        del session
+        events.append(("invalidate", source))
+        return True
+
+    def cleanup(exc: object, *, source: object, session: object = None) -> object:
+        del exc, session
+        events.append(("cleanup", source))
+        return "rolled_back"
+
     monkeypatch.setattr(
         repo_module,
         "invalidate_session",
-        lambda *, source, session=None: events.append(("invalidate", source)) or True,
+        invalidate,
     )
     monkeypatch.setattr(
         repo_module,
         "cleanup_session_after",
-        lambda exc, *, source, session=None: (
-            events.append(("cleanup", source)) or "rolled_back"
-        ),
+        cleanup,
     )
 
     class _Nested:
@@ -27,10 +37,10 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
             self.rollbacks = 0
             self.commits = 0
 
-        def rollback(self):
+        def rollback(self) -> None:
             self.rollbacks += 1
 
-        def commit(self):
+        def commit(self) -> None:
             self.commits += 1
 
     nested = _Nested()
@@ -41,18 +51,20 @@ def test_transactional_session_classifies_before_savepoint_rollback(app, monkeyp
     import pytest
 
     # Desync inside the body: invalidate only, savepoint untouched.
+    message = "desynced"
     with pytest.raises(ResourceClosedError), repo_module.transactional_session():
-        raise ResourceClosedError("desynced")
+        raise ResourceClosedError(message)
     assert events == [("invalidate", "transactional_session desync")]
     assert nested.rollbacks == 0
     events.clear()
 
     # Ordinary error: savepoint rollback then classified session cleanup.
+    message = "business"
     with (
         pytest.raises(ValueError, match="business"),
         repo_module.transactional_session(),
     ):
-        raise ValueError("business")
+        raise ValueError(message)
     assert events == [("cleanup", "transactional_session")]
     assert nested.rollbacks == 1
     events.clear()

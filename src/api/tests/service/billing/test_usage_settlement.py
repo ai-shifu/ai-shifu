@@ -1,8 +1,11 @@
+"""Verify usage settlement behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -51,9 +54,12 @@ from flaskr.service.metering.consts import (
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_settlement_app():
+def billing_settlement_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -303,11 +309,11 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-1",
+        lambda _app, _usage: "creator-1",
     )
 
     with billing_settlement_app.app_context():
-        wallet = _create_wallet("creator-1", "4.0000000000")
+        wallet = _create_wallet("creator-1", "3.0000000000")
         dao.db.session.add(wallet)
         dao.db.session.add(_create_active_subscription("creator-1"))
         dao.db.session.add_all(
@@ -318,7 +324,7 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
                     bucket_bid="bucket-free",
                     category=CREDIT_BUCKET_CATEGORY_FREE,
                     priority=10,
-                    available_credits="2.0000000000",
+                    available_credits="1.0000000000",
                 ),
                 _create_bucket(
                     creator_bid="creator-1",
@@ -387,12 +393,12 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
 
         assert payload["status"] == "settled"
         assert payload["entry_count"] == 1
-        assert payload["consumed_credits"] == 4
+        assert payload["consumed_credits"] == 3
         assert wallet.available_credits == Decimal("0E-10")
-        assert wallet.lifetime_consumed_credits == Decimal("4.0000000000")
+        assert wallet.lifetime_consumed_credits == Decimal("3.0000000000")
         assert len(entries) == 1
         assert entries[0].wallet_bucket_bid == ""
-        assert entries[0].amount == Decimal("-4.0000000000")
+        assert entries[0].amount == Decimal("-3.0000000000")
         assert entries[0].balance_after == Decimal("0E-10")
         assert [
             row["billing_metric"]
@@ -402,6 +408,9 @@ def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
             "llm_cache_tokens",
             "llm_output_tokens",
         ]
+        assert [
+            row["raw_amount"] for row in entries[0].metadata_json["metric_breakdown"]
+        ] == [200, 1000, 1000]
         assert [
             row["wallet_bucket_bid"]
             for row in entries[0].metadata_json["bucket_breakdown"]
@@ -420,7 +429,7 @@ def test_settle_usage_rounds_consumption_before_persisting(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-rounding",
+        lambda _app, _usage: "creator-rounding",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -485,7 +494,7 @@ def test_settle_usage_writes_zero_amount_bill_when_consumption_quantizes_to_zero
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-zero-bill",
+        lambda _app, _usage: "creator-zero-bill",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -556,7 +565,7 @@ def test_settle_tts_usage_is_idempotent(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-2",
+        lambda _app, _usage: "creator-2",
     )
 
     with billing_settlement_app.app_context():
@@ -618,7 +627,7 @@ def test_settle_tts_usage_supports_char_mode_when_request_rate_missing(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-tts-char",
+        lambda _app, _usage: "creator-tts-char",
     )
 
     with billing_settlement_app.app_context():
@@ -679,7 +688,7 @@ def test_settle_usage_consumes_manual_grant_without_subscription_and_skips_topup
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-manual-settlement",
+        lambda _app, _usage: "creator-manual-settlement",
     )
 
     with billing_settlement_app.app_context():
@@ -751,7 +760,7 @@ def test_settle_usage_prefers_exact_rate_over_wildcard(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-3",
+        lambda _app, _usage: "creator-3",
     )
 
     with billing_settlement_app.app_context():
@@ -822,7 +831,7 @@ def test_settle_usage_applies_scene_specific_rate_and_records_scene_metadata(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-scene-settlement",
+        lambda _app, _usage: "creator-scene-settlement",
     )
 
     with billing_settlement_app.app_context():
@@ -900,7 +909,7 @@ def test_settle_usage_rebuilds_wallet_snapshot_from_bucket_balances(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-5",
+        lambda _app, _usage: "creator-5",
     )
 
     with billing_settlement_app.app_context():
@@ -968,7 +977,7 @@ def test_settle_usage_prefers_earliest_expiry_then_oldest_created_in_same_priori
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-6",
+        lambda _app, _usage: "creator-6",
     )
 
     with billing_settlement_app.app_context():
@@ -1058,7 +1067,7 @@ def test_settle_usage_skips_segment_and_non_billable_records(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-4",
+        lambda _app, _usage: "creator-4",
     )
 
     with billing_settlement_app.app_context():
@@ -1114,7 +1123,10 @@ def test_settle_usage_acquires_creator_scoped_lock(
             self.acquire_calls: list[bool] = []
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(
+            self, blocking: bool = True, blocking_timeout: object = None
+        ) -> object:
+            _ = blocking_timeout
             self.acquire_calls.append(bool(blocking))
             return True
 
@@ -1126,7 +1138,12 @@ def test_settle_usage_acquires_creator_scoped_lock(
             self.calls: list[dict[str, object]] = []
             self.lock_instance = _DummyLock()
 
-        def lock(self, key: str, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: str,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
             self.calls.append(
                 {
                     "key": key,
@@ -1138,7 +1155,7 @@ def test_settle_usage_acquires_creator_scoped_lock(
 
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-lock-1",
+        lambda _app, _usage: "creator-lock-1",
     )
     dummy_cache = _DummyCacheProvider()
     monkeypatch.setattr("flaskr.service.billing.settlement.cache_provider", dummy_cache)
@@ -1200,7 +1217,10 @@ def test_settle_usage_releases_creator_lock_on_error(
         def __init__(self) -> None:
             self.release_calls = 0
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(
+            self, blocking: bool = True, blocking_timeout: object = None
+        ) -> object:
+            _ = (blocking, blocking_timeout)
             return True
 
         def release(self) -> None:
@@ -1209,15 +1229,17 @@ def test_settle_usage_releases_creator_lock_on_error(
     lock = _DummyLock()
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.cache_provider",
-        SimpleNamespace(lock=lambda *args, **kwargs: lock),
+        SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-lock-err",
+        lambda _app, _usage: "creator-lock-err",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.build_usage_metric_charges",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("lock-test-error")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("lock-test-error")
+        ),
     )
 
     with billing_settlement_app.app_context():
@@ -1276,7 +1298,7 @@ def test_replay_bill_usage_settlement_keeps_existing_consumption_idempotent(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-replay-1",
+        lambda _app, _usage: "creator-replay-1",
     )
 
     with billing_settlement_app.app_context():
@@ -1336,7 +1358,7 @@ def test_replay_bill_usage_settlement_rejects_creator_mismatch(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-replay-real",
+        lambda _app, _usage: "creator-replay-real",
     )
 
     with billing_settlement_app.app_context():
@@ -1371,7 +1393,7 @@ def test_backfill_bill_usage_settlement_replays_one_usage_range_safely(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-backfill-1",
+        lambda _app, _usage: "creator-backfill-1",
     )
 
     with billing_settlement_app.app_context():
@@ -1483,7 +1505,7 @@ def test_build_usage_metric_charges_uses_public_charge_module(
 
 def test_build_usage_metric_charges_matches_llm_rate_model_alias(
     billing_settlement_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.billing import charges as charge_module
 
@@ -1541,7 +1563,7 @@ def test_build_usage_metric_charges_matches_llm_rate_model_alias(
 
 def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time(
     billing_settlement_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     from flaskr.service.billing import charges as charge_module
 
@@ -1611,7 +1633,9 @@ def test_build_usage_metric_charges_uses_superseded_rate_for_old_settlement_time
         assert charge["consumed_credits"] == Decimal("2.00")
 
 
-def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch):
+def test_resolve_credit_multiplier_label_uses_utc_default_settlement(
+    monkeypatch: object,
+) -> None:
     from flaskr.service.billing import charges
 
     utc_sentinel = datetime(2026, 1, 1, 0, 0, 0)
@@ -1619,7 +1643,10 @@ def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch
 
     monkeypatch.setattr(charges, "now_utc", lambda: utc_sentinel)
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ) -> None:
+        _ = (usage, billing_metric)
         captured.append(settlement_at)
 
     monkeypatch.setattr(charges, "load_usage_rate", fake_load_usage_rate)

@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
@@ -64,6 +62,13 @@ from flaskr.util.datetime import now_utc
 from flaskr.util.timezone import _coerce_datetime
 from sqlalchemy import and_, case, false, or_
 from sqlalchemy.orm import aliased
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 
 @dataclass(frozen=True)
@@ -140,9 +145,9 @@ def _dashboard_learner_keyword_matches(
 
 
 def _build_dashboard_learner_keyword_filter(
-    user_bid_column,
+    user_bid_column: object,
     keyword: str,
-):
+) -> ColumnElement[bool] | None:
     normalized_keyword = _normalize_dashboard_identifier(keyword).strip()
     if not normalized_keyword:
         return None
@@ -275,7 +280,7 @@ def _build_course_outline_context_map(
     return context_map
 
 
-def _build_course_follow_up_base_subquery(shifu_bid: str):
+def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
     return (
         db.session.query(
             LearnGeneratedBlock.id.label("id"),
@@ -307,9 +312,9 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
 
 
 def _build_follow_up_user_keyword_filter(
-    user_bid_column,
+    user_bid_column: object,
     keyword: str,
-):
+) -> ColumnElement[bool] | None:
     normalized = _normalize_dashboard_identifier(keyword)
     if not normalized:
         return None
@@ -517,7 +522,7 @@ def _resolve_follow_up_source_from_element(
     answer_generated_block_bid: str,
     fallback_position: int,
     ask_created_at: datetime | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_answer_generated_block_bid = str(
         answer_generated_block_bid or ""
     ).strip()
@@ -607,7 +612,7 @@ def _resolve_follow_up_source_from_element(
 
 def _resolve_follow_up_source_from_blocks(
     ask_block: LearnGeneratedBlock,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     progress_record_bid = str(
         getattr(ask_block, "progress_record_bid", "") or ""
     ).strip()
@@ -677,7 +682,7 @@ def _resolve_follow_up_source(
     *,
     ask_block: LearnGeneratedBlock,
     answer_block: LearnGeneratedBlock | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     fallback_position = int(getattr(ask_block, "position", 0) or 0)
     if answer_block is not None:
         source = _resolve_follow_up_source_from_element(
@@ -1503,6 +1508,9 @@ def build_dashboard_entry(
     page_size: int = 20,
     timezone_name: str | None = None,
 ) -> DashboardEntryDTO:
+    """Build dashboard entry."""
+    _ = timezone_name
+
     def _parse_optional_date(raw: str | None) -> date | None:
         if raw is None:
             return None
@@ -1635,6 +1643,7 @@ def _build_dashboard_course_learners(
     last_learning_end_time: str | None,
     timezone_name: str | None,
 ) -> DashboardCourseDetailLearnersDTO:
+    _ = timezone_name
     safe_page_size = min(
         max(int(page_size or 20), 1),
         DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX,
@@ -2046,6 +2055,8 @@ def build_dashboard_course_follow_ups(
     end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpListDTO:
+    """Build dashboard course follow ups."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2270,6 +2281,8 @@ def build_dashboard_course_follow_up_detail(
     *,
     timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpDetailDTO:
+    """Build dashboard course follow up detail."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_generated_block_bid = str(generated_block_bid or "").strip()
@@ -2391,6 +2404,8 @@ def build_dashboard_course_ratings(
     end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseRatingListDTO:
+    """Build dashboard course ratings."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2602,6 +2617,7 @@ def build_dashboard_course_learners(
     last_learning_end_time: str | None = None,
     timezone_name: str | None = None,
 ) -> DashboardCourseDetailLearnersDTO:
+    """Build dashboard course learners."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2635,6 +2651,8 @@ def build_dashboard_course_detail(
     *,
     timezone_name: str | None = None,
 ) -> DashboardCourseDetailDTO:
+    """Build dashboard course detail."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

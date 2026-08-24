@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -32,12 +33,15 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import Coupon, CouponUsage, PromoRedemption
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 USER_ID = "uow-user-1"
 COURSE_ID = "uow-course-1"
 
 
 @pytest.fixture
-def order_app():
+def order_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -59,22 +63,26 @@ def order_app():
 
 
 @pytest.fixture
-def stub_shifu(monkeypatch: pytest.MonkeyPatch):
+def stub_shifu(monkeypatch: pytest.MonkeyPatch) -> None:
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, bid, preview_mode
+        return SimpleNamespace(
+            price=Decimal("100.00"),
+            title="UOW course",
+            description="UOW failure-path course",
+        )
+
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "c1")
     monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_a, **_k: None)
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, preview_mode: SimpleNamespace(
-            price=Decimal("100.00"),
-            title="UOW course",
-            description="UOW failure-path course",
-        ),
+        get_shifu_info,
     )
 
 
 @pytest.fixture
-def stub_promo_side_sessions(monkeypatch: pytest.MonkeyPatch):
+def stub_promo_side_sessions(monkeypatch: pytest.MonkeyPatch) -> object:
     """Neutralize the promo helpers that push their own app context.
 
     ``timeout_coupon_code_rollback`` / ``void_promo_campaign_applications``
@@ -100,14 +108,15 @@ def _fail_after_pricing_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run the real pricing sync, then fail — simulating any late step error."""
     real_sync = order_funs._sync_order_campaign_pricing
 
-    def failing_sync(*args, **kwargs):
+    def failing_sync(*args: object, **kwargs: object) -> None:
         real_sync(*args, **kwargs)
-        raise RuntimeError("boom after pricing sync")
+        message = "boom after pricing sync"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(order_funs, "_sync_order_campaign_pricing", failing_sync)
 
 
-def _seed_order(**overrides) -> str:
+def _seed_order(**overrides: object) -> str:
     order = Order(
         order_bid=overrides.pop("order_bid", "uow-origin-order"),
         user_bid=USER_ID,
@@ -125,15 +134,16 @@ def _seed_order(**overrides) -> str:
 def test_init_buy_record_late_failure_persists_nothing(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-):
+    stub_shifu: object,
+) -> None:
     """(a) A late failure in init_buy_record must not leave partial rows.
 
     Pre-migration, ``_sync_order_campaign_pricing`` committed the new Order
     row and the promo applications before the failure point.
     """
+    _ = stub_shifu
 
-    def fake_apply_promo(_app, **kwargs):
+    def fake_apply_promo(_app: object, **kwargs: object) -> object:
         application = PromoRedemption(
             redemption_bid="uow-redemption-1",
             promo_bid="uow-promo-1",
@@ -161,10 +171,11 @@ def test_init_buy_record_late_failure_persists_nothing(
 def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-    stub_promo_side_sessions,
-):
+    stub_shifu: object,
+    stub_promo_side_sessions: object,
+) -> None:
     """(b) Clean run: the timeout flip and the new order commit together."""
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
@@ -184,9 +195,9 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
 def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-    stub_promo_side_sessions,
-):
+    stub_shifu: object,
+    stub_promo_side_sessions: object,
+) -> None:
     """(b) Failure run: the timeout flip joins the caller's transaction.
 
     Decision: the flip is derived state (recomputed from ``created_at`` on
@@ -194,6 +205,7 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     A retry re-detects the timeout and re-flips atomically with the
     replacement order.
     """
+    _ = (stub_shifu, stub_promo_side_sessions)
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     stale_created_at = datetime.datetime.now(datetime.UTC).replace(
         tzinfo=None
@@ -214,13 +226,14 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
 def test_discount_refresh_failure_keeps_coupon_pricing_untouched(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-):
+    stub_shifu: object,
+) -> None:
     """(c) A failure after the discount recalculation leaves pricing intact.
 
     Pre-migration, ``_sync_order_campaign_pricing`` committed the recomputed
     ``paid_price`` (coupon applied) before order validation could fail.
     """
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
     origin_bid = _seed_order()
     coupon = Coupon(
@@ -262,12 +275,10 @@ def test_discount_refresh_failure_keeps_coupon_pricing_untouched(
 def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
     order_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
-    stub_shifu,
-):
-    """The key migration property: self-committing at top level, joining when
-    nested — legacy callers (coupon_funcs, admin) and migrated owners both
-    stay correct.
-    """
+    stub_shifu: object,
+) -> None:
+    """The key migration property: self-committing at top level, joining when nested — legacy callers (coupon_funcs, admin) and migrated owners both stay correct."""
+    _ = stub_shifu
     monkeypatch.setattr(order_funs, "set_user_state", lambda *_a, **_k: None)
     feishu_calls = []
     monkeypatch.setattr(
@@ -284,7 +295,8 @@ def test_success_buy_record_commits_alone_but_joins_outer_unit_of_work(
         with uow.unit_of_work():
             success_buy_record(order_app, order_bid)
             assert feishu_calls == []  # not yet durable, must not notify
-            raise RuntimeError("outer boom")
+            message = "outer boom"
+            raise RuntimeError(message)
 
     with pytest.raises(RuntimeError, match="outer boom"):
         flip_then_fail()

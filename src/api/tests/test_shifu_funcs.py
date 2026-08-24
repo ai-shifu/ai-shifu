@@ -1,15 +1,20 @@
+"""Verify course summaries isolate and report generation failures."""
+
 from flaskr.service.shifu import shifu_publish_funcs
 
 
-def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch):
+def test_run_summary_with_error_handling_logs_and_continues(
+    app: object, monkeypatch: object
+) -> None:
     called = {"apply": False, "summary": False}
 
-    def fake_apply(_snapshot):
+    def fake_apply(_snapshot: object) -> None:
         called["apply"] = True
 
-    def fake_summary(_app, _shifu_id):
+    def fake_summary(_app: object, _shifu_id: object) -> None:
         called["summary"] = True
-        raise RuntimeError("boom")
+        message = "boom"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(shifu_publish_funcs, "apply_shifu_context_snapshot", fake_apply)
     monkeypatch.setattr(shifu_publish_funcs, "get_shifu_summary", fake_summary)

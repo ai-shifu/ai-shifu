@@ -1,7 +1,11 @@
+"""Generate Swagger schemas from annotated DTOs."""
+
 import ast
 import inspect
 import typing
 from enum import Enum
+
+from flasgger.base import BR_SANITIZER
 
 swagger_config = {
     "openapi": "3.0.2",
@@ -31,7 +35,21 @@ swagger_config = {
 }
 
 
-def parse_comments(cls):
+def sanitize_swagger_docstring(text: str) -> str:
+    """Preserve Flasgger formatting without inventing blank descriptions.
+
+    D205 requires a blank line after a one-line summary. Flasgger passes that
+    whitespace through its sanitizer and otherwise emits ``<br/>`` as an
+    operation description.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    return BR_SANITIZER(stripped)
+
+
+def parse_comments(cls: object) -> dict[str, str]:
+    """Extract field descriptions from a DTO's source comments."""
     source = inspect.getsource(cls)
     tree = ast.parse(source)
     comments = {}
@@ -53,7 +71,8 @@ def parse_comments(cls):
 
                     if "#" in line:
                         comment = line.split("#", 1)[1].strip()
-                        comments[field_name] = comment
+                        if not comment.lower().startswith("noqa"):
+                            comments[field_name] = comment
                     elif item.value and isinstance(item.value, (ast.Str, ast.Constant)):
                         if isinstance(item.value, ast.Str):
                             comments[field_name] = item.value.s
@@ -65,7 +84,8 @@ def parse_comments(cls):
     return comments
 
 
-def get_field_schema(typ, description: str = ""):
+def get_field_schema(typ: object, description: str = "") -> dict[str, object]:
+    """Build the Swagger schema for an annotated DTO field."""
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
@@ -118,7 +138,8 @@ def get_field_schema(typ, description: str = ""):
     return field_schema
 
 
-def register_schema_to_swagger(cls):
+def register_schema_to_swagger(cls: object) -> object:
+    """Register schema to swagger."""
     if swagger_config["components"]["schemas"].get(cls.__name__, None):
         return swagger_config["components"]["schemas"].get(cls.__name__)
 

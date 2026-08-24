@@ -1,7 +1,10 @@
+"""Verify billing daily usage aggregates behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -26,9 +29,12 @@ from flaskr.service.billing.models import (
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_daily_usage_app(tmp_path):
+def billing_daily_usage_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-daily-usage.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -57,7 +63,7 @@ def test_aggregate_daily_usage_metrics_respects_incremental_window_and_creator_s
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: {
+        lambda _app, usage: {
             "shifu-agg-1": "creator-agg-1",
             "shifu-agg-2": "creator-agg-2",
         }.get(usage.shifu_bid, ""),
@@ -202,7 +208,7 @@ def test_finalize_daily_usage_metrics_recomputes_full_day(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-agg-1",
+        lambda _app, _usage: "creator-agg-1",
     )
 
     with billing_daily_usage_app.app_context():
@@ -307,7 +313,7 @@ def test_aggregate_daily_usage_metrics_supports_single_usage_ledger_with_multi_m
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-agg-single-ledger",
+        lambda _app, _usage: "creator-agg-single-ledger",
     )
 
     with billing_daily_usage_app.app_context():
@@ -405,7 +411,7 @@ def test_aggregate_daily_usage_metrics_quantizes_consumed_credits_with_configure
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-agg-precision",
+        lambda _app, _usage: "creator-agg-precision",
     )
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -453,7 +459,7 @@ def test_aggregate_daily_usage_metrics_keeps_zero_amount_usage_ledgers(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-agg-zero-ledger",
+        lambda _app, _usage: "creator-agg-zero-ledger",
     )
 
     with billing_daily_usage_app.app_context():

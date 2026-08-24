@@ -35,10 +35,14 @@ import os
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.common.fixtures.fake_llm import FakeLLMResponse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 GOLDEN_DIR = Path(__file__).parent
 FIXTURES_DIR = GOLDEN_DIR / "fixtures"
@@ -86,7 +90,7 @@ def _looks_like_json_object(text: str) -> bool:
     return True
 
 
-def _iter_golden_completion(messages) -> list[str]:
+def _iter_golden_completion(messages: object) -> list[str]:
     """Choose deterministic completion chunks for a chat call.
 
     markdown-flow asks the LLM to "translate" interaction button labels by
@@ -104,7 +108,7 @@ def _iter_golden_completion(messages) -> list[str]:
     return list(GOLDEN_LLM_CHUNKS)
 
 
-def golden_chat_llm(*args, **kwargs):
+def golden_chat_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMResponse]:
     messages = kwargs.get("messages")
     if messages is None:
         for arg in args:
@@ -121,7 +125,7 @@ def golden_chat_llm(*args, **kwargs):
         )
 
 
-def golden_invoke_llm(*args, **kwargs):
+def golden_invoke_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMResponse]:
     yield from golden_chat_llm(*args, **kwargs)
 
 
@@ -129,12 +133,12 @@ def golden_get_allowed_models() -> list[str]:
     return []
 
 
-def golden_get_current_models(_app) -> list[dict[str, str]]:
+def golden_get_current_models(_app: object) -> list[dict[str, str]]:
     return []
 
 
 @pytest.fixture(autouse=True)
-def golden_llm(monkeypatch):
+def golden_llm(monkeypatch: object) -> None:
     """Patch a deterministic fake LLM into every namespace the /run path uses."""
     import sys
 
@@ -166,13 +170,13 @@ def golden_llm(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def golden_sse_settings(app, monkeypatch):
+def golden_sse_settings(app: object, monkeypatch: object) -> None:
     """Disable timing-dependent SSE heartbeats for deterministic transcripts."""
     monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
 
 
 @pytest.fixture(autouse=True)
-def golden_disable_risk_audit_commit(monkeypatch):
+def golden_disable_risk_audit_commit(monkeypatch: object) -> None:
     """Skip the risk-control audit side-write on SQLite.
 
     ``add_risk_control_result`` commits through a nested ``app.app_context()``
@@ -188,7 +192,9 @@ def golden_disable_risk_audit_commit(monkeypatch):
     )
 
 
-def mock_validate_user(monkeypatch, user_bid: str, *, is_creator: bool = False) -> None:
+def mock_validate_user(
+    monkeypatch: object, user_bid: str, *, is_creator: bool = False
+) -> None:
     """Route auth: make every request resolve to the given user."""
     dummy_user = SimpleNamespace(
         user_id=user_bid,
@@ -203,7 +209,7 @@ def mock_validate_user(monkeypatch, user_bid: str, *, is_creator: bool = False) 
     )
 
 
-def seed_golden_user(app, user_bid: str) -> None:
+def seed_golden_user(app: object, user_bid: str) -> None:
     """Ensure a learner row exists for load_user_aggregate()."""
     from flaskr import dao
     from flaskr.service.user.models import UserInfo
@@ -225,7 +231,7 @@ def seed_golden_user(app, user_bid: str) -> None:
 
 
 @pytest.fixture
-def golden_shifu(app):
+def golden_shifu(app: object) -> object:
     """Seed a published, free shifu with one chapter and one runnable lesson.
 
     Idempotent: existing golden rows are removed before reseeding so every
@@ -322,13 +328,14 @@ def assert_or_update_golden(fixture_name: str, normalized_text: str) -> None:
         fixture_path.write_text(normalized_text, encoding="utf-8")
         return
     if not fixture_path.exists():
-        raise AssertionError(
+        message = (
             f"Golden fixture {fixture_path} is missing. "
             "Record it with UPDATE_GOLDEN=1 pytest tests/golden/ and commit the file."
         )
+        raise AssertionError(message)
     expected = fixture_path.read_text(encoding="utf-8")
     if normalized_text != expected:
-        raise AssertionError(
+        message = (
             f"Golden fixture mismatch for {fixture_name}.\n"
             "The normalized output no longer matches the recorded contract. "
             "Review the diff below; if the change is intentional, rerun with "
@@ -336,3 +343,4 @@ def assert_or_update_golden(fixture_name: str, normalized_text: str) -> None:
             f"--- expected ({fixture_path})\n{expected}\n"
             f"+++ actual\n{normalized_text}"
         )
+        raise AssertionError(message)

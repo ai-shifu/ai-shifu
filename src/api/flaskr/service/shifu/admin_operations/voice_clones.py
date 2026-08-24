@@ -1,11 +1,11 @@
+"""Handle voice clones for course-administration operations."""
+
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -31,6 +31,11 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
 
 OPERATOR_VOICE_CLONE_SOURCE_METHOD = "operator_register"
 # Short text/model used only to validate a registered voice_id against the
@@ -59,7 +64,7 @@ def _normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _decimal_to_str(value: Any) -> str:
+def _decimal_to_str(value: object) -> str:
     if value is None:
         return "0"
     if isinstance(value, Decimal):
@@ -191,7 +196,7 @@ def _serialize_voice_clone(
     *,
     user_map: dict[str, dict[str, str]],
     course_map: dict[str, dict[str, str]],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     owner_user_bid = _normalize_text(row.owner_user_bid)
     shifu_bid = _normalize_text(row.shifu_bid)
     user = user_map.get(owner_user_bid, {})
@@ -238,8 +243,9 @@ def list_operator_voice_clones(
     *,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any],
-) -> dict[str, Any]:
+    filters: dict[str, object],
+) -> dict[str, object]:
+    """Return operator voice clones."""
     with app.app_context():
         page_index = max(int(page_index or 1), 1)
         page_size = min(
@@ -385,7 +391,7 @@ def register_operator_voice_clone(
     display_name: str,
     voice_id: str,
     provider: str = TTS_CLONE_PROVIDER_MINIMAX,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Register a voice cloned on a provider console and assign it to a teacher.
 
     Operations-managed path: an operator clones a voice on the platform account

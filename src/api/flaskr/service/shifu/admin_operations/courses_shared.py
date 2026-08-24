@@ -7,10 +7,8 @@ from __future__ import annotations
 
 import re
 import sys
-from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
 from flask import current_app
 from flaskr.dao import db
@@ -182,6 +180,12 @@ from flaskr.service.shifu.admin_shared import (  # noqa: E402, F401
     _normalize_identifier,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+    from decimal import Decimal
+
+    from sqlalchemy.sql.elements import ColumnElement
+
 COURSE_CREDIT_USAGE_VIEW_GROUPED = "grouped"
 
 COURSE_CREDIT_USAGE_VIEW_RAW = "raw"
@@ -306,7 +310,7 @@ USER_STATE_TO_OPERATOR_STATUS = {
 }
 
 
-def _get_legacy_admin_symbol(name: str, fallback: Any) -> Any:
+def _get_legacy_admin_symbol(name: str, fallback: object) -> object:
     admin_module = sys.modules.get("flaskr.service.shifu.admin")
     if admin_module is None:
         return fallback
@@ -322,7 +326,7 @@ def _format_decimal(value: Decimal | None) -> str:
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> datetime | None:
+def _coerce_operator_datetime(value: object) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -359,7 +363,7 @@ def _format_average_score(value: Decimal | None) -> str:
     return f"{value:.1f}"
 
 
-def _normalize_metadata_json(value: Any) -> dict[str, Any]:
+def _normalize_metadata_json(value: object) -> dict[str, object]:
     if isinstance(value, dict):
         return value
     return {}
@@ -508,7 +512,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr():
+def _build_course_order_amount_expr() -> ColumnElement[object]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),
@@ -579,7 +583,7 @@ def _load_operator_user_last_login_map(
     }
 
 
-def _is_operator_visible_course(course) -> bool:
+def _is_operator_visible_course(course: object) -> bool:
     return bool(course.shifu_bid) and not is_builtin_demo_course(
         shifu_bid=course.shifu_bid,
         title=course.title,
@@ -590,7 +594,7 @@ def _is_operator_visible_course(course) -> bool:
 def _merge_courses(
     drafts: Iterable[DraftShifu],
     published: Iterable[PublishedShifu],
-):
+) -> tuple[list[DraftShifu | PublishedShifu], set[str], dict[str, str]]:
     course_map = {}
     published_bids: set[str] = set()
     selected_sources: dict[str, str] = {}
@@ -643,7 +647,9 @@ def _load_latest_course_versions(
     return draft, published
 
 
-def _load_operator_course_detail_source(shifu_bid: str):
+def _load_operator_course_detail_source(
+    shifu_bid: str,
+) -> dict[str, object] | None:
     draft, published = _load_latest_course_versions(shifu_bid)
     visible_draft = draft if draft and _is_operator_visible_course(draft) else None
     visible_published = (
@@ -660,7 +666,9 @@ def _load_operator_course_detail_source(shifu_bid: str):
     }
 
 
-def _load_latest_outline_items(model, shifu_bid: str):
+def _load_latest_outline_items(
+    model: object, shifu_bid: str
+) -> list[DraftOutlineItem | PublishedOutlineItem]:
     latest_subquery = (
         db.session.query(db.func.max(model.id).label("max_id"))
         .filter(
@@ -678,7 +686,7 @@ def _load_latest_outline_items(model, shifu_bid: str):
         .all()
     )
 
-    def _position_key(item) -> tuple[tuple[int, int | str], ...]:
+    def _position_key(item: object) -> tuple[tuple[int, int | str], ...]:
         position = str(getattr(item, "position", "") or "").strip()
         if not position:
             return ()

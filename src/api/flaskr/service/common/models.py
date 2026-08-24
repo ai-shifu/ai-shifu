@@ -1,28 +1,42 @@
 # Desc: Common models for the application
+"""Define persistence models for shared backend behavior."""
+
 import json
 from pathlib import Path
+from typing import Never
 
 from flaskr.i18n import _
 from flaskr.util.deprecation import deprecated_alias_getattr
 
 
 class AppError(Exception):
-    def __init__(self, message, status_code=None, payload=None) -> None:
+    """Represent an application error with a stable API code."""
+
+    def __init__(
+        self,
+        message: object,
+        status_code: object = None,
+        payload: object = None,
+    ) -> None:
+        """Initialize an application error and response payload."""
         Exception.__init__(self)
         self.message = message
         self.code = status_code
         self.payload = payload
 
     def __json__(self) -> dict:
+        """Return the application error as JSON-compatible data."""
         rv = dict(self.payload or ())
         rv["message"] = self.message
         rv["code"] = self.code
         return rv
 
     def __str__(self) -> str:
+        """Return the application error message."""
         return self.message
 
     def __html__(self) -> dict:
+        """Return the serialized application-error payload."""
         return self.__json__()
 
 
@@ -49,25 +63,29 @@ def _load_error_codes() -> dict[str, int]:
 ERROR_CODE = _load_error_codes()
 
 
-def register_error(error_name, error_code):
+def register_error(error_name: object, error_code: object) -> None:
+    """Register error."""
     ERROR_CODE[error_name] = error_code
 
 
-def raise_param_error(param_message):
+def raise_param_error(param_message: object) -> Never:
+    """Raise a localized invalid-parameter application error."""
     raise AppError(
         _("server.common.paramsError").format(param_message=param_message),
         ERROR_CODE["server.common.paramsError"],
     )
 
 
-def raise_error(error_name):
+def raise_error(error_name: object) -> Never:
+    """Raise a localized application error for the supplied key."""
     raise AppError(
         _(error_name),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
 
 
-def raise_error_with_args(error_name, **kwargs):
+def raise_error_with_args(error_name: object, **kwargs: object) -> Never:
+    """Raise error with args."""
     raise AppError(
         _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),

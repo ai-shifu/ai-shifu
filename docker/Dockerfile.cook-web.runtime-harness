@@ -1,0 +1,19 @@
+FROM node:22.16.0
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY src/cook-web/package*.json ./
+RUN npm ci --ignore-scripts
+
+COPY src/cook-web ./
+COPY src/i18n ./src/i18n
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN npm run build
+
+EXPOSE 5000
+
+CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "5000"]

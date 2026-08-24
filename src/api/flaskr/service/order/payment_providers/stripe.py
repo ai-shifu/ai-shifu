@@ -1,8 +1,9 @@
+"""Integrate Stripe payments with legacy orders."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.stripe_client import get_stripe_client_options
 from flaskr.service.config import get_config
 
@@ -17,13 +18,16 @@ from .base import (
     SubscriptionUpdateResult,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 class StripeProvider(PaymentProvider):
     """Stripe payment provider implementation."""
 
     channel = "stripe"
 
-    def _ensure_client(self, app: Flask):
+    def _ensure_client(self, app: Flask) -> object:
         return get_stripe_client_options(app)[0]
 
     def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
@@ -32,6 +36,7 @@ class StripeProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         stripe, request_options = self._client_options(app)
         options: dict[str, Any] = request.extra or {}
         mode = (options.get("mode") or request.channel or "payment_intent").lower()
@@ -46,9 +51,8 @@ class StripeProvider(PaymentProvider):
             success_url = options.get("success_url")
             cancel_url = options.get("cancel_url")
             if not success_url or not cancel_url:
-                raise RuntimeError(
-                    "Stripe checkout session requires success and cancel URLs"
-                )
+                message = "Stripe checkout session requires success and cancel URLs"
+                raise RuntimeError(message)
 
             session_params = options.get("session_params", {})
             params: dict[str, Any] = {
@@ -60,7 +64,8 @@ class StripeProvider(PaymentProvider):
 
             line_items = options.get("line_items")
             if not line_items:
-                raise RuntimeError("Stripe checkout session requires line items")
+                message = "Stripe checkout session requires line items"
+                raise RuntimeError(message)
             params["line_items"] = line_items
             subscription_discount_amount = int(
                 options.get("subscription_one_time_discount_amount") or 0
@@ -168,6 +173,7 @@ class StripeProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a recurring subscription through this provider."""
         options: dict[str, Any] = dict(request.extra or {})
         session_params = dict(options.get("session_params", {}) or {})
         session_params["mode"] = "subscription"
@@ -188,8 +194,13 @@ class StripeProvider(PaymentProvider):
         return self.create_payment(request=subscription_request, app=app)
 
     def cancel_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
+        """Schedule provider subscription cancellation at the current period end."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
@@ -208,8 +219,13 @@ class StripeProvider(PaymentProvider):
         )
 
     def resume_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
+        """Clear Stripe's scheduled cancellation for a subscription."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
@@ -230,27 +246,32 @@ class StripeProvider(PaymentProvider):
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
     ) -> dict[str, Any]:
+        """Retrieve a Stripe checkout session."""
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
+        """Retrieve a Stripe payment intent."""
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
         self, *, subscription_id: str, app: Flask
     ) -> dict[str, Any]:
+        """Retrieve a Stripe subscription."""
         stripe, request_options = self._client_options(app)
         return stripe.Subscription.retrieve(subscription_id, **request_options)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         stripe, _request_options = self._client_options(app)
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
         if not webhook_secret:
             app.logger.error("STRIPE_WEBHOOK_SECRET configuration is missing")
-            raise RuntimeError("STRIPE_WEBHOOK_SECRET must be configured for Stripe")
+            message = "STRIPE_WEBHOOK_SECRET must be configured for Stripe"
+            raise RuntimeError(message)
 
         if isinstance(raw_body, bytes):
             raw_body_str = raw_body.decode("utf-8")
@@ -260,7 +281,8 @@ class StripeProvider(PaymentProvider):
             "stripe-signature", ""
         )
         if not sig_header:
-            raise RuntimeError("Stripe signature header missing")
+            message = "Stripe signature header missing"
+            raise RuntimeError(message)
 
         try:
             event = stripe.Webhook.construct_event(
@@ -275,6 +297,7 @@ class StripeProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and normalize a Stripe provider notification."""
         headers = dict(payload.get("headers", {}) or {})
         sig_header = payload.get("sig_header", "")
         if sig_header and "Stripe-Signature" not in headers:
@@ -288,6 +311,7 @@ class StripeProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Retrieve and normalize Stripe state for local state application."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type in {"checkout_session", "session", "payment"}:
             session = self.retrieve_checkout_session(
@@ -338,11 +362,13 @@ class StripeProvider(PaymentProvider):
                 provider_payload={"subscription": subscription},
                 charge_id=None,
             )
-        raise RuntimeError(f"Unsupported Stripe reference type: {reference_type}")
+        message = f"Unsupported Stripe reference type: {reference_type}"
+        raise RuntimeError(message)
 
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
+        """Refund a payment through this provider."""
         stripe, request_options = self._client_options(app)
         params: dict[str, Any] = {}
         if request.amount is not None:
@@ -363,9 +389,8 @@ class StripeProvider(PaymentProvider):
         elif charge_id:
             params["charge"] = charge_id
         else:
-            raise RuntimeError(
-                "Stripe refund requires payment_intent_id or charge_id metadata"
-            )
+            message = "Stripe refund requires payment_intent_id or charge_id metadata"
+            raise RuntimeError(message)
 
         refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()

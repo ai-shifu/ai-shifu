@@ -20,7 +20,6 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -44,26 +43,30 @@ _DEFAULT_REFRESH_LEEWAY_SECONDS = 60
 
 @dataclass(frozen=True)
 class AliyunNlsToken:
+    """Carry an Aliyun NLS token and its expiration time."""
+
     token: str
     expire_time: int  # unix epoch seconds
 
     @property
     def expires_in_seconds(self) -> int:
+        """Return the number of seconds remaining until this token expires."""
         return max(0, int(self.expire_time - time.time()))
 
     def is_expired(self, now: float | None = None) -> bool:
+        """Return whether the cached token has expired."""
         now_ts = time.time() if now is None else float(now)
         return self.expire_time <= int(now_ts)
 
 
-def _percent_encode(value: Any) -> str:
+def _percent_encode(value: object) -> str:
     """RFC3986 percent encoding compatible with Aliyun POP signing rules."""
     if value is None:
         value = ""
     return quote(str(value), safe="-_.~")
 
 
-def _canonicalized_query(params: dict[str, Any]) -> str:
+def _canonicalized_query(params: dict[str, object]) -> str:
     """Build canonicalized query string from params (excluding Signature)."""
     parts: list[str] = [
         f"{_percent_encode(key)}={_percent_encode(params[key])}"
@@ -106,7 +109,7 @@ def _get_lock_key() -> str:
     return f"{prefix}tts:aliyun:nls_token:lock"
 
 
-def _decode_cache_value(raw: Any) -> AliyunNlsToken | None:
+def _decode_cache_value(raw: object) -> AliyunNlsToken | None:
     if raw is None:
         return None
     if isinstance(raw, bytes):
@@ -177,21 +180,22 @@ def _request_new_token(access_key_id: str, access_key_secret: str) -> AliyunNlsT
     try:
         resp = requests.get(url, headers={"Accept": "application/json"}, timeout=10)
     except requests.RequestException as exc:
-        raise ValueError(f"Aliyun NLS token request failed: {exc}") from exc
+        message = f"Aliyun NLS token request failed: {exc}"
+        raise ValueError(message) from exc
 
     if resp.status_code != 200:
         # POP errors are JSON with fields like Code/Message/RequestId.
         text = (resp.text or "").strip()
-        raise ValueError(
+        message = (
             f"Aliyun NLS token request failed: HTTP {resp.status_code}: {text[:200]}"
         )
+        raise ValueError(message)
 
     try:
         payload = resp.json()
     except Exception as exc:
-        raise ValueError(
-            f"Aliyun NLS token response is not valid JSON: {resp.text[:200]}"
-        ) from exc
+        message = f"Aliyun NLS token response is not valid JSON: {resp.text[:200]}"
+        raise ValueError(message) from exc
 
     token_obj = payload.get("Token") or {}
     token = (token_obj.get("Id") or "").strip()
@@ -206,9 +210,8 @@ def _request_new_token(access_key_id: str, access_key_secret: str) -> AliyunNlsT
     try:
         expire_int = int(expire_time)
     except Exception as exc:
-        raise ValueError(
-            f"Aliyun NLS token response has invalid ExpireTime: {expire_time}"
-        ) from exc
+        message = f"Aliyun NLS token response has invalid ExpireTime: {expire_time}"
+        raise ValueError(message) from exc
 
     return AliyunNlsToken(token=token, expire_time=expire_int)
 
@@ -241,10 +244,11 @@ def get_aliyun_nls_token(
 
     access_key_id, access_key_secret = _get_access_keys()
     if not access_key_id or not access_key_secret:
-        raise ValueError(
+        message = (
             "Aliyun NLS token is not configured. Set ALIYUN_TTS_TOKEN, or set "
             "ALIYUN_AK_ID and ALIYUN_AK_SECRET to auto-fetch a temporary token."
         )
+        raise ValueError(message)
 
     lock = cache.lock(_get_lock_key(), timeout=15, blocking_timeout=2)
     acquired = False

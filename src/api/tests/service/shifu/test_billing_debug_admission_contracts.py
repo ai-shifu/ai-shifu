@@ -1,3 +1,5 @@
+"""Protect billing debug admission contracts."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,8 +20,8 @@ def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() 
     )
     assert source.count("_admit_creator_debug_usage()") >= 3
     assert "_admit_creator_preview_usage_for_shifu(shifu_bid)" in source
-    assert "def ask_preview_api():" in source
-    assert "def tts_preview_api():" in source
+    assert "def ask_preview_api() -> str:" in source
+    assert "def tts_preview_api() -> Response:" in source
     assert "@bypass_token_validation\n    def ask_preview_api():" not in source
     assert "@bypass_token_validation\n    def tts_preview_api():" not in source
 

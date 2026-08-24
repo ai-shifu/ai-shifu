@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -13,12 +12,26 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
+if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+    from datetime import datetime
+
+    from .models import (
+        BillingOrder,
+        BillingProduct,
+        BillingSubscription,
+        CreditLedgerEntry,
+        CreditWalletBucket,
+    )
+
 _MANUAL_PROVIDER_NAME = "manual"
 _CHECKOUT_TYPE = "referral_invitation_reward"
 
 
 @dataclass(slots=True, frozen=True)
 class ReferralPlanRewardRequest:
+    """Represent the request payload for referral plan reward."""
+
     reward_bid: str
     inviter_user_bid: str
     campaign_bid: str
@@ -33,6 +46,8 @@ class ReferralPlanRewardRequest:
 
 @dataclass(slots=True, frozen=True)
 class ReferralPlanRewardResult:
+    """Capture the plan reward granted through a referral."""
+
     inviter_user_bid: str
     product_bid: str
     product_code: str
@@ -43,6 +58,7 @@ class ReferralPlanRewardResult:
     reused_existing_reward: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "inviter_user_bid": self.inviter_user_bid,
             "product_bid": self.product_bid,
@@ -59,11 +75,31 @@ class _NullContext:
     def __enter__(self) -> None:
         return None
 
-    def __exit__(self, *_exc) -> bool | None:
+    def __exit__(self, *_exc: object) -> bool | None:
         return False
 
 
-def _with_app_context(app: Flask):
+class _BillingModelsModule(Protocol):
+    BillingOrder: type[BillingOrder]
+    BillingProduct: type[BillingProduct]
+    BillingSubscription: type[BillingSubscription]
+    CreditLedgerEntry: type[CreditLedgerEntry]
+    CreditWalletBucket: type[CreditWalletBucket]
+
+
+class _BillingConstantsModule(Protocol):
+    BILLING_PRODUCT_TYPE_PLAN: int
+    BILLING_PRODUCT_STATUS_ACTIVE: int
+    BILLING_SUBSCRIPTION_STATUS_DRAFT: int
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START: int
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL: int
+    BILLING_ORDER_STATUS_PAID: int
+    BILLING_TRIAL_PRODUCT_BID: str
+    BILLING_TRIAL_PRODUCT_CODE: str
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: str
+
+
+def _with_app_context(app: Flask) -> AbstractContextManager[None]:
     return _NullContext() if has_app_context() else app.app_context()
 
 
@@ -75,19 +111,19 @@ def _normalize_bid(value: object) -> str:
     return str(value or "").strip()
 
 
-def _billing_consts():
+def _billing_consts() -> _BillingConstantsModule:
     from . import consts
 
     return consts
 
 
-def _billing_models():
+def _billing_models() -> _BillingModelsModule:
     from . import models
 
     return models
 
 
-def _load_reward_product(product_code: str):
+def _load_reward_product(product_code: str) -> BillingProduct | None:
     consts = _billing_consts()
     models = _billing_models()
     return (
@@ -102,7 +138,7 @@ def _load_reward_product(product_code: str):
     )
 
 
-def _load_product_by_bid(product_bid: str):
+def _load_product_by_bid(product_bid: str) -> BillingProduct | None:
     consts = _billing_consts()
     models = _billing_models()
     return (
@@ -116,7 +152,7 @@ def _load_product_by_bid(product_bid: str):
     )
 
 
-def _is_trial_subscription_product(subscription, product) -> bool:
+def _is_trial_subscription_product(subscription: object, product: object) -> bool:
     consts = _billing_consts()
     product_bid = _normalize_bid(getattr(product, "product_bid", ""))
     product_code = str(getattr(product, "product_code", "") or "").strip()
@@ -159,17 +195,19 @@ def _load_existing_order(
     )
 
 
-def _load_primary_active_subscription(creator_bid: str, *, as_of: datetime):
+def _load_primary_active_subscription(
+    creator_bid: str, *, as_of: datetime
+) -> BillingSubscription | None:
     from .queries import load_primary_active_subscription
 
     return load_primary_active_subscription(creator_bid, as_of=as_of)
 
 
 def _calculate_self_managed_billing_cycle_end(
-    product,
+    product: object,
     *,
     cycle_start_at: datetime,
-):
+) -> datetime | None:
     from .queries import calculate_self_managed_billing_cycle_end
 
     return calculate_self_managed_billing_cycle_end(
@@ -179,10 +217,10 @@ def _calculate_self_managed_billing_cycle_end(
 
 
 def _calculate_self_managed_billing_cycle_end_after_boundary(
-    product,
+    product: object,
     *,
     cycle_boundary_at: datetime,
-):
+) -> datetime | None:
     from .queries import calculate_self_managed_billing_cycle_end_after_boundary
 
     return calculate_self_managed_billing_cycle_end_after_boundary(
@@ -191,13 +229,13 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     )
 
 
-def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def _extract_order_metadata_datetime(metadata: object, key: str) -> datetime | None:
     from .queries import extract_order_metadata_datetime
 
     return extract_order_metadata_datetime(metadata, key)
 
 
-def _grant_paid_order_credits(app: Flask, order) -> bool:
+def _grant_paid_order_credits(app: Flask, order: object) -> bool:
     from .subscriptions import grant_paid_order_credits
 
     return grant_paid_order_credits(app, order)
@@ -209,7 +247,7 @@ def _is_self_managed_billing_provider(provider_name: str) -> bool:
     return is_self_managed_billing_provider(provider_name)
 
 
-def _load_bucket_and_ledger(order) -> tuple[str, str]:
+def _load_bucket_and_ledger(order: object) -> tuple[str, str]:
     models = _billing_models()
     bucket = (
         models.CreditWalletBucket.query.filter(
@@ -236,7 +274,7 @@ def _load_bucket_and_ledger(order) -> tuple[str, str]:
 
 
 def _validate_reward_product(
-    product,
+    product: object,
     *,
     request: ReferralPlanRewardRequest,
 ) -> None:
@@ -248,7 +286,7 @@ def _validate_reward_product(
         raise_param_error("cycle_count")
 
 
-def _cycle_end_from_start(product, cycle_start_at: datetime) -> datetime:
+def _cycle_end_from_start(product: object, cycle_start_at: datetime) -> datetime:
     cycle_end_at = _calculate_self_managed_billing_cycle_end(
         product,
         cycle_start_at=cycle_start_at,
@@ -259,7 +297,7 @@ def _cycle_end_from_start(product, cycle_start_at: datetime) -> datetime:
 
 
 def _cycle_end_after_boundary(
-    product,
+    product: object,
     cycle_boundary_at: datetime,
 ) -> datetime:
     cycle_end_at = _calculate_self_managed_billing_cycle_end_after_boundary(
@@ -271,7 +309,7 @@ def _cycle_end_after_boundary(
     return cycle_end_at
 
 
-def _is_referral_reward_order(order) -> bool:
+def _is_referral_reward_order(order: object) -> bool:
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     checkout_type = str(metadata.get("checkout_type") or "").strip()
     return checkout_type == _CHECKOUT_TYPE or bool(
@@ -318,7 +356,7 @@ def _latest_referral_renewal_cycle_end_after(
 
 def _resolve_referral_renewal_cycle_start_at(
     *,
-    active_subscription,
+    active_subscription: object,
     now: datetime,
 ) -> datetime:
     cycle_start_at = active_subscription.current_period_end_at or now
@@ -332,7 +370,9 @@ def _resolve_referral_renewal_cycle_start_at(
     return cycle_start_at
 
 
-def _classify_deferred_entitlement(active_subscription, current_product) -> str:
+def _classify_deferred_entitlement(
+    active_subscription: object, current_product: object
+) -> str:
     if _is_trial_subscription_product(active_subscription, current_product):
         return "trial"
     return "paid"
@@ -341,9 +381,9 @@ def _classify_deferred_entitlement(active_subscription, current_product) -> str:
 def _resolve_order_shape(
     *,
     request: ReferralPlanRewardRequest,
-    product,
+    product: object,
     now: datetime,
-) -> tuple[object, int, datetime, datetime, dict[str, Any]]:
+) -> tuple[object, int, datetime, datetime, dict[str, object]]:
     consts = _billing_consts()
     models = _billing_models()
     active_subscription = _load_primary_active_subscription(

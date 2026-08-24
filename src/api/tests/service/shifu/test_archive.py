@@ -1,3 +1,5 @@
+"""Verify course archiving and initial draft state."""
+
 from datetime import datetime
 from decimal import Decimal
 
@@ -6,7 +8,7 @@ from flaskr import dao
 from flaskr.service.common.models import AppError
 
 
-def _get_models():
+def _get_models() -> object:
     from flaskr.service.shifu.models import (
         DraftOutlineItem,
         DraftShifu,
@@ -17,28 +19,28 @@ def _get_models():
     return DraftOutlineItem, DraftShifu, LogDraftStruct, ShifuUserArchive
 
 
-def _get_archive_funcs():
+def _get_archive_funcs() -> object:
     from flaskr.service.shifu import shifu_draft_funcs
 
     return shifu_draft_funcs.archive_shifu, shifu_draft_funcs.unarchive_shifu
 
 
-def _get_draft_module():
+def _get_draft_module() -> object:
     from flaskr.service.shifu import shifu_draft_funcs
 
     return shifu_draft_funcs
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str):
+def _seed_shifu(app: object, shifu_bid: str, owner_bid: str) -> None:
     """Create draft shifu row and clear archive state for testing."""
     with app.app_context():
-        _, DraftShifu, _, ShifuUserArchive = _get_models()
-        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
-        ShifuUserArchive.query.filter_by(
+        _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
+        draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
+        shifu_user_archive_model.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).delete()
 
-        draft = DraftShifu(
+        draft = draft_shifu_model(
             shifu_bid=shifu_bid,
             title="Test Shifu",
             description="desc",
@@ -55,7 +57,9 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
         dao.db.session.commit()
 
 
-def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
+def test_archive_then_unarchive_updates_both_tables(
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = "test-archive-toggle"
     owner_bid = "owner-123"
     _seed_shifu(app, shifu_bid, owner_bid)
@@ -69,13 +73,13 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
     archive_shifu(app, owner_bid, shifu_bid)
 
     with app.app_context():
-        _, DraftShifu, _, ShifuUserArchive = _get_models()
+        _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
         draft = (
-            DraftShifu.query.filter_by(shifu_bid=shifu_bid)
-            .order_by(DraftShifu.id.desc())
+            draft_shifu_model.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(draft_shifu_model.id.desc())
             .first()
         )
-        archive = ShifuUserArchive.query.filter_by(
+        archive = shifu_user_archive_model.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).first()
 
@@ -90,13 +94,13 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
     unarchive_shifu(app, owner_bid, shifu_bid)
 
     with app.app_context():
-        _, DraftShifu, _, ShifuUserArchive = _get_models()
+        _, draft_shifu_model, _, shifu_user_archive_model = _get_models()
         draft = (
-            DraftShifu.query.filter_by(shifu_bid=shifu_bid)
-            .order_by(DraftShifu.id.desc())
+            draft_shifu_model.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(draft_shifu_model.id.desc())
             .first()
         )
-        archive = ShifuUserArchive.query.filter_by(
+        archive = shifu_user_archive_model.query.filter_by(
             shifu_bid=shifu_bid, user_bid=owner_bid
         ).first()
 
@@ -108,11 +112,13 @@ def test_archive_then_unarchive_updates_both_tables(app, monkeypatch):
         assert archive.archived_at is None
 
 
-def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypatch):
+def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(
+    app: object, monkeypatch: object
+) -> None:
     created_at = datetime(2026, 4, 21, 0, 0, 0)
     owner_bid = "owner-create-utc"
     draft_module = _get_draft_module()
-    _, DraftShifu, _, _ = _get_models()
+    _, draft_shifu_model, _, _ = _get_models()
 
     monkeypatch.setattr(draft_module, "now_utc", lambda: created_at)
     monkeypatch.setattr(draft_module, "generate_id", lambda _app: "shifu-create-utc")
@@ -142,17 +148,19 @@ def test_create_shifu_draft_uses_now_utc_for_persisted_timestamps(app, monkeypat
     )
 
     with app.app_context():
-        draft = DraftShifu.query.filter_by(shifu_bid=result.bid).first()
+        draft = draft_shifu_model.query.filter_by(shifu_bid=result.bid).first()
 
         assert draft is not None
         assert draft.created_at == created_at
         assert draft.updated_at == created_at
 
 
-def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypatch):
+def test_create_shifu_draft_initializes_default_chapter_and_lesson(
+    app: object, monkeypatch: object
+) -> None:
     owner_bid = "owner-default-outline"
     draft_module = _get_draft_module()
-    DraftOutlineItem, _, LogDraftStruct, _ = _get_models()
+    draft_outline_model, _, draft_struct_model, _ = _get_models()
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
     generated_ids = iter(
@@ -186,13 +194,13 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypa
 
     with app.app_context():
         outline_items = (
-            DraftOutlineItem.query.filter_by(shifu_bid=result.bid, deleted=0)
-            .order_by(DraftOutlineItem.position.asc())
+            draft_outline_model.query.filter_by(shifu_bid=result.bid, deleted=0)
+            .order_by(draft_outline_model.position.asc())
             .all()
         )
         latest_struct = (
-            LogDraftStruct.query.filter_by(shifu_bid=result.bid, deleted=0)
-            .order_by(LogDraftStruct.id.desc())
+            draft_struct_model.query.filter_by(shifu_bid=result.bid, deleted=0)
+            .order_by(draft_struct_model.id.desc())
             .first()
         )
 
@@ -210,12 +218,12 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(app, monkeypa
 
 
 def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     owner_bid = "owner-empty-struct-rebuild"
     now_time = datetime(2026, 7, 13, 12, 0, 0)
     draft_module = _get_draft_module()
-    DraftOutlineItem, DraftShifu, LogDraftStruct, _ = _get_models()
+    draft_outline_model, draft_shifu_model, draft_struct_model, _ = _get_models()
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
     from flaskr.service.shifu.shifu_outline_funcs import (
         create_default_outlines_for_new_shifu,
@@ -231,7 +239,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
     )
 
     with app.app_context():
-        shifu = DraftShifu(
+        shifu = draft_shifu_model(
             shifu_bid="shifu-empty-struct",
             title="Draft",
             description="desc",
@@ -249,7 +257,7 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
         dao.db.session.add(shifu)
         dao.db.session.flush()
 
-        empty_history = LogDraftStruct(
+        empty_history = draft_struct_model(
             struct_bid="empty-struct-bid",
             shifu_bid=shifu.shifu_bid,
             struct=HistoryItem(
@@ -278,13 +286,16 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
         dao.db.session.commit()
 
         outline_items = (
-            DraftOutlineItem.query.filter_by(shifu_bid=shifu.shifu_bid, deleted=0)
-            .order_by(DraftOutlineItem.position.asc())
+            draft_outline_model.query.filter_by(
+                shifu_bid=shifu.shifu_bid,
+                deleted=0,
+            )
+            .order_by(draft_outline_model.position.asc())
             .all()
         )
         latest_struct = (
-            LogDraftStruct.query.filter_by(shifu_bid=shifu.shifu_bid, deleted=0)
-            .order_by(LogDraftStruct.id.desc())
+            draft_struct_model.query.filter_by(shifu_bid=shifu.shifu_bid, deleted=0)
+            .order_by(draft_struct_model.id.desc())
             .first()
         )
 
@@ -303,8 +314,8 @@ def test_default_outline_init_rebuilds_latest_struct_from_empty_history(
 
 
 def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     owner_bid = "owner-skip-default-outline-risk"
     draft_module = _get_draft_module()
 
@@ -312,7 +323,7 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
 
     monkeypatch.setattr(draft_module, "generate_id", lambda _app: "shifu-risk-skip")
 
-    def fake_draft_risk(*args, **kwargs):
+    def fake_draft_risk(*args: object, **kwargs: object) -> None:
         draft_risk_calls.append((args, kwargs))
 
     monkeypatch.setattr(
@@ -323,8 +334,9 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
 
     from flaskr.service.shifu import shifu_outline_funcs
 
-    def fail_outline_risk(*_args, **_kwargs):
-        raise AssertionError("default outline content should not trigger risk check")
+    def fail_outline_risk(*_args: object, **_kwargs: object) -> None:
+        message = "default outline content should not trigger risk check"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         shifu_outline_funcs,
@@ -348,7 +360,9 @@ def test_create_shifu_draft_skips_risk_check_for_default_outline_content(
     assert len(draft_risk_calls) == 1
 
 
-def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypatch):
+def test_create_shifu_draft_raises_when_default_outline_init_fails(
+    app: object, monkeypatch: object
+) -> None:
     owner_bid = "owner-outline-init-fail"
     draft_module = _get_draft_module()
 
@@ -359,8 +373,9 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypa
         lambda *_args, **_kwargs: None,
     )
 
-    def fail_default_outlines(*_args, **_kwargs):
-        raise AppError("outline init failed")
+    def fail_default_outlines(*_args: object, **_kwargs: object) -> None:
+        message = "outline init failed"
+        raise AppError(message)
 
     monkeypatch.setattr(
         draft_module,
@@ -382,7 +397,7 @@ def test_create_shifu_draft_raises_when_default_outline_init_fails(app, monkeypa
         )
 
 
-def test_archive_requires_creator_permission(app):
+def test_archive_requires_creator_permission(app: object) -> None:
     shifu_bid = "test-archive-permission"
     creator = "creator-1"
     _seed_shifu(app, shifu_bid, creator)

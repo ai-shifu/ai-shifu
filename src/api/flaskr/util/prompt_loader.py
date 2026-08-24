@@ -1,3 +1,5 @@
+"""Provide prompt loader utilities."""
+
 from pathlib import Path
 
 
@@ -28,13 +30,13 @@ def load_prompt_template(template_name: str) -> str:
 
     # Check if file exists
     if not Path(template_path).exists():
-        raise FileNotFoundError(f"Prompt template file not found: {template_path}")
+        message = f"Prompt template file not found: {template_path}"
+        raise FileNotFoundError(message)
 
     # Read file content
     try:
         with Path(template_path).open(encoding="utf-8") as f:
             return f.read()
     except Exception as e:
-        raise OSError(
-            f"Failed to read prompt template file {template_path}: {e!s}"
-        ) from e
+        message = f"Failed to read prompt template file {template_path}: {e!s}"
+        raise OSError(message) from e

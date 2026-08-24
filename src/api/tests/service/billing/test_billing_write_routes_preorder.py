@@ -1,4 +1,8 @@
+"""Verify billing write routes preorder behavior."""
+
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -40,6 +44,9 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     to_utc_iso,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def test_mark_preorder_effective_applied_preserves_terminal_preorder_states() -> None:
     absorbed_order = BillingOrder(
@@ -67,13 +74,15 @@ def test_mark_preorder_effective_applied_preserves_terminal_preorder_states() ->
 
 
 @pytest.fixture
-def billing_write_client(monkeypatch):
+def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
 
 
 class TestBillingWriteRoutesPreorder:
+    """Verify billing write routes preorder behavior."""
+
     def test_subscription_checkout_allows_cycle_end_preorder_while_active(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -145,8 +154,8 @@ class TestBillingWriteRoutesPreorder:
     )
     def test_subscription_checkout_rejects_preorder_for_managed_or_mismatched_provider(
         self,
-        billing_write_client,
-        monkeypatch,
+        billing_write_client: object,
+        monkeypatch: object,
         subscription_provider: str,
         payment_provider: str,
     ) -> None:
@@ -202,7 +211,7 @@ class TestBillingWriteRoutesPreorder:
         )
 
     def test_subscription_checkout_rejects_second_preorder_while_active(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -270,7 +279,7 @@ class TestBillingWriteRoutesPreorder:
         )
 
     def test_subscription_checkout_ignores_unpaid_preorder_attempt(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -350,7 +359,7 @@ class TestBillingWriteRoutesPreorder:
 
     def test_subscription_checkout_rechecks_preorder_after_subscription_lock(
         self,
-        billing_write_client,
+        billing_write_client: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = billing_write_client["client"]
@@ -430,7 +439,7 @@ class TestBillingWriteRoutesPreorder:
         )
 
     def test_paid_preorder_sync_reserves_credits_and_sets_next_product(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -580,7 +589,7 @@ class TestBillingWriteRoutesPreorder:
 
     def test_paid_preorder_replay_repairs_future_dated_shared_bucket(
         self,
-        billing_write_client,
+        billing_write_client: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         app = billing_write_client["app"]
@@ -720,7 +729,7 @@ class TestBillingWriteRoutesPreorder:
             assert wallet.reserved_credits == Decimal("2050.0000000000")
 
     def test_paid_same_plan_preorder_sync_reserves_until_cycle_boundary(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -868,7 +877,7 @@ class TestBillingWriteRoutesPreorder:
         assert upgrade_checkout["data"]["preorder_order_bid"] == bill_order_bid
 
     def test_subscription_checkout_allows_trial_upgrade_when_plan_tier_uses_sort_order(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -938,7 +947,7 @@ class TestBillingWriteRoutesPreorder:
             )
 
     def test_subscription_checkout_preorder_uses_sort_order_when_plan_tier_missing(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -994,7 +1003,7 @@ class TestBillingWriteRoutesPreorder:
         assert response["data"]["target_product_bid"] == "bill-product-plan-monthly"
 
     def test_subscription_checkout_rejects_stacked_same_plan_preorder_after_cycle_extended(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -1053,7 +1062,7 @@ class TestBillingWriteRoutesPreorder:
             assert renewal_orders == []
 
     def test_subscription_checkout_immediate_upgrade_absorbs_paid_preorder_after_paid(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -1265,7 +1274,7 @@ class TestBillingWriteRoutesPreorder:
             assert wallet.lifetime_granted_credits == Decimal("5105.0000000000")
 
     def test_subscription_checkout_rejects_paid_preorder_offset_provider_mismatch(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -1342,7 +1351,7 @@ class TestBillingWriteRoutesPreorder:
             assert upgrade_order is None
 
     def test_subscription_checkout_allows_immediate_upgrade_with_unpaid_preorder_attempt(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -1432,7 +1441,7 @@ class TestBillingWriteRoutesPreorder:
             assert not preorder_order.metadata_json.get("absorbed_by_bill_order_bid")
 
     def test_terminal_preorder_order_cannot_reactivate_subscription(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         app = billing_write_client["app"]
         now = now_utc()
@@ -1508,7 +1517,7 @@ class TestBillingWriteRoutesPreorder:
             assert order.metadata_json["preorder_state"] == "absorbed_by_upgrade"
 
     def test_subscription_checkout_rejects_zero_payable_upgrade_with_paid_preorder(
-        self, billing_write_client
+        self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]

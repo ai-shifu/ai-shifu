@@ -45,6 +45,7 @@ RETIRED_TERM_SCAN_PATHS = (
 
 
 def stale_review_docs() -> list[str]:
+    """Return stale review docs."""
     stale: list[str] = []
     cutoff = datetime.now(UTC).date().toordinal() - REVIEW_WINDOW_DAYS
     for category in ("design-docs", "product-specs"):
@@ -73,6 +74,7 @@ def stale_review_docs() -> list[str]:
 
 
 def retired_term_hits() -> list[str]:
+    """Return retired term hits."""
     hits: list[str] = []
     files: list[Path] = []
     for path in RETIRED_TERM_SCAN_PATHS:
@@ -95,6 +97,7 @@ def retired_term_hits() -> list[str]:
 
 
 def stale_boundary_baseline() -> list[str]:
+    """Return stale boundary baseline."""
     current = dedupe_violations(
         collect_frontend_violations(FRONTEND_ROOT)
         + collect_backend_violations(BACKEND_ROOT)
@@ -111,6 +114,7 @@ def write_summary(
     retired_terms: list[str],
     stale_baseline: list[str],
 ) -> None:
+    """Write summary."""
     lines = [
         GENERATED_COMMENT,
         "",
@@ -140,6 +144,7 @@ def write_summary(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for repository-harness gardening."""
     parser = argparse.ArgumentParser(description="Run harness gardening drift checks.")
     parser.add_argument(
         "--summary-path",
@@ -155,6 +160,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Report stale collaboration docs and architecture baselines."""
     args = parse_args()
     summary_path = Path(args.summary_path).resolve()
     stale_docs = stale_review_docs()

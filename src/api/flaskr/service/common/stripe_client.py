@@ -2,31 +2,35 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.config import get_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class StripeClientConfigError(RuntimeError):
     """Raised when Stripe SDK or credentials are unavailable."""
 
 
-def ensure_stripe_client(app: Flask):
+def ensure_stripe_client(app: Flask) -> object:
+    """Ensure stripe client."""
     try:
         import stripe  # type: ignore[import-untyped]
     except ImportError as exc:  # pragma: no cover - surfaced during runtime
         app.logger.exception("Stripe SDK is not installed")
-        raise StripeClientConfigError(
-            "Stripe SDK is required for Stripe operations"
-        ) from exc
+        message = "Stripe SDK is required for Stripe operations"
+        raise StripeClientConfigError(message) from exc
     return stripe
 
 
-def build_stripe_request_options() -> dict[str, Any]:
+def build_stripe_request_options() -> dict[str, object]:
+    """Build stripe request options."""
     secret_key = get_config("STRIPE_SECRET_KEY")
     if not secret_key:
-        raise StripeClientConfigError("STRIPE_SECRET_KEY must be configured for Stripe")
+        message = "STRIPE_SECRET_KEY must be configured for Stripe"
+        raise StripeClientConfigError(message)
 
     request_options: dict[str, Any] = {"api_key": secret_key}
     api_version = get_config("STRIPE_API_VERSION")
@@ -35,5 +39,6 @@ def build_stripe_request_options() -> dict[str, Any]:
     return request_options
 
 
-def get_stripe_client_options(app: Flask) -> tuple[Any, dict[str, Any]]:
+def get_stripe_client_options(app: Flask) -> tuple[object, dict[str, object]]:
+    """Return stripe client options."""
     return ensure_stripe_client(app), build_stripe_request_options()

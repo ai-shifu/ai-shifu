@@ -1,3 +1,5 @@
+"""Protect billing rate and renewal schema compatibility."""
+
 from __future__ import annotations
 
 from pathlib import Path

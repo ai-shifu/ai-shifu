@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.dao import db
@@ -150,6 +147,12 @@ from .subscriptions import (
 )
 from .wallets import grant_refund_return_credits
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from datetime import datetime
+
+    from flask import Flask
+
 _SELF_MANAGED_PREORDER_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 
 _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS = {
@@ -183,6 +186,8 @@ _SUBSCRIPTION_CHECKOUT_ORDER_TYPES = {
 
 @dataclass(slots=True, frozen=True)
 class ProviderReferenceReconcileResult:
+    """Capture the result of reconciling a provider reference."""
+
     status: str
     creator_bid: str | None
     bill_order_bid: str | None
@@ -190,6 +195,7 @@ class ProviderReferenceReconcileResult:
     payment_provider: str | None
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -198,12 +204,15 @@ class ProviderReferenceReconcileResult:
             "payment_provider": self.payment_provider,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class StripeLineItemPayload:
+    """Carry the payload for Stripe line item."""
+
     currency: str
     unit_amount: int
     product_name: str
@@ -212,6 +221,7 @@ class StripeLineItemPayload:
     quantity: int = 1
 
     def to_provider_payload(self) -> dict[str, Any]:
+        """Serialize this value for the payment provider."""
         price_data: dict[str, Any] = {
             "currency": self.currency,
             "unit_amount": self.unit_amount,
@@ -227,12 +237,15 @@ class StripeLineItemPayload:
 
 @dataclass(slots=True, frozen=True)
 class RefundProviderMetadata:
+    """Carry metadata for refund provider."""
+
     bill_order_bid: str
     creator_bid: str
     payment_intent_id: str | None = None
     charge_id: str | None = None
 
     def to_provider_payload(self) -> dict[str, Any]:
+        """Serialize this value for the payment provider."""
         payload = {
             "bill_order_bid": self.bill_order_bid,
             "creator_bid": self.creator_bid,
@@ -378,9 +391,7 @@ def _build_subscription_checkout_lock_key(app: Flask, creator_bid: str) -> str:
 
 @contextmanager
 def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
-    """Serialize subscription checkout per creator to avoid duplicate pending
-    orders without taking row locks on the pending-order query itself.
-    """
+    """Serialize subscription checkout per creator to avoid duplicate pending orders without taking row locks on the pending-order query itself."""
     lock = cache_provider.cache.lock(
         _build_subscription_checkout_lock_key(app, creator_bid),
         timeout=30,
@@ -479,7 +490,7 @@ def _load_active_pending_subscription_orders(
 def create_billing_subscription_checkout(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create a subscription checkout order for the current creator."""
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -752,7 +763,7 @@ def create_billing_subscription_checkout(
 def create_billing_topup_checkout(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create a one-time topup checkout order for the current creator."""
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -818,7 +829,7 @@ def create_billing_order_checkout(
     app: Flask,
     creator_bid: str,
     bill_order_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create or refresh a Pingxx charge for one existing pending billing order."""
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -925,7 +936,7 @@ def refund_billing_order(
     app: Flask,
     creator_bid: str,
     bill_order_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingRefundResultDTO:
     """Refund a paid billing order through the shared provider adapter."""
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -1061,7 +1072,7 @@ def sync_billing_order(
     app: Flask,
     creator_bid: str,
     bill_order_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -1211,7 +1222,7 @@ def _build_billing_order_sync_result(
 
 
 def _resolve_billing_payment_channel(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     default_pingxx_channel: str,
 ) -> tuple[str, str]:
@@ -1302,7 +1313,7 @@ def _prepare_subscription_preorder_checkout_metadata(
     target_product: BillingProduct,
     active_preorder_order: BillingOrder | None,
     payment_provider: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if payment_provider == "stripe":
         raise_error("server.billing.subscriptionPreorderProviderUnsupported")
     subscription_provider = str(subscription.billing_provider or "").strip().lower()
@@ -1592,7 +1603,7 @@ def _build_checkout_response_payload(
     payment_mode: str,
     status: str,
     reused_existing_order: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     order_metadata = (
         order.metadata_json if isinstance(order.metadata_json, dict) else {}
     )
@@ -1627,7 +1638,7 @@ def _build_pingxx_provider_options(
     creator_bid: str,
     product: BillingProduct,
     channel: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_channel = _normalize_bid(channel)
     charge_extra: dict[str, Any]
 
@@ -1655,7 +1666,7 @@ def _build_native_provider_options(
     product: BillingProduct,
     provider: str,
     channel: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_channel = _normalize_bid(channel)
     del product
     if provider == "alipay":
@@ -1740,11 +1751,11 @@ def _persist_billing_stripe_raw_snapshot(
     order: BillingOrder,
     *,
     create_if_missing: bool,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     checkout_session_id: str = "",
-    checkout_object: Any | None = None,
+    checkout_object: object | None = None,
     payment_intent_id: str = "",
-    payment_object: Any | None = None,
+    payment_object: object | None = None,
     latest_charge_id: str = "",
     receipt_url: str = "",
     payment_method: str = "",
@@ -1784,14 +1795,14 @@ def _persist_billing_pingxx_raw_snapshot(
     *,
     create_if_missing: bool,
     charge_id: str = "",
-    charge_object: Any | None = None,
+    charge_object: object | None = None,
     transaction_no: str = "",
     app_id: str = "",
     channel: str = "",
     subject: str = "",
     body: str = "",
     client_ip: str = "",
-    extra: Any | None = None,
+    extra: object | None = None,
 ) -> None:
     raw_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
         int(order.status or BILLING_ORDER_STATUS_INIT), 0
@@ -1832,10 +1843,10 @@ def _persist_billing_native_raw_snapshot(
     transaction_id: str = "",
     raw_status: str = "",
     raw_snapshot_status: int | None = None,
-    raw_request: Any | None = None,
-    raw_response: Any | None = None,
-    raw_notification: Any | None = None,
-    metadata: Any | None = None,
+    raw_request: object | None = None,
+    raw_response: object | None = None,
+    raw_notification: object | None = None,
+    metadata: object | None = None,
 ) -> None:
     resolved_raw_snapshot_status = (
         int(raw_snapshot_status)
@@ -1945,7 +1956,7 @@ def _interpolate_checkout_product_name(
     )
 
 
-def _format_checkout_credit_amount(amount: Any) -> str:
+def _format_checkout_credit_amount(amount: object) -> str:
     credit_amount = _to_decimal(amount)
     if credit_amount == credit_amount.to_integral_value():
         return str(int(credit_amount))
@@ -2307,7 +2318,7 @@ def _sync_native_order(
 
 def _resolve_native_billing_order_status(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> int | None:
     return _BILLING_STATUS_BY_NATIVE_STATE.get(
         resolve_native_payment_state(provider, payload)
@@ -2317,7 +2328,7 @@ def _resolve_native_billing_order_status(
 def _load_billing_order_for_stripe_event(
     *,
     bill_order_bid: str,
-    data_object: dict[str, Any],
+    data_object: dict[str, object],
 ) -> BillingOrder | None:
     query = BillingOrder.query.filter(BillingOrder.deleted == 0)
     if bill_order_bid:
@@ -2343,8 +2354,8 @@ def _load_billing_order_for_stripe_event(
 def _load_billing_subscription_for_stripe_event(
     *,
     order: BillingOrder | None,
-    data_object: dict[str, Any],
-    metadata: dict[str, Any],
+    data_object: dict[str, object],
+    metadata: dict[str, object],
 ) -> BillingSubscription | None:
     if order is not None and order.subscription_bid:
         subscription = _load_subscription_by_bid(order.subscription_bid)

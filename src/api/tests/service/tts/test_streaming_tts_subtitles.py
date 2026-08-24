@@ -1,8 +1,12 @@
+"""Verify streaming TTS subtitles behavior."""
+
 from flask import Flask
 from flaskr import dao
 
 
 class TestStreamingTtsSubtitles:
+    """Verify streaming TTS subtitles behavior."""
+
     @classmethod
     def setup_class(cls) -> None:
         cls.app = Flask("streaming-tts-subtitles")
@@ -23,7 +27,9 @@ class TestStreamingTtsSubtitles:
         with cls.app.app_context():
             dao.db.create_all()
 
-    def test_streaming_tts_processor_persists_subtitle_cues(self, monkeypatch):
+    def test_streaming_tts_processor_persists_subtitle_cues(
+        self, monkeypatch: object
+    ) -> None:
         from types import SimpleNamespace
 
         from flaskr.dao import db

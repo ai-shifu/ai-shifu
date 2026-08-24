@@ -1,15 +1,19 @@
+"""Load application configuration from defaults and the environment."""
+
 from __future__ import annotations
 
 import json
 import logging
 import os
 import re
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Config as FlaskConfig
 from flask import Flask
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class EnvironmentConfigError(Exception):
@@ -34,18 +38,19 @@ class EnvVar:
     def __post_init__(self) -> None:
         """Validate EnvVar configuration after initialization."""
         if self.required and self.default is not None:
-            raise ValueError(
+            message = (
                 f"Environment variable '{self.name}' is marked as required "
                 "but has a default value. Required variables must not have defaults."
             )
+            raise ValueError(message)
 
-    def validate_value(self, value: Any) -> bool:
+    def validate_value(self, value: object) -> bool:
         """Validate the environment variable value."""
         if self.validator:
             return self.validator(value)
         return True
 
-    def convert_type(self, value: Any) -> Any:
+    def convert_type(self, value: object) -> object:
         """Convert string value to the specified type."""
         # Trim whitespace from string values before conversion
         if isinstance(value, str):
@@ -63,16 +68,14 @@ class EnvVar:
             try:
                 return int(value)
             except ValueError as exc:
-                raise EnvironmentConfigError(
-                    f"Invalid integer value for {self.name}: {value}"
-                ) from exc
+                message = f"Invalid integer value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
         elif self.type is float:
             try:
                 return float(value)
             except ValueError as exc:
-                raise EnvironmentConfigError(
-                    f"Invalid float value for {self.name}: {value}"
-                ) from exc
+                message = f"Invalid float value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
         elif self.type is list:
             if isinstance(value, str):
                 return [item.strip() for item in value.split(",") if item.strip()]
@@ -81,7 +84,7 @@ class EnvVar:
             return str(value)
 
 
-def _is_valid_rpm_limits_json(value: Any) -> bool:
+def _is_valid_rpm_limits_json(value: object) -> bool:
     """Validate the MINIMAX_TTS_RPM_LIMITS override map.
 
     Empty is allowed (no overrides). A non-empty value must be a JSON object
@@ -106,7 +109,7 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
-def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
+def parse_llm_model_max_output_tokens(value: object) -> dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
     if value in (None, ""):
         return {}
@@ -116,29 +119,34 @@ def parse_llm_model_max_output_tokens(value: Any) -> dict[str, int]:
         try:
             candidate = json.loads(value)
         except (TypeError, ValueError) as exc:
-            raise ValueError("must be a JSON object") from exc
+            message = "must be a JSON object"
+            raise ValueError(message) from exc
     if not isinstance(candidate, dict):
         # ValueError is part of this parser's contract: callers only catch it.
-        raise ValueError("must be a JSON object")  # noqa: TRY004
+        message = "must be a JSON object"
+        raise ValueError(message)  # noqa: TRY004
 
     parsed: dict[str, int] = {}
     for model, max_output_tokens in candidate.items():
         if not isinstance(model, str) or not model.strip():
-            raise ValueError("model ids must be non-empty strings")
+            message = "model ids must be non-empty strings"
+            raise ValueError(message)
         normalized_model = model.strip()
         if normalized_model in parsed:
-            raise ValueError("model ids must be unique after trimming whitespace")
+            message = "model ids must be unique after trimming whitespace"
+            raise ValueError(message)
         if (
             isinstance(max_output_tokens, bool)
             or not isinstance(max_output_tokens, int)
             or max_output_tokens <= 0
         ):
-            raise ValueError("maximum output token values must be positive integers")
+            message = "maximum output token values must be positive integers"
+            raise ValueError(message)
         parsed[normalized_model] = max_output_tokens
     return parsed
 
 
-def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
+def _is_valid_llm_model_max_output_tokens_json(value: object) -> bool:
     try:
         parse_llm_model_max_output_tokens(value)
     except ValueError:
@@ -1791,6 +1799,7 @@ class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
     def __init__(self, env_vars: dict[str, EnvVar]) -> None:
+        """Register environment declarations with an empty, unvalidated cache."""
         self.env_vars = env_vars
         self._cache: dict[str, Any] = {}
         self._validated = False
@@ -1867,7 +1876,7 @@ class EnhancedConfig:
             raise EnvironmentConfigError("\n\n".join(errors))
         self._validated = True
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str) -> object:
         """Get configuration value with type conversion."""
         if key in self._cache:
             return self._cache[key]
@@ -1947,7 +1956,7 @@ class EnhancedConfig:
         """Interpolate environment variables in format ${VAR_NAME}."""
         pattern = re.compile(r"\$\{([^}]+)\}")
 
-        def replacer(match):
+        def replacer(match: re.Match[str]) -> str:
             var_name = match.group(1)
             return os.environ.get(var_name, match.group(0))
 
@@ -1985,7 +1994,7 @@ class EnhancedConfig:
         """
 
         # Format values for .env output, handling lists as comma-separated strings
-        def format_value(env_var: EnvVar, value: Any) -> str:
+        def format_value(env_var: EnvVar, value: object) -> str:
             if value is None:
                 return ""
             if env_var.type is list:
@@ -2105,9 +2114,8 @@ class Config(FlaskConfig):
 
     _instance: Config | None = None
 
-    def __init__(
-        self, parent: FlaskConfig, app: Flask, defaults: dict | None = None
-    ) -> None:
+    def __init__(self, parent: FlaskConfig, app: Flask) -> None:
+        """Bind parent and environment config, then populate Redis prefixes."""
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__
@@ -2124,11 +2132,11 @@ class Config(FlaskConfig):
             raise
         self._populate_redis_prefixes()
 
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Get configuration value using enhanced config first, with fallback to parent."""
         return self.get(key)
 
-    def __getattr__(self, key: Any) -> Any:
+    def __getattr__(self, key: str) -> object:
         """Get configuration attribute using enhanced config first."""
         try:
             return self.enhanced.get(key)
@@ -2138,7 +2146,7 @@ class Config(FlaskConfig):
         except Exception:
             return getattr(self.parent, key)
 
-    def __setitem__(self, key: Any, value: Any) -> None:
+    def __setitem__(self, key: str, value: object) -> None:
         """Set configuration value."""
         self.parent.__setitem__(key, value)
         os.environ[key] = str(value)
@@ -2158,7 +2166,7 @@ class Config(FlaskConfig):
             )
             self.parent.setdefault(key, derived_value)
 
-    def get(self, key: Any, default: Any = None) -> Any:
+    def get(self, key: str, default: object = None) -> object:
         """Get configuration value with fallback to parent and optional default.
 
         This method maintains compatibility with Flask's Config.get() API.
@@ -2224,10 +2232,11 @@ class Config(FlaskConfig):
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
+    def __call__(self, *args: object, **kwds: object) -> object:
+        """Delegate callable compatibility behavior to the parent config."""
         return self.parent.__call__(*args, **kwds)
 
-    def setdefault(self, key: Any, default: Any = None) -> Any:
+    def setdefault(self, key: str, default: object = None) -> object:
         """Set default value if key doesn't exist.
 
         This method maintains compatibility with Flask's Config.setdefault() API.
@@ -2244,7 +2253,7 @@ class Config(FlaskConfig):
         return self.parent.setdefault(key, default)
 
 
-def get_config(key: str, default: Any = None) -> Any:
+def get_config(key: str, default: object = None) -> object:
     """Get configuration value.
 
     Args:

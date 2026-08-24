@@ -1,3 +1,5 @@
+"""Provide pytest fixtures for service referral tests."""
+
 from __future__ import annotations
 
 import pytest

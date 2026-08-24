@@ -7,11 +7,16 @@ import logging
 import math
 import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flaskr.common.log import AppLoggerProxy
 from flaskr.util.deprecation import deprecated_alias_getattr
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from redis import Redis
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
@@ -112,9 +117,8 @@ def _acquire_redis_slot(
     )
     acquired = lock.acquire(blocking=True, blocking_timeout=max_wait_seconds)
     if not acquired:
-        raise TTSRpmQueueTimeoutError(
-            f"TTS RPM queue lock timed out after {max_wait_seconds:.2f}s"
-        )
+        message = f"TTS RPM queue lock timed out after {max_wait_seconds:.2f}s"
+        raise TTSRpmQueueTimeoutError(message)
 
     try:
         now = now_fn()
@@ -122,9 +126,8 @@ def _acquire_redis_slot(
         next_available_at = _parse_timestamp(raw_next, default=now)
         scheduled_at = max(now, next_available_at)
         if scheduled_at > deadline:
-            raise TTSRpmQueueTimeoutError(
-                f"TTS RPM queue wait exceeded {max_wait_seconds:.2f}s"
-            )
+            message = f"TTS RPM queue wait exceeded {max_wait_seconds:.2f}s"
+            raise TTSRpmQueueTimeoutError(message)
 
         ttl_seconds = max(math.ceil(interval * 4 + max_wait_seconds + 60), 120)
         redis_client.set(next_key, f"{scheduled_at + interval:.6f}", ex=ttl_seconds)
@@ -150,7 +153,8 @@ def _acquire_local_slot(
         now = now_fn()
         scheduled_at = max(now, _LOCAL_STATE.get(scope_key, now))
         if scheduled_at > deadline:
-            raise TTSRpmQueueTimeoutError("TTS RPM local queue wait exceeded limit")
+            message = "TTS RPM local queue wait exceeded limit"
+            raise TTSRpmQueueTimeoutError(message)
 
         _LOCAL_STATE[scope_key] = scheduled_at + interval
         return TTSRpmGateResult(
@@ -159,12 +163,13 @@ def _acquire_local_slot(
         )
 
 
-def _get_redis_client():
+def _get_redis_client() -> Redis:
     from flaskr.dao import get_redis_client
 
     redis_client = get_redis_client()
     if redis_client is None:
-        raise RuntimeError("Redis is not configured")
+        message = "Redis is not configured"
+        raise RuntimeError(message)
     return redis_client
 
 

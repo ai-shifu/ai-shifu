@@ -1,13 +1,14 @@
-from __future__ import annotations
+"""Normalize provider-native payment statuses."""
 
-from typing import Any
+from __future__ import annotations
 
 NATIVE_PAYMENT_STATE_PAID = "paid"
 NATIVE_PAYMENT_STATE_CANCELED = "canceled"
 NATIVE_PAYMENT_STATE_FAILED = "failed"
 
 
-def extract_native_trade_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def extract_native_trade_payload(payload: dict[str, object]) -> dict[str, object]:
+    """Extract native trade payload."""
     if not isinstance(payload, dict):
         return {}
     trade = payload.get("trade", {})
@@ -19,7 +20,8 @@ def extract_native_trade_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def extract_native_trade_status(provider: str, payload: dict[str, Any]) -> str:
+def extract_native_trade_status(provider: str, payload: dict[str, object]) -> str:
+    """Extract native trade status."""
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
         return str(trade_payload.get("trade_status") or "")
@@ -30,8 +32,9 @@ def extract_native_trade_status(provider: str, payload: dict[str, Any]) -> str:
 
 def resolve_native_payment_state(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> str | None:
+    """Resolve native payment state."""
     raw_status = extract_native_trade_status(provider, payload).upper()
     if provider == "alipay":
         if raw_status in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
@@ -50,7 +53,8 @@ def resolve_native_payment_state(
     return None
 
 
-def native_snapshot_status(provider: str, payload: dict[str, Any]) -> int:
+def native_snapshot_status(provider: str, payload: dict[str, object]) -> int:
+    """Return native snapshot status."""
     state = resolve_native_payment_state(provider, payload)
     if state == NATIVE_PAYMENT_STATE_PAID:
         return 1

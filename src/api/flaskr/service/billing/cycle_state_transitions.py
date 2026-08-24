@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
@@ -23,9 +23,14 @@ from .consts import (
 from .models import BillingSubscription, CreditLedgerEntry, CreditWalletBucket
 from .primitives import normalize_bid as _normalize_bid
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
 
 @dataclass(frozen=True)
 class SubscriptionCycleWindow:
+    """Describe the window used by subscription cycle."""
+
     start_at: datetime
     end_at: datetime
 
@@ -57,6 +62,7 @@ def subscription_has_effective_cycle(
     *,
     as_of: datetime,
 ) -> bool:
+    """Return whether subscription has effective cycle."""
     return (
         resolve_effective_subscription_cycle_window(subscription, as_of=as_of)
         is not None
@@ -69,6 +75,7 @@ def realign_active_topup_bucket_effective_to(
     effective_from: datetime,
     effective_to: datetime | None,
 ) -> None:
+    """Realign active topup bucket effective to."""
     realign_active_credit_bucket_effective_to(
         creator_bid=creator_bid,
         bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -87,6 +94,7 @@ def apply_paid_subscription_cycle_state(
     effective_from: datetime,
     effective_to: datetime | None,
 ) -> None:
+    """Apply paid subscription cycle state."""
     if order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         subscription.product_bid = (
             _normalize_bid(subscription.next_product_bid) or order_product_bid
@@ -119,6 +127,7 @@ def realign_active_credit_bucket_effective_to(
     effective_to: datetime | None,
     include_effective_to_boundary: bool,
 ) -> None:
+    """Realign active credit bucket effective to."""
     if effective_to is None:
         return
 
@@ -170,6 +179,7 @@ def load_active_credit_buckets_by_runtime_category(
     *,
     bucket_category: int,
 ) -> list[CreditWalletBucket]:
+    """Load active credit buckets by runtime category."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return []

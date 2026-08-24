@@ -1,3 +1,5 @@
+"""Verify lesson feedback behavior."""
+
 import json
 import unittest
 from datetime import datetime
@@ -20,6 +22,8 @@ from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 
 
 class LessonFeedbackTests(unittest.TestCase):
+    """Verify lesson feedback behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("lesson-feedback-tests")
@@ -35,7 +39,7 @@ class LessonFeedbackTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.ctx = self.app.app_context()
         self.ctx.push()
         LearnLessonFeedback.query.delete()
@@ -43,11 +47,11 @@ class LessonFeedbackTests(unittest.TestCase):
         LearnProgressRecord.query.delete()
         dao.db.session.commit()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         dao.db.session.remove()
         self.ctx.pop()
 
-    def test_submit_feedback_upserts_single_active_row(self):
+    def test_submit_feedback_upserts_single_active_row(self) -> None:
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
@@ -113,7 +117,9 @@ class LessonFeedbackTests(unittest.TestCase):
         assert synced_generated_content.get("score") == 3
         assert synced_generated_content.get("comment") == "Need more examples"
 
-    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(self):
+    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(
+        self,
+    ) -> None:
         interaction = LearnGeneratedBlock(
             generated_block_bid="block-1",
             progress_record_bid="progress-1",
@@ -166,7 +172,7 @@ class LessonFeedbackTests(unittest.TestCase):
         assert synced_generated_content.get("comment") == "new"
         dao.db.session.rollback()
 
-    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self):
+    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self) -> None:
         feedback = LearnLessonFeedback(
             bid="feedback-1",
             lesson_feedback_bid="feedback-1",

@@ -26,6 +26,8 @@ DEFAULT_COZE_BASE_URL = "https://api.coze.cn"
 
 
 class CozeAskProviderAdapter:
+    """Adapt Coze chat responses to the common ask stream."""
+
     provider = ASK_PROVIDER_COZE
 
     def stream_answer(
@@ -33,11 +35,12 @@ class CozeAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
-        _ = runtime
+        """Stream answer chunks from the configured provider."""
+        _ = (messages, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}
@@ -45,19 +48,20 @@ class CozeAskProviderAdapter:
         base_url = str(config.get("base_url") or DEFAULT_COZE_BASE_URL).strip()
         api_key = str(config.get("api_key") or "").strip()
         if not api_key:
-            raise AskProviderConfigError(
-                "coze api_key is required in ask_provider_config.config"
-            )
+            exception_message = "coze api_key is required in ask_provider_config.config"
+            raise AskProviderConfigError(exception_message)
 
         bot_id = str(config.get("bot_id") or "").strip()
         api_path = str(config.get("api_path") or "/v3/chat").strip() or "/v3/chat"
-        if api_path.startswith("http"):
-            url = api_path
-        else:
-            url = base_url.rstrip("/") + "/" + api_path.lstrip("/")
+        url = (
+            api_path
+            if api_path.startswith("http")
+            else base_url.rstrip("/") + "/" + api_path.lstrip("/")
+        )
 
         if api_path == "/v3/chat" and not bot_id:
-            raise AskProviderConfigError("coze bot_id is required")
+            exception_message = "coze bot_id is required"
+            raise AskProviderConfigError(exception_message)
 
         payload: dict[str, Any] = {
             "stream": True,
@@ -69,9 +73,8 @@ class CozeAskProviderAdapter:
                     "content_type": "text",
                 }
             ],
+            **({"bot_id": bot_id} if bot_id else {}),
         }
-        if bot_id:
-            payload["bot_id"] = bot_id
 
         conversation_id = str(config.get("conversation_id") or "").strip()
         if conversation_id:
@@ -95,9 +98,11 @@ class CozeAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("coze request timeout") from exc
+            exception_message = "coze request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"coze request failed: {exc}") from exc
+            message = f"coze request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         response = raise_for_provider_response(response, self.provider)
 
@@ -114,7 +119,8 @@ class CozeAskProviderAdapter:
             event = str(parsed.get("event") or parsed.get("type") or "").lower()
             if "error" in event:
                 error_message = extract_text(parsed) or str(parsed)
-                raise AskProviderError(f"coze error: {error_message}")
+                message = f"coze error: {error_message}"
+                raise AskProviderError(message)
             if event in {"done", "message_end", "chat.completed"}:
                 continue
 

@@ -1,9 +1,14 @@
+"""Handle payment channel resolution for legacy orders."""
+
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.models import raise_error
 from flaskr.service.config import get_config
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def resolve_payment_channel(

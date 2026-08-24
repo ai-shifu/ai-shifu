@@ -1,13 +1,14 @@
 """Promo functions."""
 
 import decimal
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 
 from flask import Flask, has_app_context
 from flaskr.dao import db
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, func, or_
+from sqlalchemy.sql.elements import ColumnElement
 
 from .consts import (
     COUPON_BATCH_STATUS_ACTIVE,
@@ -38,14 +39,16 @@ def _is_legacy_operator_promotion(record: object) -> bool:
     )
 
 
-def is_coupon_enabled_for_runtime(coupon) -> bool:
+def is_coupon_enabled_for_runtime(coupon: object) -> bool:
+    """Return whether coupon enabled for runtime."""
     status = int(getattr(coupon, "status", 0) or 0)
     return status == COUPON_BATCH_STATUS_ACTIVE or (
         status == COUPON_BATCH_STATUS_INACTIVE and _is_legacy_operator_promotion(coupon)
     )
 
 
-def is_campaign_enabled_for_runtime(campaign) -> bool:
+def is_campaign_enabled_for_runtime(campaign: object) -> bool:
+    """Return whether campaign enabled for runtime."""
     status = int(getattr(campaign, "status", 0) or 0)
     return status == PROMO_CAMPAIGN_STATUS_ACTIVE or (
         status == PROMO_CAMPAIGN_STATUS_INACTIVE
@@ -53,7 +56,7 @@ def is_campaign_enabled_for_runtime(campaign) -> bool:
     )
 
 
-def _blank_legacy_bid_expression(column):
+def _blank_legacy_bid_expression(column: object) -> ColumnElement[bool]:
     normalized = func.coalesce(column, "")
     normalized = func.replace(normalized, "\t", "")
     normalized = func.replace(normalized, "\n", "")
@@ -61,7 +64,8 @@ def _blank_legacy_bid_expression(column):
     return func.trim(normalized) == ""
 
 
-def build_coupon_enabled_expression(model_or_columns):
+def build_coupon_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
+    """Build coupon enabled expression."""
     return or_(
         model_or_columns.status == COUPON_BATCH_STATUS_ACTIVE,
         and_(
@@ -72,7 +76,8 @@ def build_coupon_enabled_expression(model_or_columns):
     )
 
 
-def build_campaign_enabled_expression(model_or_columns):
+def build_campaign_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
+    """Build campaign enabled expression."""
     return or_(
         model_or_columns.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
         and_(
@@ -83,16 +88,20 @@ def build_campaign_enabled_expression(model_or_columns):
     )
 
 
-def _app_context_scope(app: Flask):
+def _app_context_scope(app: Flask) -> AbstractContextManager[None]:
     return nullcontext() if has_app_context() else app.app_context()
 
 
-def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
-    """Timeout coupon code rollback
+def timeout_coupon_code_rollback(
+    app: Flask, user_bid: object, order_bid: object
+) -> None:
+    """Timeout coupon code rollback.
+
     Args:
         app: Flask app
         user_bid: User bid
         order_bid: Order bid.
+
     """
     with app.app_context():
         usage = CouponUsageModel.query.filter(

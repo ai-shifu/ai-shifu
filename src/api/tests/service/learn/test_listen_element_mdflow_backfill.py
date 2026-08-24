@@ -1,5 +1,7 @@
 # ruff: noqa: E402
 
+"""Verify listen element MarkdownFlow backfill behavior."""
+
 import json
 import sys
 import types
@@ -11,13 +13,14 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args, **kwargs):
+    def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -152,7 +155,9 @@ def _make_block(
     return block
 
 
-def test_mdflow_backfill_persists_content_follow_up_and_interaction(app):
+def test_mdflow_backfill_persists_content_follow_up_and_interaction(
+    app: object,
+) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-1")
@@ -257,7 +262,7 @@ def test_mdflow_backfill_persists_content_follow_up_and_interaction(app):
     assert interaction_payload["user_input"] == "Bob"
 
 
-def test_mdflow_backfill_skips_anchorless_follow_up(app):
+def test_mdflow_backfill_skips_anchorless_follow_up(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-anchorless")
@@ -298,7 +303,7 @@ def test_mdflow_backfill_skips_anchorless_follow_up(app):
     assert active_count == 0
 
 
-def test_mdflow_backfill_skips_orphan_follow_up(app):
+def test_mdflow_backfill_skips_orphan_follow_up(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-orphan")
@@ -340,7 +345,7 @@ def test_mdflow_backfill_skips_orphan_follow_up(app):
     assert follow_up_count == 0
 
 
-def test_mdflow_backfill_overwrite_replaces_group_rows(app):
+def test_mdflow_backfill_overwrite_replaces_group_rows(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress = _make_progress(progress_record_bid="progress-mdflow-overwrite")
@@ -419,7 +424,7 @@ def test_mdflow_backfill_overwrite_replaces_group_rows(app):
     assert rows[-1].content_text.startswith("Fresh content.")
 
 
-def test_mdflow_backfill_batch_respects_after_id_and_limit(app):
+def test_mdflow_backfill_batch_respects_after_id_and_limit(app: object) -> None:
     with app.app_context():
         _clear_learn_tables()
         progress_1 = _make_progress(progress_record_bid="progress-mdflow-batch-1")

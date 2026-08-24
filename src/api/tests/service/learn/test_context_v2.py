@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+"""Verify learning-context outline navigation and failure handling."""
+
 import asyncio
 import json
 import sys
@@ -17,13 +19,14 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args, **kwargs):
+    def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -146,10 +149,10 @@ class _FakeLangfuseSpan:
         self.updated = {}
         self.end_kwargs = {}
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
@@ -157,7 +160,7 @@ class _FakeLangfuseTrace:
     def __init__(self) -> None:
         self.updated = {}
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
@@ -166,7 +169,9 @@ _HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
 
 
 class OutlinePathGuardTests(unittest.TestCase):
-    def test_get_next_outline_item_ignores_missing_current_outline_item(self):
+    """Verify outline path guard behavior."""
+
+    def test_get_next_outline_item_ignores_missing_current_outline_item(self) -> None:
         ctx = _make_context()
         ctx._struct = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
         ctx._current_outline_item = None
@@ -188,7 +193,7 @@ class OutlinePathGuardTests(unittest.TestCase):
 
         assert result == []
 
-    def test_find_outline_path_returns_path_when_outline_exists(self):
+    def test_find_outline_path_returns_path_when_outline_exists(self) -> None:
         root = HistoryItem(
             bid="shifu-bid",
             id=1,
@@ -202,7 +207,7 @@ class OutlinePathGuardTests(unittest.TestCase):
 
         assert [item.bid for item in path] == ["shifu-bid", "outline-bid"]
 
-    def test_find_outline_path_raises_app_error_when_outline_missing(self):
+    def test_find_outline_path_raises_app_error_when_outline_missing(self) -> None:
         root = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
 
         with (
@@ -222,10 +227,12 @@ class OutlinePathGuardTests(unittest.TestCase):
     "_collect_async_generator helper removed in current architecture.",
 )
 class CollectAsyncGeneratorTests(unittest.TestCase):
-    def test_without_running_loop(self):
+    """Verify collect async generator behavior."""
+
+    def test_without_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             yield "one"
             yield "two"
 
@@ -233,13 +240,13 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
 
         assert result == ["one", "two"]
 
-    def test_inside_running_loop(self):
+    def test_inside_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             yield "alpha"
 
-        async def runner():
+        async def runner() -> None:
             result = ctx._collect_async_generator(sample)
             assert result == ["alpha"]
 
@@ -251,27 +258,31 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
     "_run_async_in_safe_context helper removed in current architecture.",
 )
 class RunAsyncInSafeContextTests(unittest.TestCase):
-    def test_without_running_loop(self):
+    """Verify run async in safe context behavior."""
+
+    def test_without_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             return "result"
 
         assert ctx._run_async_in_safe_context(sample) == "result"
 
-    def test_inside_running_loop(self):
+    def test_inside_running_loop(self) -> None:
         ctx = _make_context()
 
-        async def sample():
+        async def sample() -> object:
             return "loop"
 
-        async def runner():
+        async def runner() -> None:
             assert ctx._run_async_in_safe_context(sample) == "loop"
 
         asyncio.run(runner())
 
 
 class NextChapterInteractionTests(unittest.TestCase):
+    """Verify next chapter interaction behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("next-chapter-tests")
@@ -287,7 +298,7 @@ class NextChapterInteractionTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = self.__class__.app
         self.ctx = _make_context()
         self.ctx.app = self.app
@@ -303,7 +314,7 @@ class NextChapterInteractionTests(unittest.TestCase):
             LearnGeneratedBlock.query.delete()
             dao.db.session.commit()
 
-    def test_emits_and_persists_button_once(self):
+    def test_emits_and_persists_button_once(self) -> None:
         with self.app.app_context():
             events = list(
                 self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)
@@ -333,7 +344,9 @@ class NextChapterInteractionTests(unittest.TestCase):
 
 
 class AccessGateFeedbackHelperTests(unittest.TestCase):
-    def test_detects_blocking_access_gate(self):
+    """Verify access gate feedback helper behavior."""
+
+    def test_detects_blocking_access_gate(self) -> None:
         ctx = _make_context()
         ctx._is_paid = False
         ctx._user_info = types.SimpleNamespace(mobile="")
@@ -353,15 +366,17 @@ class AccessGateFeedbackHelperTests(unittest.TestCase):
 
 
 class CompletionTailInteractionTests(unittest.TestCase):
-    def test_emits_feedback_and_next_when_both_conditions_met(self):
+    """Verify completion tail interaction behavior."""
+
+    def test_emits_feedback_and_next_when_both_conditions_met(self) -> None:
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -379,15 +394,15 @@ class CompletionTailInteractionTests(unittest.TestCase):
         assert calls == ["next", "feedback"]
         assert events == ["next-event", "feedback-event"]
 
-    def test_skips_next_when_no_next_outline(self):
+    def test_skips_next_when_no_next_outline(self) -> None:
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -405,15 +420,15 @@ class CompletionTailInteractionTests(unittest.TestCase):
         assert calls == ["feedback"]
         assert events == ["feedback-event"]
 
-    def test_emits_only_next_when_not_completed(self):
+    def test_emits_only_next_when_not_completed(self) -> None:
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -433,7 +448,11 @@ class CompletionTailInteractionTests(unittest.TestCase):
 
 
 class RuntimeOutlineBlockCountTests(unittest.TestCase):
-    def test_get_next_outline_item_uses_runtime_block_count_for_leaf_outline(self):
+    """Verify runtime outline block count behavior."""
+
+    def test_get_next_outline_item_uses_runtime_block_count_for_leaf_outline(
+        self,
+    ) -> None:
         ctx = _make_context()
         ctx.app = Flask("runtime-outline-block-count-tests")
         ctx._preview_mode = False
@@ -441,10 +460,10 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         class _Column:
             __hash__ = None
 
-            def in_(self, _values):
+            def in_(self, _values: object) -> object:
                 return self
 
-            def __eq__(self, _other) -> "_Column":
+            def __eq__(self, _other: object) -> "_Column":
                 return self
 
         class _OutlineModel:
@@ -454,17 +473,17 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             deleted = _Column()
 
         class _FakeQuery:
-            def filter(self, *_args, **_kwargs):
+            def filter(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def all(self):
+            def all(self) -> object:
                 return [("outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return [object(), object()]
 
         outline_item = HistoryItem(
@@ -502,7 +521,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
 
         assert get_outline_item_mock.call_args.kwargs.get("outline_item_id") == 1
 
-    def test_get_run_script_info_uses_outline_row_id_from_struct(self):
+    def test_get_run_script_info_uses_outline_row_id_from_struct(self) -> None:
         ctx = _make_context()
         ctx.app = Flask("runtime-outline-row-id-tests")
         ctx._preview_mode = False
@@ -523,10 +542,10 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
         attend = types.SimpleNamespace(outline_item_bid="outline-1", block_position=0)
 
         class _FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 pass
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return [object(), object()]
 
         with (
@@ -550,6 +569,8 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
 
 
 class ExceptionGateFeedbackTests(unittest.TestCase):
+    """Verify exception gate feedback behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-feedback")
@@ -565,7 +586,7 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = self.__class__.app
         self.ctx = _make_context()
         self.ctx.app = self.app
@@ -579,7 +600,7 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
             LearnProgressRecord.query.delete()
             dao.db.session.commit()
 
-    def test_emits_feedback_for_latest_completed_progress(self):
+    def test_emits_feedback_for_latest_completed_progress(self) -> None:
         with self.app.app_context():
             progress = LearnProgressRecord(
                 progress_record_bid="progress-1",
@@ -610,12 +631,12 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
             assert len(events) == 1
             assert events[0].type == GeneratedType.INTERACTION
 
-    def test_skips_when_no_completed_progress(self):
+    def test_skips_when_no_completed_progress(self) -> None:
         with self.app.app_context():
             events = list(self.ctx._emit_feedback_after_exception_gate())
             assert events == []
 
-    def test_skips_completed_progress_without_generated_blocks(self):
+    def test_skips_completed_progress_without_generated_blocks(self) -> None:
         with self.app.app_context():
             dao.db.session.add(
                 LearnProgressRecord(
@@ -632,6 +653,8 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
 
 
 class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
+    """Verify exception gate interaction persistence behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("exception-gate-interaction-persistence")
@@ -647,7 +670,7 @@ class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = self.__class__.app
         self.ctx = _make_context()
         self.ctx.app = self.app
@@ -662,7 +685,7 @@ class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
             LearnProgressRecord.query.delete()
             dao.db.session.commit()
 
-    def test_emits_gate_interaction_without_existing_progress(self):
+    def test_emits_gate_interaction_without_existing_progress(self) -> None:
         with self.app.app_context():
             events = list(
                 self.ctx._emit_current_progress_gate_interaction(
@@ -681,7 +704,9 @@ class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
 
 
 class StreamTtsGateTests(unittest.TestCase):
-    def test_should_stream_tts_respects_preview_and_listen(self):
+    """Verify stream TTS gate behavior."""
+
+    def test_should_stream_tts_respects_preview_and_listen(self) -> None:
         ctx = _make_context()
 
         ctx._input_type = "normal"
@@ -700,18 +725,18 @@ class StreamTtsGateTests(unittest.TestCase):
         ctx._input_type = "ask"
         assert not ctx._should_stream_tts()
 
-    def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
+    def test_iter_stream_result_with_idle_callback_drains_while_waiting(self) -> None:
         app = Flask("stream-tts-idle-drain")
         ctx = _make_context()
         ctx.app = app
 
         idle_ticks: list[int] = []
 
-        def delayed_stream():
+        def delayed_stream() -> object:
             time.sleep(0.05)
             yield "chunk-1"
 
-        def on_idle():
+        def on_idle() -> object:
             idle_ticks.append(len(idle_ticks))
             yield f"idle-{len(idle_ticks)}"
 
@@ -728,7 +753,7 @@ class StreamTtsGateTests(unittest.TestCase):
         assert outputs[-1] == ("item", "chunk-1")
         assert idle_ticks
 
-    def test_iter_stream_result_with_idle_callback_stops_and_cleans_up(self):
+    def test_iter_stream_result_with_idle_callback_stops_and_cleans_up(self) -> None:
         app = Flask("stream-tts-stop")
         ctx = _make_context()
         ctx.app = app
@@ -755,7 +780,7 @@ class StreamTtsGateTests(unittest.TestCase):
                     raise StopIteration
                 return "chunk-2"
 
-            def close(self):
+            def close(self) -> None:
                 self.close_calls += 1
 
         stream = ClosableStream()
@@ -782,6 +807,8 @@ class StreamTtsGateTests(unittest.TestCase):
 
 
 class ReloadFromElementBidTests(unittest.TestCase):
+    """Verify reload from element bid behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("reload-from-element-bid")
@@ -797,7 +824,7 @@ class ReloadFromElementBidTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = self.__class__.app
         self.ctx = _make_context()
         self.ctx.app = self.app
@@ -811,7 +838,7 @@ class ReloadFromElementBidTests(unittest.TestCase):
             LearnProgressRecord.query.delete()
             dao.db.session.commit()
 
-    def test_reload_element_bid_realigns_progress_to_source_block(self):
+    def test_reload_element_bid_realigns_progress_to_source_block(self) -> None:
         with self.app.app_context():
             progress = LearnProgressRecord(
                 progress_record_bid="progress-1",
@@ -917,7 +944,7 @@ class ReloadFromElementBidTests(unittest.TestCase):
             assert later_element is not None
             assert later_element.status == 0
 
-    def test_reload_preserves_ask_and_answer_blocks(self):
+    def test_reload_preserves_ask_and_answer_blocks(self) -> None:
         with self.app.app_context():
             progress = LearnProgressRecord(
                 progress_record_bid="progress-ask-keep",
@@ -1031,7 +1058,9 @@ class ReloadFromElementBidTests(unittest.TestCase):
 
 
 class StreamTtsTeardownTests(unittest.TestCase):
-    def test_teardown_flushes_content_then_finalizes_tts(self):
+    """Verify stream TTS teardown behavior."""
+
+    def test_teardown_flushes_content_then_finalizes_tts(self) -> None:
         app = Flask("stream-tts-teardown")
         ctx = _make_context()
         ctx.app = app
@@ -1043,14 +1072,14 @@ class StreamTtsTeardownTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.finalize_calls = []
 
-            def finalize(self, *, commit=True):
+            def finalize(self, *, commit: object = True) -> object:
                 self.finalize_calls.append(commit)
                 yield "audio-complete"
 
         flush_calls: list[str] = []
         processor = _FakeProcessor()
 
-        def _flush_content_cache():
+        def _flush_content_cache() -> object:
             flush_calls.append("flush")
             yield "content-flush"
 
@@ -1068,7 +1097,7 @@ class StreamTtsTeardownTests(unittest.TestCase):
         assert processor.finalize_calls == [False]
         assert ctx._element_index_cursor == 5
 
-    def test_teardown_skips_emit_on_generator_exit(self):
+    def test_teardown_skips_emit_on_generator_exit(self) -> None:
         app = Flask("stream-tts-teardown-generator-exit")
         ctx = _make_context()
         ctx.app = app
@@ -1080,14 +1109,15 @@ class StreamTtsTeardownTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.finalize_calls = 0
 
-            def finalize(self, *, commit=True):
+            def finalize(self, *, commit: object = True) -> object:
+                _ = commit
                 self.finalize_calls += 1
                 yield "audio-complete"
 
         flush_calls: list[str] = []
         processor = _FakeProcessor()
 
-        def _flush_content_cache():
+        def _flush_content_cache() -> object:
             flush_calls.append("flush")
             yield "content-flush"
 
@@ -1108,13 +1138,15 @@ class StreamTtsTeardownTests(unittest.TestCase):
 
 
 class MdflowContextCompatibilityTests(unittest.TestCase):
-    def test_init_ignores_visual_mode_when_api_missing(self):
+    """Verify MarkdownFlow context compatibility behavior."""
+
+    def test_init_ignores_visual_mode_when_api_missing(self) -> None:
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 self.args = args
                 self.kwargs = kwargs
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1122,15 +1154,16 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         assert isinstance(context._mdflow, FakeMarkdownFlow)
 
-    def test_init_calls_visual_mode_when_api_exists(self):
+    def test_init_calls_visual_mode_when_api_exists(self) -> None:
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.visual_mode = None
 
-            def set_visual_mode(self, visual_mode):
+            def set_visual_mode(self, visual_mode: object) -> None:
                 self.visual_mode = visual_mode
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
         with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
@@ -1138,12 +1171,13 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         assert not context._mdflow.visual_mode
 
-    def test_init_uses_explicit_output_language_when_enabled(self):
+    def test_init_uses_explicit_output_language_when_enabled(self) -> None:
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.output_language = None
 
-            def set_output_language(self, language):
+            def set_output_language(self, language: object) -> object:
                 self.output_language = language
                 return self
 
@@ -1162,7 +1196,7 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         assert context._mdflow.output_language == "简体中文"
 
-    def test_filter_context_removes_stale_english_output_instruction(self):
+    def test_filter_context_removes_stale_english_output_instruction(self) -> None:
         context = [
             {
                 "role": "user",
@@ -1181,7 +1215,9 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
 
 class RuntimeOutputLanguageTests(unittest.TestCase):
-    def test_runtime_language_overrides_stale_profile_language(self):
+    """Verify runtime output language behavior."""
+
+    def test_runtime_language_overrides_stale_profile_language(self) -> None:
         with patch(
             "flaskr.service.learn.context_v2.get_current_language",
             return_value="zh-CN",
@@ -1192,7 +1228,7 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 
         assert output_language == "zh-CN"
 
-    def test_runtime_language_overlays_stale_production_prompt_variables(self):
+    def test_runtime_language_overlays_stale_production_prompt_variables(self) -> None:
         stored_profile = {
             "sys_user_language": "zh-CN",
             "language": "zh-CN",
@@ -1215,7 +1251,9 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
         assert stored_profile["sys_user_language"] == "zh-CN"
         assert stored_profile["language"] == "zh-CN"
 
-    def test_runtime_language_keeps_profile_variables_when_feature_is_disabled(self):
+    def test_runtime_language_keeps_profile_variables_when_feature_is_disabled(
+        self,
+    ) -> None:
         stored_profile = {
             "sys_user_language": "zh-CN",
             "language": "zh-CN",
@@ -1236,7 +1274,9 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
-    def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):
+    """Verify preview resolve LLM settings behavior."""
+
+    def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self) -> None:
         app = Flask("preview-llm-settings")
         app.config.update(
             DEFAULT_LLM_MODEL="",
@@ -1273,7 +1313,9 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
-    def test_injects_request_language_when_missing(self):
+    """Verify preview resolve variables behavior."""
+
+    def test_injects_request_language_when_missing(self) -> None:
         app = Flask("preview-variables")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
@@ -1299,7 +1341,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("sys_user_nickname") == "017"
         mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
 
-    def test_empty_sys_user_language_uses_request_language(self):
+    def test_empty_sys_user_language_uses_request_language(self) -> None:
         app = Flask("preview-variables-empty-language")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1326,7 +1368,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("sys_user_language") == "zh-CN"
         assert variables.get("language") == "zh-CN"
 
-    def test_request_language_overrides_stale_profile_language(self):
+    def test_request_language_overrides_stale_profile_language(self) -> None:
         app = Flask("preview-variables-request-language")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1347,7 +1389,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("sys_user_language") == "zh-CN"
         assert variables.get("language") == "zh-CN"
 
-    def test_keeps_existing_sys_user_language(self):
+    def test_keeps_existing_sys_user_language(self) -> None:
         app = Flask("preview-variables-existing")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1371,6 +1413,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
 
 class CoursePromptCompositionTests(unittest.TestCase):
+    """Verify course prompt composition behavior."""
+
     def assert_composed_course_prompt(
         self,
         prompt: str | None,
@@ -1393,7 +1437,9 @@ class CoursePromptCompositionTests(unittest.TestCase):
         )
         assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 1
 
-    def test_runtime_getter_returns_course_prompt_with_current_learner_profile(self):
+    def test_runtime_getter_returns_course_prompt_with_current_learner_profile(
+        self,
+    ) -> None:
         app = Flask("runtime-course-prompt-profile")
         ctx = _make_context()
         ctx.app = app
@@ -1423,7 +1469,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
         )
         ctx._shifu_model.query.filter.assert_not_called()
 
-    def test_formal_preview_composes_request_prompt_with_current_learner(self):
+    def test_formal_preview_composes_request_prompt_with_current_learner(self) -> None:
         app = Flask("preview-course-prompt-profile")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1455,7 +1501,9 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert "FALLBACK RULE" not in prompt
         mock_load.assert_called_once_with("user-1")
 
-    def test_formal_preview_uses_current_explicit_nickname_without_profile_text(self):
+    def test_formal_preview_uses_current_explicit_nickname_without_profile_text(
+        self,
+    ) -> None:
         app = Flask("preview-course-prompt-nickname")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1491,7 +1539,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
             == 'Preferred form of address (learner-authored): "Current Learner"'
         )
 
-    def test_formal_preview_reloads_profile_for_each_request(self):
+    def test_formal_preview_reloads_profile_for_each_request(self) -> None:
         app = Flask("preview-course-prompt-profile-refresh")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1532,7 +1580,9 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert cleared_prompt == "PREVIEW COURSE RULE"
         assert mock_load.call_args_list == [call("user-1"), call("user-1")]
 
-    def test_formal_preview_recomposes_client_envelope_for_current_learner(self):
+    def test_formal_preview_recomposes_client_envelope_for_current_learner(
+        self,
+    ) -> None:
         app = Flask("preview-course-prompt-current-account")
         preview_ctx = RunScriptPreviewContextV2(app)
         prompt_for_previous_account = build_course_prompt(
@@ -1578,7 +1628,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert "PREVIOUS ACCOUNT PROFILE" not in current_prompt
         assert cleared_prompt == "PREVIEW COURSE RULE"
 
-    def test_preview_learner_lookup_failure_cleans_the_database_session(self):
+    def test_preview_learner_lookup_failure_cleans_the_database_session(self) -> None:
         app = Flask("preview-course-prompt-lookup-failure")
         preview_ctx = RunScriptPreviewContextV2(app)
         lookup_error = RuntimeError("database unavailable")
@@ -1603,7 +1653,9 @@ class CoursePromptCompositionTests(unittest.TestCase):
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
-    def test_complete_logs_full_preview_output(self):
+    """Verify preview run LLM logging behavior."""
+
+    def test_complete_logs_full_preview_output(self) -> None:
         app = Flask("preview-run-llm-logging")
         parent_observation = object()
         provider = RUNLLMProvider(
@@ -1657,7 +1709,9 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
 
 
 class LangfuseTraceFinalizationTests(unittest.TestCase):
-    def test_runtime_context_uses_current_langfuse_client(self):
+    """Verify langfuse trace finalization behavior."""
+
+    def test_runtime_context_uses_current_langfuse_client(self) -> None:
         app = Flask("runtime-langfuse-client")
         sentinel_client = object()
         captured = {}
@@ -1677,8 +1731,8 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
         )
 
         def _fake_create_trace_with_root_span(
-            *, client, trace_payload, root_span_payload
-        ):
+            *, client: object, trace_payload: object, root_span_payload: object
+        ) -> object:
             captured["client"] = client
             captured["trace_payload"] = trace_payload
             captured["root_span_payload"] = root_span_payload
@@ -1715,7 +1769,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
         assert captured["client"] is sentinel_client
         assert captured["trace_payload"]["id"] == "req-trace-1"
 
-    def test_set_input_normalizes_structured_value_for_trace(self):
+    def test_set_input_normalizes_structured_value_for_trace(self) -> None:
         ctx = _make_context()
         ctx._trace_args = {}
 
@@ -1724,7 +1778,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
         assert ctx._trace_args["input"] == "Python, Go, Beginner"
         assert ctx._trace_args["input_type"] == "select"
 
-    def test_set_input_normalizes_python_literal_string_for_trace(self):
+    def test_set_input_normalizes_python_literal_string_for_trace(self) -> None:
         ctx = _make_context()
         ctx._trace_args = {}
 
@@ -1732,7 +1786,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         assert ctx._trace_args["input"] == "Python, Go"
 
-    def test_runtime_finalize_skips_empty_output_overwrite(self):
+    def test_runtime_finalize_skips_empty_output_overwrite(self) -> None:
         ctx = _make_context()
         ctx._trace = _FakeLangfuseTrace()
         ctx._trace_root_span = _FakeLangfuseSpan()
@@ -1752,7 +1806,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
         }
         assert ctx._trace_root_span.end_kwargs == {}
 
-    def test_runtime_finalize_uses_accumulated_output(self):
+    def test_runtime_finalize_uses_accumulated_output(self) -> None:
         ctx = _make_context()
         ctx._trace = _FakeLangfuseTrace()
         ctx._trace_root_span = _FakeLangfuseSpan()
@@ -1772,7 +1826,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
             "output": "chunk-1chunk-2",
         }
 
-    def test_append_langfuse_output_normalizes_python_literal_string(self):
+    def test_append_langfuse_output_normalizes_python_literal_string(self) -> None:
         ctx = _make_context()
         ctx._langfuse_output_chunks = []
 
@@ -1782,40 +1836,44 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
 
 class PreviewLangfuseTraceTests(unittest.TestCase):
-    def test_stream_preview_sets_session_id_and_finalizes_root_span(self):
+    """Verify preview langfuse trace behavior."""
+
+    def test_stream_preview_sets_session_id_and_finalizes_root_span(self) -> None:
         app = Flask("preview-langfuse-trace")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
         captured = {}
 
         class _FakePreviewContextStore:
-            def __init__(self, *_args, **_kwargs) -> None:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def get_context(self, *_args, **_kwargs):
+            def get_context(self, *_args: object, **_kwargs: object) -> object:
                 return []
 
-            def replace_context(self, *_args, **_kwargs):
+            def replace_context(self, *_args: object, **_kwargs: object) -> None:
                 return None
 
         class _FakePreviewMdflowContext:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = args, kwargs
 
             @staticmethod
-            def normalize_context_messages(_value) -> None:
+            def normalize_context_messages(_value: object) -> None:
                 return None
 
             @staticmethod
-            def filter_context_by_output_language(context, _output_language) -> object:
+            def filter_context_by_output_language(
+                context: object, _output_language: object
+            ) -> object:
                 return context
 
-            def get_block(self, _block_index):
+            def get_block(self, _block_index: object) -> object:
                 return types.SimpleNamespace(
                     block_type=PreviewBlockType.CONTENT, content="Prompt block"
                 )
 
-            def process(self, **_kwargs):
+            def process(self, **_kwargs: object) -> object:
                 return (
                     item
                     for item in [
@@ -1828,15 +1886,15 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 )
 
         class _FakePreviewAdapter:
-            def __init__(self, *_args, **_kwargs) -> None:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def process(self, events):
+            def process(self, events: object) -> object:
                 return events
 
         def _fake_create_trace_with_root_span(
-            *, client, trace_payload, root_span_payload
-        ):
+            *, client: object, trace_payload: object, root_span_payload: object
+        ) -> object:
             _ = client, root_span_payload
             captured["trace_payload"] = trace_payload
             trace = _FakeLangfuseTrace()
@@ -1911,7 +1969,9 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
 
 
 class PreviewElementizationTests(unittest.TestCase):
-    def test_preview_content_events_preserve_stream_parts(self):
+    """Verify preview elementization behavior."""
+
+    def test_preview_content_events_preserve_stream_parts(self) -> None:
         app = Flask("preview-content-events")
         preview_ctx = RunScriptPreviewContextV2(app)
 
@@ -1931,7 +1991,7 @@ class PreviewElementizationTests(unittest.TestCase):
         assert events[0].type == GeneratedType.CONTENT
         assert events[0].get_mdflow_stream_parts() == [("Hello preview", "text", 0)]
 
-    def test_preview_content_stream_emits_element_and_done(self):
+    def test_preview_content_stream_emits_element_and_done(self) -> None:
         app = Flask("preview-content-stream")
         preview_ctx = RunScriptPreviewContextV2(app)
         adapter = PreviewElementRunAdapter(
@@ -1981,7 +2041,9 @@ class PreviewElementizationTests(unittest.TestCase):
         assert messages[-1].type == GeneratedType.DONE.value
         assert messages[-1].is_terminal
 
-    def test_preview_content_uses_formatted_elements_when_top_level_content_empty(self):
+    def test_preview_content_uses_formatted_elements_when_top_level_content_empty(
+        self,
+    ) -> None:
         app = Flask("preview-content-formatted-elements")
         preview_ctx = RunScriptPreviewContextV2(app)
         adapter = PreviewElementRunAdapter(
@@ -2030,7 +2092,7 @@ class PreviewElementizationTests(unittest.TestCase):
 
     def test_preview_interaction_validation_uses_formatted_elements_when_content_empty(
         self,
-    ):
+    ) -> None:
         app = Flask("preview-interaction-validation-formatted-elements")
         preview_ctx = RunScriptPreviewContextV2(app)
         adapter = PreviewElementRunAdapter(
@@ -2080,7 +2142,9 @@ class PreviewElementizationTests(unittest.TestCase):
         assert messages[-1].type == GeneratedType.DONE.value
         assert messages[-1].is_terminal
 
-    def test_preview_interaction_stream_emits_interaction_element_and_done(self):
+    def test_preview_interaction_stream_emits_interaction_element_and_done(
+        self,
+    ) -> None:
         app = Flask("preview-interaction-stream")
         preview_ctx = RunScriptPreviewContextV2(app)
         adapter = PreviewElementRunAdapter(
@@ -2131,10 +2195,10 @@ class _InMemoryCache:
     def __init__(self) -> None:
         self.store: dict[str, str] = {}
 
-    def get(self, key: str):
+    def get(self, key: str) -> object:
         return self.store.get(key)
 
-    def setex(self, key: str, _ttl: int, value):
+    def setex(self, key: str, _ttl: int, value: object) -> None:
         self.store[key] = value
 
     def delete(self, *keys: str) -> int:
@@ -2157,12 +2221,9 @@ def _make_preview_store(
 
 
 class PreviewSentPromptCaptureTests(unittest.TestCase):
-    """The preview flow stores the exact user message markdown-flow sent to
-    the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the
-    replayed preview context stays byte-identical to the sent request.
-    """
+    """The preview flow stores the exact user message markdown-flow sent to the LLM (LLMResult.prompt) instead of a locally re-rendered block, so the replayed preview context stays byte-identical to the sent request."""
 
-    def test_iter_preview_generated_events_captures_prompt(self):
+    def test_iter_preview_generated_events_captures_prompt(self) -> None:
         app = Flask("preview-prompt-capture")
         preview_ctx = RunScriptPreviewContextV2(app)
         sent_prompt_chunks: list[str] = []
@@ -2192,7 +2253,7 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
 
         assert sent_prompt_chunks == ["P-PREVIEW"]
 
-    def test_update_preview_context_prefers_sent_prompt(self):
+    def test_update_preview_context_prefers_sent_prompt(self) -> None:
         app = Flask("preview-prompt-store")
         preview_ctx = RunScriptPreviewContextV2(app)
         appended: list[tuple] = []
@@ -2223,11 +2284,13 @@ class PreviewSentPromptCaptureTests(unittest.TestCase):
 
 
 class PreviewContextStoreTruncationTests(unittest.TestCase):
-    def _populate(self, store, doc, indices):
+    """Verify preview context store truncation behavior."""
+
+    def _populate(self, store: object, doc: object, indices: object) -> None:
         for idx in indices:
             store.append_context(doc, idx, f"u{idx}", f"a{idx}")
 
-    def test_sequential_blocks_accumulate(self):
+    def test_sequential_blocks_accumulate(self) -> None:
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         messages = store.get_context(doc, 4)
@@ -2242,7 +2305,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
             {"role": "assistant", "content": "a3"},
         ]
 
-    def test_reselect_drops_entries_at_or_above_block_index(self):
+    def test_reselect_drops_entries_at_or_above_block_index(self) -> None:
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         messages = store.get_context(doc, 2)
@@ -2255,7 +2318,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         persisted = store.load()
         assert [entry["block_index"] for entry in persisted["entries"]] == [0, 1]
 
-    def test_repeated_reselect_does_not_grow(self):
+    def test_repeated_reselect_does_not_grow(self) -> None:
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         for _ in range(5):
@@ -2271,7 +2334,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         assert index_counts.get(0) == 1
         assert index_counts.get(1) == 1
 
-    def test_backtrack_to_earlier_block(self):
+    def test_backtrack_to_earlier_block(self) -> None:
         store, _cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2, 3])
         messages = store.get_context(doc, 1)
@@ -2282,19 +2345,19 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         persisted = store.load()
         assert [entry["block_index"] for entry in persisted["entries"]] == [0]
 
-    def test_block_index_zero_clears(self):
+    def test_block_index_zero_clears(self) -> None:
         store, cache, doc = _make_preview_store()
         self._populate(store, doc, [0, 1, 2])
         assert store.get_context(doc, 0) == []
         assert cache.store == {}
 
-    def test_document_hash_change_clears(self):
+    def test_document_hash_change_clears(self) -> None:
         store, cache, _doc = _make_preview_store(doc="doc-A")
         self._populate(store, "doc-A", [0, 1, 2])
         assert store.get_context("doc-B", 3) == []
         assert cache.store == {}
 
-    def test_legacy_flat_schema_clears(self):
+    def test_legacy_flat_schema_clears(self) -> None:
         store, cache, doc = _make_preview_store()
         store.save(
             {
@@ -2308,12 +2371,12 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         assert store.get_context(doc, 3) == []
         assert cache.store == {}
 
-    def test_append_skips_when_both_empty(self):
+    def test_append_skips_when_both_empty(self) -> None:
         store, cache, doc = _make_preview_store()
         store.append_context(doc, 2, None, None)
         assert cache.store == {}
 
-    def test_append_user_only_and_assistant_only(self):
+    def test_append_user_only_and_assistant_only(self) -> None:
         store, _cache, doc = _make_preview_store()
         store.append_context(doc, 1, "user-only", None)
         store.append_context(doc, 2, None, "assistant-only")
@@ -2323,7 +2386,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
             {"role": "assistant", "content": "assistant-only"},
         ]
 
-    def test_missing_document_hash_clears_entries(self):
+    def test_missing_document_hash_clears_entries(self) -> None:
         store, cache, doc = _make_preview_store()
         store.save(
             {"entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}]}
@@ -2331,7 +2394,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         assert store.get_context(doc, 3) == []
         assert cache.store == {}
 
-    def test_empty_document_hash_clears_entries(self):
+    def test_empty_document_hash_clears_entries(self) -> None:
         store, cache, doc = _make_preview_store()
         store.save(
             {
@@ -2342,7 +2405,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         assert store.get_context(doc, 3) == []
         assert cache.store == {}
 
-    def test_replace_context_pairs_messages_with_sentinel_index(self):
+    def test_replace_context_pairs_messages_with_sentinel_index(self) -> None:
         store, _cache, doc = _make_preview_store()
         store.replace_context(
             doc,
@@ -2364,11 +2427,13 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
 
 
 class RuntimeExceptionLangfuseTests(unittest.TestCase):
-    def test_run_emits_gate_interaction_after_paid_exception(self):
+    """Verify runtime exception langfuse behavior."""
+
+    def test_run_emits_gate_interaction_after_paid_exception(self) -> None:
         app = Flask("runtime-langfuse-paid")
         ctx = _make_context()
 
-        def _raise_paid(_app):
+        def _raise_paid(_app: object) -> None:
             raise PaidError
 
         ctx.run_inner = _raise_paid
@@ -2382,11 +2447,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
 
 
 class BuildContextFromBlocksTests(unittest.TestCase):
-    """build_context_from_blocks should hand interaction blocks to markdown-flow
-    as raw ?[...] assistant messages so its _transform_context_messages can
-    expand them, instead of dropping them or flattening input into a bare user
-    message.
-    """
+    """build_context_from_blocks should hand interaction blocks to markdown-flow as raw ?[...] assistant messages so its _transform_context_messages can expand them, instead of dropping them or flattening input into a bare user message."""
 
     DOC = (
         "Content one.\n"
@@ -2396,7 +2457,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         "Second content {{nickname}}."
     )
 
-    def _blocks(self):
+    def _blocks(self) -> object:
         return [
             types.SimpleNamespace(
                 type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -2415,7 +2476,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
             ),
         ]
 
-    def test_interaction_block_kept_as_raw_assistant_message(self):
+    def test_interaction_block_kept_as_raw_assistant_message(self) -> None:
         app = Flask(__name__)
         with app.app_context():
             messages = MdflowContextV2.build_context_from_blocks(
@@ -2429,7 +2490,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
         assert len(interaction_msgs) == 1
         assert "%{{nickname}}" in interaction_msgs[0]["content"]
 
-    def test_transform_expands_interaction_without_adjacent_users(self):
+    def test_transform_expands_interaction_without_adjacent_users(self) -> None:
         app = Flask(__name__)
         with app.app_context():
             messages = MdflowContextV2.build_context_from_blocks(
@@ -2456,12 +2517,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
 
 
 class BuildContextGenerationPromptReplayTests(unittest.TestCase):
-    """Content blocks replay the persisted generation_prompt verbatim so the
-    rebuilt history stays byte-identical to the request previously sent to
-    the LLM (keeping provider-side prefix caching effective); legacy rows
-    without it fall back to re-rendering the block source with the current
-    variables.
-    """
+    """Content blocks replay the persisted generation_prompt verbatim so the rebuilt history stays byte-identical to the request previously sent to the LLM (keeping provider-side prefix caching effective); legacy rows without it fall back to re-rendering the block source with the current variables."""
 
     DOC = (
         "Content one {{nickname}}.\n"
@@ -2476,7 +2532,7 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
         "The next interaction will appear immediately after this content."
     )
 
-    def test_stored_prompt_replayed_verbatim_ignoring_current_variables(self):
+    def test_stored_prompt_replayed_verbatim_ignoring_current_variables(self) -> None:
         blocks = [
             types.SimpleNamespace(
                 type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -2495,7 +2551,7 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == self.STORED_PROMPT
 
-    def test_missing_or_empty_prompt_falls_back_to_current_rendering(self):
+    def test_missing_or_empty_prompt_falls_back_to_current_rendering(self) -> None:
         blocks = [
             # Legacy row persisted before the column existed.
             types.SimpleNamespace(
@@ -2524,11 +2580,7 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
 
 
 class StreamContentBlockPromptCaptureTests(unittest.TestCase):
-    """_phase_stream_content_block captures LLMResult.prompt (the exact user
-    message markdown-flow sent to the LLM) and hands it to the recorder;
-    prompt-less streams (preserved content) freeze the variables-rendered
-    block source instead.
-    """
+    """_phase_stream_content_block captures LLMResult.prompt (the exact user message markdown-flow sent to the LLM) and hands it to the recorder; prompt-less streams (preserved content) freeze the variables-rendered block source instead."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -2545,7 +2597,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def _run_stream_phase(self, stream_items):
+    def _run_stream_phase(self, stream_items: object) -> object:
         ctx = _make_context()
         ctx.app = self.app
         ctx._input_type = "normal"
@@ -2558,10 +2610,10 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
         # _recorder is a lazy read-only property backed by __dict__.
         ctx.__dict__["_run_recorder"] = MagicMock()
 
-        def fake_stream():
+        def fake_stream() -> object:
             yield from stream_items
 
-        mdflow_context = types.SimpleNamespace(process=lambda **kwargs: fake_stream())
+        mdflow_context = types.SimpleNamespace(process=lambda **_kwargs: fake_stream())
         attend = types.SimpleNamespace(shifu_bid="shifu-prompt-1")
         state = types.SimpleNamespace(
             run_script_info=types.SimpleNamespace(
@@ -2595,7 +2647,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
             dao.db.session.rollback()
         return ctx, events
 
-    def test_llm_prompt_captured_and_passed_to_finalize(self):
+    def test_llm_prompt_captured_and_passed_to_finalize(self) -> None:
         ctx, _events = self._run_stream_phase(
             [
                 LLMResult(content="Hello ", type="text", number=0, prompt="P-EXACT"),
@@ -2606,7 +2658,7 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
         assert finalize_call.kwargs["generation_prompt"] == "P-EXACT"
         assert finalize_call.args[1] == "Hello world"
 
-    def test_promptless_stream_falls_back_to_rendered_block_source(self):
+    def test_promptless_stream_falls_back_to_rendered_block_source(self) -> None:
         ctx, _events = self._run_stream_phase(
             [LLMResult(content="Preserved Alice text.", type="text", number=0)]
         )
@@ -2617,12 +2669,12 @@ class StreamContentBlockPromptCaptureTests(unittest.TestCase):
 
 
 class BuildContextNoVariableInteractionTests(unittest.TestCase):
-    """No-variable interactions carry a real learner answer with no variable
-    to recover it from. build_context_from_blocks attaches the answer stored
-    in generated_content to the interaction message via the user_answer
-    extension field (markdown-flow >= 0.3.0); the library then expands it
-    into {user: answer} + {assistant: "ok"}, or skips the turn when the
-    answer is empty.
+    """No-variable interactions carry a real learner answer with no variable to recover it from.
+
+    build_context_from_blocks attaches the answer stored in generated_content to the
+    interaction message via the user_answer extension field (markdown-flow >= 0.3.0); the
+    library then expands it into {user: answer} + {assistant: "ok"}, or skips the turn when
+    the answer is empty.
     """
 
     DOC = (
@@ -2634,7 +2686,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
     )
     INTERACTION = "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]"
 
-    def _blocks(self, selection):
+    def _blocks(self, selection: object) -> object:
         return [
             types.SimpleNamespace(
                 type=BLOCK_TYPE_MDCONTENT_VALUE,
@@ -2648,7 +2700,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             ),
         ]
 
-    def test_selection_attached_via_user_answer_field(self):
+    def test_selection_attached_via_user_answer_field(self) -> None:
         app = Flask(__name__)
         with app.app_context():
             messages = MdflowContextV2.build_context_from_blocks(
@@ -2665,7 +2717,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             },
         ]
 
-    def test_empty_selection_carries_empty_user_answer(self):
+    def test_empty_selection_carries_empty_user_answer(self) -> None:
         app = Flask(__name__)
         with app.app_context():
             messages = MdflowContextV2.build_context_from_blocks(
@@ -2680,11 +2732,8 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             USER_ANSWER_CONTEXT_KEY: "",
         }
 
-    def test_library_expands_answer_and_skips_empty_turns(self):
-        """End-to-end: the context built here goes through markdown-flow's
-        message transform and comes out with the real answer, no raw ?[...]
-        syntax, and no fabricated "ok" for unanswered interactions.
-        """
+    def test_library_expands_answer_and_skips_empty_turns(self) -> None:
+        """End-to-end: the context built here goes through markdown-flow's message transform and comes out with the real answer, no raw ?[...] syntax, and no fabricated "ok" for unanswered interactions."""
         app = Flask(__name__)
         with app.app_context():
             answered = MdflowContextV2.build_context_from_blocks(
@@ -2713,7 +2762,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
             {"role": "assistant", "content": "reply zero"},
         ]
 
-    def test_variable_free_text_input_carries_the_learner_answer(self):
+    def test_variable_free_text_input_carries_the_learner_answer(self) -> None:
         document = "Content one.\n---\n?[...What is your name?]\n---\nSecond content."
         app = Flask(__name__)
         with app.app_context():
@@ -2729,6 +2778,40 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
         transformed = MarkdownFlow(document)._transform_context_messages(messages, {})
         assert {"role": "user", "content": "Alice"} in transformed
         assert all("?[" not in m["content"] for m in transformed)
+
+
+class TraceSessionBindingTests(unittest.TestCase):
+    """Cover the langfuse session id binding of a runtime step."""
+
+    def _context(self, trace: object) -> object:
+        ctx = _make_context()
+        ctx.app = MagicMock()
+        ctx._trace = trace
+        ctx._trace_id = "f" * 32
+        ctx._trace_args = {"user_id": "user-1", "metadata": {"scene": "lesson_runtime"}}
+        ctx._trace_root_span = None
+        ctx._current_attend = MagicMock(progress_record_bid="progress-1")
+        ctx._outline_item_info = MagicMock(bid="outline-1", shifu_bid="shifu-1")
+        return ctx
+
+    def test_binding_pushes_the_session_id_to_langfuse_immediately(self) -> None:
+        # The SDK carries trace attributes on every observation, so a session id
+        # that only reaches langfuse at finalize time would be missing from all
+        # observations of the step.
+        trace = _FakeLangfuseTrace()
+        ctx = self._context(trace)
+
+        ctx._bind_trace_session()
+
+        assert ctx._trace_args["session_id"] == "progress-1"
+        assert trace.updated == {"session_id": "progress-1"}
+
+    def test_binding_without_a_trace_does_not_raise(self) -> None:
+        ctx = self._context(None)
+
+        ctx._bind_trace_session()
+
+        assert ctx._trace_args["session_id"] == "progress-1"
 
 
 if __name__ == "__main__":

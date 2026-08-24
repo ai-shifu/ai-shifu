@@ -45,11 +45,9 @@ result so the summary is stable.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.i18n import _
 from flaskr.service.billing.consts import CREDIT_SOURCE_TYPE_USAGE
 from flaskr.service.billing.models import CreditLedgerEntry
@@ -57,9 +55,16 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from sqlalchemy import and_, bindparam, func, select
-from sqlalchemy.sql import Select
 
 from .engine import get_analytics_engine
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from flask import Flask
+    from sqlalchemy.sql import Select
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Join
 
 # Reuse the DSL-path error names so the HTTP wrapper maps them consistently
 # (the error name → HTTP code mapping lives in error_codes.json).
@@ -77,7 +82,7 @@ _ALLOWED_USAGE_TYPES = frozenset({1101, 1102})
 _DEFAULT_LIMIT = 100
 
 
-def run(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
+def run(app: Flask, user_id: str, payload: object) -> dict[str, object]:
     """Execute the credit-detail query for ``user_id``.
 
     Validates the payload, enforces the per-shifu permission check, then
@@ -177,7 +182,7 @@ class _Params:
         self.offset = offset
 
 
-def _parse_payload(payload: Any, limit_max: int) -> _Params:
+def _parse_payload(payload: object, limit_max: int) -> _Params:
     if not isinstance(payload, dict):
         _raise(ERR_INVALID_DSL, "payload must be a JSON object")
 
@@ -216,7 +221,7 @@ def _parse_payload(payload: Any, limit_max: int) -> _Params:
     )
 
 
-def _parse_optional_date(raw: Any, field_name: str) -> date | None:
+def _parse_optional_date(raw: object, field_name: str) -> date | None:
     if raw is None or raw == "":
         return None
     if not isinstance(raw, str):
@@ -233,7 +238,7 @@ def _parse_optional_date(raw: Any, field_name: str) -> date | None:
 
 
 def _parse_int_set(
-    raw: Any, field_name: str, allowed: Iterable[int]
+    raw: object, field_name: str, allowed: Iterable[int]
 ) -> tuple[int, ...] | None:
     if raw is None:
         return None
@@ -258,7 +263,7 @@ def _parse_int_set(
     return tuple(out)
 
 
-def _parse_int(raw: Any, field_name: str, *, default: int) -> int:
+def _parse_int(raw: object, field_name: str, *, default: int) -> int:
     if raw is None:
         return default
     if isinstance(raw, bool) or not isinstance(raw, int):
@@ -271,7 +276,7 @@ def _parse_int(raw: Any, field_name: str, *, default: int) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _join_conditions(params: _Params):
+def _join_conditions() -> Join:
     """Build the bill_usage x credit_ledger_entries ON clause.
 
     ``source_type = USAGE`` is part of the JOIN (not the WHERE) so the
@@ -293,7 +298,7 @@ def _join_conditions(params: _Params):
     )
 
 
-def _where_clauses(params: _Params):
+def _where_clauses(params: _Params) -> list[ColumnElement[bool]]:
     """Build the WHERE predicates shared by detail + summary queries."""
     bu = BillUsageRecord.__table__
     clauses = [bu.c.shifu_bid == bindparam("__shifu_bid", value=params.shifu_bid)]
@@ -341,7 +346,7 @@ def _build_detail_statement(params: _Params) -> Select:
             func.abs(cle.c.amount).label("credits"),
             cle.c.creator_bid.label("wallet_creator_bid"),
         )
-        .select_from(_join_conditions(params))
+        .select_from(_join_conditions())
         .where(and_(*_where_clauses(params)))
         .order_by(bu.c.created_at.desc())
         .limit(params.limit)
@@ -373,7 +378,7 @@ def _build_summary_statement(params: _Params) -> Select:
             func.min(bu.c.created_at).label("first_at"),
             func.max(bu.c.created_at).label("last_at"),
         )
-        .select_from(_join_conditions(params))
+        .select_from(_join_conditions())
         .where(and_(*_where_clauses(params)))
     )
 
@@ -383,14 +388,14 @@ def _build_summary_statement(params: _Params) -> Select:
 # ---------------------------------------------------------------------------
 
 
-def _row_to_dict(columns: Sequence[str], values: Sequence[Any]) -> dict[str, Any]:
+def _row_to_dict(columns: Sequence[str], values: Sequence[object]) -> dict[str, object]:
     row: dict[str, Any] = {}
     for col, val in zip(columns, values, strict=False):
         row[col] = _coerce_value(val)
     return row
 
 
-def _summary_row_to_dict(summary_row: Any) -> dict[str, Any]:
+def _summary_row_to_dict(summary_row: object) -> dict[str, object]:
     if summary_row is None:
         return {
             "total_records": 0,
@@ -418,7 +423,7 @@ def _summary_row_to_dict(summary_row: Any) -> dict[str, Any]:
     }
 
 
-def _coerce_value(value: Any) -> Any:
+def _coerce_value(value: object) -> object:
     """Coerce non-JSON-friendly values (Decimal, datetime) to strings.
 
     The HTTP response wrapper turns the dict into JSON; SQLAlchemy returns

@@ -30,16 +30,16 @@ class _FakeSession:
         self.invalidations = 0
         self.removed = 0
 
-    def rollback(self):
+    def rollback(self) -> None:
         self.rollbacks += 1
 
-    def commit(self):
+    def commit(self) -> None:
         self.commits += 1
 
-    def invalidate(self):
+    def invalidate(self) -> None:
         self.invalidations += 1
 
-    def remove(self):
+    def remove(self) -> None:
         self.removed += 1
 
 
@@ -48,23 +48,23 @@ class _StubRunContext:
 
     script: ClassVar[list] = []
 
-    def __init__(self, **_kwargs) -> None:
+    def __init__(self, **_kwargs: object) -> None:
         self._steps = iter([True, False])
 
-    def set_input(self, *_args, **_kwargs):
+    def set_input(self, *_args: object, **_kwargs: object) -> None:
         pass
 
-    def has_next(self):
+    def has_next(self) -> object:
         return next(self._steps, False)
 
-    def run(self, _app):
+    def run(self, _app: object) -> object:
         for item in type(self).script:
             if isinstance(item, BaseException):
                 raise item
             yield item
 
 
-def _patch_run_dependencies(monkeypatch, script):
+def _patch_run_dependencies(monkeypatch: object, script: object) -> object:
     session = _FakeSession()
 
     class _FakeDb:
@@ -83,26 +83,26 @@ def _patch_run_dependencies(monkeypatch, script):
     monkeypatch.setattr(
         runscript_v2,
         "get_outline_item_dto",
-        lambda _app, _bid, preview_mode: types.SimpleNamespace(
+        lambda _app, _bid, _preview_mode: types.SimpleNamespace(
             bid="outline-1", shifu_bid="shifu-1", __json__=dict
         ),
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_dto",
-        lambda _app, _bid, preview_mode: types.SimpleNamespace(bid="shifu-1", price=0),
+        lambda _app, _bid, _preview_mode: types.SimpleNamespace(bid="shifu-1", price=0),
     )
     monkeypatch.setattr(
         runscript_v2,
         "get_shifu_struct",
-        lambda _app, _bid, preview_mode: types.SimpleNamespace(bid="shifu-1"),
+        lambda _app, _bid, _preview_mode: types.SimpleNamespace(bid="shifu-1"),
     )
     _StubRunContext.script = list(script)
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", _StubRunContext)
     return session
 
 
-def _start_stream(app):
+def _start_stream(app: object) -> object:
     generator = run_script_inner(
         app=app,
         user_bid="user-1",
@@ -114,7 +114,9 @@ def _start_stream(app):
     return generator
 
 
-def test_generator_exit_invalidates_connection_instead_of_rollback(app, monkeypatch):
+def test_generator_exit_invalidates_connection_instead_of_rollback(
+    app: object, monkeypatch: object
+) -> None:
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -126,7 +128,9 @@ def test_generator_exit_invalidates_connection_instead_of_rollback(app, monkeypa
     assert session.removed == 1
 
 
-def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatch):
+def test_desync_error_invalidates_connection_instead_of_rollback(
+    app: object, monkeypatch: object
+) -> None:
     session = _patch_run_dependencies(
         monkeypatch,
         [
@@ -152,7 +156,9 @@ def test_desync_error_invalidates_connection_instead_of_rollback(app, monkeypatc
     assert session.removed == 1
 
 
-def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
+def test_ordinary_error_still_rolls_back_pooled_connection(
+    app: object, monkeypatch: object
+) -> None:
     session = _patch_run_dependencies(
         monkeypatch, ["chunk-1", ValueError("business failure")]
     )
@@ -167,7 +173,7 @@ def test_ordinary_error_still_rolls_back_pooled_connection(app, monkeypatch):
     assert session.removed == 1
 
 
-def test_desync_error_classifier_covers_symptom_family():
+def test_desync_error_classifier_covers_symptom_family() -> None:
     assert _is_protocol_desync_error(ResourceClosedError("no rows"))
     wrapped_2013 = OperationalError(
         "INSERT ...",
@@ -184,7 +190,9 @@ def test_desync_error_classifier_covers_symptom_family():
     assert not _is_protocol_desync_error(wrapped_deadlock)
 
 
-def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatch):
+def test_stop_event_cancellation_invalidates_instead_of_rollback(
+    app: object, monkeypatch: object
+) -> None:
     import threading
 
     session = _patch_run_dependencies(monkeypatch, ["chunk-1"])
@@ -192,7 +200,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     class _TwoRoundContext(_StubRunContext):
         # Two has_next rounds so the stop_event check at the loop boundary
         # fires between them.
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             super().__init__(**kwargs)
             # Each loop round consumes TWO steps: the while condition and the
             # has_next() call inside the log line.
@@ -220,7 +228,7 @@ def test_stop_event_cancellation_invalidates_instead_of_rollback(app, monkeypatc
     assert session.rollbacks == 0
 
 
-def test_natural_exhaustion_never_invalidates(app, monkeypatch):
+def test_natural_exhaustion_never_invalidates(app: object, monkeypatch: object) -> None:
     session = _patch_run_dependencies(monkeypatch, ["chunk-1", "chunk-2"])
 
     with app.app_context():
@@ -233,11 +241,13 @@ def test_natural_exhaustion_never_invalidates(app, monkeypatch):
     assert session.commits >= 1
 
 
-def test_discard_helper_works_on_real_scoped_session(app, caplog):
+def test_discard_helper_works_on_real_scoped_session(
+    app: object, caplog: object
+) -> None:
     import logging
 
     from flaskr.service.learn.runscript_v2 import _discard_session_connection
 
     with app.app_context(), caplog.at_level(logging.WARNING):
-        _discard_session_connection(app, source="real session smoke")
+        _discard_session_connection(source="real session smoke")
     assert "invalidate failed" not in caplog.text

@@ -13,8 +13,8 @@ write path (``admin_operations/voice_clones.py``).
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
 from flaskr.service.tts.models import (
@@ -27,9 +27,14 @@ from flaskr.service.tts.volcengine_voice_clone import (
     is_valid_volcengine_custom_voice_id,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 @dataclass(frozen=True)
 class ClonedVoiceProviderSpec:
+    """Define the specification for cloned voice provider."""
+
     provider: str
     is_valid_custom_voice_id: Callable[[str], bool]
     # Whether strict validation demands a ready DB row. MiniMax keeps its
@@ -55,10 +60,12 @@ _CLONE_PROVIDER_SPECS: dict[str, ClonedVoiceProviderSpec] = {
 
 
 def get_clone_provider_spec(provider: str) -> ClonedVoiceProviderSpec | None:
+    """Return clone provider spec."""
     return _CLONE_PROVIDER_SPECS.get((provider or "").strip().lower())
 
 
 def supports_cloned_voices(provider: str) -> bool:
+    """Return whether this provider supports cloned voices."""
     return get_clone_provider_spec(provider) is not None
 
 

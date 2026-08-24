@@ -1,3 +1,5 @@
+"""Verify billing error specificity behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -24,28 +26,34 @@ class _UnavailableLock:
         return False
 
     def release(self) -> None:  # pragma: no cover - should not be called
-        raise AssertionError("unacquired lock should not be released")
+        message = "unacquired lock should not be released"
+        raise AssertionError(message)
 
 
 class _LockFactory:
-    def lock(self, *_args, **_kwargs):
+    def lock(self, *_args: object, **_kwargs: object) -> object:
         return _UnavailableLock()
 
 
-def test_subscription_checkout_lock_conflict_returns_busy_error(app, monkeypatch):
+def test_subscription_checkout_lock_conflict_returns_busy_error(
+    app: object, monkeypatch: object
+) -> None:
     monkeypatch.setattr(checkout_module.cache_provider, "cache", _LockFactory())
 
+    message = "lock body should not execute"
     with (
         app.app_context(),
         pytest.raises(AppError) as exc_info,
         checkout_module._subscription_checkout_lock(app, "creator-busy"),
     ):
-        raise AssertionError("lock body should not execute")
+        raise AssertionError(message)
 
     assert exc_info.value.code == ERROR_CODE["server.billing.subscriptionCheckoutBusy"]
 
 
-def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch):
+def test_manual_plan_grant_lock_conflict_returns_busy_error(
+    app: object, monkeypatch: object
+) -> None:
     monkeypatch.setattr(manual_plan_grants_module.redis, "lock", _LockFactory().lock)
 
     with pytest.raises(AppError) as exc_info:
@@ -60,7 +68,9 @@ def test_manual_plan_grant_lock_conflict_returns_busy_error(app, monkeypatch):
     assert exc_info.value.code == ERROR_CODE["server.billing.manualPlanGrantBusy"]
 
 
-def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
+def test_manual_credit_grant_failure_returns_specific_error(
+    app: object, monkeypatch: object
+) -> None:
     monkeypatch.setattr(
         manual_credit_grants_module,
         "grant_manual_credit_wallet_balance",
@@ -88,8 +98,8 @@ def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
 
 
 def test_credit_notification_policy_save_failure_returns_specific_error(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     monkeypatch.setattr(
         credit_notifications_module, "add_config", lambda *_, **__: False
     )

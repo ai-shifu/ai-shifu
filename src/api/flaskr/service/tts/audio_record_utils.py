@@ -1,6 +1,6 @@
-from __future__ import annotations
+"""Provide audio record utilities for TTS."""
 
-from typing import Any
+from __future__ import annotations
 
 from flaskr.dao import db
 from flaskr.service.tts.models import (
@@ -22,15 +22,16 @@ def build_completed_audio_record(
     oss_object_key: str,
     duration_ms: int,
     file_size: int,
-    voice_settings: Any,
+    voice_settings: object,
     tts_model: str,
     text_length: int,
     segment_count: int,
-    subtitle_cues: list[dict[str, Any]] | None = None,
+    subtitle_cues: list[dict[str, object]] | None = None,
     position: int = 0,
     audio_format: str = "mp3",
     sample_rate: int = 24000,
 ) -> LearnGeneratedAudio:
+    """Build completed audio record."""
     return LearnGeneratedAudio(
         audio_bid=audio_bid or "",
         generated_block_bid=generated_block_bid or "",
@@ -63,6 +64,7 @@ def build_completed_audio_record(
 def save_audio_record(
     audio_record: LearnGeneratedAudio, *, commit: bool = True
 ) -> None:
+    """Persist audio record."""
     db.session.add(audio_record)
     if commit:
         db.session.commit()

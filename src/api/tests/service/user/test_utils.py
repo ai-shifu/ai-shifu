@@ -1,3 +1,5 @@
+"""Verify user language lookup and operator-role preservation."""
+
 import uuid
 from types import SimpleNamespace
 
@@ -11,19 +13,19 @@ from flaskr.service.user.utils import (
 )
 
 
-def test_get_user_language_supports_language_attribute():
+def test_get_user_language_supports_language_attribute() -> None:
     user = SimpleNamespace(language="zh-CN")
 
     assert get_user_language(user) == "zh-CN"
 
 
-def test_get_user_language_supports_user_language_attribute():
+def test_get_user_language_supports_user_language_attribute() -> None:
     user = SimpleNamespace(user_language="en_US")
 
     assert get_user_language(user) == "en-US"
 
 
-def test_admin_login_auto_grant_keeps_operator_unchanged(app):
+def test_admin_login_auto_grant_keeps_operator_unchanged(app: object) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():

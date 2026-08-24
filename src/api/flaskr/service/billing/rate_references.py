@@ -1,14 +1,20 @@
+"""Handle rate references for creator billing."""
+
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING
 
-from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.common.credit_rate_references import (
     load_llm_credit_1x_unit_cost,
 )
 
+if TYPE_CHECKING:
+    from flaskr.service.billing.models import CreditUsageRate
+
 
 def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
+    """Return rate unit cost."""
     if rate is None:
         return None
     try:
@@ -19,6 +25,7 @@ def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
 
 
 def format_credit_multiplier(value: Decimal | None) -> str | None:
+    """Format credit multiplier."""
     if value is None or value <= 0:
         return None
     rounded = value.quantize(Decimal("0.01"))
@@ -38,6 +45,7 @@ def load_default_llm_reference_cost(default_model: str | None = None) -> Decimal
 
 
 def resolve_llm_rate_identity(model: str) -> tuple[str, list[str]]:
+    """Resolve LLM rate identity."""
     normalized = str(model or "").strip()
     if not normalized:
         return "", []

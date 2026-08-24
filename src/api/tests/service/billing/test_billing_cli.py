@@ -1,8 +1,11 @@
+"""Verify billing backfill commands require explicit scope."""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -53,14 +56,17 @@ from flaskr.util.datetime import now_utc
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_cli_runner():
+def billing_cli_runner() -> object:
     app = Flask(__name__)
     app.testing = True
 
     @app.cli.group()
-    def console():
+    def console() -> None:
         """Test console root."""
 
     register_billing_commands(console)
@@ -68,7 +74,7 @@ def billing_cli_runner():
 
 
 @pytest.fixture
-def billing_cli_db_app():
+def billing_cli_db_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -85,7 +91,7 @@ def billing_cli_db_app():
     dao.db.init_app(app)
 
     @app.cli.group()
-    def console():
+    def console() -> None:
         """Test console root."""
 
     register_billing_commands(console)
@@ -160,7 +166,7 @@ def _seed_billing_cli_course_auth(
 
 
 def test_billing_backfill_settlement_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "backfill-settlement"]
@@ -171,12 +177,12 @@ def test_billing_backfill_settlement_cli_requires_explicit_scope(
 
 
 def test_billing_backfill_settlement_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.backfill_bill_usage_settlement",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "completed",
             "processed_count": 2,
             "backfill": True,
@@ -205,7 +211,7 @@ def test_billing_backfill_settlement_cli_prints_helper_payload(
 
 
 def test_billing_backfill_trial_plans_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "backfill-trial-plans"]
@@ -216,12 +222,12 @@ def test_billing_backfill_trial_plans_cli_requires_explicit_scope(
 
 
 def test_billing_backfill_trial_plans_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.backfill_missing_creator_trial_credits",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "completed",
             "granted_count": 2,
             "kwargs": kwargs,
@@ -247,7 +253,7 @@ def test_billing_backfill_trial_plans_cli_prints_helper_payload(
 
 
 def test_billing_backfill_authoring_permission_creators_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "backfill-authoring-permission-creators"]
@@ -258,12 +264,12 @@ def test_billing_backfill_authoring_permission_creators_cli_requires_explicit_sc
 
 
 def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.backfill_authoring_permission_creators",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "completed",
             "role_granted_count": 1,
             "kwargs": kwargs,
@@ -291,12 +297,12 @@ def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payloa
 
 
 def test_billing_rebuild_wallets_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.rebuild_credit_wallet_snapshots",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "rebuilt",
             "wallet_count": 1,
             "wallets": [{"wallet_bid": "wallet-1"}],
@@ -322,12 +328,12 @@ def test_billing_rebuild_wallets_cli_prints_helper_payload(
 
 
 def test_billing_rebuild_wallets_cli_apply_persists_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.rebuild_credit_wallet_snapshots",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "rebuilt",
             "wallet_count": 1,
             "wallets": [{"wallet_bid": "wallet-1"}],
@@ -353,7 +359,7 @@ def test_billing_rebuild_wallets_cli_apply_persists_helper_payload(
 
 
 def test_billing_repair_topup_expiry_cli_requires_creator_bid(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-topup-expiry"]
@@ -364,12 +370,12 @@ def test_billing_repair_topup_expiry_cli_requires_creator_bid(
 
 
 def test_billing_repair_topup_expiry_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_topup_grant_expiries",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_bucket_count": 1,
             "kwargs": kwargs,
@@ -393,7 +399,7 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
 
 
 def test_billing_restore_expired_topup_buckets_cli_requires_order_bid(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "restore-expired-topup-buckets"]
@@ -407,12 +413,12 @@ def test_billing_restore_expired_topup_buckets_cli_requires_order_bid(
 
 
 def test_billing_restore_expired_topup_buckets_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.restore_wrongly_expired_credit_pack_buckets",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "dry_run",
             "repaired_bucket_count": 2,
             "kwargs": kwargs,
@@ -439,12 +445,12 @@ def test_billing_restore_expired_topup_buckets_cli_prints_helper_payload(
 
 
 def test_billing_restore_expired_topup_buckets_cli_apply_persists_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.restore_wrongly_expired_credit_pack_buckets",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_bucket_count": 1,
             "kwargs": kwargs,
@@ -470,7 +476,7 @@ def test_billing_restore_expired_topup_buckets_cli_apply_persists_payload(
 
 
 def test_billing_repair_bucket_status_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-bucket-status"]
@@ -484,12 +490,12 @@ def test_billing_repair_bucket_status_cli_requires_explicit_scope(
 
 
 def test_billing_repair_bucket_status_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_credit_bucket_runtime_statuses",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_bucket_count": 1,
             "kwargs": kwargs,
@@ -513,7 +519,7 @@ def test_billing_repair_bucket_status_cli_prints_helper_payload(
 
 
 def test_billing_repair_expire_ledger_bucket_drift_cli_requires_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-expire-ledger-bucket-drift"]
@@ -527,12 +533,12 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_requires_scope(
 
 
 def test_billing_repair_expire_ledger_bucket_drift_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_expire_ledger_bucket_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "dry_run",
             "bucket_count": 1,
             "kwargs": kwargs,
@@ -558,12 +564,12 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_prints_helper_payload(
 
 
 def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_expire_ledger_bucket_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "bucket_count": 1,
             "kwargs": kwargs,
@@ -590,7 +596,7 @@ def test_billing_repair_expire_ledger_bucket_drift_cli_apply_persists_payload(
 
 
 def test_billing_repair_renewal_state_drift_cli_requires_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-renewal-state-drift"]
@@ -603,12 +609,12 @@ def test_billing_repair_renewal_state_drift_cli_requires_scope(
 
 
 def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_renewal_state_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "dry_run",
             "creator_count": 1,
             "kwargs": kwargs,
@@ -634,12 +640,12 @@ def test_billing_repair_renewal_state_drift_cli_prints_helper_payload(
 
 
 def test_billing_repair_renewal_state_drift_cli_apply_persists_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_renewal_state_drift",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "creator_count": 10,
             "kwargs": kwargs,
@@ -666,7 +672,7 @@ def test_billing_repair_renewal_state_drift_cli_apply_persists_payload(
 
 
 def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "repair-subscription-cycle"]
@@ -680,12 +686,12 @@ def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
 
 
 def test_billing_repair_subscription_cycle_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.repair_subscription_cycle_mismatches",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "repaired",
             "repaired_subscription_count": 1,
             "kwargs": kwargs,
@@ -709,12 +715,12 @@ def test_billing_repair_subscription_cycle_cli_prints_helper_payload(
 
 
 def test_billing_reconcile_order_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.reconcile_billing_provider_reference",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "paid",
             "bill_order_bid": "bill-order-cli-1",
             "kwargs": kwargs,
@@ -740,12 +746,12 @@ def test_billing_reconcile_order_cli_prints_helper_payload(
 
 
 def test_billing_retry_renewal_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.retry_billing_renewal_event",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "applied",
             "renewal_event_bid": kwargs.get("renewal_event_bid"),
         },
@@ -768,12 +774,12 @@ def test_billing_retry_renewal_cli_prints_helper_payload(
 
 
 def test_billing_requeue_subscription_purchase_sms_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.requeue_subscription_purchase_sms",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "enqueued",
             "bill_order_bid": kwargs.get("bill_order_bid"),
             "enqueued": True,
@@ -798,7 +804,7 @@ def test_billing_requeue_subscription_purchase_sms_cli_prints_helper_payload(
 
 
 def test_billing_rebuild_daily_aggregates_cli_requires_explicit_scope(
-    billing_cli_runner,
+    billing_cli_runner: object,
 ) -> None:
     result = billing_cli_runner.invoke(
         args=["console", "billing", "rebuild-daily-aggregates"]
@@ -809,12 +815,12 @@ def test_billing_rebuild_daily_aggregates_cli_requires_explicit_scope(
 
 
 def test_billing_rebuild_daily_aggregates_cli_prints_helper_payload(
-    billing_cli_runner,
+    billing_cli_runner: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.cli.rebuild_daily_aggregates",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "rebuilt",
             "day_count": 3,
             "kwargs": kwargs,
@@ -1381,7 +1387,7 @@ def test_billing_grant_plan_cli_accepts_explicit_effective_to(
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {
+        lambda _app, *, bill_order_bid: {
             "status": "enqueued",
             "bill_order_bid": bill_order_bid,
             "enqueued": True,
@@ -1454,7 +1460,7 @@ def test_billing_grant_plan_cli_upgrades_active_manual_subscription(
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {
+        lambda _app, *, bill_order_bid: {
             "status": "enqueued",
             "bill_order_bid": bill_order_bid,
             "enqueued": True,
@@ -1562,7 +1568,9 @@ def test_billing_grant_plan_cli_returns_noop_for_same_active_plan_without_sms(
     runner = billing_cli_db_app.test_cli_runner()
 
     def _unexpected_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
-        raise AssertionError(f"unexpected enqueue for {bill_order_bid}")
+        _ = app
+        message = f"unexpected enqueue for {bill_order_bid}"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
@@ -1626,7 +1634,9 @@ def test_billing_grant_plan_cli_rejects_when_provider_managed_subscription_exist
     runner = billing_cli_db_app.test_cli_runner()
 
     def _unexpected_enqueue(app: Flask, *, bill_order_bid: str) -> dict[str, object]:
-        raise AssertionError(f"unexpected enqueue for {bill_order_bid}")
+        _ = app
+        message = f"unexpected enqueue for {bill_order_bid}"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
@@ -1696,7 +1706,7 @@ def test_billing_grant_plan_cli_upgrades_active_pingxx_subscription(
 
     monkeypatch.setattr(
         "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {
+        lambda _app, *, bill_order_bid: {
             "status": "enqueued",
             "bill_order_bid": bill_order_bid,
             "enqueued": True,
@@ -2134,8 +2144,8 @@ def test_billing_provider_price_cli_binds_lists_and_retires_mapping(
 
 @pytest.mark.parametrize("command", ["validate", "activate"])
 def test_billing_provider_price_cli_invalid_validation_exits_nonzero(
-    billing_cli_runner,
-    monkeypatch,
+    billing_cli_runner: object,
+    monkeypatch: object,
     command: str,
 ) -> None:
     def _invalid_payload(provider_price_bid: str) -> dict[str, object]:

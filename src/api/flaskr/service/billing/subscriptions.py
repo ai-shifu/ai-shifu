@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
@@ -159,17 +158,22 @@ from .wallets import (
 )
 
 if TYPE_CHECKING:
+    from flask import Flask
+
     from .dtos import BillingSubscriptionDTO
 
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
 
 def is_self_managed_billing_provider(provider: str | None) -> bool:
+    """Return whether self managed billing provider."""
     return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
 
 
 @dataclass(slots=True, frozen=True)
 class CreditGrantContext:
+    """Carry context for credit grant."""
+
     source_type: int
     bucket_category: int
     priority: int
@@ -178,13 +182,16 @@ class CreditGrantContext:
 
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairRecord:
+    """Record topup expiry repair details."""
+
     wallet_bucket_bid: str
     bill_order_bid: str | None
     previous_effective_to: datetime | None
     effective_to: datetime
     ledger_bids: tuple[str, ...] = ()
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "bill_order_bid": self.bill_order_bid,
@@ -196,6 +203,8 @@ class TopupExpiryRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairResult:
+    """Capture the repair outcome for topup expiry."""
+
     status: str
     creator_bid: str | None
     inspected_bucket_count: int
@@ -204,7 +213,8 @@ class TopupExpiryRepairResult:
     repaired_records: list[TopupExpiryRepairRecord] = field(default_factory=list)
     skipped_bucket_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -215,12 +225,15 @@ class TopupExpiryRepairResult:
             "skipped_bucket_bids": list(self.skipped_bucket_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class SubscriptionCycleRepairRecord:
+    """Record subscription cycle repair details."""
+
     subscription_bid: str
     creator_bid: str
     bill_order_bid: str | None
@@ -231,7 +244,8 @@ class SubscriptionCycleRepairRecord:
     current_period_end_at: datetime
     reason: str
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "subscription_bid": self.subscription_bid,
             "creator_bid": self.creator_bid,
@@ -247,6 +261,8 @@ class SubscriptionCycleRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class SubscriptionCycleRepairResult:
+    """Capture the repair outcome for subscription cycle."""
+
     status: str
     creator_bid: str | None
     subscription_bid: str | None
@@ -255,7 +271,8 @@ class SubscriptionCycleRepairResult:
     repaired_records: list[SubscriptionCycleRepairRecord] = field(default_factory=list)
     skipped_subscription_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -266,7 +283,8 @@ class SubscriptionCycleRepairResult:
             "skipped_subscription_bids": list(self.skipped_subscription_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -301,6 +319,7 @@ def load_effective_topup_subscription(
     *,
     as_of: datetime | None = None,
 ) -> BillingSubscription | None:
+    """Load effective topup subscription."""
     return _load_primary_active_subscription(creator_bid, as_of=as_of)
 
 
@@ -355,11 +374,11 @@ def _load_topup_expiry_subscription_for_bucket(
 
 def _merge_provider_metadata(
     *,
-    existing: Any,
+    existing: object,
     provider: str,
     source: str,
     event_type: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     event_time: datetime | None,
 ) -> JsonObjectMap:
     if isinstance(existing, JsonObjectMap):
@@ -393,7 +412,7 @@ def _resolve_pingxx_renewal_scheduled_at(
 def cancel_billing_subscription(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
     with app.app_context():
@@ -437,7 +456,7 @@ def cancel_billing_subscription(
 def resume_billing_subscription(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
     with app.app_context():
@@ -483,6 +502,7 @@ def ensure_subscription_renewal_order(
     renewal_event_bid: str = "",
     scheduled_at: datetime | None = None,
 ) -> BillingOrder | None:
+    """Ensure subscription renewal order."""
     cycle_start_at = scheduled_at or subscription.current_period_end_at
     provider_name = _normalize_bid(subscription.billing_provider)
     if provider_name == "pingxx" and subscription.current_period_end_at is not None:
@@ -1060,7 +1080,7 @@ def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
         bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
 
 
-def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, Any]:
+def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, object]:
     return _normalize_json_object(
         {
             "bill_order_bid": order.bill_order_bid,
@@ -1776,6 +1796,7 @@ def repair_topup_grant_expiries(
     *,
     creator_bid: str,
 ) -> TopupExpiryRepairResult:
+    """Repair topup grant expiries."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return TopupExpiryRepairResult(
@@ -1925,6 +1946,7 @@ def repair_subscription_cycle_mismatches(
     creator_bid: str = "",
     subscription_bid: str = "",
 ) -> SubscriptionCycleRepairResult:
+    """Repair subscription cycle mismatches."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_subscription_bid = _normalize_bid(subscription_bid)
 

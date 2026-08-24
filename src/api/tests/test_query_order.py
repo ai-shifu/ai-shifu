@@ -1,3 +1,5 @@
+"""Verify order queries preserve stored promotion details."""
+
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -12,7 +14,15 @@ from flaskr.service.promo.consts import (
 from flaskr.service.promo.models import Coupon, CouponUsage
 
 
-def test_query_buy_record_returns_dto(app):
+def _query_promo_applications(items: list[object]) -> object:
+    def query(app: object, order_id: str, recalc_discount: object) -> list[object]:
+        del app, order_id, recalc_discount
+        return items
+
+    return query
+
+
+def test_query_buy_record_returns_dto(app: object) -> None:
     with app.app_context():
         order = Order(
             order_bid="order-query-1",
@@ -31,7 +41,9 @@ def test_query_buy_record_returns_dto(app):
     assert result.course_id == "shifu-query-1"
 
 
-def test_query_buy_record_keeps_stored_discount_for_unpaid_order(app, monkeypatch):
+def test_query_buy_record_keeps_stored_discount_for_unpaid_order(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     with app.app_context():
@@ -50,12 +62,14 @@ def test_query_buy_record_keeps_stored_discount_for_unpaid_order(app, monkeypatc
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, recalc_discount: [
-            SimpleNamespace(
-                discount_amount=Decimal("123.45"),
-                promo_name="spring-promo",
-            )
-        ],
+        _query_promo_applications(
+            [
+                SimpleNamespace(
+                    discount_amount=Decimal("123.45"),
+                    promo_name="spring-promo",
+                )
+            ]
+        ),
     )
 
     result = query_buy_record(app, "order-query-discount-1")
@@ -70,7 +84,9 @@ def test_query_buy_record_keeps_stored_discount_for_unpaid_order(app, monkeypatc
             db.session.commit()
 
 
-def test_query_buy_record_uses_coupon_name_and_code_in_price_item(app, monkeypatch):
+def test_query_buy_record_uses_coupon_name_and_code_in_price_item(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     with app.app_context():
@@ -108,7 +124,7 @@ def test_query_buy_record_uses_coupon_name_and_code_in_price_item(app, monkeypat
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, recalc_discount: [],
+        _query_promo_applications([]),
     )
 
     result = query_buy_record(app, "order-query-coupon-1")
@@ -131,8 +147,8 @@ def test_query_buy_record_uses_coupon_name_and_code_in_price_item(app, monkeypat
 
 
 def test_query_buy_record_does_not_supplement_voided_campaign_redemption(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.order import funs as order_funs
     from flaskr.service.promo.consts import (
         PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
@@ -172,7 +188,7 @@ def test_query_buy_record_does_not_supplement_voided_campaign_redemption(
     monkeypatch.setattr(
         order_funs,
         "query_promo_campaign_applications",
-        lambda _app, _order_id, recalc_discount: [],
+        _query_promo_applications([]),
     )
 
     result = query_buy_record(app, "order-query-voided-promo-1")

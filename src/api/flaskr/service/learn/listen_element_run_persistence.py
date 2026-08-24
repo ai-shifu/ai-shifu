@@ -1,3 +1,5 @@
+"""Persist run-scoped listen-mode elements."""
+
 from __future__ import annotations
 
 import contextlib
@@ -41,7 +43,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.exc import ResourceClosedError
 
 
-def _describe_desynced_connection(result, connection) -> str:
+def _describe_desynced_connection(result: object, connection: object) -> str:
     """Collect protocol-level forensics after a desynced SELECT.
 
     When this SELECT consumes a stale response packet, the DBAPI cursor holds
@@ -103,6 +105,8 @@ def _describe_desynced_connection(result, connection) -> str:
 
 
 class ListenElementRunPersistenceMixin:
+    """Provide persistence operations for listen-mode element runs."""
+
     _ACTIVE_ELEMENT_ROW_ID_SQL = text(
         """
         SELECT id
@@ -521,6 +525,7 @@ class ListenElementRunPersistenceMixin:
         generated_block_bid: str = "",
         is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
+        """Build a non-persisted message element."""
         seq = self._next_seq()
         emitted_event_type = (
             GeneratedType.DONE.value

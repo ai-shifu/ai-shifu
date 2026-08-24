@@ -1,9 +1,11 @@
+"""Verify billing wallet lifecycle repair behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -46,6 +48,9 @@ from flaskr.util.datetime import to_utc_iso
 from tests.service.billing.wallet_lifecycle_test_helpers import (
     create_monthly_plan_product,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 

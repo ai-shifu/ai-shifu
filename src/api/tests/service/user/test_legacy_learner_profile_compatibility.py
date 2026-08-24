@@ -1,3 +1,5 @@
+"""Verify legacy learner profile compatibility behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -64,10 +66,10 @@ def _active_legacy_values(user_bid: str) -> list[VariableValue]:
     ["save", "label", "user-info"],
 )
 def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
-    app,
-    monkeypatch,
-    writer,
-):
+    app: object,
+    monkeypatch: object,
+    writer: object,
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
@@ -94,7 +96,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
         original_first = query_type.first
         reads: list[tuple[str, str, bool, bool]] = []
 
-        def track_first(query):
+        def track_first(query: object) -> object:
             statement = str(query.statement)
             parameters = query.statement.compile().params
             table = (
@@ -141,7 +143,9 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
         assert stored_user.nickname == "After"
 
 
-def test_completed_v2_state_preserves_legacy_profile_read_write_paths(app, monkeypatch):
+def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
+    app: object, monkeypatch: object
+) -> None:
     definitions = [
         SimpleNamespace(
             profile_key="sys_user_background", profile_id="background-variable"
@@ -194,7 +198,9 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(app, monke
         assert profiles["sys_user_style"] == "another style"
 
 
-def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch):
+def test_skipped_v2_state_preserves_legacy_profile_behavior(
+    app: object, monkeypatch: object
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
@@ -219,9 +225,9 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(app, monkeypatch):
 
 
 def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
-    app,
-    monkeypatch,
-):
+    app: object,
+    monkeypatch: object,
+) -> None:
     definitions = [
         SimpleNamespace(
             profile_key="sys_user_nickname",
@@ -304,9 +310,9 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
 
 
 def test_explicit_nickname_uses_existing_runtime_precedence_without_rewriting_legacy_rows(
-    app,
-    monkeypatch,
-):
+    app: object,
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.learner_profile.check_text_content",
         lambda *_args, **_kwargs: True,

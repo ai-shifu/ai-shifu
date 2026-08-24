@@ -1,3 +1,5 @@
+"""Verify billing consistency probes distinguish valid wallet states."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,11 +12,11 @@ from sqlalchemy.orm import sessionmaker
 
 
 class _Db:
-    def __init__(self, session) -> None:
+    def __init__(self, session: object) -> None:
         self.session = session
 
 
-def _build_db():
+def _build_db() -> object:
     engine = create_engine("sqlite:///:memory:")
     session = sessionmaker(bind=engine)()
     session.execute(
@@ -68,13 +70,18 @@ def _build_db():
     return SimpleNamespace(engine=engine, session=session, db=_Db(session))
 
 
-def _args():
+def _args() -> object:
     return argparse.Namespace(limit=20)
 
 
 def _insert_wallet(
-    session, *, wallet_bid: str, creator_bid: str, available: str, reserved: str = "0"
-):
+    session: object,
+    *,
+    wallet_bid: str,
+    creator_bid: str,
+    available: str,
+    reserved: str = "0",
+) -> None:
     session.execute(
         text(
             """
@@ -93,7 +100,7 @@ def _insert_wallet(
 
 
 def _insert_bucket(
-    session,
+    session: object,
     *,
     wallet_bid: str,
     creator_bid: str,
@@ -103,7 +110,7 @@ def _insert_bucket(
     source_type: int = 7411,
     effective_from: datetime,
     effective_to: datetime | None = None,
-):
+) -> None:
     session.execute(
         text(
             """
@@ -145,7 +152,9 @@ def _insert_bucket(
     )
 
 
-def _insert_active_subscription(session, *, creator_bid: str, now: datetime):
+def _insert_active_subscription(
+    session: object, *, creator_bid: str, now: datetime
+) -> None:
     session.execute(
         text(
             """
@@ -166,7 +175,7 @@ def _insert_active_subscription(session, *, creator_bid: str, now: datetime):
     )
 
 
-def _probe(env, *, now: datetime):
+def _probe(env: object, *, now: datetime) -> object:
     return probe_wallet_snapshot(
         env.db,
         inspect(env.engine),
@@ -176,7 +185,7 @@ def _probe(env, *, now: datetime):
     )
 
 
-def test_wallet_snapshot_probe_uses_current_consumable_bucket_total():
+def test_wallet_snapshot_probe_uses_current_consumable_bucket_total() -> None:
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(
@@ -204,7 +213,7 @@ def test_wallet_snapshot_probe_uses_current_consumable_bucket_total():
     assert result["sample"][0]["current_consumable_bucket_available_credits"] == 0
 
 
-def test_wallet_snapshot_probe_allows_manual_grants_without_subscription():
+def test_wallet_snapshot_probe_allows_manual_grants_without_subscription() -> None:
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(
@@ -230,7 +239,7 @@ def test_wallet_snapshot_probe_allows_manual_grants_without_subscription():
     assert result["findings_count"] == 0
 
 
-def test_wallet_snapshot_probe_counts_reserved_future_buckets_separately():
+def test_wallet_snapshot_probe_counts_reserved_future_buckets_separately() -> None:
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(
@@ -258,7 +267,9 @@ def test_wallet_snapshot_probe_counts_reserved_future_buckets_separately():
     assert result["findings_count"] == 0
 
 
-def test_wallet_snapshot_probe_allows_subscription_and_topup_with_active_subscription():
+def test_wallet_snapshot_probe_allows_subscription_and_topup_with_active_subscription() -> (
+    None
+):
     now = datetime(2026, 7, 19, 12, 0, 0)
     env = _build_db()
     _insert_wallet(

@@ -1,3 +1,5 @@
+"""Verify billing cycle transitions behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -18,8 +20,9 @@ from flaskr.service.billing.cycle_transitions import (
 )
 
 
-def _raise_unexpected_call(*_args, **_kwargs):
-    raise AssertionError("unexpected callback call")
+def _raise_unexpected_call(*_args: object, **_kwargs: object) -> None:
+    message = "unexpected callback call"
+    raise AssertionError(message)
 
 
 def test_resolve_order_effective_from_prefers_order_cycle_metadata() -> None:
@@ -184,10 +187,10 @@ def test_resolve_order_effective_to_uses_topup_subscription_window() -> None:
         product=product,
         effective_from=effective_from,
         load_subscription_by_bid=lambda _: None,
-        resolve_topup_effective_to=lambda creator_bid, from_at: effective_to,
+        resolve_topup_effective_to=lambda _creator_bid, _from_at: effective_to,
         is_self_managed_order=lambda _: False,
-        calculate_provider_cycle_end=lambda _, cycle_start_at: None,
-        calculate_self_managed_cycle_end=lambda _, cycle_start_at: None,
+        calculate_provider_cycle_end=lambda _, _cycle_start_at: None,
+        calculate_self_managed_cycle_end=lambda _, _cycle_start_at: None,
     )
 
     assert resolved == effective_to
@@ -213,7 +216,7 @@ def test_resolve_order_effective_to_prefers_topup_window_over_order_metadata() -
         product=product,
         effective_from=effective_from,
         load_subscription_by_bid=_raise_unexpected_call,
-        resolve_topup_effective_to=lambda creator_bid, from_at: topup_effective_to,
+        resolve_topup_effective_to=lambda _creator_bid, _from_at: topup_effective_to,
         is_self_managed_order=_raise_unexpected_call,
         calculate_provider_cycle_end=_raise_unexpected_call,
         calculate_self_managed_cycle_end=_raise_unexpected_call,
@@ -307,10 +310,10 @@ def test_resolve_order_effective_to_prefers_existing_subscription_start_window()
         product=product,
         effective_from=effective_from,
         load_subscription_by_bid=lambda _: subscription,
-        resolve_topup_effective_to=lambda creator_bid, from_at: None,
+        resolve_topup_effective_to=lambda _creator_bid, _from_at: None,
         is_self_managed_order=lambda _: False,
-        calculate_provider_cycle_end=lambda _, cycle_start_at: None,
-        calculate_self_managed_cycle_end=lambda _, cycle_start_at: None,
+        calculate_provider_cycle_end=lambda _, _cycle_start_at: None,
+        calculate_self_managed_cycle_end=lambda _, _cycle_start_at: None,
     )
 
     assert resolved == effective_to
@@ -339,9 +342,9 @@ def test_resolve_order_effective_to_ignores_invalid_subscription_start_window() 
         product=product,
         effective_from=effective_from,
         load_subscription_by_bid=lambda _: subscription,
-        resolve_topup_effective_to=lambda creator_bid, from_at: None,
+        resolve_topup_effective_to=lambda _creator_bid, _from_at: None,
         is_self_managed_order=lambda _: False,
-        calculate_provider_cycle_end=lambda _, cycle_start_at: calculated_effective_to,
+        calculate_provider_cycle_end=lambda _, _cycle_start_at: calculated_effective_to,
         calculate_self_managed_cycle_end=_raise_unexpected_call,
     )
 
@@ -367,10 +370,10 @@ def test_resolve_order_effective_to_uses_provider_cycle_calculator() -> None:
         product=product,
         effective_from=effective_from,
         load_subscription_by_bid=lambda _: None,
-        resolve_topup_effective_to=lambda creator_bid, from_at: None,
+        resolve_topup_effective_to=lambda _creator_bid, _from_at: None,
         is_self_managed_order=lambda _: False,
-        calculate_provider_cycle_end=lambda _, cycle_start_at: effective_to,
-        calculate_self_managed_cycle_end=lambda _, cycle_start_at: None,
+        calculate_provider_cycle_end=lambda _, _cycle_start_at: effective_to,
+        calculate_self_managed_cycle_end=lambda _, _cycle_start_at: None,
     )
 
     assert resolved == effective_to
@@ -461,7 +464,7 @@ def test_resolve_order_effective_to_uses_self_managed_calculator(
         resolve_topup_effective_to=_raise_unexpected_call,
         is_self_managed_order=lambda _: True,
         calculate_provider_cycle_end=_raise_unexpected_call,
-        calculate_self_managed_cycle_end=lambda _, cycle_start_at: effective_to,
+        calculate_self_managed_cycle_end=lambda _, _cycle_start_at: effective_to,
     )
 
     assert resolved == effective_to

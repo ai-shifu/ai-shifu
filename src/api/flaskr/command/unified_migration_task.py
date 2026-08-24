@@ -40,7 +40,8 @@ def _quote_identifier(name: str) -> str:
     unexpected value fails loudly instead of reaching the database.
     """
     if not _IDENTIFIER_PATTERN.fullmatch(name or ""):
-        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+        message = f"Unsafe SQL identifier: {name!r}"
+        raise ValueError(message)
     return f"`{name}`"
 
 
@@ -96,10 +97,12 @@ class ConsistencyCheckResult:
 
     @property
     def count_match(self) -> bool:
+        """Return whether the source and destination counts match."""
         return self.old_count == self.new_count
 
     @property
     def is_consistent(self) -> bool:
+        """Return whether all consistency checks pass."""
         return self.count_match and self.sample_integrity_passed
 
 
@@ -128,6 +131,12 @@ class UnifiedMigrationTask:
         database_url: str | None = None,
         config: MigrationConfig | None = None,
     ) -> None:
+        """Initialize database resources and mappings for a migration run.
+
+        Resolves a default database URL when needed, normalizes MySQL URLs to the
+        PyMySQL driver, and creates the SQLAlchemy engine and session factory.
+        Registers the study and coupon table mappings used by migration commands.
+        """
         if database_url is None:
             database_url = _resolve_default_database_url()
 
@@ -330,7 +339,7 @@ class UnifiedMigrationTask:
         self,
         source_table: str,
         target_table: str,
-        mapping_func,
+        mapping_func: object,
         key_field: str,
         target_key: str,
         offset: int,
@@ -354,7 +363,7 @@ class UnifiedMigrationTask:
         self,
         source_table: str,
         target_table: str,
-        mapping_func,
+        mapping_func: object,
         key_field: str,
         target_key: str,
         offset: int,
@@ -490,9 +499,8 @@ class UnifiedMigrationTask:
                     if (
                         error_count > self.config.batch_size * 0.5
                     ):  # If more than 50% errors
-                        raise MigrationBatchError(
-                            f"Too many errors in batch: {error_count}"
-                        ) from e
+                        message = f"Too many errors in batch: {error_count}"
+                        raise MigrationBatchError(message) from e
 
             # Commit the batch
             session.commit()
@@ -519,7 +527,9 @@ class UnifiedMigrationTask:
         finally:
             session.close()
 
-    async def verify_data_consistency(self) -> dict[str, ConsistencyCheckResult]:
+    async def verify_data_consistency(
+        self,
+    ) -> dict[str, ConsistencyCheckResult]:
         """Verify data consistency between old and new tables."""
         logger.info("Starting comprehensive data consistency verification...")
 
@@ -577,7 +587,11 @@ class UnifiedMigrationTask:
         return results
 
     async def _verify_sample_integrity_async(
-        self, source_table: str, target_table: str, key_field: str, target_key: str
+        self,
+        source_table: str,
+        target_table: str,
+        key_field: str,
+        target_key: str,
     ) -> tuple[bool, list[str]]:
         """Verify data integrity using random sampling."""
         session = self.SessionClass()
@@ -640,7 +654,7 @@ class UnifiedMigrationTask:
             session.close()
 
     def _verify_record_mapping(
-        self, source_table: str, source_record, target_record
+        self, source_table: str, source_record: object, target_record: object
     ) -> bool:
         """Verify specific field mappings for a record."""
         try:
@@ -669,7 +683,7 @@ class UnifiedMigrationTask:
             return True  # Basic existence check for other tables
 
     # Table mapping functions
-    def _map_attendscript_to_progress_record(self, record) -> dict:
+    def _map_attendscript_to_progress_record(self, record: object) -> dict:
         """Map ai_course_lesson_attend to learn_progress_records."""
         return {
             "progress_record_bid": getattr(record, "attend_id", ""),
@@ -684,7 +698,7 @@ class UnifiedMigrationTask:
             "updated_at": getattr(record, "updated", None),
         }
 
-    def _map_log_script_to_generated_block(self, record) -> dict:
+    def _map_log_script_to_generated_block(self, record: object) -> dict:
         """Map ai_course_lesson_attendscript to learn_generated_blocks."""
         return {
             "generated_block_bid": getattr(record, "log_id", ""),
@@ -705,7 +719,7 @@ class UnifiedMigrationTask:
             "updated_at": getattr(record, "updated", None),
         }
 
-    def _map_discount_to_coupon(self, record) -> dict:
+    def _map_discount_to_coupon(self, record: object) -> dict:
         """Map discount to promo_coupons."""
         return {
             "coupon_bid": record.discount_id,
@@ -726,7 +740,7 @@ class UnifiedMigrationTask:
             "updated_at": record.updated,
         }
 
-    def _map_discount_log_to_usage(self, record) -> dict:
+    def _map_discount_log_to_usage(self, record: object) -> dict:
         """Map discount_use_log to promo_coupon_usages."""
         return {
             "coupon_usage_bid": record.record_id,
@@ -766,7 +780,7 @@ class UnifiedMigrationTask:
             session.close()
 
     def _get_table_count_with_session(
-        self, session, table_name: str, where_clause: str = ""
+        self, session: object, table_name: str, where_clause: str = ""
     ) -> int:
         """Get table record count using provided session."""
         # Validated outside the try so an unsafe identifier is not reported as
@@ -784,7 +798,7 @@ class UnifiedMigrationTask:
             return count or 0
 
     def _check_column_exists_with_session(
-        self, session, table_name: str, column_name: str
+        self, session: object, table_name: str, column_name: str
     ) -> bool:
         """Check if column exists in table."""
         try:
@@ -844,7 +858,9 @@ class UnifiedMigrationTask:
         finally:
             session.close()
 
-    def _get_last_sync_time_with_session(self, session, sync_type: str) -> datetime:
+    def _get_last_sync_time_with_session(
+        self, session: object, sync_type: str
+    ) -> datetime:
         """Get last sync time from log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -861,7 +877,7 @@ class UnifiedMigrationTask:
             logger.warning("Error getting sync time: %s", e)
             return datetime(2020, 1, 1)
 
-    def _get_last_synced_id_with_session(self, session, sync_type: str) -> int:
+    def _get_last_synced_id_with_session(self, session: object, sync_type: str) -> int:
         """Get last synced ID from log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -878,7 +894,7 @@ class UnifiedMigrationTask:
             logger.warning("Error getting last synced ID: %s", e)
             return 0
 
-    def _update_sync_time(self, sync_type: str, sync_time: datetime):
+    def _update_sync_time(self, sync_type: str, sync_time: datetime) -> None:
         """Update sync time in log table."""
         session = self.SessionClass()
         try:
@@ -887,8 +903,8 @@ class UnifiedMigrationTask:
             session.close()
 
     def _update_sync_time_with_session(
-        self, session, sync_type: str, sync_time: datetime
-    ):
+        self, session: object, sync_type: str, sync_time: datetime
+    ) -> None:
         """Update sync time in log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -904,8 +920,8 @@ class UnifiedMigrationTask:
             logger.warning("Error updating sync time: %s", e)
 
     def _update_last_synced_id_with_session(
-        self, session, sync_type: str, last_synced_id: int
-    ):
+        self, session: object, sync_type: str, last_synced_id: int
+    ) -> None:
         """Update last synced ID in log table using provided session."""
         try:
             self._ensure_sync_log_table_with_session(session)
@@ -920,7 +936,7 @@ class UnifiedMigrationTask:
         except Exception as e:
             logger.warning("Error updating last synced ID: %s", e)
 
-    def _ensure_sync_log_table(self):
+    def _ensure_sync_log_table(self) -> None:
         """Ensure sync log table exists."""
         session = self.SessionClass()
         try:
@@ -928,7 +944,7 @@ class UnifiedMigrationTask:
         finally:
             session.close()
 
-    def _ensure_sync_log_table_with_session(self, session):
+    def _ensure_sync_log_table_with_session(self, session: object) -> None:
         """Ensure sync log table exists using provided session."""
         try:
             session.execute(
@@ -1055,13 +1071,13 @@ class UnifiedMigrationTask:
 
         return "\n".join(report)
 
-    def close(self):
+    def close(self) -> None:
         """Close database connections."""
         if self.engine:
             self.engine.dispose()
 
 
-async def main():
+async def main() -> None:
     """Run the unified migration task."""
     import argparse
 

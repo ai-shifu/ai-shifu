@@ -1,7 +1,7 @@
 """Mock validators for testing configuration validation."""
 
 
-def mock_port_validator(value):
+def mock_port_validator(value: object) -> object:
     """Mock port validator that accepts 1-65535."""
     try:
         port = int(value)
@@ -11,7 +11,7 @@ def mock_port_validator(value):
         return 1 <= port <= 65535
 
 
-def mock_email_validator(value):
+def mock_email_validator(value: object) -> object:
     """Mock email validator with simple regex."""
     import re
 
@@ -21,20 +21,22 @@ def mock_email_validator(value):
     return bool(re.match(pattern, str(value)))
 
 
-def always_fail_validator(value):
+def always_fail_validator(value: object) -> object:
     """Fail validation always (test helper)."""
+    _ = value
     return False
 
 
-def always_pass_validator(value):
+def always_pass_validator(value: object) -> object:
     """Pass validation always (test helper)."""
+    _ = value
     return True
 
 
-def range_validator(min_val, max_val):
+def range_validator(min_val: object, max_val: object) -> object:
     """Create a range validator for numeric values."""
 
-    def validator(value):
+    def validator(value: object) -> object:
         try:
             num = float(value)
         except (ValueError, TypeError):
@@ -45,10 +47,10 @@ def range_validator(min_val, max_val):
     return validator
 
 
-def string_length_validator(min_len=0, max_len=100):
+def string_length_validator(min_len: object = 0, max_len: object = 100) -> object:
     """Create a string length validator."""
 
-    def validator(value):
+    def validator(value: object) -> object:
         if value is None:
             return False
         s = str(value)
@@ -57,13 +59,13 @@ def string_length_validator(min_len=0, max_len=100):
     return validator
 
 
-def regex_validator(pattern):
+def regex_validator(pattern: object) -> object:
     """Create a regex-based validator."""
     import re
 
     compiled = re.compile(pattern)
 
-    def validator(value):
+    def validator(value: object) -> object:
         if value is None:
             return False
         return bool(compiled.match(str(value)))
@@ -71,7 +73,7 @@ def regex_validator(pattern):
     return validator
 
 
-def url_validator(value):
+def url_validator(value: object) -> object:
     """Mock URL validator."""
     import re
 
@@ -89,10 +91,11 @@ def url_validator(value):
     return bool(url_pattern.match(str(value)))
 
 
-def dependency_validator(depends_on_key):
+def dependency_validator(depends_on_key: object) -> object:
     """Create a validator that checks if another config key is set."""
+    _ = depends_on_key
 
-    def validator(value):
+    def validator(value: object) -> object:
         # In real usage, this would check if depends_on_key is configured
         # For testing, we just check if value is not empty
         return bool(value)

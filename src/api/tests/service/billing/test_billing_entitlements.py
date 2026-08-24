@@ -1,3 +1,5 @@
+"""Verify billing entitlements behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -53,7 +55,7 @@ def billing_entitlement_app() -> Flask:
         dao.db.drop_all()
 
 
-def _seed_products_with_yearly_entitlements():
+def _seed_products_with_yearly_entitlements() -> object:
     return build_bill_products(
         overrides_by_bid={
             "bill-product-plan-yearly": {

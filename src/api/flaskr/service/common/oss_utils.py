@@ -1,10 +1,11 @@
+"""Provide OSS utilities for shared backend behavior."""
+
 from __future__ import annotations
 
 import json
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
 import requests
 
@@ -15,6 +16,9 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from flaskr.service.common.models import raise_error, raise_error_with_args
 from flaskr.service.config import get_config
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 OSS_PROFILE_DEFAULT = "default"
 OSS_PROFILE_COURSES = "courses"
@@ -39,6 +43,8 @@ _OSS_CONFIG_KEYS: Mapping[str, Mapping[str, str]] = {
 
 @dataclass(frozen=True)
 class OSSConfig:
+    """Describe credentials and endpoints for OSS storage."""
+
     endpoint: str
     access_key_id: str
     access_key_secret: str
@@ -47,10 +53,12 @@ class OSSConfig:
 
 
 def get_oss_config(profile: str = OSS_PROFILE_DEFAULT) -> OSSConfig:
+    """Return OSS config."""
     profile = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
     keys = _OSS_CONFIG_KEYS.get(profile)
     if not keys:
-        raise ValueError(f"Unknown OSS profile: {profile}")
+        message = f"Unknown OSS profile: {profile}"
+        raise ValueError(message)
 
     endpoint = get_config(keys["endpoint"]) or ""
     access_key_id = get_config(keys["access_key_id"]) or ""
@@ -94,18 +102,22 @@ def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
 
 
 def create_oss_bucket(config: OSSConfig) -> oss2.Bucket:
+    """Create OSS bucket."""
     if oss2 is None:  # pragma: no cover
-        raise RuntimeError("oss2 dependency is not installed")
+        message = "oss2 dependency is not installed"
+        raise RuntimeError(message)
     auth = oss2.Auth(config.access_key_id, config.access_key_secret)
     return oss2.Bucket(auth, config.endpoint, config.bucket)
 
 
 def build_oss_url(config: OSSConfig, object_key: str) -> str:
+    """Build OSS URL."""
     base = (config.base_url or "").rstrip("/")
     return f"{base}/{object_key}"
 
 
 def get_image_content_type(filename: str) -> str:
+    """Return image content type."""
     extension = filename.rsplit(".", 1)[1].lower()
     if extension in ["jpg", "jpeg"]:
         return "image/jpeg"
@@ -117,7 +129,7 @@ def get_image_content_type(filename: str) -> str:
     return None
 
 
-def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
+def warm_up_cdn(app: object, url: str, config: OSSConfig) -> bool:
     """Warm up a CDN URL."""
     try:
         from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
@@ -204,9 +216,9 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
 
 
 def upload_to_oss(
-    app: Any,
+    app: object,
     *,
-    file_content: Any,
+    file_content: object,
     file_id: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,
@@ -214,6 +226,7 @@ def upload_to_oss(
     bucket: oss2.Bucket | None = None,
     warm_up: bool = True,
 ) -> tuple[str, str]:
+    """Upload to OSS."""
     resolved_config = config or get_oss_config(profile)
     resolved_bucket = bucket or create_oss_bucket(resolved_config)
 

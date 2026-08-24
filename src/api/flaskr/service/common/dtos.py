@@ -1,3 +1,5 @@
+"""Define DTOs for shared backend behavior."""
+
 import math
 
 from flaskr.common.swagger import register_schema_to_swagger
@@ -19,6 +21,8 @@ USE_STATE_VALUES = {
 
 @register_schema_to_swagger
 class UserInfo:
+    """Represent user identity details in API responses."""
+
     user_id: str
     username: str
     name: str
@@ -32,18 +36,19 @@ class UserInfo:
 
     def __init__(
         self,
-        user_id,
-        username,
-        name,
-        email,
-        mobile,
-        user_state,
-        wx_openid,
-        language,
-        user_avatar=None,
-        is_creator=False,
-        is_operator=False,
+        user_id: object,
+        username: object,
+        name: object,
+        email: object,
+        mobile: object,
+        user_state: object,
+        wx_openid: object,
+        language: object,
+        user_avatar: object = None,
+        is_creator: object = False,
+        is_operator: object = False,
     ) -> None:
+        """Build a serialized user-information payload."""
         self.user_id = user_id
         self.username = username
         self.name = name
@@ -59,6 +64,7 @@ class UserInfo:
         self.is_operator = is_operator
 
     def __json__(self) -> dict:
+        """Return the user information as JSON-compatible data."""
         return {
             "user_id": self.user_id,
             "username": self.username,
@@ -74,19 +80,24 @@ class UserInfo:
         }
 
     def __html__(self) -> dict:
+        """Return the serialized user-information payload."""
         return self.__json__()
 
 
 @register_schema_to_swagger
 class UserToken:
-    userInfo: UserInfo
+    """Represent an issued user token in API responses."""
+
+    userInfo: UserInfo  # noqa: N815 - exact serialized and Swagger field name
     token: str
 
-    def __init__(self, userInfo: UserInfo, token) -> None:  # noqa: N803 - mirrors the serialized field name
-        self.userInfo = userInfo
+    def __init__(self, user_info: UserInfo, token: object) -> None:
+        """Pair serialized user information with its access token."""
+        self.userInfo = user_info
         self.token = token
 
     def __json__(self) -> dict:
+        """Return the user token as JSON-compatible data."""
         return {
             "userInfo": self.userInfo,
             "token": self.token,
@@ -95,14 +106,18 @@ class UserToken:
 
 @register_schema_to_swagger
 class OAuthStartDTO:
+    """Represent the API payload that starts an OAuth flow."""
+
     authorization_url: str
     state: str
 
     def __init__(self, authorization_url: str, state: str) -> None:
+        """Build an OAuth authorization-start payload."""
         self.authorization_url = authorization_url
         self.state = state
 
     def __json__(self) -> dict:
+        """Return the OAuth start response as JSON-compatible data."""
         return {
             "authorization_url": self.authorization_url,
             "state": self.state,
@@ -111,13 +126,16 @@ class OAuthStartDTO:
 
 @register_schema_to_swagger
 class PageNationDTO(BaseModel):
+    """Represent pagination metadata in API responses."""
+
     page: int = Field(..., description="page")
     page_size: int = Field(..., description="page_size")
     total: int = Field(..., description="total")
     page_count: int = Field(..., description="page_count")
     data: list = Field(..., description="data")
 
-    def __init__(self, page: int, page_size: int, total: int, data) -> None:
+    def __init__(self, page: int, page_size: int, total: int, data: object) -> None:
+        """Build a paginated response payload."""
         super().__init__(
             page=page,
             page_count=math.ceil(total / page_size if page_size > 0 else 0),
@@ -132,6 +150,7 @@ class PageNationDTO(BaseModel):
         self.data = data
 
     def __json__(self) -> dict:
+        """Return the paginated response as JSON-compatible data."""
         return {
             "page": self.page,
             "page_size": self.page_size,

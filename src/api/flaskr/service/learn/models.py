@@ -1,3 +1,5 @@
+"""Define persistence models for learning sessions."""
+
 from typing import ClassVar
 
 from flaskr.dao import db

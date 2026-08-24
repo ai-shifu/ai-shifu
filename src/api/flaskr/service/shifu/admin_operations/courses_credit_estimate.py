@@ -5,10 +5,9 @@ from __future__ import annotations
 import contextlib
 import re
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import ROUND_CEILING, Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.api.llm import get_current_models
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.service.billing.api import (
@@ -35,8 +34,13 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationEstimatedCreditCostDTO,
     AdminOperationEstimatedCreditModeDTO,
 )
-from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
+    from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
 _ZERO = Decimal(0)
 _MARKDOWN_CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
@@ -500,10 +504,11 @@ def _build_mode(
 def build_operator_course_estimated_credit_cost(
     app: Flask,
     *,
-    course,
+    course: object,
     outline_items: list[DraftOutlineItem | PublishedOutlineItem],
     visible_leaf_outline_bids: list[str] | set[str],
 ) -> AdminOperationEstimatedCreditCostDTO:
+    """Build operator course estimated credit cost."""
     calculated_at = now_utc()
     rate_cache: dict = {}
     item_map = {

@@ -1,15 +1,19 @@
+"""Handle admin target users for creator billing."""
+
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.common.contact_identifiers import (
     resolve_contact_lookup_providers,
     resolve_contact_type,
     validate_contact_identifier,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def resolve_admin_entitlement_grant_target(
@@ -18,6 +22,7 @@ def resolve_admin_entitlement_grant_target(
     creator_bid: str,
     creator_mobile: str,
 ) -> tuple[str, bool, bool]:
+    """Resolve admin entitlement grant target."""
     normalized_creator_bid = str(creator_bid or "").strip()
     if normalized_creator_bid:
         return normalized_creator_bid, False, False
@@ -86,6 +91,7 @@ def resolve_existing_admin_billing_target_user_bid(
     creator_bid: str,
     creator_mobile: str,
 ) -> str:
+    """Resolve existing admin billing target user BID."""
     normalized_creator_bid = str(creator_bid or "").strip()
     if normalized_creator_bid:
         return normalized_creator_bid
@@ -108,6 +114,7 @@ def run_admin_creator_granted_post_auth(
     created_new_user: bool,
     source: str = "billing_admin_entitlement_grant",
 ) -> None:
+    """Run admin creator granted post auth."""
     _user_utils().run_creator_granted_post_auth(
         app,
         user_id=user_id,
@@ -132,13 +139,13 @@ def _resolve_creator_contact(creator_contact: str) -> tuple[str, str]:
     return contact_type, normalized_creator_contact
 
 
-def _user_repository() -> Any:
+def _user_repository() -> object:
     return import_module("flaskr.service.user.repository")
 
 
-def _user_utils() -> Any:
+def _user_utils() -> object:
     return import_module("flaskr.service.user.utils")
 
 
-def _user_consts() -> Any:
+def _user_consts() -> object:
     return import_module("flaskr.service.user.consts")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
 
 from .consts import (
     BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
@@ -24,6 +24,9 @@ from .entitlements import (
     serialize_creator_entitlements,
 )
 from .primitives import normalize_bid
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def build_runtime_billing_context(
@@ -96,7 +99,7 @@ def build_default_runtime_billing_context(
 
 
 def _build_branding_payload(
-    entitlement_state,
+    entitlement_state: object,
 ) -> RuntimeBillingBrandingDTO:
     normalized_feature_payload = entitlement_state.feature_payload.to_metadata_json()
 

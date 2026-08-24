@@ -1,3 +1,5 @@
+"""Verify billing v11 upgrade validation behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -80,7 +82,7 @@ def test_billing_v11_upgrade_can_backfill_new_views_from_v1_source_rows(
     now = datetime(2026, 4, 8, 12, 0, 0)
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-upgrade-1",
+        lambda _app, _usage: "creator-upgrade-1",
     )
 
     with billing_v11_upgrade_app.app_context():

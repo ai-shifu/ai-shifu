@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from decimal import Decimal
 
 
 @dataclass(slots=True, frozen=True)
 class InviteProfileDTO:
+    """Represent the invite profile API payload."""
+
     campaign_bid: str
     campaign_code: str
     invite_code: str
@@ -28,6 +32,7 @@ class InviteProfileDTO:
 
     @classmethod
     def unavailable(cls) -> InviteProfileDTO:
+        """Create an invite profile that is unavailable."""
         return cls(
             campaign_bid="",
             campaign_code="",
@@ -45,6 +50,7 @@ class InviteProfileDTO:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "available": self.available,
             "campaign_bid": self.campaign_bid,
@@ -71,11 +77,14 @@ class InviteProfileDTO:
 
 @dataclass(slots=True, frozen=True)
 class InvitePreviewDTO:
+    """Represent the invite preview API payload."""
+
     recognized: bool
     invite_code: str = ""
     inviter_mobile_masked: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "recognized": self.recognized,
             "invite_code": self.invite_code,

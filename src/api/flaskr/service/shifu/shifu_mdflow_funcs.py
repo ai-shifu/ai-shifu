@@ -1,3 +1,5 @@
+"""Translate course content to and from MarkdownFlow."""
+
 from datetime import timedelta
 from typing import TypedDict
 
@@ -42,11 +44,15 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
 
 
 class DraftConflictResult(TypedDict):
+    """Capture the outcome of draft conflict."""
+
     conflict: bool
     meta: dict
 
 
 class DraftSaveResult(TypedDict):
+    """Capture the outcome of draft save."""
+
     conflict: bool
     new_revision: int
 
@@ -64,7 +70,8 @@ def cleanup_outline_history_versions(
     keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
     keep_days: int = LESSON_HISTORY_MAX_DAYS,
 ) -> None:
-    """Keep outline version history bounded:
+    """Keep outline version history bounded.
+
     - trim to around `keep_versions` latest non-deleted versions
     - trim to around `keep_days` days of non-deleted versions
     To keep outline-level revision stable for metadata-only updates, this
@@ -72,6 +79,7 @@ def cleanup_outline_history_versions(
     content-anchor version. Therefore, actual retained rows can exceed strict
     limits by protected anchor rows.
     """
+    _ = app
     latest_version = (
         DraftOutlineItem.query.filter(
             DraftOutlineItem.shifu_bid == shifu_bid,
@@ -311,6 +319,7 @@ def get_shifu_mdflow_history(
     limit: int = 100,
 ) -> dict:
     """Get lesson content history for a specific outline.
+
     Only keep versions where markdown content actually changed.
     """
     with app.app_context():

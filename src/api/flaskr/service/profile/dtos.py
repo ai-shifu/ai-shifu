@@ -1,3 +1,5 @@
+"""Define DTOs for learner profiles."""
+
 import json
 
 from flaskr.common.swagger import register_schema_to_swagger
@@ -5,22 +7,29 @@ from flaskr.common.swagger import register_schema_to_swagger
 
 @register_schema_to_swagger
 class ColorSetting:
+    """Describe colors used to render a profile item."""
+
     color: str  # the background color of the profile item
     text_color: str  # the text color of the profile item
 
     def __init__(self, color: str, text_color: str) -> None:
+        """Capture profile foreground and background colors."""
         self.color = color
         self.text_color = text_color
 
     def __json__(self) -> dict:
+        """Return the color setting as JSON-compatible data."""
         return {"color": self.color, "text_color": self.text_color}
 
     def __str__(self) -> str:
+        """Return the color settings as JSON text."""
         return json.dumps(self.__json__(), ensure_ascii=True)
 
 
 @register_schema_to_swagger
 class ProfileItemDefinition:
+    """Define profile item."""
+
     profile_key: str  # the key of the profile item and could be used in prompt
     color_setting: ColorSetting  # the color setting of the profile item
     profile_type: str  # the type of the profile item, could be text or option
@@ -42,6 +51,7 @@ class ProfileItemDefinition:
         profile_id: str,
         is_hidden: bool = False,
     ) -> None:
+        """Build a profile-field definition."""
         self.profile_key = profile_key
         self.color_setting = color_setting
         self.profile_type = profile_type
@@ -53,6 +63,7 @@ class ProfileItemDefinition:
         self.is_hidden = is_hidden
 
     def __json__(self) -> dict:
+        """Return the profile item definition as JSON-compatible data."""
         return {
             "profile_key": self.profile_key,
             "color_setting": self.color_setting,
@@ -66,6 +77,7 @@ class ProfileItemDefinition:
         }
 
     def __str__(self) -> str:
+        """Return the profile definition mapping as text."""
         return str(self.__json__())
 
 
@@ -87,27 +99,35 @@ DEFAULT_COLOR_SETTINGS = [
 
 @register_schema_to_swagger
 class ProfileValueDto:
+    """Represent the profile value API payload."""
+
     name: str
     value: str
 
     def __init__(self, name: str, value: str) -> None:
+        """Build a profile name-value payload."""
         self.name = name
         self.value = value
 
     def __json__(self) -> dict:
+        """Return the profile value as JSON-compatible data."""
         return {"name": self.name, "value": self.value}
 
 
 @register_schema_to_swagger
 class ProfileToSave:
+    """Carry profile values queued for persistence."""
+
     key: str
     value: str
     bid: str
 
     def __init__(self, key: str, value: str, bid: str) -> None:
+        """Capture a profile value pending persistence."""
         self.key = key
         self.value = value
         self.bid = bid
 
     def __json__(self) -> dict:
+        """Return the pending profile value as JSON-compatible data."""
         return {"key": self.key, "value": self.value, "bid": self.bid}

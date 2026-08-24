@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.dtos import UserInfo, UserToken
 from flaskr.service.user.models import AuthCredential
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class _BaseDTO(BaseModel):
@@ -91,24 +93,21 @@ class AuthProvider(ABC):
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
         """Dispatch a verification challenge to the user."""
-        raise NotImplementedError(
-            f"Provider '{self.provider_name}' does not issue challenges"
-        )
+        message = f"Provider '{self.provider_name}' does not issue challenges"
+        raise NotImplementedError(message)
 
     @abstractmethod
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
         """Validate a user based on the incoming verification request."""
 
-    def begin_oauth(self, app: Flask, metadata: dict[str, Any]) -> Any:
+    def begin_oauth(self, app: Flask, metadata: dict[str, object]) -> object:
         """Initiate an OAuth flow (optional)."""
-        raise NotImplementedError(
-            f"Provider '{self.provider_name}' does not support OAuth begin"
-        )
+        message = f"Provider '{self.provider_name}' does not support OAuth begin"
+        raise NotImplementedError(message)
 
     def handle_oauth_callback(
         self, app: Flask, request: OAuthCallbackRequest
     ) -> AuthResult:
         """Complete an OAuth flow and produce an authentication result."""
-        raise NotImplementedError(
-            f"Provider '{self.provider_name}' does not support OAuth callbacks"
-        )
+        message = f"Provider '{self.provider_name}' does not support OAuth callbacks"
+        raise NotImplementedError(message)

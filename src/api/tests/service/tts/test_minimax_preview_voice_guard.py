@@ -1,3 +1,5 @@
+"""Verify MiniMax preview voice guard behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -18,7 +20,7 @@ _BUILT_IN_VOICE_ID = "female-shaonv"
 
 
 @pytest.fixture(autouse=True)
-def _fake_minimax_provider(monkeypatch):
+def _fake_minimax_provider(monkeypatch: object) -> None:
     """Isolate the guard from real provider config/credentials."""
     provider = SimpleNamespace(
         get_provider_config=lambda: SimpleNamespace(
@@ -32,20 +34,20 @@ def _fake_minimax_provider(monkeypatch):
     )
 
 
-def _prepare_tables(app) -> None:
+def _prepare_tables(app: object) -> None:
     with app.app_context():
         TTSMiniMaxClonedVoice.__table__.create(db.engine, checkfirst=True)
 
 
 def _seed_clone(
-    app,
+    app: object,
     *,
     voice_id: str,
     owner: str,
     status: str,
     deleted: int = 0,
     provider: str = "minimax",
-):
+) -> None:
     with app.app_context():
         db.session.add(
             TTSMiniMaxClonedVoice(
@@ -62,7 +64,7 @@ def _seed_clone(
         db.session.commit()
 
 
-def test_built_in_voice_is_always_allowed(app):
+def test_built_in_voice_is_always_allowed(app: object) -> None:
     _prepare_tables(app)
     with app.app_context():
         # No clone rows, unknown owner: a built-in voice must still pass.
@@ -71,7 +73,7 @@ def test_built_in_voice_is_always_allowed(app):
         )
 
 
-def test_ready_clone_owned_by_requester_is_allowed(app):
+def test_ready_clone_owned_by_requester_is_allowed(app: object) -> None:
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -88,7 +90,7 @@ def test_ready_clone_owned_by_requester_is_allowed(app):
         )
 
 
-def test_ready_clone_owned_by_another_user_is_rejected(app):
+def test_ready_clone_owned_by_another_user_is_rejected(app: object) -> None:
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -106,10 +108,8 @@ def test_ready_clone_owned_by_another_user_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_isolation_when_same_voice_id_has_different_owners(app):
-    """Two clones share the same voice_id but differ by owner: the requester
-    only matches their own row, never the foreign one.
-    """
+def test_isolation_when_same_voice_id_has_different_owners(app: object) -> None:
+    """Two clones share the same voice_id but differ by owner: the requester only matches their own row, never the foreign one."""
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -142,7 +142,7 @@ def test_isolation_when_same_voice_id_has_different_owners(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_custom_voice_with_empty_owner_is_rejected(app):
+def test_custom_voice_with_empty_owner_is_rejected(app: object) -> None:
     """An empty owner must not bypass owner scoping and match any ready clone."""
     _prepare_tables(app)
     _seed_clone(
@@ -161,7 +161,7 @@ def test_custom_voice_with_empty_owner_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_failed_clone_is_rejected(app):
+def test_failed_clone_is_rejected(app: object) -> None:
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -179,10 +179,8 @@ def test_failed_clone_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_deleted_clone_is_rejected(app):
-    """A ready, owned clone that has been soft-deleted is rejected like an
-    unknown voice.
-    """
+def test_deleted_clone_is_rejected(app: object) -> None:
+    """A ready, owned clone that has been soft-deleted is rejected like an unknown voice."""
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -201,7 +199,7 @@ def test_deleted_clone_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_unknown_custom_voice_is_rejected(app):
+def test_unknown_custom_voice_is_rejected(app: object) -> None:
     _prepare_tables(app)
     with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
@@ -213,7 +211,7 @@ def test_unknown_custom_voice_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_empty_voice_id_is_rejected(app):
+def test_empty_voice_id_is_rejected(app: object) -> None:
     _prepare_tables(app)
     with app.app_context(), pytest.raises(AppError) as exc_info:
         assert_preview_cloned_voice_available(
@@ -222,7 +220,7 @@ def test_empty_voice_id_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_volcengine_ready_clone_owned_by_requester_is_allowed(app):
+def test_volcengine_ready_clone_owned_by_requester_is_allowed(app: object) -> None:
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -240,7 +238,7 @@ def test_volcengine_ready_clone_owned_by_requester_is_allowed(app):
         )
 
 
-def test_volcengine_ready_clone_of_another_owner_is_rejected(app):
+def test_volcengine_ready_clone_of_another_owner_is_rejected(app: object) -> None:
     _prepare_tables(app)
     _seed_clone(
         app,
@@ -259,7 +257,7 @@ def test_volcengine_ready_clone_of_another_owner_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
-def test_volcengine_clone_row_does_not_leak_to_minimax_provider(app):
+def test_volcengine_clone_row_does_not_leak_to_minimax_provider(app: object) -> None:
     """A ready volcengine row must not authorize the same id under minimax."""
     _prepare_tables(app)
     _seed_clone(

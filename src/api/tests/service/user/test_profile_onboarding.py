@@ -1,3 +1,6 @@
+"""Verify profile onboarding behavior."""
+
+from collections.abc import Iterator
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -9,7 +12,7 @@ from flaskr.service.user.repository import create_user_entity
 
 
 @contextmanager
-def nullcontext_admission(*_args, **_kwargs):
+def nullcontext_admission(*_args: object, **_kwargs: object) -> Iterator[None]:
     yield
 
 
@@ -23,7 +26,7 @@ def _create_user(user_bid: str = "user-onboarding") -> None:
     db.session.commit()
 
 
-def test_profile_onboarding_config_roundtrip(app, monkeypatch):
+def test_profile_onboarding_config_roundtrip(app: object, monkeypatch: object) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_payloads = []
@@ -39,7 +42,7 @@ def test_profile_onboarding_config_roundtrip(app, monkeypatch):
         module, "load_profile_onboarding_config_payload", lambda: current_config
     )
 
-    def fake_save_config(_app, payload, *, updated_by):
+    def fake_save_config(_app: object, payload: object, *, updated_by: object) -> None:
         saved_payloads.append((payload, updated_by))
         current_config.update(payload)
 
@@ -67,7 +70,9 @@ def test_profile_onboarding_config_roundtrip(app, monkeypatch):
     assert saved_payloads[0][1] == "operator-1"
 
 
-def test_profile_onboarding_config_rejects_non_whitelisted_variable(app):
+def test_profile_onboarding_config_rejects_non_whitelisted_variable(
+    app: object,
+) -> None:
     from flaskr.service.common.profile_onboarding import (
         update_profile_onboarding_config,
     )
@@ -83,7 +88,7 @@ def test_profile_onboarding_config_rejects_non_whitelisted_variable(app):
         )
 
 
-def test_profile_onboarding_status_hides_after_skip(app):
+def test_profile_onboarding_status_hides_after_skip(app: object) -> None:
     from flaskr.service.profile.onboarding import (
         PROFILE_ONBOARDING_STATE_KEY,
         complete_profile_onboarding,
@@ -113,7 +118,9 @@ def test_profile_onboarding_status_hides_after_skip(app):
     assert status["should_show"] is False
 
 
-def test_profile_onboarding_complete_writes_allowed_system_profiles(app, monkeypatch):
+def test_profile_onboarding_complete_writes_allowed_system_profiles(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.profile.onboarding import complete_profile_onboarding
 
     checked_text = []
@@ -154,7 +161,9 @@ def test_profile_onboarding_complete_writes_allowed_system_profiles(app, monkeyp
     ]
 
 
-def test_profile_onboarding_routes_delegate(monkeypatch, test_client):
+def test_profile_onboarding_routes_delegate(
+    monkeypatch: object, test_client: object
+) -> None:
     dummy_user = SimpleNamespace(
         user_id="user-onboarding",
         language="zh-CN",
@@ -221,7 +230,9 @@ def test_profile_onboarding_routes_delegate(monkeypatch, test_client):
     }
 
 
-def test_learner_profile_routes_delegate(monkeypatch, test_client):
+def test_learner_profile_routes_delegate(
+    monkeypatch: object, test_client: object
+) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
@@ -295,8 +306,8 @@ def test_learner_profile_routes_delegate(monkeypatch, test_client):
     ],
 )
 def test_learner_profile_update_rejects_invalid_shapes(
-    monkeypatch, test_client, payload
-):
+    monkeypatch: object, test_client: object, payload: object
+) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
@@ -310,7 +321,9 @@ def test_learner_profile_update_rejects_invalid_shapes(
     assert response.get_json(force=True)["code"] != 0
 
 
-def test_learner_profile_update_omits_optional_nickname(monkeypatch, test_client):
+def test_learner_profile_update_omits_optional_nickname(
+    monkeypatch: object, test_client: object
+) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
@@ -340,8 +353,8 @@ def test_learner_profile_update_omits_optional_nickname(monkeypatch, test_client
 
 
 def test_learner_profile_optimize_route_delegates_without_persistence(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",
@@ -390,8 +403,8 @@ def test_learner_profile_optimize_route_delegates_without_persistence(
     ],
 )
 def test_learner_profile_optimize_route_rejects_invalid_shapes(
-    monkeypatch, test_client, payload
-):
+    monkeypatch: object, test_client: object, payload: object
+) -> None:
     dummy_user = SimpleNamespace(user_id="learner-profile-user", language="zh-CN")
     monkeypatch.setattr(
         "flaskr.route.user.validate_user",

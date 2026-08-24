@@ -1,3 +1,5 @@
+"""Protect learner-profile rolling-upgrade compatibility."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -22,7 +24,7 @@ MERGE_MIGRATION_PATH = (
 )
 
 
-def _load_migration_module(path=MIGRATION_PATH):
+def _load_migration_module(path: object = MIGRATION_PATH) -> object:
     spec = importlib.util.spec_from_file_location(
         "test_learner_profile_migration_module",
         path,
@@ -34,7 +36,7 @@ def _load_migration_module(path=MIGRATION_PATH):
     return module
 
 
-def test_learner_profile_column_remains_nullable_for_rolling_writers():
+def test_learner_profile_column_remains_nullable_for_rolling_writers() -> None:
     from flaskr.service.user.models import UserInfo
 
     migration = _load_migration_module()
@@ -43,18 +45,18 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
     executed_statements = []
 
     class _BatchOperations:
-        def add_column(self, column):
+        def add_column(self, column: object) -> None:
             added_columns.append(column)
 
-        def alter_column(self, column_name, **kwargs):
+        def alter_column(self, column_name: object, **kwargs: object) -> None:
             altered_columns.append((column_name, kwargs))
 
     class _Operations:
         @contextmanager
-        def batch_alter_table(self, *_args, **_kwargs):
+        def batch_alter_table(self, *_args: object, **_kwargs: object) -> object:
             yield _BatchOperations()
 
-        def execute(self, statement):
+        def execute(self, statement: object) -> None:
             executed_statements.append(str(statement))
 
     migration.op = _Operations()
@@ -73,14 +75,14 @@ def test_learner_profile_column_remains_nullable_for_rolling_writers():
     assert UserInfo.__table__.c.learner_profile.nullable is True
 
 
-def test_learner_profile_revision_extends_the_existing_main_head():
+def test_learner_profile_revision_extends_the_existing_main_head() -> None:
     migration = _load_migration_module()
 
     assert migration.revision == "c8f1a2d3e4b5"
     assert migration.down_revision == "b8d5f0a2c3e4"
 
 
-def test_merge_revision_joins_learner_profile_and_tts_provider_heads():
+def test_merge_revision_joins_learner_profile_and_tts_provider_heads() -> None:
     migration = _load_migration_module(MERGE_MIGRATION_PATH)
 
     assert migration.revision == "f9a2b3c4d5e6"

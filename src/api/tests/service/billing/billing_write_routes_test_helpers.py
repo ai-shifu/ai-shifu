@@ -1,8 +1,11 @@
+"""Provide billing write routes test helpers support for service billing tests."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
 import flaskr.service.billing.checkout as billing_checkout_module
@@ -93,6 +96,9 @@ from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 __all__ = [
     "ALLOCATION_INTERVAL_PER_CYCLE",
@@ -361,7 +367,7 @@ def add_trial_subscription_state(
         dao.db.session.commit()
 
 
-def billing_write_client(monkeypatch):
+def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     monkeypatch.setenv("HOST_URL", "https://billing.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -386,7 +392,8 @@ def billing_write_client(monkeypatch):
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object) -> object:
+            _ = app
             stripe_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -406,10 +413,13 @@ def billing_write_client(monkeypatch):
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def create_subscription(self, *, request, app):
+        def create_subscription(self, *, request: object, app: object) -> object:
             return self.create_payment(request=request, app=app)
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "checkout_session"
             return PaymentNotificationResult(
                 order_bid="",
@@ -432,8 +442,13 @@ def billing_write_client(monkeypatch):
             )
 
         def cancel_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
-        ):
+            self,
+            *,
+            subscription_bid: str,
+            provider_subscription_id: str,
+            app: object,
+        ) -> object:
+            _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
                 raw_response={
@@ -447,8 +462,13 @@ def billing_write_client(monkeypatch):
             )
 
         def resume_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
-        ):
+            self,
+            *,
+            subscription_bid: str,
+            provider_subscription_id: str,
+            app: object,
+        ) -> object:
+            _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
                 raw_response={
@@ -461,7 +481,8 @@ def billing_write_client(monkeypatch):
                 extra={"cancel_at_period_end": False},
             )
 
-        def refund_payment(self, *, request, app):
+        def refund_payment(self, *, request: object, app: object) -> object:
+            _ = app
             refund_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -477,7 +498,8 @@ def billing_write_client(monkeypatch):
             )
 
     class FakePingxxProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object) -> object:
+            _ = app
             pingxx_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -493,7 +515,10 @@ def billing_write_client(monkeypatch):
                 extra={"credential": {"alipay_qr": "https://pingxx.test/qr"}},
             )
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "charge"
             return PaymentNotificationResult(
                 order_bid="",
@@ -502,12 +527,13 @@ def billing_write_client(monkeypatch):
                 charge_id=provider_reference,
             )
 
-    def _fake_get_payment_provider(channel: str):
+    def _fake_get_payment_provider(channel: str) -> object:
         if channel == "stripe":
             return FakeStripeProvider()
         if channel == "pingxx":
             return FakePingxxProvider()
-        raise AssertionError(f"Unexpected provider: {channel}")
+        message = f"Unexpected provider: {channel}"
+        raise AssertionError(message)
 
     monkeypatch.setitem(
         billing_write_routes_module.create_billing_order_checkout.__globals__,
@@ -526,7 +552,7 @@ def billing_write_client(monkeypatch):
     )
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response

@@ -30,25 +30,31 @@ class _RecordingEmitter:
     def __init__(self) -> None:
         self.calls = []
 
-    def render_outline_updates(self, outline_updates, new_chapter=False):
+    def render_outline_updates(
+        self, outline_updates: object, new_chapter: object = False
+    ) -> object:
         self.calls.append(("render_outline_updates", outline_updates, new_chapter))
         yield "outline-event"
 
-    def emit_next_chapter_interaction(self, progress_record):
+    def emit_next_chapter_interaction(self, progress_record: object) -> object:
         self.calls.append(("emit_next_chapter_interaction", progress_record))
         yield "next-event"
 
-    def emit_lesson_feedback_interaction(self, progress_record):
+    def emit_lesson_feedback_interaction(self, progress_record: object) -> object:
         self.calls.append(("emit_lesson_feedback_interaction", progress_record))
         yield "feedback-event"
 
-    def is_access_gate_blocking_interaction(self, parsed_interaction):
+    def is_access_gate_blocking_interaction(self, parsed_interaction: object) -> object:
         self.calls.append(("is_access_gate_blocking_interaction", parsed_interaction))
         return True
 
     def maybe_emit_feedback_after_access_gate(
-        self, *, parsed_interaction, progress_record, is_tail_gate
-    ):
+        self,
+        *,
+        parsed_interaction: object,
+        progress_record: object,
+        is_tail_gate: object,
+    ) -> object:
         self.calls.append(
             (
                 "maybe_emit_feedback_after_access_gate",
@@ -59,21 +65,25 @@ class _RecordingEmitter:
         )
         yield "gate-feedback-event"
 
-    def emit_feedback_after_exception_gate(self):
+    def emit_feedback_after_exception_gate(self) -> object:
         self.calls.append(("emit_feedback_after_exception_gate",))
         yield "exception-feedback-event"
 
-    def ensure_current_attend_for_gate_interaction(self):
+    def ensure_current_attend_for_gate_interaction(self) -> object:
         self.calls.append(("ensure_current_attend_for_gate_interaction",))
         return "attend"
 
-    def emit_current_progress_gate_interaction(self, content):
+    def emit_current_progress_gate_interaction(self, content: object) -> object:
         self.calls.append(("emit_current_progress_gate_interaction", content))
         yield "gate-interaction-event"
 
     def emit_completion_tail_interactions(
-        self, *, progress_record, current_outline_completed, has_next_outline_item
-    ):
+        self,
+        *,
+        progress_record: object,
+        current_outline_completed: object,
+        has_next_outline_item: object,
+    ) -> object:
         self.calls.append(
             (
                 "emit_completion_tail_interactions",
@@ -86,7 +96,9 @@ class _RecordingEmitter:
 
 
 class EmitterAccessorTests(unittest.TestCase):
-    def test_lazy_creation_and_caching(self):
+    """Verify emitter accessor behavior."""
+
+    def test_lazy_creation_and_caching(self) -> None:
         ctx = _make_context()
 
         emitter = ctx._event_emitter
@@ -97,35 +109,37 @@ class EmitterAccessorTests(unittest.TestCase):
 
 
 class WrapperDelegationTests(unittest.TestCase):
-    def setUp(self):
+    """Verify wrapper delegation behavior."""
+
+    def setUp(self) -> None:
         self.ctx = _make_context()
         self.emitter = _RecordingEmitter()
         self.ctx.__dict__["_run_event_emitter"] = self.emitter
 
-    def test_render_outline_updates_delegates(self):
+    def test_render_outline_updates_delegates(self) -> None:
         updates = [object()]
         events = list(self.ctx._render_outline_updates(updates, new_chapter=True))
         assert events == ["outline-event"]
         assert self.emitter.calls == [("render_outline_updates", updates, True)]
 
-    def test_emit_next_chapter_interaction_delegates(self):
+    def test_emit_next_chapter_interaction_delegates(self) -> None:
         progress = object()
         events = list(self.ctx._emit_next_chapter_interaction(progress))
         assert events == ["next-event"]
         assert self.emitter.calls == [("emit_next_chapter_interaction", progress)]
 
-    def test_emit_lesson_feedback_interaction_delegates(self):
+    def test_emit_lesson_feedback_interaction_delegates(self) -> None:
         progress = object()
         events = list(self.ctx._emit_lesson_feedback_interaction(progress))
         assert events == ["feedback-event"]
         assert self.emitter.calls == [("emit_lesson_feedback_interaction", progress)]
 
-    def test_is_access_gate_blocking_interaction_delegates(self):
+    def test_is_access_gate_blocking_interaction_delegates(self) -> None:
         parsed = {"buttons": []}
         assert self.ctx._is_access_gate_blocking_interaction(parsed)
         assert self.emitter.calls == [("is_access_gate_blocking_interaction", parsed)]
 
-    def test_maybe_emit_feedback_after_access_gate_delegates(self):
+    def test_maybe_emit_feedback_after_access_gate_delegates(self) -> None:
         parsed = {"buttons": []}
         progress = object()
         events = list(
@@ -140,23 +154,23 @@ class WrapperDelegationTests(unittest.TestCase):
             ("maybe_emit_feedback_after_access_gate", parsed, progress, True)
         ]
 
-    def test_emit_feedback_after_exception_gate_delegates(self):
+    def test_emit_feedback_after_exception_gate_delegates(self) -> None:
         events = list(self.ctx._emit_feedback_after_exception_gate())
         assert events == ["exception-feedback-event"]
         assert self.emitter.calls == [("emit_feedback_after_exception_gate",)]
 
-    def test_ensure_current_attend_for_gate_interaction_delegates(self):
+    def test_ensure_current_attend_for_gate_interaction_delegates(self) -> None:
         assert self.ctx._ensure_current_attend_for_gate_interaction() == "attend"
         assert self.emitter.calls == [("ensure_current_attend_for_gate_interaction",)]
 
-    def test_emit_current_progress_gate_interaction_delegates(self):
+    def test_emit_current_progress_gate_interaction_delegates(self) -> None:
         events = list(self.ctx._emit_current_progress_gate_interaction("content"))
         assert events == ["gate-interaction-event"]
         assert self.emitter.calls == [
             ("emit_current_progress_gate_interaction", "content")
         ]
 
-    def test_emit_completion_tail_interactions_delegates(self):
+    def test_emit_completion_tail_interactions_delegates(self) -> None:
         progress = object()
         events = list(
             self.ctx._emit_completion_tail_interactions(
@@ -172,19 +186,17 @@ class WrapperDelegationTests(unittest.TestCase):
 
 
 class EmitterContextSeamTests(unittest.TestCase):
-    """The emitter must dispatch cross-calls through the context wrappers so
-    instance-level overrides on the context keep taking effect.
-    """
+    """The emitter must dispatch cross-calls through the context wrappers so instance-level overrides on the context keep taking effect."""
 
-    def test_completion_tail_uses_context_overrides(self):
+    def test_completion_tail_uses_context_overrides(self) -> None:
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
-        def _emit_next(_progress):
+        def _emit_next(_progress: object) -> object:
             calls.append("next")
             yield "next-event"
 
@@ -202,11 +214,11 @@ class EmitterContextSeamTests(unittest.TestCase):
         assert calls == ["next", "feedback"]
         assert events == ["next-event", "feedback-event"]
 
-    def test_access_gate_feedback_uses_context_overrides(self):
+    def test_access_gate_feedback_uses_context_overrides(self) -> None:
         ctx = _make_context()
         calls: list[str] = []
 
-        def _emit_feedback(_progress):
+        def _emit_feedback(_progress: object) -> object:
             calls.append("feedback")
             yield "feedback-event"
 
@@ -226,6 +238,8 @@ class EmitterContextSeamTests(unittest.TestCase):
 
 
 class EmitterPayloadSmokeTests(unittest.TestCase):
+    """Verify emitter payload smoke behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("run-emitter-payload-tests")
@@ -241,7 +255,7 @@ class EmitterPayloadSmokeTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = self.__class__.app
         self.ctx = _make_context()
         self.ctx.app = self.app
@@ -257,7 +271,7 @@ class EmitterPayloadSmokeTests(unittest.TestCase):
             LearnGeneratedBlock.query.delete()
             dao.db.session.commit()
 
-    def test_next_chapter_payload_constructed_by_emitter(self):
+    def test_next_chapter_payload_constructed_by_emitter(self) -> None:
         with self.app.app_context():
             events = list(
                 self.ctx._event_emitter.emit_next_chapter_interaction(

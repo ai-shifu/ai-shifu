@@ -15,7 +15,7 @@
 #   below, so the rationale survives the next Ruff upgrade.
 #
 # Deliberately not selected:
-# - ANN (except ANN204/ANN205/ANN206, see `select`) / SLF001 / PLC0415 / PLR2004
+# - SLF001 / PLC0415 / PLR2004
 #   (and D1xx, see the ignore block): thousands of violations each; enforcing
 #   them is a codebase-wide project, not a lint config change.
 # - ISC004: every hit is the deliberate long-string wrapping idiom inside
@@ -29,8 +29,6 @@
 #   patterns here (moderation, logging, notification side channels).
 # - C901 / PLR09xx: complexity and argument-count budgets that the existing
 #   service and route modules exceed by design.
-# - ARG001 / ARG002 / ARG005: unused arguments are pervasive in framework
-#   callbacks, fixtures and test doubles.
 # - TD003 / FIX002: the remaining TODOs have no tracking issue to link, and
 #   inventing one (or downgrading the comment) would hide real pending work.
 
@@ -103,6 +101,10 @@ select = [
     "TRY300",  # return at the end of a try body that belongs in `else`
     "TRY301",  # raise inside a try body that the same block then catches
     "TRY004",  # type check raising something other than TypeError
+    # Build exception text immediately before raising it. Naming the message
+    # keeps the source line in the traceback concise without changing the
+    # exception type, rendered text, remaining arguments, or cause chain.
+    "EM",      # flake8-errmsg (literal, f-string, and `.format()` messages)
 
     # --- Pylint subsets ---------------------------------------------------
     "PLE",     # pylint errors (yield/return in __init__, invalid dunders, ...)
@@ -123,8 +125,12 @@ select = [
     # --- Paths, suppressions, shadowing, security -------------------------
     "PTH",     # os.path calls that should use pathlib
     "PGH",     # blanket noqa / type: ignore, invalid suppressions
-    "ARG003",  # unused classmethod argument
-    "ARG004",  # unused staticmethod argument
+    # Remove unused callable parameters when the repository owns the complete
+    # signature. Preserve framework, protocol, fixture, and test-double keyword
+    # names and consume them explicitly. Promote fixed keyword-compatible
+    # lambdas to named functions; use **_kwargs only for intentionally open,
+    # ignored keyword sets instead of renaming parameters callers still use.
+    "ARG",     # flake8-unused-arguments
     "A001",    # local variable shadowing a builtin
     "A002",    # function argument shadowing a builtin
     "A006",    # lambda argument shadowing a builtin
@@ -162,19 +168,21 @@ select = [
     "S",
 
     # --- Type annotations -------------------------------------------------
-    # flake8-annotations is otherwise off (see the header): annotating every
-    # argument and return in the repo is a separate project. ANN205 is small
-    # enough to keep enforced, and a staticmethod is where a missing return
-    # type hides the most, since there is no `self` to infer from. ANN206
-    # covers the classmethod counterpart, mostly alternative constructors and
-    # frozen-clock `now()` doubles. ANN204 is the same bet for special methods:
-    # `__init__`/`__exit__`/`__json__` and friends have a fixed contract, so the
-    # return type is never a judgement call and writing it down keeps the
-    # serialization dunders (`__json__` returning a dict vs an enum value's str)
-    # readable at a glance.
-    "ANN204",  # missing return type on a special method
-    "ANN205",  # missing return type on a staticmethod
-    "ANN206",  # missing return type on a classmethod
+    # flake8-annotations is selected as a family: every function signature names
+    # its inputs (ANN001-ANN003) and its result (ANN201/ANN202/ANN204-ANN206),
+    # and ANN401 keeps `typing.Any` out of both positions. `object` marks
+    # intentionally heterogeneous values at dynamic boundaries. Variadic
+    # parameters name the element/value type after the stars; use a concrete
+    # homogeneous type when known and `object` for intentionally heterogeneous
+    # forwarding. Return types matter most where there is no `self` to infer
+    # from (ANN205 staticmethods, ANN206 classmethods -- mostly alternative
+    # constructors and frozen-clock `now()` doubles) and on the special methods
+    # ANN204 covers: `__init__`/`__exit__`/`__json__` and friends have a fixed
+    # contract, so writing the return type down keeps the serialization dunders
+    # (`__json__` returning a dict vs an enum value's str) readable at a glance.
+    # The complete family passes on the current baseline, so keep the family
+    # selected as new ANN rules are added.
+    "ANN",     # flake8-annotations
 
     # --- Boolean arguments ------------------------------------------------
     # flake8-boolean-trap is otherwise off: FBT001/FBT002 would rewrite the
@@ -185,12 +193,13 @@ select = [
     # positionally (SQLAlchemy, the MySQL DBAPI `ping`, `socket.setblocking`,
     # `monkeypatch.setitem`) carry an inline noqa.
     "FBT003",  # boolean positional value in a call
-    # flake8-type-checking is enabled as a whole. TC002/TC003 are ignored below
-    # (they would push third-party imports behind TYPE_CHECKING, where runtime
-    # annotation resolution then fails); the rest have no violations and catch
-    # the mistakes a TYPE_CHECKING block invites: a name imported there but used
-    # at runtime (TC004), an empty or redundant block (TC005/TC010), a
-    # needlessly quoted annotation (TC006/TC007).
+    # flake8-type-checking is enabled as a whole. Annotation-only standard-
+    # library and third-party imports live behind TYPE_CHECKING; the Pydantic
+    # runtime-evaluation contract below keeps model field types available while
+    # classes are created. The remaining rules catch the mistakes such a block
+    # invites: a name imported there but used at runtime (TC004), an empty or
+    # redundant block (TC005/TC010), or a needlessly quoted annotation
+    # (TC006/TC007).
     "TC",
 
     # --- Docstrings -------------------------------------------------------
@@ -209,40 +218,33 @@ select = [
     "UP",
 
     # --- Ruff-native rules ------------------------------------------------
-    # RUF001 (ambiguous unicode in a string) is ignored below.
-    # RUF100 is enforced, so a `# noqa` may only name a rule this file
-    # selects: reasons for exceptions to non-selected rules (BLE001,
-    # DTZ001, SLF001) are written as plain comments instead.
+    # RUF100 is enforced, so a `# noqa` may only name a rule this file selects:
+    # reasons for exceptions to non-selected rules (BLE001, DTZ001, SLF001)
+    # are written as plain comments instead.
     "RUF",
 ]
 ignore = [
     "E501",    # line length is owned by the formatter
-    # D1xx (except D104, which is enforced): ~4.6k undocumented modules,
-    # classes, methods, functions and __init__s. Writing them is a codebase
-    # project, not a lint config change.
-    "D100",    # undocumented public module
-    "D101",    # undocumented public class
-    "D102",    # undocumented public method
-    "D103",    # undocumented public function
-    "D105",    # undocumented magic method
-    "D107",    # undocumented __init__
     "D203",    # blank line before a class docstring -- conflicts with D211
-    "D205",    # summary wrapped over two lines -- 260 prose rewrites, deferred
     "D213",    # summary on the second line -- conflicts with D212
-    # TC002 / TC003: moving a third-party or stdlib import into TYPE_CHECKING
-    # breaks anything that resolves annotations at runtime, which for this repo
-    # means the SQLAlchemy mappers and pydantic models (~230 hits).
-    "TC002",
-    "TC003",
     "DTZ001",  # naive datetime() -- naive UTC is the house convention
     "PLC0415", # import not at top of file -- deliberate lazy imports (~1.2k)
-    # INP001 is enforced; see per-file-ignores for the entrypoints, Alembic
-    # revisions and boundary-check fixtures that are loaded by path rather
-    # than imported.
-    "RUF001",  # ambiguous unicode in a string -- CJK punctuation is intended
 ]
 
+[lint.flake8-type-checking]
+# Pydantic resolves model field annotations while creating each class. Keep
+# their standard-library and third-party field types imported at runtime;
+# TC002/TC003 move only genuinely annotation-only imports behind TYPE_CHECKING.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 [lint.per-file-ignores]
+# Tests intentionally freeze user text, provider payloads, protocol samples,
+# and malformed-input regressions verbatim. RUF001 would make those fixtures
+# less faithful, so it remains enforced in production code but not test files.
+"**/tests/**" = ["RUF001"]
+"**/test_*.py" = ["RUF001"]
+"**/*_test.py" = ["RUF001"]
+"**/conftest.py" = ["RUF001"]
 # `assert` is the point of a test, and both scripts below are test code: one is
 # a pytest module, the other keeps its regex fixtures in a `run_self_test()`.
 # Developer tooling (repo scripts, backend scripts, test harnesses) also shells
@@ -250,7 +252,9 @@ ignore = [
 # subprocess audit rules only add noise there.
 # Test suites are also full of literal fake passwords, tokens and secret keys
 # for fixtures and negative cases, which is what S105/S106 flag.
-"src/api/tests/**" = ["S101", "S105", "S106", "S603", "S607", "T20"]
+# Behavior-named tests already describe the contract under test, and duplicate
+# function or method docstrings make failure output harder to scan.
+"src/api/tests/**" = ["D102", "D103", "S101", "S105", "S106", "S603", "S607", "T20"]
 # `app.py`, `celery_app.py` and `gunicorn.conf.py` are process entrypoints run
 # by path and never imported, so making `src/api` a package would only shadow
 # the top-level `flaskr` import path. `src/api/scripts` is a real package
@@ -259,37 +263,18 @@ ignore = [
 "src/api/celery_app.py" = ["INP001"]
 "src/api/gunicorn.conf.py" = ["INP001"]
 # Alembic loads `env.py` and every revision by file path, and packaging them
-# would break `alembic` revision discovery.
-"src/api/migrations/**" = ["INP001"]
-# This applied no-op revision keeps a legacy `NOTE:` section in its module
-# docstring. Migration history is immutable, so D405 is scoped to this file.
-"src/api/migrations/versions/a4d68cce5ce6_add_demo_shifu.py" = ["D405"]
+# would break `alembic` revision discovery. Applied migration history is
+# immutable, so its conventional `upgrade` / `downgrade` hooks retain D103.
+"src/api/migrations/**" = ["D103", "INP001"]
+# Alembic generates every revision under this directory. The repository
+# treats generated migration code as immutable history, so later Ruff
+# adoption must not require rewriting any revision in this directory.
+"src/api/migrations/versions/**" = ["ALL"]
 # These trees are input fixtures for check_architecture_boundaries.py, not
-# importable code.
-"scripts/testdata/**" = ["INP001"]
-# These suites bind SQLAlchemy model classes and session factories to local
-# names, where the CapWords spelling is the point.
-"src/api/tests/service/shifu/test_archive.py" = ["N806"]
-"src/api/tests/service/shifu/test_mdflow_history_routes.py" = ["N806"]
-"src/api/tests/service/shifu/test_permissions.py" = ["N806"]
-"src/api/tests/service/billing/test_renewal_uow_failure_paths.py" = ["N806"]
-"src/api/conftest.py" = ["S101"]
-"scripts/test_*.py" = ["S101"]
+# importable code. Their deliberately minimal functions model boundary inputs.
+"scripts/testdata/**" = ["D103", "INP001"]
+"scripts/test_*.py" = ["D102", "D103", "S101"]
 "scripts/check_example_identifiers.py" = ["S101"]
-# These applied Alembic revisions are immutable history: their backfill
-# statements interpolate table names and cannot be rewritten after deployment.
-# Listed one by one so new revisions stay covered by S608.
-"src/api/migrations/versions/4a1f6c8e9b2d_add_learn_generated_elements.py" = ["S608"]
-"src/api/migrations/versions/56b765541144_add_shifu_user_archives.py" = ["S608"]
-"src/api/migrations/versions/6b603528dac8_add_system_profile.py" = ["S608"]
-"src/api/migrations/versions/6b956399315e_backfill_profile_variable_tables.py" = ["S608"]
-"src/api/migrations/versions/e1b2c3d4e5f6_add_ask_provider_config_to_shifu.py" = ["S608"]
-"src/api/migrations/versions/ef7dbc5a8be3_backfill_promo_campaign_tables.py" = ["S608"]
-# Every field in these two DTOs is serialized verbatim into an API response and
-# read by the frontend under that exact key, so the camelCase spelling is the
-# wire contract, not a naming slip.
-"src/api/flaskr/service/billing/dtos.py" = ["N815"]
-"src/api/flaskr/service/common/dtos.py" = ["N815"]
 # Developer scripts and the backend inventory/harness tooling are console
 # programs: printing to stdout is their interface.
 "scripts/**" = ["S603", "S607", "T20"]

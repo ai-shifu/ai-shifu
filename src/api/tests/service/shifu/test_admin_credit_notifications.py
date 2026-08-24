@@ -1,3 +1,5 @@
+"""Verify admin credit notifications behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -7,7 +9,9 @@ from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.shifu.admin_operations import credit_notifications as module
 
 
-def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
+def test_operator_credit_notification_services_delegate_to_billing(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     calls: list[tuple[str, object]] = []
 
@@ -19,12 +23,12 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     monkeypatch.setattr(
         module,
         "list_credit_notifications",
-        lambda received_app, **kwargs: calls.append(("list", kwargs)) or {"items": []},
+        lambda _received_app, **kwargs: calls.append(("list", kwargs)) or {"items": []},
     )
     monkeypatch.setattr(
         module,
         "get_credit_notification_detail",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("detail", kwargs))
             or {"notification_bid": kwargs["notification_bid"]}
         ),
@@ -32,7 +36,7 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     monkeypatch.setattr(
         module,
         "sync_credit_notification_template",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("sync", kwargs)) or {"template_code": kwargs["template_code"]}
         ),
     )
@@ -44,14 +48,14 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     monkeypatch.setattr(
         module,
         "dry_run_credit_notifications",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("dry_run", kwargs)) or {"ok": True}
         ),
     )
     monkeypatch.setattr(
         module,
         "requeue_credit_notification",
-        lambda received_app, **kwargs: (
+        lambda _received_app, **kwargs: (
             calls.append(("requeue", kwargs)) or {"status": "enqueued"}
         ),
     )
@@ -100,7 +104,9 @@ def test_operator_credit_notification_services_delegate_to_billing(monkeypatch):
     ]
 
 
-def test_operator_credit_notification_config_preserves_opt_out(monkeypatch):
+def test_operator_credit_notification_config_preserves_opt_out(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     saved_payloads: list[tuple[object, dict[str, object], bool, str]] = []
     policies = [{"version": 1}, {"version": 2}]
@@ -132,8 +138,8 @@ def test_operator_credit_notification_config_preserves_opt_out(monkeypatch):
 
 
 def test_operator_credit_notification_services_pass_operator_audit_context(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     calls: list[tuple[str, object]] = []
 
@@ -193,9 +199,9 @@ def test_operator_credit_notification_services_pass_operator_audit_context(
 
 
 def test_credit_notification_list_route_rejects_invalid_status_filters(
-    test_client,
-    monkeypatch,
-):
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     dummy_user = SimpleNamespace(
         user_id="operator-1",
         is_operator=True,

@@ -1,6 +1,9 @@
+"""Verify native payment split tables behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -26,9 +29,12 @@ from flaskr.service.order.raw_snapshots import (
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def native_payment_split_app():
+def native_payment_split_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -49,7 +55,7 @@ def native_payment_split_app():
 
 
 def test_native_snapshot_upsert_routes_each_provider_to_own_table(
-    native_payment_split_app,
+    native_payment_split_app: object,
 ) -> None:
     with native_payment_split_app.app_context():
         alipay_snapshot = upsert_native_snapshot(
@@ -114,7 +120,7 @@ def test_native_snapshot_upsert_routes_each_provider_to_own_table(
 
 
 def test_native_snapshot_upsert_preserves_zero_amount_and_requires_identifier(
-    native_payment_split_app,
+    native_payment_split_app: object,
 ) -> None:
     with native_payment_split_app.app_context():
         snapshot = upsert_native_snapshot(
@@ -161,7 +167,7 @@ def test_native_snapshot_upsert_preserves_zero_amount_and_requires_identifier(
 
 
 def test_native_snapshot_status_does_not_regress_after_success(
-    native_payment_split_app,
+    native_payment_split_app: object,
 ) -> None:
     with native_payment_split_app.app_context():
         paid_snapshot = upsert_native_snapshot(
@@ -198,7 +204,7 @@ def test_native_snapshot_status_does_not_regress_after_success(
 
 
 def test_native_provider_bid_is_unique_per_provider_table(
-    native_payment_split_app,
+    native_payment_split_app: object,
 ) -> None:
     with native_payment_split_app.app_context():
         dao.db.session.add_all(
@@ -221,11 +227,18 @@ def test_native_provider_bid_is_unique_per_provider_table(
 
 
 def test_learner_sync_and_admin_payment_detail_read_alipay_table(
-    native_payment_split_app,
-    monkeypatch,
+    native_payment_split_app: object,
+    monkeypatch: object,
 ) -> None:
     class FakeAlipayProvider:
-        def sync_reference(self, *, provider_reference, reference_type, app):
+        def sync_reference(
+            self,
+            *,
+            provider_reference: object,
+            reference_type: object,
+            app: object,
+        ) -> object:
+            _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(
                 order_bid=provider_reference,
@@ -241,7 +254,7 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda provider_name: FakeAlipayProvider(),
+        lambda _provider_name: FakeAlipayProvider(),
     )
 
     with native_payment_split_app.app_context():
@@ -301,11 +314,18 @@ def test_learner_sync_and_admin_payment_detail_read_alipay_table(
 
 
 def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
-    native_payment_split_app,
-    monkeypatch,
+    native_payment_split_app: object,
+    monkeypatch: object,
 ) -> None:
     class FakeAlipayProvider:
-        def sync_reference(self, *, provider_reference, reference_type, app):
+        def sync_reference(
+            self,
+            *,
+            provider_reference: object,
+            reference_type: object,
+            app: object,
+        ) -> object:
+            _ = app
             assert reference_type == "payment"
             return PaymentNotificationResult(
                 order_bid=provider_reference,
@@ -322,7 +342,7 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider",
-        lambda provider_name: FakeAlipayProvider(),
+        lambda _provider_name: FakeAlipayProvider(),
     )
 
     with native_payment_split_app.app_context():
@@ -365,7 +385,7 @@ def test_learner_sync_does_not_mark_paid_when_native_amount_mismatches(
 
 
 def test_billing_native_snapshot_and_transaction_lookup_use_wechat_table(
-    native_payment_split_app,
+    native_payment_split_app: object,
 ) -> None:
     with native_payment_split_app.app_context():
         order = BillingOrder(

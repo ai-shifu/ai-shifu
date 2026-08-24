@@ -10,7 +10,7 @@ actually selects the gevent worker.
 import pathlib
 
 
-def _load_detector():
+def _load_detector() -> object:
     conf_path = pathlib.Path(__file__).resolve().parents[1] / "gunicorn.conf.py"
     source = conf_path.read_text()
     # Execute only the detector function, not the module (which would
@@ -23,7 +23,7 @@ def _load_detector():
     return namespace["_gevent_worker_requested"]
 
 
-def test_worker_class_detection():
+def test_worker_class_detection() -> None:
     detect = _load_detector()
 
     assert detect(["gunicorn", "-k", "gevent", "app:app"]) is True
@@ -57,14 +57,16 @@ def test_worker_class_detection():
     assert detect(["gunicorn", "app:app"]) is False
 
 
-def test_observer_skips_unpatched_processes(monkeypatch):
+def test_observer_skips_unpatched_processes(monkeypatch: object) -> None:
     from flaskr.common.gevent_hub_observer import install_hub_error_observer
     from gevent import monkey
 
-    monkeypatch.setattr(monkey, "is_module_patched", lambda name: False)
+    monkeypatch.setattr(monkey, "is_module_patched", lambda _name: False)
 
     class _Logger:
-        def error(self, *args, **kwargs):
-            raise AssertionError("must not log during a skipped install")
+        def error(self, *args: object, **kwargs: object) -> None:
+            _ = (args, kwargs)
+            message = "must not log during a skipped install"
+            raise AssertionError(message)
 
     assert install_hub_error_observer(_Logger()) is False

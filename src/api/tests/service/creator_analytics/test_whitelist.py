@@ -172,9 +172,7 @@ def test_bill_usage_is_not_whitelisted() -> None:
 
 
 def test_learn_generated_blocks_exposes_new_followup_fields() -> None:
-    """Status / position / outline_item_bid are needed for follow-up pairing
-    (per the 2026-05-15 follow-up query handbook PDF §6).
-    """
+    """Status / position / outline_item_bid are needed for follow-up pairing (per the 2026-05-15 follow-up query handbook PDF §6)."""
     spec = WHITELIST["learn_generated_blocks"]
     for col in ("status", "position", "outline_item_bid"):
         assert col in spec.selectable, (
@@ -218,9 +216,7 @@ def test_other_tables_do_not_auto_filter_status(table_key: str) -> None:
 
 
 def test_bill_daily_usage_metrics_exposes_creator_bid() -> None:
-    """creator_bid lets the author see which wallet the course's credits hit;
-    shifu_bid isolation already constrains the value to the caller's own bid.
-    """
+    """creator_bid lets the author see which wallet the course's credits hit; shifu_bid isolation already constrains the value to the caller's own bid."""
     spec = WHITELIST["bill_daily_usage_metrics"]
     assert "creator_bid" in spec.selectable
     assert "creator_bid" in spec.groupable
@@ -239,9 +235,7 @@ def test_bill_daily_usage_metrics_exposes_creator_bid() -> None:
 
 @pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
 def test_shifu_meta_tables_are_creator_scoped(table_key: str) -> None:
-    """Both metadata tables enforce row ownership via created_user_bid in
-    addition to the funcs.run_dsl shifu permission check.
-    """
+    """Both metadata tables enforce row ownership via created_user_bid in addition to the funcs.run_dsl shifu permission check."""
     spec = WHITELIST[table_key]
     assert spec.creator_scoped_column == "created_user_bid"
     assert spec.has_shifu_bid is True  # double-gate: shifu scope + row owner
@@ -250,8 +244,10 @@ def test_shifu_meta_tables_are_creator_scoped(table_key: str) -> None:
 
 @pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
 def test_shifu_meta_tables_block_aggregate_and_group_by(table_key: str) -> None:
-    """count_distinct(shifu_bid) etc. would leak the size of the caller's
-    owned set; keep these tables strictly row-lookup only.
+    """Keep metadata aggregates unavailable.
+
+    Aggregate counts would leak the size of the caller's owned set; keep these tables strictly row-lookup
+    only.
     """
     spec = WHITELIST[table_key]
     assert spec.aggregatable == {}
@@ -260,10 +256,10 @@ def test_shifu_meta_tables_block_aggregate_and_group_by(table_key: str) -> None:
 
 @pytest.mark.parametrize("table_key", sorted(SHIFU_META_TABLE_KEYS))
 def test_shifu_meta_tables_minimum_select_surface(table_key: str) -> None:
-    """Author-secret prompt fields (llm_system_prompt, ask_*) must never be
-    selectable — they are creator IP and stay out of the analytics surface
-    even for the owner. shifu_bid is also intentionally not selectable here
-    (covered by test_shifu_bid_and_deleted_are_never_user_addressable).
+    """Author-secret prompt fields (llm_system_prompt, ask_*) must never be selectable — they are creator IP and stay out of the analytics surface even for the owner.
+
+    shifu_bid is also intentionally not selectable here (covered by
+    test_shifu_bid_and_deleted_are_never_user_addressable).
     """
     spec = WHITELIST[table_key]
     assert spec.selectable == frozenset(
@@ -289,8 +285,6 @@ def test_shifu_meta_tables_minimum_select_surface(table_key: str) -> None:
     sorted(EXPECTED_TABLE_KEYS - SHIFU_META_TABLE_KEYS),
 )
 def test_other_tables_have_no_creator_scoped_column(table_key: str) -> None:
-    """Only the metadata tables opt into the created_user_bid auto-injection;
-    every other table goes through the standard shifu_bid scope path.
-    """
+    """Only the metadata tables opt into the created_user_bid auto-injection; every other table goes through the standard shifu_bid scope path."""
     spec = WHITELIST[table_key]
     assert spec.creator_scoped_column is None

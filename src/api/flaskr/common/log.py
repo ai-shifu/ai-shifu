@@ -1,3 +1,5 @@
+"""Configure application logging and request context."""
+
 import logging
 import socket
 import threading
@@ -6,19 +8,21 @@ import uuid
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 import colorlog
 import pytz
 import requests
-from flask import Flask, request
+from flask import Flask, Response, request
 
 from .observability import current_trace_ids
 from .request_context import thread_local
 
 
 class AppLoggerProxy:
+    """Proxy application logging through the configured logger."""
+
     def __init__(self, fallback: logging.Logger) -> None:
+        """Store the fallback logger used outside an application context."""
         self._fallback = fallback
 
     def _resolve(self) -> logging.Logger:
@@ -31,13 +35,17 @@ class AppLoggerProxy:
         except Exception:
             return self._fallback
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
+        """Delegate attribute access to the active application logger."""
         return getattr(self._resolve(), name)
 
 
 class RequestFormatter(logging.Formatter):
-    def formatTime(self, record, datefmt=None):  # noqa: N802 - logging.Formatter hook name
+    """Format request-aware application log records."""
+
+    def formatTime(self, record: object, datefmt: object = None) -> str:  # noqa: N802 - logging.Formatter hook name
         # create time zone info
+        """Format a log timestamp in the fixed Asia/Shanghai timezone."""
         bj_time = pytz.timezone("Asia/Shanghai")
         # convert record.created (a float timestamp) to beijing time
         ct = datetime.fromtimestamp(record.created, bj_time)
@@ -50,7 +58,8 @@ class RequestFormatter(logging.Formatter):
                 s = ct.isoformat()
         return s
 
-    def format(self, record):
+    def format(self, record: object) -> str:
+        """Format a log record with request context."""
         try:
             request_id = getattr(thread_local, "request_id", "No_Request_ID")
             if request_id == "No_Request_ID":
@@ -81,9 +90,16 @@ class RequestFormatter(logging.Formatter):
 
 
 class FeishuLogHandler(logging.Handler):
+    """Deliver selected application log records to Feishu."""
+
     MAX_TEXT_LENGTH = 18000
 
-    def __init__(self, webhook_url) -> None:
+    def __init__(self, webhook_url: object) -> None:
+        """Initialize error-level webhook delivery with a re-entrancy guard.
+
+        Stores the Feishu webhook URL and creates thread-local delivery state to
+        prevent recursive logging when webhook delivery fails.
+        """
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
         # This handler is attached to app.logger, so reporting a webhook
@@ -95,7 +111,7 @@ class FeishuLogHandler(logging.Handler):
         self._delivering = threading.local()
 
     def _build_message_text(self, log_entry: str) -> str:
-        text = f"师傅出错啦！\n{log_entry}\n"
+        text = f"师傅出错啦！\n{log_entry}\n"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         if len(text) <= self.MAX_TEXT_LENGTH:
             return text
         omitted = len(text) - self.MAX_TEXT_LENGTH
@@ -111,7 +127,8 @@ class FeishuLogHandler(logging.Handler):
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
-    def emit(self, record):
+    def emit(self, record: object) -> None:
+        """Deliver a formatted error record to Feishu."""
         if getattr(self._delivering, "active", False):
             return
         self._delivering.active = True
@@ -132,7 +149,10 @@ class FeishuLogHandler(logging.Handler):
 
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
-    def __init__(self, fmt, **kwargs) -> None:
+    """Format request logs with terminal color metadata."""
+
+    def __init__(self, fmt: object, **kwargs: object) -> None:
+        """Initialize the parent request and color log formatters."""
         super().__init__(fmt, **kwargs)
 
 
@@ -148,8 +168,10 @@ def _update_request_timing(status_code: int) -> None:
 
 
 def init_log(app: Flask) -> Flask:
+    """Configure request-aware application logging."""
+
     @app.before_request
-    def setup_logging():
+    def setup_logging() -> None:
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
         thread_local.request_id = request_id
         thread_local.url = request.path
@@ -183,7 +205,7 @@ def init_log(app: Flask) -> Flask:
             app.logger.info("Request method: %s", request.method)
 
     @app.after_request
-    def after_request(response):
+    def after_request(response: Response) -> Response:
         try:
             _update_request_timing(response.status_code)
             if response.headers.get(
@@ -192,7 +214,7 @@ def init_log(app: Flask) -> Flask:
                 app.logger.info("Response: <SSE streaming response>")
 
                 @response.call_on_close
-                def log_sse_end():
+                def log_sse_end() -> None:
                     app.logger.info("SSE Response: <streaming ended>")
 
                 return response

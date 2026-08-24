@@ -13,7 +13,7 @@ import inspect
 from flaskr.service.tts import streaming_tts
 
 
-def test_module_does_not_create_an_executor_at_import_time():
+def test_module_does_not_create_an_executor_at_import_time() -> None:
     # The import-time instance is the fork-inheritance hazard; only the
     # lazy accessor may create one.
     module_ast = ast.parse(inspect.getsource(streaming_tts))
@@ -24,13 +24,14 @@ def test_module_does_not_create_an_executor_at_import_time():
                 isinstance(value, ast.Call)
                 and getattr(value.func, "id", None) == "ThreadPoolExecutor"
             ):
-                raise AssertionError(
+                message = (
                     "module-level ThreadPoolExecutor recreates the "
                     "fork-inheritance hazard; use _get_tts_executor()"
                 )
+                raise AssertionError(message)
 
 
-def test_executor_is_cached_within_one_process(monkeypatch):
+def test_executor_is_cached_within_one_process(monkeypatch: object) -> None:
     monkeypatch.setattr(streaming_tts._tts_executor_state, "executor", None)
     monkeypatch.setattr(streaming_tts._tts_executor_state, "pid", None)
 
@@ -41,7 +42,7 @@ def test_executor_is_cached_within_one_process(monkeypatch):
     first.shutdown(wait=False)
 
 
-def test_directly_injected_executor_is_honored(monkeypatch):
+def test_directly_injected_executor_is_honored(monkeypatch: object) -> None:
     # Existing tests patch the registry executor with a mock and leave the pid
     # unset; the accessor must return the injection instead of clobbering
     # it with a real executor.
@@ -52,7 +53,7 @@ def test_directly_injected_executor_is_honored(monkeypatch):
     assert streaming_tts._get_tts_executor() is sentinel
 
 
-def test_executor_is_rebuilt_after_fork(monkeypatch):
+def test_executor_is_rebuilt_after_fork(monkeypatch: object) -> None:
     monkeypatch.setattr(streaming_tts._tts_executor_state, "executor", None)
     monkeypatch.setattr(streaming_tts._tts_executor_state, "pid", None)
 

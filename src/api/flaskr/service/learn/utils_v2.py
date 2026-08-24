@@ -1,3 +1,5 @@
+"""Build prompts, variables, follow-up metadata, and generated blocks."""
+
 import re
 
 from flask import Flask
@@ -29,14 +31,15 @@ class FollowUpInfo:
 
     def __init__(
         self,
-        ask_model,
-        ask_prompt,
-        ask_history_count,
-        ask_limit_count,
-        model_args,
-        ask_mode,
-        ask_provider_config=None,
+        ask_model: object,
+        ask_prompt: object,
+        ask_history_count: object,
+        ask_limit_count: object,
+        model_args: object,
+        ask_mode: object,
+        ask_provider_config: object = None,
     ) -> None:
+        """Capture follow-up model, prompt, and limit settings."""
         self.ask_model = ask_model
         self.ask_prompt = ask_prompt
         self.ask_history_count = ask_history_count
@@ -46,6 +49,7 @@ class FollowUpInfo:
         self.ask_provider_config = ask_provider_config or {}
 
     def __json__(self) -> dict:
+        """Return the follow-up info as JSON-compatible data."""
         return {
             "ask_model": self.ask_model,
             "ask_prompt": self.ask_prompt,
@@ -59,6 +63,7 @@ class FollowUpInfo:
 
 def extract_variables(template: str) -> list:
     # Match all {xxx} or {{xxx}} in the template
+    """Extract variables."""
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
     # Only keep valid variable names (letters, digits, underscore, hyphen), no dots, commas, colons, quotes, or spaces
@@ -75,7 +80,7 @@ def safe_format_template(template: str, variables: dict) -> str:
     # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
     pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
 
-    def replacer(match):
+    def replacer(match: re.Match[str]) -> str:
         _, var, _ = match.groups()
         var_name = var.strip()
         # Only process variable names with letters, digits, underscore, hyphen
@@ -97,6 +102,7 @@ def init_generated_block(
     mdflow: str,
     block_index: int,
 ) -> LearnGeneratedBlock:
+    """Initialize generated block."""
     generated_block: LearnGeneratedBlock = LearnGeneratedBlock()
     generated_block.progress_record_bid = progress_record_bid
     generated_block.user_bid = user_bid
@@ -121,7 +127,8 @@ def get_fmt_prompt(
     *,
     profile_overrides: dict | None = None,
 ) -> str:
-    """Get fmt prompt
+    """Get fmt prompt.
+
     Args:
         app: Flask application instance
         user_id: User id
@@ -131,6 +138,7 @@ def get_fmt_prompt(
         profile_overrides: Request-local profile values that take precedence
     Returns:
         str: Fmt prompt.
+
     """
     app.logger.info("raw prompt: %s", profile_tmplate)
     propmpt_keys = []
@@ -183,6 +191,7 @@ def get_follow_up_info_v2(
         FollowUpInfo: The follow up information for the given parameters.
 
     """
+    _ = attend_id
     struct_info = get_shifu_struct(app, shifu_bid, is_preview)
     path = find_node_with_parents(struct_info, outline_item_bid)
     if not path:

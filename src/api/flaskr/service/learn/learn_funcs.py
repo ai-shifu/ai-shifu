@@ -1,14 +1,19 @@
+"""Load and update learning records, reactions, and TTS output."""
+
 import base64
 import json
 import logging
 import queue
 import time
 import uuid
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.tts import (
+    AudioSettings,
+    VoiceSettings,
     get_default_audio_settings,
     get_default_voice_settings,
     get_tts_provider,
@@ -247,6 +252,7 @@ def _has_next_outline_item(
 
 
 def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifuInfoDTO:
+    """Return shifu info."""
     with app.app_context():
         model = DraftShifu if preview_mode else PublishedShifu
         shifu = (
@@ -274,6 +280,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
 def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
+    """Return outline item tree."""
     with app.app_context():
         outline_type_map = {
             UNIT_TYPE_VALUE_TRIAL: OutlineType.TRIAL,
@@ -381,7 +388,9 @@ def get_outline_item_tree(
                     progress_record
                 )
 
-        def build_outline_item_tree(item: HistoryItem):
+        def build_outline_item_tree(
+            item: HistoryItem,
+        ) -> LearnOutlineItemInfoDTO | None:
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
                 (i for i in outline_items_dbs if i.id == item.id), None
             )
@@ -467,6 +476,7 @@ def get_outline_item_tree(
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
 ) -> LegacyLearnRecord:
+    """Rebuild the learner's legacy record from persisted progress."""
     with app.app_context():
         is_paid = preview_mode
         if not is_paid:
@@ -639,6 +649,7 @@ def get_learn_record(
 def reset_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
 ) -> bool:
+    """Reset learn record."""
     with app.app_context():
         progress_records = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
@@ -657,6 +668,7 @@ def reset_learn_record(
 def handle_reaction(
     app: Flask, shifu_bid: str, user_bid: str, generated_block_bid: str, action: str
 ) -> bool:
+    """Persist a learner's reaction to one generated block."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
@@ -686,6 +698,7 @@ def get_generated_content(
     user_bid: str,
     preview_mode: bool,
 ) -> GeneratedInfoDTO:
+    """Return generated content."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
@@ -807,7 +820,7 @@ def _resolve_shifu_tts_settings(
     *,
     shifu_bid: str,
     preview_mode: bool,
-):
+) -> tuple[str, str, VoiceSettings, AudioSettings]:
     shifu_model = DraftShifu if preview_mode else PublishedShifu
     shifu = (
         shifu_model.query.filter(
@@ -862,18 +875,21 @@ def _yield_tts_segments(
     text: str,
     provider: str,
     tts_model: str,
-    voice_settings,
-    audio_settings,
-):
+    voice_settings: object,
+    audio_settings: object,
+) -> Iterator[tuple[int, bytes, int, str, int, int, int]]:
     provider_name = (provider or "").strip().lower()
     if not provider_name:
-        raise ValueError("TTS provider is required")
+        error_message = "TTS provider is required"
+        raise ValueError(error_message)
     if not is_tts_configured(provider_name):
-        raise ValueError(f"TTS provider is not configured: {provider_name}")
+        message = f"TTS provider is not configured: {provider_name}"
+        raise ValueError(message)
 
     segments = split_text_for_tts(text, provider_name=provider_name)
     if not segments:
-        raise ValueError("No speakable text after preprocessing")
+        error_message = "No speakable text after preprocessing"
+        raise ValueError(error_message)
 
     safe_audio_settings = replace(audio_settings, format="mp3")
     for index, segment_text in enumerate(segments):
@@ -897,7 +913,9 @@ def _yield_tts_segments(
         )
 
 
-def _build_tts_usage_metadata(*, voice_settings, audio_settings) -> dict:
+def _build_tts_usage_metadata(
+    *, voice_settings: object, audio_settings: object
+) -> dict:
     return {
         "voice_id": voice_settings.voice_id or "",
         "speed": voice_settings.speed,
@@ -940,8 +958,8 @@ def _finalize_tts_stream_audio(
     audio_parts: list[bytes],
     subtitle_cues: list[dict] | None,
     audio_bid: str,
-    audio_settings,
-    voice_settings,
+    audio_settings: object,
+    voice_settings: object,
     tts_model: str,
     cleaned_text: str,
     segment_count: int,
@@ -954,7 +972,8 @@ def _finalize_tts_stream_audio(
 ) -> tuple[str, int]:
     final_audio = concat_audio_best_effort(audio_parts)
     if not final_audio:
-        raise ValueError("No audio data produced")
+        message = "No audio data produced"
+        raise ValueError(message)
 
     duration_ms = int(get_audio_duration_ms(final_audio, audio_format="mp3") or 0)
     oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
@@ -990,8 +1009,8 @@ def _yield_with_tts_error_mapping(
     app: Flask,
     *,
     unknown_error_log: str,
-    body,
-):
+    body: object,
+) -> Iterator[object]:
     try:
         yield from body()
     except ValueError as exc:
@@ -1139,8 +1158,8 @@ def _yield_tts_synthesis(
     user_bid: str,
     outline_bid: str,
     unknown_error_log: str,
-    body,
-):
+    body: object,
+) -> Iterator[object]:
     """Run a TTS synthesis body under a per-(user, outline) concurrency slot.
 
     Cache-hit paths never reach here, so they do not consume a slot. When the
@@ -1183,7 +1202,7 @@ def _record_stream_segment_usage(
     parent_usage_bid: str,
     segment_index: int,
     usage_metadata: dict,
-):
+) -> None:
     segment_length = len(segment_text or "")
     output_chars = resolve_tts_billable_chars(segment_text, usage_characters)
     record_tts_usage(
@@ -1220,7 +1239,7 @@ def _record_stream_summary_usage(
     duration_ms: int,
     segment_count: int,
     usage_metadata: dict,
-):
+) -> None:
     raw_length = len(raw_text or "")
     cleaned_length = len(cleaned_text or "")
     output_chars = total_output_chars or cleaned_length
@@ -1370,7 +1389,7 @@ def _has_speakable_tts_segment(text: str) -> bool:
     return bool(cleaned and len(cleaned.strip()) >= 2 and has_speakable_text(cleaned))
 
 
-def _float_settings_match(left, right) -> bool:
+def _float_settings_match(left: object, right: object) -> bool:
     try:
         return abs(float(left) - float(right)) < 0.0001
     except (TypeError, ValueError):
@@ -1380,7 +1399,7 @@ def _float_settings_match(left, right) -> bool:
 def _audio_record_matches_tts_settings(
     audio_record: LearnGeneratedAudio | None,
     *,
-    voice_settings,
+    voice_settings: object,
     tts_model: str,
 ) -> bool:
     if audio_record is None:
@@ -1423,8 +1442,8 @@ def _yield_stream_tts_audio_segments(
     text: str,
     provider: str,
     tts_model: str,
-    voice_settings,
-    audio_settings,
+    voice_settings: object,
+    audio_settings: object,
     usage_context: UsageContext,
     parent_usage_bid: str,
     usage_metadata: dict,
@@ -1435,7 +1454,7 @@ def _yield_stream_tts_audio_segments(
     stats: dict,
     position: int | None = None,
     av_contract: dict | None = None,
-):
+) -> Iterator[RunMarkdownFlowDTO]:
     for (
         index,
         audio_data,
@@ -1502,7 +1521,7 @@ def _yield_run_tts_audio_events(
     text: str,
     provider: str,
     tts_model: str,
-    voice_settings,
+    voice_settings: object,
     generated_block: LearnGeneratedBlock,
     user_bid: str,
     shifu_bid: str,
@@ -1510,7 +1529,7 @@ def _yield_run_tts_audio_events(
     position: int | None = None,
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
-):
+) -> Iterator[RunMarkdownFlowDTO]:
     from flaskr.common.config import get_config
 
     max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS") or 300
@@ -1545,10 +1564,11 @@ def _yield_run_tts_audio_events(
         )
         yield event
     if not emitted_audio_complete:
-        raise RuntimeError("TTS stream finalized without audio_complete")
+        message = "TTS stream finalized without audio_complete"
+        raise RuntimeError(message)
 
 
-def _audio_stream_element_type(element) -> str:
+def _audio_stream_element_type(element: object) -> str:
     element_type = getattr(element, "element_type", "") or ""
     return str(getattr(element_type, "value", element_type) or "")
 
@@ -1561,7 +1581,8 @@ def stream_generated_block_audio(
     user_bid: str,
     preview_mode: bool,
     listen: bool = False,
-):
+) -> Iterator[object]:
+    """Stream generated block audio."""
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
@@ -1583,7 +1604,7 @@ def stream_generated_block_audio(
             )
         )
 
-        def _resolve_existing_single_block_audio():
+        def _resolve_existing_single_block_audio() -> LearnGeneratedAudio | None:
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
                     LearnGeneratedAudio.generated_block_bid == generated_block_bid,
@@ -1610,7 +1631,9 @@ def stream_generated_block_audio(
                 None,
             )
 
-        def _yield_existing_single_block_audio(existing_audio: LearnGeneratedAudio):
+        def _yield_existing_single_block_audio(
+            existing_audio: LearnGeneratedAudio,
+        ) -> Iterator[object]:
             yield _build_audio_complete_message(
                 outline_bid=generated_block.outline_item_bid or "",
                 generated_block_bid=generated_block_bid,
@@ -1626,7 +1649,7 @@ def stream_generated_block_audio(
                 yield from _yield_existing_single_block_audio(existing_audio)
                 return
 
-        def _yield_single_block_audio():
+        def _yield_single_block_audio() -> Iterator[object]:
             cleaned_text = preprocess_for_tts(raw_text)
             if not cleaned_text or len(cleaned_text.strip()) < 2:
                 raise_error_with_args(
@@ -1634,7 +1657,7 @@ def stream_generated_block_audio(
                     param_message="No speakable text available for TTS synthesis",
                 )
 
-            def _generate_single_audio():
+            def _generate_single_audio() -> Iterator[object]:
                 yield from _yield_run_tts_audio_events(
                     app=app,
                     text=raw_text,
@@ -1655,7 +1678,7 @@ def stream_generated_block_audio(
                 body=_generate_single_audio,
             )
 
-        def _yield_preview_single_block_audio():
+        def _yield_preview_single_block_audio() -> Iterator[object]:
             cleaned_text = preprocess_for_tts(raw_text)
             if not cleaned_text or len(cleaned_text.strip()) < 2:
                 raise_error_with_args(
@@ -1682,7 +1705,7 @@ def stream_generated_block_audio(
             audio_parts: list[bytes] = []
             subtitle_cues: list[dict] = []
 
-            def _generate_preview_audio():
+            def _generate_preview_audio() -> Iterator[object]:
                 yield from _yield_stream_tts_audio_segments(
                     app=app,
                     text=raw_text,
@@ -1795,7 +1818,7 @@ def stream_generated_block_audio(
                     )
                     return
 
-                def _generate_legacy_audio():
+                def _generate_legacy_audio() -> Iterator[object]:
                     yield from _yield_run_tts_audio_events(
                         app=app,
                         text=raw_text,
@@ -1888,7 +1911,7 @@ def stream_generated_block_audio(
                 )
                 return
 
-            def _generate_av_audio():
+            def _generate_av_audio() -> Iterator[object]:
                 for position, element in enumerate(speakable_elements):
                     speakable_text = str(element.content_text or "")
                     # Skip before the cache lookup so historical records for
@@ -1951,7 +1974,8 @@ def stream_preview_tts_audio(
     user_bid: str,
     text: str,
     preview_mode: bool,
-):
+) -> Iterator[object]:
+    """Stream preview TTS audio."""
     with app.app_context():
         provider, tts_model, voice_settings, audio_settings = (
             _resolve_shifu_tts_settings(
@@ -1987,7 +2011,7 @@ def stream_preview_tts_audio(
         audio_parts: list[bytes] = []
         subtitle_cues: list[dict] = []
 
-        def _generate_preview_audio():
+        def _generate_preview_audio() -> Iterator[object]:
             yield from _yield_stream_tts_audio_segments(
                 app=app,
                 text=text or "",

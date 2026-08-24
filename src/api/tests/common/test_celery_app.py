@@ -1,3 +1,5 @@
+"""Verify Celery Flask-context and configuration ownership."""
+
 from __future__ import annotations
 
 import sys
@@ -8,7 +10,7 @@ from flask import Flask, current_app
 
 
 def _assert_cron_schedule(
-    schedule,
+    schedule: object,
     *,
     minute: str,
     hour: str,
@@ -148,7 +150,7 @@ def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
 
 
 def test_create_celery_app_executes_billing_tasks_in_eager_mode(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     flask_app = Flask(__name__)
     flask_app.config.update(
@@ -163,7 +165,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
 
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
-        lambda app, *, usage_bid="": {
+        lambda _app, *, usage_bid="": {
             "status": "settled",
             "usage_bid": usage_bid,
             "creator_bid": "creator-eager-1",
@@ -171,7 +173,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.expire_credit_wallet_buckets",
-        lambda app, *, creator_bid="", expire_before=None: {
+        lambda _app, *, creator_bid="", expire_before=None: {
             "status": "expired",
             "creator_bid": creator_bid,
             "expire_before": expire_before.isoformat() if expire_before else None,
@@ -180,7 +182,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.aggregate_daily_usage_metrics",
-        lambda app, *, stat_date="", creator_bid="", finalize=False: {
+        lambda _app, *, stat_date="", creator_bid="", finalize=False: {
             "status": "finalized" if finalize else "aggregated",
             "stat_date": stat_date,
             "creator_bid": creator_bid or None,
@@ -189,7 +191,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.aggregate_daily_ledger_summary",
-        lambda app, *, stat_date="", creator_bid="", finalize=False: {
+        lambda _app, *, stat_date="", creator_bid="", finalize=False: {
             "status": "finalized" if finalize else "aggregated",
             "stat_date": stat_date,
             "creator_bid": creator_bid or None,
@@ -198,7 +200,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.rebuild_daily_aggregates",
-        lambda app, *, creator_bid="", shifu_bid="", date_from="", date_to="": {
+        lambda _app, *, creator_bid="", shifu_bid="", date_from="", date_to="": {
             "status": "rebuilt",
             "creator_bid": creator_bid or None,
             "shifu_bid": shifu_bid or None,
@@ -208,7 +210,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.verify_domain_binding",
-        lambda app, *, creator_bid="", domain_binding_bid="", host="", verification_token="": {
+        lambda _app, *, creator_bid="", domain_binding_bid="", host="", verification_token="": {
             "action": "verify",
             "creator_bid": creator_bid or None,
             "binding": {
@@ -315,7 +317,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
 
 
 def test_get_celery_app_loads_flask_app_from_app_factory(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     fake_flask_app = Flask(__name__)
     fake_flask_app.config.update(CELERY_TASK_ALWAYS_EAGER=True)

@@ -1,22 +1,28 @@
+"""Handle admin ops state for creator billing."""
+
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import get_config, update_config
 
 from .primitives import normalize_bid
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask import Flask
 
 _ADMIN_OPS_OWNER_BID = "billing-admin-ops"
 _CONFIG_STATUS_KEY = "ADMIN_BILLING.CONFIG_STATUS"
 _CONFIG_STATUS_VALUES = {"pending", "in_progress", "completed", "exception"}
 
 
-def build_admin_billing_ops_state(app: Flask) -> dict[str, Any]:
+def build_admin_billing_ops_state(app: Flask) -> dict[str, object]:
+    """Build admin billing ops state."""
     with app.app_context():
         return {
             "config_status": _read_map(_CONFIG_STATUS_KEY),
@@ -27,8 +33,9 @@ def update_admin_billing_config_status(
     app: Flask,
     *,
     creator_bid: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Update admin billing config status."""
     normalized_creator_bid = normalize_bid(creator_bid)
     if not normalized_creator_bid:
         raise_param_error("creator_bid")
@@ -64,15 +71,16 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
             )
         )
     except Exception as exc:
-        raise RuntimeError(
-            "Admin billing operations state lock is unavailable"
-        ) from exc
+        message = "Admin billing operations state lock is unavailable"
+        raise RuntimeError(message) from exc
     if lock is None:
-        raise RuntimeError("Admin billing operations state lock is unavailable")
+        message = "Admin billing operations state lock is unavailable"
+        raise RuntimeError(message)
 
     acquired = lock.acquire(blocking=True, blocking_timeout=5)
     if not acquired:
-        raise RuntimeError("Admin billing operations state is busy")
+        message = "Admin billing operations state is busy"
+        raise RuntimeError(message)
     try:
         yield
     finally:
@@ -80,12 +88,12 @@ def _admin_ops_lock(key: str) -> Iterator[None]:
             lock.release()
 
 
-def _read_map(key: str) -> dict[str, Any]:
+def _read_map(key: str) -> dict[str, object]:
     payload = _load_json(get_config(key, "{}"))
     return payload if isinstance(payload, dict) else {}
 
 
-def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
+def _write_map(app: Flask, key: str, value: dict[str, object]) -> None:
     update_config(
         app,
         key,
@@ -96,7 +104,7 @@ def _write_map(app: Flask, key: str, value: dict[str, Any]) -> None:
     )
 
 
-def _load_json(value: Any) -> dict[str, Any]:
+def _load_json(value: object) -> dict[str, object]:
     try:
         payload = json.loads(str(value or "{}"))
     except (TypeError, ValueError, json.JSONDecodeError):

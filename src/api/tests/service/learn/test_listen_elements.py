@@ -1,3 +1,5 @@
+"""Verify listen elements behavior."""
+
 import json
 import time
 import types
@@ -5,12 +7,14 @@ import types
 import pytest
 
 
-def _require_app(app):
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
 
-def test_get_listen_element_record_returns_latest_elements_and_events(app):
+def test_get_listen_element_record_returns_latest_elements_and_events(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -242,7 +246,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         assert result_with_events.events[2].content.variable_name == "sys_user_nickname"
 
 
-def test_get_listen_element_record_serializes_progress_time_as_utc(app):
+def test_get_listen_element_record_serializes_progress_time_as_utc(app: object) -> None:
     _require_app(app)
 
     from datetime import datetime
@@ -317,7 +321,9 @@ def test_get_listen_element_record_serializes_progress_time_as_utc(app):
     assert result.last_progress_updated_at == "2026-06-30T11:57:03Z"
 
 
-def test_get_listen_element_record_treats_naive_progress_time_as_utc(app):
+def test_get_listen_element_record_treats_naive_progress_time_as_utc(
+    app: object,
+) -> None:
     _require_app(app)
 
     from datetime import datetime
@@ -392,7 +398,9 @@ def test_get_listen_element_record_treats_naive_progress_time_as_utc(app):
     assert result.last_progress_updated_at == "2026-06-30T11:57:03Z"
 
 
-def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(app):
+def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -516,8 +524,8 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
 
 
 def test_get_listen_element_record_returns_all_persisted_elements_across_progress_records(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -539,7 +547,7 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
         )
@@ -645,8 +653,8 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
 
 
 def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_indexes(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -674,7 +682,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
-            lambda *args, **kwargs: LegacyLearnRecord(
+            lambda *_args, **_kwargs: LegacyLearnRecord(
                 records=[
                     LegacyGeneratedBlockRecord(
                         "generated-block-first",
@@ -695,7 +703,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
         )
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
         )
@@ -787,7 +795,9 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
         ]
 
 
-def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(app):
+def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1025,8 +1035,8 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(a
 
 
 def test_get_listen_element_record_dedupes_older_progress_records_with_same_block_position(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1047,7 +1057,7 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
         )
@@ -1146,8 +1156,8 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
 
 
 def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1280,11 +1290,11 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
-            lambda *args, **kwargs: LegacyLearnRecord(records=[]),
+            lambda *_args, **_kwargs: LegacyLearnRecord(records=[]),
         )
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
-            lambda *args, **kwargs: pytest.fail(
+            lambda *_args, **_kwargs: pytest.fail(
                 "persisted rows should satisfy the record query without legacy fallback"
             ),
         )
@@ -1305,7 +1315,7 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
         }
 
 
-def test_listen_run_persists_content_block_before_element_rows(app):
+def test_listen_run_persists_content_block_before_element_rows(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1351,7 +1361,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=outline_bid,
             shifu_bid=shifu_bid,
@@ -1372,22 +1382,23 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, current_outline_bid: progress, ctx
+            lambda _self, _current_outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, current_outline_bid: LLMSettings(
+            lambda _self, _current_outline_bid: LLMSettings(
                 model="fake",
                 temperature=0.0,
             ),
             ctx,
         )
         ctx.get_system_prompt = types.MethodType(
-            lambda self, current_outline_bid: None,
+            lambda _self, _current_outline_bid: None,
             ctx,
         )
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=attend.block_position,
@@ -1397,17 +1408,20 @@ def test_listen_run_persists_content_block_before_element_rows(app):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyLLMResult:
-            def __init__(self, content) -> None:
+            def __init__(self, content: object) -> None:
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
                         MarkdownFlowBlockType.CONTENT,
@@ -1416,24 +1430,30 @@ def test_listen_run_persists_content_block_before_element_rows(app):
                     )
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
 
-                def _gen():
+                def _gen() -> object:
                     yield DummyLLMResult(block.content)
 
                 return _gen()
@@ -1452,16 +1472,16 @@ def test_listen_run_persists_content_block_before_element_rows(app):
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_user_profiles",
-                lambda *args, **kwargs: {},
+                lambda *_args, **_kwargs: {},
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
-                lambda *args, **kwargs: [],
+                lambda *_args, **_kwargs: [],
             )
             monkeypatch.setattr(
                 RunScriptContextV2,
                 "_should_stream_tts",
-                lambda self: False,
+                lambda _self: False,
             )
             streamed = list(adapter.process(ctx.run_inner(app)))
 
@@ -1485,7 +1505,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
     assert {row.content_text for row in rows} == {"Persisted content block"}
 
 
-def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
+def test_listen_run_emits_visual_before_blocking_tts_finalize(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1534,7 +1554,7 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=outline_bid,
             shifu_bid=shifu_bid,
@@ -1555,22 +1575,23 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, current_outline_bid: progress, ctx
+            lambda _self, _current_outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, current_outline_bid: LLMSettings(
+            lambda _self, _current_outline_bid: LLMSettings(
                 model="fake",
                 temperature=0.0,
             ),
             ctx,
         )
         ctx.get_system_prompt = types.MethodType(
-            lambda self, current_outline_bid: None,
+            lambda _self, _current_outline_bid: None,
             ctx,
         )
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=attend.block_position,
@@ -1578,26 +1599,31 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             ),
             ctx,
         )
-        ctx._should_stream_tts = types.MethodType(lambda self: True, ctx)
+        ctx._should_stream_tts = types.MethodType(lambda _self: True, ctx)
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
 
         class DummyFormattedElement:
-            def __init__(self, content, element_type, number) -> None:
+            def __init__(
+                self, content: object, element_type: object, number: object
+            ) -> None:
                 self.content = content
                 self.type = element_type
                 self.number = number
 
         class DummyLLMResult:
-            def __init__(self, formatted_elements) -> None:
+            def __init__(self, formatted_elements: object) -> None:
                 self.formatted_elements = formatted_elements
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(
                         MarkdownFlowBlockType.CONTENT,
@@ -1606,22 +1632,29 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                     )
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
-                def _gen():
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (block_index, mode, variables, context, user_input)
+
+                def _gen() -> object:
                     yield DummyLLMResult(
                         [DummyFormattedElement("Intro narration.\n", "text", 0)]
                     )
@@ -1643,25 +1676,26 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
 
             def __init__(
                 self,
-                generated_block_bid,
-                position,
-                stream_element_number,
-                stream_element_type,
+                generated_block_bid: object,
+                position: object,
+                stream_element_number: object,
+                stream_element_type: object,
             ) -> None:
                 self.generated_block_bid = generated_block_bid
                 self.position = position
                 self.stream_element_number = stream_element_number
                 self.stream_element_type = stream_element_type
 
-            def process_chunk(self, chunk_content):
+            def process_chunk(self, chunk_content: object) -> object:
                 if False:
                     yield chunk_content
 
-            def drain_ready_segments(self):
+            def drain_ready_segments(self) -> object:
                 if False:
                     yield None
 
-            def finalize(self, *, commit=True):
+            def finalize(self, *, commit: object = True) -> object:
+                _ = commit
                 if self.stream_element_number == 0:
                     time.sleep(0.02)
                 resolved_audio_url = (
@@ -1682,14 +1716,15 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
                 )
 
         def _fake_try_create_tts_processor(
-            self,
-            generated_block_bid,
+            self: object,
+            generated_block_bid: object,
             *,
-            position,
-            stream_element_number,
-            stream_element_type,
-            **_kwargs,
-        ):
+            position: object,
+            stream_element_number: object,
+            stream_element_type: object,
+            **_kwargs: object,
+        ) -> object:
+            _ = self
             return FakeTTSProcessor(
                 generated_block_bid,
                 position,
@@ -1715,11 +1750,11 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_user_profiles",
-                lambda *args, **kwargs: {},
+                lambda *_args, **_kwargs: {},
             )
             monkeypatch.setattr(
                 "flaskr.service.learn.context_v2.get_profile_item_definition_list",
-                lambda *args, **kwargs: [],
+                lambda *_args, **_kwargs: [],
             )
             monkeypatch.setitem(app.config, "STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.005)
             streamed = list(adapter.process(ctx.run_inner(app)))
@@ -1794,7 +1829,9 @@ def test_listen_run_emits_visual_before_blocking_tts_finalize(app):
     assert first_audio_patch_seq < later_text_seq
 
 
-def test_listen_run_persists_exception_gate_block_before_element_rows(app):
+def test_listen_run_persists_exception_gate_block_before_element_rows(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -1840,11 +1877,12 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
         )
         ctx._current_attend = progress
         ctx._emit_feedback_before_exception_gate = types.MethodType(
-            lambda self: iter(()),
+            lambda _self: iter(()),
             ctx,
         )
 
-        def _raise_paid(self, current_app):
+        def _raise_paid(self: object, current_app: object) -> object:
+            _ = (self, current_app)
             raise PaidError
             yield  # pragma: no cover
 
@@ -1889,7 +1927,7 @@ def test_listen_run_persists_exception_gate_block_before_element_rows(app):
     assert rows[0].generated_block_bid == generated_blocks[0].generated_block_bid
 
 
-def test_get_record_api_returns_element_payload_by_default(app):
+def test_get_record_api_returns_element_payload_by_default(app: object) -> None:
     _require_app(app)
 
     from flask import request
@@ -1959,7 +1997,9 @@ def test_get_record_api_returns_element_payload_by_default(app):
     assert payload["data"]["events"][0]["type"] == "element"
 
 
-def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app):
+def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2077,7 +2117,9 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         assert fallback_element_bid not in active_element_bids
 
 
-def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(app):
+def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2224,7 +2266,9 @@ def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(app)
     assert latest_row.content_text == "updated"
 
 
-def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
+def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2460,7 +2504,9 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         assert json.loads(persisted_rows[1].payload)["previous_visuals"] == []
 
 
-def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
+def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -2567,7 +2613,9 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
         assert payload["previous_visuals"] == []
 
 
-def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
+def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2786,7 +2834,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert persisted_segments == []
 
 
-def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
+def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -2913,7 +2961,9 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
         assert element_events[4].target_element_bid in ("", None)
 
 
-def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app):
+def test_listen_adapter_keeps_html_stream_as_single_element_on_break(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3026,7 +3076,9 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app):
         assert result.elements[0].is_new is True
 
 
-def test_listen_adapter_preserves_structural_fragment_without_html_target(app):
+def test_listen_adapter_preserves_structural_fragment_without_html_target(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3116,7 +3168,9 @@ def test_listen_adapter_preserves_structural_fragment_without_html_target(app):
         assert "<style>*{box-sizing:border-box}</style>" in element_events[0].content
 
 
-def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):
+def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3218,7 +3272,9 @@ def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):
         assert len({item.element_bid for item in element_events}) == 3
 
 
-def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(app):
+def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3314,7 +3370,9 @@ def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(app):
         assert element_events[0].element_bid != element_events[2].element_bid
 
 
-def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
+def test_audio_segments_stick_to_first_target_element_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3570,7 +3628,9 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
         ]
 
 
-def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
+def test_late_audio_positions_bind_to_latest_text_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -3899,7 +3959,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
         ]
 
 
-def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
+def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4104,7 +4164,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
         )
 
 
-def test_audio_stream_number_binding_overrides_position_guessing(app):
+def test_audio_stream_number_binding_overrides_position_guessing(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4294,7 +4354,9 @@ def test_audio_stream_number_binding_overrides_position_guessing(app):
         ]
 
 
-def test_html_only_stream_does_not_absorb_audio_without_av_contract(app):
+def test_html_only_stream_does_not_absorb_audio_without_av_contract(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4435,7 +4497,9 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(app):
         assert all(row.audio_url == "" for row in persisted_html_rows)
 
 
-def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(app):
+def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4600,7 +4664,9 @@ def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(app):
         ]
 
 
-def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app):
+def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -4729,7 +4795,9 @@ def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(app):
         )
 
 
-def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):
+def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -4822,8 +4890,8 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
 
 
 def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_elements(
-    app,
-):
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -5040,7 +5108,9 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
     ]
 
 
-def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(app):
+def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
@@ -5076,7 +5146,9 @@ def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(a
     assert element.payload.user_input == "agree"
 
 
-def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(app):
+def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -5260,8 +5332,8 @@ def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
 
 
 def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_active_rows(
-    app,
-):
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -5367,8 +5439,8 @@ def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_activ
 
 
 def test_backfill_learn_generated_elements_for_progress_overwrite_dry_run_rebuilds_without_stale_rows(
-    app,
-):
+    app: object,
+) -> None:
     _require_app(app)
 
     from flaskr.dao import db

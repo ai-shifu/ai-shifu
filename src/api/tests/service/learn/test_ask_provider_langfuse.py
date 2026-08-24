@@ -1,3 +1,5 @@
+"""Verify ask provider Langfuse behavior."""
+
 import types
 from unittest.mock import patch
 
@@ -6,27 +8,29 @@ from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_lang
 
 
 class _DummyGeneration:
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
 class _DummySpan:
-    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
+    def __init__(
+        self, trace_id: object = "trace-1", span_id: object = "span-1"
+    ) -> None:
         self.trace_id = trace_id
         self.id = span_id
         self.generations = []
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object) -> object:
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
 
-def test_stream_provider_with_langfuse_links_generation_to_parent_span():
+def test_stream_provider_with_langfuse_links_generation_to_parent_span() -> None:
     app = Flask("ask-provider-langfuse")
     span = _DummySpan(trace_id="trace-1", span_id="follow-up-span-1")
     provider_stream = [
@@ -60,7 +64,7 @@ def test_stream_provider_with_langfuse_links_generation_to_parent_span():
     )
 
 
-def test_stream_provider_with_langfuse_uses_request_trace_id_fallback():
+def test_stream_provider_with_langfuse_uses_request_trace_id_fallback() -> None:
     app = Flask("ask-provider-langfuse-fallback")
     span = _DummySpan(trace_id="", span_id="follow-up-span-2")
 

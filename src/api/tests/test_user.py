@@ -1,3 +1,5 @@
+"""Verify account profiles preserve user-owned values and language."""
+
 from flaskr.dao import db
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
@@ -9,7 +11,7 @@ from flaskr.service.user.repository import (
 )
 
 
-def test_get_user_profiles_uses_user_fallbacks(app):
+def test_get_user_profiles_uses_user_fallbacks(app: object) -> None:
     with app.app_context():
         user = UserInfo(
             user_bid="user-profile-1",
@@ -25,7 +27,9 @@ def test_get_user_profiles_uses_user_fallbacks(app):
         assert profiles["sys_user_nickname"] == "Tester"
 
 
-def test_get_user_profiles_prefers_user_entity_for_mapped_system_keys(app):
+def test_get_user_profiles_prefers_user_entity_for_mapped_system_keys(
+    app: object,
+) -> None:
     with app.app_context():
         user = UserInfo(
             user_bid="user-profile-2",
@@ -81,7 +85,7 @@ def test_get_user_profiles_prefers_user_entity_for_mapped_system_keys(app):
         assert profiles["sys_user_language"] == "en-US"
 
 
-def test_update_user_info_updates_both_name_and_language_profiles(app):
+def test_update_user_info_updates_both_name_and_language_profiles(app: object) -> None:
     with app.app_context():
         user = UserInfo(
             user_bid="user-profile-3",

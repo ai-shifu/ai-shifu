@@ -3,21 +3,28 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from flask import Flask
 
 try:  # pragma: no cover - exercised indirectly when Celery is installed.
     from celery import shared_task
 except ImportError:  # pragma: no cover - local fallback for non-Celery test envs.
 
-    def shared_task(*args, **kwargs):
-        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    def shared_task(*args: object, **kwargs: object) -> object:
+        """Register a Celery task with the configured application context."""
+        _ = (args, kwargs)
+
+        def decorator(func: Callable[..., object]) -> Callable[..., object]:
             return func
 
         return decorator
 
 
-def _create_task_app():
+def _create_task_app() -> Flask:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     from app import create_app
 
@@ -25,7 +32,8 @@ def _create_task_app():
 
 
 @shared_task(name="tts.minimax_clone_voice")
-def minimax_clone_voice_task(*, voice_bid: str) -> dict[str, Any]:
+def minimax_clone_voice_task(*, voice_bid: str) -> dict[str, object]:
+    """Run the Minimax voice-clone background task."""
     from flaskr.service.tts.api import run_minimax_voice_clone
 
     app = _create_task_app()

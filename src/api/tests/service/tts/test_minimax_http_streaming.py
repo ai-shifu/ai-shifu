@@ -1,3 +1,5 @@
+"""Verify MiniMax HTTP streaming behavior."""
+
 import json
 from types import SimpleNamespace
 
@@ -5,29 +7,41 @@ import pytest
 
 
 class _FakeResponse:
-    def __init__(self, lines=None, *, status_error=None, json_payload=None) -> None:
+    def __init__(
+        self,
+        lines: object = None,
+        *,
+        status_error: object = None,
+        json_payload: object = None,
+    ) -> None:
         self._lines = lines or []
         self._status_error = status_error
         self._json_payload = json_payload or {}
         self.headers = {"content-type": "text/event-stream"}
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         if self._status_error:
             raise self._status_error
 
-    def iter_lines(self, decode_unicode=True):
+    def iter_lines(self, decode_unicode: object = True) -> object:
         _ = decode_unicode
         yield from self._lines
 
-    def json(self):
+    def json(self) -> object:
         return self._json_payload
 
 
-def _sse_line(payload):
+def _sse_line(payload: object) -> object:
     return f"data: {json.dumps(payload)}"
 
 
-def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
+def _ignore_saved_audio_record(record: object, commit: object = None) -> None:
+    del record, commit
+
+
+def test_minimax_http_streaming_parses_audio_and_final_subtitles(
+    monkeypatch: object,
+) -> None:
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 
@@ -49,7 +63,7 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
         lambda **kwargs: gate_calls.append(kwargs),
     )
 
-    def _fake_post(url, **kwargs):
+    def _fake_post(url: object, **kwargs: object) -> object:
         post_calls.append((url, kwargs))
         return _FakeResponse(
             [
@@ -127,7 +141,9 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     }
 
 
-def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
+def test_minimax_synthesize_splits_word_count_and_usage_characters(
+    monkeypatch: object,
+) -> None:
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 
@@ -143,7 +159,7 @@ def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
         lambda key: config.get(key, ""),
     )
 
-    def _fake_post(url, **kwargs):
+    def _fake_post(url: object, **kwargs: object) -> object:
         post_calls.append((url, kwargs))
         return _FakeResponse(
             json_payload={
@@ -176,7 +192,7 @@ def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
     assert post_calls[0][0].endswith("GroupId=test-group")
 
 
-def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
+def test_minimax_http_streaming_raises_on_business_error(monkeypatch: object) -> None:
     from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 
     monkeypatch.setattr(
@@ -189,7 +205,7 @@ def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.api.tts.minimax_provider.requests.post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             [
                 _sse_line(
                     {
@@ -210,8 +226,8 @@ def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
 
 
 def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -220,7 +236,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     aggregate_usage_calls = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **kwargs):
+        def stream_synthesize(self, **kwargs: object) -> object:
             calls.append(kwargs["text"])
             yield SimpleNamespace(
                 audio_data=b"fake-mp3",
@@ -263,7 +279,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -275,7 +291,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -349,13 +365,13 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
 
 
 def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs):
+        def stream_synthesize(self, **_kwargs: object) -> object:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3",
                 is_final=False,
@@ -395,7 +411,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -407,7 +423,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -467,8 +483,8 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
 
 
 def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -476,7 +492,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     synthesize_calls = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **kwargs):
+        def stream_synthesize(self, **kwargs: object) -> object:
             stream_calls.append(kwargs["text"])
             yield SimpleNamespace(
                 audio_data=b"broken-stream-mp3",
@@ -488,7 +504,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
                 trace_id="trace-invalid-audio",
             )
 
-        def synthesize(self, **kwargs):
+        def synthesize(self, **kwargs: object) -> object:
             synthesize_calls.append(kwargs["text"])
             return SimpleNamespace(
                 audio_data=b"complete-mp3",
@@ -497,7 +513,9 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
                 word_count=12,
             )
 
-    def _fake_try_get_duration(audio_data, audio_format="mp3"):
+    def _fake_try_get_duration(
+        audio_data: object, audio_format: object = "mp3"
+    ) -> object:
         _ = audio_format
         if audio_data == b"broken-stream-mp3":
             return None
@@ -525,7 +543,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -537,7 +555,7 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -591,13 +609,13 @@ def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
 
 
 def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitles(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs):
+        def stream_synthesize(self, **_kwargs: object) -> object:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -624,7 +642,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
 
     export_calls = []
 
-    def _fake_export(_audio_data, **kwargs):
+    def _fake_export(_audio_data: object, **kwargs: object) -> object:
         export_calls.append(kwargs)
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
@@ -648,7 +666,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -660,7 +678,7 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -717,13 +735,13 @@ def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitle
 
 
 def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs):
+        def stream_synthesize(self, **_kwargs: object) -> object:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -772,7 +790,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
 
     export_calls = []
 
-    def _fake_export(_audio_data, **kwargs):
+    def _fake_export(_audio_data: object, **kwargs: object) -> object:
         export_calls.append(kwargs)
         end_ms = int(kwargs.get("end_ms") or 0)
         start_ms = int(kwargs.get("start_ms") or 0)
@@ -794,7 +812,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -806,7 +824,7 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -855,8 +873,8 @@ def test_streaming_tts_minimax_http_stream_does_not_emit_audio_past_subtitles(
 
 
 def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
@@ -864,7 +882,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     saved_records = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **kwargs):
+        def stream_synthesize(self, **kwargs: object) -> object:
             calls.append(kwargs["text"])
             if kwargs["text"] == "First sentence.":
                 yield SimpleNamespace(
@@ -897,12 +915,12 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
                 ],
             )
 
-    def _fake_export(audio_data, **_kwargs):
+    def _fake_export(audio_data: object, **_kwargs: object) -> object:
         if audio_data == b"first-mp3":
             return audio_data, 1000
         return audio_data, 1200
 
-    def _fake_build_completed_audio_record(**kwargs):
+    def _fake_build_completed_audio_record(**kwargs: object) -> object:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -927,7 +945,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -939,7 +957,7 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -1013,13 +1031,13 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
 
 
 def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_stretch(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs):
+        def stream_synthesize(self, **_kwargs: object) -> object:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -1046,7 +1064,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
                 ],
             )
 
-    def _fake_export(_audio_data, **kwargs):
+    def _fake_export(_audio_data: object, **kwargs: object) -> object:
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
@@ -1069,7 +1087,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1077,7 +1095,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     saved_records = []
 
-    def _fake_build_completed_audio_record(**kwargs):
+    def _fake_build_completed_audio_record(**kwargs: object) -> object:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -1087,7 +1105,7 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -1150,15 +1168,15 @@ def test_streaming_tts_minimax_http_stream_uses_provider_progress_cues_without_s
 
 
 def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     saved_records = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs):
+        def stream_synthesize(self, **_kwargs: object) -> object:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -1195,14 +1213,14 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
                 ],
             )
 
-    def _fake_export(_audio_data, **kwargs):
+    def _fake_export(_audio_data: object, **kwargs: object) -> object:
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
             return b"early-piece", 1900
         return b"final-piece", int(end_ms or 0) - start_ms
 
-    def _fake_build_completed_audio_record(**kwargs):
+    def _fake_build_completed_audio_record(**kwargs: object) -> object:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -1222,7 +1240,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1234,7 +1252,7 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
@@ -1311,15 +1329,15 @@ def test_streaming_tts_minimax_http_stream_keeps_provider_middle_cue_timing(
 
 
 def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count_provider_cues(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn.learn_dtos import GeneratedType
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     saved_records = []
 
     class _FakeMinimaxProvider:
-        def stream_synthesize(self, **_kwargs):
+        def stream_synthesize(self, **_kwargs: object) -> object:
             yield SimpleNamespace(
                 audio_data=b"fake-mp3-part-1",
                 is_final=False,
@@ -1349,14 +1367,14 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
                 ],
             )
 
-    def _fake_export(_audio_data, **kwargs):
+    def _fake_export(_audio_data: object, **kwargs: object) -> object:
         end_ms = kwargs.get("end_ms")
         start_ms = int(kwargs.get("start_ms") or 0)
         if end_ms is None:
             return b"early-piece", 1946
         return b"final-piece", int(end_ms or 0) - start_ms
 
-    def _fake_build_completed_audio_record(**kwargs):
+    def _fake_build_completed_audio_record(**kwargs: object) -> object:
         saved_records.append(kwargs)
         return SimpleNamespace(**kwargs)
 
@@ -1376,7 +1394,7 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts, output_format="mp3": b"".join(parts),
+        lambda parts, output_format="mp3": b"".join(parts),  # noqa: ARG005 -- preserve concatenation keyword contract
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -1388,7 +1406,7 @@ def test_streaming_tts_minimax_http_stream_freezes_emitted_prefix_for_same_count
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.save_audio_record",
-        lambda _record, commit=True: None,
+        _ignore_saved_audio_record,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",

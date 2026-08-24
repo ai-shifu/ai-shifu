@@ -1,6 +1,6 @@
-from __future__ import annotations
+"""Bind streamed audio metadata to listen-mode elements."""
 
-from typing import Any
+from __future__ import annotations
 
 from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
 from flaskr.service.learn.listen_element_payloads import (
@@ -17,7 +17,7 @@ def _normalized_stream_audio_target_type(stream_element_type: str | None) -> str
 
 
 def _stream_element_matches_audio_target(
-    stream_state: Any,
+    stream_state: object,
     stream_element_number: int,
     stream_element_type: str | None = None,
 ) -> bool:
@@ -39,7 +39,7 @@ def _stream_element_matches_audio_target(
     )
 
 
-def _ordered_stream_audio_targets(state: Any) -> list[Any]:
+def _ordered_stream_audio_targets(state: object) -> list[object]:
     return [
         stream_state
         for stream_state in state.stream_elements.values()
@@ -49,9 +49,9 @@ def _ordered_stream_audio_targets(state: Any) -> list[Any]:
 
 
 def _resolve_pending_audio_for_stream_element(
-    state: Any,
-    stream_state: Any,
-) -> tuple[ElementAudioDTO | None, list[dict[str, Any]] | None]:
+    state: object,
+    stream_state: object,
+) -> tuple[ElementAudioDTO | None, list[dict[str, object]] | None]:
     if not _stream_element_accepts_audio_target(stream_state.element_type):
         return None, None
     for position, pending_target in sorted(
@@ -102,9 +102,9 @@ def _resolve_pending_audio_for_stream_element(
 
 
 def _resolve_stream_audio_for_element_bid(
-    state: Any,
+    state: object,
     element_bid: str,
-) -> tuple[ElementAudioDTO | None, list[dict[str, Any]]]:
+) -> tuple[ElementAudioDTO | None, list[dict[str, object]]]:
     matched_positions = [
         position
         for position, target_element_bid in (
@@ -159,7 +159,7 @@ def _resolve_stream_audio_for_element_bid(
 
 
 def _resolve_audio_target_element_bid_for_stream_number(
-    state: Any,
+    state: object,
     stream_element_number: int,
     stream_element_type: str | None = None,
 ) -> str | None:
@@ -191,7 +191,7 @@ def _resolve_audio_target_element_bid_for_stream_number(
 
 
 def _resolve_audio_target_element_bid(
-    state: Any,
+    state: object,
     position: int,
 ) -> str | None:
     existing_target = state.audio_target_element_bid_by_position.get(position)

@@ -1,9 +1,10 @@
+"""Adapt learning events into listen-mode elements."""
+
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnElementRecordDTO,
@@ -27,10 +28,6 @@ from flaskr.service.learn.listen_element_run_persistence import (
 from flaskr.service.learn.listen_element_run_sidecar import (
     ListenElementRunSidecarMixin,
 )
-from flaskr.service.learn.listen_element_run_state import (
-    BlockMeta,
-    BlockState,
-)
 from flaskr.service.learn.listen_element_run_stream import (
     ListenElementRunStreamMixin,
 )
@@ -38,6 +35,15 @@ from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from flask import Flask
+    from flaskr.service.learn.listen_element_run_state import (
+        BlockMeta,
+        BlockState,
+    )
 
 __all__ = [
     "ListenElementRunAdapter",
@@ -63,6 +69,12 @@ class ListenElementRunAdapter(
         user_bid: str,
         run_session_bid: str | None = None,
     ) -> None:
+        """Initialize a legacy listen-mode adaptation run and ordering state.
+
+        Uses the supplied run session ID or generates one, resets event and element
+        sequence counters, and initializes the type state machine and element
+        tracking caches used by persisted and streamed events.
+        """
         self.app = app
         self.shifu_bid = shifu_bid
         self.outline_bid = outline_bid
@@ -85,6 +97,7 @@ class ListenElementRunAdapter(
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Iterable[RunElementSSEMessageDTO]:
+        """Adapt lesson run events into element SSE messages while advancing element state."""
         for event in events:
             if event.type == GeneratedType.CONTENT:
                 yield from self._handle_content(event)
@@ -167,6 +180,7 @@ def get_listen_element_record(
     preview_mode: bool,
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
+    """Return listen element record."""
     return _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,

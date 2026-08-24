@@ -1,3 +1,5 @@
+"""Provide shared helpers for user accounts."""
+
 import jwt
 from flask import Flask, has_app_context
 from flaskr.dao import db
@@ -28,6 +30,8 @@ def _load_user_info(user_bid: str) -> UserInfo:
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
+    """Validate user."""
+
     def _validate() -> UserInfo:
         if not token:
             raise_error("server.user.userNotLogin")
@@ -62,12 +66,13 @@ def validate_user(app: Flask, token: str) -> UserInfo:
 def update_user_info(
     app: Flask,
     user: UserInfo,
-    name,
-    email=None,
-    mobile=None,
-    language=None,
-    avatar=None,
+    name: object,
+    email: object = None,
+    mobile: object = None,
+    language: object = None,
+    avatar: object = None,
 ) -> UserInfo:
+    """Update user info."""
     with app.app_context():
         if not user:
             raise_error("server.user.userNotFound")
@@ -85,7 +90,7 @@ def update_user_info(
             updates_profile["sys_user_nickname"] = name
             update_profile = True
         if language is not None:
-            if language in get_i18n_list(app):
+            if language in get_i18n_list():
                 updates["language"] = language
                 updates_profile["sys_user_language"] = language
                 update_profile = True
@@ -145,13 +150,14 @@ def update_user_info(
 
 def verify_sms_code(
     app: Flask,
-    user_id,
+    user_id: object,
     phone: str,
     chekcode: str,
     course_id: str | None = None,
     language: str | None = None,
     login_context: str | None = None,
 ) -> UserToken:
+    """Verify SMS code."""
     provider = get_provider("phone")
     request = VerificationRequest(
         identifier=phone,

@@ -9,6 +9,8 @@ from flask import Flask
 
 @dataclass
 class AskProviderChunk:
+    """Represent one normalized chunk from an ask provider."""
+
     content: str
 
 
@@ -36,6 +38,7 @@ class AskProviderError(Exception):
     """
 
     def __init__(self, message: str = "", user_message: str | None = None) -> None:
+        """Store the raw provider error and optional UI-safe message."""
         super().__init__(message)
         self.user_message = user_message
 
@@ -49,6 +52,8 @@ class AskProviderTimeoutError(AskProviderError):
 
 
 class AskProviderAdapter(Protocol):
+    """Define the streaming contract for ask-provider adapters."""
+
     provider: str
 
     def stream_answer(
@@ -56,7 +61,9 @@ class AskProviderAdapter(Protocol):
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
-    ) -> Generator[AskProviderChunk, None, None]: ...
+    ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
+        ...

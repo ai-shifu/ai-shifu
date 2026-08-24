@@ -1,3 +1,5 @@
+"""Implement coupon operations for legacy orders."""
+
 import decimal
 import json
 
@@ -5,7 +7,11 @@ from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.dao import db
 from flaskr.service.common import raise_error
-from flaskr.service.order.funs import query_buy_record, success_buy_record
+from flaskr.service.order.funs import (
+    AICourseBuyRecordDTO,
+    query_buy_record,
+    success_buy_record,
+)
 from flaskr.service.order.models import Order
 from flaskr.service.promo.api import (
     build_coupon_enabled_expression,
@@ -64,6 +70,7 @@ def _pick_coupon_candidate(
     user_id: str,
 ) -> tuple[CouponUsageModel | None, Coupon | None, bool]:
     """Pick a coupon_usage/coupon pair that matches the current course.
+
     Returns (usage, coupon, has_candidate_with_same_code).
     """
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
@@ -109,8 +116,13 @@ def _should_bind_usage_course(coupon: Coupon, coupon_usage: CouponUsageModel) ->
 
 
 def send_feishu_coupon_code(
-    app: Flask, user_id, discount_code, discount_name, discount_value
-):
+    app: Flask,
+    user_id: object,
+    discount_code: object,
+    discount_name: object,
+    discount_value: object,
+) -> None:
+    """Send feishu coupon code."""
     with app.app_context():
         user_info = load_user_aggregate(user_id)
         title = "优惠码通知"
@@ -120,23 +132,26 @@ def send_feishu_coupon_code(
                 "feishu coupon notify skipped: user aggregate missing for %s", user_id
             )
             return
-        msgs.append(f"手机号：{user_info.mobile}")
-        msgs.append(f"昵称：{user_info.name}")
-        msgs.append(f"优惠码：{discount_code}")
-        msgs.append(f"优惠名称：{discount_name}")
-        msgs.append(f"优惠额度：{discount_value}")
+        msgs.append(f"手机号：{user_info.mobile}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"昵称：{user_info.name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"优惠码：{discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"优惠名称：{discount_name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        msgs.append(f"优惠额度：{discount_value}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         user_convertion = UserConversion.query.filter(
             UserConversion.user_id == user_id
         ).first()
         channel = ""
         if user_convertion:
             channel = user_convertion.conversion_source
-        msgs.append(f"渠道：{channel}")
+        msgs.append(f"渠道：{channel}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         send_notify(app, title, msgs)
 
 
-def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
-    """Use coupon code
+def use_coupon_code(
+    app: Flask, user_id: object, coupon_code: object, order_id: object
+) -> AICourseBuyRecordDTO | None:
+    """Use coupon code.
+
     Args:
         app: Flask app
         user_id: User id
@@ -146,6 +161,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         Order object
     Raises:
         raise_error: If the coupon code is not found or the coupon is already used.
+
     """
     with app.app_context():
         now = now_utc()

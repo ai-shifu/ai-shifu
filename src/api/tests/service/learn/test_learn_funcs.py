@@ -1,3 +1,5 @@
+"""Verify MarkdownFlow learning records progress through interactions."""
+
 import sys
 import types
 import unittest
@@ -39,6 +41,8 @@ from flaskr.service.shifu.consts import (
 
 
 class LearnRecordLoadTests(unittest.TestCase):
+    """Verify learn record load behavior."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-tests")
@@ -54,18 +58,18 @@ class LearnRecordLoadTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.ctx = self.app.app_context()
         self.ctx.push()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
         dao.db.session.commit()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         dao.db.session.remove()
         self.ctx.pop()
 
-    def test_learn_record_loads_generated_and_input_content_separately(self):
+    def test_learn_record_loads_generated_and_input_content_separately(self) -> None:
         """Ensure learn record loading uses generated content and real user input."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
@@ -150,7 +154,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         # Interaction blocks should not carry like status in API responses.
         assert interaction_record.like_status == LikeStatus.NONE
 
-    def test_mdflow_context_loads_generated_and_user_inputs(self):
+    def test_mdflow_context_loads_generated_and_user_inputs(self) -> None:
         """Verify mdflow run uses generated content for context and real user input values."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-ctx",
@@ -194,7 +198,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -214,25 +218,31 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
-        ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
+        def get_run_script_info(
+            self: object, attend: object, *, is_ask: object = False
+        ) -> object:
+            del self, is_ask
+            return RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
                 mdflow="doc",
-            ),
-            ctx,
-        )
+            )
+
+        ctx._get_run_script_info = types.MethodType(get_run_script_info, ctx)
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -244,27 +254,34 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             last_context = None
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "md content", 0)]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (block_index, mode, variables, user_input)
                 FakeMarkdownFlow.last_context = context
 
-                def _gen():
+                def _gen() -> object:
                     yield DummyLLMResult("chunk")
 
                 return _gen()
@@ -296,7 +313,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             not in FakeMarkdownFlow.last_context[1]["content"]
         )
 
-    def test_run_progresses_across_content_blocks_until_interaction(self):
+    def test_run_progresses_across_content_blocks_until_interaction(self) -> None:
         """A single run should keep advancing through content blocks and stop at interaction."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-run-continue",
@@ -312,7 +329,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -333,15 +350,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=attend.block_position,
@@ -351,7 +369,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -361,7 +381,8 @@ class LearnRecordLoadTests(unittest.TestCase):
                 self.content = content
 
         class FakeMarkdownFlow:
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "first content", 0),
                     DummyBlock(MarkdownFlowBlockType.CONTENT, "second content", 1),
@@ -372,26 +393,32 @@ class LearnRecordLoadTests(unittest.TestCase):
                     ),
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (mode, variables, context, user_input)
                 block = self.blocks[block_index]
                 if block.block_type == MarkdownFlowBlockType.INTERACTION:
                     return types.SimpleNamespace(content=block.content)
 
-                def _gen():
+                def _gen() -> object:
                     yield DummyLLMResult(block.content)
 
                 return _gen()
@@ -430,7 +457,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert progress.block_position == 2
         assert not ctx._can_continue
 
-    def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(self):
+    def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(
+        self,
+    ) -> None:
         """Avoid replaying an already generated fixed output after interaction submit."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-skip-dup",
@@ -460,7 +489,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -480,15 +509,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
@@ -498,7 +528,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -506,24 +538,31 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-emitted")
 
@@ -554,7 +593,7 @@ class LearnRecordLoadTests(unittest.TestCase):
             == 1
         )
 
-    def test_run_inner_realigns_index_to_pending_interaction_after_submit(self):
+    def test_run_inner_realigns_index_to_pending_interaction_after_submit(self) -> None:
         """If index drifts to content, realign to pending interaction before consuming input."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-realign",
@@ -584,7 +623,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -604,15 +643,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
@@ -622,7 +662,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -630,27 +672,34 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-called")
 
@@ -674,7 +723,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert ctx._run_type == RunType.INPUT
         assert ctx._can_continue
 
-    def test_run_inner_does_not_realign_on_empty_auto_input(self):
+    def test_run_inner_does_not_realign_on_empty_auto_input(self) -> None:
         """Empty auto-run input should not be treated as a real interaction submit."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-empty-input",
@@ -704,7 +753,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx = RunScriptContextV2.__new__(RunScriptContextV2)
         ctx.app = self.app
         ctx._trace_args = {}
-        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace = types.SimpleNamespace(update=lambda **_kwargs: None)
         ctx._outline_item_info = types.SimpleNamespace(
             bid=progress.outline_item_bid,
             shifu_bid=progress.shifu_bid,
@@ -724,15 +773,16 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
-            lambda self, outline_bid: progress, ctx
+            lambda _self, _outline_bid: progress, ctx
         )
-        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx._get_next_outline_item = types.MethodType(lambda _self: [], ctx)
         ctx.get_llm_settings = types.MethodType(
-            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+            lambda _self, _outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
         )
-        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx.get_system_prompt = types.MethodType(lambda _self, _outline_bid: None, ctx)
+
         ctx._get_run_script_info = types.MethodType(
-            lambda self, attend, is_ask=False: RunScriptInfo(
+            lambda _self, attend, **_kwargs: RunScriptInfo(
                 attend=attend,
                 outline_bid=attend.outline_item_bid,
                 block_position=0,
@@ -742,7 +792,9 @@ class LearnRecordLoadTests(unittest.TestCase):
         )
 
         class DummyBlock:
-            def __init__(self, block_type, content, index) -> None:
+            def __init__(
+                self, block_type: object, content: object, index: object
+            ) -> None:
                 self.block_type = block_type
                 self.content = content
                 self.index = index
@@ -750,27 +802,34 @@ class LearnRecordLoadTests(unittest.TestCase):
         class FakeMarkdownFlow:
             process_called = False
 
-            def __init__(self, *args, **kwargs) -> None:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                _ = (args, kwargs)
                 self.blocks = [
                     DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
                     DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
                 ]
 
-            def set_visual_mode(self, *_args, **_kwargs):
+            def set_visual_mode(self, *_args: object, **_kwargs: object) -> None:
                 pass
 
-            def set_output_language(self, *_args, **_kwargs):
+            def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
-            def get_all_blocks(self):
+            def get_all_blocks(self) -> object:
                 return self.blocks
 
-            def get_block(self, block_index):
+            def get_block(self, block_index: object) -> object:
                 return self.blocks[block_index]
 
             def process(
-                self, block_index, mode, variables=None, context=None, user_input=None
-            ):
+                self,
+                block_index: object,
+                mode: object,
+                variables: object = None,
+                context: object = None,
+                user_input: object = None,
+            ) -> object:
+                _ = (block_index, mode, variables, context, user_input)
                 FakeMarkdownFlow.process_called = True
                 return types.SimpleNamespace(content="should-not-be-called")
 

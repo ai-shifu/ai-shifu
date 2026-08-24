@@ -1,3 +1,5 @@
+"""Verify guide course flag behavior."""
+
 from __future__ import annotations
 
 import uuid
@@ -10,7 +12,9 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 
 
-def test_get_shifu_draft_list_marks_builtin_guide_course(app, monkeypatch):
+def test_get_shifu_draft_list_marks_builtin_guide_course(
+    app: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     guide_bid = uuid.uuid4().hex[:32]
     regular_bid = uuid.uuid4().hex[:32]

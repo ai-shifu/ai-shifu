@@ -1,9 +1,11 @@
+"""Verify billing renewal expire activation behavior."""
+
 from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -39,6 +41,9 @@ from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_event,
     self_managed_cycle_end_after_boundary,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 

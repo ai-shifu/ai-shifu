@@ -116,6 +116,7 @@ class VolcengineProtocol:
     HEADER_SIZE = 0b0001  # 4 bytes (multiplied by 4)
 
     def __init__(self) -> None:
+        """Reset connection and session identifiers for a new exchange."""
         self.connection_id: str | None = None
         self.session_id: str | None = None
 
@@ -174,6 +175,7 @@ class VolcengineProtocol:
             Encoded binary frame
 
         """
+        _ = pitch
         self.session_id = session_id
 
         # Build audio params
@@ -285,7 +287,8 @@ class VolcengineProtocol:
 
         """
         if len(data) < 4:
-            raise ValueError(f"Frame too short: {len(data)} bytes")
+            message = f"Frame too short: {len(data)} bytes"
+            raise ValueError(message)
 
         # Parse header (4 bytes)
         byte0 = data[0]
@@ -416,7 +419,7 @@ class VolcengineProtocol:
         serialization: SerializationMethod,
         compression: CompressionMethod,
         event: Event | None = None,
-        payload: dict[str, Any] | None = None,
+        payload: dict[str, object] | None = None,
     ) -> bytes:
         """Encode a frame without session/connection ID."""
         frame = bytearray()
@@ -468,7 +471,7 @@ class VolcengineProtocol:
         compression: CompressionMethod,
         event: Event,
         session_id: str,
-        payload: dict[str, Any] | None = None,
+        payload: dict[str, object] | None = None,
     ) -> bytes:
         """Encode a frame with session ID."""
         frame = bytearray()

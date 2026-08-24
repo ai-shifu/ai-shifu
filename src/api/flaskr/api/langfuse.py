@@ -1,21 +1,29 @@
+"""Integrate Langfuse tracing and prompt retrieval."""
+
 import ast
 import contextlib
 import json
 import os
 import re
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
 from flask import Flask, request
-from langfuse import Langfuse
+from langfuse import Langfuse, propagate_attributes
+from opentelemetry import trace as otel_trace_api
 
 from flaskr.common.log import thread_local
 
-# Langfuse SDK v3 is OTel based: trace ids must be 32 lowercase hex chars and
+# The Langfuse SDK is OTel based: trace ids must be 32 lowercase hex chars and
 # parent/child links are derived from the span object hierarchy instead of the
-# explicit trace_id/parent_observation_id kwargs the v2 SDK accepted. The
-# handle classes below keep the v2-style call surface (trace.span(),
+# explicit trace_id/parent_observation_id kwargs the v2 SDK accepted. SDK v4
+# additionally drops trace-level records: correlating attributes (user_id,
+# session_id, tags, ...) are replicated onto every observation through
+# propagate_attributes(), and input/output belong to the root observation. The
+# handle classes below keep the legacy call surface (trace.span(),
 # span.generation(), generation.end(output=...)) so call sites stay unchanged.
 
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -37,27 +45,34 @@ _GENERATION_KEYS = _OBSERVATION_KEYS | {
     "cost_details",
     "prompt",
 }
-_TRACE_KEYS = {
-    "name",
+# Trace attributes that SDK v4 replicates onto every observation. "name" is
+# accepted here and forwarded as propagate_attributes(trace_name=...).
+_PROPAGATED_TRACE_KEYS = {
     "user_id",
     "session_id",
     "version",
-    "input",
-    "output",
-    "metadata",
     "tags",
-    "public",
+    "metadata",
+    "environment",
 }
-# v2-era link kwargs that no longer exist in SDK v3; parenthood is implicit.
+# Trace-level input/output is deprecated in v4; these land on the observation.
+_TRACE_IO_KEYS = {"input", "output"}
+_TRACE_KEYS = _PROPAGATED_TRACE_KEYS | _TRACE_IO_KEYS | {"name", "public"}
+# v2-era link kwargs that no longer exist since SDK v3; parenthood is implicit.
 _LINK_KEYS = {"trace_id", "parent_observation_id", "id"}
 
 
 class MockClient:
-    def __init__(self, *args, **kwargs) -> None:
-        pass
+    """Provide a no-op Langfuse client when tracing is disabled."""
 
-    def __getattr__(self, name) -> Any:
-        def method(*args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """Initialize the no-op Langfuse client."""
+
+    def __getattr__(self, name: object) -> object:
+        """Return a no-op callable for any Langfuse operation."""
+
+        def method(*args: object, **kwargs: object) -> object:
+            _ = (args, kwargs)
             return self
 
         return method
@@ -71,11 +86,13 @@ class _LangfuseState:
 _langfuse_state = _LangfuseState()
 
 
-def get_langfuse_client():
+def get_langfuse_client() -> object:
+    """Return the configured Langfuse client."""
     return _langfuse_state.client
 
 
 def get_request_id() -> str:
+    """Return the current request identifier, if one is available."""
     request_id = getattr(thread_local, "request_id", "") or ""
     if request_id:
         return request_id
@@ -89,9 +106,10 @@ def get_request_id() -> str:
 
 
 def coerce_langfuse_trace_id(raw: str | None = None) -> str:
-    # SDK v3 only accepts W3C trace ids (32 lowercase hex). Non-conforming
+    # The SDK only accepts W3C trace ids (32 lowercase hex). Non-conforming
     # request ids are mapped deterministically via create_trace_id(seed=...)
     # so the same request always lands on the same Langfuse trace.
+    """Return a W3C-compatible trace identifier for an optional source value."""
     if isinstance(raw, str) and _TRACE_ID_RE.match(raw):
         return raw
     if isinstance(raw, str) and raw:
@@ -100,15 +118,17 @@ def coerce_langfuse_trace_id(raw: str | None = None) -> str:
 
 
 def get_request_trace_id() -> str:
+    """Return the current request trace identifier or create one."""
     return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
-def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> str:
+def resolve_langfuse_trace_id(observation: object, trace_id: str | None = None) -> str:
     # Only accept real string trace ids. When Langfuse is disabled the client is
     # a MockClient whose __getattr__ returns a method object for any attribute
     # (including ``trace_id``); using that object as the trace id later breaks the
     # bill_usage insert ("Data too long for column 'trace_id'"), which rolls back
     # the whole request transaction and silently drops user profile writes.
+    """Resolve a usable trace identifier from explicit and observation values."""
     if isinstance(trace_id, str) and trace_id:
         return trace_id
     observation_trace_id = getattr(observation, "trace_id", "")
@@ -118,10 +138,11 @@ def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> 
 
 
 def build_langfuse_observation_link(
-    observation: Any, trace_id: str | None = None
+    observation: object, trace_id: str | None = None
 ) -> dict[str, str]:
     # Kept for logging/correlation. The handle classes drop these keys before
-    # calling into SDK v3, where the span hierarchy already encodes the link.
+    # calling into the SDK, where the span hierarchy already encodes the link.
+    """Build correlation identifiers for a Langfuse observation."""
     observation_link: dict[str, str] = {}
     resolved_trace_id = resolve_langfuse_trace_id(observation, trace_id)
     parent_observation_id = (
@@ -139,7 +160,8 @@ def build_langfuse_observation_link(
 PRELOAD_MASTER_ENV = "AI_SHIFU_PRELOAD_MASTER"
 
 
-def init_langfuse(app: Flask):
+def init_langfuse(app: Flask) -> None:
+    """Initialize the process-local Langfuse client for a Flask application."""
     if os.environ.get(PRELOAD_MASTER_ENV):
         # Running inside the gunicorn preload master. Creating a real client
         # here starts the Langfuse/OTel BatchProcessor worker thread in the
@@ -168,7 +190,7 @@ def init_langfuse(app: Flask):
         _langfuse_state.client = MockClient()
 
 
-def _has_langfuse_value(value: Any) -> bool:
+def _has_langfuse_value(value: object) -> bool:
     if value is None:
         return False
     if isinstance(value, str):
@@ -187,7 +209,7 @@ def _looks_like_structured_text(value: str) -> bool:
     )
 
 
-def _parse_langfuse_text_value(value: str) -> Any:
+def _parse_langfuse_text_value(value: str) -> object:
     stripped = value.strip()
     if not _looks_like_structured_text(stripped):
         return value
@@ -199,7 +221,8 @@ def _parse_langfuse_text_value(value: str) -> Any:
         return value
 
 
-def normalize_langfuse_input_value(value: Any) -> str | None:
+def normalize_langfuse_input_value(value: object) -> str | None:
+    """Normalize a Langfuse input value into displayable text."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -227,7 +250,8 @@ def normalize_langfuse_input_value(value: Any) -> str | None:
     return text if text.strip() else None
 
 
-def normalize_langfuse_output_value(value: Any) -> str | None:
+def normalize_langfuse_output_value(value: object) -> str | None:
+    """Normalize a Langfuse output value into displayable text."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -257,13 +281,14 @@ def normalize_langfuse_output_value(value: Any) -> str | None:
     return text if text.strip() else None
 
 
-def compact_langfuse_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+def compact_langfuse_payload(payload: dict[str, object] | None) -> dict[str, object]:
+    """Return a payload without values Langfuse should omit."""
     if not payload:
         return {}
     return {key: value for key, value in payload.items() if _has_langfuse_value(value)}
 
 
-def _usage_to_details(usage: Any) -> dict[str, int] | None:
+def _usage_to_details(usage: object) -> dict[str, int] | None:
     if usage is None:
         return None
     if isinstance(usage, dict):
@@ -281,9 +306,18 @@ def _usage_to_details(usage: Any) -> dict[str, int] | None:
     return details or None
 
 
+def _map_trace_kwargs(kwargs: dict[str, object]) -> dict[str, object]:
+    payload = dict(kwargs)
+    for key in _LINK_KEYS:
+        payload.pop(key, None)
+    return compact_langfuse_payload(
+        {key: value for key, value in payload.items() if key in _TRACE_KEYS}
+    )
+
+
 def _map_observation_kwargs(
-    kwargs: dict[str, Any], allowed: set[str]
-) -> dict[str, Any]:
+    kwargs: dict[str, object], allowed: set[str]
+) -> dict[str, object]:
     mapped = dict(kwargs)
     for key in _LINK_KEYS:
         mapped.pop(key, None)
@@ -297,11 +331,86 @@ def _map_observation_kwargs(
     )
 
 
-class LangfuseObservationHandle:
-    """v2-style facade over a Langfuse SDK v3 span or generation."""
+class TraceAttributePropagation:
+    """Trace attributes that SDK v4 replicates onto every observation.
 
-    def __init__(self, delegate: Any, trace_id: str = "") -> None:
+    v4 removed the mutable trace record, so ``user_id``, ``session_id``,
+    ``tags``, ``version`` and ``metadata`` are carried by every observation of
+    the trace. The attributes are collected here and applied through
+    ``propagate_attributes()`` whenever an observation is created, plus
+    retroactively on observations that already exist when an attribute is bound
+    late (for example the session id, which is only known once the progress
+    record is resolved).
+    """
+
+    def __init__(self) -> None:
+        """Start with an empty set of trace attributes."""
+        self._values: dict[str, Any] = {}
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a copy of the trace attributes accumulated for propagation."""
+        return dict(self._values)
+
+    def merge(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Merge trace attributes and return the snapshot when it changed."""
+        updated = dict(self._values)
+        for raw_key, value in payload.items():
+            key = "trace_name" if raw_key == "name" else raw_key
+            if key != "trace_name" and key not in _PROPAGATED_TRACE_KEYS:
+                continue
+            if (
+                key == "metadata"
+                and isinstance(value, dict)
+                and isinstance(updated.get(key), dict)
+            ):
+                updated[key] = {**updated[key], **value}
+                continue
+            updated[key] = value
+        if updated == self._values:
+            return {}
+        self._values = updated
+        return dict(updated)
+
+    @contextmanager
+    def scope(self, delegate: object) -> Iterator[None]:
+        """Propagate the collected attributes to observations started inside.
+
+        Entering ``propagate_attributes()`` also writes the attributes on the
+        active span, so ``delegate`` is activated first and propagation is
+        skipped when it owns no OTel span (a MockClient handle while Langfuse is
+        disabled). Otherwise the attributes would land on whatever ambient span
+        the request carries, for example the HTTP server span that
+        flaskr.common.observability exports to the OTLP endpoint.
+        """
+        values = self.snapshot()
+        otel_span = getattr(delegate, "_otel_span", None)
+        if not values or not isinstance(otel_span, otel_trace_api.Span):
+            yield
+            return
+        with (
+            otel_trace_api.use_span(otel_span, end_on_exit=False),
+            propagate_attributes(**values),
+        ):
+            yield
+
+    def apply_to(self, delegate: object) -> None:
+        """Set the current attributes on an already started observation."""
+        with self.scope(delegate):
+            pass
+
+
+class LangfuseObservationHandle:
+    """v2-style facade over a Langfuse SDK span or generation."""
+
+    def __init__(
+        self,
+        delegate: object,
+        trace_id: str = "",
+        propagation: TraceAttributePropagation | None = None,
+    ) -> None:
+        """Wrap a Langfuse observation and its trace identity."""
         self._delegate = delegate
+        self._propagation = propagation or TraceAttributePropagation()
         delegate_trace_id = getattr(delegate, "trace_id", "")
         self.trace_id = trace_id or (
             delegate_trace_id if isinstance(delegate_trace_id, str) else ""
@@ -309,37 +418,47 @@ class LangfuseObservationHandle:
 
     @property
     def id(self) -> str:
+        """Return the delegated observation identifier when the SDK exposes one."""
         delegate_id = getattr(self._delegate, "id", "")
         return delegate_id if isinstance(delegate_id, str) else ""
 
-    def span(self, **kwargs) -> "LangfuseObservationHandle":
+    def _child(self, delegate: object) -> "LangfuseObservationHandle":
+        return LangfuseObservationHandle(delegate, self.trace_id, self._propagation)
+
+    def span(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Start and wrap a child span while propagating trace attributes."""
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "span")
-        child = self._delegate.start_span(**payload)
-        return LangfuseObservationHandle(child, self.trace_id)
+        with self._propagation.scope(self._delegate):
+            child = self._delegate.start_observation(as_type="span", **payload)
+        return self._child(child)
 
-    def generation(self, **kwargs) -> "LangfuseObservationHandle":
+    def generation(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Start and wrap a child generation observation."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         payload.setdefault("name", "generation")
-        # start_generation() is deprecated in SDK v3; start_observation() is
-        # the v4-compatible replacement.
-        child = self._delegate.start_observation(as_type="generation", **payload)
-        return LangfuseObservationHandle(child, self.trace_id)
+        with self._propagation.scope(self._delegate):
+            child = self._delegate.start_observation(as_type="generation", **payload)
+        return self._child(child)
 
-    def event(self, **kwargs) -> "LangfuseObservationHandle":
+    def event(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Create an event observation beneath the current observation."""
         payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
         payload.setdefault("name", "event")
-        child = self._delegate.create_event(**payload)
-        return LangfuseObservationHandle(child, self.trace_id)
+        with self._propagation.scope(self._delegate):
+            child = self._delegate.create_event(**payload)
+        return self._child(child)
 
-    def update(self, **kwargs) -> "LangfuseObservationHandle":
+    def update(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Apply supported observation updates and return this handle."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
             self._delegate.update(**payload)
         return self
 
-    def end(self, **kwargs) -> "LangfuseObservationHandle":
-        # SDK v3 end() only accepts end_time; flush attribute updates first.
+    def end(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Flush attribute updates and end the delegated observation."""
+        # SDK end() only accepts end_time; flush attribute updates first.
         end_time = kwargs.pop("end_time", None)
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
         if payload:
@@ -350,44 +469,71 @@ class LangfuseObservationHandle:
             self._delegate.end()
         return self
 
-    def update_trace(self, **kwargs) -> "LangfuseObservationHandle":
-        payload = _map_observation_kwargs(kwargs, _TRACE_KEYS)
-        if payload:
-            self._delegate.update_trace(**payload)
+    def update_trace(self, **kwargs: object) -> "LangfuseObservationHandle":
+        """Apply trace attributes to this observation and future descendants."""
+        payload = _map_trace_kwargs(kwargs)
+        if not payload:
+            return self
+        propagated = self._propagation.merge(payload)
+        if propagated:
+            self._propagation.apply_to(self._delegate)
+        # v4 reads input/output from the observation, not from the trace.
+        io_payload = {key: payload[key] for key in _TRACE_IO_KEYS if key in payload}
+        if io_payload:
+            self._delegate.update(**io_payload)
+        if payload.get("public"):
+            self._delegate.set_trace_as_public()
         return self
 
 
 class LangfuseTraceHandle(LangfuseObservationHandle):
-    """v2-style trace facade; trace attributes live on the root span in v3."""
+    """v2-style trace facade; trace attributes live on the observations in v4."""
 
-    def update(self, **kwargs) -> "LangfuseTraceHandle":
+    def update(self, **kwargs: object) -> "LangfuseTraceHandle":
+        """Update propagated trace attributes and return this trace facade."""
         self.update_trace(**kwargs)
         return self
 
 
 def create_trace_with_root_span(
     *,
-    client: Any,
-    trace_payload: dict[str, Any],
-    root_span_payload: dict[str, Any],
-):
-    trace_payload = compact_langfuse_payload(trace_payload)
-    root_payload = _map_observation_kwargs(root_span_payload, _OBSERVATION_KEYS)
-    raw_trace_id = trace_payload.pop("id", None)
+    client: object,
+    trace_payload: dict[str, object],
+    root_span_payload: dict[str, object],
+) -> tuple[LangfuseTraceHandle, LangfuseObservationHandle]:
+    """Create a trace facade and its root observation from caller payloads."""
+    raw_trace_id = compact_langfuse_payload(trace_payload).get("id")
     trace_id = coerce_langfuse_trace_id(
         raw_trace_id if isinstance(raw_trace_id, str) else None
     )
-    root_payload.setdefault("name", trace_payload.get("name") or "trace")
-    root_span = client.start_span(
+    trace_attributes = _map_trace_kwargs(trace_payload)
+    root_payload = _map_observation_kwargs(root_span_payload, _OBSERVATION_KEYS)
+    root_payload.setdefault("name", trace_attributes.get("name") or "trace")
+    # v4 reads input/output from the root observation, and propagated metadata
+    # is coerced to short strings, so keep the full payload on the observation.
+    for key in _TRACE_IO_KEYS | {"metadata"}:
+        if key in trace_attributes:
+            root_payload.setdefault(key, trace_attributes[key])
+
+    root_span = client.start_observation(
         trace_context={"trace_id": trace_id},
         **root_payload,
     )
-    trace = LangfuseTraceHandle(root_span, trace_id)
-    trace.update(**trace_payload)
-    return trace, LangfuseObservationHandle(root_span, trace_id)
+    # The attributes are written onto the root observation itself, so it must
+    # exist before propagation starts.
+    propagation = TraceAttributePropagation()
+    propagation.merge(trace_attributes)
+    propagation.apply_to(root_span)
+    trace = LangfuseTraceHandle(root_span, trace_id, propagation)
+    if trace_attributes.get("public"):
+        root_span.set_trace_as_public()
+    return trace, LangfuseObservationHandle(root_span, trace_id, propagation)
 
 
-def update_langfuse_trace(trace: Any, payload: dict[str, Any] | None = None, **kwargs):
+def update_langfuse_trace(
+    trace: object, payload: dict[str, object] | None = None, **kwargs: object
+) -> object:
+    """Apply non-empty attributes to a Langfuse trace facade."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
         trace.update(**update_payload)
@@ -395,10 +541,11 @@ def update_langfuse_trace(trace: Any, payload: dict[str, Any] | None = None, **k
 
 
 def update_langfuse_observation(
-    observation: Any,
-    payload: dict[str, Any] | None = None,
-    **kwargs,
-):
+    observation: object,
+    payload: dict[str, object] | None = None,
+    **kwargs: object,
+) -> object:
+    """Apply non-empty attributes to a Langfuse observation."""
     update_payload = compact_langfuse_payload(payload or kwargs)
     if update_payload:
         observation.update(**update_payload)
@@ -407,13 +554,14 @@ def update_langfuse_observation(
 
 def finalize_langfuse_trace(
     *,
-    trace: Any,
-    root_span: Any | None,
-    trace_payload: dict[str, Any] | None = None,
-    root_span_payload: dict[str, Any] | None = None,
-):
-    # Update trace attributes before ending the root span: in SDK v3 trace
-    # attributes are written through the (still open) root span.
+    trace: object,
+    root_span: object | None,
+    trace_payload: dict[str, object] | None = None,
+    root_span_payload: dict[str, object] | None = None,
+) -> object:
+    # Update trace attributes before ending the root span: the attributes are
+    # written through the (still open) root span.
+    """Apply final attributes and end the root observation when present."""
     update_langfuse_trace(trace, payload=trace_payload)
     if root_span is not None:
         root_span.end(**compact_langfuse_payload(root_span_payload))

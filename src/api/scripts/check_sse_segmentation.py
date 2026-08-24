@@ -20,7 +20,6 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -29,8 +28,13 @@ os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
+from typing import TYPE_CHECKING
+
 from flaskr.service.tts import streaming_tts as streaming_tts_module
 from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
 VISUAL_LEAK_PATTERN = re.compile(
@@ -41,6 +45,8 @@ VISUAL_LEAK_PATTERN = re.compile(
 
 @dataclass
 class BlockSample:
+    """Represent one MarkdownFlow block used by an audit script."""
+
     id: int
     generated_block_bid: str
     created_at: str
@@ -51,6 +57,8 @@ class BlockSample:
 
 @dataclass
 class AnalysisResult:
+    """Capture findings from a stream-analysis script."""
+
     sample: BlockSample
     expected_segments: list[str]
     observed_segments: list[str]
@@ -58,6 +66,7 @@ class AnalysisResult:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the SSE segmentation check."""
     parser = argparse.ArgumentParser(
         description="Check SSE segmentation against exported generate blocks."
     )
@@ -133,17 +142,17 @@ def _simulate_observed_segments(
     captured_by_position: dict[int, list[str]] = {}
 
     class CaptureStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             self.position = int(kwargs.get("position", 0) or 0)
             self._parts: list[str] = []
 
-        def process_chunk(self, chunk):
+        def process_chunk(self, chunk: object) -> object:
             if chunk:
                 self._parts.append(chunk)
             return
             yield
 
-        def finalize(self, commit=True):
+        def finalize(self, commit: object = True) -> object:
             _ = commit
             text = "".join(self._parts).strip()
             if text:
@@ -217,10 +226,12 @@ def _preview(text: str, width: int = 160) -> str:
 
 
 def main() -> int:
+    """Check captured SSE streams for segmentation regressions."""
     args = parse_args()
     input_path = Path(args.input)
     if not input_path.exists():
-        raise SystemExit(f"Input file not found: {input_path}")
+        message = f"Input file not found: {input_path}"
+        raise SystemExit(message)
 
     chunk_sizes = (
         tuple(int(part.strip()) for part in args.chunk_sizes.split(",") if part.strip())
@@ -229,7 +240,8 @@ def main() -> int:
 
     samples = _load_samples(input_path, limit=args.limit)
     if not samples:
-        raise SystemExit("No samples loaded")
+        error_message = "No samples loaded"
+        raise SystemExit(error_message)
 
     abnormal: list[AnalysisResult] = []
     speakable_count = 0

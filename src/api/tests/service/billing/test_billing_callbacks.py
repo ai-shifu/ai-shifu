@@ -1,7 +1,10 @@
+"""Verify billing callbacks behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -35,9 +38,12 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 
 from tests.common.fixtures.bill_products import build_bill_products
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_callback_app():
+def billing_callback_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -323,8 +329,10 @@ def _create_legacy_wechatpay_records(
 
 
 class TestBillingPingxxCallbacks:
+    """Verify billing pingxx callbacks behavior."""
+
     def test_pingxx_callback_marks_billing_order_paid(
-        self, billing_callback_app
+        self, billing_callback_app: object
     ) -> None:
         with billing_callback_app.app_context():
             dao.db.session.add(_create_active_subscription())
@@ -387,7 +395,7 @@ class TestBillingPingxxCallbacks:
             assert ledger.amount == 20
 
     def test_pingxx_callback_syncs_manual_trial_subscription_provider(
-        self, billing_callback_app
+        self, billing_callback_app: object
     ) -> None:
         with billing_callback_app.app_context():
             now = datetime(2026, 4, 8, 12, 0, 0)
@@ -473,7 +481,7 @@ class TestBillingPingxxCallbacks:
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
 
     def test_pingxx_callback_reports_non_billing_payload(
-        self, billing_callback_app
+        self, billing_callback_app: object
     ) -> None:
         body = {
             "type": "charge.succeeded",
@@ -492,23 +500,23 @@ class TestBillingPingxxCallbacks:
         assert payload["status"] == "not_billing"
 
     def test_pingxx_callback_route_reuses_billing_and_legacy_paths(
-        self, billing_callback_app, monkeypatch
+        self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_shifu_creator_bid",
-            lambda *args, **kwargs: "creator-legacy-1",
+            lambda *_args, **_kwargs: "creator-legacy-1",
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.set_user_state",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.send_order_feishu",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.query_buy_record",
-            lambda *args, **kwargs: {},
+            lambda *_args, **_kwargs: {},
         )
 
         with billing_callback_app.app_context():
@@ -592,16 +600,19 @@ class TestBillingPingxxCallbacks:
 
 
 class TestBillingNativeCallbacks:
+    """Verify billing native callbacks behavior."""
+
     def test_alipay_billing_callback_duplicate_paid_is_idempotent(
-        self, billing_callback_app, monkeypatch
+        self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeAlipayProvider:
-            def handle_notification(self, *, payload, app):
+            def handle_notification(self, *, payload: object, app: object) -> object:
+                _ = (payload, app)
                 return _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS")
 
         monkeypatch.setattr(
             "flaskr.service.billing.webhooks.get_payment_provider",
-            lambda provider_name: FakeAlipayProvider(),
+            lambda _provider_name: FakeAlipayProvider(),
         )
 
         with billing_callback_app.app_context():
@@ -654,7 +665,7 @@ class TestBillingNativeCallbacks:
             assert len(ledgers) == 1
 
     def test_wechatpay_native_callbacks_allow_failed_then_paid(
-        self, billing_callback_app
+        self, billing_callback_app: object
     ) -> None:
         with billing_callback_app.app_context():
             dao.db.session.add(
@@ -702,7 +713,7 @@ class TestBillingNativeCallbacks:
             assert raw_order.raw_status == "SUCCESS"
 
     def test_wechatpay_native_callbacks_ignore_failed_after_paid(
-        self, billing_callback_app
+        self, billing_callback_app: object
     ) -> None:
         with billing_callback_app.app_context():
             dao.db.session.add(
@@ -745,7 +756,7 @@ class TestBillingNativeCallbacks:
             assert raw_order.raw_status == "SUCCESS"
 
     def test_native_billing_callback_rejects_amount_mismatch(
-        self, billing_callback_app
+        self, billing_callback_app: object
     ) -> None:
         with billing_callback_app.app_context():
             dao.db.session.add(
@@ -782,19 +793,20 @@ class TestBillingNativeCallbacks:
             assert order.status == BILLING_ORDER_STATUS_PENDING
 
     def test_native_callback_route_acknowledges_unmatched_alipay(
-        self, billing_callback_app, monkeypatch
+        self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeAlipayProvider:
-            def handle_notification(self, *, payload, app):
+            def handle_notification(self, *, payload: object, app: object) -> object:
+                _ = (payload, app)
                 return _alipay_notification("missing-native-order", "TRADE_SUCCESS")
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",
-            lambda provider_name: FakeAlipayProvider(),
+            lambda _provider_name: FakeAlipayProvider(),
         )
         monkeypatch.setattr(
             "flaskr.route.callback.success_buy_record_from_native",
-            lambda *args, **kwargs: False,
+            lambda *_args, **_kwargs: False,
         )
 
         with billing_callback_app.test_client() as client:
@@ -807,31 +819,34 @@ class TestBillingNativeCallbacks:
         assert response.data.decode("utf-8") == "success"
 
     def test_wechatpay_callback_route_updates_legacy_order_when_not_billing(
-        self, billing_callback_app, monkeypatch
+        self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers, raw_body, app):
+            def verify_webhook(
+                self, *, headers: object, raw_body: object, app: object
+            ) -> object:
+                _ = (headers, raw_body, app)
                 return _wechatpay_notification("legacy-wechatpay-attempt-1", "SUCCESS")
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",
-            lambda provider_name: FakeWechatPayProvider(),
+            lambda _provider_name: FakeWechatPayProvider(),
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_shifu_creator_bid",
-            lambda *args, **kwargs: "creator-legacy-1",
+            lambda *_args, **_kwargs: "creator-legacy-1",
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.set_user_state",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.send_order_feishu",
-            lambda *args, **kwargs: None,
+            lambda *_args, **_kwargs: None,
         )
         monkeypatch.setattr(
             "flaskr.service.order.funs.query_buy_record",
-            lambda *args, **kwargs: {},
+            lambda *_args, **_kwargs: {},
         )
 
         with billing_callback_app.app_context():
@@ -872,15 +887,19 @@ class TestBillingNativeCallbacks:
             )
 
     def test_wechatpay_callback_route_hides_exception_details(
-        self, billing_callback_app, monkeypatch
+        self, billing_callback_app: object, monkeypatch: object
     ) -> None:
         class FakeWechatPayProvider:
-            def verify_webhook(self, *, headers, raw_body, app):
-                raise RuntimeError("secret verification detail")
+            def verify_webhook(
+                self, *, headers: object, raw_body: object, app: object
+            ) -> None:
+                _ = (headers, raw_body, app)
+                message = "secret verification detail"
+                raise RuntimeError(message)
 
         monkeypatch.setattr(
             "flaskr.route.callback.get_payment_provider",
-            lambda provider_name: FakeWechatPayProvider(),
+            lambda _provider_name: FakeWechatPayProvider(),
         )
 
         with billing_callback_app.test_client() as client:

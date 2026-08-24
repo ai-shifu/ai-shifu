@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG, normalize_usage_scene
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def resolve_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
@@ -17,7 +19,7 @@ def resolve_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     return get_shifu_creator_bid(app, normalized_shifu_bid)
 
 
-def resolve_usage_creator_bid(app: Flask, usage: Any) -> str | None:
+def resolve_usage_creator_bid(app: Flask, usage: object) -> str | None:
     """Resolve the owning creator from a metering usage record or payload."""
     shifu_bid = _extract_usage_field(usage, "shifu_bid")
     if shifu_bid:
@@ -34,7 +36,7 @@ def resolve_usage_creator_bid(app: Flask, usage: Any) -> str | None:
     return None
 
 
-def _extract_usage_field(usage: Any, field_name: str) -> str:
+def _extract_usage_field(usage: object, field_name: str) -> str:
     if isinstance(usage, dict):
         value = usage.get(field_name, "")
     else:

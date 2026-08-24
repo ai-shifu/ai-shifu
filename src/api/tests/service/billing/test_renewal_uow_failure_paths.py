@@ -22,8 +22,8 @@ These tests pin the new semantics:
 from __future__ import annotations
 
 from datetime import timedelta
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -61,6 +61,9 @@ from flaskr.util.datetime import now_utc
 from sqlalchemy.orm import sessionmaker
 
 from tests.common.fixtures.bill_products import build_bill_products
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 CREATOR_BID = "creator-uow-renewal"
 
@@ -156,16 +159,19 @@ def _seed_event(
     return event
 
 
-def _failing_lifecycle_sync(monkeypatch: pytest.MonkeyPatch, *, failing_bids: set):
+def _failing_lifecycle_sync(
+    monkeypatch: pytest.MonkeyPatch, *, failing_bids: set
+) -> None:
     """Fail the cancel-effective handler mid-flow for selected subscriptions.
 
     The failure point sits after the subscription mutation and before the
     event completion, simulating any late in-transaction error.
     """
 
-    def fake_sync(_app, subscription):
+    def fake_sync(_app: object, subscription: object) -> None:
         if subscription.subscription_bid in failing_bids:
-            raise RuntimeError(f"boom in {subscription.subscription_bid}")
+            message = f"boom in {subscription.subscription_bid}"
+            raise RuntimeError(message)
 
     monkeypatch.setattr(
         billing_renewal, "_sync_subscription_lifecycle_events", fake_sync
@@ -312,8 +318,9 @@ def test_renewal_order_persists_before_provider_sync_crash(
     )
     dao.db.session.commit()
 
-    def crashing_sync(*_args, **_kwargs):
-        raise RuntimeError("provider sync crash")
+    def crashing_sync(*_args: object, **_kwargs: object) -> None:
+        message = "provider sync crash"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(billing_renewal, "_sync_billing_renewal_order", crashing_sync)
 
@@ -404,7 +411,8 @@ def test_expire_notification_fires_after_commit_and_drops_on_rollback(
                 renewal_uow_app, renewal_event_bid="renewal-uow-notify"
             )
             assert enqueued == []  # not yet durable, must not dispatch
-            raise RuntimeError("outer boom")
+            message = "outer boom"
+            raise RuntimeError(message)
 
     with pytest.raises(RuntimeError, match="outer boom"):
         run_then_fail()
@@ -432,6 +440,7 @@ def test_subscription_lifecycle_cancel_skips_processing_events(
     renewal_uow_app: Flask,
 ) -> None:
     """Lifecycle sync must not cancel a worker that already claimed an event."""
+    _ = renewal_uow_app
     subscription = _seed_subscription("sub-uow-cancel-processing")
     pending = _seed_event(
         "renewal-uow-cancel-pending",
@@ -518,6 +527,7 @@ def test_processing_event_release_does_not_overwrite_canceled_event(
     renewal_uow_app: Flask,
 ) -> None:
     """A stale defer path cannot release a terminal event back to pending."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-stale-release")
     event = _seed_event(
         "renewal-uow-stale-release",
@@ -559,6 +569,7 @@ def test_processing_event_completion_does_not_overwrite_canceled_event(
     renewal_uow_app: Flask,
 ) -> None:
     """A stale worker cannot mark an event succeeded after another transition."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-stale-complete")
     event = _seed_event(
         "renewal-uow-stale-complete",
@@ -600,6 +611,7 @@ def test_processing_event_failure_does_not_overwrite_succeeded_event(
     renewal_uow_app: Flask,
 ) -> None:
     """A stale failure path cannot move a terminal event back to failed."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-stale-fail")
     event = _seed_event(
         "renewal-uow-stale-fail",
@@ -760,6 +772,7 @@ def test_old_claim_cannot_complete_new_processing_attempt(
     renewal_uow_app: Flask,
 ) -> None:
     """Attempt-count CAS prevents an old worker from finishing a new claim."""
+    _ = renewal_uow_app
     _seed_subscription("sub-uow-claim-generation")
     event = _seed_event(
         "renewal-uow-claim-generation",
@@ -806,6 +819,7 @@ def test_lost_claim_rolls_back_business_side_effects(
     renewal_uow_app: Flask,
 ) -> None:
     """Callers must not commit business writes when terminal CAS loses."""
+    _ = renewal_uow_app
     subscription = _seed_subscription("sub-uow-lost-claim-rollback")
     event = _seed_event(
         "renewal-uow-lost-claim-rollback",
@@ -940,7 +954,7 @@ def test_provider_guard_renews_lease_before_cross_transaction_sync(
 
     recovery_counts: list[int] = []
 
-    def fake_sync(*_args, **_kwargs):
+    def fake_sync(*_args: object, **_kwargs: object) -> object:
         recovery_counts.append(
             billing_tasks._recover_stale_processing_renewal_events(
                 stale_before=now_utc() - timedelta(minutes=30),
@@ -1053,9 +1067,9 @@ def test_upsert_recovers_when_concurrent_insert_wins(
         subscription_bid: str,
         *,
         event_type: int,
-        scheduled_at,
+        scheduled_at: object,
         for_update: bool = False,
-    ):
+    ) -> object:
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -1126,13 +1140,13 @@ def test_upsert_recovers_when_cross_session_insert_wins(
         subscription_bid: str,
         *,
         event_type: int,
-        scheduled_at,
+        scheduled_at: object,
         for_update: bool = False,
-    ):
+    ) -> object:
         calls.append(for_update)
         if len(calls) == 1:
-            Session = sessionmaker(bind=dao.db.engine)
-            other_session = Session()
+            session_factory = sessionmaker(bind=dao.db.engine)
+            other_session = session_factory()
             try:
                 winner = BillingRenewalEvent(
                     renewal_event_bid="renewal-uow-upsert-cross-session-winner",

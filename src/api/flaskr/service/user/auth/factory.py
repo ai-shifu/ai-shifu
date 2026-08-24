@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from .base import AuthProvider
 
 
@@ -24,13 +25,13 @@ def register_provider(provider_cls: type[AuthProvider]) -> None:
     """Register a provider class with the global registry."""
     provider_name = getattr(provider_cls, "provider_name", None)
     if not provider_name:
-        raise ValueError("Auth providers must define a non-empty provider_name")
+        error_message = "Auth providers must define a non-empty provider_name"
+        raise ValueError(error_message)
 
     normalized = provider_name.lower()
     if normalized in _REGISTRY:
-        raise ProviderAlreadyRegisteredError(
-            f"Provider '{provider_name}' already registered"
-        )
+        message = f"Provider '{provider_name}' already registered"
+        raise ProviderAlreadyRegisteredError(message)
 
     _REGISTRY[normalized] = provider_cls
 
@@ -40,7 +41,8 @@ def get_provider(provider_name: str) -> AuthProvider:
     normalized = provider_name.lower()
     provider_cls = _REGISTRY.get(normalized)
     if provider_cls is None:
-        raise ProviderNotFoundError(f"Provider '{provider_name}' is not registered")
+        message = f"Provider '{provider_name}' is not registered"
+        raise ProviderNotFoundError(message)
     return provider_cls()
 
 

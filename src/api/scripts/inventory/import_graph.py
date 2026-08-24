@@ -31,7 +31,8 @@ ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 mods = {}  # module name -> relative file path
 
 
-def add_tree(base_pkg, base_dir):
+def add_tree(base_dir: object) -> None:
+    """Add tree."""
     for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base_dir)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         rel = os.path.relpath(dirpath, ROOT)
@@ -46,8 +47,8 @@ def add_tree(base_pkg, base_dir):
             mods[name] = str(Path(rel) / fn)
 
 
-add_tree("flaskr", "flaskr")
-add_tree("scripts", "scripts")
+add_tree("flaskr")
+add_tree("scripts")
 for top in ("app.py", "celery_app.py"):
     if (Path(ROOT) / top).exists():
         mods[top[:-3]] = top
@@ -81,7 +82,7 @@ for name, rel in mods.items():
                     edges[name].add(base + "." + a.name)
 
 
-def resolve(target):
+def resolve(target: object) -> str | None:
     """Map an imported dotted name to a known project module (or None)."""
     while target:
         if target in mods:

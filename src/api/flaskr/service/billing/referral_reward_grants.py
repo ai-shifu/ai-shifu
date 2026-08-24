@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.util.datetime import now_utc
@@ -47,6 +45,11 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
+
 REFERRAL_REWARD_GRANT_TYPE = "referral_reward"
 REFERRAL_REWARD_SCENE = "referral"
 REFERRAL_REWARD_PROGRAM = "referral_reward"
@@ -56,7 +59,7 @@ REFERRAL_REWARD_GRANT_SOURCE = "reward"
 REFERRAL_REWARD_VALIDITY_PRESET = "1m"
 
 
-def _normalize_referral_reward_amount(value: Any) -> Decimal:
+def _normalize_referral_reward_amount(value: object) -> Decimal:
     normalized = str(value or "").strip()
     if not normalized or not normalized.isdigit():
         raise_param_error("amount")
@@ -73,7 +76,7 @@ def _serialize_metadata_datetime(value: datetime | None) -> str:
     return value.isoformat() if value is not None else ""
 
 
-def _is_referral_reward_metadata(metadata: Any) -> bool:
+def _is_referral_reward_metadata(metadata: object) -> bool:
     if not isinstance(metadata, dict):
         return False
     return str(metadata.get("grant_type") or "").strip() == REFERRAL_REWARD_GRANT_TYPE
@@ -133,6 +136,7 @@ def load_referral_reward_summary(
     creator_bid: str,
     as_of: datetime | None = None,
 ) -> ReferralRewardSummary:
+    """Load referral reward summary."""
     with app.app_context():
         scan_at = as_of or now_utc()
         buckets = _load_active_referral_reward_buckets(

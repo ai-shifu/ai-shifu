@@ -1,16 +1,20 @@
+"""Send analytics events to Umami."""
+
 from __future__ import annotations
 
 import logging
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
-from flask import Flask
 
 from flaskr.common.cache_provider import cache
 from flaskr.common.config import get_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 UMAMI_CLOUD_API_BASE_URL = "https://api.umami.is/v1"
 UMAMI_ACCESS_TOKEN_CACHE_SUFFIX = "analytics:umami:access-token"  # noqa: S105 - cache key suffix
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_course_visit_event_name(shifu_bid: str) -> str:
+    """Build course visit event name."""
     normalized = "".join(
         ch
         if ("0" <= ch <= "9")
@@ -39,7 +44,7 @@ def build_course_visit_event_name(shifu_bid: str) -> str:
     return COURSE_VISIT_EVENT_PREFIX + normalized[:suffix_limit]
 
 
-def _decode_cache_bytes(raw: Any) -> str:
+def _decode_cache_bytes(raw: object) -> str:
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -99,7 +104,7 @@ def _get_access_token_cache_key() -> str:
 def _cache_setex_best_effort(
     cache_key: str,
     ttl_seconds: int,
-    value: Any,
+    value: object,
     *,
     operation: str,
 ) -> None:
@@ -242,6 +247,7 @@ def _fetch_distinct_ids_for_event(
 
 
 def get_course_visit_count_30d(app: Flask, shifu_bid: str) -> int:
+    """Return course visit count 30d."""
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         return 0

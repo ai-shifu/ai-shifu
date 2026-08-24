@@ -1,9 +1,13 @@
+"""Configure Alembic migration execution."""
+
 import logging
 from logging.config import fileConfig
 
 from alembic import context
 from flask import current_app
 from flaskr.dao import db
+from sqlalchemy import MetaData
+from sqlalchemy.engine import Engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -15,7 +19,7 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
 
-def get_engine():
+def get_engine() -> Engine:
     try:
         # this works with Flask-SQLAlchemy<3 and Alchemical
         return current_app.extensions["migrate"].db.get_engine()
@@ -24,7 +28,7 @@ def get_engine():
         return current_app.extensions["migrate"].db.engine
 
 
-def get_engine_url():
+def get_engine_url() -> str:
     try:
         return get_engine().url.render_as_string(hide_password=False).replace("%", "%%")
     except AttributeError:
@@ -35,9 +39,16 @@ config.set_main_option("sqlalchemy.url", get_engine_url())
 target_db = current_app.extensions["migrate"].db
 
 
-def include_object(db_object, name, type_, reflected, compare_to):
+def include_object(
+    db_object: object,
+    name: object,
+    type_: object,
+    reflected: object,
+    compare_to: object,
+) -> bool:
     """Use the simplest mode to avoid separation."""
     # the system tables
+    _ = compare_to
     system_tables = [
         "alembic_version",
         "information_schema",
@@ -89,13 +100,13 @@ def include_object(db_object, name, type_, reflected, compare_to):
     return True
 
 
-def get_metadata():
+def get_metadata() -> MetaData:
     if hasattr(target_db, "metadatas"):
         return target_db.metadatas[None]
     return target_db.metadata
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
     This configures the context with just a URL
@@ -133,7 +144,10 @@ def run_migrations_online() -> None:
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
-    def process_revision_directives(context, revision, directives):
+    def process_revision_directives(
+        context: object, revision: object, directives: object
+    ) -> None:
+        _ = (context, revision)
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
             if script.upgrade_ops.is_empty():
@@ -174,7 +188,7 @@ def run_migrations_online() -> None:
                         # merge the related changes into the same migration
                         merge_related_changes(script)
 
-    def is_meaningful_operation(op):
+    def is_meaningful_operation(op: object) -> object:
         """Judge if an operation is meaningful (not meaningless type conversion)."""
         op_type = type(op).__name__
 
@@ -226,7 +240,7 @@ def run_migrations_online() -> None:
 
         return True
 
-    def filter_unnecessary_operations(script):
+    def filter_unnecessary_operations(script: object) -> None:
         """Filter out the unnecessary or duplicate operations."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
@@ -264,7 +278,7 @@ def run_migrations_online() -> None:
                 len(filtered_ops),
             )
 
-    def get_operation_signature(op):
+    def get_operation_signature(op: object) -> object:
         """Generate the unique signature of the operation to detect duplication."""
         op_type = type(op).__name__
 
@@ -292,12 +306,12 @@ def run_migrations_online() -> None:
             return f"{op_type}:{table_name}"
         return f"{op_type}:unknown"
 
-    def should_skip_operation(op):
+    def should_skip_operation(op: object) -> object:
         """Judge if it should skip the operation."""
         op_type = type(op).__name__
 
         # dynamically get the application table prefixes, based on the actual defined models
-        def get_app_table_prefixes():
+        def get_app_table_prefixes() -> object:
             """Dynamically get the table prefixes from the actual models."""
             prefixes = set()
 
@@ -328,7 +342,7 @@ def run_migrations_online() -> None:
         app_table_prefixes = get_app_table_prefixes()
 
         # get all registered application table names
-        def get_app_table_names():
+        def get_app_table_names() -> object:
             """Get all registered application table names."""
             table_names = set()
             for mapper in db.Model.registry.mappers:
@@ -482,7 +496,7 @@ def run_migrations_online() -> None:
 
         return False
 
-    def merge_related_changes(script):
+    def merge_related_changes(script: object) -> None:
         """Merge the related changes into the same migration."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
@@ -575,17 +589,18 @@ def run_migrations_online() -> None:
 
     # Custom comparison functions that reduce false positives
     def compare_server_default(
-        context,
-        inspected_column,
-        metadata_column,
-        inspected_default,
-        metadata_default,
-        rendered_metadata_default,
-    ):
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_default: object,
+        metadata_default: object,
+        rendered_metadata_default: object,
+    ) -> object:
         """Compare server defaults leniently to reduce false positives."""
-
         # Normalize how a default value is spelled
-        def normalize_default(default):
+        _ = (context, inspected_column, metadata_column, metadata_default)
+
+        def normalize_default(default: object) -> object:
             if default is None:
                 return None
             default_str = str(default).strip()
@@ -608,12 +623,17 @@ def run_migrations_online() -> None:
         return norm_inspected != norm_metadata
 
     def compare_comment(
-        context, inspected_column, metadata_column, inspected_comment, metadata_comment
-    ):
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_comment: object,
+        metadata_comment: object,
+    ) -> object:
         """Compare comments leniently, still reporting real comment changes."""
-
         # Normalize how a comment is spelled
-        def normalize_comment(comment):
+        _ = inspected_column
+
+        def normalize_comment(comment: object) -> object:
             if comment is None:
                 return None
             comment_str = str(comment).strip()
@@ -653,10 +673,15 @@ def run_migrations_online() -> None:
         return False
 
     def compare_type(
-        context, inspected_column, metadata_column, inspected_type, metadata_type
-    ):
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_type: object,
+        metadata_type: object,
+    ) -> object:
         """Compare column types leniently to reduce false positives."""
         # Treat small type differences as equal
+        _ = (context, inspected_column, metadata_column)
         inspected_str = str(inspected_type).upper()
         metadata_str = str(metadata_type).upper()
 

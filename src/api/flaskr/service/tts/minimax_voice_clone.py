@@ -8,20 +8,23 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import requests
-from flask import Flask
 
 try:
     from pydub import AudioSegment
 except Exception:  # pragma: no cover - exercised only when pydub is missing.
 
     class AudioSegment:  # type: ignore[no-redef]
+        """Reference one time range in a source audio file."""
+
         @staticmethod
-        def from_file(*_args, **_kwargs) -> None:
-            raise RuntimeError("audio decoder is not available")
+        def from_file(*_args: object, **_kwargs: object) -> None:
+            """Raise because audio decoding is unavailable in this fallback stub."""
+            message = "audio decoder is not available"
+            raise RuntimeError(message)
 
 
 import contextlib
@@ -62,9 +65,14 @@ from flaskr.service.tts.models import (
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
+if TYPE_CHECKING:
+    from decimal import Decimal
+
+    from flask import Flask
+
 MINIMAX_FILE_UPLOAD_URL = "https://api.minimaxi.com/v1/files/upload"
 MINIMAX_VOICE_CLONE_URL = "https://api.minimaxi.com/v1/voice_clone"
-MINIMAX_CLONE_PREVIEW_TEXT = "你好，这是音色复制后的试听效果。"
+MINIMAX_CLONE_PREVIEW_TEXT = "你好，这是音色复制后的试听效果。"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 MINIMAX_CLONE_PREVIEW_MODEL = "speech-2.8-turbo"
 
 _ALLOWED_INPUT_EXTENSIONS = {"mp3", "m4a", "wav", "webm", "ogg", "mp4"}
@@ -79,6 +87,8 @@ _PENDING_AUDIO_BLOBS: dict[str, bytes] = {}
 
 @dataclass(slots=True, frozen=True)
 class NormalizedAudioBlob:
+    """Represent the binary data for normalized audio."""
+
     audio_bytes: bytes
     duration_ms: int
     extension: str = "wav"
@@ -87,6 +97,8 @@ class NormalizedAudioBlob:
 
 @dataclass(slots=True, frozen=True)
 class StoredResourceRef:
+    """Reference stored resource."""
+
     resource_bid: str
     url: str
     object_key: str
@@ -94,6 +106,8 @@ class StoredResourceRef:
 
 @dataclass(slots=True, frozen=True)
 class MiniMaxUploadedFile:
+    """Reference one file uploaded to MiniMax."""
+
     file_id: str
     extra_info: dict[str, Any] = field(default_factory=dict)
     trace_id: str = ""
@@ -101,6 +115,8 @@ class MiniMaxUploadedFile:
 
 @dataclass(slots=True, frozen=True)
 class MiniMaxVoiceCloneResult:
+    """Capture the voice created by MiniMax."""
+
     voice_id: str
     demo_audio: str = ""
     status_code: int = 0
@@ -113,12 +129,15 @@ class MiniMaxVoiceCloneResult:
 
 @dataclass(slots=True, frozen=True)
 class MiniMaxVoiceCloneRunResult:
+    """Capture artifacts produced by one MiniMax voice-cloning run."""
+
     status: str
     voice_bid: str
     voice_id: str = ""
     message: str = ""
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "voice_bid": self.voice_bid,
@@ -128,6 +147,7 @@ class MiniMaxVoiceCloneRunResult:
 
 
 def is_valid_minimax_custom_voice_id(value: str) -> bool:
+    """Return whether valid minimax custom voice ID."""
     return bool(_VOICE_ID_RE.match(str(value or "").strip()))
 
 
@@ -137,31 +157,39 @@ def normalize_audio_blob(
     filename: str,
     purpose: str,
 ) -> NormalizedAudioBlob:
+    """Normalize audio blob."""
     normalized_filename = str(filename or "").strip()
     extension = _extract_extension(normalized_filename)
     if extension not in _ALLOWED_INPUT_EXTENSIONS:
-        raise ValueError("unsupported audio file type")
+        message = "unsupported audio file type"
+        raise ValueError(message)
     if not audio_bytes:
-        raise ValueError("audio file is empty")
+        message = "audio file is empty"
+        raise ValueError(message)
 
     try:
         segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format=extension)
     except Exception as exc:
-        raise ValueError(
+        message = (
             "unable to decode audio; please record again or upload mp3, m4a, or wav"
-        ) from exc
+        )
+        raise ValueError(message) from exc
 
     duration_ms = len(segment)
     if purpose == "source":
         if duration_ms < _SOURCE_MIN_DURATION_MS:
-            raise ValueError("source audio must be at least 10 seconds")
+            message = "source audio must be at least 10 seconds"
+            raise ValueError(message)
         if duration_ms > _SOURCE_MAX_DURATION_MS:
-            raise ValueError("source audio must be no longer than 5 minutes")
+            message = "source audio must be no longer than 5 minutes"
+            raise ValueError(message)
     elif purpose == "prompt":
         if duration_ms > _PROMPT_MAX_DURATION_MS:
-            raise ValueError("prompt audio must be no longer than 8 seconds")
+            message = "prompt audio must be no longer than 8 seconds"
+            raise ValueError(message)
     else:
-        raise ValueError("invalid audio purpose")
+        message = "invalid audio purpose"
+        raise ValueError(message)
 
     output = io.BytesIO()
     segment.export(output, format="wav")
@@ -174,11 +202,20 @@ def normalize_audio_blob(
 
 
 class MiniMaxVoiceCloneClient:
+    """Call MiniMax APIs for voice-cloning workflows."""
+
     def __init__(self) -> None:
+        """Load and validate MiniMax API credentials for voice cloning.
+
+        Reads ``MINIMAX_API_KEY`` and optional ``MINIMAX_GROUP_ID`` from central
+        configuration. Raises ``ValueError`` when the API key is missing, before a
+        request can be made.
+        """
         self.api_key = str(get_config("MINIMAX_API_KEY") or "").strip()
         self.group_id = str(get_config("MINIMAX_GROUP_ID") or "").strip()
         if not self.api_key:
-            raise ValueError("MINIMAX_API_KEY is not configured")
+            message = "MINIMAX_API_KEY is not configured"
+            raise ValueError(message)
 
     def upload_clone_audio(
         self,
@@ -186,6 +223,7 @@ class MiniMaxVoiceCloneClient:
         filename: str,
         content_type: str,
     ) -> MiniMaxUploadedFile:
+        """Upload source audio for a voice-clone request."""
         return self._upload_file(
             audio_bytes=audio_bytes,
             filename=filename,
@@ -199,6 +237,7 @@ class MiniMaxVoiceCloneClient:
         filename: str,
         content_type: str,
     ) -> MiniMaxUploadedFile:
+        """Upload prompt audio for clone verification."""
         return self._upload_file(
             audio_bytes=audio_bytes,
             filename=filename,
@@ -215,6 +254,7 @@ class MiniMaxVoiceCloneClient:
         preview_text: str = MINIMAX_CLONE_PREVIEW_TEXT,
         preview_model: str = MINIMAX_CLONE_PREVIEW_MODEL,
     ) -> MiniMaxVoiceCloneResult:
+        """Create a cloned voice from uploaded audio."""
         payload: dict[str, Any] = {
             "file_id": _minimax_file_id_payload(file_id),
             "voice_id": voice_id,
@@ -310,7 +350,8 @@ class MiniMaxVoiceCloneClient:
             or ""
         )
         if not file_id:
-            raise ValueError("MiniMax file upload did not return file_id")
+            error_message = "MiniMax file upload did not return file_id"
+            raise ValueError(error_message)
         extra_info = message.get("extra_info") or data.get("extra_info") or file_data
         return MiniMaxUploadedFile(
             file_id=file_id,
@@ -340,6 +381,7 @@ def submit_minimax_voice_clone(
     prompt_filename: str = "",
     prompt_content_type: str = "",
 ) -> TTSMiniMaxClonedVoice:
+    """Submit minimax voice clone."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_shifu_bid = _normalize_required(shifu_bid, "shifu_bid")
     normalized_display_name = str(display_name or "").strip()[:128]
@@ -490,6 +532,7 @@ def submit_minimax_voice_clone(
 def run_minimax_voice_clone(
     app: Flask, *, voice_bid: str
 ) -> MiniMaxVoiceCloneRunResult:
+    """Run minimax voice clone."""
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
         row = _load_voice_row(normalized_voice_bid)
@@ -542,7 +585,8 @@ def list_minimax_cloned_voices(
     shifu_bid: str = "",
     include_deleted: bool = False,
     provider: str = "",
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
+    """Return minimax cloned voices."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_provider = (provider or "").strip().lower()
     with app.app_context():
@@ -567,7 +611,8 @@ def get_minimax_cloned_voice(
     *,
     owner_user_bid: str,
     voice_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Return minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
@@ -582,7 +627,8 @@ def retry_minimax_voice_clone(
     *,
     owner_user_bid: str,
     voice_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Retry minimax voice clone."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
@@ -610,7 +656,8 @@ def delete_minimax_cloned_voice(
     *,
     owner_user_bid: str,
     voice_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Delete minimax cloned voice."""
     owner_bid = _normalize_required(owner_user_bid, "owner_user_bid")
     normalized_voice_bid = _normalize_required(voice_bid, "voice_bid")
     with app.app_context():
@@ -628,7 +675,8 @@ def build_minimax_clone_cost(
     *,
     creator_bid: str,
     shifu_bid: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Build minimax clone cost."""
     normalized_creator_bid = _normalize_required(creator_bid, "creator_bid")
     estimate = estimate_voice_clone_operation_credits(app)
     available = _available_wallet_credits(app, normalized_creator_bid)
@@ -650,7 +698,8 @@ def build_minimax_clone_cost(
     }
 
 
-def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, Any]:
+def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, object]:
+    """Serialize minimax cloned voice."""
     return {
         "voice_bid": row.voice_bid,
         "owner_user_bid": row.owner_user_bid,
@@ -745,7 +794,8 @@ def _execute_clone_processing(
         prompt_file_id=prompt_file_id,
     )
     if clone_result.input_sensitive:
-        raise ValueError("MiniMax rejected the audio for sensitive content")
+        message = "MiniMax rejected the audio for sensitive content"
+        raise ValueError(message)
 
     with app.app_context():
         row = _load_voice_row(voice_bid)
@@ -1002,7 +1052,8 @@ def _delete_resource_object(app: Flask, resource_bid: str) -> None:
 def _read_resource_bytes(resource_bid: str) -> bytes:
     normalized = str(resource_bid or "").strip()
     if not normalized:
-        raise ValueError("audio resource is missing")
+        message = "audio resource is missing"
+        raise ValueError(message)
     if normalized in _PENDING_AUDIO_BLOBS:
         return _PENDING_AUDIO_BLOBS[normalized]
     temp_path = _temp_resource_path(normalized)
@@ -1017,7 +1068,8 @@ def _read_resource_bytes(resource_bid: str) -> bytes:
                 object_key=resource.oss_name,
                 bucket_name=resource.oss_bucket or "",
             )
-    raise ValueError("source audio is no longer available")
+    message = "source audio is no longer available"
+    raise ValueError(message)
 
 
 def _cleanup_raw_resources(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
@@ -1051,7 +1103,8 @@ def _enqueue_minimax_clone_task(app: Flask, *, voice_bid: str) -> bool:
     celery_app = get_celery_app(flask_app=app)
     task = celery_app.tasks.get("tts.minimax_clone_voice")
     if task is None:
-        raise RuntimeError("tts.minimax_clone_voice task is unavailable")
+        message = "tts.minimax_clone_voice task is unavailable"
+        raise RuntimeError(message)
     task.apply_async(kwargs={"voice_bid": voice_bid})
     return True
 
@@ -1065,7 +1118,7 @@ def _validate_audio_upload(data: bytes, *, filename: str, max_bytes: int) -> Non
         raise_param_error("unsupported audio file type")
 
 
-def _available_wallet_credits(app: Flask, creator_bid: str):
+def _available_wallet_credits(app: Flask, creator_bid: str) -> Decimal:
     from flaskr.service.billing.models import CreditWallet
 
     with app.app_context():
@@ -1140,5 +1193,5 @@ def _normalize_required(value: str, field_name: str) -> str:
     return normalized
 
 
-def _zero() -> Any:
+def _zero() -> object:
     return quantize_credit_amount(0)

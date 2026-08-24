@@ -1,9 +1,13 @@
+"""Handle demo courses for course authoring."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.config.funcs import get_config as get_dynamic_config
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 BUILTIN_DEMO_TITLES: set[str] = {
     "AI 师傅教学引导",
@@ -12,10 +16,12 @@ BUILTIN_DEMO_TITLES: set[str] = {
 
 
 def load_builtin_demo_titles() -> set[str]:
+    """Load builtin demo titles."""
     return set(BUILTIN_DEMO_TITLES)
 
 
 def load_demo_shifu_bids() -> set[str]:
+    """Load demo shifu bids."""
     demo_bids: set[str] = set()
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
         try:
@@ -29,7 +35,8 @@ def load_demo_shifu_bids() -> set[str]:
 
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Resolve demo course for language."""
     normalized_language = str(language or "").strip().lower()
     preferred_key = (
         "DEMO_SHIFU_BID"
@@ -76,6 +83,7 @@ def resolve_demo_course_for_language(
 def is_builtin_demo_course(
     *, shifu_bid: str, title: str, created_user_bid: str
 ) -> bool:
+    """Return whether builtin demo course."""
     normalized_bid = str(shifu_bid or "").strip()
     normalized_title = str(title or "").strip()
     normalized_creator = str(created_user_bid or "").strip()
@@ -85,6 +93,7 @@ def is_builtin_demo_course(
 
 
 def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
+    """Return whether builtin demo shifu."""
     normalized_bid = str(shifu_bid or "").strip()
     if not normalized_bid:
         return False
@@ -122,6 +131,7 @@ def _load_shifu_demo_metadata(app: Flask, shifu_bid: str) -> list[tuple[str, str
     is exactly what allowed scope-key collisions with concurrent contexts.
     Billing callers always run inside an app context.
     """
+    _ = app
     import time as time_module
 
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu

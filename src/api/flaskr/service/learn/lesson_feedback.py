@@ -1,8 +1,10 @@
+"""Handle lesson feedback for learning sessions."""
+
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import raise_param_error
@@ -18,11 +20,15 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy.exc import IntegrityError
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 _FEEDBACK_COMMENT_MAX_LENGTH = 1000
 _VALID_MODES = {"read", "listen"}
 
 
 def build_lesson_feedback_interaction_md() -> str:
+    """Build lesson feedback interaction md."""
     placeholder = _("server.learn.lessonFeedbackCommentPlaceholder")
     return (
         f"?[%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
@@ -31,6 +37,7 @@ def build_lesson_feedback_interaction_md() -> str:
 
 
 def is_lesson_feedback_interaction(content: str | None) -> bool:
+    """Return whether lesson feedback interaction."""
     marker = f"%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
     return bool(content and marker in content)
 
@@ -44,7 +51,7 @@ def _normalize_mode(mode: str | None) -> str:
     return normalized
 
 
-def _normalize_score(score) -> int:
+def _normalize_score(score: object) -> int:
     try:
         normalized = int(score)
     except (TypeError, ValueError):
@@ -115,10 +122,11 @@ def submit_lesson_feedback(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    score,
+    score: object,
     comment: str | None,
     mode: str | None,
 ) -> dict:
+    """Submit lesson feedback."""
     normalized_score = _normalize_score(score)
     normalized_comment = _normalize_comment(comment)
     normalized_mode = _normalize_mode(mode)
@@ -232,6 +240,7 @@ def list_lesson_feedbacks(
     page_index: int = 1,
     page_size: int = 20,
 ) -> dict:
+    """Return lesson feedbacks."""
     safe_page_index = max(int(page_index or 1), 1)
     safe_page_size = min(max(int(page_size or 20), 1), 100)
 

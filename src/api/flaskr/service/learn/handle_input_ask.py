@@ -1,3 +1,5 @@
+"""Handle learner follow-up questions and streamed answers."""
+
 from collections.abc import Generator
 from typing import Any
 
@@ -63,7 +65,7 @@ stream_ask_provider_response = None
 chat_llm = None
 
 
-def _is_valid_asks(asks):
+def _is_valid_asks(asks: object) -> bool:
     """Check if asks list has at least one complete student+teacher pair."""
     if not asks or not isinstance(asks, list):
         return False
@@ -72,7 +74,9 @@ def _is_valid_asks(asks):
     return has_student and has_teacher
 
 
-def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
+def _load_legacy_ask_context(
+    anchor_element: object, ask_element: object, ask_max_history_len: object
+) -> list[dict[str, object]] | None:
     if anchor_element is None or ask_element is None:
         return None
 
@@ -102,7 +106,9 @@ def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
     return messages
 
 
-def _load_ask_context(anchor_element, follow_up_elements, ask_max_history_len):
+def _load_ask_context(
+    anchor_element: object, follow_up_elements: object, ask_max_history_len: object
+) -> list[dict[str, object]] | None:
     """Load ask context from ask/answer sidecar elements first."""
     if anchor_element is None or not follow_up_elements:
         return None
@@ -149,13 +155,13 @@ def _load_ask_context(anchor_element, follow_up_elements, ask_max_history_len):
 
 
 def _create_ask_block(
-    app,
-    outline_item_info,
-    attend_id,
-    user_bid,
-    input_text,
-    last_position,
-):
+    app: object,
+    outline_item_info: object,
+    attend_id: object,
+    user_bid: object,
+    input_text: object,
+    last_position: object,
+) -> LearnGeneratedBlock:
     ask_block = init_generated_block(
         app,
         shifu_bid=outline_item_info.shifu_bid,
@@ -175,13 +181,13 @@ def _create_ask_block(
 
 
 def _create_answer_block(
-    app,
-    outline_item_info,
-    attend_id,
-    user_bid,
-    response_text,
-    last_position,
-):
+    app: object,
+    outline_item_info: object,
+    attend_id: object,
+    user_bid: object,
+    response_text: object,
+    last_position: object,
+) -> LearnGeneratedBlock:
     answer_block = init_generated_block(
         app,
         shifu_bid=outline_item_info.shifu_bid,
@@ -200,20 +206,20 @@ def _create_answer_block(
 
 
 def _run_guardrail(
-    app,
-    user_info,
-    ask_block,
-    input_text,
-    span,
-    outline_item_info,
-    last_position,
-    follow_up_model,
-    follow_up_info,
-    attend_id,
-    usage_context,
-    chapter_title,
-    ask_scene,
-):
+    app: object,
+    user_info: object,
+    ask_block: object,
+    input_text: object,
+    span: object,
+    outline_item_info: object,
+    last_position: object,
+    follow_up_model: object,
+    follow_up_info: object,
+    attend_id: object,
+    usage_context: object,
+    chapter_title: object,
+    ask_scene: object,
+) -> list[str]:
     check_text_func = globals().get("check_text_with_llm_response")
     llm_settings_cls = globals().get("LLMSettings")
     if check_text_func is None or llm_settings_cls is None:
@@ -253,7 +259,7 @@ def _run_guardrail(
     return chunks
 
 
-def _append_context_langfuse_output(context: Any, value: str) -> None:
+def _append_context_langfuse_output(context: object, value: str) -> None:
     append_output = getattr(context, "append_langfuse_output", None)
     if callable(append_output) and value:
         append_output(value)
@@ -261,10 +267,10 @@ def _append_context_langfuse_output(context: Any, value: str) -> None:
 
 def _finalize_ask_trace(
     *,
-    context: Any,
+    context: object,
     trace: LangfuseTraceHandle,
-    parent_observation: Any | None,
-    span: Any,
+    parent_observation: object | None,
+    span: object,
     trace_args: dict,
     response_text: str,
 ) -> None:
@@ -285,7 +291,7 @@ def _finalize_ask_trace(
 @extensible_generic
 def handle_input_ask(
     app: Flask,
-    context,
+    context: object,
     user_info: UserAggregate,
     attend_id: str,
     user_input: str,
@@ -295,10 +301,11 @@ def handle_input_ask(
     is_preview: bool = False,
     last_position: int = -1,
     anchor_element_bid: str = "",
-    parent_observation: Any | None = None,
+    parent_observation: object | None = None,
 ) -> Generator[str, None, None]:
-    """Handle user Q&A input
-    Responsible for processing user questions in the shifu and returning AI tutor responses.
+    """Handle user Q&A input.
+
+    Process user questions in the shifu and return AI tutor responses.
     """
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(
@@ -591,7 +598,9 @@ def handle_input_ask(
         apply_knowledge_to_messages,
     )
 
-    def _chat_llm_stream(stream_messages: list[dict[str, Any]]):
+    def _chat_llm_stream(
+        stream_messages: list[dict[str, Any]],
+    ) -> Generator[Any, None, None]:
         return chat_llm_func(
             app,
             user_info.user_id,

@@ -1,3 +1,5 @@
+"""Verify volcengine voice clone behavior."""
+
 from __future__ import annotations
 
 import pytest
@@ -17,7 +19,7 @@ _TEST_CONFIG = {
 }
 
 
-def _patch_config(monkeypatch, config=None):
+def _patch_config(monkeypatch: object, config: object = None) -> None:
     values = _TEST_CONFIG if config is None else config
     monkeypatch.setattr(
         volcengine_voice_clone,
@@ -27,12 +29,12 @@ def _patch_config(monkeypatch, config=None):
 
 
 class _FakeResponse:
-    def __init__(self, payload, status_code=200) -> None:
+    def __init__(self, payload: object, status_code: object = 200) -> None:
         self._payload = payload
         self.status_code = status_code
         self.text = ""
 
-    def json(self):
+    def json(self) -> object:
         return self._payload
 
 
@@ -52,14 +54,16 @@ class _FakeResponse:
         (None, False),
     ],
 )
-def test_is_valid_volcengine_custom_voice_id(value, expected) -> None:
+def test_is_valid_volcengine_custom_voice_id(value: object, expected: object) -> None:
     assert is_valid_volcengine_custom_voice_id(value) is expected
 
 
-def test_query_status_sends_expected_request(monkeypatch) -> None:
+def test_query_status_sends_expected_request(monkeypatch: object) -> None:
     _patch_config(monkeypatch)
 
-    def fake_post(url, headers, json, timeout):
+    def fake_post(
+        url: object, headers: object, json: object, timeout: object
+    ) -> object:
         assert url == VOLCENGINE_MEGA_TTS_STATUS_URL
         assert headers["Authorization"] == "Bearer;test-token"
         assert headers["Resource-Id"] == VOLCENGINE_ICL_RESOURCE_ID
@@ -73,12 +77,12 @@ def test_query_status_sends_expected_request(monkeypatch) -> None:
     assert query_volcengine_voice_status("S_xxxxxxxxxx") == 2
 
 
-def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
+def test_query_status_raises_on_base_resp_error(monkeypatch: object) -> None:
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"BaseResp": {"StatusCode": 1001, "StatusMessage": "bad request"}}
         ),
     )
@@ -86,56 +90,57 @@ def test_query_status_raises_on_base_resp_error(monkeypatch) -> None:
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_raises_without_credentials(monkeypatch) -> None:
+def test_query_status_raises_without_credentials(monkeypatch: object) -> None:
     _patch_config(monkeypatch, config={})
     with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_converts_transport_error_to_param_error(monkeypatch) -> None:
-    """Provider unreachable / timeout must fail through the controlled
-    parameter-error path, not bubble a raw RequestException into a 500.
-    """
+def test_query_status_converts_transport_error_to_param_error(
+    monkeypatch: object,
+) -> None:
+    """Provider unreachable / timeout must fail through the controlled parameter-error path, not bubble a raw RequestException into a 500."""
     import requests as requests_lib
 
     _patch_config(monkeypatch)
 
-    def _raise_transport_error(*args, **kwargs):
-        raise requests_lib.exceptions.ConnectTimeout("connect timeout")
+    def _raise_transport_error(*args: object, **kwargs: object) -> None:
+        _ = (args, kwargs)
+        message = "connect timeout"
+        raise requests_lib.exceptions.ConnectTimeout(message)
 
     monkeypatch.setattr(volcengine_voice_clone.requests, "post", _raise_transport_error)
     with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_converts_invalid_json_to_param_error(monkeypatch) -> None:
+def test_query_status_converts_invalid_json_to_param_error(monkeypatch: object) -> None:
     _patch_config(monkeypatch)
 
     class _BadJsonResponse:
         status_code = 200
         text = "<html>gateway error</html>"
 
-        def json(self):
-            raise ValueError("no json")
+        def json(self) -> None:
+            message = "no json"
+            raise ValueError(message)
 
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _BadJsonResponse(),
+        lambda *_args, **_kwargs: _BadJsonResponse(),
     )
     with pytest.raises(AppError):
         query_volcengine_voice_status("S_xxxxxxxxxx")
 
 
-def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
-    """Volcengine answers 4xx (with a JSON message) for unknown speakers or
-    missing grants; that must surface as a parameter error, not an HTTPError.
-    """
+def test_query_status_converts_http_error_to_param_error(monkeypatch: object) -> None:
+    """Volcengine answers 4xx (with a JSON message) for unknown speakers or missing grants; that must surface as a parameter error, not an HTTPError."""
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"message": "parameter license not found for appid"}, status_code=403
         ),
     )
@@ -144,12 +149,12 @@ def test_query_status_converts_http_error_to_param_error(monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("status", [2, 4])
-def test_verify_accepts_success_and_active(monkeypatch, status) -> None:
+def test_verify_accepts_success_and_active(monkeypatch: object, status: object) -> None:
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"BaseResp": {"StatusCode": 0}, "status": status}
         ),
     )
@@ -157,12 +162,12 @@ def test_verify_accepts_success_and_active(monkeypatch, status) -> None:
 
 
 @pytest.mark.parametrize("status", [0, 1, 3])
-def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
+def test_verify_rejects_not_ready_statuses(monkeypatch: object, status: object) -> None:
     _patch_config(monkeypatch)
     monkeypatch.setattr(
         volcengine_voice_clone.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"BaseResp": {"StatusCode": 0}, "status": status}
         ),
     )
@@ -171,9 +176,7 @@ def test_verify_rejects_not_ready_statuses(monkeypatch, status) -> None:
 
 
 def test_icl_resource_is_not_a_selectable_model() -> None:
-    """The clone resource id must stay out of the model dropdown; it is
-    inferred from the S_ speaker id inside the provider instead.
-    """
+    """The clone resource id must stay out of the model dropdown; it is inferred from the S_ speaker id inside the provider instead."""
     from flaskr.api.tts.volcengine_provider import VOLCENGINE_MODELS
 
     assert VOLCENGINE_ICL_RESOURCE_ID not in {

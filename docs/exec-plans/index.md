@@ -40,6 +40,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 
 ## Supporting Tracker
 

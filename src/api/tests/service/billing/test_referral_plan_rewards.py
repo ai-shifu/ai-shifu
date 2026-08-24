@@ -1,3 +1,5 @@
+"""Verify referral plan rewards behavior."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -962,8 +964,9 @@ def test_pingxx_renewal_event_preserves_paid_referral_reward_order(
     boundary_at = normalize_mysql_datetime(now_utc() - timedelta(minutes=1))
     current_cycle_start = boundary_at - timedelta(days=30)
 
-    def _fail_provider_sync(*_args, **_kwargs):
-        raise AssertionError("paid referral reward orders must not sync providers")
+    def _fail_provider_sync(*_args: object, **_kwargs: object) -> None:
+        message = "paid referral reward orders must not sync providers"
+        raise AssertionError(message)
 
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",

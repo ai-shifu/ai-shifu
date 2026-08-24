@@ -1,3 +1,5 @@
+"""Load configured Flask plugin modules."""
+
 import importlib
 import os
 from functools import partial
@@ -18,11 +20,14 @@ SRC_DIR = "src"
 
 def load_plugins_from_dir(
     app: Flask, plugins_dir: str, plugin_manager: PluginManager = None
-):
+) -> object:
+    """Load plugins from dir."""
     plugins = []
     app.logger.info("load modules from: %s", plugins_dir)
 
-    def load_from_directory(directory, plugin_manager: PluginManager = None):
+    def load_from_directory(
+        directory: object, plugin_manager: PluginManager = None
+    ) -> None:
         files = [path.name for path in Path(directory).iterdir()]
         plugin_obj = None
         if SRC_DIR in files:

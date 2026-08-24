@@ -1,3 +1,5 @@
+"""Verify validate user behavior."""
+
 import jwt
 import pytest
 from flask import Flask
@@ -5,15 +7,16 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user.common import validate_user
 
 
-def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(monkeypatch):
+def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(
+    monkeypatch: object,
+) -> None:
     app = Flask("validate-user-invalid-algorithm-tests")
     app.config["SECRET_KEY"] = "test-secret"
     app.config["ENVERIMENT"] = "prod"
 
-    def _raise_invalid_algorithm(*_args, **_kwargs):
-        raise jwt.exceptions.InvalidAlgorithmError(
-            "The specified alg value is not allowed"
-        )
+    def _raise_invalid_algorithm(*_args: object, **_kwargs: object) -> None:
+        message = "The specified alg value is not allowed"
+        raise jwt.exceptions.InvalidAlgorithmError(message)
 
     monkeypatch.setattr(jwt, "decode", _raise_invalid_algorithm)
 

@@ -1,10 +1,11 @@
+"""Resolve and complete user onboarding scenes."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
@@ -13,6 +14,9 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, parse_naive_utc
 from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 ONBOARDING_VERSION = "v1"
 SCENE_ADMIN_HOME = "admin_home_onboarding"
@@ -39,6 +43,8 @@ USER_SEGMENT_INELIGIBLE = "ineligible"
 
 @dataclass(frozen=True)
 class OnboardingSceneStatus:
+    """Track completion state for one onboarding scene."""
+
     completed: bool
     completed_at: str | None
     eligible: bool
@@ -53,7 +59,7 @@ def _serialize_datetime(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _parse_rollout_threshold(value: Any) -> datetime | None:
+def _parse_rollout_threshold(value: object) -> datetime | None:
     text = str(value or "").strip()
     if not text:
         return None
@@ -156,7 +162,8 @@ def _build_scene_status(
 
 def build_onboarding_status(
     app: Flask, user_bid: str, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Build onboarding status."""
     with app.app_context():
         user = _load_user_entity(user_bid)
         user_segment = _resolve_user_segment(user)
@@ -202,7 +209,8 @@ def complete_onboarding_scene(
     version: str,
     trigger_source: str,
     status: str = STATUS_COMPLETED,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Complete onboarding scene."""
     normalized_user_bid = str(user_bid or "").strip()
     normalized_scene_key = str(scene_key or "").strip()
     normalized_version = str(version or "").strip()

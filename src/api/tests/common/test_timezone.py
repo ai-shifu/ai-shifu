@@ -1,3 +1,5 @@
+"""Verify legacy datetime values obey the UTC serialization contract."""
+
 from flask import Flask
 from flaskr.util.timezone import (
     format_with_app_timezone,

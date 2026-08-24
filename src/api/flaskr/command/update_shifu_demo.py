@@ -1,3 +1,5 @@
+"""Implement the update shifu demo CLI command."""
+
 import hashlib
 import json
 from io import BytesIO
@@ -36,8 +38,7 @@ def _process_demo_shifu(
     hash_config_key: str,
     hash_config_remark: str,
 ) -> str:
-    """Process demo shifu: skip import if file unchanged, otherwise import/update and
-    upsert configs for shifu bid and file hash.
+    """Process demo shifu: skip import if file unchanged, otherwise import/update and upsert configs for shifu bid and file hash.
 
     Args:
         app: Flask application instance
@@ -97,7 +98,7 @@ def _process_demo_shifu(
     return shifu_bid
 
 
-def _ensure_creator_permissions(app: Flask, shifu_bid: str):
+def _ensure_creator_permissions(app: Flask, shifu_bid: str) -> None:
     """Ensure all creator users have permissions for the given shifu.
 
     Args:
@@ -126,7 +127,7 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
         db.session.commit()
 
 
-def update_demo_shifu(app: Flask):
+def update_demo_shifu(app: Flask) -> None:
     """Update demo shifu for both Chinese and English versions."""
     if get_env_config("SKIP_DEMO_SHIFU_IMPORT"):
         app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")

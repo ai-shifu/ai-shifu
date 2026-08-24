@@ -1,7 +1,8 @@
+"""Transform SSE events into listen-mode element updates."""
+
 from __future__ import annotations
 
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
@@ -60,10 +61,15 @@ from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.type_state_machine import TypeInput
 from flaskr.service.tts.api import normalize_subtitle_cues
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 class ListenElementRunStreamMixin:
+    """Provide streaming operations for listen-mode element runs."""
+
     @staticmethod
-    def _normalize_live_audio_position(position: Any) -> int:
+    def _normalize_live_audio_position(position: object) -> int:
         try:
             return max(int(position or 0), 0)
         except (TypeError, ValueError):
@@ -73,7 +79,7 @@ class ListenElementRunStreamMixin:
     def _resolved_live_subtitle_cues(
         previous_audio: ElementAudioDTO | None,
         current_audio: ElementAudioDTO | None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         current_cues = normalize_subtitle_cues(
             getattr(current_audio, "subtitle_cues", None)
         )
@@ -262,7 +268,7 @@ class ListenElementRunStreamMixin:
     def _build_audio_patch_element(
         self,
         element_bid: str,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
         *,
         audio: ElementAudioDTO | None = None,
         is_final: bool | None = None,
@@ -311,7 +317,7 @@ class ListenElementRunStreamMixin:
     def _build_audio_segment_patch_message(
         self,
         element_bid: str,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
         *,
         audio: ElementAudioDTO | None = None,
     ) -> RunElementSSEMessageDTO | None:
@@ -329,7 +335,7 @@ class ListenElementRunStreamMixin:
         state: BlockState,
         *,
         position: int,
-        stream_element_number: Any = None,
+        stream_element_number: object = None,
         stream_element_type: str | None = None,
     ) -> str | None:
         existing_target = state.audio_target_element_bid_by_position.get(position)
@@ -375,7 +381,7 @@ class ListenElementRunStreamMixin:
         is_new: bool,
         is_final: bool,
         audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
     ) -> RunElementSSEMessageDTO:
         return self._element_message(
             self._build_stream_element(
@@ -398,7 +404,7 @@ class ListenElementRunStreamMixin:
         is_new: bool,
         is_final: bool,
         audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
     ) -> ElementDTO:
         frozen_audio = (
             self._freeze_live_audio_payload(

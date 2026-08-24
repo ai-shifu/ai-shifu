@@ -1,3 +1,5 @@
+"""Verify learning APIs expose draft and published course state."""
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -15,7 +17,7 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
-def test_get_shifu_info_returns_dto(app):
+def test_get_shifu_info_returns_dto(app: object) -> None:
     with app.app_context():
         shifu = PublishedShifu(
             shifu_bid="shifu-learn-1",
@@ -39,7 +41,7 @@ def test_get_shifu_info_returns_dto(app):
     assert dto.__json__()["default_listen_mode_enabled"] is True
 
 
-def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
+def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app: object) -> None:
     with app.app_context():
         draft = DraftShifu(
             shifu_bid="shifu-learn-tts",
@@ -73,7 +75,7 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
     assert live_dto.default_listen_mode_enabled is False
 
 
-def test_get_outline_item_tree_preview_mode(app):
+def test_get_outline_item_tree_preview_mode(app: object) -> None:
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-learn-1",
@@ -114,7 +116,9 @@ def test_get_outline_item_tree_preview_mode(app):
     assert result.outline_items[0].has_content_update_for_current_user is False
 
 
-def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(app):
+def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(
+    app: object,
+) -> None:
     with app.app_context():
         chapter = PublishedOutlineItem(
             outline_item_bid="chapter-learn-1",
@@ -197,7 +201,9 @@ def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(a
     )
 
 
-def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lessons(app):
+def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lessons(
+    app: object,
+) -> None:
     with app.app_context():
         lesson = PublishedOutlineItem(
             outline_item_bid="lesson-learn-not-started-1",
@@ -263,7 +269,9 @@ def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lesson
     assert result.outline_items[0].has_content_update_for_current_user is False
 
 
-def test_get_outline_item_tree_uses_normalized_published_effective_time(app):
+def test_get_outline_item_tree_uses_normalized_published_effective_time(
+    app: object,
+) -> None:
     with app.app_context():
         lesson = PublishedOutlineItem(
             outline_item_bid="lesson-learn-published-timezone-1",
@@ -325,7 +333,9 @@ def test_get_outline_item_tree_uses_normalized_published_effective_time(app):
     assert result.outline_items[0].has_content_update_for_current_user is True
 
 
-def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(app):
+def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(
+    app: object,
+) -> None:
     with app.app_context():
         lesson = PublishedOutlineItem(
             outline_item_bid="lesson-learn-published-copy-created-1",

@@ -1,9 +1,13 @@
+"""Verify context v2 TTS runtime voice behavior."""
+
 from types import SimpleNamespace
 
 from flask import Flask
 
 
-def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatch):
+def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(
+    monkeypatch: object,
+) -> None:
     from flaskr.dao import db
     from flaskr.service.learn.context_v2 import RunScriptContextV2
     from flaskr.service.shifu.models import DraftShifu
@@ -26,7 +30,7 @@ def test_context_v2_tts_processor_uses_runtime_minimax_voice_fallback(monkeypatc
     captured_kwargs = {}
 
     class FakeStreamingTTSProcessor:
-        def __init__(self, **kwargs) -> None:
+        def __init__(self, **kwargs: object) -> None:
             captured_kwargs.update(kwargs)
 
     monkeypatch.setattr(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
@@ -33,6 +32,8 @@ from .value_objects import JsonObjectMap
 
 @dataclass(slots=True, frozen=True)
 class CreatorEntitlementState:
+    """Track the billing entitlements currently granted to a teacher."""
+
     creator_bid: str
     source_kind: str
     source_type: str | None
@@ -49,7 +50,8 @@ class CreatorEntitlementState:
     support_tier: str
     feature_payload: JsonObjectMap = field(default_factory=JsonObjectMap)
 
-    def to_public_payload(self) -> dict[str, Any]:
+    def to_public_payload(self) -> dict[str, object]:
+        """Serialize the entitlement state for public output."""
         return {
             "branding_enabled": self.branding_enabled,
             "custom_domain_enabled": self.custom_domain_enabled,
@@ -60,7 +62,8 @@ class CreatorEntitlementState:
             "support_tier": self.support_tier,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized entitlement field by key."""
         if key == "feature_payload":
             return self.feature_payload.to_metadata_json()
         return getattr(self, key)
@@ -100,14 +103,14 @@ def serialize_creator_entitlements(
 
 
 def grant_creator_manual_entitlement(
-    app,
+    app: object,
     creator_bid: str,
     *,
     branding_enabled: bool | None = None,
     custom_domain_enabled: bool | None = None,
     custom_wechat_enabled: bool | None = None,
     custom_payment_enabled: bool | None = None,
-    branding: dict[str, Any] | None = None,
+    branding: dict[str, object] | None = None,
     home_url: str | None = None,
     commit: bool = True,
 ) -> CreatorEntitlementState:
@@ -330,7 +333,7 @@ def _serialize_entitlement_row_state(
 
 def _apply_entitlement_payload(
     base_state: CreatorEntitlementState,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> CreatorEntitlementState:
     branding_enabled = _to_bool(
         payload.get("branding_enabled"),
@@ -388,7 +391,7 @@ def _apply_entitlement_payload(
 
 
 def _resolve_labeled_value(
-    value: Any,
+    value: object,
     *,
     labels: dict[int, str],
     default: str,
@@ -408,7 +411,7 @@ def _resolve_labeled_value(
         return default
 
 
-def _normalize_feature_payload(value: Any) -> JsonObjectMap:
+def _normalize_feature_payload(value: object) -> JsonObjectMap:
     if not isinstance(value, dict):
         return JsonObjectMap()
     return JsonObjectMap(values={str(key): item for key, item in value.items()})
@@ -421,7 +424,7 @@ def _coalesce_datetime(
     return value or fallback
 
 
-def _to_bool(value: Any, *, default: bool = False) -> bool:
+def _to_bool(value: object, *, default: bool = False) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):

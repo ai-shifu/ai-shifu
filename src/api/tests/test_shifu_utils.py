@@ -1,3 +1,5 @@
+"""Verify course resource URLs and owner resolution."""
+
 from flaskr.dao import db
 from flaskr.service.resource.models import Resource
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
@@ -9,7 +11,7 @@ from flaskr.service.shifu.utils import (
 )
 
 
-def test_resource_url_helpers(app):
+def test_resource_url_helpers(app: object) -> None:
     with app.app_context():
         res = Resource(
             resource_id="res-1",
@@ -33,7 +35,7 @@ def test_resource_url_helpers(app):
         assert parse_shifu_res_bid("https://example.com/path/res-1") == "res-1"
 
 
-def test_get_shifu_creator_bid_prefers_draft(app):
+def test_get_shifu_creator_bid_prefers_draft(app: object) -> None:
     with app.app_context():
         draft = DraftShifu(
             shifu_bid="shifu-1",

@@ -1,10 +1,11 @@
+"""Verify billing wallet lifecycle snapshots behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-import pytest
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -25,6 +26,10 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.wallets import (
     rebuild_credit_wallet_snapshots,
 )
+
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 

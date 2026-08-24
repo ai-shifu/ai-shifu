@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
@@ -23,6 +22,9 @@ from .consts import (
     normalize_usage_scene,
 )
 from .models import BillUsageRecord
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass(frozen=True)
@@ -128,8 +130,9 @@ def record_llm_usage(
     latency_ms: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: dict[str, Any] | None = None,
+    extra: dict[str, object] | None = None,
 ) -> str:
+    """Record LLM usage."""
     usage_bid = generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(
@@ -225,9 +228,10 @@ def record_tts_usage(
     segment_count: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: dict[str, Any] | None = None,
+    extra: dict[str, object] | None = None,
     enqueue_settlement: bool = True,
 ) -> str:
+    """Record TTS usage."""
     resolved_usage_bid = usage_bid or generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(

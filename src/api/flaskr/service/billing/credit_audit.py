@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -37,11 +36,16 @@ from .primitives import (
 from .queries import load_primary_active_subscription
 from .wallets import calculate_credit_wallet_snapshot_values
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
 _ZERO = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)
 class CreditAuditIssue:
+    """Describe an issue detected by credit audit."""
+
     code: str
     severity: str
     creator_bid: str
@@ -53,6 +57,7 @@ class CreditAuditIssue:
     details: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         payload: dict[str, Any] = {
             "code": self.code,
             "severity": self.severity,
@@ -75,6 +80,8 @@ class CreditAuditIssue:
 
 @dataclass(slots=True, frozen=True)
 class CreditAuditReport:
+    """Summarize findings from credit audit."""
+
     status: str
     creator_bid: str | None
     as_of: datetime
@@ -88,6 +95,7 @@ class CreditAuditReport:
     issues: list[CreditAuditIssue]
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result for the billing credit-audit CLI report."""
         counts_by_code: dict[str, int] = {}
         for issue in self.issues:
             counts_by_code[issue.code] = counts_by_code.get(issue.code, 0) + 1
@@ -124,7 +132,8 @@ def audit_credit_state(
     else:
         audit_at = coerce_datetime(as_of)
         if audit_at is None:
-            raise ValueError(f"Unable to parse as_of value: {as_of!r}")
+            message = f"Unable to parse as_of value: {as_of!r}"
+            raise ValueError(message)
     resolved_limit = int(limit or 0)
 
     with db.session.no_autoflush:
