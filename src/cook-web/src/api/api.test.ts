@@ -164,6 +164,21 @@ describe('billing api definitions', () => {
     expect(api.updateAdminBillingCampaignStatus).toBe(
       'POST /admin/billing/campaigns/{campaign_bid}/status',
     );
+    expect(api.getAdminBillingCampaignProviderDiscounts).toBe(
+      'GET /admin/billing/campaigns/{campaign_bid}/provider-discounts',
+    );
+    expect(api.publishAdminBillingCampaign).toBe(
+      'POST /admin/billing/campaigns/{campaign_bid}/publish',
+    );
+    expect(api.retryPublishAdminBillingCampaign).toBe(
+      'POST /admin/billing/campaigns/{campaign_bid}/publish/retry',
+    );
+    expect(api.retireAdminBillingCampaign).toBe(
+      'POST /admin/billing/campaigns/{campaign_bid}/retire',
+    );
+    expect(api.validateAdminBillingCampaignProviderDiscount).toBe(
+      'POST /admin/billing/campaign-provider-discounts/{campaign_provider_discount_bid}/validate',
+    );
     expect(api.getAdminBillingEntitlements).toBe(
       'GET /admin/billing/entitlements',
     );

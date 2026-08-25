@@ -810,6 +810,36 @@ export default function AdminOperationPromotionsPage() {
     });
   };
 
+  const handlePackageCampaignProviderPublish = async (
+    item: AdminBillingCampaignItem,
+  ) => {
+    await api.publishAdminBillingCampaign({
+      campaign_bid: item.campaign_bid,
+    });
+    showDefaultToast(tPromotion('messages.packageCampaignProviderPublished'));
+    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+  };
+
+  const handlePackageCampaignProviderRetry = async (
+    item: AdminBillingCampaignItem,
+  ) => {
+    await api.retryPublishAdminBillingCampaign({
+      campaign_bid: item.campaign_bid,
+    });
+    showDefaultToast(tPromotion('messages.packageCampaignProviderRetried'));
+    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+  };
+
+  const handlePackageCampaignProviderRetire = async (
+    item: AdminBillingCampaignItem,
+  ) => {
+    await api.retireAdminBillingCampaign({
+      campaign_bid: item.campaign_bid,
+    });
+    showDefaultToast(tPromotion('messages.packageCampaignProviderRetired'));
+    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+  };
+
   const handleReferralCampaignStatusToggle = (
     item: AdminReferralCampaignItem,
   ) => {
@@ -1856,6 +1886,9 @@ export default function AdminOperationPromotionsPage() {
             }}
             onEdit={handleStartPackageCampaignEdit}
             onToggleStatus={handlePackageCampaignStatusToggle}
+            onPublishProviderDiscounts={handlePackageCampaignProviderPublish}
+            onRetryProviderDiscounts={handlePackageCampaignProviderRetry}
+            onRetireProviderDiscounts={handlePackageCampaignProviderRetire}
           />
         </TabsContent>
 

@@ -6,6 +6,7 @@ import {
   within,
 } from '@testing-library/react';
 import {
+  resolvePackageCampaignProviderDiscountLabel,
   resolvePackageCampaignProductSummary,
   resolvePromotionStatusBadgeClassName,
 } from './promotionPageShared';
@@ -15,6 +16,7 @@ import {
   mockGetPackageCampaignDetail,
   mockGetPackageCampaignProductOptions,
   mockGetPackageCampaigns,
+  mockPublishPackageCampaignProviderDiscounts,
   mockToast,
   mockUpdatePackageCampaignStatus,
 } from './promotionsTestUtils.test-support';
@@ -67,6 +69,45 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         product_count: 1,
       }),
     ).toBe('--');
+    expect(
+      resolvePackageCampaignProviderDiscountLabel(tPromotion, {
+        benefit_type: 'discount',
+        provider_discount_summary: { active: 1, total: 1 },
+      }),
+    ).toBe('module.operationsPromotion.packageCampaign.providerDiscountActive');
+  });
+
+  test('publishes package campaign provider discounts from row actions', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetPackageCampaigns).toHaveBeenCalled());
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockPublishPackageCampaignProviderDiscounts).toHaveBeenCalledWith({
+        campaign_bid: 'campaign-1',
+      }),
+    );
+    expect(mockToast).toHaveBeenCalledWith({
+      description:
+        'module.operationsPromotion.messages.packageCampaignProviderPublished',
+    });
   });
   test('opens package campaign product details from product column', async () => {
     render(<AdminOperationPromotionsPage />);

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import (
+    AppError,
     raise_error,
     raise_error_with_args,
     raise_param_error,
@@ -18,6 +19,10 @@ from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func
 
+from .campaign_provider_discounts import (
+    has_active_campaign_provider_discounts,
+    summarize_campaign_provider_discounts,
+)
 from .consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
@@ -239,6 +244,9 @@ def build_admin_billing_campaigns_page(
         product_name_map = _load_campaign_product_name_map(campaign_bids=campaign_bids)
         product_type_map = _load_campaign_product_type_map(campaign_bids=campaign_bids)
         binding_map = _load_campaign_binding_map(campaign_bids=campaign_bids)
+        provider_discount_summary_map = summarize_campaign_provider_discounts(
+            campaign_bids
+        )
         hit_count_map = _load_campaign_hit_count_map(campaign_bids=campaign_bids)
         return AdminBillingCampaignsPageDTO(
             items=[
@@ -248,6 +256,9 @@ def build_admin_billing_campaigns_page(
                     product_names=product_name_map.get(row.campaign_bid, []),
                     product_types=product_type_map.get(row.campaign_bid, []),
                     bindings=binding_map.get(row.campaign_bid, []),
+                    provider_discount_summary=provider_discount_summary_map.get(
+                        row.campaign_bid, {}
+                    ),
                     hit_order_count=hit_count_map.get(row.campaign_bid, 0),
                 )
                 for row in rows
@@ -276,6 +287,9 @@ def build_admin_billing_campaign_detail(
         binding_map = _load_campaign_binding_map(
             campaign_bids=[normalized_campaign_bid]
         )
+        provider_discount_summary_map = summarize_campaign_provider_discounts(
+            [normalized_campaign_bid]
+        )
         bindings = binding_map.get(normalized_campaign_bid, [])
         binding_by_product_bid = {binding.product_bid: binding for binding in bindings}
         hit_count_map = _load_campaign_hit_count_map(
@@ -295,6 +309,9 @@ def build_admin_billing_campaign_detail(
             product_names=product_names,
             product_types=product_types,
             bindings=bindings,
+            provider_discount_summary=provider_discount_summary_map.get(
+                normalized_campaign_bid, {}
+            ),
             hit_order_count=hit_count_map.get(normalized_campaign_bid, 0),
         )
         return serialize_admin_campaign_detail(
@@ -385,6 +402,13 @@ def update_admin_billing_campaign(
             _assert_campaign_products_unchanged_after_hit(
                 row,
                 next_product_configs=product_configs,
+            )
+        if has_active_campaign_provider_discounts(normalized_campaign_bid):
+            _assert_campaign_provider_discount_rule_unchanged(
+                row,
+                next_product_configs=product_configs,
+                next_start_at=draft["start_at"],
+                next_end_at=draft["end_at"],
             )
 
         _validate_campaign_overlap(
@@ -929,6 +953,33 @@ def _assert_campaign_products_unchanged_after_hit(
             raise_error("server.billing.campaignLockedAfterHit")
 
 
+def _assert_campaign_provider_discount_rule_unchanged(
+    row: BillingCampaign,
+    *,
+    next_product_configs: list[NormalizedCampaignProductConfig],
+    next_start_at: datetime,
+    next_end_at: datetime,
+) -> None:
+    """Keep published provider coupons tied to the exact campaign rule snapshot."""
+    try:
+        _assert_campaign_products_unchanged_after_hit(
+            row,
+            next_product_configs=next_product_configs,
+        )
+    except AppError:
+        raise_error("server.billing.campaignProviderDiscountLocked")
+    if _campaign_rule_datetime(row.start_at) != _campaign_rule_datetime(
+        next_start_at
+    ) or _campaign_rule_datetime(row.end_at) != _campaign_rule_datetime(next_end_at):
+        raise_error("server.billing.campaignProviderDiscountLocked")
+
+
+def _campaign_rule_datetime(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.replace(microsecond=0)
+
+
 def _replace_campaign_products(
     campaign_bid: str,
     product_configs: list[NormalizedCampaignProductConfig],
@@ -1111,6 +1162,7 @@ def _serialize_admin_campaign_row(
     product_types: list[str],
     bindings: list[BillingCampaignProduct],
     hit_order_count: int,
+    provider_discount_summary: dict[str, object] | None = None,
 ) -> AdminBillingCampaignDTO:
     campaign_rule_snapshot = _resolve_campaign_rule_snapshot_from_bindings(
         row,
@@ -1127,6 +1179,7 @@ def _serialize_admin_campaign_row(
         discount_amount=campaign_rule_snapshot["discount_amount"],
         discount_percent=campaign_rule_snapshot["discount_percent"],
         bonus_credit_amount=campaign_rule_snapshot["bonus_credit_amount"],
+        provider_discount_summary=provider_discount_summary,
     )
 
 

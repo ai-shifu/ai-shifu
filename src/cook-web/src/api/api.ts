@@ -317,6 +317,16 @@ const api = {
   updateAdminBillingCampaign: 'POST /admin/billing/campaigns/{campaign_bid}',
   updateAdminBillingCampaignStatus:
     'POST /admin/billing/campaigns/{campaign_bid}/status',
+  getAdminBillingCampaignProviderDiscounts:
+    'GET /admin/billing/campaigns/{campaign_bid}/provider-discounts',
+  publishAdminBillingCampaign:
+    'POST /admin/billing/campaigns/{campaign_bid}/publish',
+  retryPublishAdminBillingCampaign:
+    'POST /admin/billing/campaigns/{campaign_bid}/publish/retry',
+  retireAdminBillingCampaign:
+    'POST /admin/billing/campaigns/{campaign_bid}/retire',
+  validateAdminBillingCampaignProviderDiscount:
+    'POST /admin/billing/campaign-provider-discounts/{campaign_provider_discount_bid}/validate',
   getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
   grantAdminBillingEntitlement: 'POST /admin/billing/entitlements/grants',
   getAdminBillingOpsState: 'GET /admin/billing/ops-state',

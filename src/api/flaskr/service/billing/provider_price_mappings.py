@@ -415,6 +415,10 @@ def activate_provider_price_mapping(
         row.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
         row.retired_at = now
         row.validation_error = ""
+        _mark_campaign_discounts_requires_republish(
+            row.provider_price_bid,
+            reason="provider_price_replaced",
+        )
     if active_rows:
         db.session.flush()
 
@@ -439,6 +443,10 @@ def retire_provider_price_mapping(
         mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
         mapping.retired_at = now_utc()
         mapping.validation_error = ""
+        _mark_campaign_discounts_requires_republish(
+            mapping.provider_price_bid,
+            reason="provider_price_retired",
+        )
     db.session.flush()
     return mapping
 
@@ -486,6 +494,21 @@ def _load_product(product_bid: str) -> BillingProduct:
             {"product_bid": normalized_product_bid},
         )
     return product
+
+
+def _mark_campaign_discounts_requires_republish(
+    product_provider_price_bid: str,
+    *,
+    reason: str,
+) -> None:
+    from .campaign_provider_discounts import (
+        mark_campaign_provider_discounts_requires_republish,
+    )
+
+    mark_campaign_provider_discounts_requires_republish(
+        product_provider_price_bid=product_provider_price_bid,
+        reason=reason,
+    )
 
 
 def _load_mapping(provider_price_bid: str) -> BillingProductProviderPrice:

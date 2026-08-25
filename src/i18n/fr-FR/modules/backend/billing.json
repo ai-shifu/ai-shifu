@@ -7,6 +7,7 @@
     "campaignLockedAfterHit": "Cette campagne de forfaits comporte déjà des commandes payées. Les produits et les règles d’avantage ne peuvent plus être modifiés.",
     "campaignNotFound": "Campagne de forfaits introuvable.",
     "campaignOverlapActive": "Les produits {product_names} ont déjà une campagne de forfaits active sur la période sélectionnée. Ajustez la période de campagne ou choisissez d’autres produits.",
+    "campaignProviderDiscountLocked": "Cette campagne de forfaits possède déjà des coupons Stripe actifs. Créez une nouvelle version de campagne ou retirez les coupons avant de modifier les produits, les règles ou les dates.",
     "creditInsufficient": "Crédits insuffisants. Abonnez-vous ou achetez des crédits avant de continuer.",
     "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour cet enseignant.",
     "debugDisabledBySoftLimit": "Les crédits sont sous le seuil de rappel configuré. Abonnez-vous ou achetez des crédits avant de continuer les prévisualisations de débogage.",

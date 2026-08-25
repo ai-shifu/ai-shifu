@@ -175,6 +175,17 @@ export type AdminBillingCampaignItem = {
   product_types: string[];
   product_names: string[];
   has_custom_product_rules: boolean;
+  provider_discount_summary?: {
+    total?: number;
+    active?: number;
+    failed?: number;
+    requires_republish?: number;
+    provider_invalid?: number;
+    cleanup_required?: number;
+    retired?: number;
+    latest_failure_code?: string;
+    latest_failure_message?: string;
+  };
   computed_status: 'active' | 'upcoming' | 'ended' | 'inactive';
   hit_order_count: number;
   start_at: string;
