@@ -185,6 +185,7 @@ html[dir='rtl'] {
     .markdown-flow-editor .cm-line,
     .content-render-iframe-sandbox,
     .content-render-iframe,
+    [data-bidi='ltr'],
     input[type='email'],
     input[type='url'],
     input[type='number'],
