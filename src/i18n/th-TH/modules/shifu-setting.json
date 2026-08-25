@@ -131,7 +131,7 @@
   "minimaxCloneCreate": "โคลนเสียง",
   "minimaxCloneDefaultDisplayName": "เสียงแบบกำหนดเอง",
   "minimaxCloneDialogTitle": "โคลนเสียง MiniMax",
-  "minimaxCloneDisplayName": "ชื่อเสียง",
+  "minimaxCloneDisplayName": "ชื่อของเสียง",
   "minimaxCloneDisplayNameHint": "ไม่บังคับ หากเว้นว่าง ระบบจะสร้างชื่อให้อัตโนมัติเพื่อระบุเสียงภายหลัง",
   "minimaxCloneDisplayNamePlaceholder": "เช่น เสียงครูของหลักสูตร",
   "minimaxCloneEmpty": "ยังไม่มีเสียงที่โคลน",

@@ -23,7 +23,7 @@
     "course": "หลักสูตร",
     "courseId": "รหัสหลักสูตร",
     "createdAt": "เวลาสร้าง",
-    "displayName": "ชื่อเสียง",
+    "displayName": "ชื่อของเสียง",
     "empty": "ยังไม่ได้เลือกบันทึก",
     "failureDetail": "รายละเอียดความล้มเหลว",
     "minimax": "ข้อมูล MiniMax",
@@ -93,7 +93,7 @@
     "userKeywordPlaceholderEmail": "ชื่อเล่น / อีเมล",
     "userKeywordPlaceholderPhone": "ชื่อเล่น / หมายเลขโทรศัพท์",
     "voiceKeyword": "เสียง",
-    "voiceKeywordPlaceholder": "รหัสเสียง / ชื่อเสียง"
+    "voiceKeywordPlaceholder": "รหัสเสียง / ชื่อของเสียง"
   },
   "loadFailed": "โหลดบันทึกการโคลนเสียงไม่สำเร็จ",
   "pagination": {
@@ -112,9 +112,9 @@
     "cancel": "ยกเลิก",
     "clearTeacher": "เลือกใหม่",
     "description": "หลังโคลนเสียงในคอนโซลของผู้ให้บริการแล้ว ให้ลงทะเบียน Voice ID ที่นี่และกำหนดให้ครูที่ระบุ เสียงนี้ไม่มีค่าใช้จ่ายสำหรับครู และระบบจะตรวจสอบความพร้อมใช้งานกับผู้ให้บริการขณะลงทะเบียน",
-    "displayNameLabel": "ชื่อเสียง",
+    "displayNameLabel": "ชื่อของเสียง",
     "displayNamePlaceholder": "ชื่อที่ครูจะเห็นในรายการเสียง",
-    "displayNameRequired": "โปรดกรอกชื่อเสียง",
+    "displayNameRequired": "โปรดกรอกชื่อของเสียง",
     "noResults": "ไม่พบครูที่ตรงกัน",
     "providerLabel": "ผู้ให้บริการ",
     "searchButton": "ค้นหา",
