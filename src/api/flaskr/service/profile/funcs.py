@@ -499,6 +499,8 @@ def get_user_profile_labels(
             "value": "",
             "items": profile_labels[profile_key].get("items"),
         }
+        if profile_key == "sex":
+            item["value"] = next(iter(profile_labels[profile_key]["items"]), "")
         user_value = None
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile_key), None
@@ -522,12 +524,12 @@ def get_user_profile_labels(
             if profile_key == "sex":
                 meta = profile_labels[profile_key]
                 items_mapping = meta.get("items_mapping", {})
-                default_key = meta.get("default")
-                default_value = items_mapping.get(default_key, "")
+                mapping_items = meta.get("items", [])
+                default_value = mapping_items[0] if mapping_items else ""
                 try:
                     normalized_value = int(user_value.value)
                 except (TypeError, ValueError):
-                    normalized_value = default_key
+                    normalized_value = None
                 item["value"] = items_mapping.get(normalized_value, default_value)
             else:
                 item["value"] = user_value.value
@@ -540,6 +542,9 @@ def get_user_profile_labels(
                 items=item["items"],
             )
         )
+
+    profile_order = {key: index for index, key in enumerate(profile_labels)}
+    result.profiles.sort(key=lambda profile: profile_order[profile.key])
 
     if not include_nickname:
         result.profiles = [
