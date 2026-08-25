@@ -20,6 +20,7 @@
     "prarentRequired": "ต้องระบุรายการแม่",
     "profileIdRequired": "ต้องระบุรหัสตัวแปร",
     "profileKeyRequired": "ต้องระบุคีย์ตัวแปร",
+    "profileOnboardingBusy": "มีคำขอปรับให้เหมาะกับคุณรายการอื่นกำลังดำเนินการอยู่ โปรดลองอีกครั้งในอีกสักครู่",
     "profileTypeInvalid": "ประเภทตัวแปรไม่ถูกต้อง",
     "profileTypeRequired": "ต้องเลือกประเภทตัวแปร",
     "sex": "เพศ",

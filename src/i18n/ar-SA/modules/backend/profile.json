@@ -20,6 +20,7 @@
     "prarentRequired": "الأصل مطلوب",
     "profileIdRequired": "معرّف المتغير مطلوب",
     "profileKeyRequired": "مفتاح المتغير مطلوب",
+    "profileOnboardingBusy": "يوجد طلب تخصيص آخر قيد المعالجة بالفعل. يرجى المحاولة مرة أخرى بعد قليل.",
     "profileTypeInvalid": "نوع المتغير غير صحيح",
     "profileTypeRequired": "يجب اختيار نوع المتغير",
     "sex": "الجنس",

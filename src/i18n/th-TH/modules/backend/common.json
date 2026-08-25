@@ -1,7 +1,6 @@
 {
   "__namespace__": "server.common",
   "__flat__": {
-    "backgroundNotAllowed": "พื้นหลังที่คุณป้อนไม่เป็นไปตามข้อกำหนด",
     "dataLoadFailed": "ดึงข้อมูลไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
     "nicknameNotAllowed": "ชื่อเล่นที่คุณป้อนไม่เป็นไปตามข้อกำหนด",
     "operationFailed": "บริการขัดข้อง โปรดลองอีกครั้งภายหลัง",
