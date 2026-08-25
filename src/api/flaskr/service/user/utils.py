@@ -185,6 +185,12 @@ def _format_email_verification_message(
 
     try:
         expire_minutes = max(1, int(expire_seconds) // 60)
+        plural_category = _email_verification_plural_category(
+            expire_minutes, resolved_language
+        )
+        expiry_duration = _email_verification_duration_template(plural_category).format(
+            expire_minutes=expire_minutes
+        )
         is_one_minute = expire_minutes == 1
         expiry_key = (
             "server.user.emailVerificationExpirySingular"
@@ -197,10 +203,10 @@ def _format_email_verification_message(
             else "server.user.emailVerificationPlainBody"
         )
         subject = _("server.user.emailVerificationSubject")
-        text = _(plain_body_key).format(code=code, expire_minutes=expire_minutes)
+        text = _(plain_body_key).format(code=code, expiry_duration=expiry_duration)
         title = _("server.user.emailVerificationTitle")
         intro = _("server.user.emailVerificationIntro")
-        expiry = _(expiry_key).format(expire_minutes=expire_minutes)
+        expiry = _(expiry_key).format(expiry_duration=expiry_duration)
         ignore = _("server.user.emailVerificationIgnore")
         footer = _("server.user.emailVerificationFooter")
     finally:
@@ -243,6 +249,40 @@ def _format_email_verification_message(
 </html>
 """
     return subject, text, html_body
+
+
+def _email_verification_plural_category(count: int, language: str) -> str:
+    """Return the translation-key suffix for a verification expiry count."""
+    if language.split("-", maxsplit=1)[0].lower() != "ar":
+        return "One" if count == 1 else "Other"
+
+    if count == 0:
+        return "Zero"
+    if count == 1:
+        return "One"
+    if count == 2:
+        return "Two"
+    remainder = count % 100
+    if 3 <= remainder <= 10:
+        return "Few"
+    if 11 <= remainder <= 99:
+        return "Many"
+    return "Other"
+
+
+def _email_verification_duration_template(plural_category: str) -> str:
+    """Return a literal translation key so usage checks can discover every form."""
+    if plural_category == "Zero":
+        return _("server.user.emailVerificationMinutesZero")
+    if plural_category == "One":
+        return _("server.user.emailVerificationMinutesOne")
+    if plural_category == "Two":
+        return _("server.user.emailVerificationMinutesTwo")
+    if plural_category == "Few":
+        return _("server.user.emailVerificationMinutesFew")
+    if plural_category == "Many":
+        return _("server.user.emailVerificationMinutesMany")
+    return _("server.user.emailVerificationMinutesOther")
 
 
 def _email_verification_translation_keys_used() -> None:

@@ -334,9 +334,9 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
             plain_body = parts["text/plain"].get_payload(decode=True).decode()
             html_body = parts["text/html"].get_payload(decode=True).decode()
             assert "Code de vérification : 5678" in plain_body
-            assert "Il expire dans 1 minute." in plain_body
+            assert "Il expire dans une minute." in plain_body
             assert "1 minutes" not in plain_body
-            assert "Ce code expire dans 1 minute." in html_body
+            assert "Ce code expire dans une minute." in html_body
             assert "1 minutes" not in html_body
             assert '<html lang="fr-FR" dir="ltr">' in html_body
 
@@ -354,6 +354,20 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
             )
             assert arabic_subject == "رمز التحقق من AI-Shifu"
             assert '<html lang="ar-SA" dir="rtl">' in arabic_variant_html_body
+
+            for expire_seconds, expected_duration in (
+                (120, "دقيقتين"),
+                (300, "5 دقائق"),
+                (660, "11 دقيقةً"),
+                (6000, "100 دقيقة"),
+            ):
+                _subject, arabic_plain_body, arabic_plural_html_body = (
+                    user_utils._format_email_verification_message(
+                        "5678", expire_seconds, language="ar-SA"
+                    )
+                )
+                assert expected_duration in arabic_plain_body
+                assert expected_duration in arabic_plural_html_body
 
             thai_subject, _plain_body, thai_html_body = (
                 user_utils._format_email_verification_message("5678", 60, language="th")
