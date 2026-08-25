@@ -10,7 +10,7 @@ from flaskr.api.check import (
     check_text,
 )
 from flaskr.dao import db
-from flaskr.i18n import _
+from flaskr.i18n import _, get_locale_labels
 from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
 from flaskr.service.profile.dtos import ProfileToSave
@@ -178,6 +178,7 @@ def check_text_content(
 
 def get_profile_labels() -> dict[str, dict[str, object]]:
     """Return profile labels."""
+    locale_labels = get_locale_labels()
     return {
         "sys_user_nickname": {
             "label": _("server.profile.nickname"),
@@ -213,15 +214,9 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
         },
         "language": {
             "label": _("server.profile.language"),
-            "items": ["中文", "English", "Français", "العربية", "ไทย"],
+            "items": list(locale_labels.values()),
             "mapping": "user_language",
-            "items_mapping": {
-                "zh-CN": "中文",
-                "en-US": "English",
-                "fr-FR": "Français",
-                "ar-SA": "العربية",
-                "th-TH": "ไทย",
-            },
+            "items_mapping": locale_labels,
             "default": "zh-CN",
         },
         "sys_user_background": {

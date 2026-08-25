@@ -14,6 +14,23 @@ from flaskr.service.profile.profile_manage import (
 from flaskr.service.user.repository import create_user_entity
 
 
+def test_profile_language_options_use_shared_locale_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_locale_labels",
+        lambda: {"es-ES": "Español", "ja-JP": "日本語"},
+    )
+
+    language = get_profile_labels()["language"]
+
+    assert language["items"] == ["Español", "日本語"]
+    assert language["items_mapping"] == {
+        "es-ES": "Español",
+        "ja-JP": "日本語",
+    }
+
+
 @pytest.mark.parametrize("with_aggregate", [False, True])
 def test_sex_label_resolves_stored_string_without_requiring_aggregate(
     app: object,

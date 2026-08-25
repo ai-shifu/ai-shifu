@@ -41,11 +41,11 @@
         "type": "select",
         "value": "English",
         "items": [
-          "中文",
+          "العربية",
           "English",
           "Français",
-          "العربية",
-          "ไทย"
+          "ไทย",
+          "中文"
         ]
       },
       {

@@ -10,6 +10,7 @@ from flaskr.i18n import (
 from flaskr.i18n import (
     _translations,
     clear_language,
+    get_locale_labels,
     load_translations,
     set_language,
 )
@@ -65,6 +66,20 @@ def test_arabic_and_thai_languages_load_shared_translations() -> None:
 
     set_language("th-TH")
     assert t("module.chat.ask") == "ถามต่อ"
+
+
+def test_locale_labels_follow_shared_metadata_order() -> None:
+    app = Flask(__name__)
+
+    load_translations(app)
+
+    assert get_locale_labels() == {
+        "ar-SA": "العربية",
+        "en-US": "English",
+        "fr-FR": "Français",
+        "th-TH": "ไทย",
+        "zh-CN": "中文",
+    }
 
 
 def test_language_fallback_to_default() -> None:
