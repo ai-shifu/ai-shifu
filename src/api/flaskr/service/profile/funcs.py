@@ -213,12 +213,14 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
         },
         "language": {
             "label": _("server.profile.language"),
-            "items": ["中文", "English", "Français"],
+            "items": ["中文", "English", "Français", "العربية", "ไทย"],
             "mapping": "user_language",
             "items_mapping": {
                 "zh-CN": "中文",
                 "en-US": "English",
                 "fr-FR": "Français",
+                "ar-SA": "العربية",
+                "th-TH": "ไทย",
             },
             "default": "zh-CN",
         },

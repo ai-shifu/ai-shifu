@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.feedback",
+  "feedbackError": "فشل إرسال الملاحظات",
+  "feedbackPlaceholder": "أدخل محتوى الملاحظات",
+  "feedbackSubmit": "إرسال",
+  "feedbackSuccess": "تم إرسال الملاحظات بنجاح، شكرًا لملاحظاتك",
+  "feedbackTitle": "الملاحظات"
+}

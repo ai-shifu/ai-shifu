@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.banner",
+  "__flat__": {
+    "bannerPopUpCancelText": "เรียนต่อก่อน",
+    "bannerPopUpConfirmText": "ปลดล็อกทันที",
+    "bannerPopUpContent": "รับสิทธิประโยชน์มากมาย เช่น การถามต่อได้ไม่จำกัด เพื่อให้เรียนได้อย่างสบายใจ",
+    "bannerPopUpTitle": "ปลดล็อกเนื้อหาทั้งหมดได้ที่นี่ทุกเมื่อ",
+    "bannerTitle": "ปลดล็อกทั้งหมด"
+  }
+}

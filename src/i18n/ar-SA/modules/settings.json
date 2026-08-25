@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.settings",
+  "codeSent": "تم إرسال رمز التحقق",
+  "confirmPassword": "تأكيد كلمة المرور",
+  "confirmPasswordEmpty": "يرجى إدخال كلمة المرور مرة أخرى",
+  "confirmPasswordPlaceholder": "أدخل كلمة المرور مرة أخرى",
+  "email": "البريد الإلكتروني",
+  "newPassword": "كلمة المرور الجديدة",
+  "noContactMethod": "يرجى ربط رقم هاتف أو بريد إلكتروني أولًا",
+  "password": "كلمة المرور",
+  "passwordMismatch": "كلمتا المرور غير متطابقتين",
+  "passwordPlaceholder": "تعيين كلمة المرور",
+  "passwordSetSuccess": "تم تعيين كلمة المرور بنجاح",
+  "phone": "رقم الهاتف",
+  "resendCountdown": "إعادة الإرسال بعد {count} ثانية",
+  "sendCode": "إرسال رمز التحقق",
+  "setPassword": "تعيين كلمة المرور",
+  "verificationCode": "رمز التحقق",
+  "verificationCodePlaceholder": "أدخل رمز التحقق",
+  "verificationCodeRequired": "يرجى إدخال رمز التحقق",
+  "verifyByEmail": "رمز التحقق عبر البريد الإلكتروني",
+  "verifyByPhone": "رمز التحقق عبر الهاتف"
+}

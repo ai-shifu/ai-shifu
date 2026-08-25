@@ -12,6 +12,14 @@
     "zh-CN": {
       "label": "中文",
       "rtl": false
+    },
+    "ar-SA": {
+      "label": "العربية",
+      "rtl": true
+    },
+    "th-TH": {
+      "label": "ไทย",
+      "rtl": false
     }
   },
   "namespaces": [

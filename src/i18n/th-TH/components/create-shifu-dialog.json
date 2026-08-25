@@ -1,0 +1,13 @@
+{
+  "__namespace__": "component.createShifuDialog",
+  "create": "สร้าง",
+  "creating": "กำลังสร้าง...",
+  "descriptionLabel": "คำอธิบายหลักสูตร",
+  "descriptionMaxLength": "คำอธิบายหลักสูตรต้องมีความยาวไม่เกิน 500 อักขระ",
+  "descriptionPlaceholder": "กรอกคำอธิบายหลักสูตร",
+  "nameLabel": "ชื่อหลักสูตร",
+  "nameMaxLength": "ชื่อหลักสูตรต้องมีความยาวไม่เกิน {maxLength} อักขระ",
+  "namePlaceholder": "กรอกชื่อหลักสูตร",
+  "nameRequired": "ต้องระบุชื่อหลักสูตร",
+  "title": "สร้างหลักสูตรใหม่"
+}

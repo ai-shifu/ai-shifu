@@ -1,0 +1,14 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "backgroundNotAllowed": "الخلفية التي أدخلتها غير متوافقة مع القواعد.",
+    "dataLoadFailed": "فشل الحصول على البيانات، يرجى المحاولة مرة أخرى لاحقًا",
+    "nicknameNotAllowed": "اسم الشهرة الذي أدخلته غير متوافق مع القواعد.",
+    "operationFailed": "حدث خلل في الخدمة، يرجى المحاولة مرة أخرى لاحقًا",
+    "paramsError": "خطأ في المعاملات {param_message}",
+    "stateInvalid": "لا تدعم الحالة الحالية هذه العملية",
+    "systemError": "خطأ في النظام",
+    "unexpectedError": "الخدمة غير متاحة، يرجى المحاولة مرة أخرى لاحقًا",
+    "unknownError": "خطأ غير معروف"
+  }
+}

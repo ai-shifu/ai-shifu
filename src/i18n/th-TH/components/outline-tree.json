@@ -1,0 +1,8 @@
+{
+  "__namespace__": "component.outlineTree",
+  "cancel": "ยกเลิก",
+  "confirm": "ยืนยัน",
+  "confirmDelete": "ยืนยันการลบ",
+  "confirmDeleteDescription": "เมื่อลบแล้วจะไม่สามารถกู้คืนได้ ยืนยันการลบหรือไม่",
+  "delete": "ลบ"
+}

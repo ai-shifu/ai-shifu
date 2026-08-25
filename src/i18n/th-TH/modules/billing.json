@@ -1,0 +1,1220 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "attention": "ต้องติดตาม",
+    "backToCreatorBilling": "กลับไปศูนย์สมาชิก",
+    "entitlements": {
+      "actions": {
+        "viewDetail": "แก้ไขการตั้งค่า"
+      },
+      "configProgress": {
+        "complete": "ตั้งค่าแล้ว",
+        "exception": "ผิดปกติ",
+        "loading": "กำลังโหลด",
+        "partial": "ตั้งค่าบางส่วน",
+        "unconfigured": "ยังไม่ได้ตั้งค่า"
+      },
+      "configStatus": {
+        "completed": "เสร็จสมบูรณ์",
+        "exception": "การตั้งค่าผิดปกติ",
+        "in_progress": "กำลังตั้งค่า",
+        "pending": "รอตั้งค่า"
+      },
+      "configStatusHelp": {
+        "completed": "ฝ่ายปฏิบัติการติดตามการตั้งค่ารอบนี้เสร็จแล้ว",
+        "exception": "มีอุปสรรคหรือข้อผิดพลาดระหว่างตั้งค่า ต้องติดตามต่อ",
+        "in_progress": "ข้อมูลหรือการตั้งค่าอยู่ระหว่างดำเนินการ ยังเก็บรายละเอียดไม่ครบ",
+        "pending": "เปิดใช้ความสามารถแล้ว แต่ยังไม่ได้เริ่มเติมการตั้งค่าที่เกี่ยวข้อง"
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "ปิดใช้งาน",
+          "draft": "ฉบับร่าง",
+          "failed": "ผิดปกติ",
+          "unconfigured": "ยังไม่ได้ตั้งค่า",
+          "verified": "ตรวจสอบแล้ว"
+        },
+        "loading": "กำลังโหลดการตั้งค่า...",
+        "logoReady": "อัปโหลดแล้ว",
+        "providers": {
+          "alipay": "Alipay",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "บัญชีทางการ WeChat",
+          "wechatpay": "ชำระผ่าน WeChat"
+        }
+      },
+      "description": "ดูครูที่เปิดใช้แบรนด์หรือความสามารถด้านการชำระเงินแบบแยก และติดตามความคืบหน้าการตั้งค่าโดยฝ่ายปฏิบัติการ",
+      "empty": "ยังไม่มีครูที่เปิดใช้แบรนด์หรือความสามารถด้านการชำระเงินแยกในขณะนี้",
+      "followDefault": "การตั้งค่าเริ่มต้น",
+      "grant": {
+        "brandingInlineDescription": "อัปโหลดโลโก้แบรนด์ โดยกรอก URL ของรูปโดยตรงหรืออัปโหลดไฟล์รูปก็ได้",
+        "cancel": "ยกเลิก",
+        "configStatusHint": "เปลี่ยนสถานะได้โดยตรงในรายการ ส่วนนี้แสดงเฉพาะสถานะปัจจุบัน",
+        "configurationSection": "เนื้อหาการตั้งค่า",
+        "configurationSectionDescription": "เติมโลโก้แบรนด์ โดเมนแบบกำหนดเอง บัญชีทางการ WeChat และช่องทางชำระเงิน แล้วบันทึกเพื่อซิงก์ผลล่าสุด",
+        "createdContinue": "เพิ่มการตั้งค่าแบรนด์และการชำระเงินให้ {creator} แล้ว คุณสามารถเติมรายละเอียดด้านล่างต่อได้",
+        "creatorBidPlaceholder": "กรอก BID ของผู้รับผิดชอบหลักสูตร",
+        "creatorEmailPlaceholder": "กรอกอีเมลของผู้รับผิดชอบหลักสูตร",
+        "creatorMobilePlaceholder": "กรอกหมายเลขโทรศัพท์ของผู้รับผิดชอบหลักสูตร",
+        "description": "เปิดใช้และดูแลการตั้งค่าแบรนด์ โดเมน WeChat และการชำระเงินให้ครูอย่างเป็นระบบ แล้วบันทึกเพื่อซิงก์ความสามารถที่เกี่ยวข้อง",
+        "disabled": "ยังไม่เปิดใช้",
+        "domainInlineDescription": "กรอกโดเมนแบบกำหนดเองและตรวจสอบให้เสร็จ เพื่อยืนยันภายหลังว่าใช้งานได้จริง",
+        "edit": "แก้ไข",
+        "editTitle": "แก้ไขการตั้งค่าแบรนด์และการชำระเงิน",
+        "emailHint": "กรอกอีเมล หากยังไม่เคยลงทะเบียน ระบบจะสร้างบัญชีก่อนและเปิดสถานะครูเป็นค่าเริ่มต้น",
+        "enabled": "เปิดใช้แล้ว",
+        "errors": {
+          "creatorBidRequired": "กรอก BID ของผู้รับผิดชอบหลักสูตร",
+          "creatorEmailInvalid": "กรอกที่อยู่อีเมลที่ถูกต้อง",
+          "creatorEmailRequired": "กรอกอีเมลของผู้รับผิดชอบหลักสูตร",
+          "creatorMobileInvalid": "กรอกหมายเลขโทรศัพท์ที่ถูกต้อง",
+          "creatorMobileRequired": "กรอกหมายเลขโทรศัพท์ของผู้รับผิดชอบหลักสูตร"
+        },
+        "fields": {
+          "branding_enabled": "โลโก้แบรนด์",
+          "configStatus": "สถานะการตั้งค่า",
+          "creatorBid": "BID ของผู้รับผิดชอบหลักสูตร",
+          "creatorEmail": "อีเมลของผู้รับผิดชอบหลักสูตร",
+          "creatorMobile": "หมายเลขโทรศัพท์ของผู้รับผิดชอบหลักสูตร",
+          "custom_domain_enabled": "โดเมนแบบกำหนดเอง",
+          "custom_payment_enabled": "การตั้งค่าการชำระเงินแบบกำหนดเอง",
+          "custom_wechat_enabled": "บัญชีทางการ WeChat แบบกำหนดเอง",
+          "note": "หมายเหตุฝ่ายปฏิบัติการ"
+        },
+        "mobileHint": "กรอกหมายเลขโทรศัพท์ หากยังไม่เคยลงทะเบียน ระบบจะสร้างบัญชีก่อนและเปิดสถานะครูเป็นค่าเริ่มต้น",
+        "notePlaceholder": "กรอกความคืบหน้าปัจจุบัน ข้อมูลที่ยังขาด หรือรายละเอียดข้อผิดพลาด",
+        "open": "เพิ่มการตั้งค่า",
+        "paymentInlineDescription": "กรอกพารามิเตอร์ช่องทางชำระเงินและตรวจสอบให้เสร็จ เพื่อยืนยันว่าความสามารถด้านการชำระเงินใช้งานได้ตามปกติ",
+        "pendingConfiguration": {
+          "branding_enabled": "หลังบันทึกรายการเปิดใช้ครั้งนี้ คุณจะอัปโหลดโลโก้แบรนด์ต่อได้",
+          "custom_domain_enabled": "หลังบันทึกรายการเปิดใช้ครั้งนี้ คุณจะกรอกและตรวจสอบโดเมนต่อได้",
+          "custom_payment_enabled": "หลังบันทึกรายการเปิดใช้ครั้งนี้ คุณจะเติมพารามิเตอร์ช่องทางชำระเงินต่อได้",
+          "custom_wechat_enabled": "หลังบันทึกรายการเปิดใช้ครั้งนี้ คุณจะเติมพารามิเตอร์บัญชีทางการต่อได้",
+          "title": "เติมการตั้งค่าต่อหลังบันทึก"
+        },
+        "submit": "บันทึกการตั้งค่า",
+        "submitting": "กำลังบันทึก...",
+        "success": "อัปเดตการตั้งค่าแบรนด์และการชำระเงินของ {creator} แล้ว",
+        "title": "เพิ่มการตั้งค่าแบรนด์และการชำระเงิน",
+        "wechatInlineDescription": "กรอกพารามิเตอร์บัญชีทางการ และตรวจสอบว่าข้อมูลการอนุญาตกับการเรียกกลับครบถ้วน"
+      },
+      "loadError": "โหลดข้อมูลสิทธิประโยชน์ในแผงผู้ดูแลไม่สำเร็จ",
+      "logoPreview": {
+        "next": "โลโก้ถัดไป",
+        "open": "ดูตัวอย่าง {label}",
+        "previous": "โลโก้ก่อนหน้า",
+        "title": "ดูตัวอย่างโลโก้"
+      },
+      "notEnabled": "ยังไม่เปิดใช้",
+      "realEffect": {
+        "branding": "โลโก้",
+        "domain": "โดเมน",
+        "payment": "การชำระเงิน",
+        "status": {
+          "active": "มีผลอยู่",
+          "exception": "ผิดปกติ",
+          "inactive": "ยังไม่มีผล",
+          "pending": "กำลังดำเนินการ",
+          "unconfigured": "ยังไม่ได้ตั้งค่า"
+        },
+        "wechat": "WeChat"
+      },
+      "source": {
+        "default": "สิทธิประโยชน์เริ่มต้น",
+        "productPayload": "ตามแพ็กเกจ",
+        "snapshot": "บันทึกที่มีผลปัจจุบัน"
+      },
+      "sourceReference": "บันทึก: {value}",
+      "statusReason": {
+        "exceptionDefault": "การตั้งค่าผิดปกติ ต้องอนุญาตใหม่แล้วเริ่มอีกครั้ง",
+        "inProgress": "การตั้งค่ายังอยู่ระหว่างดำเนินการ รอข้อมูลครบหรือการตรวจสอบเสร็จ",
+        "inactive": "ยังไม่ได้เริ่มตั้งค่า รอฝ่ายปฏิบัติการติดตาม"
+      },
+      "table": {
+        "actions": "การดำเนินการ",
+        "analytics": "ความสามารถด้านการรับชำระเงิน",
+        "configProgress": "ความคืบหน้าการตั้งค่า",
+        "creator": "ครู",
+        "domain": "โดเมน",
+        "features": "รายการตั้งค่า",
+        "logo": "โลโก้",
+        "payment": "วิธีชำระเงิน",
+        "priority": "ความสามารถด้านแบรนด์",
+        "realEffect": "ผลที่มีผลจริง",
+        "source": "สิทธิประโยชน์ปัจจุบัน",
+        "status": "สถานะการติดตาม",
+        "support": "ระดับการสนับสนุน",
+        "wechat": "การตั้งค่า WeChat",
+        "window": "เวลาอัปเดต/อายุการใช้งาน"
+      },
+      "title": "ดูสิทธิประโยชน์",
+      "window": {
+        "activeNow": "มีผลอยู่ในขณะนี้",
+        "endsAt": "ใช้ได้ถึง {date}",
+        "startedAt": "มีผลตั้งแต่ {date}"
+      }
+    },
+    "navigation": {
+      "description": "สลับดูตามแพ็กเกจ คำสั่งซื้อ สิทธิประโยชน์ โดเมน และรายงาน โดยคงสถานะความสามารถไว้ด้านบนเสมอ",
+      "title": "มุมมอง"
+    },
+    "pagination": {
+      "page": "หน้า {page} / {pageCount} รวม {total} รายการ",
+      "total": "รวม {total} รายการ"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "เผยแพร่",
+        "cancel": "ยกเลิก",
+        "configure": "ตั้งค่าราคา",
+        "create": "เพิ่มราคา",
+        "restore": "คืนสถานะรอเปิดใช้",
+        "retire": "ถอดออก",
+        "saveDraft": "บันทึกร่าง",
+        "validate": "ตรวจสอบ",
+        "viewIssues": "ดูปัญหา"
+      },
+      "billingLabel": {
+        "monthly": "ชำระรายเดือน",
+        "yearly": "ชำระรายปี"
+      },
+      "confirm": {
+        "activate": "ต้องการเผยแพร่ {productName} หรือไม่ หลังเผยแพร่ การชำระเงินครั้งถัดไปของผลิตภัณฑ์นี้จะใช้ราคานี้",
+        "restore": "ต้องการคืนสถานะ {productName} หรือไม่ หลังคืนสถานะจะกลับไปเป็นรอเปิดใช้ และต้องตรวจสอบใหม่ก่อนเผยแพร่",
+        "retire": "ต้องการถอด {productName} ออกหรือไม่ หลังถอดออกจะไม่สามารถชำระผลิตภัณฑ์นี้ด้วยราคาคงที่ได้ชั่วคราว"
+      },
+      "description": "จัดการราคาสำหรับรับชำระแพ็กเกจและชุดเครดิตต่างประเทศ เพื่อให้ราคาที่ผู้ใช้เห็น จำนวนเงินที่จ่ายจริง และสิทธิประโยชน์ที่ได้รับตรงกัน",
+      "dialog": {
+        "autoDetectHint": "ระบบจะตรวจสอบจำนวนเงิน สกุลเงิน รอบ และสภาพแวดล้อมปัจจุบันโดยอัตโนมัติ เปิดใช้หลังตรวจสอบว่าถูกต้องแล้ว",
+        "description": "คัดลอก Product ID และ Price ID จากแผง Stripe เมื่อบันทึกแล้วระบบจะอ่านข้อมูลราคาโดยอัตโนมัติ",
+        "title": "ตั้งค่าราคาสำหรับรับชำระ"
+      },
+      "empty": "ยังไม่มีแพ็กเกจหรือชุดเครดิตที่ตั้งค่าได้",
+      "environment": {
+        "live": "ใช้งานจริง",
+        "test": "ทดสอบ"
+      },
+      "fields": {
+        "priceId": "Stripe Price ID",
+        "product": "ผลิตภัณฑ์",
+        "productId": "Stripe Product ID",
+        "productPlaceholder": "เลือกผลิตภัณฑ์"
+      },
+      "filters": {
+        "allProducts": "ผลิตภัณฑ์ทั้งหมด",
+        "product": "ผลิตภัณฑ์",
+        "status": "สถานะ"
+      },
+      "health": {
+        "active": "เผยแพร่แล้ว",
+        "draft": "รอเปิดใช้",
+        "healthy": "ปกติ",
+        "invalid": "ตรวจสอบไม่ผ่าน",
+        "missing": "ยังไม่ได้ตั้งค่า",
+        "retired": "ถอดออกแล้ว",
+        "warning": "ต้องยืนยัน"
+      },
+      "interval": {
+        "day": "ทุก {count} วัน",
+        "month": "ทุก {count} เดือน",
+        "oneTime": "ครั้งเดียว",
+        "year": "ทุก {count} ปี"
+      },
+      "issueDrawer": {
+        "description": "แสดงเหตุผลสำหรับฝ่ายปฏิบัติการพร้อมเก็บ code ดั้งเดิมไว้ เพื่อให้ทีมเทคนิคตรวจสอบได้ง่าย",
+        "issues": "สาเหตุของปัญหา",
+        "noIssues": "ยังไม่มีรายละเอียดปัญหา",
+        "priceId": "Stripe Price ID",
+        "raw": "ข้อมูลดั้งเดิม",
+        "title": "ปัญหาการตรวจสอบราคา"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "จำนวนรอบเรียกเก็บเงินไม่ตรงกับผลิตภัณฑ์ในระบบ",
+        "billing_interval_mismatch": "รอบเรียกเก็บเงินไม่ตรงกับผลิตภัณฑ์ในระบบ",
+        "currency_mismatch": "สกุลเงินไม่ตรงกับผลิตภัณฑ์ในระบบ",
+        "local_plan_billing_mode_invalid": "การตั้งค่าวิธีเรียกเก็บเงินของแพ็กเกจในระบบไม่ถูกต้อง",
+        "local_topup_billing_interval_count_invalid": "จำนวนรอบของชุดเครดิตในระบบต้องเป็น 0",
+        "local_topup_billing_interval_invalid": "ชุดเครดิตในระบบไม่ควรมีการตั้งค่ารอบ",
+        "local_topup_billing_mode_invalid": "การตั้งค่าวิธีเรียกเก็บเงินของชุดเครดิตในระบบไม่ถูกต้อง",
+        "plan_requires_licensed_recurring_price": "แพ็กเกจต้องใช้ราคาตามรอบแบบ licensed",
+        "plan_requires_recurring_price": "แพ็กเกจต้องผูกกับราคาตามรอบของ Stripe",
+        "price_livemode_mismatch": "สภาพแวดล้อมของราคา Stripe ไม่ตรงกับการตั้งค่าปัจจุบัน",
+        "price_metadata_billing_interval_mismatch": "metadata รอบเรียกเก็บเงินของราคา Stripe ไม่ตรงกัน",
+        "price_metadata_billing_interval_missing": "ราคา Stripe ไม่มี metadata รอบเรียกเก็บเงิน",
+        "price_metadata_credit_amount_mismatch": "metadata จำนวนเครดิตของราคา Stripe ไม่ตรงกัน",
+        "price_metadata_credit_amount_missing": "ราคา Stripe ไม่มี metadata จำนวนเครดิต",
+        "price_metadata_product_code_mismatch": "metadata รหัสผลิตภัณฑ์ของราคา Stripe ไม่ตรงกัน",
+        "price_metadata_product_code_missing": "ราคา Stripe ไม่มี metadata รหัสผลิตภัณฑ์",
+        "price_product_mismatch": "ราคา Stripe ไม่ได้อยู่ในผลิตภัณฑ์ปัจจุบัน",
+        "product_livemode_mismatch": "สภาพแวดล้อมของผลิตภัณฑ์ Stripe ไม่ตรงกับการตั้งค่าปัจจุบัน",
+        "product_metadata_market_mismatch": "metadata ตลาดของผลิตภัณฑ์ Stripe ไม่ตรงกัน",
+        "product_metadata_market_missing": "ผลิตภัณฑ์ Stripe ไม่มี metadata ตลาด",
+        "product_metadata_plan_tier_mismatch": "metadata ระดับแพ็กเกจของผลิตภัณฑ์ Stripe ไม่ตรงกัน",
+        "product_metadata_plan_tier_missing": "ผลิตภัณฑ์ Stripe ไม่มี metadata ระดับแพ็กเกจ",
+        "product_metadata_product_type_mismatch": "metadata ประเภทผลิตภัณฑ์ของ Stripe ไม่ตรงกัน",
+        "product_metadata_product_type_missing": "ผลิตภัณฑ์ Stripe ไม่มี metadata ประเภทผลิตภัณฑ์",
+        "provider_account_mismatch": "บัญชี Stripe ไม่ตรงกัน",
+        "provider_price_inactive": "ราคา Stripe ถูกปิดใช้งานแล้ว",
+        "provider_price_mismatch": "Stripe Price ID ไม่ตรงกับการตั้งค่าปัจจุบัน",
+        "provider_price_unit_amount_missing": "ราคา Stripe ไม่มีจำนวนเงินคงที่",
+        "provider_product_inactive": "ผลิตภัณฑ์ Stripe ถูกปิดใช้งานแล้ว",
+        "provider_product_mismatch": "Stripe Product ID ไม่ตรงกับการตั้งค่าปัจจุบัน",
+        "retired_mapping_cannot_be_activated": "ไม่สามารถเผยแพร่ราคาที่ถอดออกแล้วอีกครั้ง",
+        "retired_mapping_cannot_be_validated": "ไม่สามารถตรวจสอบราคาที่ถอดออกแล้วอีกครั้ง",
+        "stripe_catalog_reference_missing": "ไม่มี Stripe Product ID หรือ Price ID",
+        "stripe_catalog_retrieve_failed": "อ่านผลิตภัณฑ์หรือราคาจาก Stripe ไม่สำเร็จ",
+        "topup_requires_one_time_price": "ชุดเครดิตต้องผูกกับราคาครั้งเดียวของ Stripe",
+        "unit_amount_mismatch": "จำนวนเงินที่รับชำระไม่ตรงกับราคาที่แสดงบนหน้า",
+        "unknown": "ปัญหาที่ไม่ทราบสาเหตุ",
+        "unsupported_product_type": "ยังไม่รองรับการตั้งค่ารับชำระสำหรับผลิตภัณฑ์ประเภทนี้"
+      },
+      "loadError": "โหลดการตั้งค่าราคาแพ็กเกจไม่สำเร็จชั่วคราว",
+      "loading": "กำลังโหลดราคาแพ็กเกจ...",
+      "menuTitle": "จัดการแพ็กเกจ",
+      "pageDescription": "จัดการราคาสำหรับรับชำระแพ็กเกจและชุดเครดิตต่างประเทศ เพื่อให้ราคาบนหน้า การจ่ายจริง และการกระทบยอดภายหลังตรงกัน",
+      "productCredits": "เครดิต {credits}",
+      "productType": {
+        "plan": "แพ็กเกจ",
+        "topup": "ชุดเครดิต"
+      },
+      "status": {
+        "active": "เผยแพร่แล้ว",
+        "all": "ทุกสถานะ",
+        "draft": "รอเปิดใช้",
+        "invalid": "ตรวจสอบไม่ผ่าน",
+        "missing": "ยังไม่ได้ตั้งค่า",
+        "retired": "ถอดออกแล้ว"
+      },
+      "table": {
+        "actions": "การดำเนินการ",
+        "benefit": "สิทธิประโยชน์",
+        "localPrice": "ราคาบนหน้า",
+        "product": "ผลิตภัณฑ์",
+        "productType": "ประเภท",
+        "status": "สถานะ",
+        "stripePrice": "ราคาสำหรับรับชำระ",
+        "validatedAt": "ตรวจสอบล่าสุด"
+      },
+      "title": "จัดการแพ็กเกจ",
+      "toast": {
+        "activateFailed": "เผยแพร่ราคาไม่สำเร็จ",
+        "activateSuccess": "เผยแพร่ราคาแล้ว",
+        "createFailed": "บันทึกราคาไม่สำเร็จ",
+        "createSuccess": "บันทึกราคาแล้ว",
+        "restoreFailed": "คืนสถานะราคาไม่สำเร็จ",
+        "restoreSuccess": "คืนสถานะราคาเป็นรอเปิดใช้แล้ว",
+        "retireFailed": "ถอดราคาออกไม่สำเร็จ",
+        "retireSuccess": "ถอดราคาออกแล้ว",
+        "validateFailed": "ตรวจสอบราคาไม่สำเร็จ",
+        "validateSuccess": "ตรวจสอบราคาเสร็จแล้ว"
+      }
+    },
+    "reports": {
+      "actions": {
+        "viewOrders": "ดูคำสั่งซื้อ"
+      },
+      "attentionReasons": {
+        "active_production": "มีการใช้งานจริง",
+        "debug_preview_heavy": "ใช้ดีบักสูง",
+        "high_consumption": "ใช้เครดิตสูง",
+        "high_frequency": "เรียกใช้ถี่",
+        "rapid_growth": "การใช้งานเพิ่มเร็ว",
+        "sustained_activity": "ยังใช้งานต่อเนื่องใน 7 วันที่ผ่านมา"
+      },
+      "description": "สรุปครูที่มีการใช้เครดิต กิจกรรม หรือรูปแบบการใช้ผิดปกติในช่วงล่าสุด เพื่อช่วยฝ่ายปฏิบัติการจัดลำดับการติดตาม",
+      "empty": "ยังไม่มีครูที่ต้องติดตามเป็นพิเศษ",
+      "emptyHint": "จะแสดงเมื่อเข้าเงื่อนไขอย่างน้อยหนึ่งข้อ ได้แก่ ใช้เครดิตสูง เรียกใช้ถี่ ใช้งานจริงอยู่ สัดส่วนดีบักสูง ใช้งานต่อเนื่อง หรือการใช้เครดิตเพิ่มเร็ว",
+      "filters": {
+        "active_production": "มีการใช้งานจริง",
+        "all": "รายการสำคัญทั้งหมด",
+        "debug_preview_heavy": "ใช้ดีบักสูง",
+        "rapid_growth": "การใช้งานเพิ่มเร็ว"
+      },
+      "sections": {
+        "usage": {
+          "description": "แสดงเฉพาะครูที่เข้าเงื่อนไขติดตาม และเรียงตามการเติบโต สัดส่วนดีบัก หรือการใช้ใน 30 วันล่าสุดได้",
+          "title": "รายชื่อครูที่ต้องติดตาม"
+        }
+      },
+      "sort": {
+        "label": "วิธีเรียงลำดับ",
+        "options": {
+          "credits_30d": "ตามการใช้ใน 30 วันล่าสุด",
+          "debug_ratio": "ตามสัดส่วนดีบัก",
+          "growth": "ให้การเติบโตมาก่อน"
+        }
+      },
+      "summary": {
+        "activeTeachers7d": "ยังใช้งานใน 7 วันที่ผ่านมา",
+        "activeTeachers7dHint": "ครูที่ต้องติดตามและมีประวัติการใช้ใน 7 วันที่ผ่านมา",
+        "debugHeavyCount": "สัดส่วนดีบักสูง",
+        "debugHeavyCountHint": "ครูที่มีสัดส่วนการใช้ดีบัก/ดูตัวอย่างสูงใน 30 วันล่าสุด",
+        "focusCount": "จำนวนครูที่ต้องติดตาม",
+        "focusCountHint": "เข้าเงื่อนไขการใช้ตั้งแต่หนึ่งข้อขึ้นไป",
+        "totalCredits": "การใช้ของรายการสำคัญใน 30 วัน",
+        "totalCreditsHint": "การใช้สะสมของครูที่ต้องติดตามใน 30 วันล่าสุด"
+      },
+      "table": {
+        "actions": "การดำเนินการ",
+        "activeDays7d": "จำนวนวันที่ใช้งานใน 7 วัน",
+        "attentionReasons": "กฎติดตาม",
+        "attentionReasonsMore": "รวม {count} รายการ",
+        "creator": "ครู",
+        "credits30d": "ใช้ใน 30 วัน",
+        "credits30dBreakdown": "ใช้งานจริง {production} · ดีบัก/ดูตัวอย่าง {debugPreview}",
+        "credits30dDebugPreview": "ดีบัก/ดูตัวอย่าง {debugPreview}",
+        "credits30dProduction": "ใช้งานจริง {production}",
+        "credits7d": "ใช้ใน 7 วัน",
+        "latestActivity": "เวลาใช้งานล่าสุด",
+        "latestActivityHint": "ใช้งาน {days} วันใน 7 วันที่ผ่านมา",
+        "productionRatio": "สัดส่วนการใช้งานจริง",
+        "recordCount7d": "จำนวนครั้งที่เรียกใช้ใน 7 วัน"
+      },
+      "title": "สรุปการติดตามการใช้งาน"
+    },
+    "subscriptions": {
+      "description": "ดูการสมัครสมาชิก เครดิตคงเหลือ และสถานะการดำเนินการต่อของครูที่ต้องติดตาม",
+      "empty": "ยังไม่มีการสมัครสมาชิกที่ต้องติดตาม",
+      "filters": {
+        "reset": "รีเซ็ต",
+        "search": "ค้นหา",
+        "searchPlaceholderEmail": "อีเมลครู",
+        "searchPlaceholderPhone": "หมายเลขโทรศัพท์ครู",
+        "status": "สถานะสมาชิก",
+        "statusAll": "สถานะสมาชิกทั้งหมด",
+        "teacherField": "ครู"
+      },
+      "loadError": "อ่านข้อมูลสมาชิกจากแผงผู้ดูแลไม่สำเร็จ โปรดลองรีเฟรชแล้วลองอีกครั้ง",
+      "preorderTarget": "ซื้อล่วงหน้า: {product}",
+      "results": {
+        "cancelAtPeriodEnd": "ไม่ต่ออายุเมื่อสิ้นสุด",
+        "cancelAtPeriodEndWithDate": "สิ้นสุดวันที่ {date}",
+        "expire": "ไม่ต่ออายุเมื่อสิ้นสุด",
+        "expireWithDate": "สิ้นสุดวันที่ {date}",
+        "preorder": "เปลี่ยนเป็น {product} หลังสิ้นสุด",
+        "preorderWithDate": "เปลี่ยนเป็น {product} วันที่ {date}",
+        "renewalFailed": "ต่ออายุไม่สำเร็จ รอดำเนินการ",
+        "renewalFailedWithError": "ต่ออายุไม่สำเร็จ รอดำเนินการ",
+        "renewalScheduled": "ตั้งเวลาต่ออายุอัตโนมัติแล้ว",
+        "renewalScheduledWithDate": "ตั้งเวลาต่ออายุอัตโนมัติวันที่ {date}"
+      },
+      "table": {
+        "availableCredits": "เครดิตที่ใช้ได้",
+        "creator": "ครู",
+        "currentPeriodEnd": "ใช้ได้ถึง",
+        "product": "แพ็กเกจปัจจุบัน",
+        "provider": "วิธีชำระเงิน",
+        "renewal": "การต่ออายุ/การหมดอายุ",
+        "renewalStatus": "สถานะการต่ออายุ",
+        "scheduled": "กำหนดไว้วันที่",
+        "status": "สถานะสมาชิก"
+      },
+      "title": "ติดตามการสมัครสมาชิก"
+    },
+    "subtitle": "ติดตามสถานะสมาชิก การใช้งาน และการตั้งค่าแบรนด์กับการชำระเงินอย่างเป็นระบบ",
+    "table": {},
+    "tabs": {
+      "domains": "โดเมน",
+      "entitlements": "การตั้งค่าแบรนด์และการชำระเงิน",
+      "reports": "ติดตามการใช้งาน",
+      "subscriptions": "ติดตามสมาชิก"
+    },
+    "title": "ปฏิบัติการเชิงพาณิชย์"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "ซื้อเครดิต",
+      "openOrders": "ดูประวัติการชำระเงิน",
+      "resumeSubscription": "เปิดการสมัครสมาชิกต่อ"
+    },
+    "cancelScheduled": "ระบบตั้งให้การสมัครสมาชิกปัจจุบันยกเลิกเมื่อสิ้นสุดรอบแล้ว หากต้องการรับเครดิตตามรอบต่อ โปรดเปิดการสมัครสมาชิกต่อ",
+    "lowBalance": "บัญชีครูปัจจุบันไม่มีเครดิตเหลืออยู่ โปรดเปิดการสมัครสมาชิกหรือซื้อเครดิตก่อนการชำระบัญชีครั้งถัดไป",
+    "lowBalanceDescription": "เครดิตหมดแล้ว จึงไม่สามารถทดลองเนื้อหาที่ AI สร้างต่อได้",
+    "lowBalanceTitle": "เครดิตของคุณหมดแล้ว AI หยุดทำงาน",
+    "subscriptionPastDue": "สถานะการต่ออายุสมาชิกผิดปกติในขณะนี้ โปรดตรวจสอบประวัติการชำระเงินและซิงก์สถานะล่าสุดจากผู้ให้บริการก่อน"
+  },
+  "capabilities": {
+    "description": "ส่วนนี้สรุปโมดูลด้านแบรนด์และการชำระเงินที่ใช้งานได้โดยตรงในขณะนี้ สถานะรอตั้งค่าหมายถึงโค้ดเชื่อมต่อแล้วแต่ยังไม่เปิดใช้เป็นค่าเริ่มต้น ส่วนใช้เฉพาะกระบวนการเบื้องหลังหมายถึงใช้ในงาน การชดเชย หรือการปฏิบัติการเท่านั้นและจะไม่แสดงบนหน้าโดยตรง",
+    "fallbackDescription": "สถานะความสามารถอ้างอิงจาก billing capability registry",
+    "fallbackTitle": "ความสามารถด้าน Billing",
+    "items": {
+      "adminEntitlements": {
+        "description": "ยังดูสิทธิประโยชน์จากแผงผู้ดูแลได้",
+        "title": "สิทธิประโยชน์ในแผงผู้ดูแล"
+      },
+      "adminLedgerAdjust": {
+        "description": "ยังปรับปรุงบัญชีรายการด้วยตนเองจากแผงผู้ดูแลได้",
+        "title": "ปรับปรุงบัญชีรายการในแผงผู้ดูแล"
+      },
+      "adminReports": {
+        "description": "ยังดูรายงาน usage และ ledger จากแผงผู้ดูแลได้",
+        "title": "รายงานในแผงผู้ดูแล"
+      },
+      "adminSubscriptions": {
+        "description": "ยังดูการสมัครสมาชิกจากแผงผู้ดูแลได้",
+        "title": "การสมัครสมาชิกในแผงผู้ดูแล"
+      },
+      "billingFeatureFlag": {
+        "description": "สวิตช์ฟีเจอร์ billing ยังปิดไว้เป็นค่าเริ่มต้นในการตั้งค่า seed",
+        "title": "สวิตช์ฟีเจอร์ Billing"
+      },
+      "creatorCatalog": {
+        "description": "แค็ตตาล็อกแพ็กเกจและชุดเครดิตยังใช้งานได้",
+        "title": "แค็ตตาล็อกผลิตภัณฑ์สำหรับครู"
+      },
+      "creatorOrders": {
+        "description": "คำสั่งซื้อของครู รวมถึง sync, refund และ topup ยังเปิดใช้งานอยู่",
+        "title": "คำสั่งซื้อของครู"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "การซื้อ ยกเลิก และเปิดการสมัครสมาชิกของครูต่อยังเปิดใช้งานอยู่",
+        "title": "วงจรการสมัครสมาชิกของครู"
+      },
+      "creatorWalletLedger": {
+        "description": "การดูการเติมเครดิตและบัญชีรายการของบัญชียังเปิดใช้งานอยู่",
+        "title": "บัญชีครูและบัญชีรายการ"
+      },
+      "dailyAggregateRebuild": {
+        "description": "การสร้างรายงานรายวันใหม่และการ finalize ยังเป็นความสามารถภายใน",
+        "title": "สร้างรายงานรายวันใหม่"
+      },
+      "domainVerifyRefresh": {
+        "description": "การรีเฟรชการตรวจสอบโดเมนยังเป็นความสามารถภายใน",
+        "title": "รีเฟรชการตรวจสอบโดเมน"
+      },
+      "lowBalanceAlerts": {
+        "description": "การสร้างการแจ้งเตือนเครดิตต่ำยังเป็นความสามารถภายใน",
+        "title": "การแจ้งเตือนเครดิตต่ำ"
+      },
+      "providerReconcile": {
+        "description": "การกระทบยอด provider ยังเป็นส่วนหนึ่งของกระบวนการกู้คืนภายใน",
+        "title": "ชดเชยการกระทบยอด Provider"
+      },
+      "renewalCompensation": {
+        "description": "การชดเชยและลองต่ออายุใหม่ยังเป็นความสามารถภายใน",
+        "title": "ชดเชยการต่ออายุ"
+      },
+      "renewalTaskQueue": {
+        "description": "ตัวประมวลผลการต่ออายุยังปิดไว้เป็นค่าเริ่มต้นใน seed",
+        "title": "คิวงานต่ออายุ"
+      },
+      "runtimeBillingExtensions": {
+        "description": "runtime-config ยังคงส่งบริบท billing entitlement และ domain ออกมา",
+        "title": "ส่วนขยาย Billing ระหว่างรันไทม์"
+      },
+      "usageSettlement": {
+        "description": "การชำระ usage และ replay ยังเป็นส่วนหนึ่งของเส้นทาง task/CLI ภายใน",
+        "title": "ชำระ Usage"
+      },
+      "walletBucketExpiration": {
+        "description": "การตรวจสอบเครดิตในบัญชีที่หมดอายุยังเป็นความสามารถภายใน",
+        "title": "ตรวจสอบการหมดอายุของเครดิต"
+      }
+    },
+    "status": {
+      "active": "พร้อมใช้งานโดยตรง",
+      "defaultDisabled": "รอตั้งค่า",
+      "internalOnly": "ใช้เฉพาะกระบวนการเบื้องหลัง"
+    },
+    "summary": {
+      "active": "พร้อมใช้งานโดยตรง {count} รายการ",
+      "defaultDisabled": "รอตั้งค่า {count} รายการ",
+      "internalOnly": "ใช้เฉพาะกระบวนการเบื้องหลัง {count} รายการ"
+    },
+    "title": "โมดูลที่พร้อมใช้งานในขณะนี้"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "กำลังดำเนินการ..."
+    },
+    "badges": {
+      "bestValue": "คุ้มค่าที่สุด",
+      "recommended": "แนะนำ"
+    },
+    "labels": {
+      "everyDays": "ทุก {count} วัน",
+      "everyMonths": "ทุก {count} เดือน",
+      "everyYears": "ทุก {count} ปี",
+      "perDay": "รายวัน",
+      "perMonth": "รายเดือน",
+      "perYear": "รายปี",
+      "providerAlipay": "Alipay",
+      "providerManual": "เปิดใช้งานด้วยตนเอง",
+      "providerPingxx": "Pingxx",
+      "providerStripe": "Stripe",
+      "providerWechatpay": "ชำระผ่าน WeChat",
+      "providerWithChannel": "{provider} / {channel}"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "เหมาะสำหรับทดลองใช้หลักสูตรขนาดเล็ก",
+        "title": "รุ่น Lite"
+      },
+      "creatorMonthlyPro": {
+        "description": "เหมาะสำหรับดูแลผู้เรียนจำนวนไม่มาก",
+        "title": "รุ่น Basic"
+      },
+      "creatorYearly": {
+        "description": "เหมาะสำหรับองค์กรขนาดใหญ่",
+        "title": "รุ่น Advanced"
+      },
+      "creatorYearlyLite": {
+        "description": "เหมาะสำหรับองค์กรขนาดเล็กและขนาดกลาง",
+        "title": "รุ่น Pro"
+      },
+      "creatorYearlyPremium": {
+        "description": "เหมาะสำหรับองค์กรขนาดใหญ่มาก",
+        "title": "รุ่น Premium"
+      }
+    },
+    "topups": {
+      "default": {
+        "description": "ใช้เติมเครดิตระหว่างแพ็กเกจปัจจุบัน และเครดิตที่ใช้ไม่หมดจะหมดอายุพร้อมแพ็กเกจ",
+        "title": "ชุดเครดิต {credits}"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "ข้อตกลงการซื้อเครดิต",
+    "agreementPrefix": "ฉันได้อ่านและยอมรับ",
+    "bonusCreditsLabel": "{baseCredits} + โบนัส {bonusCredits}",
+    "cancel": "ยกเลิก",
+    "completed": "ชำระเงินสำเร็จ",
+    "confirm": "ดำเนินการชำระเงิน",
+    "creditsLabel": "เครดิต",
+    "expired": "คำสั่งซื้อหมดอายุแล้ว โปรดสร้างคำสั่งซื้อใหม่",
+    "expiresInLabel": "เวลาที่เหลือก่อนหมดอายุ",
+    "expiresInValue": "หมดอายุใน {countdown}",
+    "planDescription": "นี่คือขั้นตอนชำระเงินสำหรับการสมัครแพ็กเกจเครดิต",
+    "preorderDescription": "จะชำระค่าแพ็กเกจนี้ล่วงหน้าทันที และแพ็กเกจจะเริ่มใช้หลังรอบปัจจุบันสิ้นสุด",
+    "prepaidOffsetLabel": "ส่วนลดจากการซื้อล่วงหน้า",
+    "priceLabel": "ราคา",
+    "processing": "กำลังดำเนินการ...",
+    "productLabel": "ผลิตภัณฑ์",
+    "providerLabel": "ช่องทางการชำระเงิน",
+    "subject": {
+      "plan": {
+        "day": "แพ็กเกจรายวัน",
+        "month": "แพ็กเกจรายเดือน",
+        "year": "แพ็กเกจรายปี"
+      }
+    },
+    "title": "ยืนยันการซื้อ",
+    "topupDescription": "คุณกำลังเข้าสู่ขั้นตอนยืนยันการชำระเงินเพื่อซื้อชุดเครดิตแบบครั้งเดียว",
+    "unsupported": "วิธีชำระเงินปัจจุบันไม่พร้อมใช้งานชั่วคราว",
+    "upgradeDescription": "การอัปเกรดนี้จะมีผลทันที",
+    "upgradeWithPreorderDescription": "การอัปเกรดนี้จะมีผลทันที และการชำระล่วงหน้าปัจจุบันจะถูกใช้เป็นส่วนลด"
+  },
+  "common": {
+    "empty": "ไม่มีข้อมูล"
+  },
+  "customization": {
+    "actions": {
+      "clear": "ล้าง",
+      "saveConfiguration": "บันทึกการตั้งค่า",
+      "saveIntegration": "บันทึกการตั้งค่าการชำระเงิน",
+      "secretSaved": "บันทึกแล้ว ป้อนใหม่ได้หากต้องการแทนที่"
+    },
+    "branding": {
+      "favicon": "ไอคอนไซต์ Favicon",
+      "faviconHint": "ไอคอนแท็บเบราว์เซอร์ รองรับ PNG/JPEG/WebP (จะแปลงเป็น ICO อัตโนมัติ) หรืออัปโหลด .ico โดยตรง หากไม่อัปโหลดจะใช้โลโก้สี่เหลี่ยม",
+      "homeUrl": "ลิงก์ของโลโก้",
+      "homeUrlHint": "URL ที่ผู้ใช้จะไปเมื่อคลิกโลโก้ในหน้าเรียน หากเว้นว่างจะใช้ URL เริ่มต้น",
+      "homeUrlPlaceholder": "เช่น https://www.example.com",
+      "invalidFile": "รองรับเฉพาะรูป PNG, JPEG หรือ WebP ขนาดไม่เกิน 2MB",
+      "resizeNotice": "ขนาดรูปไม่ตรงกับข้อกำหนดที่แนะนำทั้งหมด ระบบจะปรับขนาดตามปกติหลังบันทึก",
+      "squareHint": "แนะนำโลโก้สี่เหลี่ยมขนาด 32x32px และรองรับรูปความละเอียดสูงกว่า",
+      "squareLogo": "โลโก้สี่เหลี่ยม",
+      "title": "โลโก้แบรนด์",
+      "uploadFailed": "อัปโหลดรูปไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+      "uploadFavicon": "อัปโหลดไอคอนไซต์",
+      "uploadSquare": "อัปโหลดโลโก้สี่เหลี่ยม",
+      "uploadWide": "อัปโหลดโลโก้แนวนอน",
+      "urlPlaceholder": "หรือกรอก URL ของรูปโดยตรง",
+      "wideHint": "แนะนำโลโก้แนวนอนสูง 32px กว้างไม่เกิน 220px และรองรับรูปความละเอียดสองเท่า",
+      "wideLogo": "โลโก้แนวนอน"
+    },
+    "disable": "ปิดใช้งาน",
+    "domain": {
+      "bind": "ผูกโดเมน",
+      "disableSuccess": "ปิดใช้งานโดเมนแล้ว",
+      "dnsTitle": "เพิ่มระเบียน TXT ต่อไปนี้ในแผง DNS ของโดเมน",
+      "lastError": "ผลการตรวจสอบล่าสุด: {reason}",
+      "placeholder": "เช่น learn.example.com",
+      "record": "{name} = {value}",
+      "recordName": "ชื่อระเบียน",
+      "recordType": "ประเภทระเบียน",
+      "recordValue": "ค่าระเบียน",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "โดเมนแบบกำหนดเอง",
+      "verify": "ตรวจสอบ DNS",
+      "verifyFailed": "ยังตรวจสอบ DNS ไม่สำเร็จ โปรดตรวจสอบว่าระเบียน TXT มีผลแล้วแล้วลองอีกครั้ง",
+      "verifyInstruction": "คลิกตรวจสอบหลัง DNS มีผล ระบบจะดำเนินการใบรับรอง HTTPS ต่อหลังตรวจสอบสำเร็จ",
+      "verifySuccess": "ตรวจสอบ DNS สำเร็จและอัปเดตสถานะโดเมนแล้ว"
+    },
+    "integrationStatus": {
+      "disabled": "ปิดใช้งาน",
+      "draft": "รอเปิดใช้",
+      "failed": "เปิดใช้ไม่สำเร็จ",
+      "unconfigured": "ยังไม่ได้ตั้งค่า",
+      "verified": "เปิดใช้งานแล้ว"
+    },
+    "integrations": {
+      "title": "การตั้งค่า WeChat และการชำระเงิน"
+    },
+    "loading": "กำลังโหลดเนื้อหาการตั้งค่า...",
+    "locked": "แพ็กเกจปัจจุบันไม่มีฟีเจอร์นี้ โปรดอัปเกรดแพ็กเกจหรือติดต่อฝ่ายปฏิบัติการเพื่อเปิดใช้",
+    "paymentProvider": {
+      "description": "เลือกวิธีชำระเงินสำหรับหน้าผู้เรียนได้หนึ่งวิธีหรือมากกว่า หลังบันทึก หน้าผู้เรียนจะสร้าง QR การชำระเงินตามวิธีที่ตั้งไว้",
+      "title": "วิธีชำระเงิน"
+    },
+    "pendingActivation": "โปรดบันทึกรายการที่กำลังเปิดใช้ก่อน หลังสิทธิประโยชน์มีผลจึงจะบันทึกและตรวจสอบการตั้งค่านี้ต่อได้",
+    "providers": {
+      "alipay": "Alipay",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "บัญชีทางการ WeChat",
+      "wechatpay": "ชำระผ่าน WeChat"
+    },
+    "verify": "ตรวจสอบและเปิดใช้"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "อัปเกรดตอนนี้"
+    },
+    "emptyValidityLabel": "--",
+    "subtitle": "ดูเครดิตรวมของพื้นที่ครูปัจจุบัน เครดิตแต่ละประเภท และระยะเวลาที่ใช้ได้",
+    "table": {
+      "balance": "ยอดคงเหลือ",
+      "creditType": "ประเภท",
+      "validUntil": "ใช้ได้ถึง"
+    },
+    "topupAvailabilityLabel": "ไม่จำกัดเวลา",
+    "topupAvailabilityTooltip": "ใช้ได้หลังเปิดใช้แพ็กเกจที่ยังมีผลอย่างน้อยหนึ่งแพ็กเกจ",
+    "totalCreditsDescription": "ใช้เครดิตจากแพ็กเกจก่อน แล้วจึงใช้เครดิตจากชุดเติม",
+    "totalCreditsLabel": "ยอดคงเหลือ",
+    "usageTable": {
+      "columns": {
+        "scene": "รายการใช้เครดิต"
+      },
+      "title": "รายละเอียดการใช้เครดิต"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "ยังไม่เคยตรวจสอบ"
+    },
+    "ssl": {
+      "active": "SSL มีผลแล้ว",
+      "failed": "SSL ผิดปกติ",
+      "issued": "ออก SSL แล้ว",
+      "not_requested": "ยังไม่ได้ขอ SSL",
+      "pending": "กำลังดำเนินการ SSL",
+      "provisioning": "กำลังดำเนินการ SSL"
+    },
+    "status": {
+      "disabled": "ปิดใช้งาน",
+      "failed": "ตรวจสอบไม่สำเร็จ",
+      "pending": "รอตรวจสอบ",
+      "verified": "ตรวจสอบแล้ว"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "การวิเคราะห์ขั้นสูง",
+      "basic": "การวิเคราะห์พื้นฐาน",
+      "enterprise": "การวิเคราะห์ระดับองค์กร"
+    },
+    "flags": {
+      "branding": "โลโก้แบรนด์",
+      "customDomain": "โดเมนแบบกำหนดเอง",
+      "customPayment": "วิธีชำระเงิน",
+      "customWechat": "บัญชีทางการ WeChat แบบกำหนดเอง",
+      "disabled": "ยังไม่เปิดใช้",
+      "enabled": "เปิดใช้แล้ว"
+    },
+    "metrics": {
+      "analyticsTier": "ระดับการวิเคราะห์",
+      "maxConcurrency": "จำนวนงานพร้อมกันสูงสุด",
+      "priorityClass": "ลำดับความสำคัญ",
+      "supportTier": "ระดับการสนับสนุน"
+    },
+    "priority": {
+      "priority": "รับประกันลำดับความสำคัญ",
+      "standard": "มาตรฐาน",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "การสนับสนุนในเวลาทำการ",
+      "priority": "การสนับสนุนแบบเร่งด่วน",
+      "selfServe": "การสนับสนุนด้วยตนเอง"
+    }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "ซื้อเครดิต",
+      "checkoutLoading": "กำลังเปิดการชำระเงิน...",
+      "choosePlan": "เลือกแพ็กเกจ",
+      "cycleSwitchDisabled": "ยังไม่รองรับการเปลี่ยนรอบ",
+      "viewMonthly": "ดูแพ็กเกจรายเดือน"
+    },
+    "annualSavings": "ประหยัดต่อปี {amount} ({percent}%)",
+    "approximatePricePrefix": "ประมาณ",
+    "audienceLabel": "เหมาะสำหรับ",
+    "billedAnnually": "ชำระทุก 12 เดือน {price}",
+    "cancelAnytime": "ชำระรายเดือน ยกเลิกได้ทุกเมื่อ",
+    "checkoutNotice": "รองรับการชำระเงินออนไลน์ผ่าน Stripe เมื่อคลิกแล้วระบบจะพาไปยัง Stripe เพื่อชำระเงินให้เสร็จสิ้น",
+    "comingSoon": {
+      "close": "เข้าใจแล้ว",
+      "description": "เรากำลังพัฒนาฟีเจอร์การชำระเงิน โปรดติดตาม",
+      "inlineNotice": "ฟีเจอร์ชำระเงินออนไลน์ยังอยู่ระหว่างพัฒนา การเลือกแพ็กเกจหรือชุดเครดิตจะยังไม่เรียกเก็บเงิน",
+      "title": "ฟีเจอร์ชำระเงินกำลังจะเปิดให้ใช้"
+    },
+    "creditPacks": {
+      "activeSubscriptionRequired": "หากต้องการใช้เครดิตจากชุดเติม บัญชีต้องมีการสมัครสมาชิกที่ยังมีผล หลังสมาชิกหมดอายุ เครดิตที่ยังไม่ได้ใช้จะคงอยู่ในบัญชี และใช้ต่อได้เมื่อเปิดแพ็กเกจอีกครั้ง",
+      "instantAndPermanent": "เครดิตเข้าทันทีหลังซื้อและไม่มีวันหมดอายุ",
+      "packName": "เครดิต {credits}"
+    },
+    "creditsLabel": "เครดิตตามรอบ",
+    "creditsPerMonth": "เครดิต {credits} ต่อเดือน",
+    "creditsPerYear": "เครดิต {credits} ต่อรอบเรียกเก็บเงิน 12 เดือน",
+    "cycles": {
+      "annual": "ชำระรายปี",
+      "monthly": "ชำระรายเดือน"
+    },
+    "features": {
+      "coreTeaching": "ฟีเจอร์สร้างหลักสูตร สอน และส่งมอบให้ผู้เรียนทั้งหมด",
+      "customBranding": "อัตลักษณ์แบรนด์แบบกำหนดเอง",
+      "customDomain": "โดเมนแบบกำหนดเอง",
+      "dedicatedSupport": "การสนับสนุนทางเทคนิคเฉพาะ",
+      "exclusiveTraining": "การฝึกอบรมการสร้างหลักสูตรเฉพาะ",
+      "higherConcurrency": "รองรับการสร้างหลักสูตรและการเรียนพร้อมกันมากขึ้น",
+      "prioritySupport": "การสนับสนุนทางเทคนิคแบบเร่งด่วน"
+    },
+    "featuresIncludes": {
+      "business": "รวมสิทธิประโยชน์ทั้งหมดของ Growth และ:",
+      "growth": "รวมสิทธิประโยชน์ทั้งหมดของ Studio และ:",
+      "scale": "รวมสิทธิประโยชน์ทั้งหมดของ Business และ:"
+    },
+    "featuresLabel": "สิทธิประโยชน์ที่รวมอยู่",
+    "footnote": {
+      "intro": "จำนวนผู้เรียนเป็นค่าประมาณจากประสบการณ์ของแพลตฟอร์ม โดยสมมติว่าหนึ่งคนเรียนหลักสูตรครบหนึ่งครั้ง หลักสูตรมีประมาณ 10 บท แต่ละบทใช้เวลาเรียนตามปกติประมาณ 15 นาที ใช้โมเดลเริ่มต้นทั้งหมด และเปิดโหมดฟัง การเรียกเก็บจริงคำนวณจากการใช้โมเดลในการเรียน ดูตัวอย่าง และดีบัก โดยให้รายละเอียดเครดิตเป็นหลัก ปัจจัยที่มีผลต่อการใช้เครดิต:",
+      "validity": "อายุเครดิต: เครดิตแพ็กเกจรายเดือนใช้ได้ 30 วันนับจากวันที่ได้รับ (รวมวันได้รับ) เครดิตแพ็กเกจรายปีใช้ได้ 12 เดือน ทั้งสองแบบสิ้นสุดเวลา 23:59 ของวันหมดอายุ"
+    },
+    "learnerEstimateLabel": "จำนวนผู้เรียนที่คาดว่าจะรองรับได้",
+    "learnerEstimateValue": "{minimum} - {maximum} คน",
+    "monthlyOnly": "รองรับเฉพาะรายเดือน",
+    "mostPopular": "ได้รับความนิยมสูงสุด",
+    "perMonth": "/ เดือน",
+    "plans": {
+      "business": {
+        "description": "องค์กรขนาดใหญ่ที่ส่งมอบการเรียนรู้เฉพาะบุคคลในวงกว้าง",
+        "estimates": {
+          "annual": "500 - 1,500 คน",
+          "monthly": "40 - 120 คน"
+        },
+        "name": "Business"
+      },
+      "growth": {
+        "description": "สถาบันการเรียนรู้ขนาดเล็กและขนาดกลาง",
+        "estimates": {
+          "annual": "250 - 750 คน",
+          "monthly": "20 - 60 คน"
+        },
+        "name": "Growth"
+      },
+      "scale": {
+        "description": "องค์กรขนาดใหญ่มากที่ดำเนินโครงการเรียนรู้ขนาดใหญ่",
+        "estimates": {
+          "annual": "1,100 - 3,300 คน",
+          "monthly": "90 - 270 คน"
+        },
+        "name": "Scale"
+      },
+      "studio": {
+        "description": "ทดลองหลักสูตรขนาดเล็กหรือยืนยันโครงการเรียนรู้แรก",
+        "estimates": {
+          "annual": "รองรับเฉพาะรายเดือน",
+          "monthly": "5 - 15 คน"
+        },
+        "name": "Studio"
+      }
+    },
+    "saveBadge": "ประหยัดประมาณ 20%",
+    "states": {
+      "loading": "กำลังโหลดแพ็กเกจ...",
+      "unavailableDescription": "โปรดลองอีกครั้งภายหลัง หากปัญหายังคงอยู่ โปรดติดต่อฝ่ายสนับสนุนทางเทคนิค",
+      "unavailableTitle": "แพ็กเกจไม่พร้อมใช้งานชั่วคราว"
+    },
+    "tabs": {
+      "creditPacks": "ชุดเครดิต",
+      "plans": "แพ็กเกจ"
+    },
+    "validity": {
+      "annual": "ใช้ได้ 12 เดือนนับจากเครดิตเข้าบัญชี และสิ้นสุดเวลา 23:59 ของวันหมดอายุ",
+      "monthly": "ใช้ได้ 30 วันนับจากเครดิตเข้าบัญชี (รวมวันได้รับ) และสิ้นสุดเวลา 23:59 ของวันหมดอายุ"
+    },
+    "validityLabel": "อายุเครดิต"
+  },
+  "ledger": {
+    "bucketDescription": "ดูชุดเครดิตตามแหล่งที่มา ยอดคงเหลือปัจจุบัน และลำดับที่จะใช้เมื่อตัดเครดิตจริงในภายหลัง",
+    "category": {
+      "subscription": "เครดิตแพ็กเกจ",
+      "topup": "ชุดเครดิต"
+    },
+    "empty": "ยังไม่มีชุดเครดิตจากแหล่งที่มา จะแสดงที่นี่หลังมีการให้เครดิตครั้งแรก",
+    "entriesDescription": "รายการบัญชี เช่น grant / consume / refund / expire จะเชื่อมต่อกับงาน billing รายการถัดไป",
+    "entriesTitle": "รายการบัญชี",
+    "entryType": {
+      "adjustment": "ปรับปรุง",
+      "consume": "ใช้",
+      "expire": "หมดอายุ",
+      "grant": "ให้เครดิต",
+      "hold": "ระงับไว้",
+      "refund": "คืนจากการคืนเงิน",
+      "release": "ปล่อย"
+    },
+    "loadError": "โหลดแหล่งเครดิตไม่สำเร็จ โปรดลองรีเฟรชแล้วลองอีกครั้ง",
+    "neverExpires": "ใช้อายุตามเครดิตแพ็กเกจ",
+    "pagination": {
+      "page": "หน้า {page} / {pageCount} รวม {total} รายการบัญชี"
+    },
+    "source": {
+      "campaignBonus": "เครดิตโบนัสจากแคมเปญ",
+      "gift": "เครดิตของขวัญ",
+      "manual": "ปรับด้วยตนเอง",
+      "refund": "คืนจากการคืนเงิน",
+      "subscription": "เครดิตแพ็กเกจ",
+      "topup": "ชุดเครดิต",
+      "usage": "ชำระตามการใช้งาน"
+    },
+    "summary": {
+      "activeBuckets": "ชุดเครดิตที่มีผล",
+      "nextExpiry": "หมดอายุเร็วที่สุด",
+      "totalAvailable": "เครดิตจากแหล่งที่มาทั้งหมด"
+    },
+    "table": {
+      "action": "การดำเนินการ",
+      "amount": "จำนวน",
+      "availableCredits": "เครดิตที่ใช้ได้",
+      "balanceAfter": "ยอดคงเหลือหลังเปลี่ยนแปลง",
+      "createdAt": "เวลา",
+      "detail": "ดูรายละเอียด",
+      "effectiveWindow": "ช่วงเวลาที่มีผล",
+      "entryType": "ประเภทรายการบัญชี",
+      "priority": "ลำดับความสำคัญ",
+      "source": "แหล่งเครดิต",
+      "status": "สถานะ"
+    },
+    "usageScene": {
+      "debug": "ดีบัก",
+      "preview": "ดูตัวอย่าง",
+      "production": "เรียน",
+      "tts": "เสียง"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "ยกเลิกแล้ว",
+      "failed": "ล้มเหลว",
+      "init": "สร้างแล้ว",
+      "paid": "ชำระแล้ว",
+      "pending": "กำลังดำเนินการ",
+      "refunded": "คืนเงินแล้ว",
+      "timeout": "หมดเวลา"
+    },
+    "type": {
+      "manual": "คำสั่งซื้อด้วยตนเอง",
+      "refund": "คำสั่งคืนเงิน",
+      "subscriptionRenewal": "ต่ออายุสมาชิก",
+      "subscriptionStart": "เริ่มสมาชิก",
+      "subscriptionUpgrade": "อัปเกรดสมาชิก",
+      "topup": "คำสั่งซื้อชุดเครดิต"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "เครดิตที่ใช้ได้",
+    "feedback": {
+      "cancelSuccess": "การสมัครสมาชิกปัจจุบันจะยกเลิกเมื่อรอบนี้สิ้นสุด",
+      "resumeSuccess": "เปิดการต่ออายุสมาชิกต่อแล้ว"
+    },
+    "loadError": "โหลดข้อมูลบัญชีไม่สำเร็จ โปรดลองรีเฟรชแล้วลองอีกครั้ง",
+    "walletTitle": "ภาพรวมเครดิต"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "ซื้อทันที",
+      "currentSubscription": "สมาชิกปัจจุบัน",
+      "currentUsing": "กำลังใช้อยู่",
+      "downgradeDisabled": "ไม่รองรับการลดแพ็กเกจ",
+      "freeTrial": "หมดอายุแล้ว",
+      "monthlySwitchDisabled": "ยังไม่รองรับการเปลี่ยนเป็นรายเดือน",
+      "nonMemberTooltip": "บัญชีนี้ยังไม่มีสมาชิก ไม่ต้องดำเนินการ",
+      "preorderDowngrade": "ซื้อลดแพ็กเกจล่วงหน้า",
+      "preorderLocked": "ล็อกการซื้อล่วงหน้า",
+      "preorderLockedTooltip": "มีการซื้อแพ็กเกจล่วงหน้าที่รอมีผลอยู่ ขณะนี้รองรับเฉพาะการอัปเกรดทันที",
+      "preorderProviderUnsupportedTooltip": "การซื้อแพ็กเกจล่วงหน้ารองรับเฉพาะช่องทางชำระเงินที่ระบบจัดการอยู่ในขณะนี้",
+      "preorderRenewal": "ต่ออายุแบบชำระล่วงหน้า",
+      "preorderScheduled": "ซื้อล่วงหน้าแล้ว",
+      "subscribeNow": "สมัครสมาชิกทันที",
+      "upgradeNow": "อัปเกรดทันที",
+      "upgradeOnlyTooltip": "แพ็กเกจปัจจุบันรองรับเฉพาะการอัปเกรดระหว่างที่ยังมีผล ไม่สามารถซื้อแพ็กเกจระดับเดียวกันหรือต่ำกว่าได้"
+    },
+    "campaign": {
+      "bonusBadge": "โบนัส {credits} เครดิต",
+      "discountBadge": "โปรโมชั่นจำกัดเวลา"
+    },
+    "creditPeriod": {
+      "oneTime": "ครั้งเดียว"
+    },
+    "creditSummary": {
+      "daily": "เครดิตรายวัน {credits}",
+      "days": "เครดิตทุก {count} วัน {credits}",
+      "monthly": "เครดิตรายเดือน {credits}",
+      "months": "เครดิตทุก {count} เดือน {credits}",
+      "yearly": "เครดิตรายปี {credits}",
+      "years": "เครดิตทุก {count} ปี {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "รวมสิทธิประโยชน์ทั้งหมดของรุ่น Basic และ:",
+        "parallelProcessing": "ความสามารถประมวลผลพร้อมกันสูงขึ้น",
+        "taskPriority": "ประมวลผลงานตามลำดับความสำคัญ",
+        "techBasic": "การสนับสนุนทางเทคนิคพื้นฐาน"
+      },
+      "common": {
+        "allLearning": "ฟีเจอร์การเรียนทั้งหมด",
+        "allTeachingAndLearning": "ฟีเจอร์วิจัยการสอนและการสอนทั้งหมด",
+        "createDebugPublish": "สร้าง ดีบัก และเผยแพร่หลักสูตร",
+        "higherConcurrency": "รองรับงานพร้อมกันมากขึ้น",
+        "unlimitedCourses": "สร้างหลักสูตรได้ไม่จำกัด"
+      },
+      "daily": {
+        "preview": "เหมาะสำหรับตรวจสอบรอบสั้นและทดลองอย่างรวดเร็ว",
+        "publish": "รองรับการเผยแพร่ระยะสั้นและเริ่มใช้งานเร็ว",
+        "support": "การสนับสนุนการดำเนินงานของสมาชิกรายวัน"
+      },
+      "free": {
+        "preview": "ส่งมอบหลักสูตรให้ผู้เรียนและนำเข้าบัญชีผู้เรียน",
+        "publish": "สร้างหลักสูตรและจัดเก็บเนื้อหา"
+      },
+      "monthly": {
+        "preview": "ส่งมอบหลักสูตรให้ผู้เรียนและนำเข้าบัญชีผู้เรียน",
+        "publish": "สร้างหลักสูตรและจัดเก็บเนื้อหา"
+      },
+      "premium": {
+        "concurrencyQuota": "โควตางานพร้อมกันสูงขึ้น",
+        "dedicatedSupport": "การสนับสนุนทางเทคนิคเฉพาะ",
+        "includesLabel": "รวมสิทธิประโยชน์ทั้งหมดของรุ่น Advanced และ:",
+        "onboarding": "การฝึกอบรมการสร้างหลักสูตรเฉพาะ"
+      },
+      "pro": {
+        "branding": "อัตลักษณ์แบรนด์แบบกำหนดเอง",
+        "customDomain": "โดเมนแบบกำหนดเอง",
+        "includesLabel": "รวมสิทธิประโยชน์ทั้งหมดของรุ่น Pro และ:",
+        "techPriority": "การสนับสนุนทางเทคนิคแบบเร่งด่วน"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "ความสามารถประมวลผลพร้อมกันสูงขึ้น",
+          "publish": "ประมวลผลงานตามลำดับความสำคัญ"
+        },
+        "premium": {
+          "analytics": "โควตางานพร้อมกันสูงขึ้น",
+          "branding": "อัตลักษณ์แบรนด์แบบกำหนดเอง",
+          "domain": "โดเมนแบบกำหนดเอง",
+          "priority": "การสนับสนุนทางเทคนิคเฉพาะ",
+          "support": "การฝึกอบรมการสร้างหลักสูตรเฉพาะ"
+        },
+        "pro": {
+          "analytics": "การสนับสนุนทางเทคนิคแบบเร่งด่วน",
+          "branding": "อัตลักษณ์แบรนด์แบบกำหนดเอง",
+          "domain": "โดเมนแบบกำหนดเอง",
+          "priority": "ความสามารถประมวลผลพร้อมกันสูงขึ้น",
+          "support": "การสนับสนุนทางเทคนิคพื้นฐาน"
+        }
+      }
+    },
+    "featuresTitle": "สิทธิประโยชน์ที่รวมอยู่:",
+    "footnote": {
+      "learnerEstimateIntro": "จำนวนผู้เรียนเป็นค่าประมาณจากประสบการณ์ของแพลตฟอร์ม โดยสมมติว่าหนึ่งคนเรียนหลักสูตรครบหนึ่งครั้ง หลักสูตรมีประมาณ 10 บท แต่ละบทใช้เวลาเรียนตามปกติประมาณ 15 นาที ใช้โมเดลเริ่มต้นทั้งหมด และเปิดโหมดฟัง การเรียกเก็บจริงคำนวณจากการใช้โมเดลในการเรียน ดูตัวอย่าง และดีบัก โดยให้รายละเอียดเครดิตเป็นหลัก ปัจจัยที่มีผลต่อการใช้เครดิต:",
+      "learnerEstimateMode": "เมื่อปิดโหมดฟังและเหลือเฉพาะการเรียนแบบโต้ตอบด้วยข้อความกับรูปภาพ จำนวนผู้เรียนที่รองรับได้อาจเพิ่มขึ้น 1-4 เท่า",
+      "learnerEstimateModel": "การเลือกโมเดลที่แพงขึ้นหรือถูกลงมีผลต่อการใช้เครดิต",
+      "learnerEstimateScale": "จำนวนบทเรียน ความยาวแต่ละบท จำนวนการโต้ตอบ อัตราเรียนจบ และจำนวนคำถามต่อยอดของผู้เรียนล้วนมีผลต่อการใช้เครดิต",
+      "validity": "อายุเครดิต: เครดิตแพ็กเกจรายเดือนใช้ได้ 30 วันนับจากวันที่ได้รับ (รวมวันได้รับ) เครดิตแพ็กเกจรายปีใช้ได้ตามปีปฏิทิน ทั้งสองแบบสิ้นสุดเวลา 23:59 ของวันหมดอายุ"
+    },
+    "free": {
+      "creditSummary": "เครดิตฟรี {credits}",
+      "description": "เหมาะสำหรับทดลองใช้ครั้งแรก",
+      "priceNote": "/ ใช้ได้ภายใน {days} วันแรกหลังสมัครใหม่",
+      "priceNoteGranted": "/ เปิดใช้เมื่อ {grantedAt} ใช้ได้ถึง {expiresAt}",
+      "title": "รุ่นทดลอง"
+    },
+    "intervalTabs": {
+      "daily": "แพ็กเกจรายวัน",
+      "monthly": "แพ็กเกจรายเดือน",
+      "plans": "แพ็กเกจเครดิต",
+      "topup": "ชุดเครดิต",
+      "yearly": "แพ็กเกจรายปี"
+    },
+    "preorder": {
+      "pending": "การซื้อล่วงหน้ารอมีผล: {plan} จะมีผลวันที่ {date}"
+    },
+    "scale": {
+      "advanced": {
+        "students": "250 - 750 คน"
+      },
+      "basic": {
+        "students": "5 - 15 คน"
+      },
+      "free": {
+        "students": "5 - 15 คน"
+      },
+      "lite": {
+        "students": "น้อยกว่า 1 คน"
+      },
+      "premium": {
+        "students": "1,100 - 3,300 คน"
+      },
+      "pro": {
+        "students": "500 - 1,500 คน"
+      },
+      "sectionTitle": "ขนาดการรองรับผู้เรียน (อ้างอิง)"
+    },
+    "subtitle": "เลือกแพ็กเกจเครดิตที่เหมาะสม",
+    "table": {
+      "creditsRowLabel": "เครดิตตามรอบ",
+      "emptyValue": "—",
+      "featuresRowLabel": "สิทธิประโยชน์",
+      "studentsRowLabel": "จำนวนผู้เรียนที่คาดว่าจะรองรับ",
+      "validityRowLabel": "อายุเครดิต"
+    },
+    "title": "ซื้อเครดิต",
+    "topup": {
+      "creditLabel": "เครดิต {credits}",
+      "noteFrozen": "จะใช้เครดิตจากชุดเติมได้เมื่อบัญชีมีแพ็กเกจเครดิตที่ยังมีผลเท่านั้น",
+      "noteInstant": "มีผลทันทีหลังซื้อ และเครดิตไม่มีวันหมดอายุ"
+    },
+    "topupComingSoon": "โปรดติดตาม",
+    "validity": {
+      "daily": "อายุ: มีผลรายวันตั้งแต่วันที่ซื้อ",
+      "days": "อายุ: ต่ออายุทุก {count} วันนับจากวันที่ซื้อ",
+      "free": "อายุ: ใช้ได้ภายใน {days} วันนับจากวันที่สมัคร",
+      "monthly": "อายุ: ใช้ได้ 30 วันนับจากวันที่ซื้อ (รวมวันซื้อ)",
+      "months": "อายุ: ต่ออายุทุก {count} ช่วง ช่วงละ 30 วันนับจากวันที่ซื้อ (รวมวันซื้อ)",
+      "yearly": "อายุ: ใช้ได้ตามปีปฏิทินนับจากวันที่ซื้อ",
+      "years": "อายุ: ต่ออายุทุก {count} ปีปฏิทินนับจากวันที่ซื้อ"
+    },
+    "validityShort": {
+      "free": "{days} วัน",
+      "monthly": "{count} เดือน",
+      "yearly": "{count} ปี"
+    }
+  },
+  "page": {
+    "adminLink": "เปิดมุมมองบัญชีในแผงผู้ดูแล",
+    "tabs": {
+      "customization": "แบรนด์และการชำระเงิน",
+      "ledger": "รายละเอียดเครดิต",
+      "plans": "ซื้อเครดิต"
+    },
+    "title": "สมาชิกและเครดิต"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "การยกเลิกมีผล",
+      "downgradeEffective": "การลดแพ็กเกจมีผล",
+      "expire": "ดำเนินการเมื่อหมดอายุ",
+      "reconcile": "แก้ไขการกระทบยอด",
+      "renewal": "ต่ออายุอัตโนมัติ",
+      "retry": "ลองใหม่หลังล้มเหลว"
+    },
+    "status": {
+      "canceled": "ยกเลิกแล้ว",
+      "failed": "ล้มเหลว",
+      "pending": "รอดำเนินการ",
+      "processing": "กำลังดำเนินการ",
+      "succeeded": "เสร็จสมบูรณ์"
+    }
+  },
+  "reports": {
+    "empty": "ยังไม่มีข้อมูลรายงานรายวัน",
+    "loadError": "ไม่สามารถโหลดรายงานบัญชีได้ในขณะนี้",
+    "metric": {
+      "llmCacheTokens": "โทเค็นแคช LLM",
+      "llmInputTokens": "โทเค็นอินพุต LLM",
+      "llmOutputTokens": "โทเค็นเอาต์พุต LLM",
+      "ttsInputChars": "อักขระอินพุต TTS",
+      "ttsOutputChars": "อักขระเอาต์พุต TTS",
+      "ttsRequestCount": "จำนวนคำขอ TTS"
+    },
+    "table": {
+      "count": "จำนวนรายการ",
+      "credits": "เครดิต",
+      "date": "วันที่",
+      "entryType": "ประเภทรายการบัญชี",
+      "metric": "ตัวชี้วัดการเรียกเก็บเงิน",
+      "provider": "Provider / Model",
+      "rawAmount": "การใช้งานดิบ",
+      "scene": "ฉากการใช้งาน",
+      "shifu": "Shifu",
+      "source": "แหล่งที่มา",
+      "usageType": "ประเภท Usage",
+      "window": "ช่วงเวลาสถิติ"
+    },
+    "usageType": {
+      "llm": "เรียกใช้โมเดล",
+      "tts": "สังเคราะห์เสียงพูด"
+    }
+  },
+  "result": {
+    "countdown": "จะกลับไปศูนย์สมาชิกโดยอัตโนมัติใน {seconds}s",
+    "errorTitle": "ซิงก์บัญชีไม่สำเร็จ",
+    "missingOrder": "ไม่มีหมายเลขคำสั่งซื้อ billing โปรดกลับไปศูนย์สมาชิกแล้วซิงก์ใหม่จากรายการคำสั่งซื้อ",
+    "openBilling": "เปิดศูนย์สมาชิก",
+    "pending": "ผลการชำระเงินยังอยู่ระหว่างดำเนินการ คุณสามารถซิงก์ใหม่ได้ภายหลัง",
+    "pendingTitle": "รอการยืนยันบัญชี",
+    "processing": "กำลังซิงก์สถานะการชำระเงิน",
+    "retry": "ซิงก์ใหม่",
+    "success": "ยืนยันการชำระเงินแล้ว กำลังรีเฟรชข้อมูลสมาชิกและเครดิตของคุณ",
+    "successTitle": "อัปเดตบัญชีแล้ว"
+  },
+  "sidebar": {
+    "creditsLabel": "เครดิตคงเหลือ",
+    "cta": "ไปศูนย์สมาชิก",
+    "dailyBalanceTitle": "เครดิตแพ็กเกจรายวัน",
+    "dailyTitle": "สมาชิกรายวัน",
+    "description": "ดูสถานะสมาชิก ยอดเครดิต และการดำเนินการด้านบัญชีถัดไป",
+    "expired": "หมดอายุแล้ว",
+    "expiresInDays": "หมดอายุใน {days} วัน",
+    "monthlyBalanceTitle": "เครดิตแพ็กเกจรายเดือน",
+    "monthlyTitle": "สมาชิกรายเดือน",
+    "nonMemberBalanceTitle": "ยอดเครดิต",
+    "nonMemberTitle": "ไม่มีสมาชิก",
+    "periodLabel": "รอบแพ็กเกจ",
+    "placeholderValue": "--",
+    "subscriptionPending": "เร็ว ๆ นี้",
+    "subscriptionStatusLabel": "สถานะสมาชิก",
+    "summaryTitle": "เครดิต",
+    "upgradeCta": "อัปเกรด",
+    "usageCta": "ดูรายละเอียด",
+    "yearlyBalanceTitle": "เครดิตแพ็กเกจรายปี",
+    "yearlyTitle": "สมาชิกรายปี"
+  },
+  "status": {
+    "active": "มีผลอยู่",
+    "cancelScheduled": "ตั้งเวลายกเลิกแล้ว",
+    "canceled": "ยกเลิกแล้ว",
+    "draft": "รอชำระเงิน",
+    "expired": "หมดอายุแล้ว",
+    "none": "ยังไม่เปิดใช้",
+    "pastDue": "ต่ออายุไม่สำเร็จ",
+    "paused": "หยุดชั่วคราว"
+  },
+  "welcomeTrial": {
+    "confirm": "ตกลง เริ่มใช้งาน!",
+    "description": "ผู้ใช้ใหม่จะได้รับแพ็กเกจ Basic เป็นเวลา {days} วัน พร้อมเครดิต {credits} เครดิต เริ่มสร้างหลักสูตรแรกของคุณได้เลย!",
+    "title": "ยินดีต้อนรับสู่ {appName}"
+  }
+}

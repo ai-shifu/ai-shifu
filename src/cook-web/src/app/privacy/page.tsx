@@ -10,6 +10,8 @@ const privacyPolicies = {
   'zh-CN': ZH_CN_PrivacyPolicy,
   'en-US': EN_PrivacyPolicy,
   'fr-FR': EN_PrivacyPolicy,
+  'ar-SA': EN_PrivacyPolicy,
+  'th-TH': EN_PrivacyPolicy,
   en: EN_PrivacyPolicy,
 };
 
@@ -17,7 +19,8 @@ export default function PrivacyPage() {
   const { t } = useTranslation();
   const language = normalizeLanguage(i18n.language);
   const PrivacyPolicy = privacyPolicies[language] || privacyPolicies['en-US'];
-  const showEnglishFallbackNotice = language === 'fr-FR';
+  const showEnglishFallbackNotice =
+    language !== 'zh-CN' && language !== 'en-US';
 
   return (
     <div className='h-screen flex flex-col'>

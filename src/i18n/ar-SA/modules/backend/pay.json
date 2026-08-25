@@ -1,0 +1,7 @@
+{
+  "__namespace__": "server.pay",
+  "__flat__": {
+    "payChannelNotSupport": "قناة الدفع غير مدعومة",
+    "wechatOpenIdRequired": "يتطلب الدفع عبر WeChat JSAPI وجود OpenID. يرجى الدخول مرة أخرى من بوابة تفويض WeChat."
+  }
+}

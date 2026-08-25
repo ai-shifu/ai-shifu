@@ -1,0 +1,130 @@
+{
+  "__namespace__": "module.referral",
+  "creator": {
+    "copied": "تم النسخ",
+    "copyLink": "نسخ الرابط",
+    "description": "نرحب بترشيح AI Shifu للأصدقاء من حولك الذين يحتاجون إليه.",
+    "emptyQueue": "شارك رابط الدعوة الخاص بك. بعد تسجيل صديقك برقم الهاتف، ستحصل فورًا على مزايا باقة لمدة شهر واحد.",
+    "inviteCardDescription": "انسخ رابط الدعوة وشاركه مع مستخدمين جدد لم يسجلوا في AI Shifu من قبل. بعد أن ينقر الصديق على الرابط ويكمل التسجيل، ستحصل على مكافأة الباقة المقابلة.",
+    "inviteCardTitle": "مشاركة رابط الدعوة الخاص",
+    "inviteLink": "رابط الدعوة",
+    "metrics": {
+      "rewarded": "تم الحصول على المكافأة"
+    },
+    "queueColumns": {
+      "effectiveAt": "وقت السريان",
+      "expiresAt": "وقت الانتهاء",
+      "invitee": "الصديق المدعو",
+      "reward": "المكافأة المحصّلة",
+      "status": "حالة المكافأة"
+    },
+    "queueTitle": "سجل الدعوات",
+    "refresh": "تحديث",
+    "rewardRecordValue": "الباقة الأساسية لمدة {cycles} شهرًا (تتضمن {credits} رصيدًا)",
+    "rewardRulesTitle": "قواعد الحملة",
+    "rules": {
+      "cap": "تُمنح مكافآت الدعوة تلقائيًا ويمكن تجميعها، بحد أقصى {cap} شهرًا (مثلًا: دعوة 12 صديقًا تمنحك باقة أساسية لمدة 12 شهرًا).",
+      "defer": "إذا كانت لديك باقة سارية حاليًا، فستُفعّل مكافأة الدعوة تلقائيًا بعد انتهاء الباقة الحالية.",
+      "firstRegistration": "تُعد الدعوة ناجحة بعد أن يكمل الصديق التسجيل الأول عبر رابط الدعوة الخاص بك.",
+      "inviteeBenefit": "بعد إكمال الصديق المدعو تسجيله، سيحصل على باقة تجربة حصرية للمستخدم الجديد تتضمن 1000 رصيد، صالحة لمدة 15 يومًا.",
+      "inviterReward": "عند نجاح دعوة صديق واحد للتسجيل، تحصل على باقة أساسية لمدة {cycles} شهرًا (تتضمن {credits} رصيدًا، بقيمة 199 يوانًا).",
+      "unregistered": "شارك رابط الدعوة الخاص بك مع مستخدمين جدد لم يسجلوا في AI Shifu من قبل."
+    },
+    "shareMessage": "أستخدم AI Shifu لتحويل المعرفة والخبرة إلى دورة تفاعلية فردية. أنصحك بتجربة AI Shifu أيضًا؛ ستحصل على باقة تجربة مجانية لمدة 15 يومًا بعد التسجيل. التسجيل: {url}",
+    "title": "دعوة الأصدقاء",
+    "tooltips": {
+      "rewarded": "عدد الأشهر التي دخلت في إحصاءات المكافآت التلقائية."
+    }
+  },
+  "inviteLanding": {
+    "badge": "دعوة من صديق",
+    "brandName": "AI Shifu",
+    "codeLabel": "رمز الدعوة",
+    "codePlaceholder": "أدخل رمز الدعوة",
+    "codeRequired": "يرجى إدخال رمز الدعوة أولًا.",
+    "descriptionAfterBrand": "رفيقك التعليمي الشامل، يحوّل المعرفة والخبرة إلى دورة تفاعلية فردية.",
+    "descriptionBeforeBrand": "اجعل ",
+    "fallbackTitle": "يدعوك لتجربة AI Shifu!",
+    "formAria": "بوابة التسجيل برمز الدعوة",
+    "formTitle": "تأكيد رمز الدعوة",
+    "invitedTitle": "يدعوك {maskedMobile} لتجربة AI Shifu!",
+    "register": "التسجيل مجانًا والبدء بالتجربة",
+    "submitFailed": "فشل إرسال رمز الدعوة، يرجى المحاولة مرة أخرى لاحقًا.",
+    "title": "ندعوك لتجربة AI Shifu!",
+    "trialHint": "سجّل الآن واحصل على باقة تجربة مجانية لمدة 15 يومًا"
+  },
+  "operator": {
+    "actions": {
+      "reset": "إعادة ضبط",
+      "search": "بحث"
+    },
+    "description": "اعرض علاقات الدعوة وحالات المكافآت والحسابات المدعوة والارتباطات بالفوترة.",
+    "empty": "لا توجد علاقات دعوة حاليًا.",
+    "filters": {
+      "all": "الكل",
+      "boundAt": "وقت الربط",
+      "campaignBid": "معرّف الحملة",
+      "inviteCode": "رمز الدعوة",
+      "invitee": "المدعو",
+      "inviteeEmailPlaceholder": "بريد المدعو الإلكتروني",
+      "inviteeMobilePlaceholder": "رقم هاتف المدعو",
+      "inviter": "الداعي",
+      "inviterEmailPlaceholder": "بريد الداعي الإلكتروني",
+      "inviterMobilePlaceholder": "رقم هاتف الداعي",
+      "relationStatus": "حالة العلاقة"
+    },
+    "loadFailed": "فشل تحميل علاقات الدعوة، يرجى التحديث والمحاولة مرة أخرى.",
+    "metrics": {
+      "abnormalRelations": "العلاقات غير الطبيعية",
+      "generatedRewards": "أشهر المكافآت",
+      "totalRelations": "علاقات الدعوة"
+    },
+    "pagination": {
+      "jumpInputAria": "الانتقال إلى صفحة علاقات الدعوة",
+      "next": "الصفحة التالية",
+      "nextAria": "الصفحة التالية",
+      "prev": "الصفحة السابقة",
+      "prevAria": "الصفحة السابقة"
+    },
+    "refresh": "تحديث",
+    "statusUpdated": "تم تحديث الحالة",
+    "table": {
+      "action": "الإجراء",
+      "boundAt": "وقت الربط",
+      "campaign": "الحملة",
+      "inviteCode": "رمز الدعوة",
+      "invitee": "المدعو",
+      "inviter": "الداعي",
+      "relationStatus": "حالة العلاقة",
+      "rewardStatus": "حالة المكافأة"
+    },
+    "title": "مكافآت الدعوة",
+    "tooltips": {
+      "abnormalRelations": "علاقات الدعوة التي تم وضع علامة عليها للمراجعة أو تأكيد أنها غير طبيعية.",
+      "generatedRewards": "عدد سجلات مكافآت الدعوة التي لم تُلغَ.",
+      "totalRelations": "إجمالي علاقات الدعوة المرتبطة."
+    },
+    "total": "الإجمالي {total}"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "قيد مراجعة الخلل",
+    "canceled": "ملغى",
+    "registered": "مسجّل",
+    "rewardActive": "المكافأة سارية",
+    "rewardEnded": "انتهت المكافأة",
+    "rewardGenerated": "تم إنشاء المكافأة",
+    "rewardPendingEffective": "المكافأة بانتظار السريان",
+    "rewardSkippedCap": "لم تُمنح بعد بلوغ الحد الأقصى",
+    "unknown": "حالة علاقة غير معروفة"
+  },
+  "rewardStatus": {
+    "active": "سارية",
+    "canceled": "ملغاة",
+    "expired": "منتهية الصلاحية",
+    "frozen": "مجمّدة",
+    "generated": "تم إنشاؤها",
+    "pendingEffective": "بانتظار السريان",
+    "skippedCap": "لم تُمنح بعد بلوغ الحد الأقصى",
+    "unknown": "حالة مكافأة غير معروفة"
+  }
+}

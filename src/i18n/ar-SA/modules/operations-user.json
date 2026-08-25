@@ -1,0 +1,382 @@
+{
+  "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "منح الأرصدة/الباقة",
+    "moreForUser": "المزيد من إجراءات {user}"
+  },
+  "courseSummary": {
+    "dialog": {
+      "courseId": "معرّف الدورة",
+      "courseName": "اسم الدورة",
+      "createdTitle": "قائمة الدورات المنشأة",
+      "description": "المستخدم: {user}",
+      "learningTitle": "قائمة الدورات المتعلَّمة",
+      "status": "الحالة"
+    },
+    "empty": "--"
+  },
+  "credits": {
+    "longTerm": "سارية لفترة طويلة"
+  },
+  "detail": {
+    "basicInfo": "المعلومات الأساسية",
+    "createdCourses": "الدورات المنشأة",
+    "creditExpireAtHint": "عند وجود عدة تواريخ انتهاء، اعرض التاريخ الأقرب أولًا",
+    "creditExpireAtHintAriaLabel": "عرض شرح وقت انتهاء الأرصدة",
+    "creditLedger": "تفاصيل الأرصدة",
+    "creditLedgerColumns": {
+      "amount": "الأرصدة المتغيرة",
+      "balanceAfter": "الرصيد بعد التغيير",
+      "consumedCredits": "الأرصدة المستهلكة",
+      "course": "الدورة",
+      "createdAt": "وقت التغيير",
+      "entryType": "النوع",
+      "expiresAt": "وقت الانتهاء",
+      "grantedCredits": "الأرصدة المكتسبة",
+      "note": "ملاحظة",
+      "sectionChapter": "الدرس/الفصل",
+      "sourceType": "المصدر",
+      "usageMode": "الطريقة",
+      "usageScene": "المشهد",
+      "user": "المستخدم"
+    },
+    "creditLedgerFilters": {
+      "course": "الدورة",
+      "coursePlaceholder": "معرّف الدورة / اسم الدورة",
+      "grantSource": "طريقة المنح",
+      "grantSourceOptions": {
+        "all": "الكل",
+        "manual": "منح يدوي",
+        "subscription": "الباقة",
+        "topup": "حزمة الأرصدة",
+        "trial_subscription": "أرصدة التجربة"
+      },
+      "time": "النطاق الزمني",
+      "timePlaceholder": "وقت البدء ~ وقت الانتهاء",
+      "type": "النوع",
+      "typeOptions": {
+        "all": "الكل",
+        "consume": "استهلاك",
+        "grant": "منح",
+        "other": "أخرى"
+      },
+      "usageMode": "طريقة الاستهلاك",
+      "usageModeOptions": {
+        "all": "الكل",
+        "ask": "سؤال متابعة",
+        "learn": "قراءة",
+        "listen": "استماع"
+      },
+      "usageScene": "مشهد الاستهلاك",
+      "usageSceneOptions": {
+        "all": "الكل",
+        "debug": "تصحيح",
+        "learning": "تعلم",
+        "preview": "معاينة"
+      }
+    },
+    "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "منح الباقة من العمليات",
+      "debug_consume": "استهلاك أرصدة محتوى التصحيح",
+      "gift_expire": "انتهاء الأرصدة المجانية",
+      "gift_grant": "منح الأرصدة المجانية من النظام",
+      "learning_consume": "استهلاك أرصدة محتوى التعلم",
+      "manual_credit": "إضافة أرصدة يدويًا",
+      "manual_debit": "خصم أرصدة يدويًا",
+      "manual_grant": "منح أرصدة يدويًا",
+      "preview_consume": "استهلاك أرصدة محتوى المعاينة",
+      "refund_return": "إعادة الأرصدة بعد رد المبلغ",
+      "subscription_cycle_transition": "تبديل دورة الباقة وانتهاء أرصدة الدورة القديمة المتبقية",
+      "subscription_expire": "انتهاء أرصدة الباقة",
+      "subscription_grant": "منح الأرصدة بعد تفعيل الباقة",
+      "subscription_purchase": "منح الأرصدة عند شراء الباقة",
+      "subscription_renewal": "منح الأرصدة عند تجديد الباقة",
+      "topup_expire": "انتهاء حزمة الأرصدة",
+      "topup_grant": "منح الأرصدة بعد شراء حزمة الأرصدة",
+      "topup_purchase": "منح الأرصدة عند شراء حزمة الأرصدة",
+      "trial_bootstrap": "منح الأرصدة عند تفعيل باقة التجربة",
+      "trial_subscription_grant": "منح أرصدة باقة التجربة"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "تعويض",
+      "debug": "تصحيح",
+      "gift": "هدية",
+      "learning": "تعلم",
+      "manual": "يدوي",
+      "preview": "معاينة",
+      "refund": "رد المبلغ",
+      "reward": "مكافأة",
+      "subscription": "باقة",
+      "topup": "حزمة أرصدة",
+      "trial_subscription": "باقة التجربة",
+      "usage": "استخدام"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "تعديل الأرصدة",
+      "consume": "استهلاك الأرصدة",
+      "debug_consume": "استهلاك التصحيح",
+      "expire": "انتهاء الأرصدة",
+      "gift_expire": "انتهاء الأرصدة المجانية",
+      "gift_grant": "منح مجانية",
+      "grant": "منح الأرصدة",
+      "hold": "تجميد الأرصدة",
+      "learning_consume": "استهلاك التعلم",
+      "manual_credit": "إضافة يدوية",
+      "manual_debit": "خصم يدوي",
+      "manual_grant": "منح يدوي",
+      "preview_consume": "استهلاك المعاينة",
+      "refund": "إرجاع بعد رد المبلغ",
+      "refund_return": "إرجاع بعد رد المبلغ",
+      "release": "تحرير الأرصدة",
+      "subscription_expire": "انتهاء أرصدة الباقة",
+      "subscription_grant": "منح الباقة",
+      "topup_expire": "انتهاء حزمة الأرصدة",
+      "topup_grant": "منح حزمة الأرصدة",
+      "trial_subscription_grant": "منح باقة التجربة"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "تصحيح",
+      "learning": "تعلم",
+      "preview": "معاينة"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "التفاصيل",
+        "openAriaLabel": "عرض تفاصيل استهلاك الأرصدة"
+      },
+      "collapse": "طي",
+      "columns": {
+        "consumedCredits": "الأرصدة المستهلكة",
+        "createdAt": "وقت الاستهلاك",
+        "inputTokens": "رموز الإدخال",
+        "outputSummary": "ملخص الإخراج",
+        "outputTokens": "رموز الإخراج",
+        "ttsContent": "المحتوى المُحوّل إلى كلام",
+        "ttsDuration": "مدة الصوت",
+        "ttsSegmentCount": "عدد المقاطع",
+        "ttsWordCount": "عدد الكلمات المُحوّلة إلى كلام"
+      },
+      "description": "اعرض محتوى الإخراج واستهلاك الأرصدة المرتبطين بهذه التسوية.",
+      "durationMinutesSeconds": "{minutes} دقيقة و{seconds} ثانية",
+      "durationSeconds": "{seconds} ثانية",
+      "empty": "لا توجد تفاصيل استهلاك حاليًا",
+      "error": "فشل تحميل تفاصيل الاستهلاك",
+      "expand": "توسيع",
+      "loading": "جارٍ التحميل",
+      "title": "تفاصيل استهلاك الأرصدة"
+    },
+    "creditsOverview": "ملخص الأرصدة",
+    "creditsOverviewLabels": {
+      "availableCredits": "إجمالي رصيد الأرصدة",
+      "creditsExpireAt": "مدة صلاحية الأرصدة",
+      "subscriptionCredits": "رصيد أَرصدة الباقة",
+      "topupCredits": "رصيد حزمة الأرصدة"
+    },
+    "emptyCourses": "لا توجد دورات حاليًا",
+    "emptyCredits": "لا توجد تفاصيل أرصدة حاليًا",
+    "learningCourses": "الدورات المتعلَّمة",
+    "learningProgress": "تقدم التعلم",
+    "loadingCredits": "جارٍ التحميل",
+    "overview": "ملخص البيانات",
+    "tabs": {
+      "createdCourses": "الدورات المنشأة",
+      "credits": "تفاصيل الأرصدة",
+      "learningCourses": "الدورات المتعلَّمة"
+    },
+    "title": "تفاصيل المستخدم"
+  },
+  "emptyList": "لا يوجد مستخدمون حاليًا",
+  "filters": {
+    "createdAt": "وقت الإنشاء",
+    "email": "البريد الإلكتروني",
+    "mobile": "رقم الهاتف",
+    "nickname": "اسم الشهرة",
+    "role": "هوية المستخدم",
+    "status": "حالة المستخدم",
+    "user": "المستخدم",
+    "userPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+    "userPlaceholderPhone": "رقم الهاتف / اسم الشهرة",
+    "userPlaceholderPhoneEmail": "رقم الهاتف / البريد الإلكتروني / اسم الشهرة"
+  },
+  "grantDialog": {
+    "bootstrapError": "فشل تحميل قائمة الباقات، يرجى المحاولة مرة أخرى لاحقًا.",
+    "confirmButton": "تأكيد المنح",
+    "confirmDescription": "يرجى تأكيد معلومات منح الأرصدة هذه، إذ ستسري فور التأكيد.",
+    "confirmSummary": {
+      "amount": "الأرصدة الممنوحة",
+      "mode": "نوع المنح",
+      "note": "ملاحظة",
+      "package": "الباقة",
+      "packageCredits": "عدد الأرصدة",
+      "packageExpireAt": "تاريخ الانتهاء المتوقع",
+      "packageValidity": "مدة الصلاحية",
+      "referralCurrentCredits": "أرصدة مكافأة الدعوة الحالية",
+      "referralCurrentExpireAt": "مدة صلاحية مكافأة الدعوة الحالية",
+      "referralEstimatedCredits": "الأرصدة المتوقعة بعد المنح",
+      "referralEstimatedExpireAt": "مدة الصلاحية المتوقعة بعد المنح",
+      "referralGrantCount": "عدد مكافآت الدعوة الممنوحة",
+      "source": "المصدر",
+      "validityPreset": "مدة الصلاحية"
+    },
+    "confirmTitle": "تأكيد منح الأرصدة",
+    "description": "تُستخدم هذه الوظيفة في لوحة العمليات لمنح الأرصدة أو الباقات للمعلمين أو مسؤولي العمليات.",
+    "fields": {
+      "amount": "الأرصدة",
+      "mode": "نوع المنح",
+      "note": "ملاحظة",
+      "source": "المصدر",
+      "validityPreset": "مدة الصلاحية"
+    },
+    "modeOptions": {
+      "credits": "منح الأرصدة",
+      "package": "منح الباقة",
+      "referralReward": "مكافأة الدعوة"
+    },
+    "packageConfirmDescription": "يرجى تأكيد معلومات منح هذه الباقة، إذ ستسري فور التأكيد.",
+    "packageConfirmTitle": "تأكيد منح الباقة",
+    "packageFields": {
+      "credits": "عدد الأرصدة",
+      "expiryHintPending": "ستسري فور نجاح المنح، وسيُحسب تاريخ الانتهاء تلقائيًا وفق مدة صلاحية الباقة.",
+      "expiryHintResolved": "ستسري فور نجاح المنح، وتاريخ الانتهاء المتوقع هو {dateTime}.",
+      "packageName": "اسم الباقة",
+      "product": "الباقة",
+      "validity": "مدة الصلاحية"
+    },
+    "placeholders": {
+      "amount": "أدخل عدد الأرصدة",
+      "note": "اختياري، سجّل ملاحظة المنح الحالية",
+      "product": "اختر الباقة",
+      "productLoading": "جارٍ تحميل الباقات...",
+      "referralRewardAmount": "أدخل أرصدة المكافأة",
+      "source": "اختر المصدر",
+      "validityPreset": "اختر مدة الصلاحية"
+    },
+    "referralReward": {
+      "bootstrapError": "فشل تحميل بيانات مكافآت الدعوة، يرجى المحاولة مرة أخرى لاحقًا.",
+      "bootstrapLoading": "جارٍ تحميل بيانات مكافآت الدعوة...",
+      "currentCredits": "أرصدة مكافأة الدعوة الحالية",
+      "currentExpireAt": "مدة صلاحية مكافأة الدعوة الحالية",
+      "description": "بعد كل منح لمكافأة دعوة، يزداد الرصيد بعدد الأرصدة المدخل لهذه المرة؛ وتمتد مدة الصلاحية شهرًا واحدًا بعد مدة صلاحية مكافأة الدعوة الحالية.",
+      "emptyDescription": "عند عدم وجود مكافأة دعوة سارية حاليًا، تُحسب مدة الصلاحية شهرًا واحدًا بدءًا من وقت المنح.",
+      "grantCount": "عدد مكافآت الدعوة الممنوحة",
+      "grantCountTooltip": "مصدر البيانات المؤقت هو عدد مرات منح مكافأة الدعوة.",
+      "noActiveReward": "لا توجد مكافأة دعوة سارية حاليًا",
+      "oneMonth": "شهر واحد",
+      "validity": "مدة الصلاحية"
+    },
+    "referralRewardConfirmDescription": "يرجى تأكيد معلومات منح مكافأة الدعوة هذه، إذ ستسري فور التأكيد.",
+    "referralRewardConfirmTitle": "تأكيد منح مكافأة الدعوة",
+    "sourceOptions": {
+      "compensation": "تعويض",
+      "reward": "مكافأة"
+    },
+    "submitButton": "تأكيد",
+    "submitSuccess": "تم المنح بنجاح",
+    "summary": {
+      "account": "الحساب",
+      "availableCredits": "رصيد الأرصدة",
+      "currentExpireAt": "تنتهي الصلاحية في",
+      "currentPackage": "الباقة الحالية",
+      "nickname": "اسم الشهرة",
+      "package": "الباقة"
+    },
+    "title": "منح الأرصدة/الباقة",
+    "validation": {
+      "amountRequired": "أدخل عدد أرصدة أكبر من 0",
+      "productRequired": "اختر الباقة",
+      "referralRewardAmountRequired": "أدخل عدد أرصدة صحيحًا أكبر من 0",
+      "sourceRequired": "اختر المصدر",
+      "validityPresetRequired": "اختر مدة الصلاحية"
+    },
+    "validityHint": "عند عدم وجود باقة سارية، لا يمكن ضبط مدة الصلاحية لتتطابق مع مدة صلاحية الباقة الحالية.",
+    "validityOptions": {
+      "alignSubscription": "مطابقة مدة صلاحية الباقة الحالية",
+      "oneDay": "يوم واحد بعد المنح",
+      "oneMonth": "شهر واحد بعد المنح",
+      "oneYear": "سنة واحدة بعد المنح",
+      "sevenDays": "7 أيام بعد المنح",
+      "threeMonths": "3 أشهر بعد المنح"
+    }
+  },
+  "loginMethodLabels": {
+    "email": "البريد الإلكتروني",
+    "google": "Google",
+    "phone": "رقم الهاتف",
+    "unknown": "غير معروف",
+    "wechat": "WeChat"
+  },
+  "overview": {
+    "activeFilter": "تصفية سريعة",
+    "metrics": {
+      "creators": "عدد المعلمين",
+      "guests": "عدد الزوار",
+      "learners": "عدد المتعلمين",
+      "learningActive30d": "المستخدمون النشطون في التعلم خلال 30 يومًا",
+      "newUsers30d": "المستخدمون الجدد خلال 30 يومًا",
+      "paidUsers": "عدد المستخدمين الذين دفعوا",
+      "paidUsers30d": "المستخدمون الذين دفعوا خلال 30 يومًا",
+      "registeredUsers": "عدد المستخدمين المسجلين",
+      "registeredUsers30d": "المستخدمون المسجلون خلال 30 يومًا",
+      "totalUsers": "إجمالي المستخدمين"
+    },
+    "staleData": "فشل تحديث ملخص البيانات، وتُعرض حاليًا آخر بيانات تم تحميلها بنجاح.",
+    "title": "ملخص البيانات",
+    "tooltips": {
+      "creators": "عدد المعلمين",
+      "guests": "عدد المستخدمين بحالة زائر",
+      "learners": "عدد المستخدمين الذين لديهم سجلات تعلم",
+      "learningActive30d": "عدد المستخدمين الذين تعلموا خلال آخر 30 يومًا",
+      "newUsers30d": "عدد المستخدمين الجدد خلال آخر 30 يومًا",
+      "paidUsers": "عدد المستخدمين بحالة دفع (يشمل التفعيل بالاستيراد)",
+      "paidUsers30d": "عدد المستخدمين الذين دفعوا بنجاح خلال آخر 30 يومًا (يشمل التفعيل بالاستيراد)",
+      "registeredUsers": "عدد المستخدمين المسجلين",
+      "registeredUsers30d": "عدد المستخدمين الذين أكملوا التسجيل خلال آخر 30 يومًا",
+      "totalUsers": "عدد جميع المستخدمين"
+    }
+  },
+  "registrationSourceLabels": {
+    "email": "البريد الإلكتروني",
+    "google": "Google",
+    "imported": "إنشاء بالاستيراد",
+    "phone": "رقم الهاتف",
+    "unknown": "غير معروف",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "المعلم",
+    "learner": "المتعلم",
+    "operator": "مسؤول العمليات",
+    "regular": "مستخدم عادي",
+    "unknown": "غير معروف"
+  },
+  "statusLabels": {
+    "paid": "مدفوع",
+    "registered": "مسجّل",
+    "unknown": "غير معروف",
+    "unregistered": "غير مسجّل"
+  },
+  "table": {
+    "action": "الإجراء",
+    "availableCredits": "إجمالي الأرصدة",
+    "createdAt": "وقت الإنشاء",
+    "createdCourses": "الدورات المنشأة",
+    "creditsExpireAt": "وقت انتهاء الأرصدة",
+    "email": "البريد الإلكتروني",
+    "guestUser": "زائر",
+    "lastLearningAt": "آخر وقت للتعلم",
+    "lastLoginAt": "آخر وقت لتسجيل الدخول",
+    "learningCourses": "الدورات المتعلَّمة",
+    "loginMethods": "طريقة تسجيل الدخول",
+    "mobile": "رقم الهاتف",
+    "nickname": "اسم الشهرة",
+    "registrationSource": "مصدر التسجيل",
+    "role": "هوية المستخدم",
+    "status": "حالة المستخدم",
+    "subscriptionCredits": "أرصدة الباقة",
+    "topupCredits": "أرصدة حزمة الأرصدة",
+    "totalPaidAmount": "إجمالي المبلغ المدفوع",
+    "updatedAt": "وقت التحديث",
+    "userId": "معرّف المستخدم"
+  },
+  "title": "إدارة المستخدمين"
+}

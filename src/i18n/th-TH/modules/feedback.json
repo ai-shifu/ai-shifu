@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.feedback",
+  "feedbackError": "ส่งความคิดเห็นไม่สำเร็จ",
+  "feedbackPlaceholder": "กรอกเนื้อหาความคิดเห็น",
+  "feedbackSubmit": "ส่ง",
+  "feedbackSuccess": "ส่งความคิดเห็นสำเร็จ ขอบคุณสำหรับความคิดเห็น",
+  "feedbackTitle": "ความคิดเห็น"
+}

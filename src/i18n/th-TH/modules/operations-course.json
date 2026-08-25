@@ -1,0 +1,453 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "copyCourse": "คัดลอกหลักสูตร",
+    "transferCreator": "โอนผู้รับผิดชอบหลักสูตร"
+  },
+  "copyCourseDialog": {
+    "confirm": "ยืนยันการคัดลอก",
+    "confirmDescription": "จะคัดลอกฉบับร่างล่าสุดของหลักสูตร <strong>{courseName}</strong> และให้ <strong>{targetCreator}</strong> รับผิดชอบหลักสูตรฉบับร่างใหม่ <strong>{newCourseName}</strong>",
+    "confirmTitle": "ยืนยันการคัดลอกหลักสูตร",
+    "contactPlaceholderEmail": "กรอกอีเมลผู้รับผิดชอบเป้าหมาย",
+    "contactPlaceholderPhone": "กรอกหมายเลขโทรศัพท์ผู้รับผิดชอบเป้าหมาย",
+    "contactType": "ประเภทข้อมูลติดต่อ",
+    "contactTypeEmail": "อีเมล",
+    "contactTypePhone": "หมายเลขโทรศัพท์",
+    "courseNameFallback": "หลักสูตร",
+    "courseNameSuffix": "- สำเนา",
+    "currentCreator": "ผู้รับผิดชอบปัจจุบัน",
+    "description": "คัดลอกฉบับร่างล่าสุดของหลักสูตรนี้ และให้ผู้รับผิดชอบเป้าหมายดูแลหลักสูตรฉบับร่างที่สร้างใหม่",
+    "identifier": "ผู้รับผิดชอบเป้าหมาย",
+    "identifierRequired": "โปรดกรอกข้อมูลติดต่อผู้รับผิดชอบเป้าหมายที่ถูกต้อง",
+    "newCourseName": "ชื่อหลักสูตรใหม่",
+    "submitSuccess": "คัดลอกหลักสูตรสำเร็จ",
+    "title": "คัดลอกหลักสูตร"
+  },
+  "coursePromptDialog": {
+    "copy": "คัดลอก",
+    "copyFailed": "คัดลอกพรอมต์หลักสูตรไม่สำเร็จ",
+    "copySuccess": "คัดลอกพรอมต์หลักสูตรแล้ว",
+    "empty": "ยังไม่มีพรอมต์หลักสูตร",
+    "title": "พรอมต์หลักสูตร"
+  },
+  "detail": {
+    "basicInfo": "ข้อมูลพื้นฐาน",
+    "boolean": {
+      "no": "ไม่",
+      "yes": "ใช่"
+    },
+    "chapterType": {
+      "chapter": "บท",
+      "lesson": "บทเรียน"
+    },
+    "chapters": "บทของหลักสูตร",
+    "chaptersTable": {
+      "chapterId": "รหัสบท",
+      "contentDetail": "รายละเอียดเนื้อหา",
+      "contentStatus": "สถานะเนื้อหา",
+      "detailAction": "รายละเอียด",
+      "empty": "ยังไม่มีข้อมูลบท",
+      "followUpCount": "จำนวนคำถามต่อยอด",
+      "learningPermission": "สิทธิ์การเรียน",
+      "modifier": "ผู้แก้ไข",
+      "name": "ชื่อบท",
+      "position": "ลำดับ",
+      "ratingCount": "จำนวนครั้งที่ให้คะแนน",
+      "ratingScore": "คะแนน",
+      "type": "ประเภท",
+      "updatedAt": "เวลาอัปเดต",
+      "visibility": "การมองเห็น"
+    },
+    "contentDetailDialog": {
+      "copy": "คัดลอก",
+      "copyFailed": "คัดลอกไม่สำเร็จ",
+      "copySuccess": "คัดลอกรายละเอียดเนื้อหาแล้ว",
+      "empty": "ยังไม่มีเนื้อหา",
+      "sections": {
+        "content": "เนื้อหาหลักสูตร",
+        "systemPrompt": "พรอมต์ระบบ"
+      },
+      "sources": {
+        "chapter": "แหล่งที่มา: พรอมต์บท",
+        "course": "แหล่งที่มา: พรอมต์หลักสูตร",
+        "lesson": "แหล่งที่มา: พรอมต์บทเรียน"
+      },
+      "title": "รายละเอียดเนื้อหา"
+    },
+    "contentStatus": {
+      "empty": "ไม่มี",
+      "has": "มี",
+      "unknown": "ไม่ทราบ"
+    },
+    "creditUsage": {
+      "count": "{count} รายการ",
+      "description": "ดูบันทึกการใช้เครดิตของหลักสูตรนี้",
+      "details": {
+        "collapse": "ยุบ",
+        "durationMinutesSeconds": "{minutes} นาที {seconds} วินาที",
+        "durationSeconds": "{seconds} วินาที",
+        "empty": "ยังไม่มีรายละเอียดการใช้",
+        "expand": "ขยาย",
+        "openUsageDetails": "ดูรายละเอียดการใช้ {count} ครั้ง",
+        "table": {
+          "createdAt": "เวลาที่ใช้",
+          "credits": "เครดิตที่ใช้",
+          "inputTokens": "โทเค็นอินพุต",
+          "model": "โมเดล",
+          "outputSummary": "สรุปเอาต์พุต",
+          "outputTokens": "โทเค็นเอาต์พุต",
+          "ttsContent": "เนื้อหาที่สังเคราะห์",
+          "ttsDuration": "ความยาวเสียง",
+          "ttsSegmentCount": "จำนวนช่วง",
+          "ttsWordCount": "จำนวนคำที่สังเคราะห์"
+        },
+        "title": "รายละเอียดการใช้เครดิต"
+      },
+      "filters": {
+        "mode": "ฉากการใช้",
+        "modeAll": "ทั้งหมด",
+        "reset": "รีเซ็ต",
+        "scene": "ประเภทการใช้",
+        "sceneAll": "ทั้งหมด",
+        "time": "เวลา",
+        "timePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+        "userKeyword": "ผู้ใช้",
+        "userKeywordPlaceholderEmail": "อีเมล / ชื่อเล่น",
+        "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น"
+      },
+      "modelSummary": {
+        "variants": "เกี่ยวข้อง {count} รูปแบบ"
+      },
+      "modes": {
+        "ask": "ถามต่อ",
+        "learn": "อ่าน",
+        "listen": "ฟัง",
+        "mixed": "ผสม",
+        "unknown": "ฉากไม่ทราบ"
+      },
+      "scenes": {
+        "debug": "ดีบัก",
+        "learning": "เรียน",
+        "preview": "ตัวอย่าง",
+        "unknown": "ประเภทไม่ทราบ"
+      },
+      "table": {
+        "chapter": "บท",
+        "createdAt": "เวลาใช้ล่าสุด",
+        "credits": "เครดิตที่ใช้ทั้งหมด",
+        "empty": "ยังไม่มีบันทึกการใช้เครดิต",
+        "lesson": "บทเรียน",
+        "mode": "ฉากการใช้",
+        "model": "โมเดล",
+        "nickname": "ชื่อเล่น",
+        "scene": "ประเภทการใช้",
+        "usageCount": "จำนวนครั้งที่ใช้"
+      },
+      "title": "การใช้เครดิต"
+    },
+    "creditUsageTab": "การใช้เครดิต",
+    "estimatedCreditCost": {
+      "classroom": "ห้องเรียน",
+      "creditUnit": "เครดิต",
+      "description": "ประเมินตามเนื้อหา โมเดล และตัวคูณปัจจุบัน ไม่รวมการใช้เพิ่มเติม เช่น เรียนซ้ำ ถามต่อ หรือสร้างใหม่ ยึดรายละเอียดเครดิตจริงเป็นหลัก",
+      "disabled": "ยังไม่เปิดใช้",
+      "listen": "ฟัง",
+      "llm": "LLM",
+      "read": "อ่าน",
+      "title": "ประมาณการใช้ทั้งหลักสูตร",
+      "tts": "TTS",
+      "unknownModel": "โมเดลไม่ทราบ"
+    },
+    "fields": {
+      "courseId": "รหัสหลักสูตร",
+      "courseName": "ชื่อหลักสูตร",
+      "createdAt": "เวลาสร้าง",
+      "creator": "ผู้รับผิดชอบหลักสูตร",
+      "status": "สถานะ",
+      "updatedAt": "เวลาอัปเดต"
+    },
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "อ่านตามลำดับ “ผลลัพธ์ต้นฉบับที่ถูกถามต่อ -> คำถามต่อยอดครั้งนี้ -> คำตอบระบบครั้งนี้”",
+        "fields": {
+          "chapter": "บท",
+          "currentAnswer": "คำตอบระบบครั้งนี้",
+          "currentFollowUp": "คำถามต่อยอดครั้งนี้",
+          "followUpTime": "เวลาถามต่อ",
+          "lesson": "บทเรียน",
+          "nickname": "ชื่อเล่น",
+          "sourceOutput": "ผลลัพธ์ต้นฉบับที่ถูกถามต่อ",
+          "turnIndex": "รอบคำถามต่อยอด",
+          "user": "ผู้ใช้",
+          "userId": "รหัสผู้ใช้"
+        },
+        "sections": {
+          "basicInfo": "ข้อมูลพื้นฐาน",
+          "currentRecord": "รายละเอียดคำถามต่อยอดครั้งนี้",
+          "timeline": "ไทม์ไลน์บริบท"
+        },
+        "sourceUnavailable": "ยังระบุตำแหน่งผลลัพธ์ต้นฉบับที่เกี่ยวข้องไม่ได้ชั่วคราว",
+        "timeline": {
+          "current": "รอบปัจจุบัน",
+          "student": "ผู้เรียน",
+          "teacher": "ระบบ"
+        },
+        "title": "รายละเอียดคำถามต่อยอด"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "ค้นหาบท/บทเรียน",
+        "chapterKeywordPlaceholder": "ชื่อบท/บทเรียน",
+        "followUpTime": "เวลาถามต่อ",
+        "lessonKeyword": "ค้นหาบทเรียน",
+        "lessonKeywordPlaceholder": "ชื่อบทเรียน",
+        "reset": "รีเซ็ต",
+        "resultCount": "ทั้งหมด {count} รายการ",
+        "search": "ค้นหา",
+        "sourceStatus": "ตำแหน่งผลลัพธ์ต้นฉบับ",
+        "sourceStatusAll": "ทุกสถานะ",
+        "sourceStatusMissing": "ยังไม่พบตำแหน่งผลลัพธ์ต้นฉบับ",
+        "sourceStatusResolved": "พบตำแหน่งผลลัพธ์ต้นฉบับแล้ว",
+        "timePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+        "userKeyword": "ค้นหาผู้ใช้",
+        "userKeywordPlaceholder": "หมายเลขโทรศัพท์ / อีเมล / ชื่อเล่น",
+        "userKeywordPlaceholderEmail": "อีเมล / ชื่อเล่น",
+        "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น"
+      },
+      "openMetric": "ดูข้อมูลคำถามต่อยอด",
+      "summary": {
+        "followUpCount": "จำนวนคำถามต่อยอดทั้งหมด",
+        "latestFollowUpAt": "เวลาถามต่อล่าสุด",
+        "lessonCount": "จำนวนบทเรียนที่เกี่ยวข้อง",
+        "userCount": "จำนวนผู้ใช้ที่ถามต่อ"
+      },
+      "table": {
+        "action": "การดำเนินการ",
+        "chapter": "บท",
+        "content": "เนื้อหาคำถามต่อยอด",
+        "createdAt": "เวลาถามต่อ",
+        "detailAction": "ดูรายละเอียด",
+        "empty": "ยังไม่มีข้อมูลคำถามต่อยอด",
+        "lesson": "บทเรียน",
+        "scopeHint": "ดูคำถามที่ผู้เรียนถามเกี่ยวกับเนื้อหาหลักสูตร เพื่อช่วยหาจุดติดขัดที่พบบ่อยและบทเรียนที่ควรปรับปรุง",
+        "sourceMissing": "ยังไม่พบตำแหน่งผลลัพธ์ต้นฉบับ",
+        "sourceResolved": "พบตำแหน่งผลลัพธ์ต้นฉบับแล้ว",
+        "title": "รายการคำถามต่อยอด",
+        "turnIndex": "รอบคำถามต่อยอด",
+        "user": "ผู้ใช้"
+      },
+      "title": "ข้อมูลคำถามต่อยอด",
+      "turnIndex": "ครั้งที่ {count}",
+      "turnIndexHelp": "ลำดับรอบคำถามต่อยอดเรียงตามเวลาที่ถามภายในบันทึกการเรียนเดียวกัน"
+    },
+    "learningPermission": {
+      "free": "ฟรี",
+      "guest": "ไม่ต้องเข้าสู่ระบบ",
+      "paid": "มีค่าใช้จ่าย",
+      "unknown": "ไม่ทราบ"
+    },
+    "metrics": "ภาพรวมข้อมูล",
+    "metricsLabels": {
+      "completedUserAvgCredits": "เครดิตเฉลี่ยที่ผู้เรียนจบหลักสูตรใช้",
+      "creditConsumedTotal": "เครดิตที่ใช้ทั้งหมด",
+      "creditUsageCount": "จำนวนครั้งที่ใช้เครดิต",
+      "creditUserCount": "จำนวนผู้ใช้เครดิต",
+      "followUpCount": "จำนวนคำถามต่อยอด",
+      "learnerCount": "จำนวนผู้เรียน",
+      "orderAmount": "ยอดรับรวม (รวมรหัสแลกรับ)",
+      "orderCount": "จำนวนคำสั่งซื้อ",
+      "ratingScore": "คะแนน",
+      "visitCount30d": "จำนวนผู้เข้าชมใน 30 วันที่ผ่านมา"
+    },
+    "orders": {
+      "openMetric": "ดูข้อมูลคำสั่งซื้อ"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "ค้นหาบท/บทเรียน",
+        "chapterKeywordPlaceholder": "ชื่อบท/บทเรียน",
+        "commentStatus": "ความคิดเห็น",
+        "commentStatusAll": "ทั้งหมด",
+        "commentStatusCommented": "ดูเฉพาะรายการที่มีความคิดเห็น",
+        "lessonKeyword": "ค้นหาบทเรียน",
+        "lessonKeywordPlaceholder": "ชื่อบทเรียน",
+        "mode": "โหมดการเรียน",
+        "modeAll": "ทุกโหมด",
+        "ratingTime": "เวลาให้คะแนน",
+        "reset": "รีเซ็ต",
+        "resultCount": "ทั้งหมด {count} รายการ",
+        "score": "คะแนน",
+        "scoreAll": "คะแนนทั้งหมด",
+        "search": "ค้นหา",
+        "sortBy": "เรียงตาม",
+        "sortByLatest": "ใหม่ล่าสุดก่อน",
+        "sortByLowScore": "คะแนนต่ำสุดก่อน",
+        "timePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+        "userKeyword": "ค้นหาผู้ใช้",
+        "userKeywordPlaceholderEmail": "อีเมล / ชื่อเล่น",
+        "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น"
+      },
+      "modes": {
+        "listen": "ฟัง",
+        "read": "อ่าน"
+      },
+      "openMetric": "ดูข้อมูลคะแนน",
+      "scoreValue": "{count} คะแนน",
+      "summary": {
+        "averageScore": "คะแนนเฉลี่ย",
+        "latestRatedAt": "เวลาให้คะแนนล่าสุด",
+        "ratingCount": "จำนวนครั้งที่ให้คะแนน",
+        "userCount": "จำนวนผู้ใช้ที่ให้คะแนน"
+      },
+      "table": {
+        "chapter": "บท",
+        "comment": "ความคิดเห็น",
+        "empty": "ยังไม่มีข้อมูลคะแนน",
+        "guestUser": "ผู้เยี่ยมชม",
+        "lesson": "บทเรียน",
+        "mode": "โหมดการเรียน",
+        "ratedAt": "เวลาให้คะแนน",
+        "score": "คะแนน",
+        "title": "รายการคะแนน",
+        "user": "ผู้ใช้"
+      },
+      "title": "ข้อมูลคะแนน"
+    },
+    "title": "รายละเอียดหลักสูตร",
+    "userLearningStatus": {
+      "completed": "เสร็จสิ้น",
+      "learning": "กำลังเรียน",
+      "notStarted": "ยังไม่เริ่ม"
+    },
+    "userRole": {
+      "creator": "ครู",
+      "normal": "ผู้ใช้ทั่วไป",
+      "operator": "ผู้ดำเนินงาน",
+      "student": "ผู้เรียน"
+    },
+    "users": "ข้อมูลผู้ใช้",
+    "usersCount": "ผู้ใช้หลักสูตรทั้งหมด {count} คน",
+    "usersDescription": "ดูความคืบหน้าการเรียน สถานะการชำระเงิน และเวลาใช้งานล่าสุดของผู้ใช้ที่เกี่ยวข้องกับหลักสูตร",
+    "usersFilters": {
+      "all": "ทั้งหมด",
+      "learningStatus": "สถานะการเรียน",
+      "paymentPaid": "ชำระแล้ว",
+      "paymentStatus": "ชำระเงินหรือไม่",
+      "paymentUnpaid": "ยังไม่ชำระ",
+      "userKeyword": "ค้นหาผู้ใช้",
+      "userKeywordPlaceholder": "หมายเลขโทรศัพท์ / อีเมล / ชื่อเล่น",
+      "userKeywordPlaceholderEmail": "อีเมล / ชื่อเล่น",
+      "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น",
+      "userRole": "ประเภทผู้ใช้"
+    },
+    "usersTable": {
+      "account": "หมายเลขโทรศัพท์ / อีเมล",
+      "accountEmail": "อีเมล",
+      "accountPhone": "หมายเลขโทรศัพท์",
+      "action": "การดำเนินการ",
+      "detailAction": "รายละเอียด",
+      "empty": "ยังไม่มีข้อมูลผู้ใช้",
+      "isPaid": "ชำระเงินหรือไม่",
+      "joinedAt": "เวลาเข้าร่วมหลักสูตร",
+      "lastLearnedAt": "เวลาเรียนล่าสุด",
+      "lastLoginAt": "เวลาเข้าสู่ระบบล่าสุด",
+      "learningProgress": "ความคืบหน้าการเรียน",
+      "learningStatus": "สถานะการเรียน",
+      "nickname": "ชื่อเล่น",
+      "totalPaidAmount": "ยอดชำระสะสม",
+      "userId": "รหัสผู้ใช้",
+      "userRole": "ประเภทผู้ใช้"
+    },
+    "visibility": {
+      "hidden": "ซ่อน",
+      "visible": "แสดง"
+    }
+  },
+  "emptyList": "ยังไม่มีหลักสูตร",
+  "filters": {
+    "courseId": "รหัสหลักสูตร",
+    "courseName": "ชื่อหลักสูตร",
+    "courseQuery": "หลักสูตร",
+    "courseQueryPlaceholder": "รหัสหลักสูตร / ชื่อหลักสูตร",
+    "createdAt": "เวลาสร้าง",
+    "creator": "ผู้สร้างหลักสูตร",
+    "creatorEmailOrUserBid": "อีเมลผู้รับผิดชอบหลักสูตร",
+    "creatorMobileOrUserBid": "หมายเลขโทรศัพท์ผู้รับผิดชอบหลักสูตร",
+    "endTime": "วันที่สิ้นสุด",
+    "startTime": "วันที่เริ่มต้น",
+    "status": "สถานะ"
+  },
+  "messages": {
+    "copyCourseFailed": "คัดลอกหลักสูตรไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadChapterDetailFailed": "โหลดรายละเอียดบทไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadCourseDetailFailed": "โหลดรายละเอียดหลักสูตรไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadCourseUsersFailed": "โหลดข้อมูลผู้ใช้หลักสูตรไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadCoursesFailed": "โหลดรายการหลักสูตรไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "loadCreditUsageDetailsFailed": "โหลดรายละเอียดการใช้เครดิตไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadCreditUsageFailed": "โหลดข้อมูลการใช้เครดิตไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadFollowUpDetailFailed": "โหลดรายละเอียดคำถามต่อยอดไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadFollowUpsFailed": "โหลดข้อมูลคำถามต่อยอดไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "loadPromptDetailFailed": "โหลดพรอมต์หลักสูตรไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadRatingsFailed": "โหลดข้อมูลคะแนนไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "transferCreatorFailed": "โอนผู้รับผิดชอบหลักสูตรไม่สำเร็จ โปรดลองอีกครั้งภายหลัง"
+  },
+  "overview": {
+    "activeFilter": "ตัวกรองด่วน",
+    "metrics": {
+      "createdLast7d": "หลักสูตรใหม่ใน 7 วันที่ผ่านมา",
+      "draftCourses": "หลักสูตรฉบับร่าง",
+      "learningActive30d": "หลักสูตรที่มีการเรียนใน 30 วันที่ผ่านมา",
+      "ordered30d": "หลักสูตรที่มีคำสั่งซื้อใน 30 วันที่ผ่านมา",
+      "publishedCourses": "หลักสูตรที่เผยแพร่แล้ว",
+      "totalCourses": "หลักสูตรทั้งหมด"
+    },
+    "title": "ภาพรวมข้อมูล",
+    "tooltips": {
+      "createdLast7d": "จำนวนหลักสูตรที่สร้างใน 7 วันที่ผ่านมา",
+      "draftCourses": "จำนวนหลักสูตรที่ไม่เคยเผยแพร่",
+      "learningActive30d": "จำนวนหลักสูตรที่มีการเรียนใน 30 วันที่ผ่านมา",
+      "ordered30d": "จำนวนหลักสูตรที่มีการซื้อใน 30 วันที่ผ่านมา",
+      "publishedCourses": "จำนวนหลักสูตรที่เผยแพร่อย่างน้อยหนึ่งครั้ง",
+      "totalCourses": "จำนวนหลักสูตรทั้งหมด"
+    }
+  },
+  "statusLabels": {
+    "published": "เผยแพร่แล้ว",
+    "unknown": "ไม่ทราบ",
+    "unpublished": "ยังไม่เผยแพร่"
+  },
+  "table": {
+    "action": "การดำเนินการ",
+    "courseId": "รหัสหลักสูตร",
+    "courseName": "ชื่อหลักสูตร",
+    "coursePrompt": "พรอมต์หลักสูตร",
+    "createdAt": "เวลาสร้าง",
+    "creator": "ผู้สร้างหลักสูตร",
+    "detailAction": "รายละเอียด",
+    "llmModel": "โมเดล LLM",
+    "modifier": "ผู้แก้ไข",
+    "price": "ราคา",
+    "status": "สถานะ",
+    "ttsModel": "โมเดล TTS",
+    "updatedAt": "เวลาอัปเดต"
+  },
+  "title": "การจัดการหลักสูตร",
+  "transferCreatorDialog": {
+    "confirm": "ยืนยันการโอน",
+    "confirmDescription": "จะโอนผู้รับผิดชอบหลักสูตร “{courseName}” จาก {currentCreator} ให้ {targetCreator}",
+    "confirmTitle": "ยืนยันการโอนผู้รับผิดชอบหลักสูตร",
+    "contactPlaceholderEmail": "กรอกอีเมลผู้รับผิดชอบเป้าหมาย",
+    "contactPlaceholderPhone": "กรอกหมายเลขโทรศัพท์ผู้รับผิดชอบเป้าหมาย",
+    "contactType": "ประเภทข้อมูลติดต่อ",
+    "contactTypeEmail": "อีเมล",
+    "contactTypePhone": "หมายเลขโทรศัพท์",
+    "currentCreator": "ผู้รับผิดชอบปัจจุบัน",
+    "description": "เปลี่ยนเฉพาะผู้รับผิดชอบหลักสูตร เนื้อหา การตั้งค่า และสิทธิ์การแชร์จะไม่เปลี่ยนแปลง",
+    "identifier": "ผู้รับผิดชอบเป้าหมาย",
+    "identifierRequired": "โปรดกรอกข้อมูลติดต่อผู้รับผิดชอบเป้าหมายที่ถูกต้อง",
+    "sameCreator": "ข้อมูลติดต่อเป้าหมายเป็นของผู้รับผิดชอบปัจจุบันอยู่แล้ว",
+    "submitSuccess": "โอนผู้รับผิดชอบหลักสูตรสำเร็จ",
+    "title": "โอนผู้รับผิดชอบหลักสูตร"
+  }
+}

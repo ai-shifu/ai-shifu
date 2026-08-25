@@ -75,12 +75,18 @@
 
 ### 10. 法律文档配置 (Legal Documents Configuration)
 
-| 变量名                      | 用途            | 默认值   | 说明                           |
-| --------------------------- | --------------- | -------- | ------------------------------ |
-| `LEGAL_AGREEMENT_URL_ZH_CN` | 中文服务协议URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_AGREEMENT_URL_EN_US` | 英文服务协议URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| 变量名                      | 用途                | 默认值   | 说明                           |
+| --------------------------- | ------------------- | -------- | ------------------------------ |
+| `LEGAL_AGREEMENT_URL_ZH_CN` | 中文服务协议URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| `LEGAL_AGREEMENT_URL_EN_US` | 英文服务协议URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| `LEGAL_AGREEMENT_URL_FR_FR` | 法文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
+| `LEGAL_AGREEMENT_URL_AR_SA` | 阿拉伯文服务协议URL | 空字符串 | 留空则使用英文参考版本         |
+| `LEGAL_AGREEMENT_URL_TH_TH` | 泰文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
+| `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| `LEGAL_PRIVACY_URL_FR_FR`   | 法文隐私政策URL     | 空字符串 | 留空则使用英文参考版本         |
+| `LEGAL_PRIVACY_URL_AR_SA`   | 阿拉伯文隐私政策URL | 空字符串 | 留空则使用英文参考版本         |
+| `LEGAL_PRIVACY_URL_TH_TH`   | 泰文隐私政策URL     | 空字符串 | 留空则使用英文参考版本         |
 
 **注意**: 这些配置由后端 `/api/runtime-config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际运行时配置均通过后端接口获取。
 
@@ -119,9 +125,13 @@ const legalUrls = environment.legalUrls;
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
 const agreementUrlFrFR = legalUrls.agreement['fr-FR']; // 法文服务协议URL
+const agreementUrlArSA = legalUrls.agreement['ar-SA']; // 阿拉伯文服务协议URL
+const agreementUrlThTH = legalUrls.agreement['th-TH']; // 泰文服务协议URL
 const privacyUrlZhCN = legalUrls.privacy['zh-CN']; // 中文隐私政策URL
 const privacyUrlEnUS = legalUrls.privacy['en-US']; // 英文隐私政策URL
 const privacyUrlFrFR = legalUrls.privacy['fr-FR']; // 法文隐私政策URL
+const privacyUrlArSA = legalUrls.privacy['ar-SA']; // 阿拉伯文隐私政策URL
+const privacyUrlThTH = legalUrls.privacy['th-TH']; // 泰文隐私政策URL
 ```
 
 ### 在API路由中使用

@@ -11,6 +11,8 @@ const agreements = {
   'zh-CN': ZH_CN_Agreement,
   'en-US': EN_Agreement,
   'fr-FR': EN_Agreement,
+  'ar-SA': EN_Agreement,
+  'th-TH': EN_Agreement,
   en: EN_Agreement,
 };
 
@@ -38,7 +40,8 @@ export default function AgreementPage() {
   const { t } = useTranslation();
   const language = normalizeLanguage(i18n.language);
   const Agreement = agreements[language] || agreements['en-US'];
-  const showEnglishFallbackNotice = language === 'fr-FR';
+  const showEnglishFallbackNotice =
+    language !== 'zh-CN' && language !== 'en-US';
 
   return (
     <div className='flex h-dvh flex-col'>

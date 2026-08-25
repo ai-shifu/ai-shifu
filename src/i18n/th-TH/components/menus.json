@@ -1,0 +1,10 @@
+{
+  "__namespace__": "component.menus",
+  "navigationMenus": {
+    "adminConsole": "เข้าสู่แผงผู้ดูแลระบบ",
+    "createCourse": "สร้างหลักสูตร",
+    "language": "ภาษา",
+    "onboardingGuide": "คู่มือเริ่มต้นใช้งาน",
+    "personalInfo": "ปรับให้เหมาะกับบุคคล"
+  }
+}

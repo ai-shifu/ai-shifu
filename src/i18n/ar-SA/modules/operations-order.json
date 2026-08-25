@@ -1,0 +1,164 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits}",
+    "detail": {
+      "description": "عرض تفاصيل طلب الأرصدة",
+      "labels": {
+        "creatorId": "معرّف المستخدم",
+        "failedAt": "وقت الفشل",
+        "failureCode": "رمز الفشل",
+        "failureMessage": "سبب الفشل",
+        "grantSourceId": "معرّف مصدر المنح",
+        "grantSourceType": "نوع مصدر المنح",
+        "grantedCredits": "الأرصدة المضافة",
+        "orderType": "نوع الطلب",
+        "paidAt": "وقت الدفع",
+        "productCode": "رمز المنتج",
+        "providerReference": "رقم معاملة الدفع",
+        "validFrom": "وقت السريان"
+      },
+      "sections": {
+        "creator": "معلومات المستخدم",
+        "grant": "سجل الإضافة",
+        "metadata": "المعلومات الإضافية",
+        "payment": "معلومات الدفع",
+        "product": "معلومات باقة الأرصدة",
+        "summary": "معلومات الطلب"
+      },
+      "title": "تفاصيل طلب الأرصدة"
+    },
+    "emptyList": "لا توجد بيانات لطلبات الأرصدة حاليًا",
+    "filters": {
+      "creatorKeyword": "المستخدم",
+      "creatorKeywordPlaceholderEmail": "البريد الإلكتروني",
+      "creatorKeywordPlaceholderPhone": "رقم الهاتف",
+      "orderKind": "نوع الطلب",
+      "paymentProvider": "مزوّد الدفع",
+      "productKeyword": "البحث في باقة الأرصدة",
+      "productKeywordPlaceholder": "اسم باقة الأرصدة / حزمة الأرصدة"
+    },
+    "kind": {
+      "other": "أخرى",
+      "plan": "باقة أرصدة",
+      "topup": "حزمة أرصدة"
+    },
+    "longTerm": "سارية لفترة طويلة",
+    "overview": {
+      "metrics": {
+        "creditAmount": "الأرصدة المتاحة حاليًا",
+        "paidAmount": "المبلغ المدفوع فعليًا",
+        "paidOrders": "الطلبات المدفوعة",
+        "totalOrders": "إجمالي الطلبات"
+      },
+      "tooltips": {
+        "creditAmount": "إجمالي الأرصدة غير المستهلكة حاليًا والمتاحة للتعلم والمعاينة والتصحيح لدى جميع حسابات المعلمين",
+        "paidAmount": "إجمالي المبلغ المدفوع فعليًا لطلبات الأرصدة المدفوعة",
+        "paidOrders": "عدد طلبات الأرصدة المدفوعة",
+        "totalOrders": "إجمالي طلبات الأرصدة"
+      }
+    },
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "productIntervals": {
+      "day": "يومي",
+      "month": "شهري",
+      "year": "سنوي"
+    },
+    "productNameFormat": "{interval}-{name}",
+    "table": {
+      "creator": "المستخدم",
+      "creditAmount": "عدد الأرصدة",
+      "orderId": "معرّف طلب الأرصدة",
+      "orderKind": "نوع الطلب",
+      "paymentChannel": "طريقة الدفع",
+      "product": "باقة الأرصدة",
+      "validTo": "سارية حتى"
+    }
+  },
+  "detail": {
+    "fallback": "تفاصيل الطلب",
+    "sections": {
+      "activities": "معلومات الحملة",
+      "coupons": "رمز الاسترداد",
+      "course": "معلومات الدورة",
+      "payment": "المبلغ والدفع",
+      "summary": "معلومات الطلب",
+      "user": "معلومات المستخدم"
+    },
+    "title": "تفاصيل الطلب"
+  },
+  "emptyList": "لا توجد بيانات طلبات حاليًا",
+  "filters": {
+    "course": "الدورة",
+    "courseId": "معرّف الدورة",
+    "courseIdPlaceholder": "معرّف الدورة",
+    "courseName": "اسم الدورة",
+    "courseNamePlaceholder": "اسم الدورة",
+    "courseQueryPlaceholder": "معرّف الدورة / اسم الدورة",
+    "createdAt": "وقت الطلب",
+    "endTime": "وقت الانتهاء",
+    "orderId": "معرّف الطلب",
+    "orderIdPlaceholder": "معرّف الطلب",
+    "paymentChannel": "قناة الدفع",
+    "reset": "إعادة ضبط",
+    "search": "بحث",
+    "source": "مصدر الطلب",
+    "startTime": "وقت البدء",
+    "status": "الحالة",
+    "timeRangePlaceholder": "وقت البدء ~ وقت الانتهاء",
+    "userKeyword": "المستخدم",
+    "userKeywordPlaceholder": "رقم الهاتف / البريد الإلكتروني",
+    "userKeywordPlaceholderEmail": "البريد الإلكتروني",
+    "userKeywordPlaceholderPhone": "رقم الهاتف"
+  },
+  "messages": {
+    "loadCreditOrderDetailFailed": "فشل تحميل تفاصيل طلب الأرصدة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadDetailFailed": "فشل تحميل تفاصيل الطلب، يرجى المحاولة مرة أخرى لاحقًا"
+  },
+  "overview": {
+    "activeFilter": "التصفية الحالية",
+    "metrics": {
+      "paidAmount": "المبلغ المدفوع فعليًا",
+      "paidOrders": "الطلبات المدفوعة",
+      "totalOrders": "إجمالي الطلبات"
+    },
+    "staleData": "فشل تحميل ملخص البيانات، يرجى التحديث والمحاولة مرة أخرى",
+    "title": "ملخص البيانات",
+    "tooltips": {
+      "paidAmount": "إجمالي المبلغ المدفوع فعليًا لطلبات التعلم المدفوعة",
+      "paidOrders": "عدد طلبات التعلم المدفوعة",
+      "totalOrders": "إجمالي طلبات التعلم"
+    }
+  },
+  "source": {
+    "couponRedeem": "استرداد رمز الاسترداد",
+    "importActivation": "التفعيل بالاستيراد",
+    "openApi": "التفعيل عبر Open API",
+    "userPurchase": "طلب المستخدم"
+  },
+  "table": {
+    "action": "الإجراء",
+    "coupons": "رمز الاسترداد",
+    "course": "الدورة",
+    "createdAt": "وقت الطلب",
+    "discountAmount": "الخصم",
+    "empty": "لا توجد بيانات طلبات حاليًا",
+    "orderId": "معرّف الطلب",
+    "paidAmount": "المبلغ المحصّل",
+    "paymentChannel": "قناة الدفع",
+    "source": "مصدر الطلب",
+    "status": "الحالة",
+    "updatedAt": "وقت تحديث الطلب",
+    "user": "المستخدم",
+    "userId": "معرّف المستخدم",
+    "view": "عرض التفاصيل"
+  },
+  "tabs": {
+    "credits": "طلبات الأرصدة",
+    "learn": "طلبات التعلم"
+  },
+  "title": "إدارة الطلبات",
+  "totalCount": "إجمالي {count} طلب"
+}

@@ -31,6 +31,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Admin Orders Page Slimming](./completed/admin-orders-page-slimming.md)
 - [Add arbitrary rate entries to Rate Management](./completed/admin-rate-management-create.md)
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
+- [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)

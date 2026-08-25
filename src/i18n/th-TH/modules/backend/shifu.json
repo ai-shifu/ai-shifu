@@ -1,0 +1,31 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "copyCourseDemoNotAllowed": "หลักสูตรแนะนำที่มีมาให้ไม่รองรับการคัดลอก",
+    "copyCourseDraftNotFound": "ฉบับร่างล่าสุดของหลักสูตรปัจจุบันที่สามารถคัดลอกได้หายไป",
+    "copyCourseTitleFallback": "หลักสูตร",
+    "copyCourseTitleSuffix": "- สำเนา",
+    "defaultChapterName": "บทไม่มีชื่อ",
+    "defaultLessonName": "บทเรียนไม่มีชื่อ",
+    "draftConflict": "ผู้ใช้อื่นอัปเดตเนื้อหาหลักสูตรแล้ว",
+    "importFileInvalid": "ไฟล์นำเข้าไม่ถูกต้อง",
+    "noPermission": "ไม่มีสิทธิ์",
+    "outlineItemNotFound": "ไม่พบหน่วยในโครงร่าง",
+    "outlineNameTooLong": "ชื่อโครงร่างยาวเกินไป",
+    "outlineStructureBroken": "โครงสร้างโครงร่างหลักสูตรมีปัญหา (ตำแหน่งของบางหน่วยขัดแย้งกัน) โปรดตรวจสอบแล้วลองอีกครั้ง",
+    "parentOutlineNotFound": "ไม่พบโครงร่างแม่",
+    "permissionContactLimit": "สิทธิ์การแชร์รองรับผู้ใช้ได้สูงสุด {count} คน",
+    "shifuDescriptionTooLong": "คำอธิบายหลักสูตรต้องมีความยาวไม่เกิน 500 อักขระ",
+    "shifuNameRequired": "โปรดกรอกชื่อหลักสูตร",
+    "shifuNameTooLong": "ชื่อหลักสูตรต้องมีความยาวไม่เกิน {max_length} อักขระ",
+    "shifuNotFound": "ไม่พบหลักสูตร",
+    "shifuPriceTooLow": "ราคาหลักสูตรต้องไม่น้อยกว่า {min_shifu_price} หยวน",
+    "shifuStructNotFound": "ไม่พบโครงสร้างหลักสูตร",
+    "transferCreatorDemoNotAllowed": "หลักสูตรแนะนำที่มีมาให้ไม่รองรับการโอนผู้รับผิดชอบหลักสูตร",
+    "transferCreatorSameUser": "ผู้ใช้เป้าหมายเป็นผู้รับผิดชอบปัจจุบันอยู่แล้ว",
+    "transferCreatorTargetNotFound": "ไม่พบผู้ใช้ที่เป็นผู้รับผิดชอบเป้าหมาย",
+    "ttsNotEnabled": "ยังไม่ได้เปิดใช้งานการแปลงข้อความเป็นเสียง",
+    "unitNameTooLong": "ชื่อหน่วยยาวเกินไป",
+    "unitNotFound": "ไม่พบหน่วย"
+  }
+}

@@ -14,7 +14,10 @@ export default function GlobalErrorPage({
   reset,
 }: GlobalErrorPageProps) {
   return (
-    <html lang='zh-CN'>
+    <html
+      lang='en-US'
+      dir='ltr'
+    >
       <body>
         <AppErrorFallback
           error={error}

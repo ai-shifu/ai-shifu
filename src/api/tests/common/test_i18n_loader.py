@@ -55,6 +55,18 @@ def test_french_language_loads_shared_translations() -> None:
     assert t("module.chat.ask") == "Demander"
 
 
+def test_arabic_and_thai_languages_load_shared_translations() -> None:
+    app = Flask(__name__)
+
+    load_translations(app)
+
+    set_language("ar-SA")
+    assert t("module.chat.ask") == "سؤال متابعة"
+
+    set_language("th-TH")
+    assert t("module.chat.ask") == "ถามต่อ"
+
+
 def test_language_fallback_to_default() -> None:
     app = Flask(__name__)
 

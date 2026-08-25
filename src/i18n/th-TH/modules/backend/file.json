@@ -1,0 +1,17 @@
+{
+  "__namespace__": "server.file",
+  "__flat__": {
+    "fileDownloadFailed": "ดาวน์โหลดไฟล์ไม่สำเร็จ",
+    "fileTypeNotSupport": "ไม่รองรับประเภทไฟล์นี้",
+    "fileUploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ",
+    "videoBilibiliApiError": "Bilibili API ส่งคืนข้อผิดพลาด",
+    "videoBilibiliApiRequestFailed": "เรียก Bilibili API ไม่สำเร็จ",
+    "videoGetInfoError": "เกิดข้อผิดพลาดขณะดึงข้อมูลวิดีโอ",
+    "videoInvalidBilibiliLink": "ลิงก์วิดีโอ Bilibili ไม่ถูกต้อง",
+    "videoInvalidUrlFormat": "รูปแบบลิงก์วิดีโอไม่ถูกต้อง",
+    "videoNetworkError": "ข้อผิดพลาดเครือข่ายวิดีโอ",
+    "videoParseError": "แยกวิเคราะห์วิดีโอไม่สำเร็จ",
+    "videoUnsupportedVideoSite": "ยังไม่รองรับเว็บไซต์วิดีโอนี้",
+    "videoUrlRequired": "ต้องระบุลิงก์วิดีโอ"
+  }
+}

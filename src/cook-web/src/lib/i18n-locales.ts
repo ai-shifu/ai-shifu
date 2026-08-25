@@ -38,6 +38,9 @@ export const defaultLocale = metadata.default;
 export const getLocaleLabel = (code: string) =>
   metadata.locales[code]?.label ?? code;
 
+export const isRtlLocale = (code: string | null | undefined): boolean =>
+  Boolean(code && metadata.locales[code]?.rtl);
+
 export const namespaces = metadata.namespaces ?? [];
 
 export default metadata;
