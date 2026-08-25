@@ -30,7 +30,12 @@ export default function PrivacyPage() {
             {t('common.core.legalFallbackEnglishNotice')}
           </p>
         ) : null}
-        <PrivacyPolicy />
+        <div
+          lang={showEnglishFallbackNotice ? 'en' : language}
+          dir='ltr'
+        >
+          <PrivacyPolicy />
+        </div>
       </div>
     </div>
   );

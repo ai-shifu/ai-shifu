@@ -52,7 +52,12 @@ export default function AgreementPage() {
             {t('common.core.legalFallbackEnglishNotice')}
           </p>
         ) : null}
-        <Agreement />
+        <div
+          lang={showEnglishFallbackNotice ? 'en' : language}
+          dir='ltr'
+        >
+          <Agreement />
+        </div>
       </div>
     </div>
   );
