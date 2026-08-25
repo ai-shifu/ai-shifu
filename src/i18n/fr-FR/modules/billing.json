@@ -756,14 +756,14 @@
       "buyCredits": "Acheter des crédits",
       "checkoutLoading": "Ouverture du paiement...",
       "choosePlan": "Choisir ce forfait",
-      "cycleSwitchDisabled": "Changement de cycle indisponible",
+      "cycleSwitchDisabled": "Changement de période indisponible",
       "viewMonthly": "Voir le forfait mensuel"
     },
     "annualSavings": "Économisez {amount} par an ({percent} %)",
     "approximatePricePrefix": "Environ",
     "audienceLabel": "Idéal pour",
-    "billedAnnually": "Facturé {price} tous les 12 mois",
-    "cancelAnytime": "Facturé mensuellement. Annulation à tout moment.",
+    "billedAnnually": "Facturation de {price} tous les 12 mois.",
+    "cancelAnytime": "Facturation mensuelle. Annulation à tout moment.",
     "checkoutNotice": "Le paiement Stripe est disponible. Vous serez redirigé vers Stripe pour finaliser le paiement.",
     "comingSoon": {
       "close": "Compris",
@@ -802,33 +802,33 @@
       "intro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et utilisent la référence “un apprenant termine le cours une fois, avec un cours d’environ 10 sections, une moyenne d’environ 15 minutes d’étude régulière par section, en utilisant le modèle par défaut tout au long du cours et avec le mode écoute activé”. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Facteurs influant sur la consommation de crédits :",
       "validity": "Validité des crédits : les crédits mensuels sont valables 30 jours à compter de leur attribution, jour inclus ; les crédits annuels sont valables 12 mois à compter de leur attribution. Les deux expirent à 23 h 59 le dernier jour."
     },
-    "learnerEstimateLabel": "Sessions apprenant estimées",
-    "learnerEstimateValue": "{minimum} à {maximum} sessions apprenant",
+    "learnerEstimateLabel": "Sessions d’apprentissage estimées",
+    "learnerEstimateValue": "{minimum} à {maximum} sessions d’apprentissage",
     "monthlyOnly": "Mensuel uniquement",
-    "mostPopular": "Le plus populaire",
+    "mostPopular": "Populaire",
     "perMonth": "/ mois",
     "plans": {
       "business": {
         "description": "Grandes organisations diffusant des apprentissages personnalisés à grande échelle.",
         "estimates": {
-          "annual": "500–1 500 sessions",
-          "monthly": "40–120 sessions"
+          "annual": "500–1 500 sessions d’apprentissage",
+          "monthly": "40–120 sessions d’apprentissage"
         },
         "name": "Business"
       },
       "growth": {
         "description": "Petites et moyennes organisations d’enseignement.",
         "estimates": {
-          "annual": "250–750 sessions",
-          "monthly": "20–60 sessions"
+          "annual": "250–750 sessions d’apprentissage",
+          "monthly": "20–60 sessions d’apprentissage"
         },
         "name": "Growth"
       },
       "scale": {
         "description": "Très grandes organisations gérant des programmes d’apprentissage à fort volume.",
         "estimates": {
-          "annual": "1 100–3 300 sessions",
-          "monthly": "90–270 sessions"
+          "annual": "1 100–3 300 sessions d’apprentissage",
+          "monthly": "90–270 sessions d’apprentissage"
         },
         "name": "Scale"
       },
@@ -836,7 +836,7 @@
         "description": "Tester un cours léger ou valider une première expérience d’apprentissage.",
         "estimates": {
           "annual": "Forfait mensuel uniquement",
-          "monthly": "5–15 sessions"
+          "monthly": "5–15 sessions d’apprentissage"
         },
         "name": "Studio"
       }

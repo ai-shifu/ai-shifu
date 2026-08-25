@@ -116,9 +116,9 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.actions.checkoutLoading':
           'Opening checkout...',
         'module.billing.globalPricing.actions.cycleSwitchDisabled':
-          'Cycle switch unavailable',
+          'Billing cycle change unavailable',
         'module.billing.globalPricing.actions.viewMonthly': 'View monthly plan',
-        'module.billing.globalPricing.approximatePricePrefix': 'About',
+        'module.billing.globalPricing.approximatePricePrefix': 'Approx.',
         'module.billing.checkout.unsupported':
           'This payment method is not available right now.',
         'module.billing.globalPricing.checkoutNotice':
@@ -172,11 +172,11 @@ jest.mock('react-i18next', () => ({
         'module.billing.package.actions.downgradeDisabled':
           'Downgrade unavailable',
         'module.billing.package.actions.monthlySwitchDisabled':
-          'Monthly switch unavailable',
+          'Monthly billing unavailable',
         'module.billing.package.actions.upgradeNow': 'Upgrade now',
       };
       if (key === 'module.billing.globalPricing.billedAnnually') {
-        return `Billed ${options?.price} every 12 months`;
+        return `Billed ${options?.price} every 12 months.`;
       }
       if (key === 'module.billing.globalPricing.annualSavings') {
         return `Save ${options?.amount} per year (${options?.percent}%)`;
@@ -302,17 +302,14 @@ describe('GlobalBillingPricing', () => {
 
     expect(planGrid).toHaveClass(
       'grid-cols-1',
-      'gap-3',
+      'gap-4',
       'sm:grid-cols-2',
       'xl:grid-cols-4',
+      '2xl:gap-5',
     );
     for (const card of [studio, growth, business, scale]) {
-      expect(card).toHaveClass(
-        'sm:row-span-7',
-        'sm:grid',
-        'sm:grid-rows-subgrid',
-        'sm:gap-y-0',
-      );
+      expect(card).toHaveClass('min-w-0', 'flex-col');
+      expect(card).not.toHaveClass('sm:grid-rows-subgrid');
     }
     for (const tier of ['studio', 'growth', 'business', 'scale']) {
       expect(
@@ -535,8 +532,14 @@ describe('GlobalBillingPricing', () => {
 
     const smallPack = screen.getByTestId('global-credit-pack-250');
     const largePack = screen.getByTestId('global-credit-pack-3000');
+    expect(screen.getByTestId('global-credit-pack-grid')).toHaveStyle({
+      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+    });
     expect(within(smallPack).getByText('$29')).toBeInTheDocument();
     expect(within(largePack).getByText('$279')).toBeInTheDocument();
+    expect(
+      within(largePack).getByRole('button', { name: 'Buy credits' }),
+    ).toHaveClass('min-w-32');
     expect(
       screen.getByText('Credits are added immediately and never expire.'),
     ).toBeInTheDocument();
@@ -604,7 +607,9 @@ describe('GlobalBillingPricing', () => {
 
     const growth = await screen.findByTestId('global-plan-growth');
     expect(
-      within(growth).getByRole('button', { name: 'Cycle switch unavailable' }),
+      within(growth).getByRole('button', {
+        name: 'Billing cycle change unavailable',
+      }),
     ).toBeDisabled();
 
     await act(async () => {
