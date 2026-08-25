@@ -754,7 +754,9 @@
   "globalPricing": {
     "actions": {
       "buyCredits": "Acheter des crédits",
+      "checkoutLoading": "Ouverture du paiement...",
       "choosePlan": "Choisir ce forfait",
+      "cycleSwitchDisabled": "Changement de cycle indisponible",
       "viewMonthly": "Voir le forfait mensuel"
     },
     "annualSavings": "Économisez {amount} par an ({percent} %)",
@@ -762,6 +764,7 @@
     "audienceLabel": "Idéal pour",
     "billedAnnually": "Facturé {price} tous les 12 mois",
     "cancelAnytime": "Facturé mensuellement. Annulation à tout moment.",
+    "checkoutNotice": "Le paiement Stripe est disponible. Vous serez redirigé vers Stripe pour finaliser le paiement.",
     "comingSoon": {
       "close": "Compris",
       "description": "Nous développons actuellement l’expérience de paiement. Revenez bientôt.",
@@ -946,6 +949,7 @@
       "currentUsing": "Forfait actuel",
       "downgradeDisabled": "Rétrogradation indisponible",
       "freeTrial": "Inactif",
+      "monthlySwitchDisabled": "Passage au mensuel indisponible",
       "nonMemberTooltip": "Vous êtes actuellement sur l’offre non membre. Aucune action n’est nécessaire.",
       "preorderDowngrade": "Précommander une rétrogradation",
       "preorderLocked": "Précommande verrouillée",

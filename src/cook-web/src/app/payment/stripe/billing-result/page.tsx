@@ -2,20 +2,77 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { mutate as mutateSWRCache } from 'swr';
+import api from '@/api';
 import { Button } from '@/components/ui/Button';
+import { buildBillingSwrKey } from '@/lib/billing';
 import request from '@/lib/request';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useTranslation } from 'react-i18next';
 
 type BillingResultStatus = 'loading' | 'success' | 'pending' | 'error';
+const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
+const BILLING_WALLET_BUCKETS_SWR_KEY = 'billing-wallet-buckets';
+const BILLING_RECENT_LEDGER_PAGE_INDEX = 1;
+const BILLING_RECENT_LEDGER_PAGE_SIZE = 20;
+const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 
 type BillingSyncResponse = {
-  status?: string;
+  status?: BillingOrderSyncStatus | string;
 };
+
+type BillingOrderSyncStatus =
+  | 'paid'
+  | 'pending'
+  | 'failed'
+  | 'canceled'
+  | 'timeout'
+  | 'refunded';
+
+type StripeBillingResultMessageKey =
+  | 'module.billing.result.missingOrder'
+  | 'module.billing.result.processing'
+  | 'module.billing.result.pending'
+  | 'module.billing.result.success'
+  | 'module.billing.result.errorTitle';
+
+async function refreshBillingPageCaches() {
+  await Promise.allSettled([
+    mutateSWRCache(
+      buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY),
+      async () =>
+        await api.getBillingOverview({}, BILLING_PASSIVE_REQUEST_CONFIG),
+      { revalidate: false },
+    ),
+    mutateSWRCache(
+      buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY),
+      async () =>
+        await api.getBillingWalletBuckets({}, BILLING_PASSIVE_REQUEST_CONFIG),
+      { revalidate: false },
+    ),
+    mutateSWRCache(
+      buildBillingSwrKey(
+        'billing-ledger-recent',
+        BILLING_RECENT_LEDGER_PAGE_INDEX,
+        BILLING_RECENT_LEDGER_PAGE_SIZE,
+      ),
+      async () =>
+        await api.getBillingLedger(
+          {
+            page_index: BILLING_RECENT_LEDGER_PAGE_INDEX,
+            page_size: BILLING_RECENT_LEDGER_PAGE_SIZE,
+          },
+          BILLING_PASSIVE_REQUEST_CONFIG,
+        ),
+      { revalidate: false },
+    ),
+  ]);
+}
 
 type StripeBillingResultState = {
   status: BillingResultStatus;
-  message: string;
+  messageKey?: StripeBillingResultMessageKey;
+  messageText?: string;
   billingOrderBid?: string;
 };
 
@@ -25,18 +82,13 @@ export default function StripeBillingResultPage() {
   const { t } = useTranslation();
   const [state, setState] = useState<StripeBillingResultState>({
     status: 'loading',
-    message: '',
+    messageKey: 'module.billing.result.processing',
   });
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const syncAttemptedRef = useRef<string | null>(null);
   const providedBillingOrderBid = searchParams.get('bill_order_bid') || '';
   const sessionId = searchParams.get('session_id') || '';
-  const missingOrderMessage = t('module.billing.result.missingOrder');
-  const processingMessage = t('module.billing.result.processing');
-  const pendingMessage = t('module.billing.result.pending');
-  const successMessage = t('module.billing.result.success');
-  const errorTitle = t('module.billing.result.errorTitle');
 
   const billingOrderBid = useMemo(() => {
     if (providedBillingOrderBid) {
@@ -53,14 +105,14 @@ export default function StripeBillingResultPage() {
       if (!orderBid) {
         setState({
           status: 'error',
-          message: missingOrderMessage,
+          messageKey: 'module.billing.result.missingOrder',
         });
         return;
       }
 
       setState({
         status: 'loading',
-        message: processingMessage,
+        messageKey: 'module.billing.result.processing',
         billingOrderBid: orderBid,
       });
 
@@ -75,40 +127,47 @@ export default function StripeBillingResultPage() {
         if (result.status === 'pending') {
           setState({
             status: 'pending',
-            message: pendingMessage,
+            messageKey: 'module.billing.result.pending',
             billingOrderBid: orderBid,
           });
           return;
         }
 
+        if (result.status !== 'paid') {
+          setState({
+            status: 'error',
+            messageKey: 'module.billing.result.errorTitle',
+            billingOrderBid: orderBid,
+          });
+          return;
+        }
+
+        await refreshBillingPageCaches();
+
         setState({
           status: 'success',
-          message: successMessage,
+          messageKey: 'module.billing.result.success',
           billingOrderBid: orderBid,
         });
       } catch (error: any) {
         setState({
           status: 'error',
-          message: error?.message || errorTitle,
+          messageKey: error?.message
+            ? undefined
+            : 'module.billing.result.errorTitle',
+          messageText: error?.message || undefined,
           billingOrderBid: orderBid,
         });
       }
     },
-    [
-      errorTitle,
-      missingOrderMessage,
-      pendingMessage,
-      processingMessage,
-      sessionId,
-      successMessage,
-    ],
+    [sessionId],
   );
 
   useEffect(() => {
     if (!billingOrderBid) {
       setState({
         status: 'error',
-        message: missingOrderMessage,
+        messageKey: 'module.billing.result.missingOrder',
       });
       syncAttemptedRef.current = null;
       return;
@@ -120,7 +179,18 @@ export default function StripeBillingResultPage() {
     }
     syncAttemptedRef.current = syncKey;
     void syncBillingOrder(billingOrderBid);
-  }, [billingOrderBid, missingOrderMessage, sessionId, syncBillingOrder]);
+  }, [billingOrderBid, sessionId, syncBillingOrder]);
+
+  const message = useMemo(() => {
+    if (state.messageText) {
+      return state.messageText;
+    }
+    if (!state.messageKey) {
+      return '';
+    }
+    const translated = t(state.messageKey);
+    return translated === state.messageKey ? '' : translated;
+  }, [state.messageKey, state.messageText, t]);
 
   const heading = useMemo(() => {
     if (state.status === 'success') {
@@ -171,8 +241,8 @@ export default function StripeBillingResultPage() {
     <div className='mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-6 px-6 text-center'>
       <div className='space-y-3'>
         <h1 className='text-2xl font-semibold'>{heading}</h1>
-        {state.message ? (
-          <p className='text-base text-muted-foreground'>{state.message}</p>
+        {message ? (
+          <p className='text-base text-muted-foreground'>{message}</p>
         ) : null}
         {state.status === 'success' ? (
           <p className='text-sm text-muted-foreground'>
