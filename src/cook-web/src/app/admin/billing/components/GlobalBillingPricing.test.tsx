@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
 import { openBillingCheckoutUrl } from '@/lib/billing';
-import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import type {
   BillingPlan,
   BillingSubscription,
@@ -107,10 +106,6 @@ jest.mock('@/lib/billing', () => {
     openBillingCheckoutUrl: jest.fn(),
   };
 });
-
-jest.mock('@/lib/stripe-storage', () => ({
-  rememberStripeCheckoutSession: jest.fn(),
-}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => {
@@ -216,14 +211,6 @@ const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockCheckoutSubscription = api.checkoutBillingSubscription as jest.Mock;
 const mockCheckoutTopup = api.checkoutBillingTopup as jest.Mock;
 const mockOpenBillingCheckoutUrl = openBillingCheckoutUrl as jest.Mock;
-const mockRememberStripeCheckoutSession =
-  rememberStripeCheckoutSession as jest.Mock;
-
-function expectSessionStoredBeforeRedirect() {
-  expect(
-    mockRememberStripeCheckoutSession.mock.invocationCallOrder[0],
-  ).toBeLessThan(mockOpenBillingCheckoutUrl.mock.invocationCallOrder[0]);
-}
 
 function plan(
   productCode: string,
@@ -297,7 +284,6 @@ describe('GlobalBillingPricing', () => {
     mockTrackEvent.mockReset();
     mockToast.mockReset();
     mockOpenBillingCheckoutUrl.mockReset();
-    mockRememberStripeCheckoutSession.mockReset();
     mockBillingSubscription = null;
     mockBillingOverview = {
       subscription: mockBillingSubscription,
@@ -521,14 +507,9 @@ describe('GlobalBillingPricing', () => {
       payment_provider: 'stripe',
       product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.businessAnnual}`,
     });
-    expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
-      'cs_test_plan',
-      'order-business-annual',
-    );
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/session',
     );
-    expectSessionStoredBeforeRedirect();
     expect(mockCheckoutTopup).not.toHaveBeenCalled();
   });
 
@@ -591,14 +572,9 @@ describe('GlobalBillingPricing', () => {
       payment_provider: 'stripe',
       product_bid: `bid-${GLOBAL_BILLING_PRODUCT_CODES.credits3000}`,
     });
-    expect(mockRememberStripeCheckoutSession).toHaveBeenCalledWith(
-      'cs_test_topup',
-      'order-topup',
-    );
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/topup',
     );
-    expectSessionStoredBeforeRedirect();
   });
 
   test('uses immediate upgrade and disables unsupported active plan transitions', async () => {

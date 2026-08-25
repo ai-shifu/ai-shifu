@@ -24,7 +24,6 @@ import {
   formatBillingPrice,
   openBillingCheckoutUrl,
 } from '@/lib/billing';
-import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { cn } from '@/lib/utils';
 import type {
   BillingCheckoutResult,
@@ -337,12 +336,6 @@ export function GlobalBillingPricing() {
           return;
         }
 
-        if (result.checkout_session_id) {
-          rememberStripeCheckoutSession(
-            result.checkout_session_id,
-            result.bill_order_bid,
-          );
-        }
         openBillingCheckoutUrl(result.redirect_url);
       } catch (error: any) {
         toast({
