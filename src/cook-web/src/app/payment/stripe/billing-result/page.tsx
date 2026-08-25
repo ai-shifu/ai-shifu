@@ -18,8 +18,16 @@ const BILLING_RECENT_LEDGER_PAGE_SIZE = 20;
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 
 type BillingSyncResponse = {
-  status?: string;
+  status?: BillingOrderSyncStatus | string;
 };
+
+type BillingOrderSyncStatus =
+  | 'paid'
+  | 'pending'
+  | 'failed'
+  | 'canceled'
+  | 'timeout'
+  | 'refunded';
 
 type StripeBillingResultMessageKey =
   | 'module.billing.result.missingOrder'
@@ -120,6 +128,15 @@ export default function StripeBillingResultPage() {
           setState({
             status: 'pending',
             messageKey: 'module.billing.result.pending',
+            billingOrderBid: orderBid,
+          });
+          return;
+        }
+
+        if (result.status !== 'paid') {
+          setState({
+            status: 'error',
+            messageKey: 'module.billing.result.errorTitle',
             billingOrderBid: orderBid,
           });
           return;
