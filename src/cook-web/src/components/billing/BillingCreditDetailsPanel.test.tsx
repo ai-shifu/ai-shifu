@@ -7,12 +7,14 @@ import {
 } from '@/hooks/useBillingData';
 import { BillingCreditDetailsPanel } from './BillingCreditDetailsPanel';
 
+let mockResolvedLanguage = 'zh-CN';
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) =>
       key === 'module.billing.details.emptyValidityLabel' ? '--' : key,
     i18n: {
-      language: 'zh-CN',
+      language: mockResolvedLanguage,
     },
   }),
 }));
@@ -36,6 +38,7 @@ describe('BillingCreditDetailsPanel', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-15T00:00:00Z'));
     mockUseBillingOverview.mockReset();
     mockUseBillingWalletBuckets.mockReset();
+    mockResolvedLanguage = 'zh-CN';
 
     mockUseBillingOverview.mockReturnValue({
       data: {
@@ -167,6 +170,15 @@ describe('BillingCreditDetailsPanel', () => {
     );
 
     expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  test('formats the total credit balance with the active language locale', () => {
+    mockResolvedLanguage = 'fr-FR';
+
+    render(<BillingCreditDetailsPanel />);
+
+    expect(screen.getByText(/1\s110/)).toBeInTheDocument();
+    expect(screen.queryByText('1,110')).not.toBeInTheDocument();
   });
 
   test('summarizes topup buckets as no-expiration credits across eligibility windows', () => {
