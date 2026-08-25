@@ -31,18 +31,19 @@ export default function RootLayout({
           className='min-h-screen'
         >
           <DomReconcilerGuard />
-          <ConfigProvider>
-            <RuntimeConfigInitializer />
-            <UmamiLoader />
-            <UserProvider>
-              <AlertProvider>
-                <I18nGlobalLoading />
-                <I18nDocumentAttributes />
-                {children}
-                <Toaster />
-              </AlertProvider>
-            </UserProvider>
-          </ConfigProvider>
+          <I18nDocumentAttributes>
+            <ConfigProvider>
+              <RuntimeConfigInitializer />
+              <UmamiLoader />
+              <UserProvider>
+                <AlertProvider>
+                  <I18nGlobalLoading />
+                  {children}
+                  <Toaster />
+                </AlertProvider>
+              </UserProvider>
+            </ConfigProvider>
+          </I18nDocumentAttributes>
         </div>
       </body>
     </html>

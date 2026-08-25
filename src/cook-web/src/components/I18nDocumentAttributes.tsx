@@ -1,20 +1,26 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { DirectionProvider } from '@radix-ui/react-direction';
 import { useTranslation } from 'react-i18next';
 
 import { normalizeLanguage } from '@/i18n';
 import { isRtlLocale } from '@/lib/i18n-locales';
 
-/** Keep the document language and writing direction in sync with i18n. */
-export default function I18nDocumentAttributes() {
+/** Keep the document and Radix direction context in sync with i18n. */
+export default function I18nDocumentAttributes({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const { i18n } = useTranslation();
+  const language = normalizeLanguage(i18n.language);
+  const direction = isRtlLocale(language) ? 'rtl' : 'ltr';
 
   useEffect(() => {
-    const language = normalizeLanguage(i18n.language);
     document.documentElement.lang = language;
-    document.documentElement.dir = isRtlLocale(language) ? 'rtl' : 'ltr';
-  }, [i18n.language]);
+    document.documentElement.dir = direction;
+  }, [language, direction]);
 
-  return null;
+  return <DirectionProvider dir={direction}>{children}</DirectionProvider>;
 }
