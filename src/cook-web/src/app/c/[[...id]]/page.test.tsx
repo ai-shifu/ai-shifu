@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import { PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS } from './hooks/useCourseProfileOnboardingGate';
 import ChatPage from './page';
 
 const mockGetProfileOnboarding = jest.fn();
@@ -467,6 +468,10 @@ jest.mock('@/components/profile-onboarding/LearnerProfileDialog', () => ({
 }));
 
 describe('ChatPage profile onboarding gate', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockUserStoreState.userInfo = { ...defaultMockUserInfo };
@@ -941,6 +946,34 @@ describe('ChatPage profile onboarding gate', () => {
     expect(
       screen.queryByTestId('learner-profile-dialog'),
     ).not.toBeInTheDocument();
+  });
+
+  test('fails open when onboarding eligibility never settles', async () => {
+    jest.useFakeTimers();
+    mockGetProfileOnboarding.mockReturnValue(new Promise(() => undefined));
+
+    render(<ChatPage />);
+
+    expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-runtime-ready',
+      'false',
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-runtime-ready',
+      'true',
+    );
+    expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.profileOnboarding.loadFailed',
+      variant: 'destructive',
+    });
   });
 
   test('opens settings as a dialog without replacing the lesson runtime', async () => {

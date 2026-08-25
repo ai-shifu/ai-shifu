@@ -18,6 +18,8 @@ import { useUserStore } from '@/store';
 
 type ProfileOnboardingEligibility = 'idle' | 'pending' | 'show' | 'complete';
 
+export const PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS = 10_000;
+
 type UseCourseProfileOnboardingGateParams = {
   initialized: boolean;
   isLoggedIn: boolean;
@@ -85,6 +87,8 @@ export const useCourseProfileOnboardingGate = ({
     },
     [t],
   );
+  const notifyLoadFailureRef = useRef(notifyLoadFailure);
+  notifyLoadFailureRef.current = notifyLoadFailure;
 
   const notifyRefreshDelay = useCallback(() => {
     toast({ title: t('module.profileOnboarding.refreshPending') });
@@ -127,14 +131,36 @@ export const useCourseProfileOnboardingGate = ({
     setReadyScope(null);
     requestedScopeRef.current = learnerProfileScope;
     const requestId = ++requestIdRef.current;
+    let requestSettled = false;
+    const failOpen = (caughtError: unknown) => {
+      if (
+        requestSettled ||
+        requestId !== requestIdRef.current ||
+        scopeRef.current !== learnerProfileScope
+      ) {
+        return;
+      }
+      requestSettled = true;
+      debugWarn('[profile-onboarding] failed to load status', caughtError);
+      notifyLoadFailureRef.current(caughtError);
+      eligibilityRef.current = 'complete';
+      setReadyScope(learnerProfileScope);
+    };
+    const timeoutId = window.setTimeout(
+      () => failOpen(new Error()),
+      PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS,
+    );
     void getProfileOnboarding()
       .then(nextStatus => {
         if (
+          requestSettled ||
           requestId !== requestIdRef.current ||
           scopeRef.current !== learnerProfileScope
         ) {
           return;
         }
+        requestSettled = true;
+        window.clearTimeout(timeoutId);
         if (!isProfileOnboardingStatus(nextStatus)) {
           debugWarn('[profile-onboarding] incompatible status response');
           eligibilityRef.current = 'complete';
@@ -162,26 +188,13 @@ export const useCourseProfileOnboardingGate = ({
         eligibilityRef.current = 'complete';
         setReadyScope(learnerProfileScope);
       })
-      .catch(caughtError => {
-        if (
-          requestId !== requestIdRef.current ||
-          scopeRef.current !== learnerProfileScope
-        ) {
-          return;
-        }
-        debugWarn('[profile-onboarding] failed to load status', caughtError);
-        notifyLoadFailure(caughtError);
-        eligibilityRef.current = 'complete';
-        setReadyScope(learnerProfileScope);
-      });
-  }, [
-    courseName,
-    initialized,
-    isLoggedIn,
-    learnerProfileScope,
-    notifyLoadFailure,
-    previewMode,
-  ]);
+      .catch(failOpen);
+
+    return () => {
+      requestSettled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [courseName, initialized, isLoggedIn, learnerProfileScope, previewMode]);
 
   const defer = useCallback(
     async (sessionId?: string) => {
