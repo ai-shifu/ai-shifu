@@ -36,8 +36,26 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: { seconds?: number }) =>
-      params?.seconds !== undefined ? `${key}:${params.seconds}` : key,
+    t: (key: string, params?: { seconds?: number }) => {
+      if (params?.seconds !== undefined) {
+        return `${key}:${params.seconds}`;
+      }
+
+      const labels: Record<string, string> = {
+        'module.billing.result.errorTitle': 'Billing sync failed',
+        'module.billing.result.missingOrder': 'Missing billing order',
+        'module.billing.result.openBilling': 'Open billing center',
+        'module.billing.result.pending': 'Payment is still processing',
+        'module.billing.result.pendingTitle':
+          'Waiting for billing confirmation',
+        'module.billing.result.processing': 'Syncing payment status',
+        'module.billing.result.retry': 'Retry sync',
+        'module.billing.result.success': 'Payment confirmed',
+        'module.billing.result.successTitle': 'Billing updated',
+      };
+
+      return labels[key] || key;
+    },
   }),
 }));
 
@@ -106,9 +124,8 @@ describe('StripeBillingResultPage', () => {
       );
     });
 
-    expect(
-      await screen.findByText('module.billing.result.successTitle'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Billing updated')).toBeInTheDocument();
+    expect(await screen.findByText('Payment confirmed')).toBeInTheDocument();
     await waitFor(() => {
       expect(mockMutateSWRCache).toHaveBeenCalledTimes(3);
     });
@@ -156,7 +173,7 @@ describe('StripeBillingResultPage', () => {
     render(<StripeBillingResultPage />);
 
     expect(
-      await screen.findByText('module.billing.result.missingOrder'),
+      await screen.findByText('Missing billing order'),
     ).toBeInTheDocument();
   });
 
@@ -167,12 +184,13 @@ describe('StripeBillingResultPage', () => {
     render(<StripeBillingResultPage />);
 
     expect(
-      await screen.findByText('module.billing.result.pendingTitle'),
+      await screen.findByText('Waiting for billing confirmation'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Payment is still processing'),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'module.billing.result.retry' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry sync' }));
 
     await waitFor(() => {
       expect(mockRequestPost).toHaveBeenCalledTimes(2);
