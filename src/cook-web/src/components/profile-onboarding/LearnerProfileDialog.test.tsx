@@ -22,6 +22,7 @@ import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConv
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
+let mockTrackEventIdentity = mockTrackEvent;
 let mockLanguage = 'en-US';
 const FINISH_COLLECTION_LABEL = 'finish collection';
 const FAIL_COLLECTION_LABEL = 'fail collection';
@@ -171,7 +172,7 @@ jest.mock('@/api/learnerProfile', () => ({
 }));
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
-  useTracking: () => ({ trackEvent: mockTrackEvent }),
+  useTracking: () => ({ trackEvent: mockTrackEventIdentity }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -304,6 +305,7 @@ describe('LearnerProfileDialog', () => {
     jest.clearAllMocks();
     mockConversationControls.splice(0);
     mockLanguage = 'en-US';
+    mockTrackEventIdentity = mockTrackEvent;
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
     mockGetProfileOnboardingStatus.mockResolvedValue(
       onboardingStatus({
@@ -1382,6 +1384,18 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+  });
+
+  test('preserves an open draft when the tracking callback identity changes', async () => {
+    const { rerender, props } = renderDialog();
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.change(profileInput(), { target: { value: 'Unsaved edit' } });
+
+    mockTrackEventIdentity = jest.fn();
+    rerender(<LearnerProfileDialog {...props} />);
+
+    expect(profileInput()).toHaveValue('Unsaved edit');
+    expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
   });
 
   test('ignores late research session and draft delivery after an account switch', async () => {

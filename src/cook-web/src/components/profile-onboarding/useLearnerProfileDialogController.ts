@@ -69,6 +69,7 @@ export const useLearnerProfileDialogController = ({
   const autoStartCollectionRef = React.useRef(autoStartCollection);
   const initialOnboardingStatusRef = React.useRef(initialOnboardingStatus);
   const translationRef = React.useRef(t);
+  const trackEventRef = React.useRef(trackEvent);
   const requestEpochRef = React.useRef<RequestEpochs>({
     dialog: 0,
     load: 0,
@@ -86,6 +87,7 @@ export const useLearnerProfileDialogController = ({
   autoStartCollectionRef.current = autoStartCollection;
   initialOnboardingStatusRef.current = initialOnboardingStatus;
   translationRef.current = t;
+  trackEventRef.current = trackEvent;
 
   const bumpEpoch = React.useCallback((kind: keyof RequestEpochs) => {
     requestEpochRef.current[kind] += 1;
@@ -159,15 +161,17 @@ export const useLearnerProfileDialogController = ({
         },
       });
       if (rerun) {
-        void trackEvent(PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED);
+        void trackEventRef.current(
+          PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
+        );
       }
-      void trackEvent(PROFILE_ONBOARDING_EVENTS.SHOWN, {
+      void trackEventRef.current(PROFILE_ONBOARDING_EVENTS.SHOWN, {
         source: intent === 'settings' ? 'settings' : 'guided',
         presentation: journeyPresentation,
         has_profile: stateRef.current.hasCanonicalProfile,
       });
     },
-    [bumpEpoch, trackEvent],
+    [bumpEpoch],
   );
 
   const loadProfile = React.useCallback(
