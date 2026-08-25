@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   buildBillingSwrKey,
   formatBillingCredits,
+  formatBillingPercent,
   formatBillingPrice,
   openBillingCheckoutUrl,
 } from '@/lib/billing';
@@ -705,8 +706,11 @@ function PlanCard({
     ? monthlyProduct.price_amount * 12 - annualProduct.price_amount
     : 0;
   const annualSavingsPercent = annualProduct
-    ? ((annualSavings / (monthlyProduct.price_amount * 12)) * 100).toFixed(1)
-    : '0.0';
+    ? formatBillingPercent(
+        (annualSavings / (monthlyProduct.price_amount * 12)) * 100,
+        locale,
+      )
+    : formatBillingPercent(0, locale);
   const featureIncludeKey = PLAN_FEATURE_INCLUDE_KEYS[tierSpec.tier];
   const pricingDetailsClassName =
     cycle === 'annual' ? 'min-h-[150px]' : 'min-h-[86px]';

@@ -20,6 +20,7 @@ let mockBillingSubscription: BillingSubscription | null = null;
 let mockBillingOverview:
   | { subscription: BillingSubscription | null }
   | undefined;
+let mockResolvedLanguage = 'zh-CN';
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -200,8 +201,8 @@ jest.mock('react-i18next', () => ({
       t: translate,
       i18n: {
         getFixedT: () => translate,
-        language: 'zh-CN',
-        resolvedLanguage: 'zh-CN',
+        language: mockResolvedLanguage,
+        resolvedLanguage: mockResolvedLanguage,
       },
     };
   },
@@ -288,6 +289,7 @@ describe('GlobalBillingPricing', () => {
     mockBillingOverview = {
       subscription: mockBillingSubscription,
     };
+    mockResolvedLanguage = 'zh-CN';
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
@@ -405,6 +407,23 @@ describe('GlobalBillingPricing', () => {
     expect(
       screen.queryByText('module.billing.globalPricing.subtitle'),
     ).not.toBeInTheDocument();
+  });
+
+  test('formats annual savings with the active language locale', async () => {
+    mockResolvedLanguage = 'fr-FR';
+
+    renderPricing();
+
+    const studio = await screen.findByTestId('global-plan-studio');
+    const growth = await screen.findByTestId('global-plan-growth');
+    expect(within(studio).getByText(/59\s\$/)).toBeInTheDocument();
+    expect(within(growth).getByText(/183\s\$/)).toBeInTheDocument();
+    expect(
+      within(growth).getByText(/Save 549\s\$ per year \(20,0%\)/),
+    ).toBeInTheDocument();
+    expect(
+      within(growth).getByText(/50\s000 credits per 12-month billing period/),
+    ).toBeInTheDocument();
   });
 
   test('switches to monthly pricing without a Studio first-month offer', async () => {
