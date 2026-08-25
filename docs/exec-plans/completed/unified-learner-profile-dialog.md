@@ -3,7 +3,7 @@
 ## Superseded Entry Contract Note (2026-08-25)
 
 The single-dialog UX remains current. The temporary non-blocking onboarding
-presentation and legacy/V2 completion dispatch described below have since been
+presentation and dual completion dispatch described below have since been
 removed; automatic entry now receives only `blocking` or `hidden`, while menu
 entry remains dismissible through the dialog's exit policy.
 
@@ -16,7 +16,7 @@ receive an automatically optimized draft, and confirm it; learners with a
 profile open directly in the same editor and may restart research there.
 
 Research and optimization are draft-only. The final primary action is the only
-operation that persists the canonical learner profile and profile-v2 state.
+operation that persists the canonical learner profile and profile onboarding state.
 
 ## Progress
 
@@ -56,7 +56,7 @@ operation that persists the canonical learner profile and profile-v2 state.
 ## Surprises & Discoveries
 
 The canonical profile service already supports atomically saving an optional
-nickname; only the profile-v2 completion service and wire contract need to
+nickname; only the profile onboarding completion service and wire contract need to
 expose it. The guided conversation already returns an unsaved terminal draft,
 so automatic optimization can run before completion without changing the
 MarkdownFlow runtime.
@@ -112,7 +112,7 @@ fixed footer.
   Escape, outside click, or an X button. Settings keeps normal close and dirty
   discard confirmation.
 - Nickname is never inferred by research or optimization. When supplied on
-  guided completion, it saves atomically with the profile and v2 state.
+  guided completion, it saves atomically with the profile and onboarding state.
 - The dialog keeps the persistent purpose statement: "让 AI 老师了解你的背景和偏好，以更适合你的方式讲课。"
   It does not render a step indicator.
 - The guided collection view contains only its short title, an approximately
@@ -216,15 +216,15 @@ unchecked implementation milestone.
 
 ## Plan of Work
 
-First extend profile-v2 completion with an optional nickname while preserving
-strict legacy/v2 field dispatch. Then move the guided conversation into the
+First extend profile onboarding completion with an optional nickname while preserving
+strict retired dual-protocol field dispatch. Then move the guided conversation into the
 learner-profile dialog and add explicit `research`, `optimizing`, and `review`
 views. Finally replace the course-owned modal with the unified dialog and
 regenerate translations/types before running focused and repository gates.
 
 ## Concrete Steps
 
-1. Accept optional string `nickname` only on the v2 completion payload and
+1. Accept optional string `nickname` only on the canonical completion payload and
    forward presence separately from omission into the existing atomic profile
    save service.
 2. Load canonical profile and onboarding status together, choose the initial
@@ -264,7 +264,7 @@ regenerate translations/types before running focused and repository gates.
   or discard a local draft; only account scope or a genuinely new open journey
   resets dialog state.
 - Guided final save performs one durable operation for profile, optional
-  nickname, v2 state, and session cleanup. Direct edits keep using canonical
+  nickname, onboarding state, and session cleanup. Direct edits keep using canonical
   PUT.
 - Blocking course runtime remains unmounted through research, optimization,
   and review; successful save or explicit defer releases it. Non-blocking and
@@ -288,7 +288,7 @@ and generators are safe to rerun; account changes invalidate local work.
 
 ## Interfaces and Dependencies
 
-- V2 `POST /api/user/profile-onboarding/complete` accepts required
+- `POST /api/user/profile-onboarding/complete` accepts required
   `learner_profile` and `trigger_source`, optional `session_id`, and optional
   `nickname`. Omission preserves nickname; an empty string clears it.
 - Legacy completion payloads and all legacy `sys_*` persistence remain

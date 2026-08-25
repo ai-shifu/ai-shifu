@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   getProfileOnboarding,
-  isProfileOnboardingV2Status,
+  isProfileOnboardingStatus,
   skipProfileOnboarding,
-  type ProfileOnboardingV2Status,
+  type ProfileOnboardingStatus,
 } from '@/c-api/user';
 import type { LearnerProfileDialogProps } from '@/components/profile-onboarding/LearnerProfileDialog';
 import { debugWarn } from '@/c-utils/debugConsole';
@@ -38,7 +38,7 @@ export const useCourseProfileOnboardingGate = ({
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [autoStartCollection, setAutoStartCollection] = useState(false);
-  const [status, setStatus] = useState<ProfileOnboardingV2Status | null>(null);
+  const [status, setStatus] = useState<ProfileOnboardingStatus | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [readyScope, setReadyScope] = useState<string | null>(null);
@@ -135,10 +135,8 @@ export const useCourseProfileOnboardingGate = ({
         ) {
           return;
         }
-        if (!isProfileOnboardingV2Status(nextStatus)) {
-          debugWarn('[profile-onboarding] incompatible status contract', {
-            contractVersion: nextStatus?.contract_version || 'legacy',
-          });
+        if (!isProfileOnboardingStatus(nextStatus)) {
+          debugWarn('[profile-onboarding] incompatible status response');
           eligibilityRef.current = 'complete';
           setReadyScope(learnerProfileScope);
           return;

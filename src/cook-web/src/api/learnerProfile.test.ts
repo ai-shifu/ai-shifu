@@ -5,7 +5,7 @@ import {
   createProfileOnboardingSession,
   getLearnerProfile,
   getProfileOnboarding,
-  isProfileOnboardingV2Status,
+  isProfileOnboardingStatus,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
   skipGuidedProfileOnboarding,
@@ -25,8 +25,7 @@ jest.mock('@/lib/request', () => ({
   },
 }));
 
-const v2Status = {
-  contract_version: 'profile-v2' as const,
+const onboardingStatus = {
   enabled: true,
   should_show: true,
   presentation: 'blocking' as const,
@@ -101,35 +100,34 @@ describe('learner profile api', () => {
     );
   });
 
-  test('keeps the passive direct v2 GET silent', async () => {
-    (request.get as jest.Mock).mockResolvedValue(v2Status);
+  test('keeps the passive onboarding status GET silent', async () => {
+    (request.get as jest.Mock).mockResolvedValue(onboardingStatus);
 
-    await expect(getProfileOnboarding()).resolves.toEqual(v2Status);
+    await expect(getProfileOnboarding()).resolves.toEqual(onboardingStatus);
     expect(request.get).toHaveBeenCalledWith('/api/user/profile-onboarding', {
       skipErrorToast: true,
     });
-    expect(isProfileOnboardingV2Status(v2Status)).toBe(true);
+    expect(isProfileOnboardingStatus(onboardingStatus)).toBe(true);
   });
 
   test('rejects the retired wrapped contract', () => {
     expect(
-      isProfileOnboardingV2Status({
-        contract_version: 'profile-v2',
-        profile_v2: v2Status,
+      isProfileOnboardingStatus({
+        onboarding_status: onboardingStatus,
       }),
     ).toBe(false);
   });
 
-  test('rejects incomplete or unknown v2 status objects', () => {
+  test('rejects incomplete or unknown status objects', () => {
     expect(
-      isProfileOnboardingV2Status({
-        ...v2Status,
+      isProfileOnboardingStatus({
+        ...onboardingStatus,
         guided_available: undefined,
       }),
     ).toBe(false);
     expect(
-      isProfileOnboardingV2Status({
-        ...v2Status,
+      isProfileOnboardingStatus({
+        ...onboardingStatus,
         presentation: 'unexpected',
       }),
     ).toBe(false);

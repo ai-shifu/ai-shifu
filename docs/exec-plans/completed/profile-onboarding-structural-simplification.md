@@ -5,7 +5,7 @@
 The module boundaries produced by this refactor remain current. Its preserved
 rolling protocol is no longer current: the isolated legacy projection was
 deleted after the rollout window, learner onboarding now uses one direct
-profile-v2 contract, and admin revision aliases were removed. See
+profile onboarding contract, and admin revision aliases were removed. See
 `canonical-background-onboarding-contract.md` for the replacement contract.
 
 ## Purpose / Big Picture
@@ -126,7 +126,7 @@ dropping characterization cases.
 1. Add backend internal modules and re-export the existing runtime surface.
 2. Break the run path into admission/replay, block execution, and durable
    finalization while retaining the exact lock and error boundaries.
-3. Move legacy projection and persistence out of the V2 onboarding module.
+3. Move legacy projection and persistence out of the current onboarding module.
 4. Register learner and operator profile routes through focused modules.
 5. Extract conversation pure adapters and one session-state controller.
 6. Add the dialog reducer, selectors, async controller, and presentation views.
@@ -141,7 +141,7 @@ dropping characterization cases.
   changes other than private patch paths and fixture ownership.
 - Redis owner/purpose isolation, lock order, TTL refresh, cursor/replay,
   interrupted-stream cleanup, and session deletion behavior remain unchanged.
-- Legacy and V2 completion remain strictly separated and retain zero
+- Retired legacy and canonical completion remain strictly separated and retain zero
   cross-protocol writes.
 - Dialog loading, collection, explicit review handoff, optimization, save,
   discard, defer, retry, and account-switch races render exactly as before.
@@ -166,5 +166,5 @@ refactor itself.
 - `src/cook-web/src/api/learnerProfile.ts` remains the frontend request owner;
   legacy `c-api/user.ts` remains an adapter only.
 - Existing Dialog and Conversation props and named exports remain compatible.
-- Shared Redis, official MarkdownFlow, MarkdownFlow UI, profile-v2 persistence,
+- Shared Redis, official MarkdownFlow, MarkdownFlow UI, profile onboarding persistence,
   and the optimizer keep their current versions and responsibilities.

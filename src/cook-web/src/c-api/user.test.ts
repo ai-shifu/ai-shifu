@@ -3,7 +3,7 @@ import {
   completeProfileOnboarding,
   createProfileOnboardingSession,
   getProfileOnboarding,
-  isProfileOnboardingV2Status,
+  isProfileOnboardingStatus,
   runProfileOnboardingSession,
   skipProfileOnboarding,
 } from './user';
@@ -41,8 +41,8 @@ describe('legacy c-api learner-profile adapter', () => {
     expect(runProfileOnboardingSession).toBe(
       learnerProfileApi.runProfileOnboardingSession,
     );
-    expect(isProfileOnboardingV2Status).toBe(
-      learnerProfileApi.isProfileOnboardingV2Status,
+    expect(isProfileOnboardingStatus).toBe(
+      learnerProfileApi.isProfileOnboardingStatus,
     );
   });
 });

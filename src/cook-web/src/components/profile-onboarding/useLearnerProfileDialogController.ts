@@ -5,7 +5,7 @@ import {
   createProfileOnboardingSession,
   getLearnerProfile,
   getProfileOnboarding,
-  isProfileOnboardingV2Status,
+  isProfileOnboardingStatus,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
   updateLearnerProfile,
@@ -236,7 +236,7 @@ export const useLearnerProfileDialogController = ({
         ) {
           return false;
         }
-        const validOnboardingStatus = isProfileOnboardingV2Status(
+        const validOnboardingStatus = isProfileOnboardingStatus(
           onboardingStatus,
         )
           ? onboardingStatus

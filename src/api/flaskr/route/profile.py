@@ -293,7 +293,7 @@ def register_profile_routes(
 
     @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
     def clear_learner_profile_api() -> str:
-        """Clear the profile while keeping profile-v2 handled."""
+        """Clear the profile while keeping onboarding handled."""
         return make_common_response(clear_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])

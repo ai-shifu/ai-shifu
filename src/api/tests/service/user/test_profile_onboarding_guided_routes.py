@@ -53,12 +53,11 @@ def _markdownflow_for_preview_config_size(*, target_bytes: int) -> str:
     )
 
 
-def test_profile_onboarding_status_returns_direct_v2_state(
+def test_profile_onboarding_status_returns_current_state(
     monkeypatch: object, test_client: object
 ) -> None:
     user = _authenticate(monkeypatch)
     expected = {
-        "contract_version": "profile-v2",
         "enabled": True,
         "should_show": True,
         "presentation": "blocking",
@@ -89,7 +88,6 @@ def test_profile_onboarding_status_disabled_kill_switch_hides_collection(
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
         lambda _app, **_kwargs: {
-            "contract_version": "profile-v2",
             "enabled": False,
             "should_show": False,
             "presentation": "hidden",
@@ -254,7 +252,7 @@ def test_profile_onboarding_complete_forwards_explicit_nickname(
     ]
 
 
-def test_v2_mutations_do_not_commit_again_after_durable_service_and_cleanup(
+def test_onboarding_mutations_do_not_commit_again_after_service_cleanup(
     monkeypatch: object, test_client: object
 ) -> None:
     user = _authenticate(monkeypatch)
@@ -275,7 +273,7 @@ def test_v2_mutations_do_not_commit_again_after_durable_service_and_cleanup(
     )
 
     def fail_late_commit() -> Never:
-        msg = "route must not commit after the v2 UoW"
+        msg = "route must not commit after the onboarding unit of work"
         raise RuntimeError(msg)
 
     monkeypatch.setattr("flaskr.route.user.db.session.commit", fail_late_commit)

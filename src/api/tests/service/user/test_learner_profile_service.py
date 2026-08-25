@@ -822,13 +822,13 @@ def test_profile_safety_audit_records_text_and_provider_response(
     )
 
 
-def test_direct_status_hides_for_canonical_profile_or_fixed_v2_state(
+def test_status_hides_for_canonical_profile_or_onboarding_state(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile import onboarding as onboarding_module
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
-        PROFILE_ONBOARDING_VERSION,
+        PROFILE_ONBOARDING_STATE_VERSION,
     )
     from flaskr.service.profile.onboarding import get_profile_onboarding_status
 
@@ -845,12 +845,12 @@ def test_direct_status_hides_for_canonical_profile_or_fixed_v2_state(
     with app.app_context():
         _create_user("profile-status-new")
         _create_user("profile-status-canonical", learner_profile="已有画像")
-        _create_user("profile-status-v2")
+        _create_user("profile-status-state")
         db.session.add(
             UserOnboardingState(
-                user_bid="profile-status-v2",
+                user_bid="profile-status-state",
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                version=PROFILE_ONBOARDING_VERSION,
+                version=PROFILE_ONBOARDING_STATE_VERSION,
                 status="completed",
                 trigger_source="settings",
                 completed_at=PROFILE_UPDATED_AT,
@@ -861,27 +861,28 @@ def test_direct_status_hides_for_canonical_profile_or_fixed_v2_state(
         canonical_status = get_profile_onboarding_status(
             app, user_id="profile-status-canonical"
         )
-        v2_status = get_profile_onboarding_status(app, user_id="profile-status-v2")
+        onboarding_status = get_profile_onboarding_status(
+            app, user_id="profile-status-state"
+        )
 
     assert new_status["should_show"] is True
     assert canonical_status["should_show"] is False
-    assert v2_status["should_show"] is False
-    assert new_status["contract_version"] == "profile-v2"
+    assert onboarding_status["should_show"] is False
+    assert "contract_version" not in new_status
     assert new_status["config_revision"] == 7
-    assert "profile_v2" not in v2_status
-    assert "legacy_handled" not in v2_status
-    assert "markdownflow" not in v2_status
+    assert "legacy_handled" not in onboarding_status
+    assert "markdownflow" not in onboarding_status
     assert new_status["presentation"] == "blocking"
     assert canonical_status["presentation"] == "hidden"
-    assert v2_status["presentation"] == "hidden"
+    assert onboarding_status["presentation"] == "hidden"
 
 
-def test_complete_atomically_writes_profile_and_fixed_v2_state(
+def test_complete_atomically_writes_profile_and_onboarding_state(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
-        PROFILE_ONBOARDING_VERSION,
+        PROFILE_ONBOARDING_STATE_VERSION,
         save_learner_profile,
     )
 
@@ -899,7 +900,7 @@ def test_complete_atomically_writes_profile_and_fixed_v2_state(
         state = UserOnboardingState.query.filter_by(
             user_bid="profile-complete",
             scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-            version=PROFILE_ONBOARDING_VERSION,
+            version=PROFILE_ONBOARDING_STATE_VERSION,
         ).one()
         variable_values = VariableValue.query.filter_by(
             user_bid="profile-complete",
@@ -1132,12 +1133,12 @@ def test_complete_preserves_historical_variable_rows_for_old_courses(
     }
 
 
-def test_clear_profile_keeps_v2_completed_and_ignores_historical_background(
+def test_clear_profile_keeps_onboarding_completed_and_ignores_old_background(
     app: object,
 ) -> None:
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
-        PROFILE_ONBOARDING_VERSION,
+        PROFILE_ONBOARDING_STATE_VERSION,
         clear_learner_profile,
         get_learner_profile,
     )
@@ -1178,7 +1179,7 @@ def test_clear_profile_keeps_v2_completed_and_ignores_historical_background(
         state = UserOnboardingState.query.filter_by(
             user_bid=user_bid,
             scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-            version=PROFILE_ONBOARDING_VERSION,
+            version=PROFILE_ONBOARDING_STATE_VERSION,
         ).one()
         rows = VariableValue.query.filter_by(user_bid=user_bid).all()
 
@@ -1206,7 +1207,7 @@ def test_empty_profile_save_never_revives_historical_background_on_next_get(
 ) -> None:
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
-        PROFILE_ONBOARDING_VERSION,
+        PROFILE_ONBOARDING_STATE_VERSION,
         get_learner_profile,
         replace_learner_profile,
     )
@@ -1244,7 +1245,7 @@ def test_empty_profile_save_never_revives_historical_background_on_next_get(
         state = UserOnboardingState.query.filter_by(
             user_bid=user_bid,
             scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-            version=PROFILE_ONBOARDING_VERSION,
+            version=PROFILE_ONBOARDING_STATE_VERSION,
         ).one()
 
     assert saved["learner_profile"] == ""

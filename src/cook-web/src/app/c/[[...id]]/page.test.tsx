@@ -200,8 +200,7 @@ const mockLearnerProfileDialog = jest.fn(
     );
   },
 );
-const profileV2Status = (overrides: Record<string, unknown> = {}) => ({
-  contract_version: 'profile-v2',
+const profileOnboardingStatus = (overrides: Record<string, unknown> = {}) => ({
   enabled: true,
   should_show: false,
   presentation: 'hidden',
@@ -376,11 +375,9 @@ jest.mock('@/c-common/hooks/useTracking', () => ({
 jest.mock('@/c-api/user', () => ({
   getProfileOnboarding: (...args: unknown[]) =>
     mockGetProfileOnboarding(...args),
-  isProfileOnboardingV2Status: (value: unknown) =>
+  isProfileOnboardingStatus: (value: unknown) =>
     typeof value === 'object' &&
     value !== null &&
-    'contract_version' in value &&
-    value.contract_version === 'profile-v2' &&
     'guided_available' in value &&
     'presentation' in value &&
     (value.presentation === 'blocking' || value.presentation === 'hidden'),
@@ -503,7 +500,7 @@ describe('ChatPage profile onboarding gate', () => {
       addListener: jest.fn(),
       removeListener: jest.fn(),
     });
-    mockGetProfileOnboarding.mockResolvedValue(profileV2Status());
+    mockGetProfileOnboarding.mockResolvedValue(profileOnboardingStatus());
     mockSkipProfileOnboarding.mockResolvedValue({ skipped: true });
     mockReloadTree.mockResolvedValue(null);
     mockRefreshUserInfo.mockResolvedValue(undefined);
@@ -525,7 +522,7 @@ describe('ChatPage profile onboarding gate', () => {
       'false',
     );
 
-    resolveStatus(profileV2Status());
+    resolveStatus(profileOnboardingStatus());
 
     await waitFor(() => {
       expect(screen.getByTestId('chat-ui')).toHaveAttribute(
@@ -537,7 +534,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('keeps the chat runtime blocked until onboarding completion refreshes user info', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -587,7 +584,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('ignores a direct dismiss while blocking onboarding is still eligible', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -613,7 +610,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('fails open for a retired non-blocking status response', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'non_blocking',
       }),
@@ -650,7 +647,7 @@ describe('ChatPage profile onboarding gate', () => {
       }),
     );
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -687,10 +684,10 @@ describe('ChatPage profile onboarding gate', () => {
 
   test.each([
     ['old backend', { enabled: true, should_show: true, markdownflow: '?[Q]' }],
-    ['hidden presentation', profileV2Status({ should_show: true })],
+    ['hidden presentation', profileOnboardingStatus({ should_show: true })],
     [
       'disabled guided config',
-      profileV2Status({
+      profileOnboardingStatus({
         enabled: false,
         should_show: true,
         presentation: 'blocking',
@@ -698,7 +695,7 @@ describe('ChatPage profile onboarding gate', () => {
     ],
     [
       'guided unavailable',
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
         guided_available: false,
@@ -724,7 +721,7 @@ describe('ChatPage profile onboarding gate', () => {
             resolveFirstStatus = resolve;
           }),
       )
-      .mockResolvedValueOnce(profileV2Status());
+      .mockResolvedValueOnce(profileOnboardingStatus());
 
     const { rerender } = render(<ChatPage />);
     await waitFor(() =>
@@ -746,7 +743,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     await act(async () => {
       resolveFirstStatus(
-        profileV2Status({
+        profileOnboardingStatus({
           should_show: true,
           presentation: 'blocking',
         }),
@@ -873,7 +870,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('keeps blocking and surfaces the backend error when defer fails', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -900,7 +897,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('starts runtime and reports delayed user refresh after guided submission', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -973,7 +970,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('keeps the active onboarding dialog mounted when the menu entry is used', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -1050,7 +1047,7 @@ describe('ChatPage profile onboarding gate', () => {
     );
 
     await act(async () => {
-      resolveStatus(profileV2Status());
+      resolveStatus(profileOnboardingStatus());
     });
 
     expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
@@ -1075,7 +1072,7 @@ describe('ChatPage profile onboarding gate', () => {
       screen.getByRole('button', { name: openLearnerProfileLabel }),
     );
     await act(async () => {
-      resolveStatus(profileV2Status());
+      resolveStatus(profileOnboardingStatus());
     });
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
@@ -1109,7 +1106,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     await act(async () => {
       resolveStatus(
-        profileV2Status({
+        profileOnboardingStatus({
           should_show: true,
           presentation: 'blocking',
         }),
@@ -1146,7 +1143,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     await act(async () => {
       resolveStatus(
-        profileV2Status({
+        profileOnboardingStatus({
           should_show: true,
           presentation: 'blocking',
         }),
@@ -1208,7 +1205,7 @@ describe('ChatPage profile onboarding gate', () => {
 
     await act(async () => {
       resolveStatus(
-        profileV2Status({
+        profileOnboardingStatus({
           should_show: true,
           presentation: 'blocking',
         }),
@@ -1224,7 +1221,7 @@ describe('ChatPage profile onboarding gate', () => {
 
   test('closes stale profile UI and reloads eligibility after account switch', async () => {
     mockGetProfileOnboarding.mockResolvedValue(
-      profileV2Status({
+      profileOnboardingStatus({
         should_show: true,
         presentation: 'blocking',
       }),
@@ -1235,7 +1232,7 @@ describe('ChatPage profile onboarding gate', () => {
     expect(
       await screen.findByTestId('learner-profile-dialog'),
     ).toBeInTheDocument();
-    mockGetProfileOnboarding.mockResolvedValue(profileV2Status());
+    mockGetProfileOnboarding.mockResolvedValue(profileOnboardingStatus());
     mockUserStoreState.userInfo = {
       ...defaultMockUserInfo,
       user_id: 'user-2',
@@ -1281,7 +1278,7 @@ describe('ChatPage profile onboarding gate', () => {
       'false',
     );
     await act(async () => {
-      resolveUserB(profileV2Status());
+      resolveUserB(profileOnboardingStatus());
     });
 
     await waitFor(() => {
@@ -1302,7 +1299,7 @@ describe('ChatPage profile onboarding gate', () => {
     const { rerender } = render(<ChatPage />);
     await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
 
-    mockGetProfileOnboarding.mockResolvedValueOnce(profileV2Status());
+    mockGetProfileOnboarding.mockResolvedValueOnce(profileOnboardingStatus());
     mockUserStoreState.userInfo = {
       ...defaultMockUserInfo,
       user_id: 'user-2',
@@ -1318,7 +1315,7 @@ describe('ChatPage profile onboarding gate', () => {
     });
     await act(async () => {
       resolveUserA(
-        profileV2Status({
+        profileOnboardingStatus({
           should_show: true,
           presentation: 'blocking',
         }),

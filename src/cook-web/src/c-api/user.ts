@@ -57,8 +57,7 @@ export {
   completeGuidedProfileOnboarding as completeProfileOnboarding,
   createProfileOnboardingSession,
   getProfileOnboarding,
-  isProfileOnboardingV2Status,
-  PROFILE_ONBOARDING_CONTRACT_VERSION,
+  isProfileOnboardingStatus,
   runProfileOnboardingSession,
   skipGuidedProfileOnboarding as skipProfileOnboarding,
 } from '@/api/learnerProfile';
@@ -70,7 +69,7 @@ export type {
   ProfileOnboardingSession,
   ProfileOnboardingSessionIntent,
   ProfileOnboardingStatus,
-  ProfileOnboardingV2Status,
+  ProfileOnboardingStatusResponse,
 } from '@/api/learnerProfile';
 
 /**

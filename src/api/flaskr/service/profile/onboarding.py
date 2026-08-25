@@ -15,7 +15,7 @@ from flaskr.service.profile.learner_profile import (
     LEARNER_PROFILE_MAX_LENGTH,
     LEARNER_PROFILE_TRIGGER_SOURCES,
     PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
+    PROFILE_ONBOARDING_STATE_VERSION,
     get_learner_profile,
     load_learner_profile_state,
     load_learner_profile_user,
@@ -40,7 +40,7 @@ _T = TypeVar("_T")
 
 
 def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
-    """Return the canonical profile-v2 onboarding status."""
+    """Return the canonical profile onboarding status."""
     try:
         config_payload = load_profile_onboarding_config_payload()
     except Exception:
@@ -57,20 +57,24 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
             app.logger.warning("profile onboarding config is invalid", exc_info=True)
             guided_available = False
 
-    v2_state = load_learner_profile_state(user_id)
+    onboarding_state = load_learner_profile_state(user_id)
     learner_profile = get_learner_profile(user_id=user_id)
     has_learner_profile = bool(learner_profile["has_learner_profile"])
-    canonical_handled = v2_state is not None or has_learner_profile
+    canonical_handled = onboarding_state is not None or has_learner_profile
     presentation = "hidden" if not guided_available or canonical_handled else "blocking"
 
     canonical_completed = bool(
-        has_learner_profile or (v2_state and v2_state.status == "completed")
+        has_learner_profile
+        or (onboarding_state and onboarding_state.status == "completed")
     )
     effective_status = (
-        "completed" if has_learner_profile else v2_state.status if v2_state else None
+        "completed"
+        if has_learner_profile
+        else onboarding_state.status
+        if onboarding_state
+        else None
     )
     return {
-        "contract_version": PROFILE_ONBOARDING_VERSION,
         "enabled": configured_enabled,
         "guided_available": guided_available,
         "should_show": guided_available and not canonical_handled,
@@ -80,11 +84,13 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
         "skipped": effective_status == "skipped",
         "status": effective_status,
         "trigger_source": (
-            v2_state.trigger_source
-            if v2_state and v2_state.status == effective_status
+            onboarding_state.trigger_source
+            if onboarding_state and onboarding_state.status == effective_status
             else None
         ),
-        "completed_at": to_utc_iso(v2_state.completed_at) if v2_state else None,
+        "completed_at": (
+            to_utc_iso(onboarding_state.completed_at) if onboarding_state else None
+        ),
         "max_length": LEARNER_PROFILE_MAX_LENGTH,
         "config_revision": int(config_payload.get("revision") or 0),
         **learner_profile,
@@ -99,7 +105,7 @@ def complete_profile_onboarding(
     trigger_source: str,
     nickname: str | None = None,
 ) -> dict[str, Any]:
-    """Persist the canonical v2 profile, optional nickname, and state."""
+    """Persist the canonical profile, optional nickname, and onboarding state."""
     if (
         not isinstance(trigger_source, str)
         or trigger_source not in LEARNER_PROFILE_TRIGGER_SOURCES
@@ -115,7 +121,7 @@ def complete_profile_onboarding(
     )
 
 
-def _commit_v2_state_with_race_retry(
+def _commit_onboarding_state_with_race_retry(
     operation: Callable[[], _T], *, user_id: str
 ) -> _T:
     def run_once() -> _T:
@@ -150,7 +156,7 @@ def skip_profile_onboarding(*, user_id: str) -> dict[str, Any]:
             state = UserOnboardingState(
                 user_bid=user_id,
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                version=PROFILE_ONBOARDING_VERSION,
+                version=PROFILE_ONBOARDING_STATE_VERSION,
                 status="completed" if has_learner_profile else "skipped",
                 trigger_source="settings" if has_learner_profile else "skipped",
                 completed_at=now_utc(),
@@ -163,7 +169,7 @@ def skip_profile_onboarding(*, user_id: str) -> dict[str, Any]:
                 state.completed_at = now_utc()
         return state
 
-    state = _commit_v2_state_with_race_retry(operation, user_id=user_id)
+    state = _commit_onboarding_state_with_race_retry(operation, user_id=user_id)
     return {
         "handled": True,
         "completed": state.status == "completed",
@@ -171,5 +177,4 @@ def skip_profile_onboarding(*, user_id: str) -> dict[str, Any]:
         "status": state.status,
         "trigger_source": state.trigger_source,
         "completed_at": to_utc_iso(state.completed_at),
-        "version": PROFILE_ONBOARDING_VERSION,
     }

@@ -62,7 +62,7 @@ available only to existing compatibility flows and courses.
   duplicate request. It has no IP rate limit, trusted-proxy configuration, or
   feature-specific environment variables.
 - The modern flow never writes legacy `sys_*` rows. It may read the exact
-  `sys_user_nickname` assignment from its Redis session result so V2 complete
+  `sys_user_nickname` assignment from its Redis session result so current complete
   can save the canonical nickname alongside the profile.
 - Profile onboarding configuration contains only the enable switch and the
   MarkdownFlow document. Legacy stored `document_prompt` keys are ignored and
@@ -137,14 +137,14 @@ legacy `sys_*` variables or make profile optimization a persistence action.
   style values so the frontend rebuilds the draft on every dialog open. Saving
   an empty introduction does not suppress that future prefill; nickname stays
   independent and is not revived from a handled legacy value.
-- Profile, nickname, timestamps, and profile-v2 handled state update atomically
+- Profile, nickname, timestamps, and profile onboarding handled state update atomically
   on a successful save. Stale account, unmounted, or closed-dialog responses do
   not update the UI.
 - The dialog never writes legacy `sys_*` values. Existing legacy variable
   behavior, including `sys_user_nickname`, remains unchanged.
 - `POST /api/user/learner-profile/optimize` accepts one non-empty introduction
   and returns `{ "optimized_learner_profile": string }` in the common response
-  envelope without mutating profile, nickname, timestamps, profile-v2 state, or
+  envelope without mutating profile, nickname, timestamps, profile onboarding state, or
   client profile-changed events.
 - Optimization success remains editable and requires the normal Save action;
   undo restores the original in-memory draft. Failure, rejection, or an old
@@ -154,7 +154,7 @@ legacy `sys_*` variables or make profile optimization a persistence action.
   draft appears in the save editor. It does not call the optimization API; the
   learner may still choose **Improve with AI** afterward.
 - If the collection document assigns `sys_user_nickname`, the terminal result
-  carries only that exact value into the nickname field and V2 completion saves
+  carries only that exact value into the nickname field and canonical completion saves
   it atomically with the profile. Arbitrary MarkdownFlow variables remain
   session-only and no legacy `sys_*` row is created.
 - The platform summary block produces no `content` or `element` event for the
@@ -179,7 +179,7 @@ rewrite legacy profile contracts.
 ## Interfaces and Dependencies
 
 - Database: existing `user_users.nickname`, `learner_profile`, and
-  `learner_profile_updated_at` fields plus the existing profile-v2 onboarding
+  `learner_profile_updated_at` fields plus the existing profile onboarding
   state; no new optimizer schema is required.
 - API: `GET|PUT|DELETE /api/user/learner-profile` and authenticated
   `POST /api/user/learner-profile/optimize`.

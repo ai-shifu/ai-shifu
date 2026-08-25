@@ -48,7 +48,7 @@ LEARNER_PROFILE_CHECK_STRATEGY = "check_learner_profile"
 LEARNER_PROFILE_STATUS_COMPLETED = "completed"
 LEARNER_PROFILE_TRIGGER_SOURCES = frozenset({"guided", "pasted", "settings"})
 PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
-PROFILE_ONBOARDING_VERSION = "profile-v2"
+PROFILE_ONBOARDING_STATE_VERSION = "v1"
 
 _T = TypeVar("_T")
 
@@ -277,7 +277,7 @@ def load_learner_profile_state(
     query = UserOnboardingState.query.filter(
         UserOnboardingState.user_bid == str(user_id or "").strip(),
         UserOnboardingState.scene_key == PROFILE_ONBOARDING_SCENE_KEY,
-        UserOnboardingState.version == PROFILE_ONBOARDING_VERSION,
+        UserOnboardingState.version == PROFILE_ONBOARDING_STATE_VERSION,
     )
     if for_update:
         query = query.populate_existing().with_for_update()
@@ -382,7 +382,7 @@ def merge_learner_profile_for_sign_in(
         UserOnboardingState(
             user_bid=normalized_target_id,
             scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-            version=PROFILE_ONBOARDING_VERSION,
+            version=PROFILE_ONBOARDING_STATE_VERSION,
             status=source_state.status,
             trigger_source=source_state.trigger_source,
             completed_at=source_state.completed_at,
@@ -416,7 +416,7 @@ def _apply_completed_state(
         state = UserOnboardingState(
             user_bid=user_id,
             scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-            version=PROFILE_ONBOARDING_VERSION,
+            version=PROFILE_ONBOARDING_STATE_VERSION,
             status=LEARNER_PROFILE_STATUS_COMPLETED,
             trigger_source=trigger_source,
             completed_at=now,
@@ -464,7 +464,6 @@ def _serialize_completed_state(state: UserOnboardingState) -> dict[str, object]:
         "status": state.status,
         "trigger_source": state.trigger_source,
         "completed_at": to_utc_iso(state.completed_at),
-        "version": state.version,
     }
 
 

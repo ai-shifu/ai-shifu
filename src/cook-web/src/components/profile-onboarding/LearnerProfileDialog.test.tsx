@@ -13,7 +13,7 @@ import {
   getProfileOnboarding,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
-  type ProfileOnboardingV2Status,
+  type ProfileOnboardingStatus,
   updateLearnerProfile,
 } from '@/api/learnerProfile';
 import { PROFILE_ONBOARDING_EVENTS } from './events';
@@ -160,11 +160,11 @@ jest.mock('@/api/learnerProfile', () => ({
   createProfileOnboardingSession: jest.fn(),
   getLearnerProfile: jest.fn(),
   getProfileOnboarding: jest.fn(),
-  isProfileOnboardingV2Status: (value: unknown) =>
+  isProfileOnboardingStatus: (value: unknown) =>
     typeof value === 'object' &&
     value !== null &&
-    'contract_version' in value &&
-    value.contract_version === 'profile-v2',
+    'guided_available' in value &&
+    'presentation' in value,
   optimizeLearnerProfile: jest.fn(),
   runProfileOnboardingSession: jest.fn(),
   updateLearnerProfile: jest.fn(),
@@ -200,7 +200,7 @@ const mockCompleteGuidedProfileOnboarding =
 const mockCreateProfileOnboardingSession =
   createProfileOnboardingSession as jest.Mock;
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
-const mockGetProfileOnboardingV2 = getProfileOnboarding as jest.Mock;
+const mockGetProfileOnboardingStatus = getProfileOnboarding as jest.Mock;
 const mockOptimizeLearnerProfile = optimizeLearnerProfile as jest.Mock;
 const mockRunProfileOnboardingSession =
   runProfileOnboardingSession as jest.Mock;
@@ -229,9 +229,8 @@ const emptyProfile = {
 
 const onboardingStatus = (
   overrides: Record<string, unknown> = {},
-): ProfileOnboardingV2Status =>
+): ProfileOnboardingStatus =>
   ({
-    contract_version: 'profile-v2',
     enabled: true,
     guided_available: true,
     should_show: true,
@@ -239,7 +238,7 @@ const onboardingStatus = (
     handled: false,
     ...emptyProfile,
     ...overrides,
-  }) as ProfileOnboardingV2Status;
+  }) as ProfileOnboardingStatus;
 
 const sessionResponse = (sessionId = SESSION_ID) => ({
   session_id: sessionId,
@@ -306,7 +305,7 @@ describe('LearnerProfileDialog', () => {
     mockConversationControls.splice(0);
     mockLanguage = 'en-US';
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(
+    mockGetProfileOnboardingStatus.mockResolvedValue(
       onboardingStatus({
         should_show: false,
         presentation: 'hidden',
@@ -327,7 +326,7 @@ describe('LearnerProfileDialog', () => {
     const profileRequest = deferred<typeof emptyProfile>();
     const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
     mockGetLearnerProfile.mockReturnValue(profileRequest.promise);
-    mockGetProfileOnboardingV2.mockReturnValue(statusRequest.promise);
+    mockGetProfileOnboardingStatus.mockReturnValue(statusRequest.promise);
 
     renderDialog({ exitPolicy: 'blocking', presentation: 'blocking' });
 
@@ -409,7 +408,7 @@ describe('LearnerProfileDialog', () => {
   test('shows an existing profile without waiting for optional onboarding status', async () => {
     const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
-    mockGetProfileOnboardingV2.mockReturnValue(statusRequest.promise);
+    mockGetProfileOnboardingStatus.mockReturnValue(statusRequest.promise);
 
     renderDialog();
 
@@ -435,7 +434,7 @@ describe('LearnerProfileDialog', () => {
 
   test('keeps an empty profile in the editor outside the course onboarding gate', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
 
     renderDialog({ autoStartCollection: false });
 
@@ -487,7 +486,7 @@ describe('LearnerProfileDialog', () => {
 
     expect(profileInput()).toHaveValue('Unsaved profile from the menu entry');
     expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
-    expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(1);
+    expect(mockGetProfileOnboardingStatus).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByText('module.profileOnboarding.dialog.discardTitle'),
     ).not.toBeInTheDocument();
@@ -505,7 +504,7 @@ describe('LearnerProfileDialog', () => {
 
   test('keeps an active research session when the host upgrades the open dialog to onboarding', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     const { rerender, props } = renderDialog();
 
     await waitForCollectionSession();
@@ -522,13 +521,13 @@ describe('LearnerProfileDialog', () => {
       SESSION_ID,
     );
     expect(mockGetLearnerProfile).toHaveBeenCalledTimes(1);
-    expect(mockGetProfileOnboardingV2).toHaveBeenCalledTimes(1);
+    expect(mockGetProfileOnboardingStatus).toHaveBeenCalledTimes(1);
     expect(mockCreateProfileOnboardingSession).toHaveBeenCalledTimes(1);
   });
 
   test('uses onboarding intent for a fresh profile and proxies runtime calls', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
 
     renderDialog({ exitPolicy: 'blocking', presentation: 'blocking' });
 
@@ -552,7 +551,7 @@ describe('LearnerProfileDialog', () => {
 
   test('uses settings intent for a handled learner without a profile', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(
+    mockGetProfileOnboardingStatus.mockResolvedValue(
       onboardingStatus({ handled: true, should_show: false }),
     );
 
@@ -702,7 +701,7 @@ describe('LearnerProfileDialog', () => {
 
   test('falls back to a manual empty editor when guided research is unavailable', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(
+    mockGetProfileOnboardingStatus.mockResolvedValue(
       onboardingStatus({ enabled: false, guided_available: false }),
     );
 
@@ -730,7 +729,7 @@ describe('LearnerProfileDialog', () => {
 
   test('waits for explicit review guidance before placing a terminal collection draft in the editor', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
 
     renderDialog({ exitPolicy: 'blocking', presentation: 'blocking' });
     await waitForCollectionSession();
@@ -779,7 +778,7 @@ describe('LearnerProfileDialog', () => {
 
   test('places an over-limit collection draft in the editor without invoking optimization', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
 
     renderDialog({ exitPolicy: 'blocking', presentation: 'blocking' });
     await waitForCollectionSession();
@@ -801,7 +800,7 @@ describe('LearnerProfileDialog', () => {
 
   test('optimizes a collected draft only after an explicit request and can undo it', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
 
     renderDialog({ exitPolicy: 'dismissible' });
     await waitForCollectionSession();
@@ -835,7 +834,7 @@ describe('LearnerProfileDialog', () => {
     const onSaved = jest.fn();
     const onClose = jest.fn();
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     mockCompleteGuidedProfileOnboarding.mockResolvedValue({
       ...existingProfile,
       learner_profile: 'Collection draft',
@@ -913,7 +912,7 @@ describe('LearnerProfileDialog', () => {
 
   test('omits an unchanged nickname from guided completion', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
 
     renderDialog({ exitPolicy: 'blocking' });
     await waitForCollectionSession();
@@ -937,7 +936,7 @@ describe('LearnerProfileDialog', () => {
 
   test('keeps the guided session and draft after save failure so save can retry', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     mockCompleteGuidedProfileOnboarding
       .mockRejectedValueOnce(new Error('Save unavailable'))
       .mockResolvedValueOnce({
@@ -1070,7 +1069,7 @@ describe('LearnerProfileDialog', () => {
 
   test('restores the prior collection completion context when a new collection is cancelled', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     mockCreateProfileOnboardingSession
       .mockResolvedValueOnce(sessionResponse(SESSION_ID))
       .mockResolvedValueOnce(sessionResponse(SESSION_ID_2));
@@ -1306,7 +1305,7 @@ describe('LearnerProfileDialog', () => {
     const onClose = jest.fn();
     const onDefer = jest.fn().mockResolvedValue(false);
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     renderDialog({
       exitPolicy: 'blocking',
       presentation: 'blocking',
@@ -1334,7 +1333,7 @@ describe('LearnerProfileDialog', () => {
     const onClose = jest.fn();
     const onDefer = jest.fn().mockResolvedValue(true);
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
-    mockGetProfileOnboardingV2.mockResolvedValue(onboardingStatus());
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
     renderDialog({
       exitPolicy: 'blocking',
       presentation: 'blocking',
@@ -1394,7 +1393,7 @@ describe('LearnerProfileDialog', () => {
         learner_profile: 'Account B profile',
         nickname: 'Blake',
       });
-    mockGetProfileOnboardingV2
+    mockGetProfileOnboardingStatus
       .mockResolvedValueOnce(onboardingStatus())
       .mockResolvedValueOnce(
         onboardingStatus({
@@ -1444,7 +1443,7 @@ describe('LearnerProfileDialog', () => {
         learner_profile: 'Account B profile',
         nickname: 'Blake',
       });
-    mockGetProfileOnboardingV2.mockResolvedValue(
+    mockGetProfileOnboardingStatus.mockResolvedValue(
       onboardingStatus({ handled: true, ...existingProfile }),
     );
     mockOptimizeLearnerProfile.mockReturnValue(optimization.promise);

@@ -18,7 +18,7 @@ from flaskr.service.profile.funcs import (
 )
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
+    PROFILE_ONBOARDING_STATE_VERSION,
     replace_learner_profile,
 )
 from flaskr.service.profile.models import VariableValue
@@ -32,7 +32,7 @@ from flaskr.service.user.repository import (
 from flaskr.util.datetime import now_utc
 
 
-def _create_user_with_v2_state(user_bid: str, *, status: str) -> None:
+def _create_user_with_onboarding_state(user_bid: str, *, status: str) -> None:
     create_user_entity(
         user_bid=user_bid,
         identify=user_bid,
@@ -43,7 +43,7 @@ def _create_user_with_v2_state(user_bid: str, *, status: str) -> None:
         UserOnboardingState(
             user_bid=user_bid,
             scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-            version=PROFILE_ONBOARDING_VERSION,
+            version=PROFILE_ONBOARDING_STATE_VERSION,
             status=status,
             trigger_source="test",
             completed_at=now_utc(),
@@ -166,8 +166,8 @@ def test_background_writers_dual_write_canonical_profile_and_variable_history(
     )
 
     with app.app_context():
-        user_bid = "profile-v2-legacy-compatible"
-        _create_user_with_v2_state(user_bid, status="completed")
+        user_bid = "profile-state-legacy-compatible"
+        _create_user_with_onboarding_state(user_bid, status="completed")
 
         save_user_profiles(
             app,
@@ -222,8 +222,8 @@ def test_background_write_keeps_state_row_unchanged_but_status_is_completed(
     )
 
     with app.app_context():
-        user_bid = "profile-v2-skipped-legacy"
-        _create_user_with_v2_state(user_bid, status="skipped")
+        user_bid = "profile-state-skipped-legacy"
+        _create_user_with_onboarding_state(user_bid, status="skipped")
 
         save_user_profiles(
             app,
@@ -506,7 +506,7 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
     )
 
     with app.app_context():
-        user_bid = "profile-v2-canonical-nickname"
+        user_bid = "profile-state-canonical-nickname"
         user = create_user_entity(
             user_bid=user_bid,
             identify=user_bid,
@@ -519,7 +519,7 @@ def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(
             UserOnboardingState(
                 user_bid=user_bid,
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                version=PROFILE_ONBOARDING_VERSION,
+                version=PROFILE_ONBOARDING_STATE_VERSION,
                 status="completed",
                 trigger_source="settings",
                 completed_at=now_utc(),

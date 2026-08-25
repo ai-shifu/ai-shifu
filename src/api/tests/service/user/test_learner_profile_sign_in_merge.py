@@ -10,7 +10,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
+    PROFILE_ONBOARDING_STATE_VERSION,
     load_learner_profile_state,
     merge_learner_profile_for_sign_in,
 )
@@ -102,7 +102,7 @@ def _add_state(
     state = UserOnboardingState(
         user_bid=user_bid,
         scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-        version=PROFILE_ONBOARDING_VERSION,
+        version=PROFILE_ONBOARDING_STATE_VERSION,
         status=status,
         trigger_source=trigger_source,
         completed_at=PROFILE_UPDATED_AT,

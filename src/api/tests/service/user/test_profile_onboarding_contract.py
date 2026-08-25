@@ -1,4 +1,4 @@
-"""Verify the canonical profile-v2 onboarding contract."""
+"""Verify the canonical profile onboarding contract."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def test_status_fails_open_when_profile_config_cannot_be_loaded(
             user_id="protocol-config-unavailable",
         )
 
-    assert status["contract_version"] == "profile-v2"
+    assert "contract_version" not in status
     assert status["enabled"] is False
     assert status["guided_available"] is False
     assert status["should_show"] is False
@@ -93,12 +93,11 @@ def test_old_sentinel_is_ignored_and_fresh_user_remains_blocking(
             user_id=user_id,
         )
 
-    assert status["contract_version"] == "profile-v2"
+    assert "contract_version" not in status
     assert status["config_revision"] == 8
     assert status["handled"] is False
     assert status["should_show"] is True
     assert status["presentation"] == "blocking"
-    assert "profile_v2" not in status
     assert "legacy_handled" not in status
     assert "markdownflow" not in status
 
@@ -128,8 +127,11 @@ def test_late_skip_never_downgrades_a_completed_profile(
         state = UserOnboardingState.query.filter_by(user_bid="protocol-late-skip").one()
 
     assert completed["status"] == "completed"
+    assert "version" not in completed
     assert skipped["status"] == "completed"
     assert skipped["skipped"] is False
+    assert "version" not in skipped
+    assert state.version == "v1"
     assert state.status == "completed"
     assert state.trigger_source == "guided"
 

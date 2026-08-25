@@ -8,7 +8,7 @@ generic profile update endpoint must update the canonical profile and append a
 matching `VariableValue` row in one transaction, while all reads ignore old
 background variable rows. At the same time, retire the temporary learner and
 admin onboarding compatibility protocol so the application has one direct
-profile-v2 contract before later collection methods are introduced.
+profile onboarding contract before later collection methods are introduced.
 
 No database migration is required. Historical background and sentinel rows
 remain stored, but no longer affect runtime behavior.
@@ -20,17 +20,20 @@ remain stored, but no longer affect runtime behavior.
 - [x] 2026-08-25 10:45 CST: Bound `sys_user_background` reads and writes to the
       canonical learner profile with transactional regression coverage.
 - [x] 2026-08-25 10:55 CST: Removed learner legacy projection/sentinel handling
-      and published one direct profile-v2 status and completion contract.
+      and published one direct profile onboarding status and completion contract.
 - [x] 2026-08-25 11:00 CST: Removed admin compatibility fields and aligned
       frontend APIs, gate state, dialog prefill, translations, and tests.
 - [x] 2026-08-25 11:20 CST: Regenerated repository artifacts, passed focused,
       full, and repository gates, documented outcomes, and archived this plan.
+- [x] 2026-08-25 12:00 CST: Removed the obsolete public contract version and
+      renamed the first persisted profile-onboarding state generation to `v1`
+      before production data existed.
 
 ## Surprises & Discoveries
 
 - The course MarkdownFlow assignment path already converges on
   `save_user_profiles`, so binding the system field there covers normal course
-  interactions without adding profile-v2 state writes.
+  interactions without adding profile onboarding state writes.
 - Phone and email guest-to-account flows run the canonical sign-in merge and
   then migrate generic profile labels. Once background becomes a mapped label,
   that second phase must explicitly exclude it so target-cleared-wins remains
@@ -55,18 +58,19 @@ remain stored, but no longer affect runtime behavior.
   - Why: an explicit canonical clear must not resurrect older variable data.
 - Decision: generic background writes append a `VariableValue` row and update
   the locked user aggregate in the same outer transaction, but do not create a
-  profile-v2 onboarding state.
+  profile onboarding state.
   - Why: existing variable-history consumers retain an audit-compatible row,
     while onboarding completion remains derived from canonical profile/state.
 - Decision: keep historical rows and database columns untouched.
   - Why: the contract can be retired without a risky data migration.
 - Decision: ignore old onboarding sentinels completely.
-  - Why: users without a canonical profile or profile-v2 state must now follow
+  - Why: users without a canonical profile or profile onboarding state must now follow
     the current blocking collection flow.
-- Decision: retain the string `profile-v2` contract/state version, but remove
-  only the temporary admin numeric `version` alias and revision fallback.
-  - Why: the canonical protocol identity is still active; the numeric field was
-    only a deployment bridge.
+- Decision: expose no learner onboarding contract version and use `v1` only as
+  the internal state-table generation.
+  - Why: there is one public contract, production has no rows using the former
+    pre-release identifier, and the generic state table still requires a
+    generation value for its unique key.
 
 ## Outcomes & Retrospective
 
@@ -77,7 +81,7 @@ update the canonical field and UTC timestamp semantics, and append matching
 global variable history in the caller-owned transaction. Explicit clears
 append an empty latest row while canonical empty remains authoritative.
 
-Learner onboarding now returns one direct profile-v2 status and accepts only
+Learner onboarding now returns one direct profile onboarding status and accepts only
 the canonical completion payload. Old sentinel rows and background rows remain
 stored but cannot affect eligibility, draft prefill, or runtime variables. The
 admin contract exposes only its current fields and `config_revision`; the
@@ -120,7 +124,7 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
 2. Exclude background from legacy prefill and generic sign-in label migration;
    keep legacy nickname/style behavior and canonical sign-in merge semantics.
 3. Delete legacy onboarding projection and sentinel code. Return direct
-   profile-v2 status, accept only the modern completion payload, and remove the
+   profile onboarding status, accept only the modern completion payload, and remove the
    non-blocking legacy presentation.
 4. Remove admin compatibility fields and revision fallback, then align all
    frontend types, API owners, gate logic, dialog prefill, admin state, i18n, and
@@ -134,7 +138,7 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
    and user/profile services. Add tests for read authority, dual write, clear,
    moderation, length, rollback, course substitution, and sign-in ownership.
 2. Replace dual-protocol status/complete route parsing and remove
-   `legacy_onboarding.py`. Update learner route tests to assert direct profile-v2
+   `legacy_onboarding.py`. Update learner route tests to assert direct profile onboarding
    output and strict rejection of old, mixed, empty, and unknown payloads.
 3. Normalize admin config only from `revision`, expose only
    `config_revision`, and update real preview callers and tests.
@@ -154,8 +158,9 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
   canonical value after a course interaction assignment.
 - Guest-to-account login keeps the existing canonical source/target/clear
   precedence for phone, email, Google, and password paths.
-- Learner onboarding GET returns one direct profile-v2 contract with only
+- Learner onboarding GET returns one direct profile onboarding contract with only
   `blocking` or `hidden`; old sentinel-only users are fresh.
+- Learner onboarding responses contain no public contract or state version.
 - Completion accepts only the modern payload and never writes legacy state.
 - Admin responses contain `config_revision` but no `allowed_variable_keys` or
   numeric `version`, and stored version-only data is not treated as a revision.
@@ -171,7 +176,7 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
   contain non-empty values.
 - Database errors roll back both the user aggregate and variable row through the
   existing unit-of-work boundary.
-- Redis session cleanup remains best-effort only after durable profile-v2
+- Redis session cleanup remains best-effort only after durable profile onboarding
   completion or skip; this refactor does not change session keys or TTLs.
 - If the frontend receives a cached legacy response, it fails open and requires
   a refresh rather than attempting to unwrap or reinterpret it.
@@ -192,7 +197,7 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
   - `user_users.learner_profile`
   - `user_users.learner_profile_updated_at`
   - existing `VariableValue` history rows
-  - existing profile-v2 state rows
+  - existing profile onboarding state rows
 - Shared validation:
   - `LEARNER_PROFILE_MAX_LENGTH`
   - canonical content moderation

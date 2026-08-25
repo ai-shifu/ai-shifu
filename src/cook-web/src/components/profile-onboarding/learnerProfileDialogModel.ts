@@ -1,6 +1,6 @@
 import type {
   ProfileOnboardingSessionIntent,
-  ProfileOnboardingV2Status,
+  ProfileOnboardingStatus,
   ProfileOnboardingPresentation,
 } from '@/api/learnerProfile';
 import { countUnicodeCodePoints } from './ProfileDraftEditor';
@@ -51,7 +51,7 @@ export type LearnerProfileDialogProps = {
   draftStorageScope: string;
   autoStartCollection?: boolean;
   presentation?: ProfileOnboardingPresentation;
-  initialOnboardingStatus?: ProfileOnboardingV2Status;
+  initialOnboardingStatus?: ProfileOnboardingStatus;
   externalErrorMessage?: string;
   externalSubmitting?: boolean;
   onDefer?: (sessionId?: string) => boolean | void | Promise<boolean | void>;

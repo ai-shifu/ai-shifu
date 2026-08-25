@@ -5,7 +5,7 @@
 This plan records the backend-first rolling compatibility contract that was
 required when guided onboarding first shipped. That release bridge has now
 been retired by `canonical-background-onboarding-contract.md`: learner status
-is a direct profile-v2 response, legacy completion and sentinel projection are
+is a direct profile onboarding response, legacy completion and sentinel projection are
 gone, and the admin API exposes only `config_revision`. The historical details
 below remain accurate for the original delivery, not for the current contract.
 
@@ -34,7 +34,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 - [x] 2026-08-16 16:00 CST: Passed 426 backend regressions (4 skipped), 10 frontend suites / 131 tests, TypeScript, changed-file ESLint/Prettier, Ruff/format, translations, architecture, repository harness, `git diff --check`, and the complete all-files lefthook gate on the merged-main base.
 - [x] 2026-08-16 16:07 CST: Force-pushed with an exact lease, replied to and resolved every verified thread, passed all fresh GitHub checks including backend and runtime harnesses, and observed the final application head for more than seven minutes with no new finding.
 - [x] 2026-08-16 16:48 CST: Replayed all 28 PR2 commits onto current `main` at `f86e0cbd7` with a 28/28 equal range-diff, retained the new account-menu and shared profile focus styles, and passed 285 backend regressions, 131 PR2 frontend tests, 32 account-menu tests, TypeScript, lint, format, translations, architecture, and diff checks.
-- [x] 2026-08-16 17:15 CST: Closed nine post-sync review findings as independent changes: preserved exact official button values in V2, projected label/value choices safely for legacy clients, centralized learner/admin run validation, preserved the original legacy wire layout, normalized completion payloads, aligned the French teacher term, restored virgin admin defaults, kept optional settings status from blocking edits, and rejected oversized answers before making an interaction read-only.
+- [x] 2026-08-16 17:15 CST: Closed nine post-sync review findings as independent changes: preserved exact official button values in current, projected label/value choices safely for legacy clients, centralized learner/admin run validation, preserved the original legacy wire layout, normalized completion payloads, aligned the French teacher term, restored virgin admin defaults, kept optional settings status from blocking edits, and rejected oversized answers before making an interaction read-only.
 - [x] 2026-08-16 17:22 CST: Passed 305 focused backend regressions, 10 focused frontend suites / 139 tests, TypeScript, changed-file ESLint/Prettier, Ruff/format, three-language translation checks, architecture, repository harness, `git diff --check`, and the complete all-files lefthook gate on `f86e0cbd7`.
 - [x] 2026-08-16 17:45 CST: Closed the final post-push Unicode review finding in its own commit by matching the retiring web parser's exact ECMAScript trim set, preserving U+0085 in legacy button values, and passing all 21 dual-protocol regressions plus Ruff, format, dev-tool, and diff checks.
 - [x] 2026-08-20 CST: Rebased the complete guided-profile and unified-dialog series onto current `main` at `e65aa770a`, preserving the new absolute backend import layout and current lint rules.
@@ -50,7 +50,7 @@ Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1
 - Use `331a54f531` only as implementation source, never as a wholesale tree replacement.
 - Preserve the modern `service/profile/api.py`, `api/learnerProfile.ts`, and shared `ProfileDraftEditor` from PR1.
 - Keep the PR2 frontend limited to guided/settings onboarding; preserve the canonical backend's dormant `pasted` completion trigger so PR3 can add import UX without another wire-contract change.
-- Preserve the required fresh legacy `should_show=true` contract by projecting only the legacy top-level MarkdownFlow response; persisted/admin/V2 documents remain the official original.
+- Preserve the required fresh legacy `should_show=true` contract by projecting only the legacy top-level MarkdownFlow response; persisted/admin/current documents remain the official original.
 - Treat one active Redis session per owner and purpose as a session-lifecycle invariant, not as a dedicated rate-limit or cohort subsystem.
 
 ## Outcomes & Retrospective
@@ -64,7 +64,7 @@ The legacy profile onboarding service lives at `src/api/flaskr/service/profile/o
 ## Plan of Work
 
 1. Copy only standalone source additions and compare every mixed file with PR1 before extracting behavior.
-2. Introduce the V2 nested contract and strict complete/skip routing while keeping legacy fields and persistence separate.
+2. Introduce the current nested contract and strict complete/skip routing while keeping legacy fields and persistence separate.
 3. Replace the local flow parser with MarkdownFlow rendering and a two-step guided/review dialog, then wire course and settings entry points.
 4. Validate protocol isolation, runtime session behavior, frontend gates, translations, and build quality.
 
@@ -72,12 +72,12 @@ The legacy profile onboarding service lives at `src/api/flaskr/service/profile/o
 
 1. Diff `dd715813e` and `331a54f531` file-by-file; reject source-only unrelated refactors/deletions.
 2. Add `profile_research` runtime and summary prompt, route/config hooks, and focused pytest cases.
-3. Apply V2 onboarding route/UI hunks, retaining PR1 API and direct editor code.
+3. Apply current onboarding route/UI hunks, retaining PR1 API and direct editor code.
 4. Run focused tests, format/type/lint/harness checks, then commit and publish the stacked PR.
 
 ## Validation and Acceptance
 
-- Backend V2 and legacy payloads coexist and do not write each other's state.
+- Backend current and legacy payloads coexist and do not write each other's state.
 - Guided config unavailable/broken is hidden and fail-open.
 - Course dialog is guided/review only, has an explicit defer action, and does not close implicitly.
 - `profile_research` has no `service.learn` import and uses shared Redis session behavior.
@@ -85,11 +85,11 @@ The legacy profile onboarding service lives at `src/api/flaskr/service/profile/o
 
 ## Idempotence and Recovery
 
-Changes are isolated to this branch. Re-running tests and generators is safe. If a source hunk conflicts with PR1 behavior, retain PR1 and manually apply only the V2 intent after inspecting call sites. No migration is generated or applied.
+Changes are isolated to this branch. Re-running tests and generators is safe. If a source hunk conflicts with PR1 behavior, retain PR1 and manually apply only the current intent after inspecting call sites. No migration is generated or applied.
 
 ## Interfaces and Dependencies
 
 - Existing legacy learner endpoints retain top-level `enabled`, `should_show`, `markdownflow`, `allowed_variable_keys`, and `current_values`.
-- V2 is nested under `profile_v2` with a contract version and guided/settings actions.
+- current is nested under `wrapped profile status` with a contract version and guided/settings actions.
 - Redis sessions are scoped by owner and purpose, with one active-session pointer per scope; MarkdownFlow runtime/parser is the authoritative interaction engine.
 - Deploy backend before frontend so old clients continue operating during rollout.

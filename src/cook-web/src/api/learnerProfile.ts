@@ -24,10 +24,7 @@ export type ProfileOnboardingPresentation = 'blocking' | 'hidden';
 
 export type ProfileOnboardingSessionIntent = 'onboarding' | 'settings';
 
-export const PROFILE_ONBOARDING_CONTRACT_VERSION = 'profile-v2' as const;
-
-export type ProfileOnboardingV2Status = LearnerProfile & {
-  contract_version: typeof PROFILE_ONBOARDING_CONTRACT_VERSION;
+export type ProfileOnboardingStatus = LearnerProfile & {
   enabled: boolean;
   guided_available: boolean;
   should_show: boolean;
@@ -36,7 +33,7 @@ export type ProfileOnboardingV2Status = LearnerProfile & {
   config_revision?: number;
 };
 
-export type ProfileOnboardingStatus = Partial<ProfileOnboardingV2Status>;
+export type ProfileOnboardingStatusResponse = Partial<ProfileOnboardingStatus>;
 
 export type CompleteProfileOnboardingPayload = {
   learner_profile: string;
@@ -59,14 +56,13 @@ export type ProfileOnboardingRunEvent = ProfileOnboardingStreamEvent;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export const isProfileOnboardingV2Status = (
+export const isProfileOnboardingStatus = (
   value: unknown,
-): value is ProfileOnboardingV2Status => {
+): value is ProfileOnboardingStatus => {
   if (!isRecord(value)) {
     return false;
   }
   return (
-    value.contract_version === PROFILE_ONBOARDING_CONTRACT_VERSION &&
     typeof value.enabled === 'boolean' &&
     typeof value.should_show === 'boolean' &&
     ['blocking', 'hidden'].includes(String(value.presentation || '')) &&
@@ -82,8 +78,9 @@ export const isProfileOnboardingV2Status = (
   );
 };
 
-export const getProfileOnboarding = (): Promise<ProfileOnboardingStatus> =>
-  request.get('/api/user/profile-onboarding', { skipErrorToast: true });
+export const getProfileOnboarding =
+  (): Promise<ProfileOnboardingStatusResponse> =>
+    request.get('/api/user/profile-onboarding', { skipErrorToast: true });
 
 export const createProfileOnboardingSession = (
   language?: string,
