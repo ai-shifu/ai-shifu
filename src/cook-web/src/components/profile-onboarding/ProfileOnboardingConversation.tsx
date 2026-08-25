@@ -36,6 +36,7 @@ export type ProfileOnboardingConversationProps = {
     nickname?: string,
   ) => void;
   onError: (error: unknown) => void;
+  onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
 };
 
@@ -48,6 +49,7 @@ export default function ProfileOnboardingConversation({
   onRunInFlightChange,
   onDraftReady,
   onError,
+  onSessionCreateRejected,
   onRetry,
 }: ProfileOnboardingConversationProps) {
   const { t, i18n } = useTranslation();
@@ -73,6 +75,7 @@ export default function ProfileOnboardingConversation({
     onRunInFlightChange,
     onDraftReady,
     onError,
+    onSessionCreateRejected,
     onRetry,
   });
 

@@ -143,6 +143,8 @@ export const profileOnboardingConversationReducer = (
 const NON_RETRYABLE_RUNTIME_ERROR_CODES = new Set([
   'transient_markdownflow_invalid',
 ]);
+const PROFILE_ONBOARDING_BUSY_ERROR_CODE = 4013;
+const RETRYABLE_HTTP_STATUSES = new Set([408, 429]);
 export const SESSION_NOT_FOUND_RUNTIME_ERROR_CODE =
   'transient_markdownflow_session_not_found';
 const PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS = 256;
@@ -151,6 +153,28 @@ const PROFILE_ONBOARDING_MAX_INPUT_VALUE_CODEPOINTS = 4_000;
 const PROFILE_ONBOARDING_MAX_INPUT_TOTAL_CODEPOINTS = 10_000;
 
 const countCodePoints = (value: string) => Array.from(value).length;
+
+export const isRetryableSessionCreateError = (error: unknown) => {
+  if (!error || typeof error !== 'object') {
+    return true;
+  }
+  const requestError = error as { code?: unknown; status?: unknown };
+  if (requestError.code === PROFILE_ONBOARDING_BUSY_ERROR_CODE) {
+    return true;
+  }
+  if (typeof requestError.status === 'number') {
+    return (
+      RETRYABLE_HTTP_STATUSES.has(requestError.status) ||
+      requestError.status >= 500
+    );
+  }
+  if (typeof requestError.code === 'number') {
+    return (
+      RETRYABLE_HTTP_STATUSES.has(requestError.code) || requestError.code >= 500
+    );
+  }
+  return true;
+};
 
 export const isProfileOnboardingSubmissionWithinLimits = (
   variableName: string,

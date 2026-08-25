@@ -101,7 +101,11 @@ function MockProfileOnboardingConversation(
       })
       .catch(error => {
         if (active && mountedRef.current) {
-          propsRef.current.onError(error);
+          if ((error as { code?: unknown }).code === 2001) {
+            propsRef.current.onSessionCreateRejected?.(error);
+          } else {
+            propsRef.current.onError(error);
+          }
         }
       });
 
@@ -726,6 +730,40 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText('module.profileOnboarding.dialog.optimizeEmptyHint'),
+    ).toBeInTheDocument();
+  });
+
+  test('refreshes eligibility after the backend rejects session creation', async () => {
+    const rejection = Object.assign(new Error('parameter error: intent'), {
+      code: 2001,
+      status: 200,
+    });
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus
+      .mockResolvedValueOnce(onboardingStatus())
+      .mockResolvedValueOnce(
+        onboardingStatus({
+          enabled: false,
+          guided_available: false,
+          should_show: false,
+          presentation: 'hidden',
+        }),
+      );
+    mockCreateProfileOnboardingSession.mockRejectedValue(rejection);
+
+    renderDialog({ exitPolicy: 'blocking' });
+
+    expect(
+      await screen.findByLabelText(
+        'module.profileOnboarding.dialog.profileLabel',
+      ),
+    ).toHaveValue('');
+    expect(mockGetProfileOnboardingStatus).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByTestId('mock-profile-onboarding-conversation'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.manualFallback'),
     ).toBeInTheDocument();
   });
 

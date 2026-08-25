@@ -1222,9 +1222,13 @@ describe('ProfileOnboardingConversation', () => {
 
   test('retries session creation with a fresh session after a transient failure', async () => {
     const onError = jest.fn();
+    const busyError = Object.assign(new Error('busy'), {
+      code: 4013,
+      status: 200,
+    });
     const createSession = jest
       .fn()
-      .mockRejectedValueOnce(new Error('server.profile.profileOnboardingBusy'))
+      .mockRejectedValueOnce(busyError)
       .mockResolvedValueOnce({ session_id: 'session-after-retry' });
     const runSession = jest.fn((params: unknown) => {
       void params;
@@ -1243,9 +1247,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(onError.mock.calls[0][0]).toEqual(
       new Error('module.profileOnboarding.guided.streamError'),
     );
-    expect(onError.mock.calls[0][0].message).not.toContain(
-      'profileOnboardingBusy',
-    );
+    expect(onError.mock.calls[0][0].message).not.toContain('busy');
     const retry = screen.getByRole('button', {
       name: 'module.profileOnboarding.guided.retry',
     });
@@ -1256,6 +1258,35 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[0][0]).toEqual(
       expect.objectContaining({ sessionId: 'session-after-retry' }),
     );
+  });
+
+  test('refreshes eligibility instead of retrying a rejected session create', async () => {
+    const rejection = Object.assign(new Error('parameter error: intent'), {
+      code: 2001,
+      status: 200,
+    });
+    const onError = jest.fn();
+    const onSessionCreateRejected = jest.fn();
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={jest.fn().mockRejectedValue(rejection)}
+        runSession={jest.fn(() => ({ close: jest.fn() }))}
+        onDraftReady={jest.fn()}
+        onError={onError}
+        onSessionCreateRejected={onSessionCreateRejected}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onSessionCreateRejected).toHaveBeenCalledWith(rejection),
+    );
+    expect(onError).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test('does not recreate the server session when callback props change', async () => {

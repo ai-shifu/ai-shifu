@@ -4,6 +4,7 @@ import type { ProfileOnboardingStreamEvent } from '@/lib/profileOnboardingSse';
 import {
   initialProfileOnboardingConversationState,
   isProfileOnboardingSubmissionWithinLimits,
+  isRetryableSessionCreateError,
   isRetryableRuntimeError,
   profileOnboardingConversationReducer,
   resolveNextBlockIndex,
@@ -47,6 +48,7 @@ type UseProfileOnboardingSessionParams = {
     nickname?: string,
   ) => void;
   onError: (error: unknown) => void;
+  onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
 };
 
@@ -59,6 +61,7 @@ export const useProfileOnboardingSession = ({
   onRunInFlightChange,
   onDraftReady,
   onError,
+  onSessionCreateRejected,
   onRetry,
 }: UseProfileOnboardingSessionParams) => {
   const [state, dispatch] = React.useReducer(
@@ -88,6 +91,7 @@ export const useProfileOnboardingSession = ({
   const onRunInFlightChangeRef = React.useRef(onRunInFlightChange);
   const onDraftReadyRef = React.useRef(onDraftReady);
   const onErrorRef = React.useRef(onError);
+  const onSessionCreateRejectedRef = React.useRef(onSessionCreateRejected);
   const onRetryRef = React.useRef(onRetry);
   const disabledRef = React.useRef(disabled);
   const messagesRef = React.useRef(messages);
@@ -98,6 +102,7 @@ export const useProfileOnboardingSession = ({
   onRunInFlightChangeRef.current = onRunInFlightChange;
   onDraftReadyRef.current = onDraftReady;
   onErrorRef.current = onError;
+  onSessionCreateRejectedRef.current = onSessionCreateRejected;
   onRetryRef.current = onRetry;
   disabledRef.current = disabled;
   messagesRef.current = messages;
@@ -291,12 +296,19 @@ export const useProfileOnboardingSession = ({
         }
         runNextRef.current();
       })
-      .catch(() => {
+      .catch(error => {
         if (createAttempt !== createAttemptRef.current || !mountedRef.current) {
           return;
         }
-        dispatch({ type: 'fail', retryable: true });
-        onErrorRef.current(new Error(messagesRef.current.streamError));
+        const retryable = isRetryableSessionCreateError(error);
+        dispatch({ type: 'fail', retryable });
+        if (!retryable && onSessionCreateRejectedRef.current) {
+          onSessionCreateRejectedRef.current(error);
+          return;
+        }
+        onErrorRef.current(
+          retryable ? new Error(messagesRef.current.streamError) : error,
+        );
       });
   }, [setRunInFlight, stopStream]);
 

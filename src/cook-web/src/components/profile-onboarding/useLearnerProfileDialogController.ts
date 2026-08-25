@@ -802,6 +802,43 @@ export const useLearnerProfileDialogController = ({
     [trackEvent],
   );
 
+  const handleSessionCreateRejected = React.useCallback(
+    (caughtError: unknown) => {
+      const current = stateRef.current;
+      if (current.collectionKey !== requestEpochRef.current.collection) {
+        return;
+      }
+      void trackEventRef.current(PROFILE_ONBOARDING_EVENTS.RUNTIME_FAILED, {
+        stage: 'guided',
+        presentation: presentationRef.current,
+      });
+      initialOnboardingStatusRef.current = undefined;
+      dispatch({
+        type: 'patch',
+        patch: {
+          collectionError: '',
+          collectionStatus: 'starting',
+          collectionRunInFlight: false,
+        },
+      });
+      const dialog = requestEpochRef.current.dialog;
+      const scope = scopeRef.current;
+      void loadProfile(dialog, scope).then(loaded => {
+        if (!loaded && isCurrent(dialog, scope)) {
+          setError(
+            errorMessage(
+              caughtError,
+              translationRef.current(
+                'module.profileOnboarding.dialog.loadFailed',
+              ),
+            ),
+          );
+        }
+      });
+    },
+    [isCurrent, loadProfile, setError],
+  );
+
   const continueToSave = React.useCallback(() => {
     const current = stateRef.current;
     const values = selectLearnerProfileDialog(
@@ -977,6 +1014,7 @@ export const useLearnerProfileDialogController = ({
       onDraftReady: handleCollectionDraftReady,
       onRetry: handleCollectionRetry,
       onError: handleCollectionError,
+      onSessionCreateRejected: handleSessionCreateRejected,
     } satisfies ProfileOnboardingConversationProps,
     setProfile,
     setNickname,
