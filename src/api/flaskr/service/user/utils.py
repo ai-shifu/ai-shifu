@@ -15,7 +15,7 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.i18n import _, get_current_language, set_language
+from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
@@ -61,6 +61,26 @@ def _normalize_language_code(language_code: str) -> str:
     normalized_parts = [primary]
     normalized_parts.extend(subtags)
     return "-".join(normalized_parts)
+
+
+def _resolve_supported_language_code(language_code: str) -> str:
+    """Resolve a language code to the loaded locale with the same primary language."""
+    normalized = _normalize_language_code(language_code)
+    if not normalized:
+        return ""
+
+    supported_languages = get_i18n_list()
+    normalized_lower = normalized.lower()
+    for supported_language in supported_languages:
+        if supported_language.lower() == normalized_lower:
+            return supported_language
+
+    primary_language = normalized_lower.split("-", maxsplit=1)[0]
+    for supported_language in supported_languages:
+        if supported_language.lower().split("-", maxsplit=1)[0] == primary_language:
+            return supported_language
+
+    return normalized
 
 
 def get_user_language(user: object) -> str:
@@ -157,13 +177,11 @@ def _format_email_verification_message(
     code: str, expire_seconds: int, language: str | None = None
 ) -> tuple[str, str, str]:
     previous_language = get_current_language()
+    requested_language = language or previous_language
     resolved_language = (
-        _normalize_language_code(language) or language
-        if language
-        else _normalize_language_code(previous_language) or previous_language
+        _resolve_supported_language_code(requested_language) or requested_language
     )
-    if language:
-        set_language(resolved_language)
+    set_language(resolved_language)
 
     try:
         expire_minutes = max(1, int(expire_seconds) // 60)
@@ -186,8 +204,7 @@ def _format_email_verification_message(
         ignore = _("server.user.emailVerificationIgnore")
         footer = _("server.user.emailVerificationFooter")
     finally:
-        if language:
-            set_language(previous_language)
+        set_language(previous_language)
 
     html_language = html.escape(resolved_language, quote=True)
     html_direction = (

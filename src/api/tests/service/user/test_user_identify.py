@@ -346,6 +346,20 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
                 )
             )
             assert '<html lang="ar-SA" dir="rtl">' in arabic_html_body
+
+            arabic_subject, _plain_body, arabic_variant_html_body = (
+                user_utils._format_email_verification_message(
+                    "5678", 60, language="ar-AE"
+                )
+            )
+            assert arabic_subject == "رمز التحقق من AI-Shifu"
+            assert '<html lang="ar-SA" dir="rtl">' in arabic_variant_html_body
+
+            thai_subject, _plain_body, thai_html_body = (
+                user_utils._format_email_verification_message("5678", 60, language="th")
+            )
+            assert thai_subject == "รหัสยืนยัน AI-Shifu"
+            assert '<html lang="th-TH" dir="ltr">' in thai_html_body
             assert user_utils.get_current_language() == "en-US"
         finally:
             app.config["MAIL_CODE_EXPIRE_TIME"] = original_expire_time
