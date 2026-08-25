@@ -5,12 +5,15 @@ import json
 import os
 import threading
 from collections import defaultdict
-from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
 from flaskr.common.config import get_config
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 TRANSLATIONS_DEFAULT_NAME = "i18n"
 
@@ -40,7 +43,7 @@ def _shared_json_root() -> Path:
     return Path(__file__).resolve().parents[2] / "i18n"
 
 
-def _flatten_dict(data, prefix: str = ""):
+def _flatten_dict(data: object, prefix: str = "") -> dict[str, object]:
     if not isinstance(data, dict):
         key = prefix or ""
         return {key: data} if key else {}
@@ -56,14 +59,14 @@ def _flatten_dict(data, prefix: str = ""):
     return flattened
 
 
-def _store_translation(lang: str, key: str, value):
+def _store_translation(lang: str, key: str, value: object) -> None:
     if value is None:
         return
     _translations[lang][key] = value
     _translations[lang][key.upper()] = value
 
 
-def _load_json_translations(app: Flask, root: Path):
+def _load_json_translations(app: Flask, root: Path) -> None:
     if not root.exists():
         app.logger.debug("i18n JSON directory not found: %s", root)
         return
@@ -145,11 +148,10 @@ def _load_json_translations(app: Flask, root: Path):
                     _store_translation(lang, key, value)
 
 
-def _validate_json_translations(app: Flask, root: Path):
+def _validate_json_translations(root: Path) -> None:
     if not root.exists():
-        raise FileNotFoundError(
-            f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
-        )
+        message = f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
+        raise FileNotFoundError(message)
 
     problems: list[str] = []
 
@@ -214,7 +216,7 @@ def _validate_json_translations(app: Flask, root: Path):
         raise RuntimeError(details)
 
 
-def _load_python_translations(app: Flask, translations_dir: Path):
+def _load_python_translations(app: Flask, translations_dir: Path) -> None:
     if not translations_dir.exists():
         return
 
@@ -245,7 +247,8 @@ def _load_python_translations(app: Flask, translations_dir: Path):
                                     )
 
 
-def load_translations(app: Flask, translations_dir=None):
+def load_translations(app: Flask, translations_dir: object = None) -> None:
+    """Load translations."""
     if translations_dir:
         base_path = Path(translations_dir)
         _load_json_translations(app, base_path)
@@ -256,7 +259,7 @@ def load_translations(app: Flask, translations_dir=None):
 
     shared_root = _shared_json_root()
     try:
-        _validate_json_translations(app, shared_root)
+        _validate_json_translations(shared_root)
     except Exception:
         app.logger.exception("i18n validation failed")
         raise
@@ -265,7 +268,8 @@ def load_translations(app: Flask, translations_dir=None):
     _load_python_translations(app, Path(__file__).resolve().parent)
 
 
-def translate_for_language(text: str, language: str | None = None):
+def translate_for_language(text: str, language: str | None = None) -> str:
+    """Translate for language."""
     language = language or getattr(_thread_local, "language", "en-US")
     translations = _translations.get(language) or {}
     default_translations = _translations.get("en-US", {})
@@ -278,24 +282,27 @@ def translate_for_language(text: str, language: str | None = None):
     )
 
 
-def _(text: str):
+def _(text: str) -> str:
     return translate_for_language(text)
 
 
-def get_current_language():
+def get_current_language() -> str:
     return getattr(_thread_local, "language", "en-US")
 
 
-def set_language(language):
+def set_language(language: object) -> None:
+    """Set language."""
     _thread_local.language = language
 
 
-def clear_language():
+def clear_language() -> None:
+    """Clear language."""
     if hasattr(_thread_local, "language"):
         delattr(_thread_local, "language")
 
 
-def get_i18n_list(app: Flask):
+def get_i18n_list() -> list[str]:
+    """Return i18n list."""
     return list(_translations.keys())
 
 

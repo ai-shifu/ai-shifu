@@ -1,8 +1,12 @@
+"""Provide fake LLM support for common fixtures tests."""
+
 from collections.abc import Generator
 from types import SimpleNamespace
 
 
 class FakeLLMResponse:
+    """Simulate LLM response behavior for tests."""
+
     def __init__(
         self,
         result: str,
@@ -11,8 +15,9 @@ class FakeLLMResponse:
         is_end: bool = False,
         is_truncated: bool = False,
         finish_reason: str = "stop",
-        usage=None,
+        usage: object = None,
     ) -> None:
+        """Capture streamed content, completion metadata, and usage for tests."""
         self.id = chunk_id
         self.is_end = is_end
         self.is_truncated = is_truncated
@@ -28,7 +33,10 @@ def _stream_chunks(stream: bool) -> list[str]:
     return ["mock-llm"]
 
 
-def fake_invoke_llm(*_args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
+def fake_invoke_llm(
+    *_args: object,
+    **kwargs: object,
+) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
     chunks = _stream_chunks(stream)
     for idx, chunk in enumerate(chunks, start=1):
@@ -40,7 +48,10 @@ def fake_invoke_llm(*_args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
         )
 
 
-def fake_chat_llm(*_args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
+def fake_chat_llm(
+    *_args: object,
+    **kwargs: object,
+) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
     chunks = _stream_chunks(stream)
     for idx, chunk in enumerate(chunks, start=1):
@@ -56,5 +67,5 @@ def fake_get_allowed_models() -> list[str]:
     return []
 
 
-def fake_get_current_models(_app) -> list[dict[str, str]]:
+def fake_get_current_models(_app: object) -> list[dict[str, str]]:
     return []

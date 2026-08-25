@@ -1,3 +1,5 @@
+"""Implement business operations for learner profiles."""
+
 import datetime
 import logging
 
@@ -35,8 +37,7 @@ def _get_latest_variable_value(
     variable_key: str,
     shifu_bid: str,
 ) -> VariableValue | None:
-    """Return the newest variable value row from a pre-fetched, id-desc sorted
-    collection.
+    """Return the newest variable value row from a pre-fetched, id-desc sorted collection.
 
     Matching is by key only (not variable_bid) so the newest row for the
     logical profile field wins even if the underlying Variable definition was
@@ -77,7 +78,7 @@ def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
 
 
 def _update_aggregate_field(
-    aggregate: UserAggregate | None, mapping: str, value
+    aggregate: UserAggregate | None, mapping: str, value: object
 ) -> None:
     if not aggregate:
         return
@@ -91,7 +92,9 @@ def _update_aggregate_field(
         aggregate.birthday = value
 
 
-def _normalize_core_value(mapping: str, value):
+def _normalize_core_value(
+    mapping: str, value: str | datetime.date | None
+) -> str | datetime.date | None:
     if mapping == "user_birth":
         if isinstance(value, datetime.date):
             return value
@@ -104,7 +107,9 @@ def _normalize_core_value(mapping: str, value):
     return value or ""
 
 
-def _apply_core_mapping(user_id: str, mapping: str, value):
+def _apply_core_mapping(
+    user_id: str, mapping: str, value: str | datetime.date | None
+) -> str | datetime.date | None:
     entity = ensure_user_entity(user_id)
     normalized = _normalize_core_value(mapping, value)
     if mapping == "name":
@@ -118,7 +123,9 @@ def _apply_core_mapping(user_id: str, mapping: str, value):
     return normalized
 
 
-def _current_core_value(aggregate: UserAggregate | None, mapping: str):
+def _current_core_value(
+    aggregate: UserAggregate | None, mapping: str
+) -> str | datetime.date | None:
     if not aggregate:
         return None
     if mapping == "name":
@@ -136,7 +143,8 @@ def check_text_content(
     app: Flask,
     user_id: str,
     user_input: str,
-):
+) -> bool:
+    """Check text content."""
     check_id = generate_id(app)
     res = check_text(app, check_id, user_input, user_id)
     add_risk_control_result(
@@ -153,7 +161,8 @@ def check_text_content(
     return res.check_result != CHECK_RESULT_REJECT
 
 
-def get_profile_labels():
+def get_profile_labels() -> dict[str, dict[str, object]]:
+    """Return profile labels."""
     return {
         "sys_user_nickname": {
             "label": _("server.profile.nickname"),
@@ -208,6 +217,7 @@ def get_profile_labels():
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:
+    """Persist user profiles."""
     profile_labels = get_profile_labels()
     app.logger.info("save user profiles:%s", profiles)
     aggregate = _ensure_user_aggregate(user_id)
@@ -363,13 +373,17 @@ def get_user_profile_labels(
     *,
     include_nickname: bool = True,
 ) -> UserProfileLabelDTO:
-    """Get user profile labels
+    """Get user profile labels.
+
     Args:
         app: Flask application instance
         user_id: User id
         course_id: Course id
+        include_nickname: Whether to include the stored nickname label.
+
     Returns:
-        list: User profile labels.
+        UserProfileLabelDTO: User profile labels and resolved language.
+
     """
     app.logger.info("get user profile labels:%s", course_id)
     candidate_shifus = [course_id or ""]
@@ -486,7 +500,8 @@ def update_user_profile_with_lable(
     profiles: list,
     update_all: bool = False,
     course_id: str | None = None,
-):
+) -> bool:
+    """Update user profile with lable."""
     app.logger.info("update user profile with lable:%s", course_id)
     profile_labels = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):

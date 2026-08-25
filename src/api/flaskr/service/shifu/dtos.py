@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field
 
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Resolve demo course for language."""
     from flaskr.service.shifu.demo_courses import (
         resolve_demo_course_for_language as _resolve_demo_course_for_language,
     )
@@ -69,8 +70,8 @@ class ShifuDto(BaseModel):
         can_manage_permissions: bool = False,
         created_user_bid: str = "",
         is_guide_course: bool = False,
-        **kwargs,
     ) -> None:
+        """Build the shifu payload."""
         super().__init__(
             bid=shifu_id,
             name=shifu_name,
@@ -86,6 +87,7 @@ class ShifuDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the shifu as JSON-compatible data."""
         return {
             "bid": self.bid,
             "name": self.name,
@@ -214,8 +216,9 @@ class ShifuDetailDto(BaseModel):
         ask_model: str = "",
         ask_temperature: float = 0.0,
         ask_system_prompt: str = "",
-        ask_provider_config: dict[str, Any] | None = None,
+        ask_provider_config: dict[str, object] | None = None,
     ) -> None:
+        """Build the shifu detail payload."""
         super().__init__(
             bid=shifu_id,
             name=shifu_name,
@@ -250,6 +253,7 @@ class ShifuDetailDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the shifu detail as JSON-compatible data."""
         return {
             "bid": self.bid,
             "name": self.name,
@@ -310,6 +314,7 @@ class SimpleOutlineDto(BaseModel):
         type: str | None = None,  # noqa: A002 - serialized DTO field name
         is_hidden: bool | None = None,
     ) -> None:
+        """Build the simple outline payload."""
         normalized_children: list[SimpleOutlineDto] = []
         if children:
             for child in children:
@@ -336,6 +341,7 @@ class SimpleOutlineDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the simple outline as JSON-compatible data."""
         return {
             "bid": self.bid,
             "position": self.position,
@@ -359,6 +365,7 @@ class ShifuOutlineTreeNode:
     """Shifu outline tree node."""
 
     def __init__(self, outline_item: DraftOutlineItem) -> None:
+        """Build a tree node from a draft outline item."""
         self.outline = outline_item
         self.children = []
         if outline_item:
@@ -369,17 +376,17 @@ class ShifuOutlineTreeNode:
             self.position = ""
         self.parent_node = None
 
-    def add_child(self, child: "ShifuOutlineTreeNode"):
+    def add_child(self, child: "ShifuOutlineTreeNode") -> None:
         """Add a child to the node."""
         self.children.append(child)
         child.parent_node = self
 
-    def remove_child(self, child: "ShifuOutlineTreeNode"):
+    def remove_child(self, child: "ShifuOutlineTreeNode") -> None:
         """Remove a child from the node."""
         child.parent_node = None
         self.children.remove(child)
 
-    def get_new_position(self):
+    def get_new_position(self) -> str:
         """Get the new position of the node."""
         if not self.parent_node:
             return self.position
@@ -413,6 +420,7 @@ class OutlineDto(BaseModel):
         system_prompt: str | None = None,
         is_hidden: bool | None = None,
     ) -> None:
+        """Build the outline payload."""
         super().__init__(
             bid=bid,
             position=position,
@@ -425,6 +433,7 @@ class OutlineDto(BaseModel):
         )
 
     def __json__(self) -> dict:
+        """Return the outline as JSON-compatible data."""
         return {
             "bid": self.bid,
             "position": self.position,
@@ -450,6 +459,7 @@ class ReorderOutlineItemDto:
         self.children = children
 
     def __json__(self) -> dict:
+        """Return the reorder outline item as JSON-compatible data."""
         return {
             "bid": self.bid,
             "children": self.children,
@@ -465,13 +475,17 @@ class ReorderOutlineDto:
 
 @register_schema_to_swagger
 class MdflowDTOParseResult(BaseModel):
+    """Represent the MarkdownFlow DTO parse result API payload."""
+
     variables: list[str] = Field(..., description="variables", required=True)
     blocks_count: int = Field(..., description="blocks count", required=True)
 
     def __init__(self, variables: list[str], blocks_count: int) -> None:
+        """Capture parsed MarkdownFlow variables and block count."""
         super().__init__(variables=variables, blocks_count=blocks_count)
 
     def __json__(self) -> dict:
+        """Return parsed MarkdownFlow metadata as JSON-compatible data."""
         return {
             "variables": self.variables,
             "blocks_count": self.blocks_count,

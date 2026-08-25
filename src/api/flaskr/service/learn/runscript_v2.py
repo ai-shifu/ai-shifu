@@ -1,3 +1,5 @@
+"""Execute learning sessions and stream their results."""
+
 import contextlib
 import json
 import queue
@@ -8,7 +10,7 @@ import traceback
 import uuid
 from collections.abc import Generator
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
 from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
@@ -38,7 +40,6 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuInfoDto,
     ShifuOutlineItemDto,
@@ -50,6 +51,9 @@ from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import text as sa_text
 from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
+
+if TYPE_CHECKING:
+    from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
@@ -80,7 +84,7 @@ def _remove_db_session_safely(app: Flask, *, source: str) -> None:
 _is_protocol_desync_error = is_protocol_interrupt_error
 
 
-def _discard_session_connection(app: Flask, *, source: str) -> None:
+def _discard_session_connection(*, source: str) -> None:
     """Drop the session's DB connection instead of returning it to the pool.
 
     Used when the streaming generator terminates abnormally: the close (or a
@@ -142,13 +146,14 @@ def _ensure_healthy_db_connection(app: Flask) -> None:
         # Session.invalidate() both resets the session state WITHOUT emitting
         # SQL and discards the raw connection - a rollback here would send a
         # ROLLBACK on the very stream that just proved desynced.
-        _discard_session_connection(app, source="db connection probe failure")
+        _discard_session_connection(source="db connection probe failure")
     if last_error is not None:
         raise last_error
-    raise RuntimeError(
+    message = (
         "db connection probe kept returning mismatched results; "
         "no healthy connection available"
     )
+    raise RuntimeError(message)
 
 
 def _get_max_parallel_ask_count(app: Flask) -> int:
@@ -417,9 +422,9 @@ def run_script_inner(
                     element_bids.append(element_bid)
 
             def _iter_run_events(
-                events,
+                events: object,
                 ready_element_bids_by_block_bid: dict[str, list[str]],
-            ):
+            ) -> Generator[object, None, None]:
                 if element_adapter is None:
                     for event in events:
                         _remember_audio_backfill_ready_element(
@@ -437,7 +442,7 @@ def run_script_inner(
 
             def _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid: dict[str, list[str]],
-            ):
+            ) -> Generator[object, None, None]:
                 if input_type == INPUT_TYPE_ASK:
                     return
                 for (
@@ -458,7 +463,7 @@ def run_script_inner(
                     # exchange may have been interrupted, so discard rather
                     # than roll back on a possibly desynced connection.
                     _discard_session_connection(
-                        app, source="run_script_inner stop_event cancel"
+                        source="run_script_inner stop_event cancel"
                     )
                     return
                 yield from _iter_run_events(
@@ -481,7 +486,7 @@ def run_script_inner(
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")
                     _discard_session_connection(
-                        app, source="run_script_inner stop_event cancel"
+                        source="run_script_inner stop_event cancel"
                     )
                     return
                 app.logger.info("run_script_context.run")
@@ -506,14 +511,14 @@ def run_script_inner(
             # so the connection's protocol state is unknowable: this is the
             # exact checkin path the pool-level desync detector caught in
             # production. Discard the connection instead of rolling back on it.
-            _discard_session_connection(app, source="run_script_inner GeneratorExit")
+            _discard_session_connection(source="run_script_inner GeneratorExit")
             app.logger.info("GeneratorExit")
         except Exception as exc:
             _finalize_langfuse_if_available(run_script_context)
             if _is_protocol_desync_error(exc):
                 # Rolling back on a desynced connection consumes stale packets
                 # ("Command Out of Sync") and re-pools the poisoned stream.
-                _discard_session_connection(app, source="run_script_inner stream error")
+                _discard_session_connection(source="run_script_inner stream error")
             else:
                 db.session.rollback()
             raise
@@ -528,7 +533,8 @@ def run_script_inner(
     yield from _run()
 
 
-def fmt(o):
+def fmt(o: object) -> object:
+    """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime):
         return to_utc_iso(o)
     return o.__json__()
@@ -686,9 +692,10 @@ def run_script(
     reload_element_bid: str | None = None,
     listen: bool = False,
     preview_mode: bool = False,
-    shifu_context_snapshot: dict[str, Any] | None = None,
+    shifu_context_snapshot: dict[str, object] | None = None,
     language: str | None = None,
 ) -> Generator[str, None, None]:
+    """Run script."""
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
     lock_retry_count = 5
@@ -757,7 +764,7 @@ def run_script(
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
         producer_thread: threading.Thread | None = None
 
-        def producer():
+        def producer() -> None:
             # Propagate logging thread-local context into this background thread
             if parent_request_id:
                 log_thread_local.request_id = parent_request_id
@@ -826,9 +833,7 @@ def run_script(
                         # run_script_inner already invalidated and removed the
                         # session this resolves a fresh registry Session and
                         # invalidating it is a harmless no-op.
-                        _discard_session_connection(
-                            app, source="run_script producer abort"
-                        )
+                        _discard_session_connection(source="run_script producer abort")
                     _remove_db_session_safely(app, source="run_script producer")
                     output_queue.put(("done", None))
 
@@ -1073,6 +1078,8 @@ def get_run_status(
     outline_bid: str,
     user_bid: str,
 ) -> RunStatusDTO:
+    """Return run status."""
+    _ = shifu_bid
     started_at = _get_run_script_started_at(app, user_bid, outline_bid)
     if started_at is None:
         return RunStatusDTO(is_running=False, running_time=0)

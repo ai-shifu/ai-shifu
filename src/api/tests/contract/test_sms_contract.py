@@ -1,3 +1,5 @@
+"""Protect Aliyun SMS request and error-handling contracts."""
+
 import logging
 from types import SimpleNamespace
 
@@ -5,16 +7,16 @@ import pytest
 from flask import Flask
 
 
-def test_send_sms_ali_builds_request_for_generic_template(monkeypatch):
+def test_send_sms_ali_builds_request_for_generic_template(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     captured = {}
 
     class FakeClient:
-        def __init__(self, config) -> None:
+        def __init__(self, config: object) -> None:
             captured["config"] = config
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request: object, runtime: object) -> object:
             captured["request"] = request
             captured["runtime"] = runtime
             return SimpleNamespace(body=SimpleNamespace(code="OK"))
@@ -48,16 +50,16 @@ def test_send_sms_ali_builds_request_for_generic_template(monkeypatch):
     assert captured["config"].endpoint == "dysmsapi.aliyuncs.com"
 
 
-def test_send_sms_code_ali_builds_request(monkeypatch):
+def test_send_sms_code_ali_builds_request(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     captured = {}
 
     class FakeClient:
-        def __init__(self, config) -> None:
+        def __init__(self, config: object) -> None:
             captured["config"] = config
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request: object, runtime: object) -> object:
             captured["request"] = request
             captured["runtime"] = runtime
             return SimpleNamespace(body=SimpleNamespace(code="OK"))
@@ -85,11 +87,12 @@ def test_send_sms_code_ali_builds_request(monkeypatch):
     assert captured["config"].endpoint == "dysmsapi.aliyuncs.com"
 
 
-def test_send_sms_code_ali_returns_none_without_keys(monkeypatch):
+def test_send_sms_code_ali_returns_none_without_keys(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
-    def fake_client(_config):
-        raise AssertionError("client should not be created")
+    def fake_client(_config: object) -> None:
+        message = "client should not be created"
+        raise AssertionError(message)
 
     monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", fake_client)
 
@@ -106,7 +109,7 @@ def test_send_sms_code_ali_returns_none_without_keys(monkeypatch):
     assert result is None
 
 
-def test_send_sms_code_ali_handles_client_error(monkeypatch):
+def test_send_sms_code_ali_handles_client_error(monkeypatch: object) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class DummyError(Exception):
@@ -118,13 +121,14 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch):
     captured = {}
 
     class FakeClient:
-        def __init__(self, config) -> None:
+        def __init__(self, config: object) -> None:
             captured["config"] = config
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request: object, runtime: object) -> None:
+            _ = (request, runtime)
             raise DummyError
 
-    def fake_assert(message):
+    def fake_assert(message: object) -> None:
         captured["assert_message"] = message
 
     monkeypatch.setattr(sms_aliyun, "Dysmsapi20170525Client", FakeClient)
@@ -144,14 +148,16 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch):
     assert captured["assert_message"] == "boom"
 
 
-def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(monkeypatch):
+def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(
+    monkeypatch: object,
+) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
-        def __init__(self, _config) -> None:
+        def __init__(self, _config: object) -> None:
             pass
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request: object, runtime: object) -> object:
             del request, runtime
             return SimpleNamespace(
                 body=SimpleNamespace(
@@ -189,15 +195,15 @@ def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(monkeypatch)
     ],
 )
 def test_send_sms_ali_logs_recipient_throttle_as_warning(
-    monkeypatch, caplog, provider_message
-):
+    monkeypatch: object, caplog: object, provider_message: object
+) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
-        def __init__(self, _config) -> None:
+        def __init__(self, _config: object) -> None:
             pass
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request: object, runtime: object) -> object:
             del request, runtime
             return SimpleNamespace(
                 body=SimpleNamespace(
@@ -235,14 +241,16 @@ def test_send_sms_ali_logs_recipient_throttle_as_warning(
     assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
-def test_send_sms_ali_logs_illegal_recipient_number_as_warning(monkeypatch, caplog):
+def test_send_sms_ali_logs_illegal_recipient_number_as_warning(
+    monkeypatch: object, caplog: object
+) -> None:
     from flaskr.api.sms import aliyun as sms_aliyun
 
     class FakeClient:
-        def __init__(self, _config) -> None:
+        def __init__(self, _config: object) -> None:
             pass
 
-        def send_sms_with_options(self, request, runtime):
+        def send_sms_with_options(self, request: object, runtime: object) -> object:
             del request, runtime
             return SimpleNamespace(
                 body=SimpleNamespace(

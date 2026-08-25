@@ -1177,6 +1177,7 @@ class AliyunTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "aliyun"
 
     def _get_settings(self) -> tuple:
@@ -1249,8 +1250,10 @@ class AliyunTTSProvider(BaseTTSProvider):
             ValueError: If synthesis fails
 
         """
+        _ = model
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            exception_message = "Text cannot be empty"
+            raise ValueError(exception_message)
 
         # Check text length (300 characters limit)
         if len(text) > 300:
@@ -1269,9 +1272,10 @@ class AliyunTTSProvider(BaseTTSProvider):
         appkey, region = self._get_settings()
 
         if not appkey:
-            raise ValueError(
+            exception_message = (
                 "Aliyun TTS credentials are not configured. Set ALIYUN_TTS_APPKEY"
             )
+            raise ValueError(exception_message)
         token = get_aliyun_nls_token()
 
         # Get endpoint URL
@@ -1376,17 +1380,20 @@ class AliyunTTSProvider(BaseTTSProvider):
             try:
                 result = response.json()
             except ValueError as e:
-                raise ValueError(f"Aliyun TTS API error: {response.text[:200]}") from e
+                error_message = f"Aliyun TTS API error: {response.text[:200]}"
+                raise ValueError(error_message) from e
             status = result.get("status", "unknown")
             message = result.get("message", "Unknown error")
             task_id = result.get("task_id", "")
-            raise ValueError(
+            error_message = (
                 f"Aliyun TTS API error {status}: {message} (task_id: {task_id})"
             )
+            raise ValueError(error_message)
 
         except requests.RequestException as e:
             logger.exception("Aliyun TTS request failed")
-            raise ValueError(f"Aliyun TTS request failed: {e}") from e
+            error_message = f"Aliyun TTS request failed: {e}"
+            raise ValueError(error_message) from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Aliyun provider configuration for frontend."""

@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import contextlib
 import threading
-from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _context_local = threading.local()
 
@@ -40,7 +42,7 @@ def get_shifu_creator_bid() -> str | None:
     return getattr(_context_local, "shifu_creator_bid", None)
 
 
-def get_shifu_context_snapshot() -> dict[str, Any]:
+def get_shifu_context_snapshot() -> dict[str, object]:
     """Capture the current shifu context as a plain dict.
 
     This snapshot can be passed into a background thread and applied there.
@@ -51,7 +53,7 @@ def get_shifu_context_snapshot() -> dict[str, Any]:
     }
 
 
-def apply_shifu_context_snapshot(snapshot: dict[str, Any] | None) -> None:
+def apply_shifu_context_snapshot(snapshot: dict[str, object] | None) -> None:
     """Apply a previously captured shifu context snapshot to the current thread.
 
     Args:
@@ -66,7 +68,7 @@ def apply_shifu_context_snapshot(snapshot: dict[str, Any] | None) -> None:
         _context_local.shifu_creator_bid = snapshot.get("shifu_creator_bid")
 
 
-def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
+def _get_shifu_creator_bid_cached(app: object, shifu_bid: str) -> str | None:
     """Resolve creator bid for a shifu with a lightweight Redis cache.
 
     The mapping (shifu_bid -> creator_bid) is effectively immutable, so we can
@@ -130,7 +132,7 @@ def _get_shifu_creator_bid_cached(app, shifu_bid: str) -> str | None:
         return get_shifu_creator_bid(app, shifu_bid)
 
 
-def _resolve_host_creator_bid(app, host: str) -> str | None:
+def _resolve_host_creator_bid(app: object, host: str) -> str | None:
     """Resolve creator_bid from a verified custom domain host."""
     normalized_host = str(host or "").strip()
     if not normalized_host:
@@ -147,7 +149,7 @@ def _resolve_host_creator_bid(app, host: str) -> str | None:
         return None
 
 
-def _extract_request_host(request) -> str | None:
+def _extract_request_host(request: object) -> str | None:
     forwarded_host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
     if forwarded_host:
         return forwarded_host.split(",", 1)[0].strip()
@@ -171,7 +173,7 @@ def with_shifu_context(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: object, **kwargs: object) -> object:
             try:
                 from flask import current_app, request
             except Exception:

@@ -13,20 +13,22 @@ from sqlalchemy.exc import ResourceClosedError
 
 
 @pytest.fixture
-def invalidations(monkeypatch):
+def invalidations(monkeypatch: object) -> object:
     calls = []
+
+    def release_db_session(app: object, *, source: str) -> None:
+        del app, source
+
     monkeypatch.setattr(
         learn_routes,
         "invalidate_session",
-        lambda *, source, session=None: calls.append(source) or True,
+        lambda *, source, _session=None: calls.append(source) or True,
     )
-    monkeypatch.setattr(
-        learn_routes, "_release_db_session", lambda _app, *, source: None
-    )
+    monkeypatch.setattr(learn_routes, "_release_db_session", release_db_session)
     return calls
 
 
-def _iter_stream(app, helper, iter_factory):
+def _iter_stream(app: object, helper: object, iter_factory: object) -> object:
     with app.test_request_context("/"):
         response = helper(
             app,
@@ -37,8 +39,8 @@ def _iter_stream(app, helper, iter_factory):
         return response.response
 
 
-def test_sse_close_invalidates_session(app, invalidations):
-    def factory():
+def test_sse_close_invalidates_session(app: object, invalidations: object) -> None:
+    def factory() -> object:
         yield {"type": "chunk"}
         yield {"type": "chunk2"}
 
@@ -56,10 +58,13 @@ def test_sse_close_invalidates_session(app, invalidations):
     assert invalidations == ["learn stream_sse_response close"]
 
 
-def test_sse_protocol_error_invalidates_session(app, invalidations):
-    def factory():
+def test_sse_protocol_error_invalidates_session(
+    app: object, invalidations: object
+) -> None:
+    def factory() -> object:
         yield {"type": "chunk"}
-        raise ResourceClosedError("desynced")
+        message = "desynced"
+        raise ResourceClosedError(message)
 
     with app.test_request_context("/"):
         response = learn_routes._stream_sse_response(
@@ -76,10 +81,13 @@ def test_sse_protocol_error_invalidates_session(app, invalidations):
     assert invalidations == ["learn stream_sse_response desync"]
 
 
-def test_sse_business_error_does_not_invalidate(app, invalidations):
-    def factory():
+def test_sse_business_error_does_not_invalidate(
+    app: object, invalidations: object
+) -> None:
+    def factory() -> object:
         yield {"type": "chunk"}
-        raise ValueError("business")
+        message = "business"
+        raise ValueError(message)
 
     with app.test_request_context("/"):
         response = learn_routes._stream_sse_response(
@@ -96,8 +104,10 @@ def test_sse_business_error_does_not_invalidate(app, invalidations):
     assert invalidations == []
 
 
-def test_passthrough_close_invalidates_session(app, invalidations):
-    def factory():
+def test_passthrough_close_invalidates_session(
+    app: object, invalidations: object
+) -> None:
+    def factory() -> object:
         yield "data: 1\n\n"
         yield "data: 2\n\n"
 
@@ -115,10 +125,13 @@ def test_passthrough_close_invalidates_session(app, invalidations):
     assert invalidations == ["learn stream_passthrough_response close"]
 
 
-def test_passthrough_close_disguised_as_runtime_error(app, invalidations):
-    def factory():
+def test_passthrough_close_disguised_as_runtime_error(
+    app: object, invalidations: object
+) -> None:
+    def factory() -> object:
         yield "data: 1\n\n"
-        raise RuntimeError("generator ignored GeneratorExit")
+        message = "generator ignored GeneratorExit"
+        raise RuntimeError(message)
 
     with app.test_request_context("/"):
         response = learn_routes._stream_passthrough_response(
@@ -135,8 +148,10 @@ def test_passthrough_close_disguised_as_runtime_error(app, invalidations):
     assert invalidations == ["learn stream_passthrough_response close"]
 
 
-def test_passthrough_normal_exhaustion_does_not_invalidate(app, invalidations):
-    def factory():
+def test_passthrough_normal_exhaustion_does_not_invalidate(
+    app: object, invalidations: object
+) -> None:
+    def factory() -> object:
         yield "data: 1\n\n"
 
     with app.test_request_context("/"):

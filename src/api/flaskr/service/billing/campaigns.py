@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import (
@@ -38,6 +36,7 @@ from .consts import (
 )
 from .dtos import (
     AdminBillingCampaignDetailDTO,
+    AdminBillingCampaignDTO,
     AdminBillingCampaignProductOptionsDTO,
     AdminBillingCampaignsPageDTO,
 )
@@ -60,9 +59,16 @@ from .serializers import (
     serialize_admin_campaign_product_option,
 )
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
+
 
 @dataclass(slots=True, frozen=True)
 class AppliedBillingCampaignResult:
+    """Capture the campaign benefits applied to a billing purchase."""
+
     campaign_bid: str = ""
     benefit_type_code: int = 0
     discount_type_code: int = 0
@@ -72,6 +78,7 @@ class AppliedBillingCampaignResult:
     bonus_credit_amount: Decimal = Decimal(0)
 
     def to_catalog_payload(self) -> dict[str, Any]:
+        """Serialize the applied campaign for catalog output."""
         if not self.campaign_bid:
             return {}
         payload: dict[str, Any] = {
@@ -100,6 +107,8 @@ class AppliedBillingCampaignResult:
 
 @dataclass(slots=True, frozen=True)
 class NormalizedCampaignProductConfig:
+    """Describe normalized product settings for a billing campaign."""
+
     product_bid: str
     product_type: int
     benefit_type_code: int
@@ -113,6 +122,7 @@ class NormalizedCampaignProductConfig:
 def build_admin_billing_campaign_product_options(
     app: Flask,
 ) -> AdminBillingCampaignProductOptionsDTO:
+    """Build admin billing campaign product options."""
     with app.app_context():
         rows = (
             BillingProduct.query.filter(
@@ -153,6 +163,7 @@ def build_admin_billing_campaigns_page(
     start_time: str = "",
     end_time: str = "",
 ) -> AdminBillingCampaignsPageDTO:
+    """Build admin billing campaigns page."""
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_keyword = str(keyword or "").strip()
     normalized_status = str(status or "").strip().lower()
@@ -252,6 +263,7 @@ def build_admin_billing_campaign_detail(
     app: Flask,
     campaign_bid: str,
 ) -> AdminBillingCampaignDetailDTO:
+    """Build admin billing campaign detail."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
         raise_param_error("campaign_bid")
@@ -303,8 +315,9 @@ def create_admin_billing_campaign(
     app: Flask,
     *,
     operator_user_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> AdminBillingCampaignDetailDTO:
+    """Create admin billing campaign."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     draft = _normalize_campaign_payload(payload)
     with app.app_context():
@@ -347,8 +360,9 @@ def update_admin_billing_campaign(
     *,
     operator_user_bid: str,
     campaign_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> AdminBillingCampaignDetailDTO:
+    """Update admin billing campaign."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
@@ -404,8 +418,9 @@ def update_admin_billing_campaign_status(
     *,
     operator_user_bid: str,
     campaign_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> AdminBillingCampaignDetailDTO:
+    """Update admin billing campaign status."""
     normalized_operator_bid = normalize_bid(operator_user_bid)
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
@@ -441,7 +456,8 @@ def resolve_catalog_campaign_payload(
     product: BillingProduct,
     *,
     as_of: datetime | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Resolve catalog campaign payload."""
     return resolve_applied_billing_campaign(
         product,
         as_of=as_of,
@@ -454,6 +470,7 @@ def resolve_applied_billing_campaign(
     order_type: int | None = None,
     as_of: datetime | None = None,
 ) -> AppliedBillingCampaignResult:
+    """Resolve applied billing campaign."""
     if order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return AppliedBillingCampaignResult()
     active_binding = _load_active_campaign_binding_for_product(
@@ -470,7 +487,7 @@ def resolve_applied_billing_campaign(
     )
 
 
-def _normalize_campaign_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def _normalize_campaign_payload(payload: dict[str, object]) -> dict[str, object]:
     name = str(payload.get("name") or "").strip()
     note = str(payload.get("note") or "").strip()
     if not name:
@@ -511,10 +528,10 @@ def _normalize_campaign_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_campaign_product_drafts(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     benefit_type_code: int,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     raw_products = payload.get("products")
     if isinstance(raw_products, list):
         product_drafts = []
@@ -618,8 +635,8 @@ def _normalize_campaign_product_drafts(
 
 
 def _dedupe_campaign_product_drafts(
-    product_drafts: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    product_drafts: list[dict[str, object]],
+) -> list[dict[str, object]]:
     deduped: dict[str, dict[str, Any]] = {}
     for draft in product_drafts:
         deduped[str(draft.get("product_bid") or "")] = draft
@@ -632,7 +649,7 @@ def _dedupe_campaign_product_drafts(
     return ordered
 
 
-def _coerce_discount_amount(value: Any) -> int:
+def _coerce_discount_amount(value: object) -> int:
     try:
         discount_amount = max(int(value or 0), 0)
     except (TypeError, ValueError):
@@ -642,7 +659,7 @@ def _coerce_discount_amount(value: Any) -> int:
     return discount_amount
 
 
-def _coerce_discount_percent(value: Any) -> Decimal:
+def _coerce_discount_percent(value: object) -> Decimal:
     try:
         discount_percent = to_decimal(value)
     except Exception:
@@ -652,7 +669,7 @@ def _coerce_discount_percent(value: Any) -> Decimal:
     return discount_percent.quantize(Decimal("0.01"))
 
 
-def _coerce_campaign_price_amount(value: Any) -> int:
+def _coerce_campaign_price_amount(value: object) -> int:
     try:
         campaign_price_amount = int(value or 0)
     except (TypeError, ValueError):
@@ -662,7 +679,7 @@ def _coerce_campaign_price_amount(value: Any) -> int:
     return campaign_price_amount
 
 
-def _coerce_bonus_credit_amount(value: Any) -> Decimal:
+def _coerce_bonus_credit_amount(value: object) -> Decimal:
     try:
         bonus_credit_amount = quantize_credit_amount(value)
     except Exception:
@@ -673,7 +690,7 @@ def _coerce_bonus_credit_amount(value: Any) -> Decimal:
 
 
 def _coerce_required_datetime(
-    value: Any,
+    value: object,
     *,
     required: bool,
     parameter_name: str,
@@ -684,7 +701,7 @@ def _coerce_required_datetime(
     return parsed
 
 
-def _resolve_product_type_filter(value: Any) -> int | None:
+def _resolve_product_type_filter(value: object) -> int | None:
     normalized = str(value or "").strip().lower()
     if not normalized:
         return None
@@ -698,7 +715,7 @@ def _resolve_product_type_filter(value: Any) -> int | None:
     return None
 
 
-def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
+def _resolve_benefit_type(value: object, *, required: bool) -> int | None:
     normalized = str(value or "").strip().lower()
     if not normalized:
         if required:
@@ -711,7 +728,7 @@ def _resolve_benefit_type(value: Any, *, required: bool) -> int | None:
     return None
 
 
-def _resolve_discount_type(value: Any, *, required: bool) -> int | None:
+def _resolve_discount_type(value: object, *, required: bool) -> int | None:
     normalized = str(value or "").strip().lower()
     if not normalized:
         if required:
@@ -778,7 +795,7 @@ def _validate_campaign_product_targets(products: list[BillingProduct]) -> None:
 
 
 def _load_campaign_target_product_configs(
-    product_drafts: list[dict[str, Any]],
+    product_drafts: list[dict[str, object]],
 ) -> list[NormalizedCampaignProductConfig]:
     product_bids = sorted(
         {
@@ -1094,7 +1111,7 @@ def _serialize_admin_campaign_row(
     product_types: list[str],
     bindings: list[BillingCampaignProduct],
     hit_order_count: int,
-):
+) -> AdminBillingCampaignDTO:
     campaign_rule_snapshot = _resolve_campaign_rule_snapshot_from_bindings(
         row,
         bindings=bindings,
@@ -1115,7 +1132,7 @@ def _serialize_admin_campaign_row(
 
 def _resolve_campaign_rule_snapshot(
     product_configs: list[NormalizedCampaignProductConfig],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if not product_configs:
         return {
             "discount_type_code": 0,
@@ -1146,7 +1163,7 @@ def _resolve_campaign_rule_snapshot_from_bindings(
     row: BillingCampaign,
     *,
     bindings: list[BillingCampaignProduct],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if not bindings:
         return {
             "discount_type_code": int(row.discount_type or 0),

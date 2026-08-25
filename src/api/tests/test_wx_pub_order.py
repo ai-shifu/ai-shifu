@@ -1,3 +1,5 @@
+"""Verify WeChat public-account charges select the Ping++ channel."""
+
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -7,12 +9,16 @@ from flaskr.service.order.funs import BuyRecordDTO, generate_charge
 from flaskr.service.order.models import Order
 
 
-def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
+def test_generate_charge_uses_pingxx_channel(app: object, monkeypatch: object) -> None:
     from flaskr.service.order import funs as order_funs
 
     order_bid = "order-wx-pub-1"
     course_bid = "course-wx-pub-1"
     user_bid = "user-wx-pub-1"
+
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, bid, preview_mode
+        return SimpleNamespace(title="Course", description="Desc")
 
     with app.app_context():
         order = Order(
@@ -31,14 +37,12 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, preview_mode: SimpleNamespace(
-            title="Course", description="Desc"
-        ),
+        get_shifu_info,
     )
 
     captured = {}
 
-    def fake_generate_pingxx_charge(**kwargs):
+    def fake_generate_pingxx_charge(**kwargs: object) -> object:
         captured.update(kwargs)
         return BuyRecordDTO(
             kwargs["buy_record"].order_bid,

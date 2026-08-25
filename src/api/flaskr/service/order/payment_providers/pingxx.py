@@ -1,17 +1,21 @@
+"""Integrate Ping++ payments with legacy orders."""
+
 from __future__ import annotations
 
 import base64
 import json
 import re
 import threading
+from collections.abc import (
+    Callable,  # noqa: TC003 - decorator annotation is resolved at runtime
+)
 from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from flask import Flask
 from flaskr.service.config import get_config
 
 from . import register_payment_provider
@@ -23,7 +27,12 @@ from .base import (
     SubscriptionUpdateResult,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 _PINGPP_CONFIG_LOCK = threading.RLock()
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 @dataclass(slots=True)
@@ -36,16 +45,16 @@ class _PingppClientState:
 _pingpp_client_state = _PingppClientState()
 
 
-def _serialized_pingpp_config(func):
+def _serialized_pingpp_config(func: Callable[P, R]) -> Callable[P, R]:
     @wraps(func)
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
         with _PINGPP_CONFIG_LOCK:
             return func(*args, **kwargs)
 
     return wrapped
 
 
-def _get_pingpp_client() -> Any:
+def _get_pingpp_client() -> object:
     with _pingpp_client_state.lock:
         if _pingpp_client_state.client is not None:
             return _pingpp_client_state.client
@@ -67,19 +76,21 @@ class PingxxProvider(PaymentProvider):
 
     channel = "pingxx"
 
-    def _ensure_client(self, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> object:
         """Configure pingpp for the current owner context."""
         try:
             client = _get_pingpp_client()
         except Exception as exc:  # pragma: no cover
             app.logger.exception("Pingxx dependency is not available")
-            raise RuntimeError("Pingxx dependency is not available") from exc
+            message = "Pingxx dependency is not available"
+            raise RuntimeError(message) from exc
 
         api_key = get_config("PINGXX_SECRET_KEY")
         private_key = str(get_config("PINGXX_PRIVATE_KEY", "") or "").strip()
         private_key_path = get_config("PINGXX_PRIVATE_KEY_PATH")
         if not private_key and not private_key_path:
-            raise RuntimeError("Pingxx private key is not configured")
+            message = "Pingxx private key is not configured"
+            raise RuntimeError(message)
         if not private_key and not Path(private_key_path).exists():
             app.logger.error("Pingxx private key not found at %s", private_key_path)
             raise FileNotFoundError(private_key_path)
@@ -90,7 +101,7 @@ class PingxxProvider(PaymentProvider):
         app.logger.info("Pingxx client initialized")
         return client
 
-    def ensure_client(self, app: Flask) -> Any:
+    def ensure_client(self, app: Flask) -> object:
         """Public wrapper for configuring the pingpp client."""
         return self._ensure_client(app)
 
@@ -126,6 +137,7 @@ class PingxxProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         client = self._ensure_client(app)
         provider_options: dict[str, Any] = request.extra or {}
         app_id = provider_options.get("app_id") or get_config("PINGXX_APP_ID")
@@ -152,28 +164,48 @@ class PingxxProvider(PaymentProvider):
         )
 
     @_serialized_pingpp_config
-    def retrieve_charge(self, *, charge_id: str, app: Flask):
+    def retrieve_charge(self, *, charge_id: str, app: Flask) -> dict[str, object]:
+        """Retrieve a charge from the payment provider."""
         client = self._ensure_client(app)
         return client.Charge.retrieve(charge_id)
 
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        raise RuntimeError("Pingxx does not support subscriptions")
+        """Raise because Pingxx does not support subscription operations."""
+        _ = (request, app)
+        message = "Pingxx does not support subscriptions"
+        raise RuntimeError(message)
 
     def cancel_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
-        raise RuntimeError("Pingxx does not support subscriptions")
+        """Raise because Pingxx does not support subscription operations."""
+        _ = (subscription_bid, provider_subscription_id, app)
+        message = "Pingxx does not support subscriptions"
+        raise RuntimeError(message)
 
     def resume_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
-        raise RuntimeError("Pingxx does not support subscriptions")
+        """Raise because Pingxx does not support subscription operations."""
+        _ = (subscription_bid, provider_subscription_id, app)
+        message = "Pingxx does not support subscriptions"
+        raise RuntimeError(message)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
+        _ = app
         normalized_headers = {
             str(key).lower(): str(value) for key, value in (headers or {}).items()
         }
@@ -187,7 +219,8 @@ class PingxxProvider(PaymentProvider):
         if webhook_public_key:
             signature = normalized_headers.get("x-pingplusplus-signature", "")
             if not signature:
-                raise RuntimeError("Pingxx signature header missing")
+                message = "Pingxx signature header missing"
+                raise RuntimeError(message)
             public_key = serialization.load_pem_public_key(
                 webhook_public_key.encode("utf-8")
             )
@@ -213,6 +246,7 @@ class PingxxProvider(PaymentProvider):
     def handle_notification(
         self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
+        """Verify, when needed, and normalize a Pingxx provider notification."""
         if "raw_body" in payload:
             return self.verify_webhook(
                 headers=payload.get("headers", {}) or {},
@@ -231,9 +265,11 @@ class PingxxProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Retrieve a Pingxx charge and normalize it for local state application."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"charge", "payment"}:
-            raise RuntimeError(f"Unsupported Pingxx reference type: {reference_type}")
+            message = f"Unsupported Pingxx reference type: {reference_type}"
+            raise RuntimeError(message)
         charge = self.retrieve_charge(charge_id=provider_reference, app=app)
         return PaymentNotificationResult(
             order_bid=str(charge.get("order_no") or ""),

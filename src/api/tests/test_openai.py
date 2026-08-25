@@ -1,4 +1,6 @@
 # ruff: noqa: E402
+"""Verify LLM streaming through the LiteLLM provider boundary."""
+
 import sys
 import types
 from types import SimpleNamespace
@@ -12,13 +14,14 @@ def _install_litellm_stub() -> None:
 
     litellm_stub = types.ModuleType("litellm")
 
-    def get_model_info(*args, **kwargs):
+    def get_model_info(*args: object, **kwargs: object) -> None:
         _ = args, kwargs
-        raise ValueError("unknown model")
+        message = "unknown model"
+        raise ValueError(message)
 
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -82,26 +85,40 @@ pytestmark = pytest.mark.no_mock_llm
 
 
 class DummySpan:
-    def __init__(self, trace_id="trace-1", span_id="span-1") -> None:
+    """Simulate span behavior for tests."""
+
+    def __init__(
+        self, trace_id: object = "trace-1", span_id: object = "span-1"
+    ) -> None:
+        """Capture span calls alongside fixed trace and span identifiers."""
         self.generation_args = None
         self.end_args = None
         self.updated = None
         self.trace_id = trace_id
         self.id = span_id
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object) -> object:
         self.generation_args = kwargs
         return self
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object) -> None:
         self.end_args = kwargs
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
 class FakeResponse:
-    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None) -> None:
+    """Simulate response behavior for tests."""
+
+    def __init__(
+        self,
+        chunk_id: object,
+        content: object = None,
+        finish_reason: object = None,
+        usage: object = None,
+    ) -> None:
+        """Capture streamed content, finish state, and usage metadata."""
         self.id = chunk_id
         delta = SimpleNamespace(content=content)
         self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
@@ -109,16 +126,24 @@ class FakeResponse:
 
 
 class FakeUsage:
-    def __init__(self, prompt_tokens, completion_tokens, total_tokens) -> None:
+    """Simulate usage behavior for tests."""
+
+    def __init__(
+        self,
+        prompt_tokens: object,
+        completion_tokens: object,
+        total_tokens: object,
+    ) -> None:
+        """Capture prompt, completion, and total token counts."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens
 
 
-def test_invoke_llm_streams_via_litellm(monkeypatch, app):
+def test_invoke_llm_streams_via_litellm(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
 
-    def fake_completion(*args, **kwargs):
+    def fake_completion(*args: object, **kwargs: object) -> object:
         captured_kwargs["args"] = args
         captured_kwargs["kwargs"] = kwargs
         usage = FakeUsage(prompt_tokens=5, completion_tokens=4, total_tokens=9)

@@ -1,3 +1,7 @@
+"""Verify stripe refund behavior."""
+
+from collections.abc import Iterator
+
 import pytest
 from flask import Flask
 from flaskr import dao
@@ -9,15 +13,19 @@ from flaskr.service.order.payment_providers.base import PaymentRefundResult
 
 
 class DummyStripeRefundProvider:
+    """Simulate Stripe refund provider behavior for tests."""
+
     def __init__(self, result: PaymentRefundResult) -> None:
+        """Capture the result returned by refund requests."""
         self._result = result
 
-    def refund_payment(self, *, request, app):  # pylint: disable=unused-argument
+    def refund_payment(self, *, request: object, app: object) -> object:  # pylint: disable=unused-argument
+        _ = (request, app)
         return self._result
 
 
 @pytest.fixture
-def app():
+def app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -36,7 +44,7 @@ def app():
         dao.db.drop_all()
 
 
-def _ensure_order(status, order_bid):
+def _ensure_order(status: object, order_bid: object) -> object:
     order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
@@ -48,7 +56,7 @@ def _ensure_order(status, order_bid):
     return order
 
 
-def test_refund_order_payment_updates_status(app, monkeypatch):
+def test_refund_order_payment_updates_status(app: object, monkeypatch: object) -> None:
     order_bid = "order-refund-1"
     with app.app_context():
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
@@ -108,7 +116,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
         provider = DummyStripeRefundProvider(result)
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_payment_provider",
-            lambda channel: provider,
+            lambda _channel: provider,
         )
 
         # refund_order_payment now joins the caller's session and commits its
@@ -133,7 +141,7 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
         assert billing_snapshot.status == 0
 
 
-def test_get_payment_details_returns_stripe_payload(app):
+def test_get_payment_details_returns_stripe_payload(app: object) -> None:
     with app.app_context():
         order_bid = "order-details-1"
         order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)

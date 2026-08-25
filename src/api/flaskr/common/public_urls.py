@@ -1,3 +1,5 @@
+"""Build public URLs from trusted application configuration."""
+
 from __future__ import annotations
 
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -35,40 +37,44 @@ def _normalize_callback_url(value: str) -> str:
         return ""
     parsed = urlsplit(raw_value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise RuntimeError(
-            "GOOGLE_OAUTH_REDIRECT_URI must include http(s) scheme and host"
-        )
+        message = "GOOGLE_OAUTH_REDIRECT_URI must include http(s) scheme and host"
+        raise RuntimeError(message)
     if parsed.query or parsed.fragment:
-        raise RuntimeError(
-            "GOOGLE_OAUTH_REDIRECT_URI must not carry a query or fragment"
-        )
+        message = "GOOGLE_OAUTH_REDIRECT_URI must not carry a query or fragment"
+        raise RuntimeError(message)
     path = parsed.path.rstrip("/") or GOOGLE_OAUTH_CALLBACK_PATH
     return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
 
 def build_alipay_notify_url() -> str:
+    """Build alipay notify URL."""
     return build_public_url(_api_path("/callback/alipay-notify"))
 
 
 def build_wechatpay_notify_url() -> str:
+    """Build wechatpay notify URL."""
     return build_public_url(_api_path("/callback/wechatpay-notify"))
 
 
 def build_stripe_learner_result_url(*, canceled: bool = False) -> str:
+    """Build stripe learner result URL."""
     return _with_canceled(build_public_url(STRIPE_LEARNER_RESULT_PATH), canceled)
 
 
 def build_stripe_billing_result_url(*, canceled: bool = False) -> str:
+    """Build stripe billing result URL."""
     return _with_canceled(build_public_url(STRIPE_BILLING_RESULT_PATH), canceled)
 
 
 def build_public_url(path: str) -> str:
+    """Build public URL."""
     origin = resolve_public_origin()
     normalized_path = _normalize_path(path)
     return f"{origin}{normalized_path}"
 
 
 def resolve_public_origin() -> str:
+    """Resolve public origin."""
     configured_origin = _normalize_origin(str(get_config("HOST_URL", "") or ""))
     if configured_origin:
         return configured_origin
@@ -77,7 +83,8 @@ def resolve_public_origin() -> str:
     if request_origin:
         return request_origin
 
-    raise RuntimeError("HOST_URL must be configured to build public callback URLs")
+    message = "HOST_URL must be configured to build public callback URLs"
+    raise RuntimeError(message)
 
 
 def _api_path(path: str) -> str:
@@ -129,11 +136,11 @@ def _normalize_origin(value: str) -> str:
 
     parsed = urlsplit(raw_value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise RuntimeError("HOST_URL must include http(s) scheme and host")
+        message = "HOST_URL must include http(s) scheme and host"
+        raise RuntimeError(message)
     if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
-        raise RuntimeError(
-            "HOST_URL must be an origin without path, query, or fragment"
-        )
+        message = "HOST_URL must be an origin without path, query, or fragment"
+        raise RuntimeError(message)
     return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 

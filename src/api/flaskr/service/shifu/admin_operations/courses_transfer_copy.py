@@ -5,9 +5,7 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
 from flask import Flask, current_app
 from flaskr.common.cache_provider import cache as redis
@@ -66,8 +64,14 @@ from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
 
-def _load_latest_course_for_transfer(shifu_bid: str):
+
+def _load_latest_course_for_transfer(
+    shifu_bid: str,
+) -> DraftShifu | PublishedShifu | None:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,
@@ -264,7 +268,7 @@ def _prepare_operator_target_creator(
     identifier: str,
     previous_creator_user_bid: str = "",
     allow_same_user: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_contact_type = str(contact_type or "").strip().lower()
     normalized_identifier = _validate_operator_target_contact(
         normalized_contact_type, identifier
@@ -395,7 +399,8 @@ def transfer_operator_course_creator(
     contact_type: str,
     identifier: str,
     operator_user_bid: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Transfer operator course creator."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
@@ -468,7 +473,8 @@ def copy_operator_course(
     identifier: str,
     operator_user_bid: str,
     new_course_name: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Copy operator course."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()

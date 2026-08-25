@@ -8,11 +8,22 @@ import {
 } from '@testing-library/react';
 
 import StripeBillingResultPage from './page';
+import api from '@/api';
+import { buildBillingSwrKey } from '@/lib/billing';
 import request from '@/lib/request';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 
 const mockPush = jest.fn();
 const mockSearchParams = new URLSearchParams();
+const mockMutateSWRCache = jest.fn(
+  async (...args: [unknown, unknown?, unknown?]) => {
+    const [, fetcher] = args;
+    if (typeof fetcher === 'function') {
+      return (fetcher as () => Promise<unknown>)();
+    }
+    return fetcher;
+  },
+);
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -30,6 +41,20 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('swr', () => ({
+  mutate: (key: unknown, fetcher?: unknown, options?: unknown) =>
+    mockMutateSWRCache(key, fetcher, options),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getBillingOverview: jest.fn(),
+    getBillingWalletBuckets: jest.fn(),
+    getBillingLedger: jest.fn(),
+  },
+}));
+
 jest.mock('@/lib/request', () => ({
   __esModule: true,
   default: {
@@ -42,6 +67,9 @@ jest.mock('@/lib/stripe-storage', () => ({
 }));
 
 const mockRequestPost = request.post as jest.Mock;
+const mockGetBillingOverview = api.getBillingOverview as jest.Mock;
+const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
+const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockConsumeStripeCheckoutSession =
   consumeStripeCheckoutSession as jest.Mock;
 
@@ -49,7 +77,14 @@ describe('StripeBillingResultPage', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockRequestPost.mockReset();
+    mockMutateSWRCache.mockClear();
+    mockGetBillingOverview.mockReset();
+    mockGetBillingWalletBuckets.mockReset();
+    mockGetBillingLedger.mockReset();
     mockConsumeStripeCheckoutSession.mockReset();
+    mockGetBillingOverview.mockResolvedValue({});
+    mockGetBillingWalletBuckets.mockResolvedValue({});
+    mockGetBillingLedger.mockResolvedValue({ items: [] });
     mockSearchParams.forEach((_, key) => mockSearchParams.delete(key));
     jest.useRealTimers();
   });
@@ -74,6 +109,36 @@ describe('StripeBillingResultPage', () => {
     expect(
       await screen.findByText('module.billing.result.successTitle'),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockMutateSWRCache).toHaveBeenCalledTimes(3);
+    });
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(
+      buildBillingSwrKey('creator-billing-overview'),
+      expect.any(Function),
+      { revalidate: false },
+    );
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(
+      buildBillingSwrKey('billing-wallet-buckets'),
+      expect.any(Function),
+      { revalidate: false },
+    );
+    expect(mockMutateSWRCache).toHaveBeenCalledWith(
+      buildBillingSwrKey('billing-ledger-recent', 1, 20),
+      expect.any(Function),
+      { revalidate: false },
+    );
+    expect(mockGetBillingOverview).toHaveBeenCalledWith(
+      {},
+      { skipErrorToast: true },
+    );
+    expect(mockGetBillingWalletBuckets).toHaveBeenCalledWith(
+      {},
+      { skipErrorToast: true },
+    );
+    expect(mockGetBillingLedger).toHaveBeenCalledWith(
+      { page_index: 1, page_size: 20 },
+      { skipErrorToast: true },
+    );
     expect(
       await screen.findByText('module.billing.result.countdown:3'),
     ).toBeInTheDocument();

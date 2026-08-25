@@ -1,4 +1,4 @@
-name: Runtime Harness
+name: Critical Path Runtime Checks
 
 on:
   pull_request:
@@ -41,22 +41,29 @@ concurrency:
 jobs:
   runtime-harness:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       AI_SHIFU_COMPOSE_PROJECT: ai-shifu-runtime-harness
+      AI_SHIFU_COMPOSE_FILE: docker/docker-compose.runtime-harness.yml
+      AI_SHIFU_RUNTIME_TIMELINE: artifacts/runtime-harness/timeline.json
+      AI_SHIFU_HARNESS_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
       AI_SHIFU_API_PORT: "5800"
       AI_SHIFU_WEB_PORT: "8080"
-      AI_SHIFU_LOKI_PORT: "3100"
-      AI_SHIFU_TEMPO_PORT: "3200"
-      AI_SHIFU_TEMPO_OTLP_HTTP_PORT: "4318"
-      AI_SHIFU_OTEL_GRPC_PORT: "4317"
-      AI_SHIFU_PROMETHEUS_PORT: "9090"
-      AI_SHIFU_GRAFANA_PORT: "3001"
       AI_SHIFU_MYSQL_PORT: "3306"
       AI_SHIFU_REDIS_PORT: "6379"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Initialize runtime timeline
+        run: |
+          mkdir -p artifacts/runtime-harness
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name workflow \
+            --status started \
+            --detail "run_id=${{ github.run_id }}" \
+            --detail "sha=${{ github.sha }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,9 +77,18 @@ jobs:
 
       - name: Prepare runtime harness env
         run: |
-          cat > docker/.env <<'EOF'
-          SQLALCHEMY_DATABASE_URI=mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
-          SECRET_KEY=ci-runtime-harness-secret
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name runtime-env \
+            --status started
+          mysql_password="$(openssl rand -hex 16)"
+          encryption_key="$(openssl rand -base64 32 | tr -d '\n')"
+          secret_key="$(openssl rand -hex 32)"
+          cat > docker/.env <<EOF
+          AI_SHIFU_MYSQL_PASSWORD=${mysql_password}
+          AI_SHIFU_CREATOR_INTEGRATION_ENCRYPTION_KEY=${encryption_key}
+          SQLALCHEMY_DATABASE_URI=mysql://root:${mysql_password}@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
+          SECRET_KEY=${secret_key}
           OPENAI_API_KEY=ci-runtime-harness-placeholder
           UNIVERSAL_VERIFICATION_CODE=1024
           ENV=development
@@ -90,12 +106,30 @@ jobs:
           CELERY_BROKER_URL=redis://ai-shifu-redis:6379/0
           CELERY_RESULT_BACKEND=redis://ai-shifu-redis:6379/1
           EOF
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name runtime-env \
+            --status finished
+
+      - name: Validate runtime Compose configuration
+        run: |
+          docker compose --env-file docker/.env \
+            -p "$AI_SHIFU_COMPOSE_PROJECT" \
+            -f "$AI_SHIFU_COMPOSE_FILE" config --quiet
+
+      - name: Record image build start
+        run: |
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name image-build \
+            --status started
 
       - name: Build runtime images with cache
+        id: build-runtime-images
         uses: docker/bake-action@v7
         with:
           source: docker
-          files: docker-compose.dev.yml
+          files: docker-compose.runtime-harness.yml
           targets: ai-shifu-api-dev,ai-shifu-cook-web-dev
           load: true
           set: |
@@ -104,31 +138,73 @@ jobs:
             ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web
             ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min
 
-      - name: Start dev stack
-        working-directory: docker
-        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d
-
-      - name: Wait for API and observability health
+      - name: Record image build outcome
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build-runtime-images.outcome }}
         run: |
-          for attempt in $(seq 1 60); do
-            if curl -fsS "http://127.0.0.1:${AI_SHIFU_API_PORT}/health" >/dev/null && \
-               curl -fsS "http://127.0.0.1:${AI_SHIFU_API_PORT}/internal/observability/health" >/dev/null && \
-               curl -fsS "http://127.0.0.1:${AI_SHIFU_LOKI_PORT}/ready" >/dev/null && \
-               curl -fsS "http://127.0.0.1:${AI_SHIFU_TEMPO_PORT}/ready" >/dev/null && \
-               curl -fsS "http://127.0.0.1:${AI_SHIFU_PROMETHEUS_PORT}/-/ready" >/dev/null && \
-               curl -fsS "http://127.0.0.1:${AI_SHIFU_GRAFANA_PORT}/api/health" >/dev/null; then
-              exit 0
-            fi
-            sleep 5
-          done
-          docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml ps
-          docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
-          exit 1
+          build_status=finished
+          if [ "$BUILD_OUTCOME" != "success" ]; then
+            build_status=failed
+          fi
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name image-build \
+            --status "$build_status" \
+            --detail "outcome=$BUILD_OUTCOME"
+
+      - name: Record fast value stack start
+        run: |
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name fast-value-stack \
+            --status started
+
+      - name: Start fast value stack
+        id: start-fast-value-stack
+        run: |
+          docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" up -d
+
+      - name: Record fast value stack outcome
+        if: always()
+        env:
+          STACK_OUTCOME: ${{ steps.start-fast-value-stack.outcome }}
+        run: |
+          stack_status=finished
+          if [ "$STACK_OUTCOME" != "success" ]; then
+            stack_status=failed
+          fi
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name fast-value-stack \
+            --status "$stack_status" \
+            --detail "outcome=$STACK_OUTCOME"
+
+      - name: Wait for fast value endpoints
+        run: |
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name fast-value-health \
+            --status started
+          python scripts/harness/runtime_timeline.py wait \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name api-health \
+            --url "http://127.0.0.1:${AI_SHIFU_API_PORT}/health" \
+            --timeout-seconds 180
+          python scripts/harness/runtime_timeline.py wait \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name web-login \
+            --url "http://127.0.0.1:${AI_SHIFU_WEB_PORT}/login" \
+            --timeout-seconds 120
+          python scripts/harness/runtime_timeline.py mark \
+            --output "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name fast-value-health \
+            --status finished
 
       - name: Resolve Playwright version
         id: playwright-version
         working-directory: src/cook-web
-        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(node -p 'require("./package-lock.json").packages["node_modules/playwright"].version')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -140,20 +216,67 @@ jobs:
       - name: Install frontend dependencies
         working-directory: src/cook-web
         run: |
+          python ../../scripts/harness/runtime_timeline.py mark \
+            --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name frontend-test-dependencies \
+            --status started
+          set +e
           npm ci
-          npx playwright install --with-deps chromium
+          exit_code=$?
+          if [ "$exit_code" -eq 0 ]; then
+            npx playwright install --with-deps chromium
+            exit_code=$?
+          fi
+          set -e
+          dependency_status=finished
+          if [ "$exit_code" -ne 0 ]; then
+            dependency_status=failed
+          fi
+          python ../../scripts/harness/runtime_timeline.py mark \
+            --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name frontend-test-dependencies \
+            --status "$dependency_status" \
+            --detail "exit_code=$exit_code"
+          exit "$exit_code"
 
-      - name: Run smoke harness
+      - name: Run fast value smoke harness
         working-directory: src/cook-web
-        run: npm run test:e2e
+        run: |
+          python ../../scripts/harness/runtime_timeline.py mark \
+            --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name fast-value-smoke \
+            --status started
+          set +e
+          npm run test:e2e -- --project=runtime-harness-smoke
+          exit_code=$?
+          set -e
+          smoke_status=finished
+          if [ "$exit_code" -ne 0 ]; then
+            smoke_status=failed
+          fi
+          python ../../scripts/harness/runtime_timeline.py mark \
+            --output "../../$AI_SHIFU_RUNTIME_TIMELINE" \
+            --name fast-value-smoke \
+            --status "$smoke_status" \
+            --detail "exit_code=$exit_code"
+          exit "$exit_code"
 
-      - name: Capture compose logs
+      - name: Capture service diagnostics
         if: always()
-        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs > runtime-harness.log
+        run: |
+          docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" ps --format json > artifacts/runtime-harness/compose-ps.json || true
+          docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" logs --no-color > artifacts/runtime-harness/compose.log || true
 
-      - name: Stop dev stack
+      - name: Write runtime timeline summary
         if: always()
-        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml down -v
+        run: |
+          python scripts/harness/runtime_timeline.py summary \
+            --input "$AI_SHIFU_RUNTIME_TIMELINE" \
+            --output "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Stop fast value stack
+        if: always()
+        run: docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" down -v
 
       - name: Upload runtime harness artifacts
         if: always()
@@ -162,4 +285,4 @@ jobs:
           name: runtime-harness-artifacts
           path: |
             src/cook-web/test-results
-            runtime-harness.log
+            artifacts/runtime-harness

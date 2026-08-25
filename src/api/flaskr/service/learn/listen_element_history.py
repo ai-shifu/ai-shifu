@@ -1,10 +1,10 @@
+"""Read persisted listen-mode element history."""
+
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementDTO,
@@ -33,6 +33,11 @@ from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudi
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import and_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from flask import Flask
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -418,6 +423,7 @@ def get_final_elements_for_generated_block(
     shifu_bid: str = "",
     include_non_navigable: bool = False,
 ) -> list[ElementDTO]:
+    """Return final elements for generated block."""
     if not generated_block_bid:
         return []
 
@@ -705,6 +711,8 @@ def get_listen_element_record(
         ..., LegacyLearnRecord
     ] = build_legacy_record_for_progress,
 ) -> LearnElementRecordDTO:
+    """Return listen element record."""
+    _ = app
     progress_records = (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,

@@ -1,3 +1,5 @@
+"""Verify aliyun nls token behavior."""
+
 import json
 import time
 from typing import ClassVar
@@ -8,20 +10,22 @@ from flaskr.api.tts.aliyun_nls_token import get_aliyun_nls_token
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
 
-def test_get_aliyun_nls_token_uses_override_when_configured(monkeypatch):
+def test_get_aliyun_nls_token_uses_override_when_configured(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("ALIYUN_TTS_TOKEN", "override-token")
 
-    def fake_get(*args, **kwargs):
-        raise AssertionError(
-            "requests.get should not be called when override token exists"
-        )
+    def fake_get(*args: object, **kwargs: object) -> None:
+        _ = (args, kwargs)
+        message = "requests.get should not be called when override token exists"
+        raise AssertionError(message)
 
     monkeypatch.setattr(requests, "get", fake_get)
 
     assert get_aliyun_nls_token() == "override-token"
 
 
-def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch):
+def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch: object) -> None:
     monkeypatch.setenv("REDIS_KEY_PREFIX", "test:aliyun:nls-token:")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "my_access_key_id")
@@ -42,10 +46,10 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch):
         status_code = 200
         text = ""
 
-        def json(self):
+        def json(self) -> object:
             return {"Token": {"Id": "tok-1", "ExpireTime": int(time.time()) + 3600}}
 
-    def fake_get(url, headers=None, timeout=None):
+    def fake_get(url: object, headers: object = None, timeout: object = None) -> object:
         captured["calls"] += 1
         captured["url"] = url
         captured["headers"] = headers
@@ -74,7 +78,9 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch):
     assert signature == unquote(expected_signature)
 
 
-def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch):
+def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("REDIS_KEY_PREFIX", "test:aliyun:nls-token:fallback:")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "my_access_key_id")
@@ -94,9 +100,11 @@ def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch):
 
     captured = {"calls": 0}
 
-    def fake_get(*args, **kwargs):
+    def fake_get(*args: object, **kwargs: object) -> None:
+        _ = (args, kwargs)
         captured["calls"] += 1
-        raise requests.RequestException("network down")
+        message = "network down"
+        raise requests.RequestException(message)
 
     monkeypatch.setattr(requests, "get", fake_get)
 
@@ -104,7 +112,7 @@ def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch):
     assert captured["calls"] == 1
 
 
-def test_aliyun_provider_is_configured_with_access_keys(monkeypatch):
+def test_aliyun_provider_is_configured_with_access_keys(monkeypatch: object) -> None:
     monkeypatch.setenv("ALIYUN_TTS_APPKEY", "appkey")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
     monkeypatch.setenv("ALIYUN_AK_ID", "ak")
@@ -114,7 +122,7 @@ def test_aliyun_provider_is_configured_with_access_keys(monkeypatch):
     assert provider.is_configured() is True
 
 
-def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch):
+def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch: object) -> None:
     monkeypatch.setenv("ALIYUN_TTS_APPKEY", "appkey")
     monkeypatch.setenv("ALIYUN_TTS_REGION", "shanghai")
     monkeypatch.delenv("ALIYUN_TTS_TOKEN", raising=False)
@@ -130,7 +138,9 @@ def test_aliyun_provider_synthesize_uses_dynamic_token(monkeypatch):
         headers: ClassVar[dict[str, str]] = {"Content-Type": "audio/mpeg"}
         content = b"audio-bytes"
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(
+        url: object, json: object = None, headers: object = None, timeout: object = None
+    ) -> object:
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers

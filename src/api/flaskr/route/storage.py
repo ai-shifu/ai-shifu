@@ -1,12 +1,17 @@
+"""Expose storage HTTP routes."""
+
 from __future__ import annotations
 
 import mimetypes
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Flask, Response, send_file
 
 from flaskr.route.common import bypass_token_validation
 from flaskr.service.common.storage import get_local_storage_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _guess_mimetype(path: Path) -> str:
@@ -37,9 +42,11 @@ def _guess_mimetype(path: Path) -> str:
 
 
 def register_storage_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the storage routes on the Flask application."""
+
     @app.route(path_prefix + "/storage/<profile>/<path:object_key>", methods=["GET"])
     @bypass_token_validation
-    def serve_local_storage(profile: str, object_key: str):
+    def serve_local_storage(profile: str, object_key: str) -> Response:
         try:
             file_path = get_local_storage_path(profile, object_key)
         except ValueError:

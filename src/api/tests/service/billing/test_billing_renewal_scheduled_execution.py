@@ -1,10 +1,11 @@
+"""Verify billing renewal scheduled execution behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-import pytest
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing.consts import (
@@ -38,6 +39,10 @@ from tests.service.billing.renewal_execution_test_helpers import (
     create_renewal_subscription,
     self_managed_cycle_end_after_boundary,
 )
+
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 
@@ -186,7 +191,7 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",
-        lambda app, creator_bid, bill_order_bid, payload: {
+        lambda _app, creator_bid, bill_order_bid, _payload: {
             "status": "pending",
             "creator_bid": creator_bid,
             "bill_order_bid": bill_order_bid,

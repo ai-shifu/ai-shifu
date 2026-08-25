@@ -1,8 +1,12 @@
+"""Verify listen element history subtitles behavior."""
+
 from flask import Flask
 from flaskr import dao
 
 
 class TestListenElementHistorySubtitles:
+    """Verify listen element history subtitles behavior."""
+
     @classmethod
     def setup_class(cls) -> None:
         cls.app = Flask("listen-element-history-subtitles")
@@ -25,7 +29,7 @@ class TestListenElementHistorySubtitles:
         with cls.app.app_context():
             dao.db.create_all()
 
-    def test_final_elements_are_hydrated_from_persisted_audio_subtitles(self):
+    def test_final_elements_are_hydrated_from_persisted_audio_subtitles(self) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,
@@ -109,7 +113,7 @@ class TestListenElementHistorySubtitles:
         assert element.payload.audio.audio_bid == "audio-history-subtitles"
         assert element.payload.audio.subtitle_cues[0].text == "Hello subtitle history."
 
-    def test_multi_position_audio_is_hydrated_by_speakable_element_order(self):
+    def test_multi_position_audio_is_hydrated_by_speakable_element_order(self) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,
@@ -125,7 +129,7 @@ class TestListenElementHistorySubtitles:
             element_type: str,
             content_text: str,
             is_speakable: int,
-        ):
+        ) -> None:
             db.session.add(
                 self.LearnGeneratedElement(
                     element_bid=element_bid,
@@ -159,7 +163,7 @@ class TestListenElementHistorySubtitles:
                 )
             )
 
-        def add_audio(*, position: int):
+        def add_audio(*, position: int) -> None:
             db.session.add(
                 self.LearnGeneratedAudio(
                     audio_bid=f"audio-history-multi-{position}",
@@ -239,7 +243,9 @@ class TestListenElementHistorySubtitles:
             "audio-history-multi-2",
         ]
 
-    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(self):
+    def test_sparse_nonzero_audio_position_hydrates_matching_speakable_order(
+        self,
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.listen_element_history import (
             get_final_elements_for_generated_block,
@@ -253,7 +259,7 @@ class TestListenElementHistorySubtitles:
             element_bid: str,
             element_index: int,
             content_text: str,
-        ):
+        ) -> None:
             db.session.add(
                 self.LearnGeneratedElement(
                     element_bid=element_bid,

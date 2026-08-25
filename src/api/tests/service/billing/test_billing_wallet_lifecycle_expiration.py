@@ -1,10 +1,11 @@
+"""Verify billing wallet lifecycle expiration behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-import pytest
-from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -26,6 +27,10 @@ from flaskr.service.billing.wallets import (
 )
 from sqlalchemy.orm import attributes
 from sqlalchemy.orm.exc import ObjectDeletedError
+
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 
@@ -459,7 +464,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
 
         real_refresh = wallets_mod.db.session.refresh
 
-        def _refresh_with_realign(target_bucket):
+        def _refresh_with_realign(target_bucket: object) -> object:
             if (
                 isinstance(target_bucket, CreditWalletBucket)
                 and target_bucket.wallet_bucket_bid == "bucket-expire-realigned"
@@ -560,7 +565,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
         real_expire = wallets_mod._expire_bucket_available_credits_if_unchanged
         changed = {"done": False}
 
-        def _consume_before_expire(target_bucket, **kwargs):
+        def _consume_before_expire(target_bucket: object, **kwargs: object) -> object:
             if (
                 not changed["done"]
                 and target_bucket.wallet_bucket_bid
@@ -682,7 +687,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
         real_expire = wallets_mod._expire_bucket_available_credits_if_unchanged
         changed = {"done": False}
 
-        def _extend_before_expire(target_bucket, **kwargs):
+        def _extend_before_expire(target_bucket: object, **kwargs: object) -> object:
             if (
                 not changed["done"]
                 and target_bucket.wallet_bucket_bid
@@ -772,7 +777,9 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
         real_sync = wallets_mod._sync_empty_available_bucket_status_if_unchanged
         changed = {"done": False}
 
-        def _release_before_status_sync(target_bucket, **kwargs):
+        def _release_before_status_sync(
+            target_bucket: object, **kwargs: object
+        ) -> object:
             if not changed["done"]:
                 changed["done"] = True
                 CreditWalletBucket.query.filter(
@@ -880,7 +887,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
 
         real_refresh = wallets_mod.db.session.refresh
 
-        def _refresh_with_deleted_bucket(target_bucket):
+        def _refresh_with_deleted_bucket(target_bucket: object) -> object:
             if (
                 isinstance(target_bucket, CreditWalletBucket)
                 and target_bucket.wallet_bucket_bid == "bucket-expire-refresh-skip"
@@ -972,7 +979,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
 
         real_refresh = wallets_mod.db.session.refresh
 
-        def _refresh_with_deleted_error(target_bucket):
+        def _refresh_with_deleted_error(target_bucket: object) -> object:
             if (
                 isinstance(target_bucket, CreditWalletBucket)
                 and target_bucket.wallet_bucket_bid == "bucket-expire-refresh-error"
@@ -1058,10 +1065,11 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
         real_persist = wallets_mod.persist_credit_wallet_snapshot
         state = {"calls": 0}
 
-        def _persist_conflict_once(target_wallet, **kwargs):
+        def _persist_conflict_once(target_wallet: object, **kwargs: object) -> object:
             state["calls"] += 1
             if state["calls"] == 1:
-                raise RuntimeError("credit_wallet_version_conflict")
+                message = "credit_wallet_version_conflict"
+                raise RuntimeError(message)
             return real_persist(target_wallet, **kwargs)
 
         monkeypatch.setattr(

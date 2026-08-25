@@ -1,3 +1,5 @@
+"""Create and run the Flask application."""
+
 import os
 import subprocess
 import time
@@ -43,6 +45,7 @@ app: Flask | None = None
 
 
 def create_app() -> Flask:
+    """Create and configure the Flask application."""
     if _application_state.app is not None:
         return _application_state.app
     import pymysql
@@ -103,7 +106,8 @@ def create_app() -> Flask:
 
     plugin_manager = get_plugin_manager()
     if plugin_manager is None:
-        raise RuntimeError("Plugin manager is not enabled")
+        message = "Plugin manager is not enabled"
+        raise RuntimeError(message)
 
     load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
     try:
@@ -120,10 +124,15 @@ def create_app() -> Flask:
     flask_app = register_route(flask_app)
     # init swagger
     if flask_app.config.get("SWAGGER_ENABLED", False):
-        from flaskr.common import swagger_config
+        from flaskr.common import sanitize_swagger_docstring, swagger_config
 
         flask_app.logger.info("swagger init ...")
-        Swagger(flask_app, config=swagger_config, merge=True)
+        Swagger(
+            flask_app,
+            config=swagger_config,
+            sanitizer=sanitize_swagger_docstring,
+            merge=True,
+        )
 
     # enable hot reload
     if flask_app.config.get("ENV") == "development":

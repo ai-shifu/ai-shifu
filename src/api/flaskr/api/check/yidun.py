@@ -2,6 +2,8 @@
 # ref: https://support.dun.163.com/documents/588434200783982592?docId=791131792583602176
 
 
+"""Screen content through the Yidun risk API."""
+
 import hashlib
 import secrets
 import time
@@ -61,7 +63,7 @@ CHECK_RESULT_MAP = {
 }
 
 
-def gen_signature(params=None):
+def gen_signature(params: object = None) -> str:
     """Generate signature for yidun check."""
     buff = ""
     for k in sorted(params.keys()):
@@ -76,6 +78,7 @@ def gen_signature(params=None):
 def yidun_check(
     app: Flask, data_id: str, content: str, user_id: str | None = None
 ) -> CheckResultDTO:
+    """Check text with the YiDun content-safety provider."""
     if not YIDUN_SECRET_ID or not YIDUN_SECRET_KEY or not YIDUN_BUSINESS_ID:
         app.logger.warning(
             "YIDUN_SECRET_ID, YIDUN_SECRET_KEY, YIDUN_BUSINESS_ID not configured"

@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.common.stripe_client import get_stripe_client_options
 
 from .consts import (
@@ -24,6 +23,8 @@ from .consts import (
 from .primitives import normalize_bid, to_decimal
 
 if TYPE_CHECKING:
+    from flask import Flask
+
     from .models import BillingProduct
 
 _STRIPE_INTERVAL_BY_BILLING_INTERVAL = {
@@ -35,6 +36,8 @@ _STRIPE_INTERVAL_BY_BILLING_INTERVAL = {
 
 @dataclass(slots=True)
 class ProviderAccountSnapshot:
+    """Capture a snapshot of provider account."""
+
     provider: str
     account_id: str
     livemode: bool | None = None
@@ -43,6 +46,8 @@ class ProviderAccountSnapshot:
 
 @dataclass(slots=True)
 class ProviderProductSnapshot:
+    """Capture a snapshot of provider product."""
+
     provider: str
     product_id: str
     active: bool
@@ -53,6 +58,8 @@ class ProviderProductSnapshot:
 
 @dataclass(slots=True)
 class ProviderPriceSnapshot:
+    """Capture a snapshot of provider price."""
+
     provider: str
     price_id: str
     product_id: str
@@ -70,6 +77,8 @@ class ProviderPriceSnapshot:
 
 @dataclass(slots=True)
 class ProviderCatalogSnapshot:
+    """Capture a snapshot of provider catalog."""
+
     account: ProviderAccountSnapshot
     product: ProviderProductSnapshot
     price: ProviderPriceSnapshot
@@ -77,6 +86,8 @@ class ProviderCatalogSnapshot:
 
 @dataclass(slots=True)
 class ProviderCatalogValidationIssue:
+    """Describe an issue detected by provider catalog validation."""
+
     code: str
     message: str
     expected: str = ""
@@ -85,6 +96,8 @@ class ProviderCatalogValidationIssue:
 
 @dataclass(slots=True)
 class ProviderPriceMappingValidationResult:
+    """Capture the validation outcome for provider price mapping."""
+
     valid: bool
     errors: list[ProviderCatalogValidationIssue] = field(default_factory=list)
     warnings: list[ProviderCatalogValidationIssue] = field(default_factory=list)
@@ -94,6 +107,7 @@ class ProviderCatalogReadError(RuntimeError):
     """Raised when a provider catalog object cannot be retrieved."""
 
     def __init__(self, code: str, message: str) -> None:
+        """Store the catalog-read message and provider error code."""
         super().__init__(message)
         self.code = code
 
@@ -113,12 +127,14 @@ class StripeCatalogReadAdapter:
         provider_product_id: str,
         provider_price_id: str,
     ) -> ProviderCatalogSnapshot:
+        """Read the current Stripe catalog mapping."""
         stripe, request_options = self._client_options(app)
         normalized_product_id = normalize_bid(provider_product_id)
         normalized_price_id = normalize_bid(provider_price_id)
         if not normalized_product_id or not normalized_price_id:
+            message = "stripe_catalog_reference_missing"
             raise ProviderCatalogReadError(
-                "stripe_catalog_reference_missing",
+                message,
                 "Stripe product and price identifiers are required",
             )
 
@@ -131,8 +147,9 @@ class StripeCatalogReadAdapter:
                 stripe.Price.retrieve(normalized_price_id, **request_options)
             )
         except Exception as exc:
+            message = "stripe_catalog_retrieve_failed"
             raise ProviderCatalogReadError(
-                "stripe_catalog_retrieve_failed",
+                message,
                 _build_safe_stripe_error_message(exc),
             ) from None
 
@@ -407,7 +424,7 @@ def _validate_topup_price(
 
 def _validate_product_metadata_warnings(
     product: BillingProduct,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     warnings: list[ProviderCatalogValidationIssue],
 ) -> None:
     for key, expected_value in (
@@ -427,7 +444,7 @@ def _validate_product_metadata_warnings(
 
 def _validate_price_metadata_warnings(
     product: BillingProduct,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     warnings: list[ProviderCatalogValidationIssue],
 ) -> None:
     for key, expected_value in (
@@ -447,7 +464,7 @@ def _validate_price_metadata_warnings(
 
 def _validate_metadata_warning(
     warnings: list[ProviderCatalogValidationIssue],
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     *,
     expected_key: str,
     expected_value: str,
@@ -507,7 +524,7 @@ def _expected_plan_tier_metadata(product: BillingProduct) -> str:
     return ""
 
 
-def _product_type_label(value: Any) -> str:
+def _product_type_label(value: object) -> str:
     return BILLING_PRODUCT_TYPE_LABELS.get(int(value or 0), "")
 
 
@@ -517,11 +534,11 @@ def _expected_price_billing_interval_metadata(product: BillingProduct) -> str:
     return _billing_interval_label(product.billing_interval)
 
 
-def _billing_interval_label(value: Any) -> str:
+def _billing_interval_label(value: object) -> str:
     return BILLING_INTERVAL_LABELS.get(int(value or BILLING_INTERVAL_NONE), "")
 
 
-def _format_metadata_decimal(value: Any) -> str:
+def _format_metadata_decimal(value: object) -> str:
     try:
         normalized = to_decimal(value)
     except (InvalidOperation, ValueError):
@@ -531,7 +548,7 @@ def _format_metadata_decimal(value: Any) -> str:
     return format(normalized.normalize(), "f").rstrip("0").rstrip(".")
 
 
-def _normalize_metadata_compare_value(value: Any) -> str:
+def _normalize_metadata_compare_value(value: object) -> str:
     if isinstance(value, Decimal):
         return _format_metadata_decimal(value)
     text = str(value or "").strip()
@@ -564,7 +581,7 @@ def _append_mismatch(
     )
 
 
-def _normalize_stripe_account(payload: dict[str, Any]) -> ProviderAccountSnapshot:
+def _normalize_stripe_account(payload: dict[str, object]) -> ProviderAccountSnapshot:
     return normalize_stripe_account_snapshot(payload)
 
 
@@ -580,7 +597,7 @@ def normalize_stripe_account_snapshot(
     )
 
 
-def _normalize_stripe_product(payload: dict[str, Any]) -> ProviderProductSnapshot:
+def _normalize_stripe_product(payload: dict[str, object]) -> ProviderProductSnapshot:
     return normalize_stripe_product_snapshot(payload)
 
 
@@ -598,7 +615,7 @@ def normalize_stripe_product_snapshot(
     )
 
 
-def _normalize_stripe_price(payload: dict[str, Any]) -> ProviderPriceSnapshot:
+def _normalize_stripe_price(payload: dict[str, object]) -> ProviderPriceSnapshot:
     return normalize_stripe_price_snapshot(payload)
 
 
@@ -625,7 +642,7 @@ def normalize_stripe_price_snapshot(
     )
 
 
-def _normalize_stripe_reference_id(value: Any) -> str:
+def _normalize_stripe_reference_id(value: object) -> str:
     if isinstance(value, dict):
         return str(value.get("id") or "").strip()
     if hasattr(value, "to_dict"):
@@ -633,7 +650,7 @@ def _normalize_stripe_reference_id(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _normalize_metadata(value: Any) -> dict[str, Any]:
+def _normalize_metadata(value: object) -> dict[str, object]:
     payload = _to_plain_dict(value or {})
     if not isinstance(payload, dict):
         return {}
@@ -649,7 +666,7 @@ def _normalize_metadata(value: Any) -> dict[str, Any]:
     return normalized
 
 
-def _to_plain_dict(value: Any) -> dict[str, Any]:
+def _to_plain_dict(value: object) -> dict[str, object]:
     if hasattr(value, "to_dict"):
         value = value.to_dict()
     elif hasattr(value, "to_dict_recursive"):
@@ -669,7 +686,7 @@ def _iter_stripe_list_items(value: object) -> list[dict[str, object]]:
     return [_to_plain_dict(item) for item in data]
 
 
-def _coerce_optional_bool(value: Any) -> bool | None:
+def _coerce_optional_bool(value: object) -> bool | None:
     if value is None:
         return None
     return bool(value)

@@ -1,3 +1,5 @@
+"""Verify ask preview HTTP route behavior."""
+
 from types import SimpleNamespace
 
 from flaskr.service.common.models import ERROR_CODE
@@ -8,52 +10,42 @@ _PREVIEW_TOKEN = "preview-token"  # stub session token, `validate_user` is mocke
 
 
 class _FakeObservation:
-    """Mimics a Langfuse SDK v3 span/generation object."""
+    """Mimics a Langfuse SDK v4 observation object."""
 
-    def __init__(self, kind: str = "span", **kwargs) -> None:
+    def __init__(self, kind: str = "span", **kwargs: object) -> None:
         self.kind = kind
         self.kwargs = kwargs
         self.updates = []
-        self.trace_updates = []
         self.ended = False
+        self.public = False
         self.trace_id = "f" * 32
         self.id = f"fake-{kind}-id"
         self.generations = []
         self.span_calls = []
         self.last_span = None
 
-    def start_span(self, **kwargs):
-        self.span_calls.append(kwargs)
-        child = _FakeObservation("span", **kwargs)
-        self.last_span = child
-        return child
-
-    def start_observation(self, as_type="span", **kwargs):
+    def start_observation(self, as_type: object = "span", **kwargs: object) -> object:
         child = _FakeObservation(as_type, **kwargs)
         if as_type == "generation":
             self.generations.append(child)
+        else:
+            self.span_calls.append(kwargs)
+            self.last_span = child
         return child
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updates.append(kwargs)
 
-    def update_trace(self, **kwargs):
-        self.trace_updates.append(kwargs)
+    def set_trace_as_public(self) -> None:
+        self.public = True
 
-    def end(self):
+    def end(self) -> None:
         self.ended = True
 
     @property
-    def end_kwargs(self):
+    def end_kwargs(self) -> object:
         merged = {}
         for item in self.updates:
-            merged.update(item)
-        return merged
-
-    @property
-    def updated(self):
-        merged = {}
-        for item in self.trace_updates:
             merged.update(item)
         return merged
 
@@ -62,15 +54,20 @@ class _FakeLangfuseClient:
     def __init__(self) -> None:
         self.traces = []
 
-    def start_span(self, trace_context=None, **kwargs):
-        root = _FakeObservation("span", **kwargs)
+    def start_observation(
+        self,
+        as_type: object = "span",
+        trace_context: object = None,
+        **kwargs: object,
+    ) -> object:
+        root = _FakeObservation(as_type, **kwargs)
         root.trace_context = trace_context or {}
         self.traces.append(root)
         return root
 
 
 def _mock_authenticated_user(
-    monkeypatch,
+    monkeypatch: object,
     user_bid: str = "preview-user-1",
     *,
     is_creator: bool = False,
@@ -93,11 +90,13 @@ def _auth_headers(token: str = _PREVIEW_TOKEN) -> dict[str, str]:
     return {"Token": token}
 
 
-def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
+def test_ask_preview_route_success_with_provider(
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
     fake_langfuse = _FakeLangfuseClient()
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "dify"
@@ -141,7 +140,7 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert len(fake_langfuse.traces) == 1
     trace = fake_langfuse.traces[0]
     assert trace.kwargs["input"] == "hello"
-    # With SDK v3 the generation hangs directly off the root span.
+    # The generation hangs directly off the root observation.
     assert len(trace.generations) == 1
     generation = trace.generations[0]
     assert generation.kwargs["model"] == "dify"
@@ -151,17 +150,19 @@ def test_ask_preview_route_success_with_provider(monkeypatch, test_client):
     assert generation.end_kwargs["output"] == "provider result"
     assert generation.ended
     assert trace.end_kwargs["output"] == "provider result"
-    assert trace.updated["output"] == "provider result"
 
 
-def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
+def test_ask_preview_route_fallbacks_to_llm(
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         if provider == "dify":
-            raise AskProviderError("provider failed")
+            message = "provider failed"
+            raise AskProviderError(message)
         assert provider == "llm"
         yield SimpleNamespace(content="llm fallback")
 
@@ -202,7 +203,9 @@ def test_ask_preview_route_fallbacks_to_llm(monkeypatch, test_client):
     )
 
 
-def test_ask_preview_route_rejects_empty_query(monkeypatch, test_client):
+def test_ask_preview_route_rejects_empty_query(
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
 
     resp = test_client.post(
@@ -225,11 +228,11 @@ def test_ask_preview_route_rejects_empty_query(monkeypatch, test_client):
 
 
 def test_ask_preview_route_provider_only_does_not_require_ask_model(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "coze"
@@ -268,11 +271,11 @@ def test_ask_preview_route_provider_only_does_not_require_ask_model(
 
 
 def test_ask_preview_route_provider_only_accepts_coze_workflow(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "coze_workflow"
@@ -311,12 +314,12 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
 
 
 def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
     captured: dict[str, object] = {}
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         provider = kwargs.get("provider", "")
         assert provider == "get_biji_knowledge"
@@ -361,14 +364,19 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
     assert runtime.llm_context_stream_factory is not None
 
 
-def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_client):
+def test_ask_preview_route_surfaces_friendly_provider_error(
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = (args, kwargs)
-        raise AskProviderError(
+        message = (
             "get_biji_knowledge request failed: 401 Client Error for url: "
-            "https://openapi.biji.com/... | {raw json body}",
+            "https://openapi.biji.com/... | {raw json body}"
+        )
+        raise AskProviderError(
+            message,
             user_message="Knowledge base authentication failed.",
         )
         yield  # pragma: no cover
@@ -405,13 +413,14 @@ def test_ask_preview_route_surfaces_friendly_provider_error(monkeypatch, test_cl
 
 
 def test_ask_preview_route_falls_back_to_generic_provider_error(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     _mock_authenticated_user(monkeypatch)
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = (args, kwargs)
-        raise AskProviderError("dify request failed: 500 | {raw body}")
+        message = "dify request failed: 500 | {raw body}"
+        raise AskProviderError(message)
         yield  # pragma: no cover
 
     monkeypatch.setattr(
@@ -445,8 +454,8 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
 
 
 def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
@@ -468,12 +477,12 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
         raising=False,
     )
 
-    def fake_chat_llm(*args, **kwargs):
+    def fake_chat_llm(*args: object, **kwargs: object) -> object:
         _ = args
         captured["chat_llm"] = kwargs
         yield SimpleNamespace(content="debug answer")
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         runtime = kwargs.get("runtime")
         assert runtime is not None
@@ -520,17 +529,17 @@ def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
 
 
 def test_ask_preview_route_passes_debug_usage_context_for_creator(
-    monkeypatch, test_client
-):
+    monkeypatch: object, test_client: object
+) -> None:
     fake_langfuse = _FakeLangfuseClient()
     captured: dict[str, object] = {}
 
-    def fake_chat_llm(*args, **kwargs):
+    def fake_chat_llm(*args: object, **kwargs: object) -> object:
         _ = args
         captured.update(kwargs)
         yield SimpleNamespace(content="debug answer")
 
-    def fake_stream_ask_provider_response(*args, **kwargs):
+    def fake_stream_ask_provider_response(*args: object, **kwargs: object) -> object:
         _ = args
         runtime = kwargs.get("runtime")
         assert runtime is not None

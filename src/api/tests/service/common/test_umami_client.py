@@ -1,3 +1,5 @@
+"""Verify umami client integration behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -7,7 +9,7 @@ from flaskr.common import umami_client
 from flaskr.common.cache_provider import InMemoryCacheProvider
 
 
-def _mock_config(monkeypatch, values: dict[str, object]) -> None:
+def _mock_config(monkeypatch: object, values: dict[str, object]) -> None:
     monkeypatch.setattr(
         umami_client,
         "get_config",
@@ -15,7 +17,9 @@ def _mock_config(monkeypatch, values: dict[str, object]) -> None:
     )
 
 
-def test_get_course_visit_count_30d_counts_all_metric_pages(app, monkeypatch):
+def test_get_course_visit_count_30d_counts_all_metric_pages(
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -31,7 +35,12 @@ def test_get_course_visit_count_30d_counts_all_metric_pages(app, monkeypatch):
 
     calls: list[dict[str, object]] = []
 
-    def _fake_get(url, params=None, headers=None, timeout=None):
+    def _fake_get(
+        url: object,
+        params: object = None,
+        headers: object = None,
+        timeout: object = None,
+    ) -> object:
         calls.append(
             {
                 "url": url,
@@ -61,7 +70,9 @@ def test_get_course_visit_count_30d_counts_all_metric_pages(app, monkeypatch):
     assert calls[0]["headers"]["x-umami-api-key"] == "api-key"
 
 
-def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch):
+def test_get_course_visit_count_30d_uses_cached_value(
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -77,7 +88,13 @@ def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch):
 
     request_count = {"value": 0}
 
-    def _fake_get(url, params=None, headers=None, timeout=None):
+    def _fake_get(
+        url: object,
+        params: object = None,
+        headers: object = None,
+        timeout: object = None,
+    ) -> object:
+        _ = (url, params, headers, timeout)
         request_count["value"] += 1
         return SimpleNamespace(
             status_code=200,
@@ -95,8 +112,8 @@ def test_get_course_visit_count_30d_uses_cached_value(app, monkeypatch):
 
 
 def test_get_course_visit_count_30d_returns_zero_without_required_config(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -113,11 +130,13 @@ def test_get_course_visit_count_30d_returns_zero_without_required_config(
         assert umami_client.get_course_visit_count_30d(app, "course-1") == 0
 
 
-def test_build_course_visit_event_name_normalizes_non_ascii_to_match_frontend():
+def test_build_course_visit_event_name_normalizes_non_ascii_to_match_frontend() -> None:
     assert umami_client.build_course_visit_event_name("课程-1") == "course_visit___-1"
 
 
-def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
+def test_get_course_visit_count_30d_caches_failures_briefly(
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -133,9 +152,16 @@ def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
 
     request_count = {"value": 0}
 
-    def _fake_get(url, params=None, headers=None, timeout=None):
+    def _fake_get(
+        url: object,
+        params: object = None,
+        headers: object = None,
+        timeout: object = None,
+    ) -> None:
+        _ = (url, params, headers, timeout)
         request_count["value"] += 1
-        raise requests.RequestException("umami unavailable")
+        message = "umami unavailable"
+        raise requests.RequestException(message)
 
     monkeypatch.setattr(umami_client.requests, "get", _fake_get)
 
@@ -146,7 +172,9 @@ def test_get_course_visit_count_30d_caches_failures_briefly(app, monkeypatch):
     assert request_count["value"] == 1
 
 
-def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
+def test_get_course_visit_count_30d_uses_event_name_cache_key(
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -169,8 +197,8 @@ def test_get_course_visit_count_30d_uses_event_name_cache_key(app, monkeypatch):
 
 
 def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -187,16 +215,23 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
         def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
-        def get(self, key):
+        def get(self, key: object) -> object:
             return self._cache.get(key)
 
-        def delete(self, *keys):
+        def delete(self, *keys: str) -> object:
             return self._cache.delete(*keys)
 
-        def setex(self, key, ttl, value):
-            raise RuntimeError("cache unavailable")
+        def setex(self, key: object, ttl: object, value: object) -> None:
+            _ = (key, ttl, value)
+            message = "cache unavailable"
+            raise RuntimeError(message)
 
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
             return self._cache.lock(
                 key, timeout=timeout, blocking_timeout=blocking_timeout
             )
@@ -205,7 +240,7 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
     monkeypatch.setattr(
         umami_client,
         "_fetch_distinct_ids_for_event",
-        lambda **kwargs: 7,
+        lambda **_kwargs: 7,
     )
 
     with app.app_context():
@@ -213,8 +248,8 @@ def test_get_course_visit_count_30d_returns_fetched_value_when_cache_write_fails
 
 
 def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -231,16 +266,23 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
         def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
-        def get(self, key):
+        def get(self, key: object) -> object:
             return self._cache.get(key)
 
-        def delete(self, *keys):
+        def delete(self, *keys: str) -> object:
             return self._cache.delete(*keys)
 
-        def setex(self, key, ttl, value):
-            raise RuntimeError("cache unavailable")
+        def setex(self, key: object, ttl: object, value: object) -> None:
+            _ = (key, ttl, value)
+            message = "cache unavailable"
+            raise RuntimeError(message)
 
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
             return self._cache.lock(
                 key, timeout=timeout, blocking_timeout=blocking_timeout
             )
@@ -249,7 +291,7 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
     monkeypatch.setattr(
         umami_client,
         "_fetch_distinct_ids_for_event",
-        lambda **kwargs: (_ for _ in ()).throw(
+        lambda **_kwargs: (_ for _ in ()).throw(
             requests.RequestException("umami unavailable")
         ),
     )
@@ -259,8 +301,8 @@ def test_get_course_visit_count_30d_returns_zero_when_failure_cache_write_fails(
 
 
 def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -274,23 +316,33 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     )
 
     class BusyLock:
-        def acquire(self, blocking=True, blocking_timeout=None):
+        def acquire(
+            self, blocking: object = True, blocking_timeout: object = None
+        ) -> object:
+            _ = (blocking, blocking_timeout)
             return False
 
-        def release(self):
+        def release(self) -> None:
             return None
 
     class CacheWrapper:
-        def get(self, key):
-            return None
+        def get(self, key: object) -> None:
+            _ = key
 
-        def delete(self, *keys):
+        def delete(self, *keys: str) -> object:
+            _ = keys
             return 0
 
-        def setex(self, key, ttl, value):
-            return None
+        def setex(self, key: object, ttl: object, value: object) -> None:
+            _ = (key, ttl, value)
 
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
+            _ = (key, timeout, blocking_timeout)
             return BusyLock()
 
     read_values = iter([None, None, 11])
@@ -299,7 +351,7 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     monkeypatch.setattr(
         umami_client,
         "_read_cached_int",
-        lambda cache_key: next(read_values),
+        lambda _cache_key: next(read_values),
     )
     monkeypatch.setattr(umami_client.time, "sleep", sleep_calls.append)
 
@@ -309,7 +361,9 @@ def test_get_course_visit_count_30d_waits_for_cache_on_lock_contention(
     assert sleep_calls == [umami_client.UMAMI_CACHE_LOCK_WAIT_SECONDS]
 
 
-def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
+def test_login_for_access_token_rechecks_cache_when_lock_is_busy(
+    monkeypatch: object,
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -320,23 +374,32 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
     )
 
     class BusyLock:
-        def acquire(self, blocking=True, blocking_timeout=None):
+        def acquire(
+            self, blocking: object = True, blocking_timeout: object = None
+        ) -> object:
+            _ = (blocking, blocking_timeout)
             return False
 
-        def release(self):
+        def release(self) -> None:
             return None
 
     cache_provider = InMemoryCacheProvider()
     cache_provider.setex("test:analytics:umami:access-token", 60, "fresh-token")
 
     class CacheWrapper:
-        def get(self, key):
+        def get(self, key: object) -> object:
             return cache_provider.get(key)
 
-        def setex(self, key, ttl, value):
+        def setex(self, key: object, ttl: object, value: object) -> object:
             return cache_provider.setex(key, ttl, value)
 
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
+            _ = (key, timeout, blocking_timeout)
             return BusyLock()
 
     monkeypatch.setattr(umami_client, "cache", CacheWrapper())
@@ -347,7 +410,9 @@ def test_login_for_access_token_rechecks_cache_when_lock_is_busy(monkeypatch):
     )
 
 
-def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch):
+def test_login_for_access_token_returns_token_when_cache_write_fails(
+    monkeypatch: object,
+) -> None:
     _mock_config(
         monkeypatch,
         {
@@ -361,13 +426,20 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch
         def __init__(self) -> None:
             self._cache = InMemoryCacheProvider()
 
-        def get(self, key):
+        def get(self, key: object) -> object:
             return self._cache.get(key)
 
-        def setex(self, key, ttl, value):
-            raise RuntimeError("cache unavailable")
+        def setex(self, key: object, ttl: object, value: object) -> None:
+            _ = (key, ttl, value)
+            message = "cache unavailable"
+            raise RuntimeError(message)
 
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
             return self._cache.lock(
                 key, timeout=timeout, blocking_timeout=blocking_timeout
             )
@@ -376,7 +448,7 @@ def test_login_for_access_token_returns_token_when_cache_write_fails(monkeypatch
     monkeypatch.setattr(
         umami_client.requests,
         "post",
-        lambda *args, **kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: SimpleNamespace(
             status_code=200,
             raise_for_status=lambda: None,
             json=lambda: {"token": "fresh-token"},

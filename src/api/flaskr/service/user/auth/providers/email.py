@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -18,14 +19,20 @@ from flaskr.service.user.email_flow import verify_email_code
 from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.utils import send_email_code
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 class EmailAuthProvider(AuthProvider):
+    """Authenticate users through an email verification flow."""
+
     provider_name = "email"
     supports_challenge = True
 
     def send_challenge(
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
+        """Send an authentication challenge to the user."""
         response = send_email_code(
             app,
             request.identifier,
@@ -43,6 +50,7 @@ class EmailAuthProvider(AuthProvider):
         )
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+        """Verify the supplied authentication credential."""
         user_token, created_user, context = verify_email_code(
             app,
             request.metadata.get("user_id"),
@@ -54,7 +62,8 @@ class EmailAuthProvider(AuthProvider):
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)
         if not aggregate:
-            raise RuntimeError("User aggregate missing after email verification")
+            message = "User aggregate missing after email verification"
+            raise RuntimeError(message)
 
         credential = find_credential(
             provider_name="email",

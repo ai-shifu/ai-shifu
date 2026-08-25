@@ -1,7 +1,6 @@
 """Built-in LLM ask provider adapter."""
 
 from collections.abc import Generator
-from typing import Any
 
 from flask import Flask
 
@@ -14,6 +13,8 @@ from .consts import ASK_PROVIDER_LLM
 
 
 class LlmAskProviderAdapter:
+    """Adapt direct LLM responses to the common ask stream."""
+
     provider = ASK_PROVIDER_LLM
 
     def stream_answer(
@@ -21,13 +22,15 @@ class LlmAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         _ = (app, user_id, user_query, messages, provider_config)
         if runtime is None or runtime.llm_stream_factory is None:
-            raise AskProviderConfigError("llm runtime is not configured")
+            message = "llm runtime is not configured"
+            raise AskProviderConfigError(message)
 
         for chunk in runtime.llm_stream_factory():
             current_content = getattr(chunk, "result", None)

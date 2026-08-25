@@ -10,19 +10,21 @@ checked against domains we actually serve, which is what this module does.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
-from flask import Flask
 from flaskr.common.public_urls import (
     build_google_oauth_callback_url,
     resolve_public_origin,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
-def normalize_origin(value: Any) -> str:
+def normalize_origin(value: object) -> str:
     """Reduce a URL to a bare ``scheme://host`` origin, or "" if unusable.
 
     Credentials and non-default ports are refused rather than carried through:
@@ -54,7 +56,7 @@ def normalize_origin(value: Any) -> str:
     return urlunsplit((parsed.scheme, hostname, "", "", ""))
 
 
-def is_allowed_oauth_origin(app: Flask, origin: Any) -> bool:
+def is_allowed_oauth_origin(app: Flask, origin: object) -> bool:
     """Return whether the browser may be handed back to this origin.
 
     Allowed are the deployment's own origin, the origin of the configured
@@ -82,7 +84,7 @@ def is_allowed_oauth_origin(app: Flask, origin: Any) -> bool:
         return False
 
 
-def resolve_oauth_return_origin(app: Flask, origin: Any) -> str:
+def resolve_oauth_return_origin(app: Flask, origin: object) -> str:
     """Return the origin to hand back to, or "" when it is not allowed."""
     normalized_origin = normalize_origin(origin)
     if not normalized_origin:

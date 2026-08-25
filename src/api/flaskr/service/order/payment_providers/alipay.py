@@ -1,12 +1,13 @@
+"""Integrate Alipay payments with legacy orders."""
+
 from __future__ import annotations
 
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs
 
-from flask import Flask
 from flaskr.common.public_urls import build_alipay_notify_url
 from flaskr.service.config import get_config
 
@@ -20,6 +21,9 @@ from .base import (
     PaymentRequest,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 class AlipayProvider(PaymentProvider):
     """Direct Alipay OpenAPI provider implementation."""
@@ -29,8 +33,10 @@ class AlipayProvider(PaymentProvider):
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         if request.channel != "alipay_qr":
-            raise RuntimeError(f"Unsupported Alipay channel: {request.channel}")
+            message = f"Unsupported Alipay channel: {request.channel}"
+            raise RuntimeError(message)
 
         client = self._ensure_client(app)
         sdk = self._load_sdk(app)
@@ -64,7 +70,8 @@ class AlipayProvider(PaymentProvider):
 
         qr_code = str(response_payload.get("qr_code") or "")
         if not qr_code:
-            raise RuntimeError("Alipay precreate response missing qr_code")
+            error_message = "Alipay precreate response missing qr_code"
+            raise RuntimeError(error_message)
 
         provider_payload = {
             "request": {
@@ -90,20 +97,24 @@ class AlipayProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a native Alipay payment for a subscription request."""
         return self.create_payment(request=request, app=app)
 
     def verify_webhook(
         self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         del headers
         payload = _parse_form_payload(raw_body)
         if not self._verify_notification_signature(payload, app):
-            raise RuntimeError("Alipay notify signature verification failed")
+            message = "Alipay notify signature verification failed"
+            raise RuntimeError(message)
         return self._notification_from_payload(payload)
 
     def handle_notification(
-        self, *, payload: dict[str, Any], app: Flask
+        self, *, payload: dict[str, object], app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and normalize a provider notification for later application."""
         normalized_payload = dict(payload or {})
         if "raw_body" in normalized_payload:
             return self.verify_webhook(
@@ -112,15 +123,18 @@ class AlipayProvider(PaymentProvider):
                 app=app,
             )
         if not self._verify_notification_signature(normalized_payload, app):
-            raise RuntimeError("Alipay notify signature verification failed")
+            message = "Alipay notify signature verification failed"
+            raise RuntimeError(message)
         return self._notification_from_payload(normalized_payload)
 
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Query a provider payment reference without applying local state changes."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type not in {"payment", "trade", "charge"}:
-            raise RuntimeError(f"Unsupported Alipay reference type: {reference_type}")
+            message = f"Unsupported Alipay reference type: {reference_type}"
+            raise RuntimeError(message)
 
         client = self._ensure_client(app)
         sdk = self._load_sdk(app)
@@ -142,14 +156,17 @@ class AlipayProvider(PaymentProvider):
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
+        """Raise because this provider does not support payment refunds."""
         del request, app
-        raise RuntimeError("Alipay refunds are not supported")
+        message = "Alipay refunds are not supported"
+        raise RuntimeError(message)
 
-    def _ensure_client(self, app: Flask) -> Any:
+    def _ensure_client(self, app: Flask) -> object:
         sdk = self._load_sdk(app)
         app_id = str(get_config("ALIPAY_APP_ID", "") or "").strip()
         if not app_id:
-            raise RuntimeError("ALIPAY_APP_ID must be configured for Alipay")
+            message = "ALIPAY_APP_ID must be configured for Alipay"
+            raise RuntimeError(message)
         private_key = _read_required_key(
             "ALIPAY_APP_PRIVATE_KEY_PATH", "ALIPAY_APP_PRIVATE_KEY"
         )
@@ -170,7 +187,7 @@ class AlipayProvider(PaymentProvider):
             logger=app.logger,
         )
 
-    def _load_sdk(self, app: Flask) -> dict[str, Any]:
+    def _load_sdk(self, app: Flask) -> dict[str, object]:
         try:
             from alipay.aop.api.AlipayClientConfig import AlipayClientConfig
             from alipay.aop.api.DefaultAlipayClient import DefaultAlipayClient
@@ -188,7 +205,8 @@ class AlipayProvider(PaymentProvider):
             )
         except Exception as exc:  # pragma: no cover - depends on runtime package
             app.logger.exception("Alipay SDK is not available")
-            raise RuntimeError("alipay-sdk-python is required for Alipay") from exc
+            message = "alipay-sdk-python is required for Alipay"
+            raise RuntimeError(message) from exc
 
         return {
             "AlipayClientConfig": AlipayClientConfig,
@@ -201,7 +219,7 @@ class AlipayProvider(PaymentProvider):
 
     def _verify_notification_signature(
         self,
-        payload: dict[str, Any],
+        payload: dict[str, object],
         app: Flask,
     ) -> bool:
         self._load_sdk(app)
@@ -212,7 +230,8 @@ class AlipayProvider(PaymentProvider):
             )
         except Exception as exc:  # pragma: no cover - depends on runtime package
             app.logger.exception("Alipay signature utility is not available")
-            raise RuntimeError("Alipay signature utility is required") from exc
+            message = "Alipay signature utility is required"
+            raise RuntimeError(message) from exc
 
         public_key = _read_required_key("ALIPAY_PUBLIC_KEY_PATH", "ALIPAY_PUBLIC_KEY")
         sign = str(payload.get("sign") or "")
@@ -229,7 +248,7 @@ class AlipayProvider(PaymentProvider):
 
     def _notification_from_payload(
         self,
-        payload: dict[str, Any],
+        payload: dict[str, object],
     ) -> PaymentNotificationResult:
         return PaymentNotificationResult(
             order_bid=str(payload.get("out_trade_no") or ""),
@@ -245,7 +264,8 @@ def _read_required_key(config_name: str, inline_config_name: str = "") -> str:
         return inline_value
     key_path = str(get_config(config_name, "") or "").strip()
     if not key_path:
-        raise RuntimeError(f"{config_name} must be configured")
+        message = f"{config_name} must be configured"
+        raise RuntimeError(message)
     path = Path(key_path)
     if not path.exists():
         raise FileNotFoundError(key_path)
@@ -260,21 +280,24 @@ def _format_cny_amount(amount: int) -> str:
     return format(yuan, "f")
 
 
-def _parse_alipay_response(raw_response: Any, response_key: str) -> dict[str, Any]:
+def _parse_alipay_response(
+    raw_response: object, response_key: str
+) -> dict[str, object]:
     if hasattr(raw_response, "to_dict"):
         raw_response = raw_response.to_dict()
     if isinstance(raw_response, str):
         raw_response = json.loads(raw_response)
     if not isinstance(raw_response, dict):
         # RuntimeError is this provider's uniform failure type.
-        raise RuntimeError("Invalid Alipay response")  # noqa: TRY004
+        message = "Invalid Alipay response"
+        raise RuntimeError(message)  # noqa: TRY004
     nested = raw_response.get(response_key)
     if isinstance(nested, dict):
         return nested
     return raw_response
 
 
-def _parse_form_payload(raw_body: bytes | str) -> dict[str, Any]:
+def _parse_form_payload(raw_body: bytes | str) -> dict[str, object]:
     if isinstance(raw_body, bytes):
         raw_body = raw_body.decode("utf-8")
     raw_body = str(raw_body or "")

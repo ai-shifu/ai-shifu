@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.common.models import raise_error
 from flaskr.util.datetime import now_utc
 
@@ -22,11 +21,16 @@ from .primitives import is_billing_enabled
 from .primitives import to_decimal as _to_decimal
 from .subscriptions import load_effective_topup_subscription
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 _ZERO_CREDITS = Decimal(0)
 
 
 @dataclass(slots=True, frozen=True)
 class CreatorUsageAdmission:
+    """Capture whether a teacher usage request may consume credits."""
+
     allowed: bool
     creator_bid: str
     shifu_bid: str
@@ -35,7 +39,8 @@ class CreatorUsageAdmission:
     subscription_status: int | None
     priority_class: str
 
-    def to_response_dict(self) -> dict[str, Any]:
+    def to_response_dict(self) -> dict[str, object]:
+        """Serialize this result for an API response."""
         return {
             "allowed": self.allowed,
             "creator_bid": self.creator_bid,
@@ -46,7 +51,8 @@ class CreatorUsageAdmission:
             "priority_class": self.priority_class,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a response field by key."""
         return self.to_response_dict()[key]
 
 

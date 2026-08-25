@@ -1,3 +1,5 @@
+"""Convert persistence rows into listen-mode records."""
+
 from __future__ import annotations
 
 import json

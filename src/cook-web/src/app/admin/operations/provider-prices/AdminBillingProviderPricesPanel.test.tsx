@@ -445,7 +445,7 @@ describe('AdminBillingProviderPricesPanel', () => {
 
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'module.billing.admin.providerPrices.actions.activate',
+        name: 'module.billing.admin.providerPrices.actions.restore',
       }),
     );
     expect(

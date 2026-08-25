@@ -1,3 +1,5 @@
+"""Verify coupon filtering and course eligibility."""
+
 from flaskr.service.order.coupon_funcs import (
     _coupon_matches_course,
     _get_course_id_from_filter,
@@ -31,31 +33,31 @@ def _make_usage(user_id: str, coupon_bid: str) -> CouponUsage:
     return usage
 
 
-def test_get_course_id_from_filter_handles_invalid_json():
+def test_get_course_id_from_filter_handles_invalid_json() -> None:
     coupon = Coupon()
     coupon.filter = "not-json"
     assert _get_course_id_from_filter(coupon) is None
 
 
-def test_coupon_matches_course_when_filter_missing():
+def test_coupon_matches_course_when_filter_missing() -> None:
     coupon = _make_coupon(None)
     assert _coupon_matches_course(coupon, "course-1") is True
 
 
-def test_coupon_matches_course_when_filter_matches():
+def test_coupon_matches_course_when_filter_matches() -> None:
     coupon = _make_coupon("course-1")
     assert _coupon_matches_course(coupon, "course-1") is True
     assert _coupon_matches_course(coupon, "course-2") is False
 
 
-def test_coupon_matches_course_returns_false_for_inactive_coupon():
+def test_coupon_matches_course_returns_false_for_inactive_coupon() -> None:
     coupon = _make_coupon("course-1")
     coupon.status = 0
 
     assert _coupon_matches_course(coupon, "course-1") is False
 
 
-def test_coupon_matches_course_returns_true_for_legacy_inactive_coupon():
+def test_coupon_matches_course_returns_true_for_legacy_inactive_coupon() -> None:
     coupon = _make_coupon("course-1")
     coupon.status = 0
     coupon.created_user_bid = ""
@@ -64,14 +66,14 @@ def test_coupon_matches_course_returns_true_for_legacy_inactive_coupon():
     assert _coupon_matches_course(coupon, "course-1") is True
 
 
-def test_coupon_matches_course_returns_false_for_deleted_coupon():
+def test_coupon_matches_course_returns_false_for_deleted_coupon() -> None:
     coupon = _make_coupon("course-1")
     coupon.deleted = 1
 
     assert _coupon_matches_course(coupon, "course-1") is False
 
 
-def test_pick_coupon_candidate_prefers_user_usage():
+def test_pick_coupon_candidate_prefers_user_usage() -> None:
     coupon = _make_coupon("course-1")
     usage = _make_usage("user-1", coupon.coupon_bid)
     other_usage = _make_usage("user-2", coupon.coupon_bid)
@@ -89,7 +91,7 @@ def test_pick_coupon_candidate_prefers_user_usage():
     assert has_candidate is True
 
 
-def test_pick_coupon_candidate_falls_back_to_code_coupon():
+def test_pick_coupon_candidate_falls_back_to_code_coupon() -> None:
     coupon = _make_coupon("course-1")
     usage_result, coupon_result, has_candidate = _pick_coupon_candidate(
         [],
@@ -104,7 +106,7 @@ def test_pick_coupon_candidate_falls_back_to_code_coupon():
     assert has_candidate is True
 
 
-def test_pick_coupon_candidate_skips_batch_code_for_single_use_coupon():
+def test_pick_coupon_candidate_skips_batch_code_for_single_use_coupon() -> None:
     coupon = _make_coupon("course-1")
     coupon.usage_type = COUPON_APPLY_TYPE_SPECIFIC
 

@@ -2,16 +2,57 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { mutate as mutateSWRCache } from 'swr';
+import api from '@/api';
 import { Button } from '@/components/ui/Button';
+import { buildBillingSwrKey } from '@/lib/billing';
 import request from '@/lib/request';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 import { useTranslation } from 'react-i18next';
 
 type BillingResultStatus = 'loading' | 'success' | 'pending' | 'error';
+const BILLING_OVERVIEW_SWR_KEY = 'creator-billing-overview';
+const BILLING_WALLET_BUCKETS_SWR_KEY = 'billing-wallet-buckets';
+const BILLING_RECENT_LEDGER_PAGE_INDEX = 1;
+const BILLING_RECENT_LEDGER_PAGE_SIZE = 20;
+const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;
 
 type BillingSyncResponse = {
   status?: string;
 };
+
+async function refreshBillingPageCaches() {
+  await Promise.allSettled([
+    mutateSWRCache(
+      buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY),
+      async () =>
+        await api.getBillingOverview({}, BILLING_PASSIVE_REQUEST_CONFIG),
+      { revalidate: false },
+    ),
+    mutateSWRCache(
+      buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY),
+      async () =>
+        await api.getBillingWalletBuckets({}, BILLING_PASSIVE_REQUEST_CONFIG),
+      { revalidate: false },
+    ),
+    mutateSWRCache(
+      buildBillingSwrKey(
+        'billing-ledger-recent',
+        BILLING_RECENT_LEDGER_PAGE_INDEX,
+        BILLING_RECENT_LEDGER_PAGE_SIZE,
+      ),
+      async () =>
+        await api.getBillingLedger(
+          {
+            page_index: BILLING_RECENT_LEDGER_PAGE_INDEX,
+            page_size: BILLING_RECENT_LEDGER_PAGE_SIZE,
+          },
+          BILLING_PASSIVE_REQUEST_CONFIG,
+        ),
+      { revalidate: false },
+    ),
+  ]);
+}
 
 type StripeBillingResultState = {
   status: BillingResultStatus;
@@ -86,6 +127,7 @@ export default function StripeBillingResultPage() {
           message: successMessage,
           billingOrderBid: orderBid,
         });
+        void refreshBillingPageCaches();
       } catch (error: any) {
         setState({
           status: 'error',

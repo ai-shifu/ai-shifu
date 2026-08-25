@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.auth.base import (
     AuthProvider,
@@ -19,14 +20,20 @@ from flaskr.service.user.phone_flow import verify_phone_code
 from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.utils import send_sms_code
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 class PhoneAuthProvider(AuthProvider):
+    """Authenticate users through a phone verification flow."""
+
     provider_name = "phone"
     supports_challenge = True
 
     def send_challenge(
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
+        """Send an authentication challenge to the user."""
         identifier = normalize_phone_identifier(request.identifier)
         response = send_sms_code(
             app,
@@ -42,6 +49,7 @@ class PhoneAuthProvider(AuthProvider):
         )
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+        """Verify the supplied authentication credential."""
         identifier = normalize_phone_identifier(request.identifier)
         user_token, created_user, context = verify_phone_code(
             app,
@@ -55,7 +63,8 @@ class PhoneAuthProvider(AuthProvider):
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)
         if not aggregate:
-            raise RuntimeError("User aggregate missing after phone verification")
+            message = "User aggregate missing after phone verification"
+            raise RuntimeError(message)
 
         credential = find_credential(
             provider_name="phone",

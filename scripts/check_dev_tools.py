@@ -68,6 +68,7 @@ class Check:
     """A single tool/state check and the command that fixes it."""
 
     def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True) -> None:
+        """Record a development-tool availability check."""
         self.name = name
         self.ok = ok
         self.fix = fix
@@ -185,6 +186,7 @@ def _fix_lines(missing: list[Check]) -> list[str]:
 
 
 def main() -> int:
+    """Verify lefthook and every required developer tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--strict",

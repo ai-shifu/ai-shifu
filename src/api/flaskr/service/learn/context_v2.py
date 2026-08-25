@@ -1,14 +1,16 @@
+"""Orchestrate learning-session state and SSE generation."""
+
 import contextlib
 import hashlib
 import inspect
 import json
 import queue
 import threading
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from flask import Flask
 from flaskr.api.langfuse import (
@@ -20,6 +22,7 @@ from flaskr.api.langfuse import (
     get_request_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
+    update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.common.cache_provider import cache as cache_provider
@@ -129,6 +132,10 @@ from markdown_flow import (
     replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
+from markdown_flow.models import Block
+
+if TYPE_CHECKING:
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
 context_local = threading.local()
 
@@ -142,7 +149,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _normalize_stream_number(value: Any) -> int | None:
+def _normalize_stream_number(value: object) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
@@ -150,7 +157,7 @@ def _normalize_stream_number(value: Any) -> int | None:
 
 
 def _iter_llm_result_content_parts(
-    llm_result: Any,
+    llm_result: object,
 ) -> Generator[tuple[str, str, int | None], None, None]:
     if llm_result is None:
         return
@@ -198,11 +205,15 @@ def _iter_llm_result_content_parts(
 
 
 class RunType(Enum):
+    """Enumerate supported run type values."""
+
     INPUT = "input"
     OUTPUT = "output"
 
 
 class RunScriptInfo:
+    """Carry script identity and metadata for a learning run."""
+
     attend: LearnProgressRecord
     outline_bid: str
     block_position: int
@@ -215,6 +226,7 @@ class RunScriptInfo:
         block_position: int,
         mdflow: str,
     ) -> None:
+        """Capture the current run-script position and MarkdownFlow source."""
         self.attend = attend
         self.outline_bid = outline_bid
         self.block_position = block_position
@@ -243,6 +255,8 @@ def _resolve_runtime_language_context(
 
 
 class RUNLLMProvider(LLMProvider):
+    """Provide model calls for the learning runtime."""
+
     app: Flask
     llm_settings: LLMSettings
     trace: LangfuseTraceHandle
@@ -256,11 +270,12 @@ class RUNLLMProvider(LLMProvider):
         app: Flask,
         llm_settings: LLMSettings,
         trace: LangfuseTraceHandle,
-        parent_observation: Any,
+        parent_observation: object,
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
     ) -> None:
+        """Bind run-scoped LLM settings, tracing, and usage dependencies."""
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
@@ -270,6 +285,7 @@ class RUNLLMProvider(LLMProvider):
         self.usage_scene = usage_scene
 
     def set_usage_generated_block_bid(self, generated_block_bid: str) -> None:
+        """Attach the generated block to LLM usage tracking."""
         self.usage_context = replace(
             self.usage_context,
             generated_block_bid=str(generated_block_bid or ""),
@@ -307,8 +323,10 @@ class RUNLLMProvider(LLMProvider):
         temperature: float | None = None,
     ) -> str:
         # Extract the last message content as the main prompt
+        """Start a nonstreaming LLM completion and return its text."""
         if not messages:
-            raise ValueError("No messages provided")
+            message = "No messages provided"
+            raise ValueError(message)
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
         actual_temperature = (
@@ -354,8 +372,10 @@ class RUNLLMProvider(LLMProvider):
         temperature: float | None = None,
     ) -> Generator[str, None, None]:
         # Extract the last message content as the main prompt
+        """Start a streaming LLM completion and yield its response chunks."""
         if not messages:
-            raise ValueError("No messages provided")
+            message = "No messages provided"
+            raise ValueError(message)
 
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
@@ -399,6 +419,8 @@ class RUNLLMProvider(LLMProvider):
 
 
 class MdflowContextV2:
+    """Track shared MarkdownFlow state for a version-two learning run."""
+
     def __init__(
         self,
         *,
@@ -411,6 +433,12 @@ class MdflowContextV2:
         visual_mode: bool = True,
         output_language: str | None = None,
     ) -> None:
+        """Create MarkdownFlow with prompts and optional output-language handling.
+
+        Initializes MarkdownFlow with the document, provider, and configured prompts.
+        When learner-language output is enabled, resolves and applies the requested
+        or fallback language.
+        """
         self._mdflow = MarkdownFlow(
             document=document,
             llm_provider=llm_provider,
@@ -433,10 +461,12 @@ class MdflowContextV2:
             )
             self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
-    def get_block(self, block_index: int):
+    def get_block(self, block_index: int) -> Block:
+        """Return a MarkdownFlow block by its index."""
         return self._mdflow.get_block(block_index)
 
-    def get_all_blocks(self):
+    def get_all_blocks(self) -> list[Block]:
+        """Return all MarkdownFlow blocks in encounter order."""
         return self._mdflow.get_all_blocks()
 
     def process(
@@ -447,7 +477,8 @@ class MdflowContextV2:
         context: list[dict[str, str]] | None = None,
         variables: dict | None = None,
         user_input: dict[str, list[str]] | None = None,
-    ):
+    ) -> LLMResult | Generator[LLMResult, None, None]:
+        """Process the current MarkdownFlow content."""
         return self._mdflow.process(
             block_index=block_index,
             mode=mode,
@@ -460,6 +491,7 @@ class MdflowContextV2:
     def normalize_context_messages(
         context: Iterable[dict[str, str]] | None,
     ) -> list[dict[str, str]] | None:
+        """Normalize messages for the model context."""
         if not context:
             return None
         filtered: list[dict[str, str]] = []
@@ -478,6 +510,7 @@ class MdflowContextV2:
         context: list[dict[str, str]] | None,
         output_language: str,
     ) -> list[dict[str, str]] | None:
+        """Keep context compatible with the output language."""
         if not context:
             return context
         normalized_language = (output_language or "").strip().lower()
@@ -499,6 +532,7 @@ class MdflowContextV2:
         input_value: str | dict | list | None,
         default_key: str = "input",
     ) -> dict[str, list[str]]:
+        """Normalize learner inputs into the context schema."""
         if input_value is None:
             return {}
         if isinstance(input_value, dict):
@@ -522,6 +556,7 @@ class MdflowContextV2:
     def flatten_user_input_map(
         user_input: dict[str, list[str]] | None,
     ) -> str:
+        """Flatten normalized learner inputs for prompt use."""
         if not user_input:
             return ""
         values: list[str] = []
@@ -538,6 +573,7 @@ class MdflowContextV2:
         document: str,
         variables: dict | None = None,
     ) -> list[dict[str, str]]:
+        """Build model context from MarkdownFlow blocks."""
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
         block_list = mdflow_context.get_all_blocks()
@@ -792,6 +828,7 @@ class RunScriptPreviewContextV2:
     """MarkdownFlow preview using context v2 logic with optional Redis caching."""
 
     def __init__(self, app: Flask) -> None:
+        """Bind the preview execution context to the Flask app."""
         self.app = app
 
     def stream_preview(
@@ -803,6 +840,7 @@ class RunScriptPreviewContextV2:
         user_bid: str,
         session_id: str,
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        """Stream a preview run without persisting learner progress."""
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, has_draft_outline=True)
         document_prompt = self._resolve_document_prompt(
@@ -824,7 +862,8 @@ class RunScriptPreviewContextV2:
             outline.content if outline else ""
         )
         if not document:
-            raise ValueError("Markdown-Flow content is empty")
+            message = "Markdown-Flow content is empty"
+            raise ValueError(message)
 
         chapter_title = getattr(outline, "title", "") or outline_bid
         trace_scene = "lesson_preview"
@@ -1106,7 +1145,7 @@ class RunScriptPreviewContextV2:
         result: LLMResult | Generator[LLMResult, None, None] | None,
         outline_bid: str,
         block_index: int,
-        current_block,
+        current_block: object,
         is_user_input_validation: bool,
         content_chunks: list[str],
         langfuse_output_chunks: list[str],
@@ -1158,7 +1197,7 @@ class RunScriptPreviewContextV2:
         llm_result: LLMResult | None,
         outline_bid: str,
         generated_block_bid: str,
-        current_block,
+        current_block: object,
         is_user_input_validation: bool,
     ) -> list[RunMarkdownFlowDTO]:
         content = ""
@@ -1222,7 +1261,7 @@ class RunScriptPreviewContextV2:
         generated_block_bid: str,
         content: str,
         stream_type: str,
-        stream_number: Any,
+        stream_number: object,
     ) -> RunMarkdownFlowDTO:
         event = RunMarkdownFlowDTO(
             outline_bid=outline_bid,
@@ -1440,7 +1479,8 @@ class RunScriptPreviewContextV2:
                 model = allowed_available_models[0]
                 model_source = "allowlist"
             else:
-                raise ValueError("No allowed LLM models are available")
+                message = "No allowed LLM models are available"
+                raise ValueError(message)
 
         temperature = next(
             (t for t in temperature_candidates if t is not None),
@@ -1448,7 +1488,8 @@ class RunScriptPreviewContextV2:
         )
 
         if not model:
-            raise ValueError("LLM model is not configured")
+            message = "LLM model is not configured"
+            raise ValueError(message)
 
         self.app.logger.info(
             "preview resolved llm settings | model=%s | temperature=%s | source=%s",
@@ -1504,7 +1545,7 @@ class RunScriptPreviewContextV2:
             .first()
         )
 
-    def _decimal_to_float(self, value) -> float | None:
+    def _decimal_to_float(self, value: object) -> float | None:
         if value is None:
             return None
         if isinstance(value, Decimal):
@@ -1540,6 +1581,8 @@ class _RunStepState:
 
 
 class RunScriptContextV2:
+    """Coordinate state and output for a version-two learning run."""
+
     user_id: str
     attend_id: str
     is_paid: bool
@@ -1580,6 +1623,7 @@ class RunScriptContextV2:
         listen: bool = False,
         stop_event: threading.Event | None = None,
     ) -> None:
+        """Select runtime models, locate the outline, and create its root trace."""
         self._last_position = -1
         self.app = app
         self._struct = struct
@@ -1672,11 +1716,13 @@ class RunScriptContextV2:
 
     @staticmethod
     def get_current_context(_app: Flask) -> Union["RunScriptContextV2", None]:
+        """Return the current RunScript context, if one is active."""
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
 
-    def append_langfuse_output(self, value: Any) -> None:
+    def append_langfuse_output(self, value: object) -> None:
+        """Buffer output content for active Langfuse trace finalization."""
         if not hasattr(self, "_langfuse_output_chunks"):
             self._langfuse_output_chunks = []
         text = normalize_langfuse_output_value(value)
@@ -1714,7 +1760,7 @@ class RunScriptContextV2:
         position: int = 0,
         stream_element_number: int | None = None,
         stream_element_type: str | None = None,
-    ):
+    ) -> "StreamingTTSProcessor | None":
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
@@ -1795,7 +1841,7 @@ class RunScriptContextV2:
 
     def _finalize_stream_tts_processor(
         self,
-        tts_processor,
+        tts_processor: object,
         *,
         log_prefix: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -1814,7 +1860,7 @@ class RunScriptContextV2:
     def _teardown_stream_tts_state(
         self,
         *,
-        tts_processor=None,
+        tts_processor: object = None,
         flush_content_cache: Callable[[], Iterable[RunMarkdownFlowDTO]] | None = None,
         log_prefix: str,
         skip_emit: bool = False,
@@ -1841,9 +1887,9 @@ class RunScriptContextV2:
         self,
         stream_result: Generator[Any, None, None],
         *,
-        idle_callback: Callable[[], Iterable[Any]] | None = None,
+        idle_callback: Callable[[], Iterable[object]] | None = None,
         idle_poll_interval: float = 0.05,
-    ) -> Generator[tuple[str, Any], None, None]:
+    ) -> Generator[tuple[str, object], None, None]:
         """Poll a blocking stream generator while allowing idle side-channel output."""
         result_queue: queue.Queue = queue.Queue()
         parent_language = get_current_language()
@@ -2067,7 +2113,9 @@ class RunScriptContextV2:
     # event construction lives in flaskr/service/learn/run/emitter.py.
 
     def _render_outline_updates(
-        self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
+        self,
+        outline_updates: list[OutlineItemUpdateDTO],
+        new_chapter: bool = False,
     ) -> Generator[str, None, None]:
         yield from self._event_emitter.render_outline_updates(
             outline_updates, new_chapter=new_chapter
@@ -2108,7 +2156,9 @@ class RunScriptContextV2:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         yield from self._event_emitter.emit_feedback_after_exception_gate()
 
-    def _ensure_current_attend_for_gate_interaction(self) -> LearnProgressRecord | None:
+    def _ensure_current_attend_for_gate_interaction(
+        self,
+    ) -> LearnProgressRecord | None:
         return self._event_emitter.ensure_current_attend_for_gate_interaction()
 
     def _emit_current_progress_gate_interaction(
@@ -2158,7 +2208,7 @@ class RunScriptContextV2:
             return False
         return bool(str(input_value).strip())
 
-    def set_input(self, user_input: str | dict, input_type: str):
+    def set_input(self, user_input: str | dict, input_type: str) -> None:
         """Set user input.
 
         Args:
@@ -2213,7 +2263,7 @@ class RunScriptContextV2:
             self._current_attend, is_ask=self._input_type == "ask"
         )
         if run_script_info is None:
-            yield from self._phase_completion_when_script_missing(app)
+            yield from self._phase_completion_when_script_missing()
             return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
@@ -2260,6 +2310,14 @@ class RunScriptContextV2:
             self._trace_root_span = None
         self._trace_args.setdefault("metadata", {})
         self._trace_args["session_id"] = self._current_attend.progress_record_bid
+        # The SDK replicates trace attributes onto every observation instead of
+        # keeping a mutable trace record, and only observations started after an
+        # attribute is bound carry it. Push the session id now so the spans and
+        # generations of this step are attributed to the session; leaving it to
+        # the finalize update would reach the root observation only.
+        trace = getattr(self, "_trace", None)
+        if trace is not None:
+            update_langfuse_trace(trace, session_id=self._trace_args["session_id"])
         self.app.logger.info(
             "langfuse runtime trace session bound | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
             self._trace_id,
@@ -2299,7 +2357,7 @@ class RunScriptContextV2:
         return True
 
     def _phase_completion_when_script_missing(
-        self, app: Flask
+        self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Completion tail for a step whose run-script info resolved to None."""
         self.app.logger.warning("run script is none")
@@ -2526,7 +2584,7 @@ class RunScriptContextV2:
         if handled:
             return True
         handled = yield from self._phase_validate_input_and_advance(
-            app, state, generated_block, parsed_interaction, user_input_param
+            app, state, generated_block, user_input_param
         )
         return handled
 
@@ -2912,7 +2970,6 @@ class RunScriptContextV2:
         app: Flask,
         state: _RunStepState,
         generated_block: LearnGeneratedBlock,
-        parsed_interaction: dict,
         user_input_param: dict,
     ) -> Generator[RunMarkdownFlowDTO, None, bool]:
         """Validate the interaction input, save variables, advance the cursor.
@@ -3009,7 +3066,7 @@ class RunScriptContextV2:
             return False
 
     def _phase_emit_validation_error(
-        self, app: Flask, state: _RunStepState, validate_result
+        self, app: Flask, state: _RunStepState, validate_result: object
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Stream the validation-error content and re-emit the interaction."""
         run_script_info = state.run_script_info
@@ -3348,7 +3405,7 @@ class RunScriptContextV2:
         def _switch_tts_processor(
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ):
+        ) -> None:
             nonlocal \
                 tts_processor, \
                 tts_enabled, \
@@ -3382,7 +3439,7 @@ class RunScriptContextV2:
             chunk_content: str,
             stream_element_type: str | None = None,
             stream_element_number: int | None = None,
-        ):
+        ) -> Iterator[RunMarkdownFlowDTO]:
             nonlocal \
                 generated_content, \
                 tts_processor, \
@@ -3435,7 +3492,7 @@ class RunScriptContextV2:
             )
             _disable_all_tts()
 
-        def _drain_current_tts_ready_events():
+        def _drain_current_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
             if not tts_processor:
                 return
             if not hasattr(tts_processor, "drain_ready_segments"):
@@ -3445,7 +3502,7 @@ class RunScriptContextV2:
             except Exception as exc:
                 _handle_current_tts_drain_error(exc)
 
-        def _drain_tts_ready_events():
+        def _drain_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
             yield from tts_finalize_drainer.drain()
             yield from _drain_current_tts_ready_events()
             yield from tts_finalize_drainer.drain()
@@ -3548,7 +3605,9 @@ class RunScriptContextV2:
             generation_prompt=sent_prompt,
         )
 
-    def _phase_completion_tail(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def _phase_completion_tail(
+        self,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Post-step outline completion: outline flips + tail interactions."""
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()
@@ -3567,6 +3626,7 @@ class RunScriptContextV2:
             self._can_continue = False
 
     def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Execute the current lesson run."""
         try:
             yield from self.run_inner(app)
         except PaidError:
@@ -3585,9 +3645,11 @@ class RunScriptContextV2:
             yield from self._emit_feedback_after_exception_gate()
 
     def has_next(self) -> bool:
+        """Return whether the lesson run can execute another step."""
         return self._can_continue
 
     def get_system_prompt(self, outline_item_bid: str) -> str | None:
+        """Build the system prompt for the current lesson run."""
         path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
@@ -3636,6 +3698,7 @@ class RunScriptContextV2:
         return build_course_prompt(course_prompt, learner=self._user_info)
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
+        """Return the effective LLM settings for this run."""
         path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
@@ -3670,7 +3733,8 @@ class RunScriptContextV2:
         reload_generated_block_bid: str,
         *,
         reload_element_bid: str | None = None,
-    ):
+    ) -> Generator[object, None, None]:
+        """Regenerate from an anchor by rewinding progress and deactivating superseded persisted state."""
         with app.app_context():
             anchor_element = None
             anchor_generated_block_bid = ""

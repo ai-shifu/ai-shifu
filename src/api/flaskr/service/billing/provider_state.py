@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.util.datetime import now_utc
 
 from .consts import (
@@ -52,6 +50,10 @@ from .subscriptions import (
 from .value_objects import JsonObjectMap
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
+
     from .models import BillingOrder, BillingSubscription
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
@@ -85,6 +87,8 @@ _STRIPE_SUBSCRIPTION_STATUS_MAP = {
 
 @dataclass(slots=True)
 class BillingOrderProviderUpdateResult:
+    """Capture provider-state changes applied to a billing order."""
+
     applied: bool = False
     previous_status: int | None = None
     paid_order_side_effects: BillingPaidOrderSideEffects = field(
@@ -92,6 +96,7 @@ class BillingOrderProviderUpdateResult:
     )
 
     def __bool__(self) -> bool:
+        """Return whether the provider update was applied."""
         return self.applied
 
     def stage_after_state_changes(
@@ -99,6 +104,7 @@ class BillingOrderProviderUpdateResult:
         app: Flask,
         order: BillingOrder | None,
     ) -> None:
+        """Stage paid-order side effects after local state changes."""
         self.paid_order_side_effects = _stage_billing_paid_order_side_effects(
             app,
             order,
@@ -106,6 +112,7 @@ class BillingOrderProviderUpdateResult:
         )
 
     def dispatch_after_commit(self, app: Flask) -> None:
+        """Dispatch staged paid-order side effects after commit."""
         _dispatch_billing_paid_order_side_effects(
             app,
             self.paid_order_side_effects,
@@ -118,7 +125,7 @@ def _apply_billing_order_provider_update(
     provider: str,
     event_type: str,
     source: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     provider_reference_id: str,
     target_status: int | None,
     failure_code: str = "",
@@ -226,7 +233,7 @@ def _map_stripe_order_status(event_type: str) -> int | None:
 
 def _resolve_stripe_subscription_order_status(
     order: BillingOrder,
-    data_object: dict[str, Any],
+    data_object: dict[str, object],
 ) -> int | None:
     if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return None
@@ -243,7 +250,7 @@ def _resolve_stripe_subscription_order_status(
 
 def _stripe_subscription_cycle_matches_renewal_order(
     order: BillingOrder,
-    data_object: dict[str, Any],
+    data_object: dict[str, object],
 ) -> bool:
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     expected_cycle_start = _extract_order_metadata_datetime(
@@ -270,7 +277,7 @@ def _stripe_subscription_cycle_matches_renewal_order(
 
 def _load_billing_renewal_order_for_stripe_event(
     subscription_bid: str,
-    data_object: dict[str, Any],
+    data_object: dict[str, object],
 ) -> BillingOrder | None:
     subscription_status = str(data_object.get("status") or "").strip().lower()
     current_period_start = _coerce_datetime(data_object.get("current_period_start"))
@@ -303,7 +310,7 @@ def _extract_stripe_provider_reference(
     *,
     order: BillingOrder,
     event_type: str,
-    data_object: dict[str, Any],
+    data_object: dict[str, object],
 ) -> str:
     reference = _normalize_bid(data_object.get("id"))
     if event_type == "checkout.session.completed" and reference.startswith("cs_"):
@@ -311,12 +318,12 @@ def _extract_stripe_provider_reference(
     return order.provider_reference_id
 
 
-def _extract_stripe_failure_code(data_object: dict[str, Any]) -> str:
+def _extract_stripe_failure_code(data_object: dict[str, object]) -> str:
     error_info = data_object.get("last_payment_error", {}) or {}
     return str(error_info.get("code") or "")
 
 
-def _extract_stripe_failure_message(data_object: dict[str, Any]) -> str:
+def _extract_stripe_failure_message(data_object: dict[str, object]) -> str:
     error_info = data_object.get("last_payment_error", {}) or {}
     return str(error_info.get("message") or "")
 
@@ -327,8 +334,8 @@ def _apply_billing_subscription_provider_update(
     *,
     provider: str,
     event_type: str,
-    payload: dict[str, Any],
-    data_object: dict[str, Any],
+    payload: dict[str, object],
+    data_object: dict[str, object],
     source: str = "webhook",
 ) -> bool:
     event_time = _extract_provider_event_time(payload)
@@ -393,7 +400,7 @@ def _apply_subscription_checkout_success(
     app: Flask,
     subscription: BillingSubscription,
     *,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     provider: str,
     event_type: str,
     source: str = "webhook",
@@ -441,7 +448,7 @@ def _apply_subscription_checkout_failure(
     *,
     provider: str,
     event_type: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     source: str = "webhook",
 ) -> bool:
     event_time = _extract_provider_event_time(payload)
@@ -486,7 +493,7 @@ def _record_subscription_provider_event(
     *,
     provider: str,
     event_type: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     event_time: datetime | None,
     source: str,
 ) -> None:
@@ -502,11 +509,11 @@ def _record_subscription_provider_event(
 
 def _merge_provider_metadata(
     *,
-    existing: Any,
+    existing: object,
     provider: str,
     source: str,
     event_type: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     event_time: datetime | None,
 ) -> JsonObjectMap:
     if isinstance(existing, JsonObjectMap):
@@ -524,7 +531,7 @@ def _merge_provider_metadata(
     return _normalize_json_object(metadata)
 
 
-def _extract_provider_event_time(payload: Any) -> datetime | None:
+def _extract_provider_event_time(payload: object) -> datetime | None:
     if not isinstance(payload, dict):
         return None
     for key in ("created", "time_paid", "current_period_end", "current_period_start"):
@@ -556,8 +563,8 @@ def _extract_provider_event_time(payload: Any) -> datetime | None:
 
 
 def _is_stripe_checkout_paid(
-    session: dict[str, Any],
-    intent: dict[str, Any] | None,
+    session: dict[str, object],
+    intent: dict[str, object] | None,
 ) -> bool:
     if session.get("payment_status") == "paid":
         return True

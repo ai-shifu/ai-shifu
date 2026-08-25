@@ -18,7 +18,7 @@ from tests.common.fixtures.config_data import (
 class TestEnhancedConfigInitialization:
     """Test EnhancedConfig initialization."""
 
-    def test_init_with_valid_env_vars(self):
+    def test_init_with_valid_env_vars(self) -> None:
         """Test initialization with valid environment variables."""
         config = EnhancedConfig(MINIMAL_ENV_VARS)
 
@@ -26,7 +26,7 @@ class TestEnhancedConfigInitialization:
         assert config._cache == {}
         assert config._validated is False
 
-    def test_init_with_empty_env_vars(self):
+    def test_init_with_empty_env_vars(self) -> None:
         """Test initialization with empty environment variables."""
         config = EnhancedConfig({})
 
@@ -38,7 +38,7 @@ class TestEnhancedConfigInitialization:
 class TestEnhancedConfigValidation:
     """Test environment validation functionality."""
 
-    def test_validate_environment_success(self, monkeypatch):
+    def test_validate_environment_success(self, monkeypatch: object) -> None:
         """Test successful environment validation."""
         # Set up environment
         for key, value in DOCKER_ENV_CONFIG.items():
@@ -49,7 +49,7 @@ class TestEnhancedConfigValidation:
 
         assert config._validated is True
 
-    def test_validate_missing_required(self, monkeypatch):
+    def test_validate_missing_required(self, monkeypatch: object) -> None:
         """Test validation fails when required variables are missing."""
         # Set up environment without required variables
         for key, value in MISSING_REQUIRED_ENV.items():
@@ -75,7 +75,7 @@ class TestEnhancedConfigValidation:
                 or "UNIVERSAL_VERIFICATION_CODE" in error_msg
             )
 
-    def test_validate_missing_llm_key(self, monkeypatch):
+    def test_validate_missing_llm_key(self, monkeypatch: object) -> None:
         """Test validation fails when no LLM API key is configured."""
         # Set up environment without LLM keys
         for key, value in NO_LLM_ENV.items():
@@ -89,7 +89,9 @@ class TestEnhancedConfigValidation:
         error_msg = str(exc_info.value)
         assert "At least one LLM API key must be configured" in error_msg
 
-    def test_validate_creator_customization_requires_encryption_key(self, monkeypatch):
+    def test_validate_creator_customization_requires_encryption_key(
+        self, monkeypatch: object
+    ) -> None:
         """Test creator customization fails closed without its encryption key."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -119,7 +121,7 @@ class TestEnhancedConfigValidation:
 
         assert "CREATOR_INTEGRATION_ENCRYPTION_KEY" in str(exc_info.value)
 
-    def test_validate_invalid_values(self, monkeypatch):
+    def test_validate_invalid_values(self, monkeypatch: object) -> None:
         """Test validation fails for invalid values."""
         # Set up environment with invalid values
         for key, value in INVALID_VALUES_ENV.items():
@@ -136,7 +138,7 @@ class TestEnhancedConfigValidation:
         assert "REDIS_PORT" in error_msg  # Invalid port number
         assert "DEFAULT_LLM_TEMPERATURE" in error_msg  # Out of range
 
-    def test_validate_with_validator_exception(self, monkeypatch):
+    def test_validate_with_validator_exception(self, monkeypatch: object) -> None:
         """Test validation handles validator exceptions."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
@@ -164,7 +166,7 @@ class TestEnhancedConfigValidation:
 class TestEnhancedConfigGet:
     """Test get method functionality."""
 
-    def test_get_existing_variable(self, monkeypatch):
+    def test_get_existing_variable(self, monkeypatch: object) -> None:
         """Test getting an existing environment variable."""
         monkeypatch.setenv("REDIS_HOST", "test-redis")
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
@@ -175,7 +177,7 @@ class TestEnhancedConfigGet:
 
         assert config.get("REDIS_HOST") == "test-redis"
 
-    def test_get_with_default(self, monkeypatch):
+    def test_get_with_default(self, monkeypatch: object) -> None:
         """Test getting variable with default value."""
         # Don't set REDIS_HOST in environment
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
@@ -187,7 +189,7 @@ class TestEnhancedConfigGet:
         # Should return default value
         assert config.get("REDIS_HOST") == ""
 
-    def test_get_with_type_conversion(self, monkeypatch):
+    def test_get_with_type_conversion(self, monkeypatch: object) -> None:
         """Test getting variable with type conversion."""
         monkeypatch.setenv("REDIS_PORT", "7000")
         monkeypatch.setenv("DEFAULT_LLM_TEMPERATURE", "0.8")
@@ -204,7 +206,7 @@ class TestEnhancedConfigGet:
         assert config.get("SWAGGER_ENABLED") is True
         assert isinstance(config.get("SWAGGER_ENABLED"), bool)
 
-    def test_get_cached_value(self, monkeypatch):
+    def test_get_cached_value(self, monkeypatch: object) -> None:
         """Test that values are cached after first retrieval."""
         monkeypatch.setenv("REDIS_HOST", "test-redis")
 
@@ -222,14 +224,14 @@ class TestEnhancedConfigGet:
         value2 = config.get("REDIS_HOST")
         assert value2 == "test-redis"  # Still the cached value
 
-    def test_get_unknown_key(self):
+    def test_get_unknown_key(self) -> None:
         """Test getting unknown configuration key returns None."""
         config = EnhancedConfig(MINIMAL_ENV_VARS)
 
         # Unknown keys should return None to allow fallback in Config class
         assert config.get("UNKNOWN_KEY") is None
 
-    def test_get_empty_value_returns_default(self, monkeypatch):
+    def test_get_empty_value_returns_default(self, monkeypatch: object) -> None:
         """Test that empty string returns default value."""
         monkeypatch.setenv("REDIS_HOST", "")
 
@@ -241,7 +243,7 @@ class TestEnhancedConfigGet:
 class TestEnhancedConfigDebugPrint:
     """Test debug_print method functionality."""
 
-    def test_debug_print_all_configuration(self, monkeypatch):
+    def test_debug_print_all_configuration(self, monkeypatch: object) -> None:
         """Test printing all configuration values."""
         for key, value in DOCKER_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
@@ -263,7 +265,7 @@ class TestEnhancedConfigDebugPrint:
             assert "REDIS" in combined.upper()
             assert "LLM" in combined.upper()
 
-    def test_debug_print_masks_secrets(self, monkeypatch):
+    def test_debug_print_masks_secrets(self, monkeypatch: object) -> None:
         """Test that secrets are masked in debug output."""
         monkeypatch.setenv("SECRET_KEY", "super-secret-key-12345")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-real-api-key")
@@ -292,7 +294,7 @@ class TestEnhancedConfigDebugPrint:
 class TestEnhancedConfigExport:
     """Test export_env_example functionality."""
 
-    def test_export_basic_structure(self):
+    def test_export_basic_structure(self) -> None:
         """Test basic structure of exported .env.example."""
         config = EnhancedConfig(MINIMAL_ENV_VARS)
 
@@ -304,7 +306,7 @@ class TestEnhancedConfigExport:
         assert "SQLALCHEMY_DATABASE_URI=" in output
         assert "SECRET_KEY=" in output
 
-    def test_export_required_variables(self):
+    def test_export_required_variables(self) -> None:
         """Test that required variables are marked."""
         config = EnhancedConfig(MINIMAL_ENV_VARS)
 
@@ -319,7 +321,7 @@ class TestEnhancedConfigExport:
                 # Check previous line for REQUIRED marker
                 assert "REQUIRED" in lines[i - 1] or "REQUIRED" in lines[i - 2]
 
-    def test_export_optional_without_default(self):
+    def test_export_optional_without_default(self) -> None:
         """Test optional variables without default are marked."""
         env_vars = {
             "OPTIONAL_VAR": EnvVar(
@@ -335,7 +337,7 @@ class TestEnhancedConfigExport:
 
         assert "# (Optional - handled by libraries)" in output
 
-    def test_export_multiline_description(self):
+    def test_export_multiline_description(self) -> None:
         """Test export handles multi-line descriptions."""
         env_vars = {
             "MULTI_DESC": EnvVar(
@@ -355,7 +357,7 @@ Line 3 of description""",
         desc_lines = [line for line in lines if line.startswith("# Line")]
         assert len(desc_lines) == 3
 
-    def test_export_with_types(self):
+    def test_export_with_types(self) -> None:
         """Test export shows type information."""
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
         output = config.export_env_example()
@@ -364,14 +366,14 @@ Line 3 of description""",
         assert "# Type: float" in output
         assert "# Type: bool" in output
 
-    def test_export_with_validators(self):
+    def test_export_with_validators(self) -> None:
         """Test export shows validator information."""
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
         output = config.export_env_example()
 
         assert "# (Has validation)" in output
 
-    def test_export_secret_values_masked(self):
+    def test_export_secret_values_masked(self) -> None:
         """Test that secret default values are masked."""
         env_vars = {
             "SECRET_WITH_DEFAULT": EnvVar(
@@ -389,7 +391,7 @@ Line 3 of description""",
         assert 'SECRET_WITH_DEFAULT=""' in output
         assert "secret-value" not in output
 
-    def test_export_lists_render_without_brackets(self):
+    def test_export_lists_render_without_brackets(self) -> None:
         """Lists should render as comma-separated strings without brackets."""
         env_vars = {
             "EMPTY_LIST": EnvVar(
@@ -416,7 +418,7 @@ Line 3 of description""",
         assert "Optional - default: alpha,beta" in output
         assert "[]" not in output
 
-    def test_export_groups_sorted(self):
+    def test_export_groups_sorted(self) -> None:
         """Test that groups are sorted in output."""
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
         output = config.export_env_example()
@@ -432,7 +434,7 @@ Line 3 of description""",
 class TestEnhancedConfigCache:
     """Test caching mechanism."""
 
-    def test_cache_stores_values(self, monkeypatch):
+    def test_cache_stores_values(self, monkeypatch: object) -> None:
         """Test that cache stores retrieved values."""
         monkeypatch.setenv("REDIS_HOST", "cached-host")
 
@@ -445,7 +447,7 @@ class TestEnhancedConfigCache:
         assert len(config._cache) == 1
         assert config._cache["REDIS_HOST"] == "cached-host"
 
-    def test_cache_prevents_recomputation(self, monkeypatch):
+    def test_cache_prevents_recomputation(self, monkeypatch: object) -> None:
         """Test that cached values are not recomputed."""
         monkeypatch.setenv("REDIS_PORT", "6379")
 
@@ -466,7 +468,7 @@ class TestEnhancedConfigCache:
 
             assert value1 == value2 == 6379
 
-    def test_clear_cache(self, monkeypatch):
+    def test_clear_cache(self, monkeypatch: object) -> None:
         """Test clearing the cache."""
         monkeypatch.setenv("REDIS_HOST", "test-host")
 

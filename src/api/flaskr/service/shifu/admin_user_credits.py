@@ -6,11 +6,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
-from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import current_app
 from flaskr.dao import db
@@ -123,11 +121,18 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.user.models import (
-    UserInfo as UserEntity,
-)
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from sqlalchemy import case, not_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
+
+    from flask_sqlalchemy.query import Query
+    from flaskr.service.user.models import (
+        UserInfo as UserEntity,
+    )
+    from sqlalchemy.sql.selectable import Subquery
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
@@ -182,7 +187,7 @@ def _resolve_course_credit_usage_scene_filter(value: str) -> str:
     return ""
 
 
-def _build_course_credit_usage_scene_filter(value: str) -> Any | None:
+def _build_course_credit_usage_scene_filter(value: str) -> object | None:
     if value == COURSE_CREDIT_USAGE_SCENE_LEARNING:
         return BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD
     if value == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
@@ -236,8 +241,8 @@ def _build_course_credit_usage_group_key(
 def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
-    ledger_amount: Any,
-    user_map: dict[str, dict[str, Any]],
+    ledger_amount: object,
+    user_map: dict[str, dict[str, object]],
     outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
     usage_count: int = 1,
@@ -245,8 +250,8 @@ def _build_operator_course_credit_usage_item(
     provider: str = "",
     model: str = "",
     model_variant_count: int = 0,
-    consumed_credits: Any = None,
-    created_at: Any = None,
+    consumed_credits: object = None,
+    created_at: object = None,
 ) -> AdminOperationCourseCreditUsageItemDTO:
     user_bid = str(getattr(usage_row, "user_bid", "") or "").strip()
     outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
@@ -302,11 +307,13 @@ def _build_operator_course_credit_usage_item(
     )
 
 
-def _build_course_credit_usage_generation_name_expr() -> Any:
+def _build_course_credit_usage_generation_name_expr() -> object:
     return db.func.lower(BillUsageRecord.extra["generation_name"].as_string())
 
 
-def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) -> Any:
+def _build_course_credit_usage_ask_filter(
+    generation_name: object | None = None,
+) -> object:
     generation_name = (
         generation_name
         if generation_name is not None
@@ -320,8 +327,8 @@ def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) ->
 
 
 def _build_course_credit_usage_learn_filter(
-    generation_name: Any | None = None,
-) -> Any:
+    generation_name: object | None = None,
+) -> object:
     generation_name = (
         generation_name
         if generation_name is not None
@@ -334,7 +341,9 @@ def _build_course_credit_usage_learn_filter(
     )
 
 
-def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
+def _build_operator_course_credit_usage_ledger_totals_subquery(
+    shifu_bid: str,
+) -> Subquery:
     course_usage_bids = (
         db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
         .filter(
@@ -376,7 +385,7 @@ def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
     outline_item_bids: Sequence[str] | None = None,
-):
+) -> Query:
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
     )
@@ -520,7 +529,7 @@ def _load_course_credit_usage_output_summary_map(
     if not generated_block_bids:
         return {}
 
-    def context_key(row: Any) -> tuple[str, str, str, str]:
+    def context_key(row: object) -> tuple[str, str, str, str]:
         return (
             str(getattr(row, "generated_block_bid", "") or "").strip(),
             str(getattr(row, "shifu_bid", "") or "").strip(),
@@ -643,7 +652,7 @@ def _load_course_credit_usage_output_summary_map(
 
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
-    ledger_amount: Any,
+    ledger_amount: object,
     output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
@@ -665,7 +674,7 @@ def _build_operator_course_credit_usage_detail_item(
     )
 
 
-def _apply_course_credit_usage_filters(query: Any, filters: dict) -> Any:
+def _apply_course_credit_usage_filters(query: object, filters: dict) -> object:
     keyword = str(filters.get("keyword", "") or "").strip()
     mode_filter = _resolve_course_credit_usage_mode_filter(
         str(filters.get("mode", "") or "")
@@ -711,7 +720,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
     *,
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-):
+) -> Subquery | None:
     normalized_leaf_outline_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in leaf_outline_bids
@@ -773,7 +782,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
 def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     base_query = _build_operator_course_credit_usage_base_query(
         shifu_bid,
         outline_item_bids=leaf_outline_bids,
@@ -967,7 +976,7 @@ def _collect_operator_user_credit_order_source_bids(
     ]
 
 
-def _resolve_operator_credit_usage_scene(metadata: dict[str, Any]) -> int:
+def _resolve_operator_credit_usage_scene(metadata: dict[str, object]) -> int:
     raw_usage_scene = metadata.get("usage_scene")
     try:
         return int(raw_usage_scene or 0)
@@ -975,7 +984,7 @@ def _resolve_operator_credit_usage_scene(metadata: dict[str, Any]) -> int:
         return 0
 
 
-def _operator_credit_int(value: Any, default: int = 0) -> int:
+def _operator_credit_int(value: object, default: int = 0) -> int:
     candidate = _safe_int(value)
     return candidate if candidate is not None else default
 
@@ -983,7 +992,7 @@ def _operator_credit_int(value: Any, default: int = 0) -> int:
 def _resolve_operator_credit_display_entry_type(
     row: CreditLedgerEntry,
     *,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> str:
     usage_scene = _resolve_operator_credit_usage_scene(metadata)
     amount = Decimal(row.amount or 0)
@@ -1042,7 +1051,7 @@ def _resolve_operator_credit_display_entry_type(
 def _resolve_operator_credit_display_source_type(
     row: CreditLedgerEntry,
     *,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> str:
     source_type = _operator_credit_int(row.source_type)
     if source_type == CREDIT_SOURCE_TYPE_USAGE:
@@ -1077,7 +1086,7 @@ def _resolve_operator_credit_display_source_type(
 def _resolve_operator_credit_note_code(
     row: CreditLedgerEntry,
     *,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> str:
     note = str(metadata.get("note") or "").strip()
     if note:
@@ -1150,7 +1159,7 @@ def _build_operator_user_credit_merged_metadata(
     row: CreditLedgerEntry,
     *,
     order_map: dict[str, BillingOrder] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     metadata = _normalize_metadata_json(row.metadata_json)
     normalized_source_bid = str(row.source_bid or "").strip()
     order = (order_map or {}).get(normalized_source_bid)
@@ -1187,7 +1196,7 @@ def _is_operator_user_credit_other_row(row: CreditLedgerEntry) -> bool:
 def _resolve_operator_user_credit_grant_filter_key(
     row: CreditLedgerEntry,
     *,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> str:
     source_type = _operator_credit_int(row.source_type)
     if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
@@ -1204,7 +1213,7 @@ def _resolve_operator_user_credit_grant_filter_key(
 
 def _load_operator_user_credit_summary_map(
     user_bids: Sequence[str],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -1325,7 +1334,7 @@ def _load_operator_user_credit_summary_map(
 def _build_operator_user_credit_summary(
     *,
     user: UserEntity,
-    credit_summary_map: dict[str, dict[str, Any]],
+    credit_summary_map: dict[str, dict[str, object]],
 ) -> AdminOperationUserCreditSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     credit_summary = credit_summary_map.get(user_bid)

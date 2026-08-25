@@ -5,7 +5,7 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.learn.const import (
@@ -34,9 +34,12 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.util.datetime import NAIVE_DATETIME_MIN
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 
 def _build_operator_user_course_summary(
-    course,
+    course: object,
     published_bids: set[str],
     *,
     completed_lesson_count: int = 0,

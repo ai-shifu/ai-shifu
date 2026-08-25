@@ -1,3 +1,5 @@
+"""Create, verify, and consume captcha challenges."""
+
 from __future__ import annotations
 
 import base64
@@ -7,12 +9,14 @@ import json
 import random
 import secrets
 from io import BytesIO
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.service.common.models import raise_error
 from PIL import Image, ImageDraw, ImageFont
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _CAPTCHA_ALPHABET = "ACDEFHJKLMNPRTUVWXY3479"
 _CAPTCHA_IMAGE_WIDTH = 160
@@ -61,7 +65,7 @@ def _normalize_code(value: str | None) -> str:
     return str(value or "").strip().upper()
 
 
-def _decode_cache_value(value: Any) -> str | None:
+def _decode_cache_value(value: object) -> str | None:
     if value is None:
         return None
     if isinstance(value, bytes):
@@ -78,7 +82,7 @@ def _code_digest(app: Flask, code: str) -> str:
     ).hexdigest()
 
 
-def _load_captcha_payload(app: Flask, captcha_id: str) -> dict[str, Any] | None:
+def _load_captcha_payload(app: Flask, captcha_id: str) -> dict[str, object] | None:
     raw_value = _decode_cache_value(redis.get(_captcha_key(app, captcha_id)))
     if not raw_value:
         return None
@@ -94,7 +98,7 @@ def _load_captcha_payload(app: Flask, captcha_id: str) -> dict[str, Any] | None:
 
 
 def _store_captcha_payload(
-    app: Flask, captcha_id: str, payload: dict[str, Any], ttl_seconds: int
+    app: Flask, captcha_id: str, payload: dict[str, object], ttl_seconds: int
 ) -> None:
     redis.set(
         _captcha_key(app, captcha_id),
@@ -183,7 +187,8 @@ def _render_captcha_png(code: str) -> bytes:
     return output.getvalue()
 
 
-def create_captcha_challenge(app: Flask) -> dict[str, Any]:
+def create_captcha_challenge(app: Flask) -> dict[str, object]:
+    """Create captcha challenge."""
     expire_seconds = int(app.config.get("CAPTCHA_EXPIRE_TIME", 300))
     code = _generate_code(app)
     captcha_id = secrets.token_urlsafe(18)
@@ -206,7 +211,8 @@ def create_captcha_challenge(app: Flask) -> dict[str, Any]:
 
 def verify_captcha_code(
     app: Flask, captcha_id: str, captcha_code: str
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Verify captcha code."""
     payload = _load_captcha_payload(app, captcha_id)
     if payload is None:
         raise_error("server.user.checkCodeExpired")
@@ -236,6 +242,7 @@ def verify_captcha_code(
 
 
 def consume_captcha_ticket(app: Flask, captcha_ticket: str | None) -> None:
+    """Consume captcha ticket."""
     if not captcha_ticket:
         raise_error("server.user.checkCodeError")
 

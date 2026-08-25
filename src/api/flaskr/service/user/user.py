@@ -3,6 +3,8 @@
 #
 
 
+"""Implement user account and authentication operations."""
+
 import uuid
 from urllib.parse import urlsplit
 
@@ -69,8 +71,13 @@ def _try_delete_local_file_by_url(app: Flask, url: str) -> None:
 
 
 def generate_temp_user(
-    app: Flask, temp_id: str, user_source="web", wx_code=None, language="en-US"
+    app: Flask,
+    temp_id: str,
+    user_source: object = "web",
+    wx_code: object = None,
+    language: object = "en-US",
 ) -> UserToken:
+    """Generate temp user."""
     with app.app_context():
         convert_user = UserConversion.query.filter(
             UserConversion.conversion_id == temp_id,
@@ -162,6 +169,7 @@ def generate_temp_user(
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
+    """Update user open ID."""
     app.logger.info("update_user_open_id user_id: %s wx_code: %s", user_id, wx_code)
     with app.app_context():
         aggregate = load_user_aggregate(user_id)
@@ -216,14 +224,16 @@ def _wechat_identifiers(app: Flask, open_id: str, union_id: str) -> tuple[str, s
         return open_id, union_id
     app_id = str(custom_wechat.get("app_id") or "").strip()
     if not app_id:
-        raise RuntimeError("Custom WeChat OAuth integration is missing app_id")
+        message = "Custom WeChat OAuth integration is missing app_id"
+        raise RuntimeError(message)
     return (
         f"{app_id}:{open_id}" if open_id else "",
         f"{app_id}:{union_id}" if union_id else "",
     )
 
 
-def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
+def upload_user_avatar(app: Flask, user_id: str, avatar: object) -> str:
+    """Upload user avatar."""
     with app.app_context():
         aggregate = load_user_aggregate(user_id)
         if not aggregate:

@@ -1,3 +1,5 @@
+"""Verify translated error handling on shared HTTP routes."""
+
 from pathlib import Path
 
 from flask import Flask
@@ -10,16 +12,17 @@ def _shared_i18n_root() -> Path:
 
 
 def test_common_handler_returns_translated_unexpected_error_for_unhandled_exceptions(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
     register_common_handler(app)
 
     @app.route("/boom")
-    def _boom():
-        raise RuntimeError("unexpected failure")
+    def _boom() -> None:
+        message = "unexpected failure"
+        raise RuntimeError(message)
 
     with app.test_client() as client:
         response = client.get("/boom")
@@ -31,15 +34,18 @@ def test_common_handler_returns_translated_unexpected_error_for_unhandled_except
     }
 
 
-def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypatch):
+def test_common_handler_uses_request_language_for_unhandled_exceptions(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
     register_common_handler(app)
 
     @app.route("/boom-zh")
-    def _boom_zh():
-        raise RuntimeError("unexpected failure")
+    def _boom_zh() -> None:
+        message = "unexpected failure"
+        raise RuntimeError(message)
 
     with app.test_client() as client:
         response = client.get(
@@ -78,15 +84,18 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypat
     }
 
 
-def test_common_handler_uses_json_language_for_patch_requests(monkeypatch):
+def test_common_handler_uses_json_language_for_patch_requests(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
     register_common_handler(app)
 
     @app.route("/boom-patch", methods=["PATCH"])
-    def _boom_patch():
-        raise RuntimeError("unexpected failure")
+    def _boom_patch() -> None:
+        message = "unexpected failure"
+        raise RuntimeError(message)
 
     with app.test_client() as client:
         response = client.patch(

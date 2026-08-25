@@ -1,3 +1,5 @@
+"""Verify referral persistence-model behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -52,8 +54,8 @@ def test_referral_models_register_campaign_runtime_tables() -> None:
 
 
 def test_referral_model_rows_support_configured_campaign_and_reward_snapshot(
-    referral_app,
-):
+    referral_app: object,
+) -> None:
     with referral_app.app_context():
         campaign = ReferralCampaign(
             campaign_bid="ref-campaign-model-1",
@@ -154,7 +156,9 @@ def test_referral_model_rows_support_configured_campaign_and_reward_snapshot(
         )
 
 
-def test_referral_relation_prevents_duplicate_active_invitee_binding(referral_app):
+def test_referral_relation_prevents_duplicate_active_invitee_binding(
+    referral_app: object,
+) -> None:
     with referral_app.app_context():
         db.session.add(
             ReferralInviteRelation(

@@ -1,3 +1,5 @@
+"""Verify outline repair behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -51,7 +53,7 @@ def _mk_outline(
     return row
 
 
-def test_repair_shifu_outline_structure_dry_run_is_non_destructive(app):
+def test_repair_shifu_outline_structure_dry_run_is_non_destructive(app: object) -> None:
     with app.app_context():
         _mk_shifu("shifu-dry-run")
         _mk_outline("shifu-dry-run", "root-1", "01")
@@ -74,7 +76,9 @@ def test_repair_shifu_outline_structure_dry_run_is_non_destructive(app):
     assert before_latest_id == after_latest_id
 
 
-def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(app):
+def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(
+    app: object,
+) -> None:
     with app.app_context():
         shifu = _mk_shifu("shifu-repair-1")
         shifu_db_id = shifu.id
@@ -128,8 +132,8 @@ def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(ap
 
 
 def test_repair_shifu_outline_structure_skips_invalid_position_format_without_crashing(
-    app,
-):
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-invalid-position")
         _mk_outline("shifu-invalid-position", "root-1", "01")
@@ -155,7 +159,9 @@ def test_repair_shifu_outline_structure_skips_invalid_position_format_without_cr
     assert "Unsupported position format" in result.skipped_records[0].reason
 
 
-def test_repair_shifu_outline_structure_requires_user_bid_before_processing(app):
+def test_repair_shifu_outline_structure_requires_user_bid_before_processing(
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-user-bid-check")
         _mk_outline("shifu-user-bid-check", "root-1", "01")
@@ -173,7 +179,9 @@ def test_repair_shifu_outline_structure_requires_user_bid_before_processing(app)
     assert "user_bid is required" in str(exc_info.value)
 
 
-def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(app):
+def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-nonnumeric-suffix")
         _mk_outline("shifu-nonnumeric-suffix", "root-1", "01")
@@ -203,7 +211,9 @@ def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(app):
     assert result.changed_outline_count == 2
 
 
-def test_repair_shifu_outline_structure_detects_parent_position_mismatch(app):
+def test_repair_shifu_outline_structure_detects_parent_position_mismatch(
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-parent-position-mismatch")
         _mk_outline("shifu-parent-position-mismatch", "root-a", "01")

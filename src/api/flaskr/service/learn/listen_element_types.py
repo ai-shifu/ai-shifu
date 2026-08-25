@@ -1,11 +1,15 @@
+"""Define listen-mode runtime element types."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_UI
 from flaskr.service.learn.learn_dtos import ElementChangeType, ElementType
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 ELEMENT_TYPE_CODES = {
     ElementType.HTML: 201,
@@ -44,13 +48,13 @@ LEGACY_ELEMENT_TYPE_MAP = {
 }
 
 
-def _normalize_bool(raw: Any) -> bool:
+def _normalize_bool(raw: object) -> bool:
     if isinstance(raw, str):
         return raw.strip().lower() == "true"
     return bool(raw)
 
 
-def _role_value_to_name(role_value: Any) -> str:
+def _role_value_to_name(role_value: object) -> str:
     if role_value == ROLE_STUDENT:
         return "student"
     if role_value == ROLE_UI:

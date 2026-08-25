@@ -5,7 +5,8 @@ Supports login via phone number or email + password.
 
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -27,6 +28,9 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.utils import generate_token
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 class PasswordAuthProvider(AuthProvider):
     """Authenticate via identifier (phone or email) + password."""
@@ -35,6 +39,7 @@ class PasswordAuthProvider(AuthProvider):
     supports_challenge = False
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+        """Verify the supplied authentication credential."""
         raw_identifier = request.identifier.strip()
         identifier = (
             raw_identifier.lower()

@@ -1,9 +1,11 @@
+"""Implement business operations for legacy orders."""
+
 import datetime
 import decimal
 import json
 import re
 from collections.abc import Iterator
-from contextlib import contextmanager, nullcontext, suppress
+from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -102,7 +104,15 @@ class PayItemDto:
     is_discount: bool
     discount_code: str
 
-    def __init__(self, name, price_name, price, is_discount, discount_code) -> None:
+    def __init__(
+        self,
+        name: object,
+        price_name: object,
+        price: object,
+        is_discount: object,
+        discount_code: object,
+    ) -> None:
+        """Build the pay item payload."""
         self.name = name
         self.price_name = price_name
         self.price = price
@@ -110,6 +120,7 @@ class PayItemDto:
         self.discount_code = discount_code
 
     def __json__(self) -> dict:
+        """Return the pay item as JSON-compatible data."""
         return {
             "name": self.name,
             "price_name": self.price_name,
@@ -134,15 +145,16 @@ class AICourseBuyRecordDTO:
 
     def __init__(
         self,
-        record_id,
-        user_id,
-        course_id,
-        price,
-        status,
-        discount,
-        price_item,
-        payment_channel="",
+        record_id: object,
+        user_id: object,
+        course_id: object,
+        price: object,
+        status: object,
+        discount: object,
+        price_item: object,
+        payment_channel: object = "",
     ) -> None:
+        """Build the AI course buy record payload."""
         self.order_id = record_id
         self.user_id = user_id
         self.course_id = course_id
@@ -154,7 +166,9 @@ class AICourseBuyRecordDTO:
         self.payment_channel = payment_channel
 
     def __json__(self) -> dict:
-        def format_decimal(value):
+        """Return the AI course buy record as JSON-compatible data."""
+
+        def format_decimal(value: object) -> str:
             # Convert to a string with two decimal places
             formatted_value = value if isinstance(value, str) else f"{value:.2f}"
             # If the decimal part is .00, remove it
@@ -176,7 +190,8 @@ class AICourseBuyRecordDTO:
 
 
 # to do : add to plugins
-def send_order_feishu(app: Flask, record_id: str):
+def send_order_feishu(app: Flask, record_id: str) -> None:
+    """Send order feishu."""
     order_info = query_buy_record(app, record_id)
     if order_info is None:
         return
@@ -203,38 +218,39 @@ def send_order_feishu(app: Flask, record_id: str):
     }
     title = "购买课程通知"
     msgs = []
-    msgs.append(f"手机号：{aggregate.mobile}")
-    msgs.append(f"昵称：{aggregate.name}")
-    msgs.append(f"课程名称：{shifu_info.title}")
-    msgs.append(f"实付金额：{order_info.price}")
+    msgs.append(f"手机号：{aggregate.mobile}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"昵称：{aggregate.name}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"课程名称：{shifu_info.title}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"实付金额：{order_info.price}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     channel = getattr(order_info, "payment_channel", "") or ""
     source_label = channel_labels.get(channel, channel or "未知")
-    msgs.append(f"订单来源：{source_label}")
+    msgs.append(f"订单来源：{source_label}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
     ).first()
     channel = ""
     if user_convertion:
         channel = user_convertion.conversion_source
-    msgs.append(f"渠道：{channel}")
+    msgs.append(f"渠道：{channel}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     for item in order_info.price_item:
         msgs.append(f"{item.name}-{item.price_name}-{item.price}")
         if item.is_discount:
-            msgs.append(f"优惠码：{item.discount_code}")
+            msgs.append(f"优惠码：{item.discount_code}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_count = UserEntity.query.filter(
         UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
     ).count()
-    msgs.append(f"总付费用户数：{user_count}")
+    msgs.append(f"总付费用户数：{user_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_reg_count = UserEntity.query.filter(
         UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
     ).count()
-    msgs.append(f"总注册用户数：{user_reg_count}")
+    msgs.append(f"总注册用户数：{user_reg_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
-    msgs.append(f"总访客数：{user_total_count}")
+    msgs.append(f"总访客数：{user_total_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     send_notify(app, title, msgs)
 
 
-def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
+def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str) -> None:
+    """Send revoke feishu."""
     order: Order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         return
@@ -243,10 +259,10 @@ def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
     )
     title = "取消课程授权通知"
     msgs = [
-        f"用户标识：{user_identify}",
-        f"课程名称：{shifu_info.title if shifu_info else order.shifu_bid}",
-        f"订单号：{order_bid}",
-        "来源：Open API",
+        f"用户标识：{user_identify}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"课程名称：{shifu_info.title if shifu_info else order.shifu_bid}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"订单号：{order_bid}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        "来源：Open API",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     ]
     send_notify(app, title, msgs)
 
@@ -279,9 +295,7 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
 
 @contextmanager
 def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]:
-    """Serialize order initialization for a user-course pair to avoid duplicate
-    unpaid orders created by concurrent requests.
-    """
+    """Serialize order initialization for a user-course pair to avoid duplicate unpaid orders created by concurrent requests."""
     lock = None
     acquired = False
 
@@ -373,7 +387,8 @@ def _sync_order_campaign_pricing(
 @retry_on_deadlock()
 def init_buy_record(
     app: Flask, user_id: str, course_id: str, active_id: str | None = None
-):
+) -> AICourseBuyRecordDTO:
+    """Initialize buy record."""
     creator_bid = get_shifu_creator_bid(app, course_id)
     set_shifu_context(course_id, creator_bid)
     shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, preview_mode=False)
@@ -490,14 +505,15 @@ class BuyRecordDTO:
 
     def __init__(
         self,
-        record_id,
-        user_id,
-        price,
-        channel,
-        qr_url,
+        record_id: object,
+        user_id: object,
+        price: object,
+        channel: object,
+        qr_url: object,
         payment_channel: str = "",
-        payment_payload: dict[str, Any] | None = None,
+        payment_payload: dict[str, object] | None = None,
     ) -> None:
+        """Build the buy record payload."""
         self.order_id = record_id
         self.user_id = user_id
         self.price = price
@@ -507,6 +523,7 @@ class BuyRecordDTO:
         self.payment_payload = payment_payload or {}
 
     def __json__(self) -> dict:
+        """Return the buy record as JSON-compatible data."""
         return {
             "order_id": self.order_id,
             "user_id": self.user_id,
@@ -660,7 +677,9 @@ def generate_charge(
     return None
 
 
-def _order_credential_scope(app: Flask, order: Order, context=None):
+def _order_credential_scope(
+    app: Flask, order: Order, context: object = None
+) -> AbstractContextManager[None]:
     """Use the immutable credential version snapshotted on the order."""
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
@@ -851,6 +870,7 @@ def _generate_stripe_charge(
     order_no: str,
 ) -> BuyRecordDTO:
     """Boundary-joining helper: committed by generate_charge's unit of work."""
+    _ = course
     provider = get_payment_provider("stripe")
     resolved_mode = channel.lower() if channel else "payment_intent"
     if resolved_mode in {"checkout", "checkout_session"}:
@@ -1155,7 +1175,8 @@ def sync_stripe_checkout_session(
     order_id: str,
     session_id: str | None = None,
     expected_user: str | None = None,
-):
+) -> dict[str, Any]:
+    """Synchronize stripe checkout session."""
     with _app_context_scope(app), unit_of_work():
         order = (
             Order.query.filter(
@@ -1220,7 +1241,8 @@ def sync_native_payment_order(
     *,
     expected_user: str | None = None,
     payment_channel: str | None = None,
-):
+) -> dict[str, Any]:
+    """Synchronize native payment order."""
     with _app_context_scope(app), unit_of_work():
         order = (
             Order.query.filter(
@@ -1300,9 +1322,9 @@ def sync_native_payment_order(
 def _update_stripe_order_snapshot(
     *,
     stripe_order: StripeOrder,
-    session: dict[str, Any],
-    intent: dict[str, Any] | None,
-):
+    session: dict[str, object],
+    intent: dict[str, object] | None,
+) -> None:
     if session:
         stripe_order.checkout_session_id = session.get(
             "id", stripe_order.checkout_session_id
@@ -1333,7 +1355,7 @@ def _update_stripe_order_snapshot(
 
 
 def _is_stripe_payment_successful(
-    *, session: dict[str, Any] | None, intent: dict[str, Any] | None
+    *, session: dict[str, object] | None, intent: dict[str, object] | None
 ) -> bool:
     if session:
         if session.get("payment_status") == "paid":
@@ -1345,7 +1367,7 @@ def _is_stripe_payment_successful(
 
 def _apply_native_snapshot_update(
     *,
-    snapshot: Any,
+    snapshot: object,
     provider: str,
     notification: PaymentNotificationResult,
     source: str,
@@ -1374,7 +1396,7 @@ def _apply_native_snapshot_update(
 
 def _native_raw_status(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     fallback: str = "",
 ) -> str:
     return extract_native_trade_status(provider, payload) or str(fallback or "")
@@ -1382,7 +1404,7 @@ def _native_raw_status(
 
 def _native_snapshot_status(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     raw_status: str,
 ) -> int:
     if raw_status and not extract_native_trade_status(provider, payload):
@@ -1396,7 +1418,7 @@ def _native_snapshot_status(
 
 def _is_native_payment_successful(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> bool:
     raw_status = _native_raw_status(provider, payload)
     return _native_snapshot_status(provider, payload, raw_status) == 1
@@ -1404,7 +1426,7 @@ def _is_native_payment_successful(
 
 def _extract_native_notification_amount(
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> int | None:
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
@@ -1448,7 +1470,7 @@ def _inject_order_query(url: str, order_id: str) -> str:
     )
 
 
-def _stringify_payload(payload: Any) -> str:
+def _stringify_payload(payload: object) -> str:
     if not payload:
         return "{}"
     if hasattr(payload, "to_dict"):
@@ -1456,7 +1478,7 @@ def _stringify_payload(payload: Any) -> str:
     return json.dumps(payload)
 
 
-def _parse_json_payload(value: Any) -> Any:
+def _parse_json_payload(value: object) -> object:
     if not value:
         return {}
     if isinstance(value, (dict, list)):
@@ -1475,7 +1497,8 @@ def handle_stripe_webhook(
     sig_header: str,
     *,
     expected_integration_bid: str = "",
-) -> tuple[dict[str, Any], int]:
+) -> tuple[dict[str, object], int]:
+    """Handle stripe webhook."""
     provider = get_payment_provider("stripe")
     try:
         notification: PaymentNotificationResult = provider.verify_webhook(
@@ -1625,7 +1648,8 @@ def refund_order_payment(
     order_bid: str,
     amount: int | None = None,
     reason: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Refund order payment."""
     with _app_context_scope(app), unit_of_work():
         order = Order.query.filter(Order.order_bid == order_bid).first()
         if not order:
@@ -1692,9 +1716,10 @@ def refund_order_payment(
     }
 
 
-def get_payment_details(app: Flask, order_bid: str) -> dict[str, Any]:
+def get_payment_details(app: Flask, order_bid: str) -> dict[str, object]:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
+    """Return payment details."""
     with _app_context_scope(app):
         order = Order.query.filter(Order.order_bid == order_bid).first()
         if not order:
@@ -1786,6 +1811,7 @@ def success_buy_record_from_native(
     provider_name: str,
     notification: PaymentNotificationResult,
 ) -> bool:
+    """Apply a successful native-payment notification to the purchase record."""
     with _app_context_scope(app):
         provider = str(provider_name or "").strip().lower()
         if provider not in {"alipay", "wechatpay"}:
@@ -1840,7 +1866,8 @@ def success_buy_record_from_native(
                     actual_amount is not None
                     and int(native_order.amount or 0) != actual_amount
                 ):
-                    raise RuntimeError("Native payment amount mismatch")
+                    message = "Native payment amount mismatch"
+                    raise RuntimeError(message)
 
                 buy_record: Order = Order.query.filter(
                     Order.order_bid == native_order.order_bid,
@@ -1870,7 +1897,9 @@ def success_buy_record_from_native(
             lock.release()
 
 
-def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
+def success_buy_record_from_pingxx(
+    app: Flask, charge_id: str, body: dict
+) -> AICourseBuyRecordDTO | None:
     """Success buy record from pingxx."""
     with _app_context_scope(app):
         pingxx_order = (
@@ -1934,7 +1963,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
     return None
 
 
-def success_buy_record(app: Flask, record_id: str):
+def success_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO | None:
     """Success buy record.
 
     Owns a unit of work so legacy callers (coupon_funcs, order admin) keep
@@ -1967,10 +1996,13 @@ def success_buy_record(app: Flask, record_id: str):
 
 
 class DiscountInfo:
+    """Describe discounts applied to an order."""
+
     discount_value: str
     items: list[PayItemDto]
 
-    def __init__(self, discount_value, items) -> None:
+    def __init__(self, discount_value: object, items: object) -> None:
+        """Capture the discount value and affected payment items."""
         self.discount_value = discount_value
         self.items = items
 
@@ -2059,7 +2091,6 @@ def _supplement_promo_discount_items(
 
 
 def calculate_discount_value(
-    app: Flask,
     price: decimal.Decimal,
     campaign_applications: list,
     discount_records: list[CouponUsageModel],
@@ -2108,6 +2139,7 @@ def calculate_discount_value(
 def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     # Read-only: reuses the caller's session so reads inside an open unit of
     # work see that transaction's pending state.
+    """Query buy record."""
     with _app_context_scope(app):
         app.logger.info('query buy record:"%s"', record_id)
         buy_record: Order = Order.query.filter(Order.order_bid == record_id).first()
@@ -2130,7 +2162,6 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     CouponUsageModel.order_bid == record_id
                 ).all()
                 discount_info = calculate_discount_value(
-                    app,
                     buy_record.payable_price,
                     campaign_applications,
                     discount_records,

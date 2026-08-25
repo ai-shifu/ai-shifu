@@ -106,6 +106,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "volcengine_http"
 
     def _get_credentials(self) -> tuple[str, str, str]:
@@ -122,6 +123,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return app_id, token, cluster
 
     def is_configured(self) -> bool:
+        """Return whether this provider has usable credentials."""
         app_id, token, cluster = self._get_credentials()
         return bool(app_id and token and cluster)
 
@@ -142,6 +144,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
+        """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
             sample_rate=get_config("VOLCENGINE_TTS_SAMPLE_RATE") or 24000,
@@ -181,16 +184,19 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
+        """Synthesize speech with this provider."""
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            exception_message = "Text cannot be empty"
+            raise ValueError(exception_message)
 
         app_id, token, cluster = self._get_credentials()
         if not app_id or not token or not cluster:
-            raise ValueError(
+            exception_message = (
                 "Volcengine HTTP TTS credentials are not configured. "
                 "Set VOLCENGINE_TTS_APP_KEY, VOLCENGINE_TTS_ACCESS_KEY, "
                 "and VOLCENGINE_TTS_CLUSTER_ID"
             )
+            raise ValueError(exception_message)
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()
@@ -250,7 +256,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 sample_rate,
                 len(text),
             )
-            raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
+            error_message = f"Volcengine HTTP TTS request failed: {exc}"
+            raise ValueError(error_message) from exc
 
         if response.status_code != 200:
             self._log_http_error_response(
@@ -266,10 +273,11 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 response.raise_for_status()
             except requests.RequestException as exc:
                 body_preview = (response.text or "")[:2000]
-                raise ValueError(
+                error_message = (
                     f"Volcengine HTTP TTS HTTP {response.status_code}: "
                     f"{body_preview or response.reason}"
-                ) from exc
+                )
+                raise ValueError(error_message) from exc
 
         try:
             result = response.json()
@@ -283,7 +291,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 response.headers.get("Content-Type", ""),
                 body_preview,
             )
-            raise ValueError("Volcengine HTTP TTS response is not valid JSON") from exc
+            exception_message = "Volcengine HTTP TTS response is not valid JSON"
+            raise ValueError(exception_message) from exc
 
         code = result.get("code")
         message = result.get("message") or ""
@@ -296,18 +305,19 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 code,
                 message,
             )
-            raise ValueError(f"Volcengine HTTP TTS error {code}: {message}")
+            error_message = f"Volcengine HTTP TTS error {code}: {message}"
+            raise ValueError(error_message)
 
         audio_base64 = result.get("data") or ""
         if not audio_base64:
-            raise ValueError("No audio data in Volcengine HTTP TTS response")
+            exception_message = "No audio data in Volcengine HTTP TTS response"
+            raise ValueError(exception_message)
 
         try:
             audio_data = base64.b64decode(audio_base64)
         except (ValueError, TypeError) as exc:
-            raise ValueError(
-                "Invalid base64 audio data from Volcengine HTTP TTS"
-            ) from exc
+            exception_message = "Invalid base64 audio data from Volcengine HTTP TTS"
+            raise ValueError(exception_message) from exc
 
         duration_ms = 0
         addition = result.get("addition")

@@ -1,3 +1,5 @@
+"""Define persistence models for persisted configuration."""
+
 from typing import ClassVar
 
 from flaskr.dao import db

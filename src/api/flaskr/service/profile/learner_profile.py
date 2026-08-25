@@ -1,9 +1,9 @@
+"""Validate, merge, persist, and serialize learner profiles."""
+
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from flask import Flask
 from flaskr.api.check import (
     CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
@@ -36,6 +36,11 @@ from flaskr.service.user.models import (
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from flask import Flask
 
 LEARNER_PROFILE_MAX_LENGTH = 1000
 LEARNER_PROFILE_NICKNAME_MAX_LENGTH = 64
@@ -71,6 +76,7 @@ def load_learner_profile_user(
     *,
     for_update: bool = False,
 ) -> UserEntity:
+    """Load learner profile user."""
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         raise_error("server.user.userNotLogin")
@@ -86,7 +92,8 @@ def load_learner_profile_user(
     return user
 
 
-def normalize_learner_profile(raw_profile: Any) -> str:
+def normalize_learner_profile(raw_profile: object) -> str:
+    """Normalize learner profile."""
     if not isinstance(raw_profile, str):
         raise_param_error("learner_profile")
     normalized = raw_profile.strip()
@@ -95,7 +102,8 @@ def normalize_learner_profile(raw_profile: Any) -> str:
     return normalized
 
 
-def normalize_learner_profile_nickname(raw_nickname: Any) -> str:
+def normalize_learner_profile_nickname(raw_nickname: object) -> str:
+    """Normalize learner profile nickname."""
     if not isinstance(raw_nickname, str):
         raise_param_error("nickname")
     normalized = raw_nickname.strip()
@@ -104,7 +112,8 @@ def normalize_learner_profile_nickname(raw_nickname: Any) -> str:
     return normalized
 
 
-def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
+def serialize_learner_profile(user: UserEntity) -> dict[str, object]:
+    """Serialize learner profile."""
     profile = str(user.learner_profile or "")
     nickname = str(user.nickname or "").strip()
     if nickname and _nickname_matches_account_identifier(user, nickname):
@@ -119,7 +128,7 @@ def serialize_learner_profile(user: UserEntity) -> dict[str, Any]:
     }
 
 
-def _identifier_variants(value: Any) -> set[str]:
+def _identifier_variants(value: object) -> set[str]:
     normalized = str(value or "").strip()
     if not normalized:
         return set()
@@ -188,7 +197,8 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
     return latest_values
 
 
-def get_learner_profile(*, user_id: str) -> dict[str, Any]:
+def get_learner_profile(*, user_id: str) -> dict[str, object]:
+    """Return learner profile."""
     user = load_learner_profile_user(user_id)
     serialized = serialize_learner_profile(user)
     if serialized["has_learner_profile"]:
@@ -205,6 +215,7 @@ def get_learner_profile(*, user_id: str) -> dict[str, Any]:
 
 
 def apply_learner_profile(user: UserEntity, learner_profile: str) -> bool:
+    """Apply learner profile."""
     if learner_profile:
         if str(user.learner_profile or "") == learner_profile:
             return False
@@ -224,6 +235,7 @@ def load_learner_profile_state(
     *,
     for_update: bool = False,
 ) -> UserOnboardingState | None:
+    """Load learner profile state."""
     query = UserOnboardingState.query.filter(
         UserOnboardingState.user_bid == str(user_id or "").strip(),
         UserOnboardingState.scene_key == PROFILE_ONBOARDING_SCENE_KEY,
@@ -346,6 +358,7 @@ def has_learner_profile_or_state(
     *,
     for_update: bool = False,
 ) -> bool:
+    """Return whether learner profile or state."""
     user = load_learner_profile_user(user_id, for_update=for_update)
     has_profile = bool(str(user.learner_profile or "").strip())
     if has_profile and not for_update:
@@ -405,7 +418,7 @@ def _commit_with_state_race_retry(
         return run_once()
 
 
-def _serialize_completed_state(state: UserOnboardingState) -> dict[str, Any]:
+def _serialize_completed_state(state: UserOnboardingState) -> dict[str, object]:
     return {
         "handled": True,
         "completed": state.status == LEARNER_PROFILE_STATUS_COMPLETED,
@@ -424,7 +437,8 @@ def save_learner_profile(
     learner_profile: str,
     trigger_source: str,
     nickname: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Persist learner profile."""
     normalized_trigger_source = str(trigger_source or "").strip()
     if normalized_trigger_source not in LEARNER_PROFILE_TRIGGER_SOURCES:
         raise_param_error("trigger_source")
@@ -478,7 +492,8 @@ def replace_learner_profile(
     user_id: str,
     learner_profile: str,
     nickname: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Replace learner profile."""
     return save_learner_profile(
         app,
         user_id=user_id,
@@ -488,7 +503,9 @@ def replace_learner_profile(
     )
 
 
-def clear_learner_profile(*, user_id: str) -> dict[str, Any]:
+def clear_learner_profile(*, user_id: str) -> dict[str, object]:
+    """Clear learner profile."""
+
     def operation() -> tuple[UserEntity, UserOnboardingState]:
         user = load_learner_profile_user(user_id, for_update=True)
         if user.learner_profile or user.learner_profile_updated_at is not None:

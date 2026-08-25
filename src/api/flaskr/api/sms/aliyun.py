@@ -1,3 +1,5 @@
+"""Send SMS messages through Aliyun."""
+
 import json
 
 from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models
@@ -39,6 +41,7 @@ def send_sms_ali(
     template_params: dict[str, str],
     sign_name: str | None = None,
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
+    """Send SMS ali."""
     if not app.config.get(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
@@ -111,6 +114,7 @@ def get_sms_template_ali(
     *,
     template_code: str,
 ) -> dysmsapi_20170525_models.GetSmsTemplateResponse | None:
+    """Return SMS template ali."""
     if not app.config.get(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
@@ -145,6 +149,7 @@ def query_sms_template_list_ali(
     page_index: int = 1,
     page_size: int = 50,
 ) -> dysmsapi_20170525_models.QuerySmsTemplateListResponse | None:
+    """Query SMS template list ali."""
     if not app.config.get(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
@@ -182,6 +187,7 @@ def query_sms_template_list_ali(
 def send_sms_code_ali(
     app: Flask, mobile: str, check_code: str
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
+    """Send SMS code ali."""
     return send_sms_ali(
         app,
         mobile,

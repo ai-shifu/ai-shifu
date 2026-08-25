@@ -1,9 +1,10 @@
+"""Provide billing products support for common fixtures tests."""
+
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_MANUAL,
@@ -25,6 +26,9 @@ from flaskr.service.billing.consts import (
     BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS,
 )
 from flaskr.service.billing.models import BillingProduct
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
     {
@@ -287,8 +291,8 @@ _TEST_BILLING_PRODUCT_ROWS_BY_BID = {
 def list_billing_product_rows(
     *,
     product_bids: Iterable[str] | None = None,
-    overrides_by_bid: Mapping[str, Mapping[str, Any]] | None = None,
-) -> list[dict[str, Any]]:
+    overrides_by_bid: Mapping[str, Mapping[str, object]] | None = None,
+) -> list[dict[str, object]]:
     selected_bids = (
         tuple(str(product_bid) for product_bid in product_bids)
         if product_bids is not None
@@ -299,7 +303,8 @@ def list_billing_product_rows(
     for product_bid in selected_bids:
         base_row = _TEST_BILLING_PRODUCT_ROWS_BY_BID.get(product_bid)
         if base_row is None:
-            raise AssertionError(f"unknown billing product fixture: {product_bid}")
+            message = f"unknown billing product fixture: {product_bid}"
+            raise AssertionError(message)
 
         payload = deepcopy(base_row)
         if overrides_by_bid and product_bid in overrides_by_bid:
@@ -312,7 +317,7 @@ def list_billing_product_rows(
 def build_bill_products(
     *,
     product_bids: Iterable[str] | None = None,
-    overrides_by_bid: Mapping[str, Mapping[str, Any]] | None = None,
+    overrides_by_bid: Mapping[str, Mapping[str, object]] | None = None,
 ) -> list[BillingProduct]:
     products: list[BillingProduct] = []
     for row in list_billing_product_rows(
@@ -331,7 +336,7 @@ build_billing_products = build_bill_products
 def build_billing_product(
     product_bid: str,
     *,
-    overrides: Mapping[str, Any] | None = None,
+    overrides: Mapping[str, object] | None = None,
 ) -> BillingProduct:
     overrides_by_bid = {product_bid: dict(overrides)} if overrides is not None else None
     return build_bill_products(

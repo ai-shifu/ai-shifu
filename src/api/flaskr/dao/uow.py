@@ -34,14 +34,20 @@ from __future__ import annotations
 
 import contextvars
 import logging
-from contextlib import contextmanager, nullcontext
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask.ctx import AppContext
 
 from flask import has_app_context
 
 logger = logging.getLogger(__name__)
 
 
-def app_context_scope(app):
+def app_context_scope(app: object) -> AbstractContextManager[AppContext | None]:
     """Reuse the caller's app context (and DB session) when one is active.
 
     Flask-SQLAlchemy 3.1 scopes the session to the innermost app context, so
@@ -64,7 +70,7 @@ def in_unit_of_work() -> bool:
     return _depth.get() > 0
 
 
-def on_commit(callback) -> None:
+def on_commit(callback: object) -> None:
     """Run ``callback()`` after the OUTERMOST unit of work commits.
 
     Use this for external side effects (notifications, webhooks) that must
@@ -90,7 +96,7 @@ def _run_post_commit(callbacks: list) -> None:
 
 
 @contextmanager
-def unit_of_work():
+def unit_of_work() -> Iterator[None]:
     """Commit on clean exit of the outermost block; roll back on exception.
 
     Nested blocks join the outer transaction (no commit, no rollback): an

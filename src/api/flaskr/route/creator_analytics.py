@@ -10,9 +10,12 @@ from flaskr.service.creator_analytics.funcs import run_dsl
 
 
 def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the creator analytics routes on the Flask application."""
+
     @app.route(path_prefix + "/query", methods=["POST"])
-    def creator_analytics_query():
+    def creator_analytics_query() -> str:
         """Run a creator-analytics DSL query.
+
         ---
         tags:
             - creator-analytics
@@ -86,7 +89,7 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(result)
 
     @app.route(path_prefix + "/credit-detail", methods=["POST"])
-    def creator_analytics_credit_detail():
+    def creator_analytics_credit_detail() -> str:
         """Fetch joined credit consumption detail for one shifu.
 
         Server-side joins ``bill_usage`` and ``credit_ledger_entries`` on

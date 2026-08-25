@@ -1,7 +1,11 @@
+"""Verify order notifications are formatted for Feishu."""
+
 from types import SimpleNamespace
 
 
-def test_send_order_feishu_formats_notification(app, monkeypatch):
+def test_send_order_feishu_formats_notification(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.order import funs as order_funs
 
     price_item = SimpleNamespace(
@@ -20,33 +24,39 @@ def test_send_order_feishu_formats_notification(app, monkeypatch):
     aggregate = SimpleNamespace(mobile="13800000000", name="Tester")
     shifu_info = SimpleNamespace(title="Test Course")
 
+    def get_shifu_info(
+        app: object,
+        course_id: str,
+        preview_mode: object,
+    ) -> SimpleNamespace:
+        del app, course_id, preview_mode
+        return shifu_info
+
     monkeypatch.setattr(order_funs, "query_buy_record", lambda _app, _id: order_info)
     monkeypatch.setattr(order_funs, "load_user_aggregate", lambda _id: aggregate)
-    monkeypatch.setattr(
-        order_funs, "get_shifu_info", lambda _app, _cid, preview_mode: shifu_info
-    )
+    monkeypatch.setattr(order_funs, "get_shifu_info", get_shifu_info)
 
     class FakeQuery:
-        def __init__(self, first_value=None, count_value=0) -> None:
+        def __init__(self, first_value: object = None, count_value: object = 0) -> None:
             self._first_value = first_value
             self._count_value = count_value
 
-        def filter(self, *_args, **_kwargs):
+        def filter(self, *_args: object, **_kwargs: object) -> object:
             return self
 
-        def first(self):
+        def first(self) -> object:
             return self._first_value
 
-        def count(self):
+        def count(self) -> object:
             return self._count_value
 
     class FakeColumn:
         __hash__ = None
 
-        def __eq__(self, other) -> bool:
+        def __eq__(self, other: object) -> bool:
             return True
 
-        def __ge__(self, other) -> bool:
+        def __ge__(self, other: object) -> bool:
             return True
 
     class FakeUserConversion:
@@ -63,7 +73,7 @@ def test_send_order_feishu_formats_notification(app, monkeypatch):
 
     captured = {}
 
-    def fake_send_notify(_app, title, msgs):
+    def fake_send_notify(_app: object, title: object, msgs: object) -> None:
         captured["title"] = title
         captured["msgs"] = msgs
 

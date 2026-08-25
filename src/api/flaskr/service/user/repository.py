@@ -7,9 +7,8 @@ import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import (
     cleanup_session_after,
     db,
@@ -29,6 +28,11 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask import Flask
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,8 @@ STATE_TO_PUBLIC_STATE = {
 
 @dataclass
 class CredentialSummary:
+    """Summarize authentication credentials linked to a user."""
+
     credential_bid: str
     provider: str
     identifier: str
@@ -67,11 +73,14 @@ class CredentialSummary:
 
     @property
     def is_verified(self) -> bool:
+        """Return whether the credential is verified."""
         return self.state == CREDENTIAL_STATE_VERIFIED
 
 
 @dataclass
 class UserAggregate:
+    """Combine user identity and profile data for repository reads."""
+
     user_bid: str
     identify: str
     nickname: str
@@ -103,6 +112,7 @@ class UserAggregate:
 
     @property
     def email(self) -> str:
+        """Return the preferred email address, if available."""
         credential = self._preferred_identifier("email")
         if credential:
             return credential.identifier
@@ -112,6 +122,7 @@ class UserAggregate:
 
     @property
     def mobile(self) -> str:
+        """Return the preferred mobile number, if available."""
         credential = self._preferred_identifier("phone")
         if credential:
             return credential.identifier
@@ -121,6 +132,7 @@ class UserAggregate:
 
     @property
     def wechat_open_id(self) -> str:
+        """Return the available WeChat open ID, if present."""
         for credential in self.credentials:
             if (
                 credential.provider == "wechat"
@@ -131,6 +143,7 @@ class UserAggregate:
 
     @property
     def wechat_union_id(self) -> str:
+        """Return the available WeChat union ID, if present."""
         for credential in self.credentials:
             if (
                 credential.provider == "wechat"
@@ -141,6 +154,7 @@ class UserAggregate:
 
     @property
     def username(self) -> str:
+        """Return the account username, if present."""
         if self.identify:
             return self.identify
         if self.email:
@@ -151,14 +165,17 @@ class UserAggregate:
 
     @property
     def display_name(self) -> str:
+        """Return the learner-facing display name."""
         return self.nickname
 
     @property
     def user_language(self) -> str:
+        """Return the learner's preferred language."""
         return self.language or "en-US"
 
     @property
     def public_state(self) -> int:
+        """Return the learner's public account state."""
         return STATE_TO_PUBLIC_STATE.get(self.state, 0)
 
     # Compatibility accessors for legacy call sites that previously relied on
@@ -168,25 +185,31 @@ class UserAggregate:
 
     @property
     def user_id(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user business identifier."""
         return self.user_bid
 
     @property
     def name(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user name."""
         return self.display_name
 
     @property
     def user_state(self) -> int:  # pragma: no cover - trivial alias
+        """Return the persisted user state."""
         return self.state
 
     @property
     def user_avatar(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted avatar URL."""
         return self.avatar
 
     @property
     def user_open_id(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user open ID."""
         return self.wechat_open_id
 
     def to_user_info(self) -> UserInfo:
+        """Convert the aggregate into public user information."""
         return UserInfo(
             user_id=self.user_bid,
             username=self.username,
@@ -260,6 +283,7 @@ def _build_user_aggregate(
 def get_user_entity_by_bid(
     user_bid: str, *, include_deleted: bool = False
 ) -> UserEntity | None:
+    """Return user entity by BID."""
     query = UserEntity.query.filter_by(user_bid=user_bid)
     if not include_deleted:
         query = query.filter_by(deleted=0)
@@ -333,6 +357,7 @@ def load_user_aggregate(
     include_deleted: bool = False,
     with_credentials: bool = True,
 ) -> UserAggregate | None:
+    """Load user aggregate."""
     entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
@@ -347,6 +372,7 @@ def load_user_aggregate_by_identifier(
     *,
     providers: list[str] | None = None,
 ) -> UserAggregate | None:
+    """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
     if not normalized:
         return None
@@ -396,7 +422,7 @@ def ensure_user_aggregate(
     app: Flask,
     *,
     user_bid: str,
-    defaults: dict[str, Any] | None = None,
+    defaults: dict[str, object] | None = None,
 ) -> tuple[UserAggregate, bool]:
     """Ensure a user aggregate exists for ``user_bid``.
 
@@ -404,11 +430,13 @@ def ensure_user_aggregate(
     ``defaults`` is forwarded to :func:`upsert_user_entity` when creation or updates
     are required.
     """
+    _ = app
     defaults = defaults or {}
     entity, created = upsert_user_entity(user_bid=user_bid, defaults=defaults)
     aggregate = load_user_aggregate(entity.user_bid)
     if not aggregate:
-        raise RuntimeError(f"Failed to load user aggregate for {user_bid}")
+        message = f"Failed to load user aggregate for {user_bid}"
+        raise RuntimeError(message)
     return aggregate, created
 
 
@@ -417,7 +445,7 @@ def ensure_user_for_identifier(
     *,
     provider: str,
     identifier: str,
-    defaults: dict[str, Any] | None = None,
+    defaults: dict[str, object] | None = None,
 ) -> tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
     defaults = defaults or {}
@@ -436,9 +464,8 @@ def ensure_user_for_identifier(
         db.session.flush()
         refreshed = load_user_aggregate(aggregate.user_bid)
         if not refreshed:
-            raise RuntimeError(
-                f"Failed to refresh user aggregate for provider {provider}"
-            )
+            message = f"Failed to refresh user aggregate for provider {provider}"
+            raise RuntimeError(message)
         return refreshed, False
 
     user_bid = defaults.get("user_bid") or generate_id(app)
@@ -454,7 +481,8 @@ def ensure_user_for_identifier(
     db.session.flush()
     aggregate = load_user_aggregate(user_bid)
     if not aggregate:
-        raise RuntimeError(f"Failed to create user aggregate for provider {provider}")
+        message = f"Failed to create user aggregate for provider {provider}"
+        raise RuntimeError(message)
     return aggregate, True
 
 
@@ -488,6 +516,7 @@ def create_user_entity(
     state: int | None = None,
     birthday: date | None = None,
 ) -> UserEntity:
+    """Create user entity."""
     entity = UserEntity(
         user_bid=user_bid,
         user_identify=_normalize_identifier("", identify) or user_bid,
@@ -521,6 +550,7 @@ def update_user_entity_fields(
     birthday: date | None = None,
     deleted: bool | None = None,
 ) -> UserEntity:
+    """Update user entity fields."""
     if identify is not None:
         entity.user_identify = _normalize_identifier("", identify)
     if nickname is not None:
@@ -546,8 +576,9 @@ def update_user_entity_fields(
 def upsert_user_entity(
     *,
     user_bid: str,
-    defaults: dict[str, Any] | None = None,
+    defaults: dict[str, object] | None = None,
 ) -> tuple[UserEntity, bool]:
+    """Create or update user entity."""
     defaults = dict(defaults or {})
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     created = False
@@ -578,6 +609,7 @@ def set_user_state(user_bid: str, state: int) -> None:
 
 
 def build_user_info_from_aggregate(user: UserAggregate) -> UserInfo:
+    """Build user info from aggregate."""
     return user.to_user_info()
 
 
@@ -589,7 +621,7 @@ VALID_USER_STATES = {
 }
 
 
-def _normalize_user_state(raw_state) -> int:
+def _normalize_user_state(raw_state: object) -> int:
     if raw_state is None:
         return USER_STATE_UNREGISTERED
 
@@ -617,11 +649,14 @@ def _normalize_user_state(raw_state) -> int:
 
 @dataclass
 class UserProfileSnapshot:
+    """Capture a snapshot of user profile."""
+
     user_bid: str
     legacy: dict[str, Any] = field(default_factory=dict)
     credentials: list[dict[str, str | None]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "user_bid": self.user_bid,
             "legacy": self.legacy,
@@ -632,6 +667,7 @@ class UserProfileSnapshot:
 def build_user_profile_snapshot_from_aggregate(
     aggregate: UserAggregate,
 ) -> UserProfileSnapshot:
+    """Build user profile snapshot from aggregate."""
     legacy_summary = {
         "user_id": aggregate.user_bid,
         "username": aggregate.username,
@@ -666,12 +702,14 @@ def build_user_profile_snapshot_from_aggregate(
 
 
 def serialize_raw_profile(provider_name: str, metadata: dict[str, str | None]) -> str:
+    """Serialize raw profile."""
     return json.dumps(
         {"provider": provider_name, "metadata": metadata}, ensure_ascii=False
     )
 
 
 def deserialize_raw_profile(record: AuthCredential) -> dict[str, str | None]:
+    """Deserialize raw profile."""
     if not record.raw_profile:
         return {}
     try:
@@ -717,6 +755,7 @@ def upsert_credential(
     metadata: dict[str, str | None],
     verified: bool,
 ) -> AuthCredential:
+    """Create or update credential."""
     raw_identifier = (identifier or "").strip()
     subject_id = _normalize_identifier(provider_name, subject_id)
     identifier = _normalize_identifier(provider_name, identifier)
@@ -764,6 +803,7 @@ def upsert_credential(
 def find_credential(
     *, provider_name: str, identifier: str, user_bid: str | None = None
 ) -> AuthCredential | None:
+    """Find credential."""
     raw_identifier = (identifier or "").strip()
     identifier = _normalize_identifier(provider_name, identifier)
     lookup_identifiers = [identifier]
@@ -782,6 +822,7 @@ def find_credential(
 def list_credentials(
     *, user_bid: str, provider_name: str | None = None
 ) -> list[AuthCredential]:
+    """Return credentials."""
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
@@ -789,6 +830,7 @@ def list_credentials(
 
 
 def get_first_verified_credential_created_at(*, user_bid: str) -> datetime | None:
+    """Return first verified credential created at."""
     row = (
         AuthCredential.query.filter(
             AuthCredential.deleted == 0,
@@ -815,6 +857,7 @@ def upsert_wechat_credentials(
     metadata: dict[str, str | None] | None = None,
     verified: bool = True,
 ) -> list[AuthCredential]:
+    """Create or update wechat credentials."""
     metadata = metadata or {}
     credentials: list[AuthCredential] = []
 
@@ -850,11 +893,12 @@ def upsert_wechat_credentials(
 
 
 @contextmanager
-def transactional_session():
+def transactional_session() -> Iterator[None]:
     # Managed manually instead of ``with begin_nested()``: the context
     # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
     # any classification could run, which is exactly what must not happen on
     # a connection whose exchange was interrupted.
+    """Provide a transactional database session."""
     nested = db.session.begin_nested()
     try:
         yield

@@ -1,15 +1,26 @@
+"""Define the Flask plugin contract."""
+
+
 class BasePlugin:
+    """Define the lifecycle contract implemented by backend plugins."""
+
     name: str = None
 
     def __init__(self) -> None:
+        """Set the plugin name and leave its migration directory unset.
+
+        Derives the name from the concrete class and keeps ``migration_dir`` empty
+        until the plugin configures migrations.
+        """
         self.name = self.__class__.__name__
         self.migration_dir = None  # plugin migration dir
 
-    def on_load(self):
+    def on_load(self) -> None:
+        """Run plugin initialization after loading."""
         if self.migration_dir:
             self._run_migrations()
 
-    def _run_migrations(self):
+    def _run_migrations(self) -> None:
         """Run the plugin migrations."""
         from alembic import command
         from alembic.config import Config
@@ -22,8 +33,8 @@ class BasePlugin:
 
         command.upgrade(alembic_cfg, "head")
 
-    def on_unload(self):
+    def on_unload(self) -> None:
         """Handle the plugin being unloaded."""
 
-    def on_reload(self):
+    def on_reload(self) -> None:
         """Handle the plugin being reloaded."""

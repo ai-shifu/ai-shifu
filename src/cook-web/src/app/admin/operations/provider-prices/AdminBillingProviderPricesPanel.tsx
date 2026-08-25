@@ -803,7 +803,7 @@ export function AdminBillingProviderPricesPanel() {
                                 }
                               >
                                 {t(
-                                  'module.billing.admin.providerPrices.actions.activate',
+                                  'module.billing.admin.providerPrices.actions.restore',
                                 )}
                               </DropdownMenuItem>
                             ) : null}
@@ -1006,11 +1006,7 @@ export function AdminBillingProviderPricesPanel() {
             <AlertDialogTitle>
               {confirmAction
                 ? t(
-                    `module.billing.admin.providerPrices.actions.${
-                      confirmAction.action === 'restore'
-                        ? 'activate'
-                        : confirmAction.action
-                    }`,
+                    `module.billing.admin.providerPrices.actions.${confirmAction.action}`,
                   )
                 : ''}
             </AlertDialogTitle>

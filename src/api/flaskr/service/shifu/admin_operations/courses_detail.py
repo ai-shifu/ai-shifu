@@ -5,10 +5,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.dao import db
 from flaskr.service.common.models import (
@@ -59,10 +58,15 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
 )
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    PublishedOutlineItem,
-)
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
+    from flaskr.service.shifu.models import (
+        DraftOutlineItem,
+        PublishedOutlineItem,
+    )
 
 
 def _resolve_learning_permission(item_type: int | None) -> str:
@@ -75,13 +79,13 @@ def _resolve_learning_permission(item_type: int | None) -> str:
     return "unknown"
 
 
-def _resolve_content_status(item) -> str:
+def _resolve_content_status(item: object) -> str:
     if str(getattr(item, "content", "") or "").strip():
         return "has"
     return "empty"
 
 
-def _resolve_outline_prompt_source(item) -> str:
+def _resolve_outline_prompt_source(item: object) -> str:
     parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
     if parent_bid:
         return PROMPT_SOURCE_LESSON
@@ -90,9 +94,9 @@ def _resolve_outline_prompt_source(item) -> str:
 
 def _resolve_prompt_with_fallback(
     *,
-    outline_item,
+    outline_item: object,
     outline_item_map: dict[str, DraftOutlineItem | PublishedOutlineItem],
-    course,
+    course: object,
     field_name: str,
 ) -> tuple[str, str]:
     current_item = outline_item
@@ -117,7 +121,7 @@ def _resolve_prompt_with_fallback(
 
 
 def _build_chapter_tree(
-    items,
+    items: object,
     user_map: dict[str, dict[str, str]],
     *,
     follow_up_count_map: dict[str, int],
@@ -248,6 +252,7 @@ def get_operator_course_detail(
     *,
     shifu_bid: str,
 ) -> AdminOperationCourseDetailDTO:
+    """Return operator course detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -384,6 +389,7 @@ def get_operator_course_prompt(
     *,
     shifu_bid: str,
 ) -> AdminOperationCoursePromptDTO:
+    """Return operator course prompt."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -405,6 +411,7 @@ def get_operator_course_chapter_detail(
     shifu_bid: str,
     outline_item_bid: str,
 ) -> AdminOperationCourseChapterDetailDTO:
+    """Return operator course chapter detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_outline_item_bid = str(outline_item_bid or "").strip()

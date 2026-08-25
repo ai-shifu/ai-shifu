@@ -1,3 +1,5 @@
+"""Provide datetime utilities."""
+
 from datetime import UTC, datetime
 
 import pytz
@@ -50,7 +52,8 @@ def to_utc_iso(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def get_now_time(app: Flask):
+def get_now_time(app: Flask) -> datetime:
+    """Return the current time in the application's configured timezone."""
     timezone_str = app.config.get("DEFAULT_TIMEZONE", "Asia/Shanghai")
     tz = pytz.timezone(timezone_str)
     return datetime.now(tz)

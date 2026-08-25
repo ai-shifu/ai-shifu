@@ -1,3 +1,5 @@
+"""Verify markdownFlow history HTTP route behavior."""
+
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -5,13 +7,13 @@ from flaskr import dao
 from flaskr.service.common.models import ERROR_CODE
 
 
-def _get_models():
+def _get_models() -> object:
     from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
     return DraftShifu, DraftOutlineItem
 
 
-def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
+def _mock_user(monkeypatch: object, user_id: str, is_creator: bool = True) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -26,20 +28,20 @@ def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
 
 
 def _seed_shifu_with_outline(
-    app,
+    app: object,
     shifu_bid: str,
     outline_bid: str,
     owner_bid: str,
     content: str,
 ) -> int:
     with app.app_context():
-        DraftShifu, DraftOutlineItem = _get_models()
-        DraftOutlineItem.query.filter_by(
+        draft_shifu_model, draft_outline_model = _get_models()
+        draft_outline_model.query.filter_by(
             shifu_bid=shifu_bid, outline_item_bid=outline_bid
         ).delete()
-        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
+        draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
 
-        draft = DraftShifu(
+        draft = draft_shifu_model(
             shifu_bid=shifu_bid,
             title="History Route Test",
             description="desc",
@@ -55,7 +57,7 @@ def _seed_shifu_with_outline(
         dao.db.session.add(draft)
         dao.db.session.flush()
 
-        outline = DraftOutlineItem(
+        outline = draft_outline_model(
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             title="Unit A",
@@ -69,8 +71,8 @@ def _seed_shifu_with_outline(
 
 
 def test_create_outline_route_rejects_missing_name_without_500(
-    monkeypatch, test_client, app
-):
+    monkeypatch: object, test_client: object, app: object
+) -> None:
     shifu_bid = "test-route-create-outline-invalid-name"
     outline_bid = "test-route-create-outline-seed"
     owner_bid = "test-route-create-outline-owner"
@@ -89,8 +91,8 @@ def test_create_outline_route_rejects_missing_name_without_500(
 
 
 def test_save_mdflow_route_rejects_non_object_json_without_500(
-    monkeypatch, test_client, app
-):
+    monkeypatch: object, test_client: object, app: object
+) -> None:
     shifu_bid = "test-route-save-mdflow-invalid-body"
     outline_bid = "test-route-save-mdflow-invalid-outline"
     owner_bid = "test-route-save-mdflow-invalid-owner"
@@ -108,7 +110,9 @@ def test_save_mdflow_route_rejects_non_object_json_without_500(
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
 
 
-def test_get_mdflow_history_version_detail_route_success(monkeypatch, test_client, app):
+def test_get_mdflow_history_version_detail_route_success(
+    monkeypatch: object, test_client: object, app: object
+) -> None:
     shifu_bid = "test-route-history-detail-1"
     outline_bid = "test-route-outline-1"
     owner_bid = "test-route-owner-1"
@@ -138,8 +142,8 @@ def test_get_mdflow_history_version_detail_route_success(monkeypatch, test_clien
 
 
 def test_get_mdflow_history_version_detail_route_rejects_invalid_version_id(
-    monkeypatch, test_client, app
-):
+    monkeypatch: object, test_client: object, app: object
+) -> None:
     shifu_bid = "test-route-history-detail-2"
     outline_bid = "test-route-outline-2"
     owner_bid = "test-route-owner-2"
@@ -163,8 +167,8 @@ def test_get_mdflow_history_version_detail_route_rejects_invalid_version_id(
 
 
 def test_restore_mdflow_history_route_returns_deleted_flag(
-    monkeypatch, test_client, app
-):
+    monkeypatch: object, test_client: object, app: object
+) -> None:
     shifu_bid = "test-route-history-restore-1"
     outline_bid = "test-route-outline-restore-1"
     owner_bid = "test-route-owner-restore-1"
@@ -178,13 +182,13 @@ def test_restore_mdflow_history_route_returns_deleted_flag(
     _mock_user(monkeypatch, owner_bid)
 
     with app.app_context():
-        _, DraftOutlineItem = _get_models()
+        _, draft_outline_model = _get_models()
         latest = (
-            DraftOutlineItem.query.filter_by(
+            draft_outline_model.query.filter_by(
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
             )
-            .order_by(DraftOutlineItem.id.desc())
+            .order_by(draft_outline_model.id.desc())
             .first()
         )
         assert latest is not None

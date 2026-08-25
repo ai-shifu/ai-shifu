@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
@@ -44,6 +42,11 @@ from flaskr.service.user.utils import (
 )
 from flaskr.util.datetime import now_utc
 from sqlalchemy import text
+
+if TYPE_CHECKING:
+    import datetime
+
+    from flask import Flask
 
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 
@@ -125,6 +128,7 @@ def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
 def migrate_user_study_record(
     app: Flask, from_user_id: str, to_user_id: str, course_id: str | None = None
 ) -> None:
+    """Migrate user study record."""
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 
     normalized_course_id = str(course_id or "").strip()
@@ -191,6 +195,7 @@ def migrate_user_study_record(
 
 def init_first_course(app: Flask, user_id: str) -> bool:
     # Ensure pending state changes are visible to subsequent queries
+    """Initialize first course."""
     db.session.flush()
 
     # Count only verified users for the bootstrap check.
@@ -268,6 +273,7 @@ def verify_phone_code(
     login_context: str | None = None,
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
+    """Verify phone code."""
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
         update_user_profile_with_lable,
@@ -457,7 +463,7 @@ def verify_phone_code(
         snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
     return (
-        UserToken(userInfo=user_dto, token=token),
+        UserToken(user_info=user_dto, token=token),
         created_new_user,
         {
             "course_id": normalized_course_id,

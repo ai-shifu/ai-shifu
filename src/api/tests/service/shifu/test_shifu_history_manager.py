@@ -1,3 +1,5 @@
+"""Verify shifu history manager behavior."""
+
 from __future__ import annotations
 
 import pytest
@@ -23,7 +25,7 @@ def _seed_shifu(shifu_bid: str, user_bid: str) -> DraftShifu:
     return shifu
 
 
-def test_save_new_outline_history_raises_when_parent_missing(app):
+def test_save_new_outline_history_raises_when_parent_missing(app: object) -> None:
     shifu_bid = "history-parent-missing"
     user_bid = "creator-history"
 

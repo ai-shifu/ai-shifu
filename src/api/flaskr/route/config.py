@@ -1,3 +1,5 @@
+"""Expose config HTTP routes."""
+
 from flask import Flask, request
 
 from flaskr.common.config import ENV_VARS
@@ -26,7 +28,7 @@ from flaskr.service.config.funcs import get_config
 from .common import bypass_token_validation, make_common_response
 
 
-def _to_bool(value, default=False) -> bool:
+def _to_bool(value: object, default: object = False) -> bool:
     if isinstance(value, bool):
         return value
     if value is None:
@@ -39,7 +41,7 @@ def _to_bool(value, default=False) -> bool:
     return default
 
 
-def _to_list(value, default=None):
+def _to_list(value: object, default: object = None) -> list[str]:
     default = default or []
     if value is None:
         return default
@@ -51,7 +53,7 @@ def _to_list(value, default=None):
     return default
 
 
-def _to_int(value, default: int = 0) -> int:
+def _to_int(value: object, default: int = 0) -> int:
     if value is None:
         return default
     try:
@@ -68,10 +70,12 @@ def _extract_request_host() -> str:
 
 
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the config routes on the Flask application."""
+
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     @with_shifu_context()
-    def get_runtime_config():
+    def get_runtime_config() -> str:
         # An explicit creator_bid lets surfaces without a shifu in the path
         # (e.g. the /admin backend) fetch a creator's branding. Falls back to
         # the shifu-context creator when absent, so existing callers are
@@ -214,59 +218,59 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         ) or get_config("STRIPE_PUBLISHABLE_KEY", "")
 
         config = RuntimeConfigDTO(
-            defaultLlmModel=get_config("DEFAULT_LLM_MODEL", ""),
-            wechatAppId=wechat_app_id,
-            enableWechatCode=bool(wechat_app_id),
-            billingEnabled=billing_enabled,
-            billingCreditPrecision=get_billing_credit_precision(),
-            stripePublishableKey=stripe_publishable_key,
-            stripeEnabled=(
+            default_llm_model=get_config("DEFAULT_LLM_MODEL", ""),
+            wechat_app_id=wechat_app_id,
+            enable_wechat_code=bool(wechat_app_id),
+            billing_enabled=billing_enabled,
+            billing_credit_precision=get_billing_credit_precision(),
+            stripe_publishable_key=stripe_publishable_key,
+            stripe_enabled=(
                 "stripe" in custom_payment_channels
                 if custom_payment_enabled
                 else _to_bool(
                     get_config("STRIPE_ENABLED", default=False), default=False
                 )
             ),
-            paymentChannels=payment_channels,
-            payOrderExpireSeconds=_to_int(
+            payment_channels=payment_channels,
+            pay_order_expire_seconds=_to_int(
                 get_config("PAY_ORDER_EXPIRE_TIME", 600),
                 600,
             ),
-            alwaysShowLessonTree=_to_bool(
+            always_show_lesson_tree=_to_bool(
                 get_config("UI_ALWAYS_SHOW_LESSON_TREE", default=False),
                 default=False,
             ),
-            logoWideUrl=logo_wide_url,
-            logoSquareUrl=logo_square_url,
-            faviconUrl=favicon_url,
-            umamiScriptSrc=get_config(
+            logo_wide_url=logo_wide_url,
+            logo_square_url=logo_square_url,
+            favicon_url=favicon_url,
+            umami_script_src=get_config(
                 "ANALYTICS_UMAMI_SCRIPT",
                 "",
             ),
-            umamiWebsiteId=get_config(
+            umami_website_id=get_config(
                 "ANALYTICS_UMAMI_SITE_ID",
                 "",
             ),
-            enableEruda=_to_bool(
+            enable_eruda=_to_bool(
                 get_config("DEBUG_ERUDA_ENABLED", default=False),
                 default=False,
             ),
-            loginMethodsEnabled=_to_list(
+            login_methods_enabled=_to_list(
                 get_config("LOGIN_METHODS_ENABLED", "phone"),
                 ["phone"],
             ),
-            defaultLoginMethod=get_config("DEFAULT_LOGIN_METHOD", "phone"),
-            googleOauthRedirect=build_google_oauth_callback_url(),
-            homeUrl=home_url,
-            contactUsUrl=contact_us_url,
-            officialSiteUrl=official_site_url,
-            currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
-            legalUrls=legal_urls,
+            default_login_method=get_config("DEFAULT_LOGIN_METHOD", "phone"),
+            google_oauth_redirect=build_google_oauth_callback_url(),
+            home_url=home_url,
+            contact_us_url=contact_us_url,
+            official_site_url=official_site_url,
+            currency_symbol=get_config("CURRENCY_SYMBOL", "¥"),
+            legal_urls=legal_urls,
             entitlements=runtime_billing.entitlements,
             branding=runtime_billing.branding,
             domain=runtime_billing.domain,
-            customizationCapabilities=customization_capabilities,
-            paymentConfigurationReady=(
+            customization_capabilities=customization_capabilities,
+            payment_configuration_ready=(
                 custom_payment_enabled and bool(custom_payment_channels)
             ),
         )

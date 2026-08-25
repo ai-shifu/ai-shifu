@@ -1,8 +1,9 @@
+"""Build listen-mode elements from MarkdownFlow blocks."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementChangeType,
@@ -23,11 +24,14 @@ from flaskr.service.learn.listen_element_types import (
     _element_type_for_visual_kind,
     _new_element_bid,
 )
-from flaskr.service.learn.listen_slide_builder import VisualSegment
 from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from flaskr.service.learn.listen_slide_builder import VisualSegment
 
 
 def _visuals_from_segment(
@@ -54,7 +58,7 @@ def _element_payload_from_segment(
     )
 
 
-def _text_for_speakable_segment(raw_content: str, segment: dict[str, Any]) -> str:
+def _text_for_speakable_segment(raw_content: str, segment: dict[str, object]) -> str:
     source_span = normalize_source_span(segment.get("source_span"))
     text = slice_source_by_span(raw_content, source_span).strip()
     if text:
@@ -95,7 +99,7 @@ def _build_text_element(
     element_index: int,
     content_text: str,
     audio: ElementAudioDTO | None = None,
-    audio_segments: list[dict[str, Any]] | None = None,
+    audio_segments: list[dict[str, object]] | None = None,
 ) -> ElementDTO:
     audio_segments = _normalize_audio_segments_for_element(audio_segments)
     return ElementDTO(
@@ -127,10 +131,10 @@ def _build_final_elements_for_av_contract(
     generated_block_bid: str,
     role: str,
     raw_content: str,
-    av_contract: dict[str, Any] | None,
+    av_contract: dict[str, object] | None,
     visual_segments: list[VisualSegment],
     audio_by_position: dict[int, ElementAudioDTO],
-    audio_segments_by_position: dict[int, list[dict[str, Any]]],
+    audio_segments_by_position: dict[int, list[dict[str, object]]],
     position_to_segment_id: dict[int, str] | None = None,
     element_index_offset: int = 0,
 ) -> list[ElementDTO]:

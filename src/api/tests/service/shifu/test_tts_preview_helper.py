@@ -1,3 +1,5 @@
+"""Verify TTS preview helper behavior."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,8 +18,18 @@ class _FakeAudioSettings:
     sample_rate: int = 24000
 
 
+def _split_hello_world(text: str, provider_name: str = "") -> list[str]:
+    del text, provider_name
+    return ["hello", "world"]
+
+
+def _split_hello(text: str, provider_name: str = "") -> list[str]:
+    del text, provider_name
+    return ["hello"]
+
+
 def test_build_tts_preview_response_records_debug_usage_and_summary(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     app = Flask(__name__)
     captured: list[dict[str, object]] = []
@@ -57,7 +69,7 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.split_text_for_tts",
-        lambda _text, provider_name="": ["hello", "world"],
+        _split_hello_world,
         raising=False,
     )
     monkeypatch.setattr(
@@ -81,7 +93,9 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         raising=False,
     )
 
-    def _fake_record_tts_usage(app, context, **kwargs):
+    def _fake_record_tts_usage(
+        app: object, context: object, **kwargs: object
+    ) -> object:
         captured.append(
             {
                 "app": app,
@@ -137,11 +151,13 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
     assert summary_call["kwargs"]["total"] == 16
 
 
-def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> None:
+def test_build_tts_preview_response_normalizes_removed_fields(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     captured: dict[str, object] = {}
 
-    def _fake_validate_tts_settings_strict(**kwargs):
+    def _fake_validate_tts_settings_strict(**kwargs: object) -> object:
         captured.update(kwargs)
         return SimpleNamespace(
             provider="fake",
@@ -180,7 +196,7 @@ def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> No
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.split_text_for_tts",
-        lambda _text, provider_name="": ["hello"],
+        _split_hello,
         raising=False,
     )
     monkeypatch.setattr(
@@ -213,7 +229,9 @@ def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> No
     assert captured["emotion"] == ""
 
 
-def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> None:
+def test_build_tts_preview_response_guards_minimax_custom_voice(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     guard_calls: list[dict[str, object]] = []
 
@@ -235,7 +253,9 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
         raising=False,
     )
 
-    def _fake_guard(_app, *, provider, voice_id, owner_user_bid):
+    def _fake_guard(
+        _app: object, *, provider: object, voice_id: object, owner_user_bid: object
+    ) -> None:
         guard_calls.append(
             {
                 "provider": provider,
@@ -243,7 +263,8 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
                 "owner_user_bid": owner_user_bid,
             }
         )
-        raise AppError("voice unavailable", ERROR_CODE["server.common.paramsError"])
+        message = "voice unavailable"
+        raise AppError(message, ERROR_CODE["server.common.paramsError"])
 
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.assert_preview_cloned_voice_available",
@@ -278,7 +299,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> 
     ]
 
 
-def _stub_preview_pipeline(monkeypatch):
+def _stub_preview_pipeline(monkeypatch: object) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.validate_tts_settings_strict",
         lambda **_kwargs: SimpleNamespace(
@@ -310,7 +331,7 @@ def _stub_preview_pipeline(monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.split_text_for_tts",
-        lambda _text, provider_name="": ["hello", "world"],
+        _split_hello_world,
         raising=False,
     )
     monkeypatch.setattr(
@@ -340,17 +361,15 @@ def _stub_preview_pipeline(monkeypatch):
     )
 
 
-def test_preview_stream_close_invalidates_session(monkeypatch) -> None:
-    """A client walking away mid-preview may interrupt the usage-metering DB
-    write; the GeneratorExit handler must discard the session connection.
-    """
+def test_preview_stream_close_invalidates_session(monkeypatch: object) -> None:
+    """A client walking away mid-preview may interrupt the usage-metering DB write; the GeneratorExit handler must discard the session connection."""
     app = Flask(__name__)
     _stub_preview_pipeline(monkeypatch)
 
     invalidations: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
         raising=False,
     )
 

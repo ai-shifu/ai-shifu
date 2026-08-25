@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
@@ -38,6 +36,11 @@ from .queries import (
 from .queries import (
     load_subscription_by_bid as _load_subscription_by_bid,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
 
 TASK_NAME = "billing.send_subscription_purchase_sms"
 BILLING_PAID_FEISHU_TASK_NAME = "billing.send_billing_paid_feishu"
@@ -89,7 +92,7 @@ def _build_result(
     message: str | None = None,
     notification_status: str | None = None,
     enqueued: bool | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     payload = {
         "status": status,
         "bill_order_bid": bill_order_bid,
@@ -114,11 +117,12 @@ def _supports_subscription_purchase_sms(order: BillingOrder | None) -> bool:
 
 
 def load_creator_mobile_snapshot(creator_bid: str) -> str:
+    """Load creator mobile snapshot."""
     aggregate = load_user_aggregate(_normalize_bid(creator_bid))
     return _normalize_bid(getattr(aggregate, "mobile", ""))
 
 
-def _read_order_metadata(order: BillingOrder) -> dict[str, Any]:
+def _read_order_metadata(order: BillingOrder) -> dict[str, object]:
     if isinstance(order.metadata_json, dict):
         return deepcopy(order.metadata_json)
     return {}
@@ -127,7 +131,7 @@ def _read_order_metadata(order: BillingOrder) -> dict[str, Any]:
 def _read_notification_payload_by_key(
     order: BillingOrder,
     notification_key: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     metadata = _read_order_metadata(order)
     notifications = metadata.get(_NOTIFICATIONS_KEY)
     if not isinstance(notifications, dict):
@@ -141,7 +145,7 @@ def _read_notification_payload_by_key(
 def _write_notification_payload_by_key(
     order: BillingOrder,
     notification_key: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> None:
     metadata = _read_order_metadata(order)
     notifications = metadata.get(_NOTIFICATIONS_KEY)
@@ -152,13 +156,13 @@ def _write_notification_payload_by_key(
     order.metadata_json = metadata
 
 
-def _read_notification_payload(order: BillingOrder) -> dict[str, Any]:
+def _read_notification_payload(order: BillingOrder) -> dict[str, object]:
     return _read_notification_payload_by_key(order, _SUBSCRIPTION_PURCHASE_SMS_KEY)
 
 
 def _write_notification_payload(
     order: BillingOrder,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> None:
     _write_notification_payload_by_key(
         order,
@@ -233,7 +237,7 @@ def enqueue_subscription_purchase_sms(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Enqueue the subscription purchase SMS worker after commit."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -282,7 +286,7 @@ def requeue_subscription_purchase_sms(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Re-enqueue one pending or provider-failed subscription purchase SMS."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -409,7 +413,7 @@ def _build_feishu_result(
     message: str | None = None,
     notification_status: str | None = None,
     enqueued: bool | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     payload = {
         "status": status,
         "bill_order_bid": bill_order_bid,
@@ -429,7 +433,7 @@ def enqueue_billing_paid_feishu(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Enqueue the billing paid Feishu worker after commit."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -485,7 +489,7 @@ def _load_notification_product(order: BillingOrder) -> BillingProduct | None:
     )
 
 
-def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
+def _format_minor_currency_amount(currency: str | None, amount: object) -> str:
     try:
         major_amount = Decimal(str(amount or 0)) / Decimal(100)
     except (InvalidOperation, TypeError, ValueError):
@@ -493,7 +497,7 @@ def _format_minor_currency_amount(currency: str | None, amount: Any) -> str:
     return f"{_normalize_bid(currency) or 'CNY'} {major_amount:.2f}"
 
 
-def _format_credit_amount(amount: Any) -> str:
+def _format_credit_amount(amount: object) -> str:
     try:
         credit_amount = Decimal(str(amount or 0))
     except (InvalidOperation, TypeError, ValueError):
@@ -545,14 +549,14 @@ def _append_subscription_user_count_line(msgs: list[str]) -> None:
         .distinct()
         .count()
     )
-    msgs.append(f"订阅用户数：{subscription_user_count}")
+    msgs.append(f"订阅用户数：{subscription_user_count}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 
 def _build_billing_paid_feishu_message(
     app: Flask,
     order: BillingOrder,
     *,
-    aggregate: Any,
+    aggregate: object,
     product: BillingProduct | None,
     product_name: str,
 ) -> tuple[str, list[str]]:
@@ -567,24 +571,24 @@ def _build_billing_paid_feishu_message(
     )
 
     msgs = [
-        "手机号：{}".format(getattr(aggregate, "mobile", "")),
-        "昵称：{}".format(getattr(aggregate, "name", "")),
-        f"{product_label}：{product_name}",
-        f"实付金额：{amount_text}",
-        f"订单来源：{_resolve_feishu_channel_label(order)}",
-        f"渠道：{_resolve_user_conversion_source(order.creator_bid)}",
+        "手机号：{}".format(getattr(aggregate, "mobile", "")),  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        "昵称：{}".format(getattr(aggregate, "name", "")),  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"{product_label}：{product_name}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"实付金额：{amount_text}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"订单来源：{_resolve_feishu_channel_label(order)}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+        f"渠道：{_resolve_user_conversion_source(order.creator_bid)}",  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         f"{order_type_label}-{product_name}-{amount_text}",
     ]
     if product is not None:
-        msgs.append(f"积分数量：{_format_credit_amount(product.credit_amount)}")
+        msgs.append(f"积分数量：{_format_credit_amount(product.credit_amount)}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     paid_at_text = format_with_app_timezone(
         app,
         order.paid_at,
         "%Y-%m-%d %H:%M:%S",
     )
     if paid_at_text:
-        msgs.append(f"支付时间：{paid_at_text}")
-    msgs.append(f"订单号：{order.bill_order_bid}")
+        msgs.append(f"支付时间：{paid_at_text}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+    msgs.append(f"订单号：{order.bill_order_bid}")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
     _append_subscription_user_count_line(msgs)
     return title, msgs
 
@@ -641,7 +645,7 @@ def deliver_billing_paid_feishu(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Send one billing paid Feishu notification if the order is pending."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
@@ -788,7 +792,7 @@ def deliver_subscription_purchase_sms(
     app: Flask,
     *,
     bill_order_bid: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Send one subscription purchase SMS if the billing order is pending."""
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:

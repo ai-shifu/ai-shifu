@@ -134,11 +134,14 @@ INTENTIONAL_PUBLIC_FEISHU_RESOURCES = {
 
 @dataclass(frozen=True, order=True)
 class IdentifierViolation:
+    """Describe a detected identifier violation."""
+
     path: str
     line: int
     message: str
 
     def __str__(self) -> str:
+        """Return the violation in path-and-line form."""
         return f"{self.path}:{self.line}: {self.message}"
 
 
@@ -419,15 +422,18 @@ def _read_index_objects(object_ids: list[str]) -> dict[str, bytes]:
     for object_id in unique_object_ids:
         header_end = result.stdout.find(b"\n", offset)
         if header_end == -1:
-            raise OSError("git cat-file returned a truncated header")
+            error_message = "git cat-file returned a truncated header"
+            raise OSError(error_message)
         header = result.stdout[offset:header_end].split()
         if len(header) != 3 or header[1] != b"blob":
-            raise OSError(f"git cat-file did not return blob {object_id}")
+            message = f"git cat-file did not return blob {object_id}"
+            raise OSError(message)
         size = int(header[2])
         content_start = header_end + 1
         content_end = content_start + size
         if result.stdout[content_end : content_end + 1] != b"\n":
-            raise OSError("git cat-file returned a truncated blob")
+            error_message = "git cat-file returned a truncated blob"
+            raise OSError(error_message)
         objects[object_id] = result.stdout[content_start:content_end]
         offset = content_end + 1
     return objects
@@ -451,7 +457,8 @@ def find_violations(
 
     violations: list[IdentifierViolation] = []
     if paths is not None and staged:
-        raise ValueError("explicit paths cannot be combined with staged content")
+        message = "explicit paths cannot be combined with staged content"
+        raise ValueError(message)
 
     if paths is not None:
         candidates = [
@@ -475,6 +482,7 @@ def find_violations(
 
 
 def run_self_test() -> None:
+    """Run self test."""
     suspicious_volcengine = "S_" + "a1b2c3d4"
     suspicious_volcengine_hyphen = "S_" + "-abcd"
     suspicious_volcengine_underscore = "S_" + "_abcd"
@@ -636,6 +644,7 @@ def run_self_test() -> None:
 
 
 def main() -> int:
+    """Validate example identifiers across repository documentation."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--self-test",

@@ -1,3 +1,5 @@
+"""Implement administrative operations for legacy orders."""
+
 from __future__ import annotations
 
 import hashlib
@@ -5,9 +7,8 @@ import re
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.dtos import PageNationDTO
@@ -72,6 +73,12 @@ from flaskr.service.user.repository import (
 from flaskr.service.user.utils import ensure_demo_course_permissions
 from flaskr.util.datetime import parse_naive_utc
 from sqlalchemy import case
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 ORDER_STATUS_KEY_MAP = {
     ORDER_STATUS_INIT: "server.order.orderStatusInit",
@@ -229,7 +236,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
     return None
 
 
-def _normalize_order_status_filter(value: Any) -> int | None:
+def _normalize_order_status_filter(value: object) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -241,7 +248,7 @@ def _normalize_order_status_filter(value: Any) -> int | None:
 
 
 def _normalize_order_datetime_filter(
-    value: Any, *, is_end: bool = False
+    value: object, *, is_end: bool = False
 ) -> datetime | None:
     if isinstance(value, datetime):
         return value
@@ -449,7 +456,7 @@ def _load_coupon_code_map(order_bids: list[str]) -> dict[str, list[str]]:
     return dict(coupon_map)
 
 
-def _build_coupon_usage_order_bid_subquery():
+def _build_coupon_usage_order_bid_subquery() -> Subquery:
     return (
         db.session.query(CouponUsage.order_bid.label("order_bid"))
         .filter(
@@ -550,7 +557,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
     return sorted(matched_shifu_bids)
 
 
-def _build_course_query_shifu_bid_filter(course_query: str):
+def _build_course_query_shifu_bid_filter(course_query: str) -> ColumnElement[bool]:
     normalized_course_query = str(course_query or "").strip()
     like_value = f"%{normalized_course_query}%"
     draft_course_bids = db.session.query(DraftShifu.shifu_bid).filter(
@@ -568,7 +575,7 @@ def _build_course_query_shifu_bid_filter(course_query: str):
     )
 
 
-def _apply_order_source_filter(query, order_source: str):
+def _apply_order_source_filter(query: Query, order_source: str) -> Query:
     normalized_order_source = str(order_source or "").strip()
     if not normalized_order_source:
         return query
@@ -765,7 +772,7 @@ def import_activation_orders(
     course_id: str,
     user_nick_name: str | None = None,
     contact_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Bulk import activation orders from a list of phone/email identifiers."""
     results: dict[str, Any] = {"success": [], "failed": []}
     for mobile in mobiles:
@@ -811,7 +818,7 @@ def import_activation_orders_from_entries(
     entries: list[dict[str, str]],
     course_id: str,
     contact_type: str = "phone",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Bulk import activation orders from parsed phone/email+nickname entries."""
     results: dict[str, Any] = {"success": [], "failed": []}
     for entry in entries:
@@ -861,7 +868,7 @@ def list_orders(
     user_id: str,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any] | None = None,
+    filters: dict[str, object] | None = None,
 ) -> PageNationDTO:
     """List orders visible to the current operator with optional filters."""
     with app.app_context():
@@ -955,7 +962,7 @@ def list_operator_orders(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any] | None = None,
+    filters: dict[str, object] | None = None,
 ) -> PageNationDTO:
     """List global orders for operator views with cross-course filters."""
     with app.app_context():

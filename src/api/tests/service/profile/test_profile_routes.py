@@ -1,29 +1,34 @@
+"""Verify profile HTTP route behavior."""
+
 from types import SimpleNamespace
 
 import flaskr.service.config.funcs as config_funcs
 import pytest
 
 _dummy_lock = SimpleNamespace(
-    acquire=lambda *args, **kwargs: False, release=lambda *args, **kwargs: None
+    acquire=lambda *_args, **_kwargs: False,
+    release=lambda *_args, **_kwargs: None,
 )
 
 
 @pytest.fixture(autouse=True)
-def _stub_profile_config_cache(monkeypatch):
+def _stub_profile_config_cache(monkeypatch: object) -> None:
     monkeypatch.setattr(
         config_funcs,
         "redis",
         SimpleNamespace(
             get=lambda _key: None,
-            set=lambda *args, **kwargs: None,
-            lock=lambda *args, **kwargs: _dummy_lock,
+            set=lambda *_args, **_kwargs: None,
+            lock=lambda *_args, **_kwargs: _dummy_lock,
         ),
     )
 
 
 @pytest.mark.usefixtures("app")
 class TestProfileRoutes:
-    def _mock_request_user(self, monkeypatch):
+    """Verify profile routes behavior."""
+
+    def _mock_request_user(self, monkeypatch: object) -> None:
         dummy_user = SimpleNamespace(user_id="test-user", language="en-US")
         monkeypatch.setattr(
             "flaskr.route.user.validate_user",
@@ -32,11 +37,13 @@ class TestProfileRoutes:
         )
 
     def test_get_profile_item_definitions_passes_type_filter(
-        self, monkeypatch, test_client
-    ):
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         called = {}
 
-        def fake_get_definitions(_app_ctx, parent_id, definition_type):
+        def fake_get_definitions(
+            _app_ctx: object, parent_id: object, definition_type: object
+        ) -> object:
             called["parent_id"] = parent_id
             called["definition_type"] = definition_type
             return []
@@ -56,17 +63,21 @@ class TestProfileRoutes:
         assert payload["code"] == 0
         assert called == {"parent_id": "shifu_1", "definition_type": "text"}
 
-    def test_hide_unused_profile_items_requires_parent(self, monkeypatch, test_client):
+    def test_hide_unused_profile_items_requires_parent(
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         self._mock_request_user(monkeypatch)
         resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})
         payload = resp.get_json(force=True)
         assert resp.status_code == 200
         assert payload["code"] != 0
 
-    def test_hide_unused_profile_items_ok(self, monkeypatch, test_client):
+    def test_hide_unused_profile_items_ok(
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         called = {}
 
-        def fake_hide(_app_ctx, parent_id, user_id):
+        def fake_hide(_app_ctx: object, parent_id: object, user_id: object) -> object:
             called["parent_id"] = parent_id
             called["user_id"] = user_id
             return [
@@ -94,8 +105,8 @@ class TestProfileRoutes:
         assert called["parent_id"] == "shifu_1"
 
     def test_update_profile_hidden_state_requires_parent(
-        self, monkeypatch, test_client
-    ):
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         self._mock_request_user(monkeypatch)
         resp = test_client.post(
             "/api/profiles/update-profile-hidden-state",
@@ -105,10 +116,18 @@ class TestProfileRoutes:
         assert resp.status_code == 200
         assert payload["code"] != 0
 
-    def test_update_profile_hidden_state_ok(self, monkeypatch, test_client):
+    def test_update_profile_hidden_state_ok(
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         called = {}
 
-        def fake_update(_app_ctx, parent_id, profile_keys, hidden, user_id):
+        def fake_update(
+            _app_ctx: object,
+            parent_id: object,
+            profile_keys: object,
+            hidden: object,
+            user_id: object,
+        ) -> object:
             called["parent_id"] = parent_id
             called["profile_keys"] = profile_keys
             called["hidden"] = hidden
@@ -141,7 +160,9 @@ class TestProfileRoutes:
         assert called["profile_keys"] == ["k1"]
         assert called["hidden"] is True
 
-    def test_save_profile_item_only_supports_text_type(self, monkeypatch, test_client):
+    def test_save_profile_item_only_supports_text_type(
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         resp = test_client.post(
@@ -158,11 +179,17 @@ class TestProfileRoutes:
         assert payload["code"] != 0
 
     def test_save_profile_item_passes_only_active_fields(
-        self, monkeypatch, test_client
-    ):
+        self, monkeypatch: object, test_client: object
+    ) -> None:
         called = {}
 
-        def fake_save(_app_ctx, profile_id, parent_id, user_id, key):
+        def fake_save(
+            _app_ctx: object,
+            profile_id: object,
+            parent_id: object,
+            user_id: object,
+            key: object,
+        ) -> object:
             called["profile_id"] = profile_id
             called["parent_id"] = parent_id
             called["user_id"] = user_id

@@ -1,3 +1,5 @@
+"""Verify promo error specificity behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -11,7 +13,7 @@ from flaskr.service.promo.models import Coupon, CouponUsage
 
 
 @pytest.fixture(autouse=True)
-def _isolate_coupon_tables(app):
+def _isolate_coupon_tables(app: object) -> object:
     with app.app_context():
         CouponUsage.query.delete()
         Coupon.query.delete()
@@ -23,7 +25,9 @@ def _isolate_coupon_tables(app):
         db.session.commit()
 
 
-def test_generate_unique_coupon_code_failure_returns_specific_error(app, monkeypatch):
+def test_generate_unique_coupon_code_failure_returns_specific_error(
+    app: object, monkeypatch: object
+) -> None:
     monkeypatch.setattr(
         promo_admin, "_generate_random_coupon_code", lambda: "DUPLICATE"
     )
@@ -53,7 +57,9 @@ def test_generate_unique_coupon_code_failure_returns_specific_error(app, monkeyp
     )
 
 
-def test_generate_unique_coupon_codes_failure_returns_specific_error(app, monkeypatch):
+def test_generate_unique_coupon_codes_failure_returns_specific_error(
+    app: object, monkeypatch: object
+) -> None:
     generated_codes = [f"DUP{i:03d}" for i in range(400)]
     code_iter = iter(generated_codes)
     monkeypatch.setattr(

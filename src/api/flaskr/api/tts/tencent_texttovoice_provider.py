@@ -73,7 +73,7 @@ _LARGE_MODEL_SAMPLE_RATE = 24000
 # cap at 140 to keep a safety margin below the documented limit.
 _SEGMENT_WEIGHT_LIMIT = 140.0
 _NON_CJK_CHAR_WEIGHT = 0.3
-_TERMINAL_PUNCTUATION = "。！？!?；;\n"
+_TERMINAL_PUNCTUATION = "。！？!?；;\n"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 
 def _texttovoice_voice(
@@ -160,6 +160,7 @@ def build_texttovoice_tc3_headers(
     secret_key: str,
     timestamp: int | None = None,
 ) -> dict[str, str]:
+    """Build texttovoice TC3 headers."""
     request_timestamp = int(timestamp if timestamp is not None else time.time())
     request_date = dt.datetime.fromtimestamp(
         request_timestamp,
@@ -293,6 +294,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "tencent_texttovoice"
 
     def _get_credentials(self) -> tuple:
@@ -301,10 +303,12 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         return secret_id, secret_key
 
     def is_configured(self) -> bool:
+        """Return whether this provider has usable credentials."""
         secret_id, secret_key = self._get_credentials()
         return bool(secret_id and secret_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
+        """Return this provider's default voice settings."""
         return VoiceSettings(
             voice_id=TENCENT_TEXTTOVOICE_DEFAULT_VOICE_ID,
             speed=0,  # Tencent native range -2..6, 0 is normal speed
@@ -314,6 +318,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
+        """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
             sample_rate=_PREMIUM_SAMPLE_RATE,
@@ -322,6 +327,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
 
     def get_supported_voices(self) -> list[dict[str, str]]:
+        """Return the voices exposed by this provider."""
         return [dict(voice) for voice in TENCENT_TEXTTOVOICE_VOICES]
 
     def _synthesize_segment(
@@ -357,23 +363,25 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
             body = response.json()
         except requests.RequestException as exc:
             logger.exception("Tencent TextToVoice request failed")
-            raise ValueError(f"Tencent TextToVoice request failed: {exc}") from exc
+            message = f"Tencent TextToVoice request failed: {exc}"
+            raise ValueError(message) from exc
         except ValueError as exc:
-            raise ValueError(
-                f"Tencent TextToVoice returned invalid JSON: {exc}"
-            ) from exc
+            message = f"Tencent TextToVoice returned invalid JSON: {exc}"
+            raise ValueError(message) from exc
 
         result = body.get("Response") or {}
         error = result.get("Error")
         if error:
             request_id = result.get("RequestId", "")
-            raise ValueError(
+            message = (
                 f"Tencent TextToVoice error {error.get('Code', 'unknown')}: "
                 f"{error.get('Message', '')} (request_id={request_id})"
             )
+            raise ValueError(message)
         audio_base64 = result.get("Audio") or ""
         if not audio_base64:
-            raise ValueError("No audio data received from Tencent TextToVoice")
+            error_message = "No audio data received from Tencent TextToVoice"
+            raise ValueError(error_message)
         return base64.b64decode(audio_base64)
 
     def synthesize(
@@ -383,13 +391,17 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
+        """Synthesize speech with this provider."""
+        _ = audio_settings
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
         if not self.is_configured():
-            raise ValueError(
+            error_message = (
                 "Tencent TextToVoice is not configured. "
                 "Set TENCENT_TTS_SECRET_ID and TENCENT_TTS_SECRET_KEY"
             )
+            raise ValueError(error_message)
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()
@@ -399,16 +411,16 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         try:
             voice_type = int(voice_id)
         except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"Invalid Tencent TextToVoice voice id: {voice_id}"
-            ) from exc
+            message = f"Invalid Tencent TextToVoice voice id: {voice_id}"
+            raise ValueError(message) from exc
 
         sample_rate = _resolve_sample_rate(voice_id, model)
         speed = float(voice_settings.speed or 0)
 
         segments = _split_text(text)
         if not segments:
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
 
         logger.debug(
             "Calling Tencent TextToVoice: voice_type=%s, sample_rate=%s, "
@@ -425,7 +437,8 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         ]
         audio_data = concat_audio_best_effort(audio_segments, output_format="mp3")
         if not audio_data:
-            raise ValueError("No audio data received from Tencent TextToVoice")
+            error_message = "No audio data received from Tencent TextToVoice"
+            raise ValueError(error_message)
         duration_ms = try_get_audio_duration_ms(audio_data, audio_format="mp3") or 0
 
         return TTSResult(
@@ -439,6 +452,7 @@ class TencentTextToVoiceProvider(BaseTTSProvider):
         )
 
     def get_provider_config(self) -> ProviderConfig:
+        """Return the provider's public configuration."""
         return ProviderConfig(
             name=self.provider_name,
             label="腾讯云语音合成",

@@ -1,12 +1,17 @@
 # ruff: noqa: E402
+"""Provide pytest fixtures for backend tests."""
+
 import os
 import shutil
 import sys
 import tempfile
+from collections.abc import Iterator
 from importlib import import_module
 from pathlib import Path
 
 import pytest
+from flask import Flask
+from flask.testing import FlaskClient
 
 # Prevent accidental loading of user/global .env files during tests
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
@@ -50,29 +55,38 @@ class _TestPluginManager:
         self.extensible_generic_functions = {}
         self.is_enabled = False
 
-    def register_extension(self, target_func_name, func):
+    def register_extension(self, target_func_name: object, func: object) -> None:
         self.extension_functions.setdefault(target_func_name, []).append(func)
 
-    def execute_extensions(self, _func_name, result, *args, **kwargs):
+    def execute_extensions(
+        self,
+        _func_name: object,
+        result: object,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        _ = (args, kwargs)
         return result
 
-    def register_extensible_generic(self, func_name, func):
+    def register_extensible_generic(self, func_name: object, func: object) -> None:
         self.extensible_generic_functions.setdefault(func_name, []).append(func)
 
-    def execute_extensible_generic(self, _func_name, *args, **kwargs):
-        return None
+    def execute_extensible_generic(
+        self, _func_name: object, *args: object, **kwargs: object
+    ) -> None:
+        _ = (args, kwargs)
 
 
 set_plugin_manager(_TestPluginManager())
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw):
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw):
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "INTEGER"
 
 
@@ -88,7 +102,7 @@ from tests.common.fixtures.fake_redis import FakeRedis
 
 
 @pytest.fixture(scope="session")
-def app():
+def app() -> Iterator[Flask | None]:
     if os.getenv("SKIP_APP_FIXTURE"):
         yield None
         return
@@ -159,18 +173,18 @@ def app():
 
 
 @pytest.fixture
-def test_client(app):
+def test_client(app: object) -> Iterator[FlaskClient]:
     with app.test_client() as client:
         yield client
 
 
 @pytest.fixture
-def token():
+def token() -> object:
     return ""
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_client(monkeypatch, request):
+def mock_redis_client(monkeypatch: object, request: object) -> object:
     fake_redis = FakeRedis()
     # test_funcs.py uses its own `@patch` decorators for fine-grained Redis control.
     if "service/config/test_funcs.py" in request.node.nodeid:
@@ -202,12 +216,12 @@ def mock_redis_client(monkeypatch, request):
     return fake_redis
 
 
-def _should_skip_llm_mock(request) -> bool:
+def _should_skip_llm_mock(request: object) -> bool:
     return request.node.get_closest_marker("no_mock_llm") is not None
 
 
 @pytest.fixture(autouse=True)
-def mock_llm_calls(monkeypatch, request):
+def mock_llm_calls(monkeypatch: object, request: object) -> None:
     if _should_skip_llm_mock(request):
         return
     llm = sys.modules.get("flaskr.api.llm")
@@ -224,7 +238,7 @@ def mock_llm_calls(monkeypatch, request):
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request):
+def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
     if "app" in request.fixturenames:
         yield
         return

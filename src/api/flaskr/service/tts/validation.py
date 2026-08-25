@@ -1,15 +1,19 @@
+"""Validate requests and settings for TTS."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.api.tts import get_tts_provider
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.tts.cloned_voice_registry import (
     find_ready_cloned_voice,
     get_clone_provider_spec,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 SUPPORTED_TTS_PROVIDERS = {
     "minimax",
@@ -25,6 +29,8 @@ PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine", "tencent_texttovoice"}
 
 @dataclass(frozen=True)
 class StrictTTSSettings:
+    """Validate the complete settings required for speech synthesis."""
+
     provider: str
     model: str
     voice_id: str
@@ -37,14 +43,14 @@ def _raise_param_error(message: str) -> None:
     raise_error_with_args("server.common.paramsError", param_message=message)
 
 
-def _to_float(value: Any, field_name: str) -> float:
+def _to_float(value: object, field_name: str) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         _raise_param_error(f"Invalid {field_name}: {value!r}")
 
 
-def _to_int(value: Any, field_name: str) -> int:
+def _to_int(value: object, field_name: str) -> int:
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -56,8 +62,8 @@ def validate_tts_settings_strict(
     provider: str,
     model: str,
     voice_id: str,
-    speed: Any,
-    pitch: Any,
+    speed: object,
+    pitch: object,
     emotion: str,
 ) -> StrictTTSSettings:
     """Validate strict, DB-driven TTS settings.

@@ -99,6 +99,180 @@ plan's progress update for that rule.
   reports 31,058 findings and no G004 findings.
 - [ ] Merge or retarget G004 PR #2580 after its predecessors without combining
   it with the next rule unit.
+- [x] 2026-08-21 00:20 CST: Opened ready D205 PR
+  [#2581](https://github.com/ai-shifu/ai-shifu/pull/2581) from
+  `sunner/ruff-d205` to the G004 branch. All 262 findings across 66 tracked
+  Python files now have separated summaries; a semantic audit found no
+  non-docstring AST changes and proved all 112 touched Swagger YAML bodies are
+  unchanged. The repository-wide Swagger regression test, full backend suite,
+  and all pre-commit hooks pass.
+- [x] 2026-08-21 00:20 CST: Re-ran the stable `ALL` census on the D205 tip. It
+  reports 30,901 findings across 40 rules and no D205 findings.
+- [ ] Merge or retarget D205 PR #2581 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-20 16:45 UTC: Opened ready D107 PR
+  [#2582](https://github.com/ai-shifu/ai-shifu/pull/2582) from
+  `sunner/ruff-d107` to the D205 branch. All 123 findings across 57 Python
+  files now document the state, payload, dependency, or setup established by
+  each constructor. A semantic AST audit found no behavior change after
+  normalizing docstrings and one no-op `pass`; 166 focused tests, the full
+  backend suite, and all pre-commit hooks pass.
+- [x] 2026-08-20 16:45 UTC: Re-ran the stable `ALL` census on the D107 tip. It
+  reports 30,778 findings across 39 rules and no D107 findings.
+- [ ] Merge or retarget D107 PR #2582 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-21 01:09 CST: Opened ready D105 PR
+  [#2583](https://github.com/ai-shifu/ai-shifu/pull/2583) from
+  `sunner/ruff-d105` to the D107 branch. All 155 findings across 37 Python
+  files now document each magic method's observable protocol. A semantic AST
+  audit found no executable change after removing docstrings; 224 focused
+  tests, the full backend suite, and all pre-commit hooks pass.
+- [x] 2026-08-21 01:09 CST: Re-ran the stable `ALL` census on the D105 tip. It
+  reports 30,623 findings across 38 rules and no D105 findings. E501 remains at
+  613 findings, so the documentation cleanup transfers no line-length debt.
+- [ ] Merge or retarget D105 PR #2583 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-21 01:40 CST: Opened ready TC003 PR
+  [#2584](https://github.com/ai-shifu/ai-shifu/pull/2584) from
+  `sunner/ruff-tc003` to the D105 branch. Of 100 findings across 86 files, 95
+  genuinely annotation-only imports in 81 files moved behind `TYPE_CHECKING`;
+  five Pydantic DTO modules retain runtime `datetime` imports through a shared
+  Ruff runtime-evaluation contract. The import AST audit, 261 focused tests,
+  full backend suite, script entry points, and all pre-commit hooks pass.
+- [x] 2026-08-21 01:40 CST: Re-ran the stable `ALL` census on the TC003 tip. It
+  reports 30,518 findings across 37 rules and no TC003 findings. The Pydantic
+  runtime model also removes four TC002 false positives while TC002 remains a
+  separate global exception; deleting one unused fake clock removes one
+  ANN001 finding, and every other rule count is unchanged.
+- [ ] Merge or retarget TC003 PR #2584 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-21 02:00 CST: Prepared the TC002 stage on
+  `sunner/ruff-tc002`, stacked on TC003. All 134 annotation-only third-party
+  imports across 113 files moved behind `TYPE_CHECKING`. An import AST audit
+  matched every removed runtime import to its type-only replacement and found
+  no other executable changes; 908 focused tests and the full backend suite
+  pass.
+- [x] 2026-08-21 02:00 CST: Re-ran the stable `ALL` census on the TC002 tip. It
+  reports 30,384 findings across 36 rules and no TC002 or TC003 findings. The
+  134-finding reduction is exact; ANN001, E501, and PLR0911 remain unchanged.
+- [x] 2026-08-21 02:06 CST: Opened ready TC002 PR
+  [#2585](https://github.com/ai-shifu/ai-shifu/pull/2585) from
+  `sunner/ruff-tc002` to the TC003 branch after all repository pre-commit hooks
+  passed.
+- [ ] Merge or retarget TC002 PR #2585 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-21 02:34 CST: Prepared the D100 stage on `sunner/ruff-d100`,
+  stacked on TC002. Added ownership- or behavior-focused module docstrings to
+  414 Python files and removed one unreferenced zero-byte test placeholder. A
+  semantic AST audit found no executable changes; entry-point tests, script
+  help commands, architecture fixtures, and the full backend suite pass.
+- [x] 2026-08-21 02:34 CST: Re-ran the stable `ALL` census on the D100 tip. It
+  reports 29,968 findings across 35 rules and no D100 findings. D100 falls by
+  all 415 findings; deleting the empty module also removes one CPY001 finding,
+  while ANN001, D101-D103, E501, and PLR0911 remain unchanged.
+- [x] 2026-08-21 02:47 CST: Opened ready D100 PR #2586 against the TC002
+  branch after all local gates passed.
+- [ ] Merge or retarget D100 PR #2586 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-21: Prepared the EM101 stage on `sunner/ruff-em101`, stacked on
+  EM102. Assigned each ProviderPriceMappingError code to a local before raising,
+  preserving exception type, message, context, and all billing error contracts.
+- [ ] Merge or retarget EM101 PR #2628 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-21: Prepared the RUF001 stage on `sunner/ruff-ruf001`, stacked on
+  EM101. The isolated audit identified 162 deliberately fullwidth punctuation
+  findings across 106 Chinese-message, TTS-boundary, and regression-fixture
+  lines. The stage enables RUF001 and records 43 newly required, explained
+  line-level suppressions; it intentionally removes the global
+  `allowed-confusables` list so RUF002 and RUF003 remain fully enforced.
+  Conventional Python test modules and test configuration are exempt so they
+  can preserve user text, provider payloads, protocol samples, and malformed
+  inputs verbatim without weakening production enforcement.
+- [x] 2026-08-22 CST: Addressed the remaining PR #2629 review by removing the
+  test-only `--select RUF001` override from the RUF001 policy test. The test now
+  exercises `ruff.toml` as CI does: test paths must omit RUF001 while a production
+  path must report it, so moving RUF001 back to a global ignore would fail the
+  regression. The focused test and `ruff check .` pass.
+- [ ] Merge or retarget RUF001 PR #2629 after its predecessors without combining
+  it with the next rule unit.
+- [x] 2026-08-22: Rebuilt the N815 stage on `sunner/ruff-n815`, stacked directly
+  on RUF001. Replaced 26 Pydantic camelCase attributes with snake_case Python
+  names and explicit wire aliases, and retained one explained field-level
+  suppression where the annotated name itself defines the `UserToken` JSON and
+  Swagger contract. Both file-wide N815 exceptions are removed.
+- [ ] Merge or retarget N815 PR #2630 after RUF001 without combining it with the
+  next rule unit.
+- [x] 2026-08-22: Rebuilt the N803 stage on `sunner/ruff-n803`, stacked on
+  N815. Renamed the internal `UserToken` constructor argument and its keyword
+  callers to `user_info`, while preserving the `userInfo` JSON and Swagger
+  field contract and removing the only N803 suppression.
+- [ ] Merge or retarget N803 PR #2631 after N815 without combining it with the
+  next rule unit.
+- [x] 2026-08-22: Rebuilt the S101 stage on `sunner/ruff-s101`, stacked on
+  N803. Removed the stale exact-file exception for the deleted
+  `src/api/conftest.py` path and documented the production/test assertion
+  boundary.
+- [ ] Merge or retarget S101 PR #2632 after N803 without combining it with the
+  next rule unit.
+- [x] 2026-08-22: Rebuilt the ARG002 stage on `sunner/ruff-arg002`, stacked on
+  S101. Removed repository-owned unused method parameters and explicitly
+  consumed externally owned protocol, fixture, and test-double compatibility
+  values without renaming keyword contracts.
+- [ ] Merge or retarget ARG002 PR #2633 after S101 without combining it with the
+  next rule unit.
+- [x] 2026-08-22: Rebuilt the ARG001 stage on `sunner/ruff-arg001`, stacked on
+  ARG002. Removed repository-owned unused function parameters and explicitly
+  consumed externally owned callback, fixture, migration, and compatibility
+  values without changing accepted signatures.
+- [ ] Merge or retarget ARG001 PR #2634 after ARG002 without combining it with
+  the next rule unit.
+- [x] 2026-08-22: Rebuilt the ARG005 stage on `sunner/ruff-arg005`, stacked on
+  ARG001. Removed unused lambda arguments while preserving provider, callback,
+  and test-double keyword contracts through named helpers where required.
+- [ ] Merge or retarget ARG005 PR #2635 after ARG001 without combining it with
+  the next rule unit.
+- [x] 2026-08-22: Rebuilt the ANN002 stage on `sunner/ruff-ann002`, stacked on
+  ARG005. Annotated every variadic positional parameter with its element type,
+  using narrow types for homogeneous forwarding and `object` for genuinely
+  heterogeneous compatibility boundaries.
+- [ ] Merge or retarget ANN002 PR #2636 after ARG005 without combining it with
+  the next rule unit.
+- [x] 2026-08-22: Rebuilt the ANN003 stage on `sunner/ruff-ann003`, stacked on
+  ANN002. Annotated every variadic keyword parameter with its value type while
+  preserving all accepted keyword options and forwarding behavior.
+- [ ] Merge or retarget ANN003 PR #2637 after ANN002 without combining it with
+  the next rule unit.
+- [x] 2026-08-22: Rebuilt the D102 stage on `sunner/ruff-d102`, stacked on
+  ANN003. Documented public production and tool methods by observable contract,
+  kept behavior-focused tests exempt, and retained only behavior-preserving
+  complexity adjustments required by the documentation pass.
+- [x] 2026-08-22: Merged D102 PR #2638 into `main` after its predecessor stack
+  completed.
+- [x] 2026-08-22: Rebuilt the D103 stage on `sunner/ruff-d103-rebuild` from
+  `origin/main`. Removed the global D103 exception and documented 749 public
+  production and contributor-tool functions across 187 existing Python files by
+  observable contract. The policy retains only behavior-named tests, immutable
+  migration history, and deliberately minimal architecture fixtures. A
+  normalized AST audit found no executable differences; the D103 policy and
+  Swagger regressions pass, followed by the full backend suite at 3,042 passed
+  with 17 skipped and every applicable repository pre-commit gate.
+- [x] 2026-08-23: Rebuilt the ANN201 stage from current `origin/main` for
+  PR #2645. The scope is limited to the 2,196 functions reported by ANN201;
+  immutable Alembic revisions remain covered by the existing directory-wide
+  exemption. A normalized AST audit confirms no executable differences in the
+  333 existing Python files after removing return annotations; the ANN201 policy
+  test and repository Ruff/format checks pass. The full backend suite is blocked
+  during collection by the local Langfuse package missing
+  `langfuse._client.span_exporter`.
+- [x] 2026-08-22: Replaced rule-specific Alembic exceptions with a directory
+  `ALL` exemption for `src/api/migrations/versions/**`. The project policy,
+  confirmed by the maintainers, treats every Alembic-generated revision as
+  immutable history, including subsequently generated revisions; later Ruff
+  adoption must never require rewriting migration code.
+- [x] 2026-08-22: Enabled ANN001 in a dedicated stack unit and added parameter
+  annotations for repository-owned callables. The generated migration directory
+  remains governed solely by the confirmed directory-level `ALL` policy; Ruff,
+  format, and focused annotation-contract validation pass.
 - [ ] Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
 - [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
@@ -136,6 +310,56 @@ plan's progress update for that rule.
   test now verifies the constant message template and interpolation argument,
   so it protects the parameterized logging contract instead of requiring eager
   formatting.
+- Correcting D205 structure made pydocstyle recognize sections that malformed
+  summaries had hidden. This exposed D200, D410, D411, D413, and D417 findings
+  from rules already selected by the repository; satisfying them in the D205
+  stage preserves the existing lint baseline rather than adopting another rule
+  unit.
+- The repository has 114 source-defined Swagger docstrings. Three existing
+  learner-route specifications contain invalid YAML; the new parser test
+  freezes their exact identities without changing them in this rule PR, while
+  rejecting any additional unparseable specification.
+- D203 and D213 are necessary explicit conflict exceptions rather than clean
+  rules. Selected alone, they report 293 and 656 findings respectively;
+  selected with D211 or D212, Ruff emits an incompatibility warning and ignores
+  D203 or D213. Removing the explicit ignores would shrink the file only by
+  making every normal run noisy and relying on implicit conflict resolution.
+- Adding the final D107 docstring to the no-op Langfuse client made its old
+  `pass` statement redundant under the already-selected PIE790 rule. Removing
+  that no-op preserves the configured baseline and runtime behavior; it does
+  not adopt a second rule unit.
+- The first D105 pass introduced four E501 findings through long protocol
+  summaries. Shortening those summaries without weakening their observable
+  contracts restored E501 to 613, making the final census a pure 155-finding
+  reduction instead of moving debt between rules.
+- TC003's unsafe fixer correctly identified annotation-only imports but could
+  not see four obsolete tests monkeypatching module-level `datetime` names that
+  production never read. The focused suites exposed the fake seams; removing
+  those patches while retaining their real `now_utc` injection made the tests
+  describe the actual clock contract.
+- TC002's unsafe fixer moved all 134 findings without exposing a hidden runtime
+  dependency. Two modules without postponed annotations used quoted or local
+  annotations, while SQLAlchemy model classes used for executable query
+  construction stayed available at runtime. The exact import-movement audit
+  makes that boundary explicit.
+- The isolated RUF001 audit reported 162 occurrences on 106 source lines. They
+  are deliberate fullwidth Chinese punctuation in customer messages, TTS
+  boundary patterns, and regression fixtures. Replacing them with ASCII
+  punctuation would change product and speech behavior merely to shorten
+  configuration. The correct production exception is an explained
+  `# noqa: RUF001` on each audited line, not `allowed-confusables`, which would
+  also relax RUF002 and RUF003. Test modules and test configuration are exempt
+  because they must preserve user text, provider payloads, protocol samples,
+  and malformed inputs verbatim.
+- D100 included one zero-byte, unreferenced `test_rag.py` placeholder. Removing
+  it was more honest than inventing a module purpose and also removed one
+  CPY001 finding; every documented module otherwise differs from its parent
+  only by the first docstring statement.
+- The next numerically smaller candidate, PLR0911, spans 72 complex control-flow
+  functions across authentication, billing, payment, permissions, and Alembic
+  infrastructure. It is not a safe mechanical unit: adopting it requires
+  behavior-specific decomposition rather than result-variable or threshold
+  workarounds, so TC003 was the smaller reviewable exception-removal stage.
 - FIX002 and TD003 report the same two TODOs. One is a real password-login
   rate-limit feature and one is a compatibility-removal checkpoint. Renaming
   them to evade lint would hide work, and implementing either is larger than a
@@ -165,6 +389,10 @@ plan's progress update for that rule.
   is immutable history. A global ignore is the last resort for a repository-
   wide contract that fundamentally conflicts with a rule.
 - 2026-08-20: Do not edit applied Alembic migrations to satisfy style rules.
+- 2026-08-21: A shared Ruff semantic setting required by one rule may also
+  remove false positives from another still-ignored rule. Record that census
+  effect explicitly, but do not treat the second rule as adopted until its own
+  independent rule PR removes its exception and passes its acceptance suite.
 
 ## Outcomes & Retrospective
 
@@ -229,6 +457,87 @@ code changes. Exact config-warning and migration-progress log tests pass in the
 25-test focused set, the full backend suite passes 3,009 tests with 17 skips,
 and the repository-wide pre-commit gate passes. The engineering baseline now
 tells future agents to parameterize logging rather than hiding eager f-strings.
+
+The D205 stage removes the global missing-blank-line exception and gives all
+262 affected docstrings a complete first-line summary. The semantic AST audit is
+scoped to that 66-file mechanical docstring rewrite: within that scope, it found
+no non-docstring code changes and confirmed that all 112 touched Flasgger YAML
+bodies are identical. The final PR also includes these separately reviewed
+non-docstring changes required to preserve the documentation contract:
+
+- `app.py` wires `sanitize_swagger_docstring` into Flasgger and
+  `flaskr/common/swagger.py` trims framing whitespace so summary-only routes do
+  not emit a placeholder `<br/>` description while real descriptions retain
+  their text.
+- `convert_outline_to_reorder_outline_item_dto` now declares its actual
+  `list[ReorderOutlineItemDto]` return contract; `get_unit_by_id` documents its
+  existing `AppError` path instead of a nonexistent `None` return.
+- The Swagger regression test inventories all 114 source-defined contracts,
+  freezes the three pre-existing invalid specifications, and reads source files
+  explicitly as UTF-8 for locale-independent collection.
+
+The focused Swagger and reorder-conversion tests cover these exceptions in
+addition to the D205 parser contract; the full backend suite passes 3,010 tests
+with 17 skips, and the repository-wide pre-commit gate passes. Future agents
+now have an explicit D205 and Flasgger repair contract in the engineering
+baseline.
+
+The D107 stage removes the global missing-constructor-docstring exception and
+adds responsibility-focused documentation to all 123 affected constructors in
+57 files. No runtime path reads `__init__.__doc__`; a semantic AST audit proves
+the sources are otherwise identical after constructor docstrings and the one
+redundant no-op `pass` are normalized. The focused constructor and test-double
+suites pass 166 tests with one skip, the full backend suite passes 3,010 tests
+with 17 skips, and the repository-wide pre-commit gate passes. The engineering
+baseline tells future agents to document the payload, state, dependency, setup,
+or real side effects instead of copying a signature or adding generic filler.
+
+The D105 stage removes the global missing-magic-method-docstring exception and
+documents all 155 affected methods in 37 files. The 106 `__json__` methods state
+whether they expose a scalar, JSON-compatible data, or a serialized string;
+mapping, representation, comparison, iteration, and delegation methods name
+their visible protocol result. No runtime path consumes these docstrings, and a
+semantic AST audit proves the Python sources are otherwise identical after
+docstrings are removed. The focused protocol suites pass 224 tests, the full
+backend suite passes 3,010 tests with 17 skips, and the repository-wide
+pre-commit gate passes. Future agents now have an explicit D105 repair contract
+that rejects filler summaries in favor of observable behavior.
+
+The TC003 stage removes the global standard-library type-only import exception.
+Ninety-five imports across 81 Python files now load only under `TYPE_CHECKING`;
+an AST normalization audit proves those modules have no other executable syntax
+changes. Five Pydantic DTO modules keep `datetime` available while their model
+classes resolve field annotations, modeled once through Ruff's runtime-
+evaluated base-class setting and protected by five parameterized assertions.
+Focused testing also removed four ineffective `datetime` monkeypatch calls
+while preserving the real `now_utc` clock injection. The cross-service suite
+passes 261 tests, the full backend suite passes 3,015 tests with 17 skips, both
+diagnostic script entry points import, and the repository-wide pre-commit gate
+passes. Future agents now distinguish postponed and local annotations from
+Pydantic fields, runtime reflection, and genuine module-attribute test seams.
+
+The TC002 stage removes the global third-party type-only import exception. All
+134 findings across 113 Python files are annotation-only uses and now load
+under `TYPE_CHECKING`; runtime SQLAlchemy models remain in normal imports, and
+Pydantic field types remain protected by the shared runtime-evaluated base-
+class setting. An AST audit proves a one-for-one movement of import aliases and
+no other executable changes. The focused cross-service suite passes 908 tests,
+the full backend suite passes 3,015 tests with 17 skips, and the stable `ALL`
+census falls exactly 134 findings to 30,384 across 36 rules. Future agents now
+apply the same runtime-resolution test to both third-party and standard-library
+annotation imports instead of treating import provenance as the safety proof.
+
+The D100 stage removes the global undocumented-module exception. Four hundred
+fourteen production, script, fixture, and test modules now state the service
+responsibility, operation, or behavior group they own; one empty and
+unreferenced test placeholder is removed instead of receiving filler text. A
+semantic AST audit proves that stripping the new first-statement docstrings
+restores every module exactly, and repository search found no runtime consumer
+of module `__doc__`. Entry-point tests pass 10 cases with one infrastructure
+skip, both changed maintenance scripts expose their help successfully, the
+full backend suite passes 3,015 tests with 17 skips, and the stable `ALL` census
+falls to 29,968 findings across 35 rules. Future agents now document module
+ownership rather than restating filenames or inventing generic helper prose.
 
 ## Context and Orientation
 

@@ -1,3 +1,5 @@
+"""Verify admin config rates behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -84,8 +86,10 @@ def _seed_default_llm_rates() -> None:
     db.session.commit()
 
 
-def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, app):
-    def config_getter(key, default=None):
+def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(
+    monkeypatch: object, app: object
+) -> None:
+    def config_getter(key: object, default: object = None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "3000",
@@ -234,7 +238,9 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(monkeypatch, ap
         db.session.commit()
 
 
-def test_update_db_only_llm_alias_only_supersedes_explicit_alias(monkeypatch, app):
+def test_update_db_only_llm_alias_only_supersedes_explicit_alias(
+    monkeypatch: object, app: object
+) -> None:
     fixed_now = datetime(2026, 7, 20, 13, 30, 43, 990000)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -313,15 +319,17 @@ def test_update_db_only_llm_alias_only_supersedes_explicit_alias(monkeypatch, ap
         db.session.commit()
 
 
-def test_update_new_llm_rate_uses_default_metric_ratios(monkeypatch, app):
-    def config_getter(key, default=None):
+def test_update_new_llm_rate_uses_default_metric_ratios(
+    monkeypatch: object, app: object
+) -> None:
+    def config_getter(key: object, default: object = None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "3000",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
         }.get(key, default)
 
-    def resolve_identity(model: str):
+    def resolve_identity(model: str) -> object:
         provider, actual_model = model.split("/", 1)
         return provider, [actual_model, model]
 
@@ -384,8 +392,10 @@ def test_update_new_llm_rate_uses_default_metric_ratios(monkeypatch, app):
         db.session.commit()
 
 
-def test_operator_rate_config_exposes_fixed_credit_1x_baseline(monkeypatch, app):
-    def config_getter(key, default=None):
+def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
+    monkeypatch: object, app: object
+) -> None:
+    def config_getter(key: object, default: object = None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "ark/doubao-seed-2-0-lite-260428",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
@@ -429,8 +439,10 @@ def test_operator_rate_config_exposes_fixed_credit_1x_baseline(monkeypatch, app)
         db.session.commit()
 
 
-def test_update_rate_rejects_missing_credit_1x_anchor(monkeypatch, app):
-    def config_getter(key, default=None):
+def test_update_rate_rejects_missing_credit_1x_anchor(
+    monkeypatch: object, app: object
+) -> None:
+    def config_getter(key: object, default: object = None) -> object:
         return {
             "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
@@ -475,8 +487,8 @@ def test_update_rate_rejects_missing_credit_1x_anchor(monkeypatch, app):
 
 
 def test_operator_rate_config_appends_only_current_exact_db_identities(
-    monkeypatch, app
-):
+    monkeypatch: object, app: object
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -614,13 +626,13 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
         active_rate_selects = 0
 
         def count_active_rate_selects(
-            _connection,
-            _cursor,
-            statement,
-            _parameters,
-            _context,
-            _executemany,
-        ):
+            _connection: object,
+            _cursor: object,
+            statement: object,
+            _parameters: object,
+            _context: object,
+            _executemany: object,
+        ) -> None:
             nonlocal active_rate_selects
             if "credit_usage_rates" in statement.lower():
                 active_rate_selects += 1
@@ -705,8 +717,12 @@ def test_operator_rate_config_appends_only_current_exact_db_identities(
     ids=["whole-number", "fractional", "anchor-1.5x", "half-up-boundary"],
 )
 def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
-    monkeypatch, app, credits_per_unit, expected_input, expected_cache
-):
+    monkeypatch: object,
+    app: object,
+    credits_per_unit: object,
+    expected_input: object,
+    expected_cache: object,
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -778,7 +794,9 @@ def test_create_only_llm_uses_raw_rate_model_without_superseding_alias(
         db.session.commit()
 
 
-def test_create_only_rejects_duplicate_active_exact_identity(monkeypatch, app):
+def test_create_only_rejects_duplicate_active_exact_identity(
+    monkeypatch: object, app: object
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(
@@ -855,8 +873,8 @@ def test_create_only_rejects_duplicate_active_exact_identity(monkeypatch, app):
     ],
 )
 def test_create_only_rejects_invalid_identity_and_fixed_fields(
-    monkeypatch, app, overrides
-):
+    monkeypatch: object, app: object, overrides: object
+) -> None:
     monkeypatch.setattr(
         config_rates, "_load_llm_credit_1x_reference_cost", lambda: Decimal(3)
     )
@@ -893,7 +911,9 @@ def test_create_only_rejects_invalid_identity_and_fixed_fields(
     ["0.5", "9999999999.9999999999"],
     ids=["regular", "numeric-max"],
 )
-def test_create_only_tts_allows_empty_default_model(monkeypatch, app, credits_per_unit):
+def test_create_only_tts_allows_empty_default_model(
+    monkeypatch: object, app: object, credits_per_unit: object
+) -> None:
     fixed_now = datetime(2026, 7, 21, 12, 0, 0)
     monkeypatch.setattr(config_rates, "now_utc", lambda: fixed_now)
     monkeypatch.setattr(

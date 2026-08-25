@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -36,6 +34,11 @@ from .queries import (
     load_primary_active_subscription as _load_primary_active_subscription,
 )
 from .subscriptions import grant_paid_order_credits, is_self_managed_billing_provider
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
 
 _NOTIFICATION_EXTENSION_KEY = "admin_manual_plan_grant"
 _NOTIFICATION_STATUS_TEMPLATE_PENDING = "template_pending"
@@ -120,7 +123,7 @@ def _build_notification_extension_payload(
     requested_at: datetime,
     operator_user_bid: str,
     grant_channel: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     return {
         "status": _NOTIFICATION_STATUS_TEMPLATE_PENDING,
         "requested_at": requested_at.isoformat(),

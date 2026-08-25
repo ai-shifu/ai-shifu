@@ -1,4 +1,7 @@
+"""Verify Google sign-in preserves account trust and paid state."""
+
 import uuid
+from collections.abc import Iterator
 
 import flaskr.common.config as common_config
 import pytest
@@ -27,45 +30,51 @@ def _reset_config_cache(*keys: str) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_google_public_url_config_cache():
+def clear_google_public_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload) -> None:
+    def __init__(self, payload: object) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def json(self):
+    def json(self) -> object:
         return self._payload
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile, *, fetch_token_error=None) -> None:
+    def __init__(self, profile: object, *, fetch_token_error: object = None) -> None:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 
-    def fetch_token(self, *_args, **_kwargs):
+    def fetch_token(self, *_args: object, **_kwargs: object) -> object:
         if self._fetch_token_error is not None:
             raise self._fetch_token_error
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args, **_kwargs):
+    def get(self, *_args: object, **_kwargs: object) -> object:
         return _FakeGoogleResponse(self._profile)
 
 
-def _reset_user_auth_tables():
+def _reset_user_auth_tables() -> None:
     UserTokenModel.query.delete()
     AuthCredential.query.delete()
     UserEntity.query.delete()
     db.session.commit()
 
 
-def _run_google_callback(app, monkeypatch, profile, *, fetch_token_error=None):
+def _run_google_callback(
+    app: object,
+    monkeypatch: object,
+    profile: object,
+    *,
+    fetch_token_error: object = None,
+) -> object:
     monkeypatch.setenv("HOST_URL", "http://localhost")
     _reset_config_cache("HOST_URL")
     provider = GoogleAuthProvider()
@@ -89,8 +98,8 @@ def _run_google_callback(app, monkeypatch, profile, *, fetch_token_error=None):
 
 
 def test_google_unverified_email_does_not_consume_first_account_bootstrap(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     first_email = f"{uuid.uuid4().hex[:10]}@example.com"
     second_email = f"{uuid.uuid4().hex[:10]}@example.com"
 
@@ -143,7 +152,9 @@ def test_google_unverified_email_does_not_consume_first_account_bootstrap(
             _reset_user_auth_tables()
 
 
-def test_google_verified_login_does_not_downgrade_paid_user(app, monkeypatch):
+def test_google_verified_login_does_not_downgrade_paid_user(
+    app: object, monkeypatch: object
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -182,9 +193,9 @@ def test_google_verified_login_does_not_downgrade_paid_user(app, monkeypatch):
 
 
 def test_google_existing_account_keeps_pre_profile_display_name_behavior(
-    app,
-    monkeypatch,
-):
+    app: object,
+    monkeypatch: object,
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -205,7 +216,7 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             original_first = query_type.first
             reads: list[tuple[str, str, bool, bool]] = []
 
-            def track_first(query):
+            def track_first(query: object) -> object:
                 statement = str(query.statement)
                 parameters = query.statement.compile().params
                 table = (
@@ -246,7 +257,9 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
             _reset_user_auth_tables()
 
 
-def test_google_oauth_token_fetch_failure_propagates(app, monkeypatch):
+def test_google_oauth_token_fetch_failure_propagates(
+    app: object, monkeypatch: object
+) -> None:
     with app.app_context():
         _reset_user_auth_tables()
         try:

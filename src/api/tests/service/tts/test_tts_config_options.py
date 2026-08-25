@@ -1,3 +1,5 @@
+"""Verify TTS config options behavior."""
+
 import json
 from decimal import Decimal
 
@@ -6,7 +8,7 @@ from flaskr.api.tts import base
 
 
 class _FakeMinimaxProvider:
-    def get_provider_config(self):
+    def get_provider_config(self) -> object:
         return base.ProviderConfig(
             name="MiniMax",
             label="MiniMax",
@@ -23,7 +25,7 @@ class _FakeMinimaxProvider:
 
 
 class _FakeBaiduProvider:
-    def get_provider_config(self):
+    def get_provider_config(self) -> object:
         return base.ProviderConfig(
             name="baidu",
             label="Baidu",
@@ -37,8 +39,8 @@ class _FakeBaiduProvider:
 
 
 def test_tts_config_model_options_follow_allowlist_and_localized_names(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.i18n import clear_language, set_language
 
@@ -51,7 +53,7 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
     monkeypatch.setattr(
         tts_api,
         "_resolve_credit_multiplier_label",
-        lambda provider, model: "2x" if provider == "minimax" else None,
+        lambda provider, _model: "2x" if provider == "minimax" else None,
     )
     monkeypatch.setenv(
         "TTS_ALLOWED_MODELS",
@@ -101,15 +103,21 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
 
 
 class _FakeRate:
-    def __init__(self, credits_per_unit, unit_size, provider, model) -> None:
+    def __init__(
+        self,
+        credits_per_unit: object,
+        unit_size: object,
+        provider: object,
+        model: object,
+    ) -> None:
         self.credits_per_unit = credits_per_unit
         self.unit_size = unit_size
         self.provider = provider
         self.model = model
 
 
-def _chars_per_token_config(value: str):
-    def _get_config(key, default=None):
+def _chars_per_token_config(value: str) -> object:
+    def _get_config(key: object, default: object = None) -> object:
         if key == "TTS_CHARS_PER_LLM_TOKEN":
             return value
         return default
@@ -117,14 +125,17 @@ def _chars_per_token_config(value: str):
     return _get_config
 
 
-def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
+def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
     from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
     captured = []
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ) -> object:
+        _ = settlement_at
         captured.append((usage.usage_type, usage.provider, usage.model, billing_metric))
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
@@ -155,12 +166,15 @@ def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
     ) in captured
 
 
-def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
+def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
     from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ) -> object:
+        _ = settlement_at
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
             and billing_metric == BILLING_METRIC_TTS_OUTPUT_CHARS
@@ -188,11 +202,13 @@ def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
     )
 
 
-def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
+def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        return None  # no curated TTS rate
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ) -> None:
+        _ = (usage, billing_metric, settlement_at)  # no curated TTS rate
 
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.216"))
     monkeypatch.setattr(
@@ -207,10 +223,13 @@ def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
     assert tts_api._resolve_credit_multiplier_label("unknown", "missing") is None
 
 
-def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch):
+def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ) -> object:
+        _ = (usage, billing_metric, settlement_at)
         return _FakeRate("8", 10000, "tencent", "")
 
     monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config(""))
@@ -226,7 +245,7 @@ def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch):
     assert tts_api._resolve_credit_multiplier_label("tencent", "") is None
 
 
-def test_tts_display_name_prefers_request_language(monkeypatch):
+def test_tts_display_name_prefers_request_language(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.i18n import clear_language
 
@@ -257,7 +276,7 @@ def test_tts_display_name_prefers_request_language(monkeypatch):
         clear_language()
 
 
-def test_tts_display_name_normalizes_config_keys(monkeypatch):
+def test_tts_display_name_normalizes_config_keys(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
     from flaskr.i18n import clear_language
 
@@ -293,7 +312,7 @@ def test_tts_display_name_normalizes_config_keys(monkeypatch):
         clear_language()
 
 
-def test_parse_tts_display_names_accepts_preparsed_dict(monkeypatch):
+def test_parse_tts_display_names_accepts_preparsed_dict(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
 
     # A programmatic/unit-test config may hand back an already-parsed dict; the
@@ -312,7 +331,7 @@ def test_parse_tts_display_names_accepts_preparsed_dict(monkeypatch):
     assert display_names == {"minimax/speech-01-turbo": {"en-US": "Flagship Voice"}}
 
 
-def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
+def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch: object) -> None:
     from datetime import datetime
 
     import flaskr.api.tts as tts_api
@@ -325,7 +344,10 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
 
     captured = {}
 
-    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+    def fake_load_usage_rate(
+        *, usage: object, billing_metric: object, settlement_at: object
+    ) -> None:
+        _ = (usage, billing_metric)
         captured["settlement_at"] = settlement_at
 
     monkeypatch.setattr(
@@ -343,10 +365,12 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
     assert captured["settlement_at"] == utc_sentinel
 
 
-def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
-    """The local three-tier lineup: tencent premium first, then tencent
-    large-model (configured default), then volcengine seed-tts-2.0, with zh
-    display names. The default marker must not reorder the allowlist.
+def test_tts_config_three_tier_allowlist_orders_and_localizes(
+    monkeypatch: object,
+) -> None:
+    """The local three-tier lineup: tencent premium first, then tencent large-model (configured default), then volcengine seed-tts-2.0, with zh display names.
+
+    The default marker must not reorder the allowlist.
     """
     import json as json_module
 
@@ -357,7 +381,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
     from flaskr.i18n import clear_language, set_language
 
     class _FakeVolcengineProvider:
-        def get_provider_config(self):
+        def get_provider_config(self) -> object:
             return base.ProviderConfig(
                 name="volcengine",
                 label="火山引擎",
@@ -384,7 +408,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
         tts_api, "_PROVIDER_PRIORITY", ("volcengine", "tencent_texttovoice")
     )
     monkeypatch.setattr(
-        tts_api, "_resolve_credit_multiplier_label", lambda provider, model: None
+        tts_api, "_resolve_credit_multiplier_label", lambda _provider, _model: None
     )
     monkeypatch.setenv(
         "TTS_ALLOWED_MODELS",
@@ -421,7 +445,7 @@ def test_tts_config_three_tier_allowlist_orders_and_localizes(monkeypatch):
     ]
 
 
-def _patch_two_provider_registry(monkeypatch, tts_api):
+def _patch_two_provider_registry(monkeypatch: object, tts_api: object) -> None:
     monkeypatch.setattr(
         tts_api,
         "_PROVIDER_REGISTRY",
@@ -429,11 +453,11 @@ def _patch_two_provider_registry(monkeypatch, tts_api):
     )
     monkeypatch.setattr(tts_api, "_PROVIDER_PRIORITY", ("minimax", "baidu"))
     monkeypatch.setattr(
-        tts_api, "_resolve_credit_multiplier_label", lambda provider, model: None
+        tts_api, "_resolve_credit_multiplier_label", lambda _provider, _model: None
     )
 
 
-def test_tts_default_model_marks_provider_only_option(monkeypatch):
+def test_tts_default_model_marks_provider_only_option(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
 
     _patch_two_provider_registry(monkeypatch, tts_api)
@@ -450,7 +474,7 @@ def test_tts_default_model_marks_provider_only_option(monkeypatch):
     ]
 
 
-def test_tts_default_model_applies_without_allowlist(monkeypatch):
+def test_tts_default_model_applies_without_allowlist(monkeypatch: object) -> None:
     import flaskr.api.tts as tts_api
 
     _patch_two_provider_registry(monkeypatch, tts_api)
@@ -468,7 +492,9 @@ def test_tts_default_model_applies_without_allowlist(monkeypatch):
     ]
 
 
-def test_tts_default_model_invalid_format_falls_back(monkeypatch, caplog):
+def test_tts_default_model_invalid_format_falls_back(
+    monkeypatch: object, caplog: object
+) -> None:
     import logging
 
     import flaskr.api.tts as tts_api
@@ -484,7 +510,9 @@ def test_tts_default_model_invalid_format_falls_back(monkeypatch, caplog):
     assert "Ignoring invalid TTS_DEFAULT_MODEL" in caplog.text
 
 
-def test_tts_default_model_outside_allowlist_falls_back(monkeypatch, caplog):
+def test_tts_default_model_outside_allowlist_falls_back(
+    monkeypatch: object, caplog: object
+) -> None:
     import logging
 
     import flaskr.api.tts as tts_api
@@ -502,7 +530,9 @@ def test_tts_default_model_outside_allowlist_falls_back(monkeypatch, caplog):
     assert "TTS_DEFAULT_MODEL not in available model options" in caplog.text
 
 
-def test_tts_default_model_unset_leaves_all_options_non_default(monkeypatch):
+def test_tts_default_model_unset_leaves_all_options_non_default(
+    monkeypatch: object,
+) -> None:
     import flaskr.api.tts as tts_api
 
     _patch_two_provider_registry(monkeypatch, tts_api)

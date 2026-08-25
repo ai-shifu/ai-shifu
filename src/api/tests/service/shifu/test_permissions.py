@@ -1,3 +1,5 @@
+"""Verify course access grants, revocation, and teacher promotion."""
+
 import contextlib
 import json
 from decimal import Decimal
@@ -15,19 +17,19 @@ from flaskr.service.user.repository import create_user_entity, upsert_credential
 from tests.common.fixtures.bill_products import build_bill_products
 
 
-def _get_models():
+def _get_models() -> object:
     from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 
     return DraftShifu, AiCourseAuth
 
 
-def _seed_shifu(app, shifu_bid: str, owner_bid: str):
+def _seed_shifu(app: object, shifu_bid: str, owner_bid: str) -> None:
     with app.app_context():
-        DraftShifu, AiCourseAuth = _get_models()
-        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
-        AiCourseAuth.query.filter_by(course_id=shifu_bid).delete()
+        draft_shifu_model, course_auth_model = _get_models()
+        draft_shifu_model.query.filter_by(shifu_bid=shifu_bid).delete()
+        course_auth_model.query.filter_by(course_id=shifu_bid).delete()
 
-        draft = DraftShifu(
+        draft = draft_shifu_model(
             shifu_bid=shifu_bid,
             title="Test Shifu",
             description="desc",
@@ -44,7 +46,7 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
         dao.db.session.commit()
 
 
-def _mock_user(monkeypatch, user_id: str, is_creator: bool = True):
+def _mock_user(monkeypatch: object, user_id: str, is_creator: bool = True) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -66,16 +68,16 @@ def _clear_config_caches() -> None:
             config_module.Config._instance.enhanced._cache.clear()
 
 
-def _allow_email_login(monkeypatch) -> None:
+def _allow_email_login(monkeypatch: object) -> None:
     monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email")
     _clear_config_caches()
 
 
-def _add_auth(app, shifu_bid: str, user_id: str, status: int):
+def _add_auth(app: object, shifu_bid: str, user_id: str, status: int) -> None:
     with app.app_context():
-        _, AiCourseAuth = _get_models()
+        _, course_auth_model = _get_models()
         dao.db.session.add(
-            AiCourseAuth(
+            course_auth_model(
                 course_auth_id=f"auth-{user_id}",
                 course_id=shifu_bid,
                 user_id=user_id,
@@ -86,7 +88,7 @@ def _add_auth(app, shifu_bid: str, user_id: str, status: int):
         dao.db.session.commit()
 
 
-def _seed_user(app, *, user_bid: str, email: str):
+def _seed_user(app: object, *, user_bid: str, email: str) -> None:
     with app.app_context():
         entity = create_user_entity(
             user_bid=user_bid,
@@ -109,7 +111,7 @@ def _seed_user(app, *, user_bid: str, email: str):
         dao.db.session.commit()
 
 
-def _ensure_trial_billing_enabled(monkeypatch):
+def _ensure_trial_billing_enabled(monkeypatch: object) -> None:
     import flaskr.service.billing.auth_hooks  # noqa: F401
 
     monkeypatch.setattr(
@@ -129,7 +131,11 @@ def _ensure_trial_billing_enabled(monkeypatch):
 
 @pytest.mark.usefixtures("app")
 class TestShifuPermissions:
-    def test_list_permissions_only_active(self, monkeypatch, test_client, app):
+    """Verify shifu permissions behavior."""
+
+    def test_list_permissions_only_active(
+        self, monkeypatch: object, test_client: object, app: object
+    ) -> None:
         shifu_bid = "test-permission-list"
         owner_id = "owner-1"
         active_user = "user-active"
@@ -138,7 +144,7 @@ class TestShifuPermissions:
         _add_auth(app, shifu_bid, active_user, status=1)
         _add_auth(app, shifu_bid, inactive_user, status=0)
 
-        def fake_load_user_aggregate(user_id: str):
+        def fake_load_user_aggregate(user_id: str) -> object:
             return SimpleNamespace(
                 user_bid=user_id,
                 mobile="13800000000",
@@ -165,7 +171,9 @@ class TestShifuPermissions:
         assert len(items) == 1
         assert items[0]["user_id"] == active_user
 
-    def test_remove_permissions_soft_delete(self, monkeypatch, test_client, app):
+    def test_remove_permissions_soft_delete(
+        self, monkeypatch: object, test_client: object, app: object
+    ) -> None:
         shifu_bid = "test-permission-remove"
         owner_id = "owner-2"
         target_user = "user-target"
@@ -185,16 +193,16 @@ class TestShifuPermissions:
         assert payload["data"]["removed"] is True
 
         with app.app_context():
-            _, AiCourseAuth = _get_models()
-            auth = AiCourseAuth.query.filter_by(
+            _, course_auth_model = _get_models()
+            auth = course_auth_model.query.filter_by(
                 course_id=shifu_bid, user_id=target_user
             ).first()
             assert auth is not None
             assert auth.status == 0
 
     def test_grant_view_permission_does_not_promote_creator(
-        self, monkeypatch, test_client, app
-    ):
+        self, monkeypatch: object, test_client: object, app: object
+    ) -> None:
         shifu_bid = "test-permission-grant-view"
         owner_id = "owner-grant-view"
         target_user = "user-grant-view"
@@ -232,12 +240,12 @@ class TestShifuPermissions:
     )
     def test_grant_authoring_permission_promotes_creator_and_bootstraps_trial(
         self,
-        monkeypatch,
-        test_client,
-        app,
+        monkeypatch: object,
+        test_client: object,
+        app: object,
         permission: str,
         expected_auth_types: list[str],
-    ):
+    ) -> None:
         shifu_bid = f"test-permission-grant-{permission}"
         owner_id = f"owner-grant-{permission}"
         target_user = f"user-grant-{permission}"
@@ -265,9 +273,9 @@ class TestShifuPermissions:
             assert payload["code"] == 0
 
         with app.app_context():
-            _, AiCourseAuth = _get_models()
+            _, course_auth_model = _get_models()
             user = UserEntity.query.filter_by(user_bid=target_user).one()
-            auth = AiCourseAuth.query.filter_by(
+            auth = course_auth_model.query.filter_by(
                 course_id=shifu_bid,
                 user_id=target_user,
                 status=1,

@@ -169,6 +169,7 @@
         "cancel": "取消",
         "configure": "配置价格",
         "create": "新增价格",
+        "restore": "恢复到待启用",
         "retire": "下架",
         "saveDraft": "保存草稿",
         "validate": "校验",
@@ -753,7 +754,9 @@
   "globalPricing": {
     "actions": {
       "buyCredits": "购买积分",
+      "checkoutLoading": "正在打开支付...",
       "choosePlan": "选择套餐",
+      "cycleSwitchDisabled": "暂不支持切换周期",
       "viewMonthly": "查看月付套餐"
     },
     "annualSavings": "每年节省 {amount}（{percent}%）",
@@ -761,6 +764,7 @@
     "audienceLabel": "适用场景",
     "billedAnnually": "每 12 个月支付 {price}",
     "cancelAnytime": "按月付费，可随时取消。",
+    "checkoutNotice": "已支持 Stripe 在线支付，点击后将跳转至 Stripe 完成付款。",
     "comingSoon": {
       "close": "知道了",
       "description": "我们正在开发支付功能，敬请期待。",
@@ -945,6 +949,7 @@
       "currentUsing": "当前使用",
       "downgradeDisabled": "不支持降级",
       "freeTrial": "已失效",
+      "monthlySwitchDisabled": "暂不支持切换月付",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
       "preorderDowngrade": "预购降级",
       "preorderLocked": "预购锁定",

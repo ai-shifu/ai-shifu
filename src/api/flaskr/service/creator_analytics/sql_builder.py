@@ -24,7 +24,6 @@ target dialect is MySQL — under SQLite (tests) the hint would not parse.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -34,10 +33,13 @@ from sqlalchemy import (
     func,
     select,
 )
-from sqlalchemy.sql import Select
-from sqlalchemy.sql.elements import ColumnElement
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sqlalchemy.sql import Select
+    from sqlalchemy.sql.elements import ColumnElement
+
     from .dsl import Aggregate, Filter, OrderBy, QueryDSL
 
 
@@ -80,10 +82,11 @@ def build_statement(
         # silently emit a WHERE col = '' clause that would always match
         # legacy rows whose creator field is empty.
         if not dsl.caller_user_id:
-            raise ValueError(
+            message = (
                 f"caller_user_id is required for creator-scoped table "
                 f"'{dsl.spec.table_key}'"
             )
+            raise ValueError(message)
         where_clauses.append(
             table.c[dsl.spec.creator_scoped_column]
             == bindparam("__user_id", value=dsl.caller_user_id)
@@ -156,10 +159,11 @@ def _compile_filter(column: Column, filt: Filter, index: int) -> ColumnElement[b
     if op == "is_not_null":
         return column.isnot(None)
 
-    raise ValueError(f"Unexpected DSL operator at sql_builder: {op!r}")
+    message = f"Unexpected DSL operator at sql_builder: {op!r}"
+    raise ValueError(message)
 
 
-def _compile_aggregate(table, agg: Aggregate) -> ColumnElement[Any]:
+def _compile_aggregate(table: object, agg: Aggregate) -> ColumnElement[object]:
     if agg.fn == "count":
         if agg.field is None:
             expr = func.count()
@@ -178,15 +182,16 @@ def _compile_aggregate(table, agg: Aggregate) -> ColumnElement[Any]:
     elif agg.fn == "max":
         expr = func.max(table.c[agg.field])
     else:
-        raise ValueError(f"Unexpected aggregate fn at sql_builder: {agg.fn!r}")
+        message = f"Unexpected aggregate fn at sql_builder: {agg.fn!r}"
+        raise ValueError(message)
     return expr.label(agg.alias)
 
 
 def _compile_order_by(
-    table,
+    table: object,
     order_by: Sequence[OrderBy],
     aggregates: Sequence[Aggregate],
-) -> list[ColumnElement[Any]]:
+) -> list[ColumnElement[object]]:
     aggregate_aliases = {agg.alias for agg in aggregates}
     compiled: list[ColumnElement[Any]] = []
     for item in order_by:
@@ -201,9 +206,10 @@ def _compile_order_by(
 
 
 def _aggregate_expression_by_alias(
-    table, aggregates: Sequence[Aggregate], alias: str
-) -> ColumnElement[Any]:
+    table: object, aggregates: Sequence[Aggregate], alias: str
+) -> ColumnElement[object]:
     for agg in aggregates:
         if agg.alias == alias:
             return _compile_aggregate(table, agg)
-    raise ValueError(f"Unknown aggregate alias: {alias!r}")
+    message = f"Unknown aggregate alias: {alias!r}"
+    raise ValueError(message)

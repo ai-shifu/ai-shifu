@@ -2,11 +2,13 @@
 # gunicorn from /app (this file's directory); command-line flags from the
 # deployment entrypoint (e.g. -w) still take precedence over values here.
 
+"""Configure Gunicorn worker startup and lifecycle hooks."""
+
 import os
 import sys
 
 
-def _gevent_worker_requested(argv) -> bool:
+def _gevent_worker_requested(argv: object) -> bool:
     """Report whether the command line selects the gevent worker class.
 
     Monkey-patching must match the worker class. The production deployment
@@ -58,7 +60,7 @@ os.environ["AI_SHIFU_PRELOAD_MASTER"] = "1"
 preload_app = True
 
 
-def post_fork(server, worker):
+def post_fork(server: object, worker: object) -> None:
     """Reset per-process resources that must not be shared across fork.
 
     SQLAlchemy connection pools created in the master (the DB init in
@@ -67,6 +69,7 @@ def post_fork(server, worker):
     pool without closing the parent's file descriptors. redis-py connection
     pools are fork-safe already (pid check on checkout) and need no handling.
     """
+    _ = server
     os.environ.pop("AI_SHIFU_PRELOAD_MASTER", None)
 
     try:
@@ -79,7 +82,7 @@ def post_fork(server, worker):
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.exception("post_fork engine dispose failed")
 
-    # Langfuse SDK v3 keeps per-public-key ResourceManager singletons and
+    # The Langfuse SDK keeps per-public-key ResourceManager singletons and
     # registers a global OpenTelemetry TracerProvider during master preload.
     # Both carry live httpx/TLS connections and a batch-export worker that
     # were created in the master; inherited across fork they are shared by

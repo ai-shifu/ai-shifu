@@ -1,7 +1,10 @@
+"""Verify billing daily aggregate rebuild behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -28,9 +31,12 @@ from flaskr.service.billing.models import (
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_daily_rebuild_app(tmp_path):
+def billing_daily_rebuild_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-daily-rebuild.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -59,7 +65,7 @@ def test_rebuild_daily_aggregates_rebuilds_creator_date_window(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-rebuild-1",
+        lambda _app, _usage: "creator-rebuild-1",
     )
 
     with billing_daily_rebuild_app.app_context():
@@ -161,7 +167,7 @@ def test_rebuild_daily_aggregates_scopes_usage_by_shifu_and_skips_ledger(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda app, usage: "creator-rebuild-1",
+        lambda _app, _usage: "creator-rebuild-1",
     )
 
     with billing_daily_rebuild_app.app_context():

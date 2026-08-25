@@ -1,16 +1,21 @@
+"""Provide shared helpers for course-administration operations."""
+
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
 from flask import current_app
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import serialize_with_app_timezone
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-def coerce_operator_datetime(value: Any) -> datetime | None:
+
+def coerce_operator_datetime(value: object) -> datetime | None:
+    """Coerce operator datetime."""
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -41,7 +46,8 @@ def coerce_operator_datetime(value: Any) -> datetime | None:
     return None
 
 
-def format_operator_datetime(value: Any) -> str:
+def format_operator_datetime(value: object) -> str:
+    """Format operator datetime."""
     normalized_value = coerce_operator_datetime(value)
     if not normalized_value:
         return ""
@@ -54,6 +60,7 @@ def format_operator_datetime(value: Any) -> str:
 
 
 def load_operator_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
+    """Load operator user map."""
     if not user_bids:
         return {}
 

@@ -10,7 +10,7 @@ from flask import Flask
 from flaskr.service.resource.models import Resource
 
 
-def get_shifu_res_url(res_bid: str):
+def get_shifu_res_url(res_bid: str) -> str:
     """Get the URL of a resource.
 
     Args:
@@ -43,7 +43,7 @@ def get_shifu_res_url_dict(res_bids: list[str]) -> dict[str, str]:
     return res_url_map
 
 
-def parse_shifu_res_bid(res_url: str):
+def parse_shifu_res_bid(res_url: str) -> str:
     """Parse the resource ID from a URL.
 
     Args:
@@ -69,6 +69,7 @@ def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
         Optional[str]: Creator user business identifier if found, otherwise None
 
     """
+    _ = app
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 
     draft = (

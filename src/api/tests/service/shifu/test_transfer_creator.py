@@ -1,3 +1,5 @@
+"""Verify transfer creator behavior."""
+
 from __future__ import annotations
 
 import contextlib
@@ -32,7 +34,7 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 
 def _seed_user(
-    app,
+    app: object,
     *,
     user_bid: str,
     email: str = "",
@@ -111,7 +113,7 @@ def _seed_published_course(shifu_bid: str, creator_user_bid: str) -> None:
     db.session.flush()
 
 
-def _mock_operator(monkeypatch, user_id: str = "operator-1"):
+def _mock_operator(monkeypatch: object, user_id: str = "operator-1") -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_operator=True,
@@ -134,7 +136,8 @@ def _clear_config_caches() -> None:
             config_module.Config._instance.enhanced._cache.clear()
 
 
-def _ensure_trial_billing_enabled(app, monkeypatch) -> None:
+def _ensure_trial_billing_enabled(app: object, monkeypatch: object) -> None:
+    _ = app
     import flaskr.service.billing.auth_hooks  # noqa: F401
 
     monkeypatch.setattr(
@@ -153,8 +156,8 @@ def _ensure_trial_billing_enabled(app, monkeypatch) -> None:
 
 
 def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
@@ -225,7 +228,9 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
         assert shared_auth is not None
 
 
-def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):
+def test_transfer_creator_promotes_unregistered_existing_user(
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -272,8 +277,8 @@ def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):
 
 
 def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -305,7 +310,9 @@ def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
         assert trial_order.payment_provider == "manual"
 
 
-def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monkeypatch):
+def test_transfer_creator_skips_post_auth_when_target_already_creator(
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -322,7 +329,7 @@ def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monke
 
         monkeypatch.setattr(
             "flaskr.service.shifu.admin.run_creator_granted_post_auth",
-            lambda *args, **kwargs: post_auth_calls.append(kwargs),
+            lambda *_args, **kwargs: post_auth_calls.append(kwargs),
         )
 
         transfer_operator_course_creator(
@@ -335,7 +342,9 @@ def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monke
         assert post_auth_calls == []
 
 
-def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
+def test_transfer_creator_route_for_operator(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -375,7 +384,7 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
         assert latest_draft.updated_at > old_updated_at
 
 
-def test_transfer_creator_records_operator_history_entry(app):
+def test_transfer_creator_records_operator_history_entry(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -409,8 +418,9 @@ def test_transfer_creator_records_operator_history_entry(app):
 
 
 def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
+    _ = monkeypatch
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -449,7 +459,7 @@ def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(
         assert permission_map[shifu_bid] == {"view", "edit", "publish"}
 
 
-def test_transfer_creator_invalidates_cached_shifu_creator(app):
+def test_transfer_creator_invalidates_cached_shifu_creator(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -474,7 +484,7 @@ def test_transfer_creator_invalidates_cached_shifu_creator(app):
         assert _get_shifu_creator_bid_cached(app, shifu_bid) == target_user_bid
 
 
-def test_transfer_creator_preserves_existing_target_nickname(app):
+def test_transfer_creator_preserves_existing_target_nickname(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]

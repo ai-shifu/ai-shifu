@@ -1,3 +1,5 @@
+"""Read and write files through configured storage providers."""
+
 from __future__ import annotations
 
 import io
@@ -5,9 +7,8 @@ import os
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_COURSES,
     OSS_PROFILE_DEFAULT,
@@ -18,6 +19,9 @@ from flaskr.service.common.oss_utils import (
 )
 from flaskr.service.config import get_config
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 STORAGE_PROVIDER_AUTO = "auto"
 STORAGE_PROVIDER_OSS = "oss"
 STORAGE_PROVIDER_LOCAL = "local"
@@ -27,6 +31,8 @@ _ALLOWED_PROFILES = {OSS_PROFILE_DEFAULT, OSS_PROFILE_COURSES}
 
 @dataclass(frozen=True)
 class StorageUploadResult:
+    """Capture the location and metadata of an uploaded object."""
+
     provider: str
     url: str
     bucket: str
@@ -36,7 +42,8 @@ class StorageUploadResult:
 def _normalize_profile(profile: str) -> str:
     resolved = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
     if resolved not in _ALLOWED_PROFILES:
-        raise ValueError(f"Unknown storage profile: {profile}")
+        message = f"Unknown storage profile: {profile}"
+        raise ValueError(message)
     return resolved
 
 
@@ -64,20 +71,25 @@ def _resolve_provider(profile: str) -> str:
 def _normalize_object_key(object_key: str) -> str:
     key = (object_key or "").replace("\\", "/").strip()
     if not key:
-        raise ValueError("object_key is required")
+        message = "object_key is required"
+        raise ValueError(message)
     if key.startswith("/"):
-        raise ValueError("object_key must be a relative path")
+        message = "object_key must be a relative path"
+        raise ValueError(message)
     if ".." in key.split("/"):
-        raise ValueError("object_key must not contain '..'")
+        message = "object_key must not contain '..'"
+        raise ValueError(message)
     return key
 
 
 def get_local_storage_root() -> Path:
+    """Return local storage root."""
     root = (get_config("LOCAL_STORAGE_ROOT") or "storage").strip()
     return Path(root)
 
 
 def get_local_storage_path(profile: str, object_key: str) -> Path:
+    """Return local storage path."""
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 
@@ -87,11 +99,13 @@ def get_local_storage_path(profile: str, object_key: str) -> Path:
     root_abs = root.resolve()
     target_abs = target.resolve()
     if os.path.commonpath([str(root_abs), str(target_abs)]) != str(root_abs):
-        raise ValueError("Resolved path escapes LOCAL_STORAGE_ROOT")
+        message = "Resolved path escapes LOCAL_STORAGE_ROOT"
+        raise ValueError(message)
     return target
 
 
 def build_local_storage_url(profile: str, object_key: str) -> str:
+    """Build local storage URL."""
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 
@@ -99,9 +113,10 @@ def build_local_storage_url(profile: str, object_key: str) -> str:
     return f"{path_prefix}/storage/{resolved_profile}/{resolved_key}"
 
 
-def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
+def _coerce_to_binary_stream(file_content: object) -> io.BufferedReader:
     if file_content is None:
-        raise ValueError("file_content is required")
+        message = "file_content is required"
+        raise ValueError(message)
 
     if isinstance(file_content, (bytes, bytearray)):
         return io.BufferedReader(io.BytesIO(file_content))
@@ -110,12 +125,13 @@ def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
         # Werkzeug FileStorage / BytesIO / file object.
         return file_content  # type: ignore[return-value]
 
-    raise TypeError("file_content must be bytes or a file-like object")
+    message = "file_content must be bytes or a file-like object"
+    raise TypeError(message)
 
 
 def _upload_to_local(
     *,
-    file_content: Any,
+    file_content: object,
     object_key: str,
     profile: str,
 ) -> StorageUploadResult:
@@ -142,7 +158,7 @@ def _upload_to_local(
 def _upload_to_oss(
     app: Flask,
     *,
-    file_content: Any,
+    file_content: object,
     object_key: str,
     content_type: str,
     profile: str,
@@ -170,12 +186,13 @@ def _upload_to_oss(
 def upload_to_storage(
     app: Flask,
     *,
-    file_content: Any,
+    file_content: object,
     object_key: str,
     content_type: str,
     profile: str = OSS_PROFILE_DEFAULT,
     warm_up: bool = True,
 ) -> StorageUploadResult:
+    """Upload to storage."""
     resolved_profile = _normalize_profile(profile)
     resolved_provider = _resolve_provider(resolved_profile)
 
@@ -202,6 +219,7 @@ def read_storage_bytes(
     profile: str = OSS_PROFILE_DEFAULT,
     bucket_name: str = "",
 ) -> bytes:
+    """Read storage bytes."""
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 
@@ -220,4 +238,5 @@ def read_storage_bytes(
         bucket = create_oss_bucket(config)
         return bucket.get_object(resolved_key).read()
 
-    raise FileNotFoundError(f"storage object not found: {resolved_key}")
+    message = f"storage object not found: {resolved_key}"
+    raise FileNotFoundError(message)

@@ -23,7 +23,7 @@ from .common import (
 from .consts import ASK_PROVIDER_DIFY
 
 
-def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
+def _build_dify_query(user_query: str, messages: list[dict[str, object]]) -> str:
     if not isinstance(messages, list) or not messages:
         return user_query
 
@@ -49,6 +49,8 @@ def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
 
 
 class DifyAskProviderAdapter:
+    """Adapt Dify responses to the common ask stream."""
+
     provider = ASK_PROVIDER_DIFY
 
     def stream_answer(
@@ -56,10 +58,11 @@ class DifyAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         _ = runtime
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
@@ -68,9 +71,10 @@ class DifyAskProviderAdapter:
         base_url = str(config.get("base_url") or "").strip()
         api_key = str(config.get("api_key") or "").strip()
         if not base_url or not api_key:
-            raise AskProviderConfigError(
+            exception_message = (
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
+            raise AskProviderConfigError(exception_message)
 
         contextual_query = _build_dify_query(user_query, messages)
         payload: dict[str, Any] = {
@@ -102,9 +106,11 @@ class DifyAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("dify request timeout") from exc
+            exception_message = "dify request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"dify request failed: {exc}") from exc
+            message = f"dify request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         response = raise_for_provider_response(response, self.provider)
 
@@ -120,7 +126,8 @@ class DifyAskProviderAdapter:
             event = str(parsed.get("event") or "").strip().lower()
             if event == "error":
                 error_message = extract_text(parsed) or str(parsed)
-                raise AskProviderError(f"dify error: {error_message}")
+                message = f"dify error: {error_message}"
+                raise AskProviderError(message)
 
             text = extract_text(parsed)
             if text:

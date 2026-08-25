@@ -1,3 +1,5 @@
+"""Verify billing trial credits behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -58,7 +60,7 @@ def _seed_creator(*, user_bid: str, is_creator: bool = True) -> None:
 
 
 @pytest.fixture
-def trial_billing_client(monkeypatch):
+def trial_billing_client(monkeypatch: object) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -74,7 +76,7 @@ def trial_billing_client(monkeypatch):
     dao.db.init_app(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -108,7 +110,7 @@ def trial_billing_client(monkeypatch):
 
 
 def test_billing_overview_returns_product_backed_eligible_trial_without_mutation(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -156,7 +158,7 @@ def test_billing_overview_returns_product_backed_eligible_trial_without_mutation
 
 
 def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -214,7 +216,7 @@ def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once
 
 
 def test_billing_overview_returns_granted_for_bootstrapped_trial_subscription(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -234,8 +236,8 @@ def test_billing_overview_returns_granted_for_bootstrapped_trial_subscription(
 
 
 def test_trial_bootstrap_skips_grant_when_billing_disabled(
-    trial_billing_client,
-    monkeypatch,
+    trial_billing_client: object,
+    monkeypatch: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -265,7 +267,7 @@ def test_trial_bootstrap_skips_grant_when_billing_disabled(
 
 
 def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     granted_at = datetime(2026, 4, 9, 12, 0, 0)
@@ -330,7 +332,7 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
 
 
 def test_trial_welcome_ack_route_writes_subscription_metadata_and_is_idempotent(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -372,7 +374,7 @@ def test_trial_welcome_ack_route_writes_subscription_metadata_and_is_idempotent(
 
 
 def test_trial_welcome_ack_route_falls_back_to_order_metadata(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -415,7 +417,7 @@ def test_trial_welcome_ack_route_falls_back_to_order_metadata(
 
 
 def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     granted_at = datetime(2026, 4, 9, 12, 0, 0)
@@ -476,7 +478,7 @@ def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
 
 
 def test_trial_welcome_ack_route_returns_false_without_granted_trial(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():

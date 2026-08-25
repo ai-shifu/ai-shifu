@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
@@ -78,6 +77,7 @@ from .dtos import (
     BillingTopupProductDTO,
     BillingWalletBucketListDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderGrantDTO,
     OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
 )
@@ -175,6 +175,10 @@ from .wallets import (
     calculate_credit_wallet_snapshot_values,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+    from flask_sqlalchemy.query import Query
+
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
     "rapid_growth",
@@ -186,7 +190,7 @@ _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
 )
 
 
-def _filter_out_reserved_credit_grant_ledgers(query):
+def _filter_out_reserved_credit_grant_ledgers(query: Query) -> Query:
     bucket_credit_state_expr = db.func.lower(
         db.func.trim(
             db.func.coalesce(
@@ -491,7 +495,7 @@ def _load_credit_order_product_map(
 def _load_credit_order_grant_map(
     app: Flask,
     order_bids: list[str],
-):
+) -> dict[str, OperatorCreditOrderGrantDTO]:
     normalized_order_bids = [_normalize_bid(bid) for bid in order_bids if bid]
     if not normalized_order_bids:
         return {}
@@ -508,7 +512,7 @@ def _load_credit_order_grant_map(
         )
         .all()
     )
-    payload = {}
+    payload: dict[str, OperatorCreditOrderGrantDTO] = {}
     for row in rows:
         source_bid = str(row.source_bid or "").strip()
         if not source_bid or source_bid in payload:
@@ -573,7 +577,7 @@ def _resolve_usage_course_name(
 
 def _build_usage_metadata_map(
     rows: list[CreditLedgerEntry],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     usage_bids: list[str] = []
     for row in rows:
         if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_USAGE:
@@ -653,7 +657,6 @@ def build_billing_overview(
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         trial_offer = _resolve_new_creator_trial_offer(
-            app,
             normalized_creator_bid,
             trigger="billing_overview",
         )
@@ -1174,7 +1177,7 @@ def _load_independent_entitlement_creator_bids(*, creator_bid: str = "") -> list
     )
 
 
-def _is_independent_entitlement_row(row) -> bool:
+def _is_independent_entitlement_row(row: object) -> bool:
     if bool(row[1]) or bool(row[2]):
         return True
     payload = row[3] if isinstance(row[3], dict) else {}
@@ -1183,7 +1186,7 @@ def _is_independent_entitlement_row(row) -> bool:
     )
 
 
-def _payload_bool(value: Any) -> bool:
+def _payload_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     normalized = str(value or "").strip().lower()
@@ -1214,8 +1217,8 @@ def build_operator_credit_orders_page(
     status: str = "",
     has_available_credits: bool = False,
     payment_provider: str = "",
-    start_time: Any = "",
-    end_time: Any = "",
+    start_time: object = "",
+    end_time: object = "",
 ) -> OperatorCreditOrdersPageDTO:
     """Return paginated operator-facing creator credit orders."""
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
@@ -1795,7 +1798,7 @@ def adjust_admin_billing_ledger(
     app: Flask,
     *,
     operator_user_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingLedgerAdjustResultDTO:
     """Apply a manual admin ledger adjustment through wallet buckets."""
     normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))

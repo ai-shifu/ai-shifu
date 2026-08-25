@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 from flask import current_app
@@ -138,6 +137,9 @@ from .wallets import (
     restore_wrongly_expired_credit_pack_buckets,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 _PRODUCT_TYPE_LABELS = {
     "custom": BILLING_PRODUCT_TYPE_CUSTOM,
     "grant": BILLING_PRODUCT_TYPE_GRANT,
@@ -211,13 +213,14 @@ def _has_authoring_permission(raw_auth_type: object) -> bool:
 
 
 def backfill_authoring_permission_creators(
-    app,
+    app: object,
     *,
     course_bid: str = "",
     user_bid: str = "",
     limit: int | None = None,
     dry_run: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Backfill authoring permission creators."""
     normalized_course_bid = _normalize_cli_bid(course_bid)
     normalized_user_bid = _normalize_cli_bid(user_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
@@ -367,11 +370,11 @@ def backfill_authoring_permission_creators(
         }
 
 
-def register_billing_commands(console) -> None:
+def register_billing_commands(console: object) -> None:
     """Register offline billing maintenance commands under ``flask console``."""
 
     @console.group(name="billing")
-    def billing_group():
+    def billing_group() -> None:
         """Billing maintenance commands for offline repair and replay."""
 
     @billing_group.command(name="seed-bootstrap-data")
@@ -788,9 +791,8 @@ def register_billing_commands(console) -> None:
     ) -> None:
         """Grant the configured public trial plan to creators who still miss it."""
         if not str(creator_bid or "").strip() and not process_all:
-            raise click.ClickException(
-                "Pass --creator-bid or --all for trial plan backfill."
-            )
+            message = "Pass --creator-bid or --all for trial plan backfill."
+            raise click.ClickException(message)
 
         payload = backfill_missing_creator_trial_credits(
             current_app,
@@ -834,10 +836,11 @@ def register_billing_commands(console) -> None:
         has_course_scope = bool(str(course_bid or "").strip())
         has_user_scope = bool(str(user_bid or "").strip())
         if not has_course_scope and not has_user_scope and not process_all:
-            raise click.ClickException(
+            message = (
                 "Pass --user-bid, --course-bid, or --all for "
                 "authoring-permission creator backfill."
             )
+            raise click.ClickException(message)
 
         payload = backfill_authoring_permission_creators(
             current_app,
@@ -881,9 +884,10 @@ def register_billing_commands(console) -> None:
             and usage_id_end is None
             and not process_all
         ):
-            raise click.ClickException(
+            message = (
                 "Pass --usage-bid, a usage id range, or --all for settlement backfill."
             )
+            raise click.ClickException(message)
 
         payload = backfill_bill_usage_settlement(
             current_app,
@@ -923,9 +927,8 @@ def register_billing_commands(console) -> None:
             and not str(wallet_bid or "").strip()
             and not process_all
         ):
-            raise click.ClickException(
-                "Pass --creator-bid, --wallet-bid, or --all for wallet rebuild."
-            )
+            message = "Pass --creator-bid, --wallet-bid, or --all for wallet rebuild."
+            raise click.ClickException(message)
 
         payload = rebuild_credit_wallet_snapshots(
             current_app,
@@ -964,9 +967,8 @@ def register_billing_commands(console) -> None:
     ) -> None:
         """Run read-only billing credit invariant diagnostics."""
         if not str(creator_bid or "").strip() and not process_all:
-            raise click.ClickException(
-                "Pass --creator-bid or --all for credit state audit."
-            )
+            message = "Pass --creator-bid or --all for credit state audit."
+            raise click.ClickException(message)
 
         try:
             report = audit_credit_state(
@@ -1017,10 +1019,11 @@ def register_billing_commands(console) -> None:
             and not str(wallet_bucket_bid or "").strip()
             and not process_all
         ):
-            raise click.ClickException(
+            message = (
                 "Pass --creator-bid, --wallet-bucket-bid, or --all for "
                 "expire-ledger bucket drift repair."
             )
+            raise click.ClickException(message)
 
         payload = repair_expire_ledger_bucket_drift(
             current_app,
@@ -1060,9 +1063,8 @@ def register_billing_commands(console) -> None:
     ) -> None:
         """Repair lingering subscription or bucket state after cycle end."""
         if not str(creator_bid or "").strip() and not process_all:
-            raise click.ClickException(
-                "Pass --creator-bid or --all for renewal state drift repair."
-            )
+            message = "Pass --creator-bid or --all for renewal state drift repair."
+            raise click.ClickException(message)
 
         payload = repair_renewal_state_drift(
             current_app,
@@ -1078,7 +1080,8 @@ def register_billing_commands(console) -> None:
     def repair_topup_expiry_command(creator_bid: str) -> None:
         """Repair one creator's topup grant expiry against the active paid plan."""
         if not str(creator_bid or "").strip():
-            raise click.ClickException("Pass --creator-bid for topup expiry repair.")
+            message = "Pass --creator-bid for topup expiry repair."
+            raise click.ClickException(message)
 
         payload = repair_topup_grant_expiries(
             current_app,
@@ -1106,9 +1109,10 @@ def register_billing_commands(console) -> None:
     ) -> None:
         """Restore explicitly listed credit pack buckets expired by old logic."""
         if not any(str(bid or "").strip() for bid in bill_order_bids):
-            raise click.ClickException(
+            message = (
                 "Pass at least one --bill-order-bid for expired topup bucket restore."
             )
+            raise click.ClickException(message)
 
         payload = restore_wrongly_expired_credit_pack_buckets(
             current_app,
@@ -1130,9 +1134,8 @@ def register_billing_commands(console) -> None:
             not str(creator_bid or "").strip()
             and not str(subscription_bid or "").strip()
         ):
-            raise click.ClickException(
-                "Pass --creator-bid or --subscription-bid for subscription cycle repair."
-            )
+            message = "Pass --creator-bid or --subscription-bid for subscription cycle repair."
+            raise click.ClickException(message)
 
         payload = repair_subscription_cycle_mismatches(
             current_app,
@@ -1158,9 +1161,10 @@ def register_billing_commands(console) -> None:
             not str(creator_bid or "").strip()
             and not str(wallet_bucket_bid or "").strip()
         ):
-            raise click.ClickException(
+            message = (
                 "Pass --creator-bid or --wallet-bucket-bid for bucket status repair."
             )
+            raise click.ClickException(message)
 
         payload = repair_credit_bucket_runtime_statuses(
             current_app,
@@ -1192,9 +1196,8 @@ def register_billing_commands(console) -> None:
         normalized_date_from = str(date_from or "").strip()
         normalized_date_to = str(date_to or "").strip()
         if not process_all and not normalized_date_from and not normalized_date_to:
-            raise click.ClickException(
-                "Pass --date-from/--date-to or --all for daily aggregate rebuild."
-            )
+            message = "Pass --date-from/--date-to or --all for daily aggregate rebuild."
+            raise click.ClickException(message)
 
         if process_all:
             detected_date_from, detected_date_to = detect_daily_aggregate_rebuild_range(
@@ -1249,9 +1252,10 @@ def register_billing_commands(console) -> None:
             not str(bill_order_bid or "").strip()
             and not str(provider_reference_id or "").strip()
         ):
-            raise click.ClickException(
+            message = (
                 "Pass --bill-order-bid or --provider-reference-id for reconciliation."
             )
+            raise click.ClickException(message)
 
         payload = reconcile_billing_provider_reference(
             current_app,
@@ -1281,9 +1285,8 @@ def register_billing_commands(console) -> None:
                 str(creator_bid or "").strip(),
             )
         ):
-            raise click.ClickException(
-                "Pass a renewal event, subscription, or creator target."
-            )
+            message = "Pass a renewal event, subscription, or creator target."
+            raise click.ClickException(message)
 
         payload = run_billing_renewal_event(
             current_app,
@@ -1314,9 +1317,10 @@ def register_billing_commands(console) -> None:
                 str(bill_order_bid or "").strip(),
             )
         ):
-            raise click.ClickException(
+            message = (
                 "Pass a renewal event, subscription, creator, or bill order target."
             )
+            raise click.ClickException(message)
 
         payload = retry_billing_renewal_event(
             current_app,
@@ -1335,9 +1339,8 @@ def register_billing_commands(console) -> None:
     ) -> None:
         """Re-enqueue one pending or provider-failed subscription purchase SMS."""
         if not str(bill_order_bid or "").strip():
-            raise click.ClickException(
-                "Pass --bill-order-bid for subscription purchase SMS requeue."
-            )
+            message = "Pass --bill-order-bid for subscription purchase SMS requeue."
+            raise click.ClickException(message)
 
         payload = requeue_subscription_purchase_sms(
             current_app,
@@ -1346,7 +1349,8 @@ def register_billing_commands(console) -> None:
         _echo_payload(payload)
 
 
-def seed_billing_bootstrap_data() -> dict[str, Any]:
+def seed_billing_bootstrap_data() -> dict[str, object]:
+    """Seed billing bootstrap data."""
     rate_result = _upsert_bootstrap_rows(
         model=CreditUsageRate,
         key_field="rate_bid",
@@ -1366,16 +1370,18 @@ def seed_billing_bootstrap_data() -> dict[str, Any]:
     }
 
 
-def seed_sample_exception_orders() -> dict[str, Any]:
+def seed_sample_exception_orders() -> dict[str, object]:
+    """Seed sample exception orders."""
     current_time = now_utc().replace(microsecond=0)
     plan_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_PLAN)
     topup_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_TOPUP)
 
     if not plan_product_bid or not topup_product_bid:
-        raise click.ClickException(
+        message = (
             "Active billing plan/topup products are required before seeding "
             "sample exception orders."
         )
+        raise click.ClickException(message)
 
     creator_specs = [
         {
@@ -1627,7 +1633,8 @@ def seed_sample_exception_orders() -> dict[str, Any]:
     }
 
 
-def seed_sample_focus_teachers() -> dict[str, Any]:
+def seed_sample_focus_teachers() -> dict[str, object]:
+    """Seed sample focus teachers."""
     current_time = now_utc().replace(microsecond=0)
     today = current_time.date()
 
@@ -1910,7 +1917,8 @@ def upsert_billing_product(
     sort_order: int,
     entitlement_json: str,
     metadata_json: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Create or update billing product."""
     payload = {
         "product_bid": str(product_bid or "").strip(),
         "product_code": str(product_code or "").strip(),
@@ -1943,13 +1951,17 @@ def upsert_billing_product(
     }
 
     if not payload["product_bid"]:
-        raise click.ClickException("--product-bid is required.")
+        message = "--product-bid is required."
+        raise click.ClickException(message)
     if not payload["product_code"]:
-        raise click.ClickException("--product-code is required.")
+        message = "--product-code is required."
+        raise click.ClickException(message)
     if not payload["display_name_i18n_key"]:
-        raise click.ClickException("--display-name-i18n-key is required.")
+        message = "--display-name-i18n-key is required."
+        raise click.ClickException(message)
     if not payload["description_i18n_key"]:
-        raise click.ClickException("--description-i18n-key is required.")
+        message = "--description-i18n-key is required."
+        raise click.ClickException(message)
 
     created = _upsert_bootstrap_row(
         model=BillingProduct,
@@ -1973,7 +1985,8 @@ def bind_provider_price_mapping(
     provider_price_id: str,
     livemode: bool,
     metadata_json: str,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Bind a provider price to a billing product and return its payload."""
     try:
         with unit_of_work():
             mapping, created = upsert_provider_price_mapping(
@@ -1997,7 +2010,8 @@ def bind_provider_price_mapping(
     return payload
 
 
-def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
+    """Activate a provider-price mapping and return its validation result."""
     try:
         with unit_of_work():
             summary = activate_provider_price_mapping(provider_price_bid)
@@ -2010,7 +2024,8 @@ def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, An
     return payload
 
 
-def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
+    """Retire a provider-price mapping and return its serialized payload."""
     try:
         with unit_of_work():
             mapping = retire_provider_price_mapping(provider_price_bid)
@@ -2023,7 +2038,8 @@ def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]
     return payload
 
 
-def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
+    """Validate a provider-price mapping and return its validation result."""
     try:
         with unit_of_work():
             summary = validate_provider_price_mapping_by_bid(provider_price_bid)
@@ -2042,7 +2058,8 @@ def list_cli_provider_price_mappings(
     provider_account_id: str,
     status_label: str,
     livemode: bool | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """List provider-price mappings matching the requested CLI filters."""
     normalized_status = str(status_label or "").strip().lower()
     rows = list_provider_price_mappings(
         product_bid=product_bid,
@@ -2061,7 +2078,8 @@ def list_cli_provider_price_mappings(
     }
 
 
-def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any]:
+def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
+    """Return a provider-price mapping and its active mapping in the same scope."""
     try:
         mapping = get_provider_price_mapping(provider_price_bid)
         active_mapping = get_active_provider_price_mapping(
@@ -2079,7 +2097,7 @@ def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, Any
     }
 
 
-def _provider_price_validation_payload(summary) -> dict[str, Any]:
+def _provider_price_validation_payload(summary: object) -> dict[str, object]:
     return {
         "valid": summary.valid,
         "errors": summary.errors,
@@ -2113,36 +2131,38 @@ def grant_billing_plan_by_identify(
     product_code: str = "",
     effective_to: str = "",
     note: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Grant billing plan by identify."""
     normalized_identify = str(identify or "").strip()
     if not normalized_identify:
-        raise click.ClickException("--identify is required.")
+        error_message = "--identify is required."
+        raise click.ClickException(error_message)
 
     normalized_note = str(note or "").strip()
     if len(normalized_note) > 255:
-        raise click.ClickException("--note must be 255 characters or fewer.")
+        error_message = "--note must be 255 characters or fewer."
+        raise click.ClickException(error_message)
 
     normalized_product_bid = str(product_bid or "").strip()
     normalized_product_code = str(product_code or "").strip()
     if bool(normalized_product_bid) == bool(normalized_product_code):
-        raise click.ClickException(
-            "Pass exactly one of --product-bid or --product-code."
-        )
+        error_message = "Pass exactly one of --product-bid or --product-code."
+        raise click.ClickException(error_message)
     normalized_effective_to = str(effective_to or "").strip()
 
     with _rollback_on_error():
         aggregate = load_user_aggregate_by_identifier(normalized_identify)
         if aggregate is None:
-            raise click.ClickException(
-                f"No user found for identify: {normalized_identify}"
-            )
+            message = f"No user found for identify: {normalized_identify}"
+            raise click.ClickException(message)
 
         product = _load_active_plan_product(
             product_bid=normalized_product_bid,
             product_code=normalized_product_code,
         )
         if product is None:
-            raise click.ClickException("Active billing plan not found.")
+            error_message = "Active billing plan not found."
+            raise click.ClickException(error_message)
 
         creator_role_granted = False
         if not bool(getattr(aggregate, "is_creator", False)):
@@ -2184,19 +2204,22 @@ def grant_billing_plan_by_identify(
             if not is_self_managed_billing_provider(
                 existing_subscription.billing_provider
             ):
-                raise click.ClickException(
+                error_message = (
                     "User already has an active provider-managed subscription. "
                     "Use the normal checkout upgrade flow or wait for the current cycle to expire."
                 )
+                raise click.ClickException(error_message)
             if current_product is None:
-                raise click.ClickException(
+                error_message = (
                     "Active billing plan not found for the current subscription."
                 )
+                raise click.ClickException(error_message)
             if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
-                raise click.ClickException(
+                error_message = (
                     "The current subscription is still active. "
                     "Operator grant only supports upgrades to a higher-tier plan."
                 )
+                raise click.ClickException(error_message)
             order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
         granted_at = now_utc()
@@ -2209,11 +2232,13 @@ def grant_billing_plan_by_identify(
             )
         )
         if cycle_end_at is None:
-            raise click.ClickException(
+            error_message = (
                 "Target product does not support one-cycle manual activation."
             )
+            raise click.ClickException(error_message)
         if cycle_end_at <= granted_at:
-            raise click.ClickException("--effective-to must be later than now.")
+            error_message = "--effective-to must be later than now."
+            raise click.ClickException(error_message)
 
         subscription_metadata = {
             "manual_grant": True,
@@ -2291,9 +2316,8 @@ def grant_billing_plan_by_identify(
 
         granted = grant_paid_order_credits(current_app, order)
         if not granted:
-            raise click.ClickException(
-                "Manual plan grant did not create a new credit grant."
-            )
+            error_message = "Manual plan grant did not create a new credit grant."
+            raise click.ClickException(error_message)
 
         should_enqueue_subscription_purchase_sms = (
             stage_subscription_purchase_sms_for_paid_order(
@@ -2340,23 +2364,28 @@ def grant_operator_credits_by_cli(
     display_name: str = "",
     note: str = "",
     operator_user_bid: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Grant operator credits by CLI."""
     normalized_identify = str(identify or "").strip()
     normalized_user_bid = str(user_bid or "").strip()
     if bool(normalized_identify) == bool(normalized_user_bid):
-        raise click.ClickException("Pass exactly one of --identify or --user-bid.")
+        error_message = "Pass exactly one of --identify or --user-bid."
+        raise click.ClickException(error_message)
 
     normalized_request_id = str(request_id or "").strip()
     if len(normalized_request_id) > 100:
-        raise click.ClickException("--request-id must be 100 characters or fewer.")
+        error_message = "--request-id must be 100 characters or fewer."
+        raise click.ClickException(error_message)
 
     normalized_display_name = str(display_name or "").strip()
     if len(normalized_display_name) > 128:
-        raise click.ClickException("--name must be 128 characters or fewer.")
+        error_message = "--name must be 128 characters or fewer."
+        raise click.ClickException(error_message)
 
     normalized_note = str(note or "").strip()
     if len(normalized_note) > 255:
-        raise click.ClickException("--note must be 255 characters or fewer.")
+        error_message = "--note must be 255 characters or fewer."
+        raise click.ClickException(error_message)
 
     normalized_operator_user_bid = (
         str(operator_user_bid or "").strip() or _DEFAULT_CLI_OPERATOR_USER_BID
@@ -2370,7 +2399,8 @@ def grant_operator_credits_by_cli(
         )
         if aggregate is None:
             target = normalized_user_bid or normalized_identify
-            raise click.ClickException(f"No user found for target: {target}")
+            message = f"No user found for target: {target}"
+            raise click.ClickException(message)
         if not normalized_request_id:
             normalized_request_id = _build_cli_credit_grant_request_id(
                 user_bid=aggregate.user_bid,
@@ -2432,9 +2462,9 @@ def _build_cli_credit_grant_request_id(
 
 def _upsert_bootstrap_rows(
     *,
-    model,
+    model: object,
     key_field: str,
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, object]],
 ) -> dict[str, int]:
     inserted = 0
     updated = 0
@@ -2452,9 +2482,9 @@ def _upsert_bootstrap_rows(
 
 def _upsert_bootstrap_row(
     *,
-    model,
+    model: object,
     key_field: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> bool:
     key_value = payload[key_field]
     instance = (
@@ -2473,7 +2503,7 @@ def _upsert_bootstrap_row(
 
 def _parse_optional_json_object(
     raw_value: str, *, option_name: str
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     normalized_value = str(raw_value or "").strip()
     if not normalized_value:
         return None
@@ -2481,11 +2511,13 @@ def _parse_optional_json_object(
     try:
         parsed = json.loads(normalized_value)
     except json.JSONDecodeError as exc:
-        raise click.ClickException(f"--{option_name} must be valid JSON.") from exc
+        message = f"--{option_name} must be valid JSON."
+        raise click.ClickException(message) from exc
     if parsed is None:
         return None
     if not isinstance(parsed, dict):
-        raise click.ClickException(f"--{option_name} must decode to a JSON object.")
+        message = f"--{option_name} must decode to a JSON object."
+        raise click.ClickException(message)
     return parsed
 
 
@@ -2603,9 +2635,8 @@ def _load_plan_product_by_bid(product_bid: str) -> BillingProduct | None:
 def _parse_effective_to_option(raw_value: str) -> datetime:
     parsed = coerce_datetime(raw_value)
     if parsed is None:
-        raise click.ClickException(
-            "--effective-to must be a valid ISO-8601 datetime or YYYY-MM-DD."
-        )
+        message = "--effective-to must be a valid ISO-8601 datetime or YYYY-MM-DD."
+        raise click.ClickException(message)
     return parsed
 
 
@@ -2681,7 +2712,7 @@ def _enforce_manual_subscription_expire_event(
     db.session.add(expire_event)
 
 
-def _serialize_cli_payload(payload: Any) -> Any:
+def _serialize_cli_payload(payload: object) -> object:
     if hasattr(payload, "to_task_payload"):
         return payload.to_task_payload()
     if hasattr(payload, "to_payload"):
@@ -2693,7 +2724,7 @@ def _serialize_cli_payload(payload: Any) -> Any:
     return payload
 
 
-def _echo_payload(payload: Any) -> None:
+def _echo_payload(payload: object) -> None:
     click.echo(
         json.dumps(
             _serialize_cli_payload(payload),
@@ -2704,7 +2735,7 @@ def _echo_payload(payload: Any) -> None:
     )
 
 
-def _serialize_json_value(value: Any) -> Any:
+def _serialize_json_value(value: object) -> object:
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, Decimal):

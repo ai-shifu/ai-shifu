@@ -5,12 +5,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
@@ -46,6 +43,12 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from flaskr.util.datetime import NAIVE_DATETIME_MIN
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
+
+    from flask import Flask
 
 
 def _load_course_related_user_bids(
@@ -184,7 +187,7 @@ def _load_course_user_joined_at_map(
 
     joined_at_map: dict[str, datetime] = {}
 
-    def _merge_rows(rows: Sequence[tuple[str, Any]]) -> None:
+    def _merge_rows(rows: Sequence[tuple[str, object]]) -> None:
         for user_bid, joined_at in rows:
             normalized_user_bid = str(user_bid or "").strip()
             normalized_joined_at = _coerce_operator_datetime(joined_at)
@@ -298,6 +301,7 @@ def get_operator_course_users(
     page_size: int,
     filters: dict | None = None,
 ) -> PageNationDTO:
+    """Return operator course users."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

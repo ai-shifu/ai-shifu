@@ -1,9 +1,10 @@
+"""Handle user credits for course-administration operations."""
+
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.billing.api import (
     build_billing_catalog,
@@ -100,6 +101,9 @@ from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import aliased
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 def grant_operator_user_credits(
     app: Flask,
@@ -108,6 +112,7 @@ def grant_operator_user_credits(
     operator_user_bid: str,
     payload: AdminOperationUserCreditGrantRequestDTO,
 ) -> AdminOperationUserCreditGrantResultDTO:
+    """Grant operator user credits."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         normalized_operator_user_bid = str(operator_user_bid or "").strip()
@@ -205,6 +210,7 @@ def get_operator_user_grant_bootstrap(
     *,
     user_bid: str,
 ) -> AdminOperationUserGrantBootstrapDTO:
+    """Return operator user grant bootstrap."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         user = _load_operator_user_or_raise(normalized_user_bid)
@@ -249,6 +255,7 @@ def grant_operator_user_package(
     operator_user_bid: str,
     payload: AdminOperationUserPackageGrantRequestDTO,
 ) -> AdminOperationUserPackageGrantResultDTO:
+    """Grant operator user package."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         normalized_operator_user_bid = str(operator_user_bid or "").strip()
@@ -293,8 +300,9 @@ def get_operator_user_credits(
     user_bid: str,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any] | None = None,
+    filters: dict[str, object] | None = None,
 ) -> AdminOperationUserCreditLedgerPageDTO:
+    """Return operator user credits."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         safe_page_index = max(int(page_index or 1), 1)
@@ -529,6 +537,7 @@ def get_operator_user_credit_usage_detail(
     user_bid: str,
     usage_bid: str,
 ) -> AdminOperationUserCreditUsageDetailDTO:
+    """Return operator user credit usage detail."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         normalized_usage_bid = str(usage_bid or "").strip()

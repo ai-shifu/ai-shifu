@@ -1,6 +1,9 @@
+"""Handle users for course-administration operations."""
+
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_dtos import (
@@ -57,8 +60,12 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from sqlalchemy import and_, case, or_
 
+if TYPE_CHECKING:
+    from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
 
-def _build_user_query_filter(user_query: str):
+
+def _build_user_query_filter(user_query: str) -> ColumnElement[bool]:
     normalized_query = str(user_query or "").strip()
     like_pattern = f"%{normalized_query}%"
     credential_user_bids = db.session.query(AuthCredential.user_bid).filter(
@@ -187,6 +194,7 @@ def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
 
 
 def get_operator_user_overview(app: Flask) -> AdminOperationUserOverviewDTO:
+    """Return operator user overview."""
     with app.app_context():
         return _build_operator_user_overview()
 
@@ -197,6 +205,7 @@ def list_operator_users(
     page_size: int,
     filters: dict | None = None,
 ) -> AdminOperationUserListDTO:
+    """Return operator users."""
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = min(
@@ -395,6 +404,7 @@ def get_operator_user_detail(
     app: Flask,
     user_bid: str,
 ) -> AdminOperationUserSummaryDTO:
+    """Return operator user detail."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
         user = load_operator_user_or_raise(normalized_user_bid)

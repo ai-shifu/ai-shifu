@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 @dataclass(slots=True, frozen=True)
@@ -24,6 +26,7 @@ class ManualCreditGrantResult:
     metadata_json: dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "user_bid": self.user_bid,
@@ -38,18 +41,22 @@ class ManualCreditGrantResult:
             "metadata_json": self.metadata_json,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class ReferralRewardSummary:
+    """Summarize referral reward."""
+
     available_credits: int | float
     expires_at: datetime | None
     wallet_bucket_bid: str = ""
     grant_count: int = 0
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "available_credits": self.available_credits,
             "expires_at": self.expires_at,

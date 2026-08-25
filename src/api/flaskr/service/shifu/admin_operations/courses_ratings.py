@@ -6,8 +6,8 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import (
     raise_param_error,
@@ -32,6 +32,9 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_user_map,
     _normalize_identifier,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def _resolve_course_rating_mode(value: str) -> str:
@@ -59,6 +62,7 @@ def get_operator_course_ratings(
     filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseRatingListDTO:
+    """Return operator course ratings."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:

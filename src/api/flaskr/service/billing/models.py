@@ -45,6 +45,8 @@ CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class BillingTableMixin:
+    """Provide shared columns for billing persistence models."""
+
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Primary key")
     deleted = Column(
         SmallInteger,
@@ -69,6 +71,8 @@ class BillingTableMixin:
 
 
 class BillingProduct(BillingTableMixin, db.Model):
+    """Persist billing product records."""
+
     __tablename__ = "bill_products"
     __table_args__ = (
         UniqueConstraint(
@@ -190,6 +194,8 @@ class BillingProduct(BillingTableMixin, db.Model):
 
 
 class BillingProductProviderPrice(BillingTableMixin, db.Model):
+    """Persist billing product provider price records."""
+
     __tablename__ = "bill_product_provider_prices"
     __table_args__ = (
         UniqueConstraint(
@@ -649,6 +655,8 @@ class BillingProviderCatalogEvent(BillingTableMixin, db.Model):
 
 
 class BillingSubscription(BillingTableMixin, db.Model):
+    """Persist billing subscription records."""
+
     __tablename__ = "bill_subscriptions"
     __table_args__ = (
         UniqueConstraint(
@@ -762,6 +770,8 @@ class BillingSubscription(BillingTableMixin, db.Model):
 
 
 class BillingOrder(BillingTableMixin, db.Model):
+    """Persist billing order records."""
+
     __tablename__ = "bill_orders"
     __table_args__ = (
         UniqueConstraint(
@@ -919,6 +929,8 @@ class BillingOrder(BillingTableMixin, db.Model):
 
 
 class BillingCampaign(BillingTableMixin, db.Model):
+    """Persist billing campaign records."""
+
     __tablename__ = "bill_campaigns"
     __table_args__ = (
         UniqueConstraint(
@@ -1020,6 +1032,8 @@ class BillingCampaign(BillingTableMixin, db.Model):
 
 
 class BillingCampaignProduct(BillingTableMixin, db.Model):
+    """Persist billing campaign product records."""
+
     __tablename__ = "bill_campaign_products"
     __table_args__ = (
         UniqueConstraint(
@@ -1083,6 +1097,8 @@ class BillingCampaignProduct(BillingTableMixin, db.Model):
 
 
 class CreditWallet(BillingTableMixin, db.Model):
+    """Persist credit wallet records."""
+
     __tablename__ = "credit_wallets"
     __table_args__ = (
         UniqueConstraint(
@@ -1146,6 +1162,8 @@ class CreditWallet(BillingTableMixin, db.Model):
 
 
 class CreditWalletBucket(BillingTableMixin, db.Model):
+    """Persist credit wallet bucket records."""
+
     __tablename__ = "credit_wallet_buckets"
     __table_args__ = (
         UniqueConstraint(
@@ -1278,6 +1296,8 @@ class CreditWalletBucket(BillingTableMixin, db.Model):
 
 
 class CreditLedgerEntry(BillingTableMixin, db.Model):
+    """Persist credit ledger entry records."""
+
     __tablename__ = "credit_ledger_entries"
     __table_args__ = (
         UniqueConstraint(
@@ -1388,6 +1408,8 @@ class CreditLedgerEntry(BillingTableMixin, db.Model):
 
 
 class NotificationRecord(BillingTableMixin, db.Model):
+    """Persist notification record records."""
+
     __tablename__ = "notification_records"
     __table_args__ = (
         UniqueConstraint(
@@ -1575,6 +1597,8 @@ class NotificationRecord(BillingTableMixin, db.Model):
 
 
 class NotificationTemplate(BillingTableMixin, db.Model):
+    """Persist notification template records."""
+
     __tablename__ = "notification_templates"
     __table_args__ = (
         UniqueConstraint(
@@ -1699,6 +1723,8 @@ class NotificationTemplate(BillingTableMixin, db.Model):
 
 
 class CreditUsageRate(BillingTableMixin, db.Model):
+    """Persist credit usage rate records."""
+
     __tablename__ = "credit_usage_rates"
     __table_args__ = (
         UniqueConstraint(
@@ -1805,6 +1831,8 @@ class CreditUsageRate(BillingTableMixin, db.Model):
 
 
 class BillingRenewalEvent(BillingTableMixin, db.Model):
+    """Persist billing renewal event records."""
+
     __tablename__ = "bill_renewal_events"
     __table_args__ = (
         UniqueConstraint(
@@ -1897,6 +1925,8 @@ class BillingRenewalEvent(BillingTableMixin, db.Model):
 
 
 class BillingEntitlement(BillingTableMixin, db.Model):
+    """Persist billing entitlement records."""
+
     __tablename__ = "bill_entitlements"
     __table_args__ = (
         UniqueConstraint(
@@ -1993,6 +2023,8 @@ class BillingEntitlement(BillingTableMixin, db.Model):
 
 
 class BillingDomainBinding(BillingTableMixin, db.Model):
+    """Persist billing domain binding records."""
+
     __tablename__ = "bill_domain_bindings"
     __table_args__ = (
         UniqueConstraint(
@@ -2071,6 +2103,8 @@ class BillingDomainBinding(BillingTableMixin, db.Model):
 
 
 class BillingDailyUsageMetric(BillingTableMixin, db.Model):
+    """Persist billing daily usage metric records."""
+
     __tablename__ = "bill_daily_usage_metrics"
     __table_args__ = (
         UniqueConstraint(
@@ -2187,6 +2221,8 @@ class BillingDailyUsageMetric(BillingTableMixin, db.Model):
 
 
 class BillingDailyLedgerSummary(BillingTableMixin, db.Model):
+    """Persist billing daily ledger summary records."""
+
     __tablename__ = "bill_daily_ledger_summary"
     __table_args__ = (
         UniqueConstraint(

@@ -1,3 +1,5 @@
+"""Expose dicts HTTP routes."""
+
 from flask import Flask
 
 from flaskr.api.llm import get_current_models
@@ -7,10 +9,13 @@ from .common import bypass_token_validation, make_common_response
 
 
 def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the dict routes on the Flask application."""
+
     @app.route(path_prefix + "/dicts", methods=["GET"])
     @bypass_token_validation
-    def get_dicts():
+    def get_dicts() -> str:
         """Get all dictionaries.
+
         ---
         tags:
           - dict
@@ -19,8 +24,9 @@ def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/models", methods=["GET"])
     @bypass_token_validation
-    def get_models():
+    def get_models() -> str:
         """Get all models.
+
         ---
         tags:
           - dict

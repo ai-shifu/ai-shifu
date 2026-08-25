@@ -8,8 +8,11 @@ import contextlib
 import json
 import re
 import sys
-from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -54,6 +57,7 @@ USE_TRANSLATION_ALIAS_PATTERN = re.compile(
 
 
 def collect_frontend_namespaced_keys(text: str) -> set[str]:
+    """Collect frontend namespaced keys."""
     used: set[str] = set()
     alias_declarations: dict[str, list[tuple[int, str]]] = {}
 
@@ -85,6 +89,7 @@ def collect_frontend_namespaced_keys(text: str) -> set[str]:
 
 
 def collect_frontend_trans_keys(text: str) -> set[str]:
+    """Collect frontend trans keys."""
     used: set[str] = set()
     direct_key_pattern = re.compile(
         r"i18nKey\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]",
@@ -113,21 +118,25 @@ def collect_frontend_trans_keys(text: str) -> set[str]:
 
 
 def iter_locale_dirs() -> Iterable[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
-        raise RuntimeError(f"Translation directory not found: {I18N_DIR}")
+        message = f"Translation directory not found: {I18N_DIR}"
+        raise RuntimeError(message)
     for entry in sorted(I18N_DIR.iterdir()):
         if entry.is_dir() and not entry.name.startswith("."):
             yield entry
 
 
-def flatten_translation(data, namespace: str) -> dict[str, str]:
+def flatten_translation(data: object, namespace: str) -> dict[str, str]:
+    """Flatten translation."""
     if isinstance(data, dict):
         items: dict[str, str] = {}
         flat_section = data.get("__flat__")
         if isinstance(flat_section, dict):
             for key, value in flat_section.items():
                 if not isinstance(value, str):
-                    raise TypeError(f"Translation value for '{key}' must be a string")
+                    message = f"Translation value for '{key}' must be a string"
+                    raise TypeError(message)
                 composite_key = f"{namespace}.{key}" if namespace else key
                 items[composite_key] = value
         for key, value in data.items():
@@ -137,11 +146,13 @@ def flatten_translation(data, namespace: str) -> dict[str, str]:
             items.update(flatten_translation(value, next_namespace))
         return items
     if not isinstance(data, str):
-        raise TypeError(f"Translation value for '{namespace}' must be a string")
+        message = f"Translation value for '{namespace}' must be a string"
+        raise TypeError(message)
     return {namespace: data}
 
 
 def collect_defined_keys() -> set[str]:
+    """Collect defined keys."""
     locale_dirs = list(iter_locale_dirs())
     if not locale_dirs:
         return set()
@@ -162,6 +173,7 @@ def collect_defined_keys() -> set[str]:
 
 
 def load_metadata_namespaces() -> set[str]:
+    """Load metadata namespaces."""
     namespaces: set[str] = set()
     meta = I18N_DIR / "locales.json"
     if not meta.exists():
@@ -177,6 +189,7 @@ def load_metadata_namespaces() -> set[str]:
 
 
 def collect_backend_keys() -> set[str]:
+    """Collect backend keys."""
     patterns = BACKEND_PATTERNS
     used: set[str] = set()
     for file_path in BACKEND_DIR.rglob("*.py"):
@@ -228,6 +241,7 @@ def collect_backend_keys() -> set[str]:
 
 
 def collect_frontend_keys() -> set[str]:
+    """Collect frontend keys."""
     patterns = FRONTEND_PATTERNS
     used: set[str] = set()
     extensions = (".ts", ".tsx", ".js", ".jsx")
@@ -259,6 +273,7 @@ def collect_frontend_keys() -> set[str]:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the translation-usage check."""
     parser = argparse.ArgumentParser(
         description="Validate translation key usage across backend and frontend."
     )
@@ -284,6 +299,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_allowlist(path: Path | None) -> set[str]:
+    """Load allowlist."""
     if not path:
         return set()
 
@@ -304,6 +320,7 @@ def load_allowlist(path: Path | None) -> set[str]:
 
 
 def main() -> int:
+    """Compare defined translation keys with backend and frontend usage."""
     args = parse_args()
     defined_primary = collect_defined_keys()
     # Aliases for missing-key comparison only

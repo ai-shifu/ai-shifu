@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine, Result
-from sqlalchemy.sql import Select
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from sqlalchemy.engine import Engine, Result
+    from sqlalchemy.sql import Select
 
 
 @dataclass(slots=True)
@@ -68,11 +70,12 @@ def get_analytics_engine(app: Flask) -> Engine:
                 previous_engine.dispose()
         engine = _engine_state.engine
         if engine is None:  # pragma: no cover - guarded by the branch above
-            raise RuntimeError("Analytics engine initialization failed")
+            message = "Analytics engine initialization failed"
+            raise RuntimeError(message)
         return engine
 
 
-def run_query(app: Flask, stmt: Select) -> dict[str, Any]:
+def run_query(app: Flask, stmt: Select) -> dict[str, object]:
     """Execute ``stmt`` against the analytics engine and return columns/rows."""
     engine = get_analytics_engine(app)
     with engine.connect() as connection:

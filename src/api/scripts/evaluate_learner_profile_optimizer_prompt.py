@@ -78,11 +78,12 @@ def _build_user_message(learner_profile: str) -> str:
 
 def _parse_model_output(raw_model_text: str) -> str:
     if not raw_model_text.strip():
-        raise EvaluationError("model output is empty")
+        message = "model output is empty"
+        raise EvaluationError(message)
     return raw_model_text
 
 
-def _parse_codex_events(stdout: str) -> dict[str, Any]:
+def _parse_codex_events(stdout: str) -> dict[str, object]:
     item_types: set[str] = set()
     warnings: list[str] = []
     usage: dict[str, Any] | None = None
@@ -92,9 +93,11 @@ def _parse_codex_events(stdout: str) -> dict[str, Any]:
         try:
             event = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise EvaluationError("codex CLI emitted a non-JSON event") from exc
+            exception_message = "codex CLI emitted a non-JSON event"
+            raise EvaluationError(exception_message) from exc
         if event.get("type") == "error":
-            raise EvaluationError("codex CLI emitted an error event")
+            exception_message = "codex CLI emitted an error event"
+            raise EvaluationError(exception_message)
         item = event.get("item")
         if isinstance(item, dict) and isinstance(item.get("type"), str):
             item_type = item["type"]
@@ -108,7 +111,8 @@ def _parse_codex_events(stdout: str) -> dict[str, Any]:
                 ):
                     warnings.append("code_mode_disabled_fail_closed")
                     continue
-                raise EvaluationError(f"codex CLI error item: {message[:200]}")
+                error_message = f"codex CLI error item: {message[:200]}"
+                raise EvaluationError(error_message)
             item_types.add(item_type)
         if event.get("type") == "turn.completed" and isinstance(
             event.get("usage"), dict
@@ -118,7 +122,8 @@ def _parse_codex_events(stdout: str) -> dict[str, Any]:
     disallowed_item_types = item_types - ALLOWED_CODEX_ITEM_TYPES
     if disallowed_item_types:
         disallowed = ", ".join(sorted(disallowed_item_types))
-        raise EvaluationError(f"codex CLI used disallowed tool item(s): {disallowed}")
+        error_message = f"codex CLI used disallowed tool item(s): {disallowed}"
+        raise EvaluationError(error_message)
     return {
         "item_types": sorted(item_types),
         "tool_calls_observed": False,
@@ -133,7 +138,7 @@ def _run_codex(
     user_message: str,
     model: str,
     timeout_seconds: int,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, object]]:
     with tempfile.TemporaryDirectory(
         prefix="learner-profile-prompt-eval-", dir="/private/tmp"
     ) as temporary_dir:
@@ -177,20 +182,20 @@ def _run_codex(
                 timeout=timeout_seconds,
             )
         except FileNotFoundError as exc:
-            raise EvaluationError("codex CLI is not installed") from exc
+            error_message = "codex CLI is not installed"
+            raise EvaluationError(error_message) from exc
         except subprocess.TimeoutExpired as exc:
-            raise EvaluationError(
-                f"codex CLI exceeded the {timeout_seconds}s timeout"
-            ) from exc
+            message = f"codex CLI exceeded the {timeout_seconds}s timeout"
+            raise EvaluationError(message) from exc
 
         if completed.returncode != 0:
             diagnostic = completed.stderr.strip().splitlines()
             detail = diagnostic[-1] if diagnostic else "no diagnostic output"
-            raise EvaluationError(
-                f"codex CLI exited with {completed.returncode}: {detail}"
-            )
+            message = f"codex CLI exited with {completed.returncode}: {detail}"
+            raise EvaluationError(message)
         if not output_path.exists():
-            raise EvaluationError("codex CLI did not write a final response")
+            error_message = "codex CLI did not write a final response"
+            raise EvaluationError(error_message)
         result = output_path.read_text(encoding="utf-8")
         event_metadata = _parse_codex_events(completed.stdout)
         metadata = {
@@ -210,9 +215,11 @@ def _codex_version() -> str:
             timeout=10,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        raise EvaluationError("could not determine the codex CLI version") from exc
+        message = "could not determine the codex CLI version"
+        raise EvaluationError(message) from exc
     if completed.returncode != 0 or not completed.stdout.strip():
-        raise EvaluationError("could not determine the codex CLI version")
+        message = "could not determine the codex CLI version"
+        raise EvaluationError(message)
     return completed.stdout.strip()
 
 
@@ -227,7 +234,7 @@ def _default_output_path() -> Path:
     return Path(output_path)
 
 
-def _write_private_report(path: Path, report: dict[str, Any]) -> None:
+def _write_private_report(path: Path, report: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
@@ -241,15 +248,17 @@ def _write_private_report(path: Path, report: dict[str, Any]) -> None:
             os.close(descriptor)
 
 
-def _load_cases(path: Path) -> tuple[dict[str, Any], list[dict[str, str]]]:
+def _load_cases(path: Path) -> tuple[dict[str, object], list[dict[str, str]]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     cases = payload.get("cases")
     if not isinstance(cases, list) or not cases:
-        raise EvaluationError("cases file must contain a non-empty cases array")
+        message = "cases file must contain a non-empty cases array"
+        raise EvaluationError(message)
     normalized_cases: list[dict[str, str]] = []
     for case in cases:
         if not isinstance(case, dict):
-            raise EvaluationError("every case must be an object")
+            message = "every case must be an object"
+            raise EvaluationError(message)
         case_id = case.get("id")
         learner_profile = case.get("learner_profile")
         observed_shape = case.get("observed_shape")
@@ -257,14 +266,16 @@ def _load_cases(path: Path) -> tuple[dict[str, Any], list[dict[str, str]]]:
             isinstance(value, str) and value.strip()
             for value in (case_id, learner_profile, observed_shape)
         ):
-            raise EvaluationError(
+            message = (
                 "every case requires non-empty id, observed_shape, and learner_profile"
             )
+            raise EvaluationError(message)
         normalized_profile = learner_profile.strip()
         if len(normalized_profile) > MAX_LEARNER_PROFILE_CHARS:
-            raise EvaluationError(
+            message = (
                 "learner_profile exceeds the production 1000-character input limit"
             )
+            raise EvaluationError(message)
         normalized_cases.append(
             {
                 "id": case_id.strip(),
@@ -282,7 +293,7 @@ def _evaluate_case(
     system_prompt: str,
     model: str,
     timeout_seconds: int,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     source = case["learner_profile"]
     result: dict[str, Any] = {
         "case_id": case["id"],
@@ -326,7 +337,7 @@ def _evaluate_task(
     system_prompt: str,
     model: str,
     timeout_seconds: int,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     case, run_number = task
     return _evaluate_case(
         case=case,
@@ -366,20 +377,26 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Evaluate learner-profile optimizer prompt fixtures."""
     args = _build_parser().parse_args()
     if args.repeats < 1:
-        raise EvaluationError("--repeats must be at least 1")
+        error_message = "--repeats must be at least 1"
+        raise EvaluationError(error_message)
     if args.timeout_seconds < 1:
-        raise EvaluationError("--timeout-seconds must be at least 1")
+        error_message = "--timeout-seconds must be at least 1"
+        raise EvaluationError(error_message)
     if not 1 <= args.jobs <= 8:
-        raise EvaluationError("--jobs must be between 1 and 8")
+        error_message = "--jobs must be between 1 and 8"
+        raise EvaluationError(error_message)
 
     system_prompt = args.prompt.read_text(encoding="utf-8").strip()
     if not system_prompt:
-        raise EvaluationError("prompt file is empty")
+        error_message = "prompt file is empty"
+        raise EvaluationError(error_message)
     output_language = str(args.output_language or "").strip()
     if not output_language:
-        raise EvaluationError("--output-language must not be empty")
+        error_message = "--output-language must not be empty"
+        raise EvaluationError(error_message)
     system_prompt = (
         f"{system_prompt}\n\nOUTPUT LANGUAGE: {output_language}. "
         "Write every label and sentence in this language. "
@@ -392,7 +409,8 @@ def main() -> int:
         unknown_case_ids = requested_case_ids - known_case_ids
         if unknown_case_ids:
             unknown = ", ".join(sorted(unknown_case_ids))
-            raise EvaluationError(f"unknown case id(s): {unknown}")
+            message = f"unknown case id(s): {unknown}"
+            raise EvaluationError(message)
         cases = [case for case in cases if case["id"] in requested_case_ids]
 
     tasks = [

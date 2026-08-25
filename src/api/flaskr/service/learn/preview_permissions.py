@@ -1,12 +1,17 @@
+"""Resolve learner access for preview elements."""
+
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from flask import Flask, request
 from flaskr.service.common import raise_error
-from flaskr.service.common.dtos import UserInfo
 from flaskr.service.config import get_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+
+if TYPE_CHECKING:
+    from flaskr.service.common.dtos import UserInfo
 
 BUILTIN_DEMO_TITLES = {
     "AI 师傅教学引导",
@@ -105,6 +110,7 @@ def _load_demo_shifu_bids() -> set[str]:
 
 
 def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
+    """Return whether builtin demo shifu."""
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         return False

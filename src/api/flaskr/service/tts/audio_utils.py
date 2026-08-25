@@ -36,7 +36,9 @@ def _estimated_duration_ms(audio_data: bytes) -> int:
     return int(len(audio_data or b"") / 16000 * 1000)
 
 
-def _load_audio_segment(audio_data: bytes, *, input_format: str = "mp3"):
+def _load_audio_segment(
+    audio_data: bytes, *, input_format: str = "mp3"
+) -> "AudioSegment":
     audio_io = io.BytesIO(audio_data)
     if input_format == "mp3" and hasattr(AudioSegment, "from_mp3"):
         return AudioSegment.from_mp3(audio_io)
@@ -88,13 +90,15 @@ def concat_audio_mp3(
 
     """
     if not PYDUB_AVAILABLE:
-        raise ImportError(
+        error_message = (
             "pydub is required for audio concatenation. "
             "Install it with: pip install pydub"
         )
+        raise ImportError(error_message)
 
     if not segments:
-        raise ValueError("No audio segments to concatenate")
+        error_message = "No audio segments to concatenate"
+        raise ValueError(error_message)
 
     if len(segments) == 1:
         return segments[0]
@@ -132,11 +136,13 @@ def concat_audio_mp3(
             )
 
     if combined is None:
-        raise ValueError("Failed to concatenate audio segments")
+        error_message = "Failed to concatenate audio segments"
+        raise ValueError(error_message)
 
     if failed_segments:
         failed_segment_list = ", ".join(str(index) for index in failed_segments)
-        raise ValueError(f"Failed to decode audio segments: {failed_segment_list}")
+        message = f"Failed to decode audio segments: {failed_segment_list}"
+        raise ValueError(message)
 
     # Export to bytes
     output_io = io.BytesIO()

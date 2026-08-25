@@ -41,6 +41,7 @@ def _count_commit_calls(source: str) -> int:
 
 
 def scan() -> dict[str, int]:
+    """Scan source files for direct unit-of-work commit calls."""
     counts: dict[str, int] = {}
     for path in sorted(BACKEND_ROOT.rglob("*.py")):
         rel = path.relative_to(BACKEND_ROOT).as_posix()
@@ -53,6 +54,7 @@ def scan() -> dict[str, int]:
 
 
 def main() -> int:
+    """Report direct commits outside approved unit-of-work boundaries."""
     current = scan()
     if "--update" in sys.argv:
         BASELINE_PATH.write_text(

@@ -1,3 +1,5 @@
+"""Define persistence models for resources."""
+
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import TIMESTAMP, Column, Integer, String
@@ -5,6 +7,8 @@ from sqlalchemy.dialects.mysql import BIGINT
 
 
 class Resource(db.Model):
+    """Persist resource records."""
+
     __tablename__ = "resource"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     resource_id = Column(String(36), nullable=False, comment="Resource UUID")
@@ -26,6 +30,8 @@ class Resource(db.Model):
 
 
 class ResourceUsage(db.Model):
+    """Persist resource usage records."""
+
     __tablename__ = "resource_usage"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     usage_id = Column(String(36), nullable=False, comment="Usage UUID")

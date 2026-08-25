@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flask import Flask
-
 from .consts import BILLING_ORDER_STATUS_PAID
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
@@ -30,11 +28,15 @@ from .preorders import is_preorder_order as _is_preorder_order
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 if TYPE_CHECKING:
+    from flask import Flask
+
     from .models import BillingOrder
 
 
 @dataclass(slots=True, frozen=True)
 class BillingPaidOrderSideEffects:
+    """Coordinate side effects after a billing order is paid."""
+
     bill_order_bid: str = ""
     should_enqueue_subscription_purchase_sms: bool = False
     should_enqueue_billing_paid_feishu: bool = False

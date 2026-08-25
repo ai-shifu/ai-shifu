@@ -1,17 +1,21 @@
+"""Provide structured debug output for backend tests."""
+
 import pprint
-from typing import Any
 
 try:
     from objprint import op
 except Exception:  # pragma: no cover - fallback for test environment
 
-    def op(data, depth=10, width=120, elements=100):
+    def op(
+        data: object, depth: object = 10, width: object = 120, elements: object = 100
+    ) -> None:
+        _ = elements
         pp = pprint.PrettyPrinter(indent=2, depth=depth, width=width)
         pp.pprint(data)
 
 
 # python -m pytest tests/test_xxx.py::xxx -v -s --disable-warnings
-def dump(data: Any) -> None:
+def dump(data: object) -> None:
     print("\n=== Test Result ===")
 
     # Use objprint to display object structure
@@ -41,7 +45,9 @@ def dump(data: Any) -> None:
     print("=================\n")
 
 
-def _dump_object_details(obj: Any, max_depth: int = 3, current_depth: int = 0) -> None:
+def _dump_object_details(
+    obj: object, max_depth: int = 3, current_depth: int = 0
+) -> None:
     """Recursively display detailed information of objects."""
     if current_depth >= max_depth:
         print("  " * current_depth + "... (reached max depth)")
@@ -70,7 +76,7 @@ def _dump_object_details(obj: Any, max_depth: int = 3, current_depth: int = 0) -
                     )
 
 
-def dump_detailed(data: Any, include_methods: bool = False) -> None:
+def dump_detailed(data: object, include_methods: bool = False) -> None:
     """More detailed dump function, can choose whether to display methods."""
     print("\n=== Detailed Test Result ===")
 
@@ -95,7 +101,7 @@ def dump_detailed(data: Any, include_methods: bool = False) -> None:
     print("==================\n")
 
 
-def _dump_object_attributes(obj: Any, include_methods: bool = False) -> None:
+def _dump_object_attributes(obj: object, include_methods: bool = False) -> None:
     """Display all attributes and optional methods of an object."""
     print("Attributes:")
     for attr_name in dir(obj):

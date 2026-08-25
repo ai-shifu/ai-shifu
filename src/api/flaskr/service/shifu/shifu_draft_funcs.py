@@ -69,7 +69,7 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
 }
 
 
-def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
+def normalize_ask_provider_config(raw_config: object) -> dict[str, object]:
     """Normalize ask_provider_config into a stable object shape."""
     parsed: dict[str, Any] = {}
     if isinstance(raw_config, dict):
@@ -103,18 +103,20 @@ def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
     }
 
 
-def serialize_ask_provider_config(raw_config: Any) -> str:
+def serialize_ask_provider_config(raw_config: object) -> str:
     """Serialize ask_provider_config into canonical JSON for persistence."""
     normalized = normalize_ask_provider_config(raw_config)
     return json.dumps(normalized, ensure_ascii=False, sort_keys=True)
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
-    """Get the latest shifu draft
+    """Get the latest shifu draft.
+
     Args:
         shifu_id: Shifu ID
     Returns:
         DraftShifu: Shifu draft.
+
     """
     shifu_draft: DraftShifu = (
         DraftShifu.query.filter(
@@ -135,12 +137,15 @@ def return_shifu_draft_dto(
     can_manage_archive: bool = False,
     can_publish: bool = False,
 ) -> ShifuDetailDto:
-    """Return shifu draft dto
+    """Return shifu draft dto.
+
     Args:
         shifu_draft: Shifu draft
         base_url: Base URL to build shifu links
         readonly: Whether the current user has read-only permission
         archived_override: Optional override for archived state (per-user).
+        can_manage_archive: Whether the current user can manage archive state.
+        can_publish: Whether the current user can publish the shifu.
 
     Returns:
         ShifuDetailDto: Shifu detail dto
@@ -200,7 +205,9 @@ def return_shifu_draft_dto(
     )
 
 
-def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, bool]:
+def _get_user_archive_map(
+    app: object, user_id: str, shifu_ids: list[str]
+) -> dict[str, bool]:
     """Load per-user archive states for the given shifu ids."""
     if not shifu_ids:
         return {}
@@ -213,7 +220,7 @@ def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, 
 
 
 def create_shifu_draft(
-    app,
+    app: object,
     user_id: str,
     shifu_name: str,
     shifu_description: str,
@@ -222,8 +229,9 @@ def create_shifu_draft(
     shifu_model: str | None = None,
     shifu_temperature: float | None = None,
     shifu_price: float | None = None,
-):
-    """Create a shifu draft
+) -> ShifuDto:
+    """Create a shifu draft.
+
     Args:
         app: Flask application instance
         user_id: User ID
@@ -236,6 +244,7 @@ def create_shifu_draft(
         shifu_price: Shifu price
     Returns:
         ShifuDto: Shifu dto.
+
     """
     with app.app_context():
         total_started_at = perf_counter()
@@ -335,9 +344,10 @@ def create_shifu_draft(
 
 
 def get_shifu_draft_info(
-    app, user_id: str, shifu_id: str, base_url: str
+    app: object, user_id: str, shifu_id: str, base_url: str
 ) -> ShifuDetailDto:
-    """Get shifu draft info
+    """Get shifu draft info.
+
     Args:
         app: Flask application instance
         user_id: User ID
@@ -345,6 +355,7 @@ def get_shifu_draft_info(
         base_url: Base URL to build shifu links
     Returns:
         ShifuDetailDto: Shifu detail dto.
+
     """
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
@@ -375,7 +386,7 @@ def get_shifu_draft_info(
 
 
 def save_shifu_draft_info(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     shifu_name: str,
@@ -400,9 +411,10 @@ def save_shifu_draft_info(
     ask_model: str | None = None,
     ask_temperature: float | None = None,
     ask_system_prompt: str | None = None,
-    ask_provider_config: Any = None,
-):
-    """Save shifu draft info
+    ask_provider_config: object = None,
+) -> ShifuDetailDto:
+    """Save shifu draft info.
+
     Args:
         app: Flask application instance
         user_id: User ID
@@ -432,6 +444,7 @@ def save_shifu_draft_info(
         ask_provider_config: Ask provider config object or JSON string
     Returns:
         ShifuDetailDto: Shifu detail dto.
+
     """
     with app.app_context():
         total_started_at = perf_counter()
@@ -701,15 +714,16 @@ def save_shifu_draft_info(
 
 
 def get_shifu_draft_list(
-    app,
+    app: object,
     user_id: str,
     page_index: int,
     page_size: int,
     is_favorite: bool,
     archived: bool = False,
     creator_only: bool = False,
-):
-    """Get shifu draft list
+) -> PageNationDTO:
+    """Get shifu draft list.
+
     Args:
         app: Flask application instance
         user_id: User ID
@@ -720,6 +734,7 @@ def get_shifu_draft_list(
         creator_only: Only include shifus created by the user
     Returns:
         PageNationDTO: Page nation dto.
+
     """
     with app.app_context():
         page_index = max(page_index, 1)
@@ -874,12 +889,12 @@ def get_user_created_published_shifu_bids(app: Flask, user_id: str) -> list[str]
 
 
 def get_shifu_published_list(
-    app,
+    app: object,
     user_id: str,
     page_index: int,
     page_size: int,
     creator_only: bool = True,
-):
+) -> PageNationDTO:
     """Get published shifu list."""
     with app.app_context():
         page_index = max(page_index, 1)
@@ -941,7 +956,9 @@ def get_shifu_published_list(
         return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
-def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
+def _set_shifu_archive_state(
+    app: object, user_id: str, shifu_id: str, archived: bool
+) -> None:
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
@@ -976,9 +993,11 @@ def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
         db.session.commit()
 
 
-def archive_shifu(app, user_id: str, shifu_id: str):
+def archive_shifu(app: object, user_id: str, shifu_id: str) -> None:
+    """Archive shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=True)
 
 
-def unarchive_shifu(app, user_id: str, shifu_id: str):
+def unarchive_shifu(app: object, user_id: str, shifu_id: str) -> None:
+    """Restore shifu."""
     _set_shifu_archive_state(app, user_id, shifu_id, archived=False)

@@ -18,7 +18,6 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # Ensure `/app` (repo root for src/api) is on sys.path when executed as a file path.
 _API_ROOT = Path(__file__).resolve().parents[1]
@@ -49,7 +48,7 @@ ZH_TEXT = """在辅导过几十家企业、上万人用 AI 提升业绩、效率
 
 在实现这个目标的过程中，我慢慢发现，用好 AI 的前提是用户需要知道如何调教 AI，发挥 AI 的长处，弥补 AI 的短处。调教好了，可以一句话就让 AI 帮你完成繁琐的工作。
 
-这门课就是专门讲如何调教 AI 的，帮你成为 AI 的主人。而且，调教的思路非常符合人的直觉，最核心的只需要理解三件事："""
+这门课就是专门讲如何调教 AI 的，帮你成为 AI 的主人。而且，调教的思路非常符合人的直觉，最核心的只需要理解三件事："""  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 
 EN_TEXT = """I appreciate your insight in disagreeing with all three misconceptions! Your critical thinking shows real promise. Given your current understanding, this course might offer limited comprehensive help, but there could be some valuable insights in specific areas. Feel free to decide whether to continue based on your needs.
@@ -65,6 +64,8 @@ This course teaches how to train AI, helping you become the master of AI. Moreov
 
 @dataclass(frozen=True)
 class ReportRow:
+    """Represent one row in a TTS test report."""
+
     provider: str
     model: str
     voice_id: str
@@ -77,13 +78,14 @@ class ReportRow:
     error: str = ""
 
     def to_html_audio(self) -> str:
+        """Render this report row as an HTML audio control."""
         if not self.audio_url:
             return ""
         url = html.escape(self.audio_url, quote=True)
         return f'<audio controls preload="none" src="{url}"></audio>'
 
 
-def _safe_str(value: Any) -> str:
+def _safe_str(value: object) -> str:
     return ("" if value is None else str(value)).strip()
 
 
@@ -111,7 +113,7 @@ def _build_cases(*, provider_name: str, matrix: str) -> list[dict[str, str]]:
 
     cases: list[dict[str, str]] = []
 
-    def add_case(model_value: str, voice_value: str):
+    def add_case(model_value: str, voice_value: str) -> None:
         cases.append(
             {
                 "provider": provider_name,
@@ -251,7 +253,7 @@ def _render_html(rows: list[ReportRow], *, output_path: str) -> str:
     return str(out.resolve())
 
 
-def _escape_markdown_cell(value: Any) -> str:
+def _escape_markdown_cell(value: object) -> str:
     cell = _safe_str(value)
     if not cell:
         return ""
@@ -303,7 +305,8 @@ def _render_markdown(rows: list[ReportRow], *, output_path: str) -> str:
     return str(out.resolve())
 
 
-def main():
+def main() -> None:
+    """Generate the TTS comparison report from captured audio."""
     parser = argparse.ArgumentParser(description="Generate TTS provider HTML report")
     parser.add_argument(
         "--output",

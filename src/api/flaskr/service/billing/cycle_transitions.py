@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING
 
 from .consts import (
     BILLING_INTERVAL_DAY,
@@ -19,13 +18,17 @@ from .queries import (
     extract_resolved_order_cycle_start_at,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 def resolve_order_effective_from(
     *,
-    order: Any,
+    order: object,
     default_effective_from: datetime,
-    load_subscription_by_bid: Callable[[str], Any | None],
+    load_subscription_by_bid: Callable[[str], object | None],
 ) -> datetime:
+    """Resolve order effective from."""
     if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return default_effective_from
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
@@ -44,15 +47,16 @@ def resolve_order_effective_from(
 
 def resolve_order_effective_to(
     *,
-    order: Any,
-    product: Any,
+    order: object,
+    product: object,
     effective_from: datetime,
-    load_subscription_by_bid: Callable[[str], Any | None],
+    load_subscription_by_bid: Callable[[str], object | None],
     resolve_topup_effective_to: Callable[[str, datetime], datetime | None],
-    is_self_managed_order: Callable[[Any], bool],
-    calculate_provider_cycle_end: Callable[[Any, datetime], datetime | None],
-    calculate_self_managed_cycle_end: Callable[[Any, datetime], datetime | None],
+    is_self_managed_order: Callable[[object], bool],
+    calculate_provider_cycle_end: Callable[[object, datetime], datetime | None],
+    calculate_self_managed_cycle_end: Callable[[object, datetime], datetime | None],
 ) -> datetime | None:
+    """Resolve order effective to."""
     if order.order_type == BILLING_ORDER_TYPE_TOPUP:
         return resolve_topup_effective_to(order.creator_bid, effective_from)
 

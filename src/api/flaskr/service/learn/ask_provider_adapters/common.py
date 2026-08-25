@@ -4,7 +4,6 @@ import contextlib
 import json
 from collections.abc import Iterable
 from functools import lru_cache
-from typing import Any
 
 import requests
 from flaskr.service.config import get_config
@@ -92,8 +91,8 @@ def apply_knowledge_context(system_prompt: str, knowledge_context: str) -> str:
 
 
 def apply_knowledge_to_messages(
-    messages: list[dict[str, Any]], knowledge_context: str
-) -> list[dict[str, Any]]:
+    messages: list[dict[str, object]], knowledge_context: str
+) -> list[dict[str, object]]:
     """Return messages with the first system prompt carrying the knowledge.
 
     Without a system message, a new one is prepended only when there is
@@ -119,6 +118,7 @@ def apply_knowledge_to_messages(
 
 
 def provider_timeout_seconds() -> int:
+    """Return provider timeout seconds."""
     raw = get_config("ASK_PROVIDER_TIMEOUT_SECONDS")
     try:
         value = int(raw)
@@ -128,6 +128,7 @@ def provider_timeout_seconds() -> int:
 
 
 def iter_sse_payloads(response: requests.Response) -> Iterable[str]:
+    """Yield SSE payloads."""
     for line in response.iter_lines(decode_unicode=True):
         if not line:
             continue
@@ -138,7 +139,8 @@ def iter_sse_payloads(response: requests.Response) -> Iterable[str]:
             yield normalized
 
 
-def extract_text(payload: Any) -> str:
+def extract_text(payload: object) -> str:
+    """Extract text."""
     if isinstance(payload, str):
         return payload
     if isinstance(payload, list):
@@ -174,6 +176,7 @@ def extract_text(payload: Any) -> str:
 def raise_for_provider_response(
     response: requests.Response, provider: str
 ) -> requests.Response:
+    """Raise for provider response."""
     try:
         response.raise_for_status()
     except requests.HTTPError as exc:

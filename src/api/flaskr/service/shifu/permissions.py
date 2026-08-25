@@ -1,10 +1,15 @@
+"""Enforce course authoring and administration permissions."""
+
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 DEFAULT_SHIFU_PERMISSIONS = {"view", "edit", "publish"}
 
@@ -33,6 +38,7 @@ def _normalize_auth_types(raw_value: object) -> set[str]:
 
 def _auth_types_to_permissions(auth_types: set[str]) -> set[str]:
     """Map stored auth_type values (strings or numeric codes) to normalized permissions.
+
     Codes: 1=view, 2=edit, 4=publish.
     """
     perms: set[str] = set()

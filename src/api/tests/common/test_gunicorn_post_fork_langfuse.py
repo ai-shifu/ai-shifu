@@ -19,7 +19,7 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.util._once import Once
 
 
-def _reset_langfuse_after_fork():
+def _reset_langfuse_after_fork() -> None:
     # Mirrors the sequence in src/api/gunicorn.conf.py post_fork. Kept in
     # sync manually; the assertions below are what the hook relies on.
     LangfuseResourceManager._instances.clear()
@@ -28,7 +28,7 @@ def _reset_langfuse_after_fork():
 
 
 @pytest.fixture(autouse=True)
-def _clean_singletons():
+def _clean_singletons() -> object:
     _reset_langfuse_after_fork()
     yield
     _reset_langfuse_after_fork()
@@ -44,7 +44,7 @@ def _make_client() -> Langfuse:
     )
 
 
-def test_reset_clears_singleton_registry_and_rebuilds_resources():
+def test_reset_clears_singleton_registry_and_rebuilds_resources() -> None:
     client = _make_client()
     first_resources = client._resources
     assert LangfuseResourceManager._instances
@@ -60,7 +60,7 @@ def test_reset_clears_singleton_registry_and_rebuilds_resources():
     assert rebuilt._resources is not first_resources
 
 
-def test_reset_allows_registering_a_fresh_tracer_provider():
+def test_reset_allows_registering_a_fresh_tracer_provider() -> None:
     _make_client()
     first_provider = otel_trace_api.get_tracer_provider()
     assert not isinstance(first_provider, otel_trace_api.ProxyTracerProvider)

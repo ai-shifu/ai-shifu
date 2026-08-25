@@ -169,6 +169,7 @@
         "cancel": "Cancel",
         "configure": "Configure",
         "create": "Add price",
+        "restore": "Restore to draft",
         "retire": "Unlist",
         "saveDraft": "Save draft",
         "validate": "Check",
@@ -753,7 +754,9 @@
   "globalPricing": {
     "actions": {
       "buyCredits": "Buy credits",
+      "checkoutLoading": "Opening checkout...",
       "choosePlan": "Choose plan",
+      "cycleSwitchDisabled": "Cycle switch unavailable",
       "viewMonthly": "View monthly plan"
     },
     "annualSavings": "Save {amount} per year ({percent}%)",
@@ -761,6 +764,7 @@
     "audienceLabel": "Best suited for",
     "billedAnnually": "Billed {price} every 12 months",
     "cancelAnytime": "Billed monthly. Cancel anytime.",
+    "checkoutNotice": "Stripe checkout is available. You will be redirected to Stripe to complete payment.",
     "comingSoon": {
       "close": "Got it",
       "description": "We're building the payment experience. Please check back soon.",
@@ -945,6 +949,7 @@
       "currentUsing": "Current plan",
       "downgradeDisabled": "Downgrade unavailable",
       "freeTrial": "Inactive",
+      "monthlySwitchDisabled": "Monthly switch unavailable",
       "nonMemberTooltip": "You are currently on the non-member plan. No action is needed.",
       "preorderDowngrade": "Preorder downgrade",
       "preorderLocked": "Preorder locked",

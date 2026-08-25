@@ -1,9 +1,13 @@
+"""Optimize learner profiles through the shared LLM wrapper."""
+
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import (
+    Iterator,  # noqa: TC003 - private annotation is inspected at runtime
+)
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
@@ -20,6 +24,9 @@ from flaskr.service.profile.learner_profile import (
 )
 from flaskr.util.prompt_loader import load_prompt_template
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 LEARNER_PROFILE_OPTIMIZATION_TIMEOUT_SECONDS = 15
 LEARNER_PROFILE_OPTIMIZATION_MAX_TOKENS = 1200
 LEARNER_PROFILE_OPTIMIZATION_GENERATION_NAME = "learner_profile_optimize"
@@ -35,7 +42,7 @@ def _parse_optimized_profile(raw_response: str) -> str:
     return raw_response
 
 
-def _exception_chain(exc: BaseException):
+def _exception_chain(exc: BaseException) -> Iterator[BaseException]:
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:

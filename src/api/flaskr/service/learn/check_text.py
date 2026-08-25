@@ -1,3 +1,7 @@
+"""Moderate learner text with the configured LLM guardrail."""
+
+from collections.abc import Iterator
+
 from flask import Flask
 from flaskr.api.check import (
     CHECK_RESULT_PASS,
@@ -27,7 +31,7 @@ def check_text_with_llm_response(
     user_info: UserAggregate,
     log_script: LearnGeneratedBlock,
     user_input: str,
-    span,
+    span: object,
     outline_item_bid: str,
     shifu_bid: str,
     block_position: int,
@@ -37,7 +41,8 @@ def check_text_with_llm_response(
     usage_context: UsageContext,
     chapter_title: str = "",
     scene: str = "lesson_runtime",
-):
+) -> Iterator[str | None]:
+    """Check text with LLM response."""
     res = check_text(app, log_script.generated_block_bid, user_input, user_info.user_id)
     span.event(
         name=build_langfuse_event_name(chapter_title, scene, "check_text"),

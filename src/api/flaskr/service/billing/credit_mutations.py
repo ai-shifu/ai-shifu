@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -15,11 +14,15 @@ from .primitives import normalize_json_object, quantize_credit_amount, to_decima
 from .wallets import sync_credit_bucket_status
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from .models import CreditLedgerEntry, CreditWalletBucket
 
 
 @dataclass(slots=True, frozen=True)
 class CreditMutationResult:
+    """Capture wallet and ledger changes from one credit mutation."""
+
     mutation_type: str
     completed: bool
     status: str
@@ -31,6 +34,7 @@ class CreditMutationResult:
 
 
 def reserved_grant_state(grant_entry: CreditLedgerEntry) -> str:
+    """Return reserved grant state."""
     metadata = normalize_json_object(grant_entry.metadata_json)
     return str(metadata.get("bucket_credit_state") or "").strip().lower()
 

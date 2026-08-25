@@ -1,7 +1,9 @@
+"""Provide pytest fixtures for service creator analytics tests."""
+
 from __future__ import annotations
 
-from datetime import datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -27,6 +29,9 @@ from flaskr.service.shifu.models import (
 from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
 
 def _clear_tables() -> None:
     for model in (
@@ -50,7 +55,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_creator_analytics_tables(app):
+def _isolate_creator_analytics_tables(app: object) -> object:
     if app is None:
         yield
         return
@@ -62,7 +67,7 @@ def _isolate_creator_analytics_tables(app):
 
 
 @pytest.fixture
-def mock_request_user(monkeypatch):
+def mock_request_user(monkeypatch: object) -> object:
     """Return a helper that installs a fake authenticated user."""
 
     def _install(user_id: str = "teacher-1", is_creator: bool = True) -> None:
@@ -121,9 +126,11 @@ def seed_published_shifu(
     title: str = "Untitled",
     deleted: int = 0,
 ) -> None:
-    """Seed one PublishedShifu row. Pair with seed_owned_course when the test
-    needs both the draft and the published version of a course (e.g. to cover
-    the "draft title diverges from published title after rename" scenario).
+    """Seed one PublishedShifu row.
+
+    Pair with seed_owned_course when the test needs both the draft and the published version
+    of a course (e.g. to cover the "draft title diverges from published title after rename"
+    scenario).
     """
     now = now_utc()
     db.session.add(

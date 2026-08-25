@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
@@ -98,6 +96,11 @@ from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .wallets import _expire_credit_wallet_buckets_in_session
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
 
 _CLAIMABLE_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -241,6 +244,8 @@ def _fail_paid_renewal_activation_event(
 
 @dataclass(slots=True, frozen=True)
 class RenewalEventSnapshot:
+    """Capture a snapshot of renewal event."""
+
     renewal_event_bid: str | None
     subscription_bid: str | None
     creator_bid: str | None
@@ -252,6 +257,7 @@ class RenewalEventSnapshot:
     payload: Any
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "renewal_event_bid": self.renewal_event_bid,
             "subscription_bid": self.subscription_bid,
@@ -264,12 +270,15 @@ class RenewalEventSnapshot:
             "payload": self.payload,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class RenewalEventResult:
+    """Capture the outcome recorded for a renewal event."""
+
     status: str
     event: RenewalEventSnapshot | None = None
     renewal_event_bid: str | None = None
@@ -282,6 +291,7 @@ class RenewalEventResult:
     order_status: int | None = None
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         payload: dict[str, Any] = {"status": self.status}
         if self.event is not None:
             payload.update(self.event.to_payload())
@@ -305,7 +315,8 @@ class RenewalEventResult:
             payload["order_status"] = self.order_status
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 

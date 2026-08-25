@@ -1,3 +1,5 @@
+"""Verify TTS usage recorder behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -10,7 +12,7 @@ from flaskr.service.tts.tts_usage_recorder import (
 )
 
 
-def _voice_settings():
+def _voice_settings() -> object:
     return SimpleNamespace(
         voice_id="voice-1",
         speed=1.0,
@@ -20,13 +22,13 @@ def _voice_settings():
     )
 
 
-def _audio_settings():
+def _audio_settings() -> object:
     return SimpleNamespace(format="mp3", sample_rate=32000)
 
 
 def test_record_tts_usage_persists_supplied_output_without_provider_mapping(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     captured = {}
     enqueued = []
@@ -35,9 +37,14 @@ def test_record_tts_usage_persists_supplied_output_without_provider_mapping(
         "flaskr.service.metering.recorder.generate_id",
         lambda _app: "usage-tts-explicit-output",
     )
+
+    def resolve_billable(app: object, *, context: object, usage_scene: int) -> int:
+        del app, context, usage_scene
+        return 1
+
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._resolve_billable",
-        lambda _app, *, context, usage_scene: 1,
+        resolve_billable,
     )
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._persist_usage_record",
@@ -70,7 +77,9 @@ def test_record_tts_usage_persists_supplied_output_without_provider_mapping(
     assert enqueued == ["usage-tts-explicit-output"]
 
 
-def test_record_tts_segment_usage_uses_usage_characters_for_output(monkeypatch):
+def test_record_tts_segment_usage_uses_usage_characters_for_output(
+    monkeypatch: object,
+) -> None:
     captured = {}
 
     monkeypatch.setattr(
@@ -102,7 +111,9 @@ def test_record_tts_segment_usage_uses_usage_characters_for_output(monkeypatch):
     assert kwargs["word_count"] == 52
 
 
-def test_record_tts_segment_usage_falls_back_to_local_length(monkeypatch):
+def test_record_tts_segment_usage_falls_back_to_local_length(
+    monkeypatch: object,
+) -> None:
     captured = {}
 
     monkeypatch.setattr(
@@ -133,7 +144,9 @@ def test_record_tts_segment_usage_falls_back_to_local_length(monkeypatch):
     assert kwargs["word_count"] == 2
 
 
-def test_record_tts_aggregated_usage_uses_total_usage_characters(monkeypatch):
+def test_record_tts_aggregated_usage_uses_total_usage_characters(
+    monkeypatch: object,
+) -> None:
     captured = {}
 
     monkeypatch.setattr(

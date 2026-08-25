@@ -12,7 +12,7 @@ from flaskr.service.common.models import AppError
 
 
 @pytest.fixture
-def login_methods(monkeypatch):
+def login_methods(monkeypatch: object) -> object:
     def _set(value: str) -> None:
         monkeypatch.setattr(
             contact_identifiers,
@@ -26,28 +26,36 @@ def login_methods(monkeypatch):
 
 
 class TestResolveEnabledContactTypes:
-    def test_google_login_implies_email(self, login_methods) -> None:
+    """Verify resolve enabled contact types behavior."""
+
+    def test_google_login_implies_email(self, login_methods: object) -> None:
         login_methods("google")
         assert contact_identifiers.resolve_enabled_contact_types() == {"email"}
 
-    def test_phone_only_deployment(self, login_methods) -> None:
+    def test_phone_only_deployment(self, login_methods: object) -> None:
         login_methods("phone,password")
         assert contact_identifiers.resolve_enabled_contact_types() == {"phone"}
 
-    def test_mixed_deployment_keeps_both(self, login_methods) -> None:
+    def test_mixed_deployment_keeps_both(self, login_methods: object) -> None:
         login_methods("phone,email")
         assert contact_identifiers.resolve_enabled_contact_types() == {
             "phone",
             "email",
         }
 
-    def test_unrecognized_methods_fall_back_to_phone(self, login_methods) -> None:
+    def test_unrecognized_methods_fall_back_to_phone(
+        self, login_methods: object
+    ) -> None:
         login_methods("wechat")
         assert contact_identifiers.resolve_enabled_contact_types() == {"phone"}
 
 
 class TestResolveContactType:
-    def test_single_enabled_type_wins_over_the_value(self, login_methods) -> None:
+    """Verify resolve contact type behavior."""
+
+    def test_single_enabled_type_wins_over_the_value(
+        self, login_methods: object
+    ) -> None:
         # A malformed value must still fail with the error operators expect,
         # so the deployment's only contact type decides before the "@" check.
         login_methods("phone")
@@ -55,13 +63,17 @@ class TestResolveContactType:
         login_methods("google")
         assert contact_identifiers.resolve_contact_type("13800138000") == "email"
 
-    def test_mixed_deployment_infers_from_the_value(self, login_methods) -> None:
+    def test_mixed_deployment_infers_from_the_value(
+        self, login_methods: object
+    ) -> None:
         login_methods("phone,email")
         assert contact_identifiers.resolve_contact_type("a@b.com") == "email"
         assert contact_identifiers.resolve_contact_type("13800138000") == "phone"
 
 
 class TestValidateContactIdentifier:
+    """Verify validate contact identifier behavior."""
+
     def test_email_is_lowercased_and_trimmed(self) -> None:
         assert (
             contact_identifiers.validate_contact_identifier(
@@ -97,6 +109,8 @@ class TestValidateContactIdentifier:
 
 
 class TestResolveContactLookupProviders:
+    """Verify resolve contact lookup providers behavior."""
+
     def test_email_also_matches_google_accounts(self) -> None:
         assert contact_identifiers.resolve_contact_lookup_providers("email") == [
             "email",

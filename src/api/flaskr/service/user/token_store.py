@@ -1,18 +1,25 @@
+"""Define token lookup and persistence provider contracts."""
+
 from __future__ import annotations
 
 import contextlib
 import datetime
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db
 from flaskr.service.user.models import UserToken as UserTokenModel
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 @dataclass(frozen=True)
 class TokenLookupResult:
+    """Capture a stored token and its expiration state."""
+
     user_id: str
 
 
@@ -25,6 +32,7 @@ class TokenStoreProvider:
     """
 
     def __init__(self) -> None:
+        """Bind the shared cache provider used for token lookup acceleration."""
         self._cache = cache
 
     def _cache_key(self, app: Flask, token: str) -> str:
@@ -32,6 +40,7 @@ class TokenStoreProvider:
         return f"{prefix}{token}"
 
     def save(self, app: Flask, *, user_id: str, token: str, ttl_seconds: int) -> None:
+        """Persist the current token value."""
         if not user_id or not token:
             return
 
@@ -66,6 +75,11 @@ class TokenStoreProvider:
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
     ) -> TokenLookupResult | None:
+        """Validate a token and return its user lookup result.
+
+        Cache hits renew only the cache TTL. Database hits extend the persisted expiry
+        and repopulate the cache.
+        """
         if not token or not expected_user_id:
             return None
 

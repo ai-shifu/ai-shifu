@@ -13,6 +13,7 @@ LOCALES_FILE = I18N_DIR / "locales.json"
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for translation-namespace creation."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "namespace",
@@ -33,21 +34,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def iter_locale_dirs() -> list[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
-        raise RuntimeError(f"Translation directory not found: {I18N_DIR}")
+        message = f"Translation directory not found: {I18N_DIR}"
+        raise RuntimeError(message)
 
     locales = [entry for entry in I18N_DIR.iterdir() if entry.is_dir()]
     if not locales:
-        raise RuntimeError(f"No locale directories present under {I18N_DIR}")
+        message = f"No locale directories present under {I18N_DIR}"
+        raise RuntimeError(message)
     return sorted(locales, key=lambda p: p.name)
 
 
 def namespace_to_path(namespace: str) -> Path:
+    """Return namespace to path."""
     relative = namespace.replace(".", "/").replace("\\", "/")
     return Path(relative)
 
 
 def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) -> None:
+    """Ensure namespace files."""
     relative_path = namespace_to_path(namespace)
     locale_dirs = iter_locale_dirs()
 
@@ -59,7 +65,8 @@ def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) 
         target_path = (locale_dir / relative_path).with_suffix(".json")
         target_path.parent.mkdir(parents=True, exist_ok=True)
         if target_path.exists() and not force:
-            raise RuntimeError(f"Translation file already exists: {target_path}")
+            message = f"Translation file already exists: {target_path}"
+            raise RuntimeError(message)
         target_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -69,12 +76,14 @@ def ensure_namespace_files(namespace: str, keys: list[str] | None, force: bool) 
 
 
 def update_locales_metadata(namespace: str) -> None:
+    """Update locales metadata."""
     data = {"locales": {}, "namespaces": []}
     if LOCALES_FILE.exists():
         try:
             data = json.loads(LOCALES_FILE.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Invalid JSON in {LOCALES_FILE}: {exc}") from exc
+            message = f"Invalid JSON in {LOCALES_FILE}: {exc}"
+            raise RuntimeError(message) from exc
 
     namespaces = set(data.get("namespaces", []))
     namespaces.add(namespace)
@@ -87,6 +96,7 @@ def update_locales_metadata(namespace: str) -> None:
 
 
 def main() -> int:
+    """Create a shared translation namespace in every locale."""
     args = parse_args()
     try:
         ensure_namespace_files(args.namespace, args.keys, args.force)

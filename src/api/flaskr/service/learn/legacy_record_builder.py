@@ -1,7 +1,8 @@
+"""Build legacy record for learning sessions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from flaskr.service.learn.block_type_mapping import (
     CONTENT_LIKE_BLOCK_TYPES,
@@ -20,6 +21,8 @@ from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 @dataclass
 class LegacyGeneratedBlockRecord:
+    """Record legacy generated block details."""
+
     generated_block_bid: str
     content: str
     like_status: LikeStatus
@@ -29,6 +32,7 @@ class LegacyGeneratedBlockRecord:
     audios: list[AudioCompleteDTO] | None = None
 
     def __json__(self) -> dict:
+        """Return the legacy generated block record as JSON-compatible data."""
         ret = {
             "generated_block_bid": self.generated_block_bid,
             "content": self.content,
@@ -49,20 +53,23 @@ class LegacyGeneratedBlockRecord:
 
 @dataclass
 class LegacyLearnRecord:
+    """Record legacy learn details."""
+
     records: list[LegacyGeneratedBlockRecord]
 
     def __json__(self) -> dict:
+        """Return the legacy learn record as JSON-compatible data."""
         return {
             "records": self.records,
         }
 
 
-def _set_stat(stats: Any | None, field_name: str, value: int) -> None:
+def _set_stat(stats: object | None, field_name: str, value: int) -> None:
     if stats is not None and hasattr(stats, field_name):
         setattr(stats, field_name, int(value))
 
 
-def _inc_stat(stats: Any | None, field_name: str, delta: int = 1) -> None:
+def _inc_stat(stats: object | None, field_name: str, delta: int = 1) -> None:
     if stats is not None and hasattr(stats, field_name):
         current = int(getattr(stats, field_name, 0) or 0)
         setattr(stats, field_name, current + int(delta))
@@ -78,8 +85,9 @@ def build_legacy_record_for_progress(
     dedupe_blocks_by_bid: bool = False,
     dedupe_audio_by_block_position: bool = False,
     skip_empty_content: bool = False,
-    stats: Any | None = None,
+    stats: object | None = None,
 ) -> LegacyLearnRecord:
+    """Build legacy record for progress."""
     filters = [
         LearnGeneratedBlock.progress_record_bid == progress_record.progress_record_bid,
         LearnGeneratedBlock.deleted == 0,

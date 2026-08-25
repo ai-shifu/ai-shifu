@@ -26,20 +26,18 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_side_effects(monkeypatch):
-    """Drop the external risk check and history machinery: these tests only
-    exercise position allocation and publishability.
-    """
+def _isolate_side_effects(monkeypatch: object) -> None:
+    """Drop the external risk check and history machinery: these tests only exercise position allocation and publishability."""
     monkeypatch.setattr(
         shifu_outline_funcs,
         "check_text_with_risk_control",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
     monkeypatch.setattr(
         shifu_outline_funcs,
         "save_new_outline_history",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
 
@@ -68,7 +66,7 @@ def _positions(shifu_bid: str) -> list[str]:
     return [r.position for r in rows]
 
 
-def test_batch_assigns_unique_sequential_positions(app):
+def test_batch_assigns_unique_sequential_positions(app: object) -> None:
     shifu_bid = "shifu_batch_1"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -97,7 +95,7 @@ def test_batch_assigns_unique_sequential_positions(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_of_many_siblings_never_collides(app):
+def test_batch_of_many_siblings_never_collides(app: object) -> None:
     shifu_bid = "shifu_batch_many"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -114,7 +112,7 @@ def test_batch_of_many_siblings_never_collides(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_nested_under_existing_parent(app):
+def test_batch_nested_under_existing_parent(app: object) -> None:
     shifu_bid = "shifu_batch_parent"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -132,7 +130,7 @@ def test_batch_nested_under_existing_parent(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_sequential_single_creates_still_increment(app):
+def test_sequential_single_creates_still_increment(app: object) -> None:
     shifu_bid = "shifu_single_seq"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -144,7 +142,7 @@ def test_sequential_single_creates_still_increment(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_batch_risk_checks_every_node(app, monkeypatch):
+def test_batch_risk_checks_every_node(app: object, monkeypatch: object) -> None:
     """Every node (including nested children) is risk-checked exactly once.
 
     The check runs before the per-shifu lock is taken, so no external network
@@ -155,7 +153,7 @@ def test_batch_risk_checks_every_node(app, monkeypatch):
     monkeypatch.setattr(
         shifu_outline_funcs,
         "check_text_with_risk_control",
-        lambda app, bid, user_id, text: checked.append(text),
+        lambda _app, _bid, _user_id, text: checked.append(text),
         raising=True,
     )
     with app.app_context():
@@ -173,7 +171,7 @@ def test_batch_risk_checks_every_node(app, monkeypatch):
     assert len(checked) == 4
 
 
-def test_batch_rejects_empty_payload(app):
+def test_batch_rejects_empty_payload(app: object) -> None:
     shifu_bid = "shifu_batch_empty"
     with app.app_context():
         _seed_shifu(shifu_bid)

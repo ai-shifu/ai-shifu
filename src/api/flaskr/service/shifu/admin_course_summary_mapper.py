@@ -1,6 +1,6 @@
-from __future__ import annotations
+"""Handle admin course summary mapper for course authoring."""
 
-from typing import Any
+from __future__ import annotations
 
 from flask import current_app
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
@@ -8,12 +8,13 @@ from flaskr.service.shifu.admin_shared import _format_decimal
 
 
 def build_admin_operation_course_summary(
-    course,
+    course: object,
     *,
     user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: dict[str, Any] | None = None,
+    activity: dict[str, object] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
+    """Build admin operation course summary."""
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
     llm_model = str(course.llm or "").strip()

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.framework.plugin.plugin_manager import get_plugin_manager
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass(slots=True, frozen=True)
 class PostAuthContext:
+    """Carry context for post auth."""
+
     user_id: str
     source: str
     login_context: str | None = None

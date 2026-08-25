@@ -23,6 +23,7 @@ REQUEST_ID_KEYS = {
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build parser."""
     parser = argparse.ArgumentParser(
         description=(
             "Write artifacts/runs/<run-id>/trace-run.json from browser "
@@ -81,14 +82,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def utc_now_iso() -> str:
+    """Return the current UTC time as ISO-8601 text."""
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def default_run_id() -> str:
+    """Build the default trace run identifier."""
     return "run-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def safe_relative(path: Path) -> str:
+    """Return safe relative."""
     resolved = path.resolve()
     try:
         return str(resolved.relative_to(ROOT))
@@ -97,11 +101,13 @@ def safe_relative(path: Path) -> str:
 
 
 def normalize_run_id(value: str) -> str:
+    """Normalize run ID."""
     cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "-", value.strip())
     return cleaned.strip("-") or default_run_id()
 
 
-def read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+def read_json(path: Path) -> tuple[dict[str, object] | None, str | None]:
+    """Read JSON."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -111,10 +117,11 @@ def read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     return payload, None
 
 
-def collect_request_ids(value: Any) -> list[str]:
+def collect_request_ids(value: object) -> list[str]:
+    """Collect request IDs."""
     found: list[str] = []
 
-    def visit(node: Any) -> None:
+    def visit(node: object) -> None:
         if isinstance(node, dict):
             for key, child in node.items():
                 normalized_key = str(key).replace("_", "").replace("-", "").lower()
@@ -140,6 +147,7 @@ def discover_browser_diagnostics(
     *,
     skip_scan: bool,
 ) -> list[Path]:
+    """Discover browser diagnostics."""
     paths: list[Path] = []
     for raw_path in explicit_paths:
         path = Path(raw_path)
@@ -158,7 +166,8 @@ def discover_browser_diagnostics(
 
 def load_browser_diagnostics(
     paths: list[Path],
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Load browser diagnostics."""
     diagnostics: list[dict[str, Any]] = []
     request_ids: list[str] = []
     for path in paths:
@@ -190,7 +199,8 @@ def run_backend_diagnostics(
     request_id: str,
     *,
     timeout_seconds: int,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Run backend diagnostics."""
     script = ROOT / "src" / "api" / "scripts" / "harness_diagnostics.py"
     command = [
         sys.executable,
@@ -236,7 +246,8 @@ def run_backend_diagnostics(
     return entry
 
 
-def build_artifact(args: argparse.Namespace) -> tuple[dict[str, Any], Path, bool]:
+def build_artifact(args: argparse.Namespace) -> tuple[dict[str, object], Path, bool]:
+    """Build artifact."""
     run_id = normalize_run_id(args.run_id or default_run_id())
     run_dir = Path(args.artifacts_root)
     if not run_dir.is_absolute():
@@ -301,6 +312,7 @@ def build_artifact(args: argparse.Namespace) -> tuple[dict[str, Any], Path, bool
 
 
 def main() -> int:
+    """Capture one runtime trace and its linked diagnostics."""
     parser = build_parser()
     args = parser.parse_args()
     if args.backend_timeout_seconds <= 0:

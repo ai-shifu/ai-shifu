@@ -1,3 +1,5 @@
+"""Verify billing tasks behavior."""
+
 from __future__ import annotations
 
 import json
@@ -8,6 +10,7 @@ import types
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flask import Flask
@@ -59,9 +62,12 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYP
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.datetime import now_utc
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_task_integration_app(tmp_path):
+def billing_task_integration_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-task.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -88,7 +94,7 @@ def billing_task_integration_app(tmp_path):
 
 def _install_fake_app_module(
     monkeypatch: pytest.MonkeyPatch,
-    app,
+    app: object,
 ) -> None:
     monkeypatch.setitem(
         sys.modules,
@@ -105,7 +111,7 @@ def test_settle_usage_task_calls_settlement_engine(
 
     captured: dict[str, object] = {}
 
-    def _fake_settle_bill_usage(app, *, usage_bid: str = ""):
+    def _fake_settle_bill_usage(app: object, *, usage_bid: str = "") -> object:
         captured["app"] = app
         captured["usage_bid"] = usage_bid
         return {
@@ -140,7 +146,7 @@ def test_settle_usage_task_normalizes_empty_creator_bid(
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
-        lambda app, *, usage_bid="": {"status": "noop", "usage_bid": usage_bid},
+        lambda _app, *, usage_bid="": {"status": "noop", "usage_bid": usage_bid},
     )
 
     payload = settle_usage_task(creator_bid="  ", usage_bid="usage-task-2")
@@ -159,12 +165,12 @@ def test_aggregate_daily_usage_metrics_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_aggregate_daily_usage_metrics(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
         finalize: bool = False,
-    ):
+    ) -> object:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -206,12 +212,12 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_aggregate_daily_ledger_summary(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
         finalize: bool = False,
-    ):
+    ) -> object:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -256,11 +262,11 @@ def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
         return datetime(2026, 5, 22, 2, 0, 0)
 
     def _fake_finalize_daily_ledger_summary(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
-    ):
+    ) -> object:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -297,11 +303,11 @@ def test_finalize_daily_ledger_summary_task_accepts_explicit_stat_date(
     captured: dict[str, object] = {}
 
     def _fake_finalize_daily_ledger_summary(
-        app,
+        app: object,
         *,
         stat_date: str = "",
         creator_bid: str = "",
-    ):
+    ) -> object:
         captured["app"] = app
         captured["stat_date"] = stat_date
         captured["creator_bid"] = creator_bid
@@ -340,13 +346,13 @@ def test_rebuild_daily_aggregates_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_rebuild_daily_aggregates(
-        app,
+        app: object,
         *,
         creator_bid: str = "",
         shifu_bid: str = "",
         date_from: str = "",
         date_to: str = "",
-    ):
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["shifu_bid"] = shifu_bid
@@ -392,13 +398,13 @@ def test_verify_domain_binding_task_calls_helper(
     captured: dict[str, object] = {}
 
     def _fake_verify_domain_binding(
-        app,
+        app: object,
         *,
         creator_bid: str = "",
         domain_binding_bid: str = "",
         host: str = "",
         verification_token: str = "",
-    ):
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["domain_binding_bid"] = domain_binding_bid
@@ -454,7 +460,9 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self._events = events
             self._second_attempted = second_attempted
 
-        def acquire(self, blocking: bool = True, blocking_timeout=None):
+        def acquire(
+            self, blocking: bool = True, blocking_timeout: object = None
+        ) -> object:
             self._events.append(
                 {
                     "type": "attempt",
@@ -504,7 +512,12 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
             self.events: list[dict[str, object]] = []
             self.second_attempted = threading.Event()
 
-        def lock(self, key: str, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: str,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
             del timeout, blocking_timeout
             with self._guard:
                 raw_lock = self._locks.setdefault(key, threading.Lock())
@@ -518,7 +531,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.settlement.resolve_usage_creator_bid",
-        lambda app, usage: "creator-concurrent-1",
+        lambda _app, _usage: "creator-concurrent-1",
     )
     dummy_cache = _ThreadLockCacheProvider()
     monkeypatch.setattr("flaskr.service.billing.settlement.cache_provider", dummy_cache)
@@ -530,7 +543,7 @@ def test_settle_usage_task_serializes_same_creator_concurrent_usage(
 
     original_build_usage_metric_charges = settlement_module.build_usage_metric_charges
 
-    def _blocking_build_usage_metric_charges(*args, **kwargs):
+    def _blocking_build_usage_metric_charges(*args: object, **kwargs: object) -> object:
         usage = args[0]
         if usage.usage_bid == "usage-concurrent-1":
             entered_first_charge.set()
@@ -749,12 +762,12 @@ def test_replay_usage_settlement_task_calls_replay_helper(
     captured: dict[str, object] = {}
 
     def _fake_replay_bill_usage_settlement(
-        app,
+        app: object,
         *,
         creator_bid: str = "",
         usage_bid: str = "",
-        usage_id=None,
-    ):
+        usage_id: object = None,
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["usage_bid"] = usage_bid
@@ -795,7 +808,9 @@ def test_expire_wallet_buckets_task_calls_wallet_helper(
 
     captured: dict[str, object] = {}
 
-    def _fake_expire_credit_wallet_buckets(app, *, creator_bid="", expire_before=None):
+    def _fake_expire_credit_wallet_buckets(
+        app: object, *, creator_bid: object = "", expire_before: object = None
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["expire_before"] = expire_before
@@ -850,7 +865,9 @@ def test_expire_pending_orders_task_delegates_to_sync_flow(
 
     captured: dict[str, object] = {}
 
-    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+    def _fake_sync_billing_order(
+        app: object, creator_bid: str, bill_order_bid: str, payload: object
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["bill_order_bid"] = bill_order_bid
@@ -919,7 +936,9 @@ def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
 
     captured: dict[str, object] = {}
 
-    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+    def _fake_sync_billing_order(
+        app: object, creator_bid: str, bill_order_bid: str, payload: object
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["bill_order_bid"] = bill_order_bid
@@ -1037,6 +1056,7 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
             self._key = key
 
         def acquire(self, blocking: bool = True) -> bool:
+            _ = blocking
             events.append(("acquire", self._key))
             return True
 
@@ -1044,7 +1064,13 @@ def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
             events.append(("release", self._key))
 
     class _RecordingCache:
-        def lock(self, key, timeout=None, blocking_timeout=None):
+        def lock(
+            self,
+            key: object,
+            timeout: object = None,
+            blocking_timeout: object = None,
+        ) -> object:
+            _ = (timeout, blocking_timeout)
             return _RecordingLock(key)
 
     monkeypatch.setattr(checkout_mod.cache_provider, "cache", _RecordingCache())
@@ -1096,14 +1122,14 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     captured: dict[str, object] = {}
 
     def _fake_run_reconcile_provider_reference(
-        app,
+        app: object,
         *,
-        creator_bid="",
-        payment_provider="",
-        provider_reference_id="",
-        bill_order_bid="",
-        session_id="",
-    ):
+        creator_bid: object = "",
+        payment_provider: object = "",
+        provider_reference_id: object = "",
+        bill_order_bid: object = "",
+        session_id: object = "",
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["payment_provider"] = payment_provider
@@ -1168,13 +1194,13 @@ def test_send_low_balance_alert_task_preserves_legacy_name_and_delegates_scan(
 
 
 def test_dispatch_due_renewal_events_task_noops_when_disabled(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 0,
                 "batch_size": 5,
@@ -1186,7 +1212,7 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
 
     called = {"apply_async": 0}
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs: object = None, **options: object) -> None:
         del kwargs, options
         called["apply_async"] += 1
 
@@ -1205,13 +1231,13 @@ def test_dispatch_due_renewal_events_task_noops_when_disabled(
 
 
 def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 1,
                 "batch_size": 2,
@@ -1328,7 +1354,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs: object = None, **options: object) -> None:
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1366,13 +1392,13 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
 
 
 def test_dispatch_due_renewal_events_recovers_stale_processing_events(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 1,
                 "batch_size": 5,
@@ -1419,7 +1445,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs: object = None, **options: object) -> None:
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1460,13 +1486,13 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
 
 
 def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
-    billing_task_integration_app,
+    billing_task_integration_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_app_module(monkeypatch, billing_task_integration_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.get_config",
-        lambda key, default="": json.dumps(
+        lambda _key, _default="": json.dumps(
             {
                 "enabled": 1,
                 "batch_size": 5,
@@ -1497,7 +1523,7 @@ def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
 
     captured_calls: list[dict[str, object]] = []
 
-    def _fake_apply_async(*, kwargs=None, **options):
+    def _fake_apply_async(*, kwargs: object = None, **options: object) -> None:
         captured_calls.append(
             {
                 "kwargs": dict(kwargs or {}),
@@ -1530,7 +1556,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
-        lambda app, *, usage_bid="": {
+        lambda _app, *, usage_bid="": {
             "status": "settled",
             "usage_bid": usage_bid,
             "creator_bid": "creator-json-1",
@@ -1538,7 +1564,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.expire_credit_wallet_buckets",
-        lambda app, *, creator_bid="", expire_before=None: {
+        lambda _app, *, creator_bid="", expire_before=None: {
             "status": "expired",
             "creator_bid": creator_bid,
             "expire_before": expire_before.isoformat() if expire_before else None,
@@ -1546,7 +1572,7 @@ def test_billing_task_entrypoints_return_json_serializable_payloads(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks._run_reconcile_provider_reference",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "paid",
             "bill_order_bid": kwargs.get("bill_order_bid"),
         },
@@ -1578,7 +1604,7 @@ def test_run_renewal_event_task_delegates_to_renewal_runner(
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.run_billing_renewal_event",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "applied",
             "renewal_event_bid": kwargs["renewal_event_bid"],
             "event_status": "succeeded",
@@ -1606,14 +1632,14 @@ def test_retry_failed_renewal_task_reuses_reconcile_helper_when_reference_exists
     captured: dict[str, object] = {}
 
     def _fake_run_reconcile_provider_reference(
-        app,
+        app: object,
         *,
-        creator_bid="",
-        payment_provider="",
-        provider_reference_id="",
-        bill_order_bid="",
-        session_id="",
-    ):
+        creator_bid: object = "",
+        payment_provider: object = "",
+        provider_reference_id: object = "",
+        bill_order_bid: object = "",
+        session_id: object = "",
+    ) -> object:
         captured["app"] = app
         captured["creator_bid"] = creator_bid
         captured["payment_provider"] = payment_provider
@@ -1655,7 +1681,7 @@ def test_retry_failed_renewal_task_delegates_to_renewal_helper_without_reference
     _install_fake_app_module(monkeypatch, fake_app)
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.retry_billing_renewal_event",
-        lambda app, **kwargs: {
+        lambda _app, **kwargs: {
             "status": "paid",
             "bill_order_bid": "bill-order-task-retry-auto",
             "renewal_event_bid": kwargs["renewal_event_bid"],

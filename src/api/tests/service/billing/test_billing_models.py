@@ -1,3 +1,5 @@
+"""Verify billing persistence-model behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -197,7 +199,7 @@ def test_billing_provider_price_status_constants_remain_stable() -> None:
 
 
 def test_provider_price_constraints_allow_shared_product_with_distinct_prices(
-    app,
+    app: object,
 ) -> None:
     with app.app_context():
         db.session.add_all(
@@ -230,7 +232,9 @@ def test_provider_price_constraints_allow_shared_product_with_distinct_prices(
         }
 
 
-def test_provider_price_constraints_reject_duplicate_provider_price(app) -> None:
+def test_provider_price_constraints_reject_duplicate_provider_price(
+    app: object,
+) -> None:
     with app.app_context():
         db.session.add(
             _provider_price(
@@ -253,7 +257,9 @@ def test_provider_price_constraints_reject_duplicate_provider_price(app) -> None
         db.session.rollback()
 
 
-def test_provider_price_constraints_allow_repeated_soft_delete_lifecycle(app) -> None:
+def test_provider_price_constraints_allow_repeated_soft_delete_lifecycle(
+    app: object,
+) -> None:
     with app.app_context():
         first = _provider_price(
             provider_price_bid="provider-price-lifecycle-1",
@@ -284,7 +290,9 @@ def test_provider_price_constraints_allow_repeated_soft_delete_lifecycle(app) ->
         assert {row.deleted for row in rows} == {1}
 
 
-def test_provider_price_constraints_reject_second_active_price_for_sku(app) -> None:
+def test_provider_price_constraints_reject_second_active_price_for_sku(
+    app: object,
+) -> None:
     with app.app_context():
         db.session.add(
             _provider_price(
@@ -309,7 +317,7 @@ def test_provider_price_constraints_reject_second_active_price_for_sku(app) -> N
         db.session.rollback()
 
 
-def test_provider_price_constraints_allow_multiple_drafts_for_sku(app) -> None:
+def test_provider_price_constraints_allow_multiple_drafts_for_sku(app: object) -> None:
     with app.app_context():
         db.session.add_all(
             [

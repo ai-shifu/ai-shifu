@@ -10,7 +10,6 @@ API reference: https://www.biji.com/openapi
 """
 
 from collections.abc import Generator
-from typing import Any
 
 import requests
 from flask import Flask
@@ -33,11 +32,11 @@ DEFAULT_TOP_K = 5
 MAX_TOP_K = 10
 
 
-def _normalize_text(value: Any) -> str:
+def _normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _top_k_value(value: Any) -> int:
+def _top_k_value(value: object) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -61,7 +60,7 @@ def _user_message_for_error(code: str, reason: str) -> str | None:
     return None
 
 
-def _raise_for_api_error(payload: Any) -> None:
+def _raise_for_api_error(payload: object) -> None:
     if not isinstance(payload, dict):
         return
     if payload.get("success") is not False:
@@ -78,13 +77,14 @@ def _raise_for_api_error(payload: Any) -> None:
     if not message:
         message = extract_text(error) or extract_text(payload) or str(payload)
     detail = f"{message} (reason: {reason})" if reason else message
+    error_message = f"get_biji_knowledge error: {detail}"
     raise AskProviderError(
-        f"get_biji_knowledge error: {detail}",
+        error_message,
         user_message=_user_message_for_error(code, reason),
     )
 
 
-def _extract_results(payload: Any) -> list[Any]:
+def _extract_results(payload: object) -> list[object]:
     if not isinstance(payload, dict):
         return []
     data = payload.get("data")
@@ -93,7 +93,7 @@ def _extract_results(payload: Any) -> list[Any]:
     return []
 
 
-def _format_result(index: int, result: Any) -> str:
+def _format_result(index: int, result: object) -> str:
     if not isinstance(result, dict):
         content = extract_text(result) or _normalize_text(result)
         return f"{index}. {content}".strip() if content else ""
@@ -115,6 +115,8 @@ def _format_result(index: int, result: Any) -> str:
 
 
 class GetBijiKnowledgeAskProviderAdapter:
+    """Adapt Get Biji knowledge responses to the common ask stream."""
+
     provider = ASK_PROVIDER_GET_BIJI_KNOWLEDGE
 
     def stream_answer(
@@ -122,10 +124,11 @@ class GetBijiKnowledgeAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         del app, user_id, messages
 
         config = provider_config.get("config") or {}
@@ -136,10 +139,11 @@ class GetBijiKnowledgeAskProviderAdapter:
         client_id = _normalize_text(config.get("client_id"))
         topic_id = _normalize_text(config.get("topic_id"))
         if not api_key or not client_id or not topic_id:
-            raise AskProviderConfigError(
+            error_message = (
                 "get_biji_knowledge api_key/client_id/topic_id are required "
                 "in ask_provider_config.config"
             )
+            raise AskProviderConfigError(error_message)
 
         payload = {
             "topic_id": topic_id,
@@ -160,9 +164,11 @@ class GetBijiKnowledgeAskProviderAdapter:
                 timeout=(5, provider_timeout_seconds()),
             )
         except requests.Timeout as exc:
-            raise AskProviderTimeoutError("get_biji_knowledge request timeout") from exc
+            error_message = "get_biji_knowledge request timeout"
+            raise AskProviderTimeoutError(error_message) from exc
         except requests.RequestException as exc:
-            raise AskProviderError(f"get_biji_knowledge request failed: {exc}") from exc
+            message = f"get_biji_knowledge request failed: {exc}"
+            raise AskProviderError(message) from exc
 
         try:
             payload_data = response.json()
@@ -174,7 +180,8 @@ class GetBijiKnowledgeAskProviderAdapter:
         _raise_for_api_error(payload_data)
         raise_for_provider_response(response, self.provider)
         if payload_data is None:
-            raise AskProviderError("get_biji_knowledge response is not valid json")
+            error_message = "get_biji_knowledge response is not valid json"
+            raise AskProviderError(error_message)
         results = _extract_results(payload_data)
         formatted_results = [
             formatted

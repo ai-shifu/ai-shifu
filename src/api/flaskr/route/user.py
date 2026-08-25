@@ -1,7 +1,11 @@
-import contextlib
-from functools import wraps
+"""Expose user HTTP routes."""
 
-from flask import Flask, current_app, make_response, request
+import contextlib
+from collections.abc import Callable
+from functools import wraps
+from typing import ParamSpec, TypeVar
+
+from flask import Flask, Response, current_app, make_response, request
 
 from flaskr.common.public_urls import resolve_request_origin
 from flaskr.common.shifu_context import with_shifu_context
@@ -41,7 +45,7 @@ from flaskr.service.user.captcha import (
 )
 from flaskr.service.user.common import update_user_info, validate_user
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
-from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.onboarding import (
     ONBOARDING_VERSION,
     build_onboarding_status,
@@ -76,6 +80,9 @@ from flaskr.service.user.verification_codes import consume_verification_code
 from flaskr.util.uuid import generate_id
 
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
@@ -158,7 +165,7 @@ def _apply_request_language(payload: dict | None = None) -> None:
         set_language(language)
 
 
-def _resolve_runtime_language(user, payload: dict | None = None) -> str:
+def _resolve_runtime_language(user: object, payload: dict | None = None) -> str:
     """Prefer the current client language for this request without mutating the profile."""
     if payload is None and request.is_json:
         json_data = request.get_json(silent=True) or {}
@@ -183,9 +190,11 @@ def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
     )
 
 
-def optional_token_validation(f):
+def optional_token_validation(f: Callable[P, R]) -> Callable[P, R]:
+    """Allow a route to accept an optional authentication token."""
+
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated_function(*args: object, **kwargs: object) -> R:
         token = request.cookies.get("token", None)
         if not token:
             token = request.args.get("token", None)
@@ -204,7 +213,7 @@ def optional_token_validation(f):
     return decorated_function
 
 
-def _best_effort_password_login_user(app: Flask):
+def _best_effort_password_login_user(app: Flask) -> UserInfo | None:
     """Resolve the explicitly authenticated guest without blocking login."""
     token = request.headers.get("Token", None)
     if not token:
@@ -217,8 +226,10 @@ def _best_effort_password_login_user(app: Flask):
 
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the user routes on the Flask application."""
+
     @app.before_request
-    def before_request():
+    def before_request() -> None:
         if request.path.startswith("/internal/"):
             return
         if (
@@ -247,8 +258,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         request.user = user
 
     @app.route(path_prefix + "/info", methods=["GET"])
-    def info():
+    def info() -> str:
         """Get user information.
+
         ---
         tags:
             - user
@@ -271,8 +283,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(request.user)
 
     @app.route(path_prefix + "/ensure_admin_creator", methods=["POST"])
-    def ensure_admin_creator():
+    def ensure_admin_creator() -> str:
         """Ensure admin creator permissions for the current user.
+
         ---
         tags:
             - user
@@ -302,7 +315,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response({"granted": True})
 
     @app.route(path_prefix + "/onboarding/status", methods=["GET"])
-    def onboarding_status():
+    def onboarding_status() -> str:
         return make_common_response(
             build_onboarding_status(
                 app,
@@ -312,7 +325,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/onboarding/complete", methods=["POST"])
-    def complete_onboarding():
+    def complete_onboarding() -> str:
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             payload = {}
@@ -328,8 +341,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
-    def update_info():
+    def update_info() -> str:
         """Update user information.
+
         ---
         tags:
             - user
@@ -381,8 +395,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
-    def profile_onboarding_status_api():
+    def profile_onboarding_status_api() -> str:
         """Get platform-level profile onboarding state for current user.
+
         ---
         tags:
             - user
@@ -395,8 +410,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
-    def complete_profile_onboarding_api():
+    def complete_profile_onboarding_api() -> str:
         """Complete or skip platform-level profile onboarding.
+
         ---
         tags:
             - user
@@ -417,12 +433,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(result)
 
     @app.route(path_prefix + "/learner-profile", methods=["GET"])
-    def learner_profile_api():
+    def learner_profile_api() -> str:
         """Return the current user's canonical learning profile."""
         return make_common_response(get_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile", methods=["PUT"])
-    def update_learner_profile_api():
+    def update_learner_profile_api() -> str:
         """Replace the current user's canonical learning profile."""
         payload = _request_json_object("learner_profile")
         _reject_unknown_fields(
@@ -446,12 +462,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
-    def clear_learner_profile_api():
+    def clear_learner_profile_api() -> str:
         """Clear the profile while keeping profile-v2 handled."""
         return make_common_response(clear_learner_profile(user_id=request.user.user_id))
 
     @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
-    def optimize_learner_profile_api():
+    def optimize_learner_profile_api() -> str:
         """Return an LLM-optimized draft without saving profile state."""
         payload = _request_json_object("learner_profile")
         _reject_unknown_fields(
@@ -477,8 +493,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation
     @with_shifu_context()
-    def require_tmp():
+    def require_tmp() -> Response:
         """Temp login user.
+
         ---
         tags:
             - user
@@ -516,8 +533,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     $ref: "#/components/schemas/UserToken"
             400:
                 description: parameter error
-
-
         """
         parsed_payload = request.get_json(silent=True)
         payload = parsed_payload if isinstance(parsed_payload, dict) else {}
@@ -541,8 +556,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/captcha", methods=["GET"])
     @bypass_token_validation
-    def captcha_api():
+    def captcha_api() -> str:
         """Create image captcha.
+
         ---
         tags:
            - user
@@ -552,8 +568,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/captcha/verify", methods=["POST"])
     @bypass_token_validation
-    def captcha_verify_api():
+    def captcha_verify_api() -> str:
         """Verify image captcha and return one-time ticket.
+
         ---
         tags:
            - user
@@ -576,8 +593,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
-    def send_sms_code_api():
+    def send_sms_code_api() -> str:
         """Send SMS Captcha.
+
         ---
         tags:
            - user
@@ -640,8 +658,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
-    def console_send_sms_code_api():
+    def console_send_sms_code_api() -> str:
         """Send SMS verification code for console clients without image captcha.
+
         ---
         tags:
            - user
@@ -663,8 +682,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
-    def send_email_code_api():
+    def send_email_code_api() -> str:
         """Send email verification code.
+
         ---
         tags:
            - user
@@ -686,7 +706,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         return make_common_response(send_email_code(app, email, client_ip, language))
 
-    def _handle_sms_login():
+    def _handle_sms_login() -> Response:
         with app.app_context():
             payload = request.get_json(silent=True)
             payload = payload if isinstance(payload, dict) else {}
@@ -745,8 +765,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
-    def login_sms_api():
+    def login_sms_api() -> Response:
         """Login through SMS verification code for web clients.
+
         ---
         tags:
            - user
@@ -754,8 +775,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return _handle_sms_login()
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
-    def get_profile():
+    def get_profile() -> str:
         """Get user profile.
+
         ---
         tags:
             - user
@@ -781,7 +803,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: return message
                                 data:
                                     $ref: "#/components/schemas/UserProfileLabelDTO"
-
         """
         course_id = request.args.get("course_id", None)
         if not course_id:
@@ -791,8 +812,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
-    def update_profile():
+    def update_profile() -> str:
         """Update user profile.
+
         ---
         tags:
             - user
@@ -852,8 +874,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             return make_common_response(ret.__json__())
 
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
-    def upload_avatar():
+    def upload_avatar() -> str:
         """Upload avatar.
+
         ---
         tags:
             - user
@@ -889,8 +912,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     @with_shifu_context()
-    def update_wechat_openid():
+    def update_wechat_openid() -> str:
         """Update Wechat OpenID.
+
         ---
         summary: update wechat openid
         tags:
@@ -933,8 +957,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
-    def sumbit_feedback_api():
+    def sumbit_feedback_api() -> str:
         """Submit feedback.
+
         ---
         tags:
             - user
@@ -982,7 +1007,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/oauth/google", methods=["GET"])
     @bypass_token_validation
     @optional_token_validation
-    def google_oauth_start():
+    def google_oauth_start() -> str:
         provider = get_provider("google")
         metadata = {}
         redirect_uri = request.args.get("redirect_uri")
@@ -1013,7 +1038,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/oauth/google/callback-origin", methods=["GET"])
     @bypass_token_validation
-    def google_oauth_callback_origin():
+    def google_oauth_callback_origin() -> str:
         """Resolve which domain a pending Google login should return to.
 
         Every domain shares one Google callback, so the page that receives it
@@ -1030,7 +1055,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation
     @optional_token_validation
-    def google_oauth_callback():
+    def google_oauth_callback() -> str:
         provider = get_provider("google")
         current_user = getattr(request, "user", None)
         current_user_id = None
@@ -1069,8 +1094,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
-    def login_password():
+    def login_password() -> str:
         """Login with password.
+
         ---
         tags:
             - user
@@ -1105,7 +1131,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             refreshed_user = build_user_info_from_aggregate(refreshed)
             auth_result.user = refreshed_user
             auth_result.token = UserToken(
-                userInfo=refreshed_user,
+                user_info=refreshed_user,
                 token=auth_result.token.token,
             )
         db.session.commit()
@@ -1125,8 +1151,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(auth_result.token)
 
     @app.route(path_prefix + "/set_password", methods=["POST"])
-    def set_password():
+    def set_password() -> str:
         """Set password for logged-in user (first time only).
+
         ---
         tags:
             - user
@@ -1207,8 +1234,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response({"success": True})
 
     @app.route(path_prefix + "/change_password", methods=["POST"])
-    def change_password():
+    def change_password() -> str:
         """Change password for logged-in user (requires old password).
+
         ---
         tags:
             - user
@@ -1241,8 +1269,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/reset_password", methods=["POST"])
     @bypass_token_validation
-    def reset_password():
+    def reset_password() -> str:
         """Reset password via verification code.
+
         ---
         tags:
             - user
@@ -1309,7 +1338,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     # health check
     @app.route("/health", methods=["GET"])
     @bypass_token_validation
-    def health():
+    def health() -> str:
         app.logger.info("health")
         return make_common_response("ok")
 

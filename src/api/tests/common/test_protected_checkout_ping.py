@@ -8,6 +8,7 @@ record BEFORE any interruption propagates.
 """
 
 import socket
+from collections.abc import Iterator
 
 import pytest
 from flaskr import dao
@@ -18,7 +19,7 @@ class _FakeRecord:
     def __init__(self) -> None:
         self.invalidated_with = []
 
-    def invalidate(self, e=None):
+    def invalidate(self, e: object = None) -> None:
         self.invalidated_with.append(e)
 
 
@@ -26,11 +27,11 @@ class _FakeGreenletExit(BaseException):
     pass
 
 
-def _make_conn(sock, ping_exc=None):
+def _make_conn(sock: object, ping_exc: object = None) -> object:
     class _Conn:
         _sock = sock
 
-        def ping(self, reconnect):
+        def ping(self, reconnect: object) -> None:
             assert reconnect is False
             if ping_exc is not None:
                 raise ping_exc
@@ -39,20 +40,20 @@ def _make_conn(sock, ping_exc=None):
 
 
 @pytest.fixture
-def clean_sock():
+def clean_sock() -> Iterator[socket.socket]:
     left, right = socket.socketpair()
     yield left
     left.close()
     right.close()
 
 
-def test_healthy_ping_passes(clean_sock):
+def test_healthy_ping_passes(clean_sock: object) -> None:
     record = _FakeRecord()
     dao._reject_desynced_connection_on_checkout(_make_conn(clean_sock), record, None)
     assert record.invalidated_with == []
 
 
-def test_dead_connection_ping_invalidates_and_retries(clean_sock):
+def test_dead_connection_ping_invalidates_and_retries(clean_sock: object) -> None:
     record = _FakeRecord()
     ping_exc = OSError("dead")
     with pytest.raises(DisconnectionError):
@@ -62,7 +63,7 @@ def test_dead_connection_ping_invalidates_and_retries(clean_sock):
     assert record.invalidated_with == [ping_exc]
 
 
-def test_interrupted_ping_invalidates_before_propagating(clean_sock):
+def test_interrupted_ping_invalidates_before_propagating(clean_sock: object) -> None:
     record = _FakeRecord()
     with pytest.raises(_FakeGreenletExit):
         dao._reject_desynced_connection_on_checkout(
@@ -74,7 +75,7 @@ def test_interrupted_ping_invalidates_before_propagating(clean_sock):
     assert record.invalidated_with == [None]
 
 
-def test_connections_without_ping_are_skipped(clean_sock):
+def test_connections_without_ping_are_skipped(clean_sock: object) -> None:
     class _NoPing:
         _sock = clean_sock
 
@@ -83,5 +84,5 @@ def test_connections_without_ping_are_skipped(clean_sock):
     assert record.invalidated_with == []
 
 
-def test_pre_ping_engine_option_defaults_off(app):
+def test_pre_ping_engine_option_defaults_off(app: object) -> None:
     assert app.config["SQLALCHEMY_ENGINE_OPTIONS"].get("pool_pre_ping") is False

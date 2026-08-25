@@ -41,6 +41,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 
@@ -59,7 +60,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _runtime():
+def _runtime() -> object:
     """Resolve the context_v2 module lazily.
 
     Lazy for two reasons: ``context_v2`` imports this module at load time
@@ -80,12 +81,14 @@ class RunStateResolver:
     """
 
     def __init__(self, context: "RunScriptContextV2") -> None:
+        """Bind read-side state resolution to its run context."""
         self._context = context
 
     # -- explicit runtime inputs, read from the context at call time --
 
     @property
     def app(self) -> "Flask":
+        """Return the Flask application for this run."""
         return self._context.app
 
     @property
@@ -97,7 +100,9 @@ class RunStateResolver:
         return self._context._preview_mode
 
     @property
-    def _outline_model(self):
+    def _outline_model(
+        self,
+    ) -> type[DraftOutlineItem] | type[PublishedOutlineItem]:
         return self._context._outline_model
 
     @property
@@ -105,7 +110,7 @@ class RunStateResolver:
         return self._context._user_info.user_id
 
     @property
-    def _current_outline_item(self):
+    def _current_outline_item(self) -> HistoryItem | None:
         return self._context._current_outline_item
 
     @property
@@ -116,6 +121,7 @@ class RunStateResolver:
     # outline is a node when has outline item as children
     # outline is a leaf when has no children
     def is_leaf_outline_item(self, outline_item_info: "ShifuOutlineItemDto") -> bool:
+        """Return whether the outline item is a leaf lesson."""
         if outline_item_info.children:
             if outline_item_info.children[0].type == "block":
                 return True
@@ -179,6 +185,7 @@ class RunStateResolver:
 
     # get the outline items to start or complete
     def get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
+        """Return reachable outline transitions to start or complete."""
         ctx = self._context
         res = []
         q = queue.Queue()
@@ -212,7 +219,7 @@ class RunStateResolver:
 
         def _mark_sub_node_completed(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
+        ) -> None:
             q = queue.Queue()
             q.put(self._struct)
             if ctx._is_leaf_outline_item(outline_item_info):
@@ -279,7 +286,7 @@ class RunStateResolver:
 
         def _mark_sub_node_start(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
+        ) -> None:
             path = _find_outline_path_or_raise(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":
@@ -317,6 +324,7 @@ class RunStateResolver:
     def has_next_outline_item(
         self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
+        """Return whether another outline item is reachable."""
         if not outline_updates:
             return False
         current_bid = (
@@ -331,6 +339,7 @@ class RunStateResolver:
     def is_current_outline_completed(
         self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
+        """Return whether the current outline item is complete."""
         if not outline_updates or not self._current_outline_item:
             return False
         current_bid = self._current_outline_item.bid
@@ -340,6 +349,7 @@ class RunStateResolver:
         )
 
     def get_outline_struct(self, outline_item_id: str) -> HistoryItem:
+        """Return the learner-visible outline structure, or None for an unknown BID."""
         q = queue.Queue()
         q.put(self._struct)
         outline_struct = None
@@ -354,6 +364,7 @@ class RunStateResolver:
         return outline_struct
 
     def get_outline_row_id(self, outline_item_bid: str) -> int | None:
+        """Return the database row ID for an outline BID."""
         ctx = self._context
         if not outline_item_bid:
             return None
@@ -371,6 +382,7 @@ class RunStateResolver:
     def get_run_script_info(
         self, attend: LearnProgressRecord, is_ask: bool = False
     ) -> "RunScriptInfo":
+        """Return run-script state, or None when the outline is exhausted."""
         ctx = self._context
         runtime = _runtime()
         outline_item_id = attend.outline_item_bid
@@ -397,6 +409,7 @@ class RunStateResolver:
         )
 
     def get_run_script_info_by_block_id(self, block_id: str) -> "RunScriptInfo":
+        """Return run-script state for a generated block."""
         ctx = self._context
         runtime = _runtime()
         generate_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(

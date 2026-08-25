@@ -1,7 +1,10 @@
+"""Implement business operations for persisted configuration."""
+
 import base64
 import hashlib
 import random
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from cryptography.fernet import Fernet
@@ -26,7 +29,8 @@ _config_override_local = threading.local()
 
 
 @contextmanager
-def config_overrides(values: dict[str, object]):
+def config_overrides(values: dict[str, object]) -> Iterator[None]:
+    """Return config overrides."""
     previous = getattr(_config_override_local, "values", None)
     merged = dict(previous) if previous is not None else {}
     merged.update(values or {})
@@ -42,10 +46,13 @@ def config_overrides(values: dict[str, object]):
 
 
 def has_config_override(key: str) -> bool:
+    """Return whether config override."""
     return key in getattr(_config_override_local, "values", {})
 
 
 class ConfigCache(BaseModel):
+    """Cache validated application configuration values."""
+
     is_encrypted: bool = Field(default=False)
     value: str = Field(default="")
 
@@ -56,12 +63,14 @@ def _normalize_updated_by(value: str) -> str:
 
 def _get_fernet_key(app: Flask) -> bytes:
     """Generate Fernet key from SECRET_KEY.
+
     Fernet requires a 32-byte key, so we hash SECRET_KEY with SHA256.
     """
     with app.app_context():
         secret_key = app.config.get("SECRET_KEY", "")
         if not secret_key:
-            raise ValueError("SECRET_KEY is not configured")
+            message = "SECRET_KEY is not configured"
+            raise ValueError(message)
 
         key_bytes = hashlib.sha256(secret_key.encode()).digest()
         return base64.urlsafe_b64encode(key_bytes)
@@ -110,7 +119,8 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
             decrypted_value = fernet.decrypt(encrypted_value.encode())
             return decrypted_value.decode()
         except Exception as e:
-            raise ValueError(f"Failed to decrypt config value: {e!s}") from e
+            message = f"Failed to decrypt config value: {e!s}"
+            raise ValueError(message) from e
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:

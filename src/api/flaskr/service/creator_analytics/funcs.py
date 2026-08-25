@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.i18n import _
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
@@ -14,10 +13,13 @@ from .engine import get_analytics_engine, run_query
 from .pii import mask_user_identify, redact_pii
 from .sql_builder import build_statement
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 ERR_NO_PERMISSION = "server.creatorAnalytics.noPermission"
 
 
-def run_dsl(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
+def run_dsl(app: Flask, user_id: str, payload: object) -> dict[str, object]:
     """Execute a DSL query on behalf of ``user_id``.
 
     Steps:
@@ -91,7 +93,7 @@ def run_dsl(app: Flask, user_id: str, payload: Any) -> dict[str, Any]:
     return result
 
 
-def _user_bid_candidates(filters) -> list[str]:
+def _user_bid_candidates(filters: object) -> list[str]:
     """Flatten the user_bid candidates out of the DSL filters for audit."""
     out: list[str] = []
     for f in filters:
@@ -104,7 +106,7 @@ def _user_bid_candidates(filters) -> list[str]:
     return out
 
 
-def _redact_user_users_rows(result: dict[str, Any]) -> None:
+def _redact_user_users_rows(result: dict[str, object]) -> None:
     """Sanitise ``user_users`` result rows in-place.
 
     - ``nickname``: full PII redaction via :func:`redact_pii` (phone/email

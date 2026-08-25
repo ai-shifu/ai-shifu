@@ -1,10 +1,11 @@
+"""Convert legacy learning records into listen-mode elements."""
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
     BlockType,
@@ -43,9 +44,14 @@ from flaskr.service.learn.listen_slide_builder import (
 from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 
 @dataclass
 class LearnElementsBackfillStats:
+    """Summarize statistics for learn elements backfill."""
+
     progress_record_bid: str
     progress_record_id: int = 0
     shifu_bid: str = ""
@@ -66,7 +72,8 @@ class LearnElementsBackfillStats:
     dry_run: bool = False
     error: str = ""
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self) -> dict[str, object]:
+        """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 
 
@@ -90,6 +97,7 @@ def build_listen_elements_from_legacy_record(
     *,
     prefer_persisted_final_elements: bool = True,
 ) -> LearnElementRecordDTO:
+    """Build listen elements from legacy record."""
     elements: list[ElementDTO] = []
     max_index = -1
     last_anchor_element_bid: str = ""
@@ -281,6 +289,7 @@ def backfill_learn_generated_elements_for_progress(
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> LearnElementsBackfillStats:
+    """Backfill learn generated elements for progress."""
     progress_record = (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.progress_record_bid == progress_record_bid,
@@ -290,7 +299,8 @@ def backfill_learn_generated_elements_for_progress(
         .first()
     )
     if progress_record is None:
-        raise ValueError(f"progress record not found: {progress_record_bid}")
+        message = f"progress record not found: {progress_record_bid}"
+        raise ValueError(message)
 
     stats = LearnElementsBackfillStats(
         progress_record_bid=progress_record.progress_record_bid or progress_record_bid,

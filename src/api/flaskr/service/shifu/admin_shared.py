@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
 
 from flask import current_app
 from flaskr.service.user.consts import (
@@ -17,6 +16,9 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
+
+if TYPE_CHECKING:
+    from decimal import Decimal
 
 COURSE_STATUS_PUBLISHED = "published"
 
@@ -287,7 +289,7 @@ def _format_decimal(value: Decimal | None) -> str:
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> datetime | None:
+def _coerce_operator_datetime(value: object) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -318,7 +320,7 @@ def _coerce_operator_datetime(value: Any) -> datetime | None:
     return None
 
 
-def _normalize_metadata_json(value: Any) -> dict[str, Any]:
+def _normalize_metadata_json(value: object) -> dict[str, object]:
     if isinstance(value, dict):
         return value
     return {}

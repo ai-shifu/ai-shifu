@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
@@ -31,6 +29,11 @@ from flaskr.service.user.repository import (
 )
 from flaskr.service.user.utils import generate_token
 from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    import datetime
+
+    from flask import Flask
 
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
@@ -83,6 +86,7 @@ def verify_email_code(
     language: str | None = None,
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
+    """Verify email code."""
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
         update_user_profile_with_lable,
@@ -218,7 +222,7 @@ def verify_email_code(
         snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
     return (
-        UserToken(userInfo=user_dto, token=token),
+        UserToken(user_info=user_dto, token=token),
         created_new_user,
         {
             "course_id": course_id,

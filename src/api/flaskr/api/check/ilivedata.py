@@ -1,6 +1,8 @@
 #  ilivedata
 #  https://docs.ilivedata.com/textcheck/sync/check/
 
+"""Screen content through the iLiveData risk API."""
+
 import base64
 import hmac
 import json
@@ -60,6 +62,7 @@ RISK_LABLES = {
 def ilivedata_check(
     app: Flask, data_id: str, text: str, user_id: str
 ) -> CheckResultDTO:
+    """Check text with the iLiveData content-safety provider."""
     pid = app.config.get("ILIVEDATA_PID")
     secret_key = app.config.get("ILIVEDATA_SECRET_KEY").encode("utf-8")
     timeout_seconds = app.config.get(
@@ -125,7 +128,14 @@ def ilivedata_check(
     )
 
 
-def send(querystring, signature, time_stamp, pid, timeout=DEFAULT_TIMEOUT_SECONDS):
+def send(
+    querystring: object,
+    signature: object,
+    time_stamp: object,
+    pid: object,
+    timeout: object = DEFAULT_TIMEOUT_SECONDS,
+) -> dict[str, object]:
+    """Send the content-safety request to the configured provider."""
     headers = {
         "X-AppId": pid,
         "X-TimeStamp": time_stamp,

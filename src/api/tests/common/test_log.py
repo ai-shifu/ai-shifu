@@ -1,3 +1,5 @@
+"""Verify Feishu logging failure isolation and payload limits."""
+
 import logging
 
 import requests
@@ -5,14 +7,17 @@ from flaskr.common.log import FeishuLogHandler
 
 
 class _FailingResponse:
-    def raise_for_status(self):
-        raise requests.exceptions.HTTPError("400 Client Error")
+    def raise_for_status(self) -> None:
+        message = "400 Client Error"
+        raise requests.exceptions.HTTPError(message)
 
 
-def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):
+def test_feishu_log_handler_does_not_reemit_webhook_failures(
+    monkeypatch: object,
+) -> None:
     calls = []
 
-    def fake_post(*args, **kwargs):
+    def fake_post(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
         return _FailingResponse()
 
@@ -36,11 +41,11 @@ def test_feishu_log_handler_does_not_reemit_webhook_failures(monkeypatch):
 
 
 def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
-    monkeypatch, caplog
-):
+    monkeypatch: object, caplog: object
+) -> None:
     calls = []
 
-    def fake_post(*args, **kwargs):
+    def fake_post(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
         return _FailingResponse()
 
@@ -65,12 +70,14 @@ def test_feishu_log_handler_surfaces_delivery_failure_without_recursion(
     assert "Failed to send log to Feishu webhook" in caplog.text
 
 
-def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch):
+def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(
+    monkeypatch: object,
+) -> None:
     calls = []
 
-    def fake_post(*args, **kwargs):
+    def fake_post(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
-        return type("Response", (), {"raise_for_status": lambda self: None})()
+        return type("Response", (), {"raise_for_status": lambda _self: None})()
 
     monkeypatch.setattr(requests, "post", fake_post)
 
@@ -93,13 +100,13 @@ def test_feishu_log_handler_reentrancy_guard_blocks_nested_emit(monkeypatch):
     assert calls == []
 
 
-def test_feishu_log_handler_truncates_oversized_payload(monkeypatch):
+def test_feishu_log_handler_truncates_oversized_payload(monkeypatch: object) -> None:
     captured = {}
 
-    def fake_post(_url, *, json, timeout):
+    def fake_post(_url: object, *, json: object, timeout: object) -> object:
         captured["payload"] = json
         captured["timeout"] = timeout
-        return type("Response", (), {"raise_for_status": lambda self: None})()
+        return type("Response", (), {"raise_for_status": lambda _self: None})()
 
     monkeypatch.setattr(requests, "post", fake_post)
 

@@ -1,15 +1,22 @@
+"""Limit concurrent learner-profile optimization requests."""
+
 from __future__ import annotations
 
 import hashlib
 import threading
 import time
 import uuid
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.service.common.models import raise_error
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask import Flask
+    from redis import Redis
 
 IN_FLIGHT_TTL_SECONDS = 360
 
@@ -63,7 +70,7 @@ def _admission_key(app: Flask, *, user_id: str) -> str:
     )
 
 
-def _redis_client():
+def _redis_client() -> Redis | None:
     from flaskr.dao import get_redis_client
 
     return get_redis_client()

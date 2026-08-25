@@ -31,10 +31,10 @@ How per-class output is reproduced:
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 
-def _json_field_value(value: Any, annotation: Any) -> Any:
+def _json_field_value(value: object, annotation: object) -> object:
     """Convert one field value the same way hand-written ``__json__`` did."""
     if annotation is int:
         return int(value)
@@ -61,6 +61,7 @@ class AutoJsonMixin:
     __json_exclude__: frozenset = frozenset()
 
     def __json__(self) -> dict:
+        """Derive JSON-compatible data from declared model fields."""
         payload = {}
         for name, field in type(self).model_fields.items():
             if name in self.__json_exclude__:

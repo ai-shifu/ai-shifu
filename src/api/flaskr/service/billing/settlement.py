@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator  # noqa: TC003 - annotation must resolve at runtime
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
@@ -46,6 +45,11 @@ from .wallets import (
     sync_credit_bucket_status,
 )
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
+
 _ZERO = Decimal(0)
 _SETTLEMENT_LOCK_TIMEOUT_SECONDS = 60
 _SETTLEMENT_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
@@ -59,6 +63,8 @@ def _serialize_metadata_dt(value: datetime | None) -> str | None:
 
 @dataclass(slots=True, frozen=True)
 class SettlementResult:
+    """Capture wallet and ledger changes from order settlement."""
+
     status: str
     usage_bid: str | None
     creator_bid: str | None = None
@@ -71,6 +77,7 @@ class SettlementResult:
     backfill: bool = False
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         payload: dict[str, Any] = {
             "status": self.status,
             "usage_bid": self.usage_bid,
@@ -86,12 +93,15 @@ class SettlementResult:
             payload["reason"] = self.reason
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class BackfillSettlementItem:
+    """Represent one item in backfill settlement."""
+
     usage_bid: str
     usage_id: int
     status: str
@@ -99,6 +109,7 @@ class BackfillSettlementItem:
     requested_creator_bid: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "usage_bid": self.usage_bid,
             "usage_id": self.usage_id,
@@ -107,12 +118,15 @@ class BackfillSettlementItem:
             "requested_creator_bid": self.requested_creator_bid,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class BackfillSettlementResult:
+    """Capture billing orders processed by a settlement backfill."""
+
     status: str
     creator_bid: str | None
     usage_id_start: int | None
@@ -124,6 +138,7 @@ class BackfillSettlementResult:
     backfill: bool = True
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -136,7 +151,8 @@ class BackfillSettlementResult:
             "backfill": self.backfill,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -543,7 +559,9 @@ def backfill_bill_usage_settlement(
 
 
 @contextmanager
-def _usage_settlement_lock(app: Flask, *, creator_bid: str, usage_bid: str):
+def _usage_settlement_lock(
+    app: Flask, *, creator_bid: str, usage_bid: str
+) -> Iterator[None]:
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_usage_bid = str(usage_bid or "").strip()
     lock_scope = normalized_creator_bid or f"usage:{normalized_usage_bid}"

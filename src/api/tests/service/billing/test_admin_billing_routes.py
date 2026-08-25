@@ -1,9 +1,12 @@
+"""Verify admin billing HTTP route behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Never
 
 import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.customization as billing_customization_module
@@ -85,8 +88,20 @@ from tests.service.billing.route_loader import (
     load_register_billing_routes,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 billing_routes_module = load_billing_routes_module()
 register_billing_routes = load_register_billing_routes()
+
+
+def _resolve_existing_target(creator_bid: str = "", creator_mobile: str = "") -> str:
+    del creator_mobile
+    return creator_bid or "creator-1"
+
+
+def _no_saas(required: object = None) -> None:
+    del required
 
 
 def _set_login_methods(monkeypatch: pytest.MonkeyPatch, methods: str) -> None:
@@ -108,7 +123,7 @@ def _set_login_methods(monkeypatch: pytest.MonkeyPatch, methods: str) -> None:
 def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FixedDateTime(datetime):
         @classmethod
-        def now(cls, tz=None) -> datetime:
+        def now(cls, tz: object = None) -> datetime:
             current = cls(2026, 4, 6, 12, 0, 0)
             if tz is not None:
                 return current.replace(tzinfo=tz)
@@ -120,13 +135,12 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(billing_queries_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_wallets_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_wallets_module, "now_utc", lambda: _frozen_now)
-    monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_campaigns_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
 
 @pytest.fixture
-def admin_billing_client(monkeypatch):
+def admin_billing_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     _freeze_billing_wall_clock(monkeypatch)
 
     app = Flask(__name__)
@@ -145,7 +159,7 @@ def admin_billing_client(monkeypatch):
     load_translations(app)
 
     @app.errorhandler(AppError)
-    def _handle_app_exception(error: AppError):
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify(
             {
                 "code": error.code,
@@ -174,7 +188,7 @@ def admin_billing_client(monkeypatch):
     monkeypatch.setattr(
         billing_routes_module,
         "clear_admin_creator_customization_draft",
-        lambda *args, **kwargs: {"status": "noop"},
+        lambda *_args, **_kwargs: {"status": "noop"},
     )
 
     register_billing_routes(app=app)
@@ -370,8 +384,10 @@ def admin_billing_client(monkeypatch):
 
 
 class TestAdminBillingRoutes:
+    """Verify admin billing routes behavior."""
+
     def test_admin_bill_subscriptions_returns_wallet_and_renewal_context(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -393,7 +409,7 @@ class TestAdminBillingRoutes:
         assert first_item["latest_renewal_event"]["last_error"] == "card_declined"
 
     def test_admin_bill_subscriptions_support_attention_only_filter(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -410,7 +426,7 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"][0]["has_attention"] is True
 
     def test_admin_bill_subscriptions_support_creator_keyword_filter(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -424,7 +440,7 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"][0]["creator_bid"] == "creator-2"
 
     def test_admin_bill_subscriptions_creator_keyword_requires_exact_match(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -438,7 +454,7 @@ class TestAdminBillingRoutes:
         assert payload["data"]["items"] == []
 
     def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
         app = admin_billing_client["app"]
@@ -485,7 +501,7 @@ class TestAdminBillingRoutes:
             assert ledger_entry.metadata_json["note"] == "manual bonus"
 
     def test_admin_billing_ledger_adjust_negative_uses_bucket_consumption_order(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
         app = admin_billing_client["app"]
@@ -534,7 +550,7 @@ class TestAdminBillingRoutes:
             ]
 
     def test_admin_billing_ledger_adjust_supports_creator_mobile(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
         app = admin_billing_client["app"]
@@ -559,7 +575,7 @@ class TestAdminBillingRoutes:
             assert wallet.available_credits == Decimal("116.00")
 
     def test_admin_billing_ledger_adjust_rejects_more_than_two_decimals(
-        self, admin_billing_client
+        self, admin_billing_client: object
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -578,7 +594,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_routes_support_options_crud_and_status(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -680,7 +696,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_create_returns_overlap_product_names(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -732,7 +748,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_create_ignores_ended_overlap(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -782,7 +798,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_routes_require_operator(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -797,7 +813,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_rejects_zero_campaign_price(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -826,10 +842,11 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_update_locks_product_rules_after_hit(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
 
         create_response = client.post(
             "/api/admin/billing/campaigns",
@@ -911,7 +928,9 @@ class TestAdminBillingRoutes:
             == _translations["en-US"]["server.billing.campaignLockedAfterHit"]
         )
 
-    def test_admin_billing_routes_require_operator(self, admin_billing_client) -> None:
+    def test_admin_billing_routes_require_operator(
+        self, admin_billing_client: object
+    ) -> None:
         client = admin_billing_client["client"]
 
         response = client.get(
@@ -925,7 +944,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlement_grant_accepts_creator_mobile(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
@@ -962,8 +981,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlement_grant_accepts_creator_email_on_email_login(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         """Overseas deployments identify a course owner by email, not by phone."""
         app = admin_billing_client["app"]
@@ -1007,8 +1026,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlement_grant_reuses_existing_email_account(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         _set_login_methods(monkeypatch, "google")
@@ -1042,8 +1061,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlement_grant_rejects_email_on_phone_login(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         """China stays phone-only: an email must not silently create an account."""
         app = admin_billing_client["app"]
@@ -1073,8 +1092,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlement_grant_rejects_invalid_email(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         _set_login_methods(monkeypatch, "google")
@@ -1094,7 +1113,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlements_can_filter_independent_configs(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1131,8 +1150,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_draft_routes_round_trip(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         monkeypatch.setattr(
@@ -1141,10 +1160,13 @@ class TestAdminBillingRoutes:
             lambda: True,
         )
 
-        monkeypatch.setattr(
-            billing_routes_module,
-            "build_admin_creator_customization_draft",
-            lambda _app, creator_bid="", creator_mobile="": {
+        def build_draft(
+            app: object,
+            creator_bid: str = "",
+            creator_mobile: str = "",
+        ) -> dict[str, object]:
+            del app, creator_bid
+            return {
                 "creator_mobile": creator_mobile,
                 "branding_enabled": False,
                 "custom_domain_enabled": False,
@@ -1164,7 +1186,12 @@ class TestAdminBillingRoutes:
                         "wechatpay",
                     )
                 },
-            },
+            }
+
+        monkeypatch.setattr(
+            billing_routes_module,
+            "build_admin_creator_customization_draft",
+            build_draft,
         )
         monkeypatch.setattr(
             billing_routes_module,
@@ -1206,8 +1233,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_draft_delete_without_target_is_idempotent(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         monkeypatch.setattr(
@@ -1224,8 +1251,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_api_works_when_creator_customization_disabled(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1237,7 +1264,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "_resolve_existing_admin_billing_target_user_bid",
-            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+            _resolve_existing_target,
         )
         monkeypatch.setattr(
             billing_routes_module,
@@ -1259,8 +1286,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_branding_save_works_when_disabled(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         captured: dict[str, object] = {}
@@ -1273,10 +1300,12 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "_resolve_existing_admin_billing_target_user_bid",
-            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+            _resolve_existing_target,
         )
 
-        def _save_branding(_app, creator_bid, payload, **kwargs):
+        def _save_branding(
+            _app: object, creator_bid: object, payload: object, **kwargs: object
+        ) -> object:
             captured["creator_bid"] = creator_bid
             captured["payload"] = payload
             captured["kwargs"] = kwargs
@@ -1303,8 +1332,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_branding_save_falls_back_without_saas(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
@@ -1312,7 +1341,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_customization_module,
             "_saas_funcs",
-            lambda required=True: None,
+            _no_saas,
         )
         monkeypatch.setattr(
             billing_routes_module,
@@ -1322,7 +1351,7 @@ class TestAdminBillingRoutes:
         monkeypatch.setattr(
             billing_routes_module,
             "_resolve_existing_admin_billing_target_user_bid",
-            lambda creator_bid="", creator_mobile="": creator_bid or "creator-1",
+            _resolve_existing_target,
         )
 
         with app.app_context():
@@ -1367,8 +1396,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_draft_save_gracefully_skips_when_saas_missing(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1406,8 +1435,8 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_customization_draft_logo_upload_route(
         self,
-        admin_billing_client,
-        monkeypatch,
+        admin_billing_client: object,
+        monkeypatch: object,
     ) -> None:
         client = admin_billing_client["client"]
         monkeypatch.setattr(
@@ -1441,10 +1470,11 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_entitlement_grant_upgrades_existing_phone_user(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
 
         with app.app_context():
             create_user_entity(
@@ -1489,7 +1519,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_public_builders_return_dto_instances(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
 
@@ -1542,7 +1572,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_campaign_detail_builder_returns_dto_instance(
         self,
-        admin_billing_client,
+        admin_billing_client: object,
     ) -> None:
         app = admin_billing_client["app"]
 
@@ -1580,10 +1610,11 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_provider_prices_lists_products_and_mappings(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
 
         with app.app_context():
             dao.db.session.add(
@@ -1628,7 +1659,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_provider_prices_create_draft_mapping(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
     ) -> None:
         client = admin_billing_client["client"]
 
@@ -1662,13 +1693,13 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_provider_prices_validate_mapping_route(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = admin_billing_client["client"]
         captured: dict[str, str] = {}
 
-        def _validate(_app: Flask, *, provider_price_bid: str):
+        def _validate(_app: Flask, *, provider_price_bid: str) -> dict[str, object]:
             captured["provider_price_bid"] = provider_price_bid
             return {
                 "valid": True,
@@ -1695,13 +1726,13 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_provider_prices_activate_mapping_route(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = admin_billing_client["client"]
         captured: dict[str, str] = {}
 
-        def _activate(_app: Flask, *, provider_price_bid: str):
+        def _activate(_app: Flask, *, provider_price_bid: str) -> dict[str, object]:
             captured["provider_price_bid"] = provider_price_bid
             return {
                 "valid": True,
@@ -1736,17 +1767,19 @@ class TestAdminBillingRoutes:
     )
     def test_admin_billing_provider_price_validation_routes_return_error_envelope(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
         monkeypatch: pytest.MonkeyPatch,
         action: str,
         helper_name: str,
     ) -> None:
         client = admin_billing_client["client"]
 
-        def _raise_error(_app: Flask, *, provider_price_bid: str):
+        def _raise_error(_app: Flask, *, provider_price_bid: str) -> Never:
+            code = "provider_price_invalid"
+            message = "Provider price is invalid"
             raise ProviderPriceMappingError(
-                "provider_price_invalid",
-                "Provider price is invalid",
+                code,
+                message,
                 {"provider_price_bid": provider_price_bid},
             )
 
@@ -1846,10 +1879,11 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_provider_prices_retire_mapping(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
     ) -> None:
         app = admin_billing_client["app"]
         client = admin_billing_client["client"]
+        assert isinstance(app, Flask)
 
         with app.app_context():
             dao.db.session.add(
@@ -1932,7 +1966,7 @@ class TestAdminBillingRoutes:
 
     def test_admin_billing_provider_prices_reject_non_operator(
         self,
-        admin_billing_client,
+        admin_billing_client: dict[str, object],
     ) -> None:
         client = admin_billing_client["client"]
 

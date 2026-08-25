@@ -1,3 +1,5 @@
+"""Run the grant white label maintenance workflow."""
+
 from __future__ import annotations
 
 import argparse
@@ -54,6 +56,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Grant white-label access to the requested teacher account."""
     args = _build_parser().parse_args()
 
     branding = {

@@ -17,7 +17,8 @@ def register_payment_provider(provider_cls: type[PaymentProvider]) -> None:
     """Register a payment provider class keyed by its declared channel."""
     channel = provider_cls.channel
     if not channel:
-        raise ValueError("Payment provider must declare a non-empty channel")
+        message = "Payment provider must declare a non-empty channel"
+        raise ValueError(message)
     _PROVIDER_REGISTRY[channel] = provider_cls
 
 
@@ -26,7 +27,8 @@ def get_payment_provider(channel: str) -> PaymentProvider:
     try:
         provider_cls = _PROVIDER_REGISTRY[channel]
     except KeyError as exc:
-        raise ValueError(f"Unsupported payment channel: {channel}") from exc
+        message = f"Unsupported payment channel: {channel}"
+        raise ValueError(message) from exc
     return provider_cls()
 
 

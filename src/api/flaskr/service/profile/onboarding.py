@@ -1,9 +1,10 @@
+"""Handle onboarding for learner profiles."""
+
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.common.profile_onboarding import (
@@ -21,6 +22,9 @@ from flaskr.service.profile.learner_profile import has_learner_profile_or_state
 from flaskr.service.profile.models import VariableValue
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def _now_iso() -> str:
@@ -68,7 +72,8 @@ def _current_values_for_response(app: Flask, user_id: str) -> dict[str, str]:
     }
 
 
-def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
+def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, object]:
+    """Return profile onboarding status."""
     config_payload = load_profile_onboarding_config_payload()
     enabled = bool(config_payload.get("enabled")) and bool(
         str(config_payload.get("markdownflow") or "").strip()
@@ -84,7 +89,7 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     }
 
 
-def _normalize_submitted_variables(raw_variables: Any) -> dict[str, str]:
+def _normalize_submitted_variables(raw_variables: object) -> dict[str, str]:
     if raw_variables is None:
         return {}
     if not isinstance(raw_variables, dict):
@@ -106,8 +111,9 @@ def complete_profile_onboarding(
     *,
     user_id: str,
     skipped: bool,
-    variables: dict[str, Any] | None,
-) -> dict[str, Any]:
+    variables: dict[str, object] | None,
+) -> dict[str, object]:
+    """Complete profile onboarding."""
     config_payload = load_profile_onboarding_config_payload()
     normalized_variables = _normalize_submitted_variables(variables)
     if not skipped:
