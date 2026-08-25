@@ -15,7 +15,7 @@ export default function GlobalErrorPage({
 }: GlobalErrorPageProps) {
   return (
     <html
-      lang='en-US'
+      lang='zh-CN'
       dir='ltr'
     >
       <body>
