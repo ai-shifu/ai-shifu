@@ -449,9 +449,13 @@ def get_user_profile_labels(
     aggregate = load_user_aggregate(user_id)
     language_value = aggregate.user_language if aggregate else "en-US"
     result = UserProfileLabelDTO(profiles=[], language=language_value)
-    mapping_keys = [key for key, meta in profile_labels.items() if meta.get("mapping")]
+    aggregate_mapping_keys = [
+        key
+        for key, meta in profile_labels.items()
+        if meta.get("mapping") and meta.get("mapping") != "user_sex"
+    ]
     if aggregate:
-        for key in mapping_keys:
+        for key in aggregate_mapping_keys:
             meta = profile_labels[key]
             mapping = meta["mapping"]
             raw_value = _current_core_value(aggregate, mapping)
@@ -482,7 +486,7 @@ def get_user_profile_labels(
                 )
             )
     for key in profile_labels:
-        if key in mapping_keys:
+        if key in aggregate_mapping_keys:
             continue
         profile_key = key
         item = {
@@ -515,7 +519,18 @@ def get_user_profile_labels(
                 shifu_bid="",
             )
         if user_value:
-            item["value"] = user_value.value
+            if profile_key == "sex":
+                meta = profile_labels[profile_key]
+                items_mapping = meta.get("items_mapping", {})
+                default_key = meta.get("default")
+                default_value = items_mapping.get(default_key, "")
+                try:
+                    normalized_value = int(user_value.value)
+                except (TypeError, ValueError):
+                    normalized_value = default_key
+                item["value"] = items_mapping.get(normalized_value, default_value)
+            else:
+                item["value"] = user_value.value
         result.profiles.append(
             UserProfileLabelItemDTO(
                 key=item["key"],
