@@ -805,7 +805,7 @@
     "learnerEstimateLabel": "Sessions d’apprentissage estimées",
     "learnerEstimateValue": "{minimum} à {maximum} sessions d’apprentissage",
     "monthlyOnly": "Mensuel uniquement",
-    "mostPopular": "Populaire",
+    "mostPopular": "Le plus populaire",
     "perMonth": "/ mois",
     "plans": {
       "business": {
