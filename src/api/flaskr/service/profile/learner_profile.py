@@ -207,8 +207,8 @@ def get_learner_profile(*, user_id: str) -> dict[str, object]:
 
     legacy_profile_values = _load_legacy_learner_profile_values(user)
     if load_learner_profile_state(user.user_bid) is not None:
-        # Background and style rebuild an empty profile draft on every open.
-        # Nickname remains independent and must not be revived after handling.
+        # Style may still seed an empty profile draft. Nickname remains
+        # independent and must not be revived after onboarding was handled.
         legacy_profile_values.pop(SYS_USER_NICKNAME, None)
     serialized["legacy_profile_values"] = legacy_profile_values
     return serialized
@@ -228,6 +228,44 @@ def apply_learner_profile(user: UserEntity, learner_profile: str) -> bool:
     user.learner_profile = ""
     user.learner_profile_updated_at = None
     return True
+
+
+def validate_learner_profile_system_value(
+    app: Flask,
+    *,
+    user_id: str,
+    learner_profile: object,
+) -> str:
+    """Normalize and moderate a ``sys_user_background`` assignment."""
+    normalized = normalize_learner_profile(learner_profile)
+    user = load_learner_profile_user(user_id)
+    current_profile = str(user.learner_profile or "").strip()
+    if (
+        normalized
+        and normalized != current_profile
+        and not check_text_content(app, user_id, normalized)
+    ):
+        raise_error("server.check.checkRiskControlReject")
+    return normalized
+
+
+def apply_learner_profile_system_value(
+    *,
+    user_id: str,
+    learner_profile: str,
+) -> str:
+    """Lock and apply a pre-validated ``sys_user_background`` assignment.
+
+    Generic profile and MarkdownFlow assignment paths own their surrounding
+    transaction. Validation happens before either path starts writing, so risk
+    auditing never has to commit beside an already-flushed profile transaction.
+    This helper updates only the canonical learner-profile fields, leaving the
+    caller to append matching variable history before the shared commit.
+    """
+    normalized = normalize_learner_profile(learner_profile)
+    user = load_learner_profile_user(user_id, for_update=True)
+    apply_learner_profile(user, normalized)
+    return normalized
 
 
 def load_learner_profile_state(

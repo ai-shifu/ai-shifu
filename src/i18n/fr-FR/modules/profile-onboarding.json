@@ -50,7 +50,6 @@
     "keepEditing": "Continuer à modifier",
     "later": "Plus tard",
     "legacyPrefill": {
-      "background": "Mon parcours : {value}",
       "style": "Mon style de langage préféré : {value}"
     },
     "loadFailed": "Impossible de charger ces informations. Réessayez.",

@@ -3,10 +3,6 @@ import type { LearnerProfile } from '@/api/learnerProfile';
 type TranslateLegacyValue = (key: string, options: { value: string }) => string;
 
 const LEGACY_PREFILL_FIELDS = [
-  [
-    'sys_user_background',
-    'module.profileOnboarding.dialog.legacyPrefill.background',
-  ],
   ['sys_user_style', 'module.profileOnboarding.dialog.legacyPrefill.style'],
 ] as const;
 

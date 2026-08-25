@@ -50,7 +50,6 @@
     "keepEditing": "继续编辑",
     "later": "以后再说",
     "legacyPrefill": {
-      "background": "我的背景：{value}",
       "style": "我喜欢的语言风格：{value}"
     },
     "loadFailed": "暂时无法加载这些信息，请重试。",

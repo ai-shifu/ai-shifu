@@ -8,27 +8,18 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.common.profile_onboarding import (
-    ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS,
-    PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_STATE_KEY,
-    PROFILE_ONBOARDING_VERSION,
     load_profile_onboarding_config_payload,
     validate_profile_onboarding_markdownflow,
 )
 from flaskr.service.profile.learner_profile import (
     LEARNER_PROFILE_MAX_LENGTH,
     LEARNER_PROFILE_TRIGGER_SOURCES,
+    PROFILE_ONBOARDING_SCENE_KEY,
+    PROFILE_ONBOARDING_VERSION,
     get_learner_profile,
     load_learner_profile_state,
     load_learner_profile_user,
     save_learner_profile,
-)
-from flaskr.service.profile.legacy_onboarding import (
-    _current_values_for_response,
-    _has_onboarding_state,
-    _project_legacy_profile_onboarding_markdownflow,
-    _strip_retiring_web_whitespace,
-    complete_profile_onboarding,
 )
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.util.datetime import now_utc, to_utc_iso
@@ -40,20 +31,16 @@ if TYPE_CHECKING:
     from flask import Flask
 
 __all__ = [
-    "PROFILE_ONBOARDING_STATE_KEY",
-    "_project_legacy_profile_onboarding_markdownflow",
-    "_strip_retiring_web_whitespace",
     "complete_profile_onboarding",
-    "complete_profile_onboarding_v2",
     "get_profile_onboarding_status",
-    "skip_profile_onboarding_v2",
+    "skip_profile_onboarding",
 ]
 
 _T = TypeVar("_T")
 
 
 def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]:
-    """Return the legacy and canonical profile-onboarding status."""
+    """Return the canonical profile-v2 onboarding status."""
     try:
         config_payload = load_profile_onboarding_config_payload()
     except Exception:
@@ -63,86 +50,48 @@ def get_profile_onboarding_status(app: Flask, *, user_id: str) -> dict[str, Any]
     configured_enabled = bool(config_payload.get("enabled"))
     markdownflow = str(config_payload.get("markdownflow") or "").strip()
     guided_available = configured_enabled and bool(markdownflow)
-    legacy_guided_available = guided_available
-    legacy_markdownflow = markdownflow
     if guided_available:
         try:
             validate_profile_onboarding_markdownflow(markdownflow)
         except Exception:
             app.logger.warning("profile onboarding config is invalid", exc_info=True)
             guided_available = False
-            legacy_guided_available = False
-        else:
-            try:
-                legacy_markdownflow = _project_legacy_profile_onboarding_markdownflow(
-                    markdownflow
-                )
-            except Exception:
-                # Keep an officially valid document available to the V2
-                # runtime, but do not expose a flow the retiring client cannot
-                # parse into an answerable question.
-                legacy_guided_available = False
-                legacy_markdownflow = ""
-                app.logger.warning(
-                    "profile onboarding legacy projection unavailable",
-                    exc_info=True,
-                )
 
-    legacy_handled = _has_onboarding_state(user_id)
     v2_state = load_learner_profile_state(user_id)
     learner_profile = get_learner_profile(user_id=user_id)
     has_learner_profile = bool(learner_profile["has_learner_profile"])
     canonical_handled = v2_state is not None or has_learner_profile
-    if not guided_available or canonical_handled:
-        presentation = "hidden"
-    elif legacy_handled:
-        presentation = "non_blocking"
-    else:
-        presentation = "blocking"
+    presentation = "hidden" if not guided_available or canonical_handled else "blocking"
 
     canonical_completed = bool(
         has_learner_profile or (v2_state and v2_state.status == "completed")
     )
-    profile_v2 = {
+    effective_status = (
+        "completed" if has_learner_profile else v2_state.status if v2_state else None
+    )
+    return {
+        "contract_version": PROFILE_ONBOARDING_VERSION,
         "enabled": configured_enabled,
         "guided_available": guided_available,
         "should_show": guided_available and not canonical_handled,
         "presentation": presentation,
         "handled": canonical_handled,
         "completed": canonical_completed,
-        "skipped": bool(v2_state and v2_state.status == "skipped"),
-        "status": (
-            v2_state.status
-            if v2_state
-            else "completed"
-            if has_learner_profile
+        "skipped": effective_status == "skipped",
+        "status": effective_status,
+        "trigger_source": (
+            v2_state.trigger_source
+            if v2_state and v2_state.status == effective_status
             else None
         ),
-        "trigger_source": v2_state.trigger_source if v2_state else None,
         "completed_at": to_utc_iso(v2_state.completed_at) if v2_state else None,
-        "legacy_handled": legacy_handled,
         "max_length": LEARNER_PROFILE_MAX_LENGTH,
-        "config_revision": int(
-            config_payload.get("revision") or config_payload.get("version") or 0
-        ),
+        "config_revision": int(config_payload.get("revision") or 0),
         **learner_profile,
     }
-    return {
-        # The legacy client has no guided-availability field, so expose a
-        # broken config as disabled during the rolling deploy.
-        "enabled": legacy_guided_available,
-        "should_show": legacy_guided_available
-        and not legacy_handled
-        and not canonical_handled,
-        "markdownflow": legacy_markdownflow,
-        "allowed_variable_keys": list(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS),
-        "current_values": _current_values_for_response(app, user_id),
-        "contract_version": PROFILE_ONBOARDING_VERSION,
-        "profile_v2": profile_v2,
-    }
 
 
-def complete_profile_onboarding_v2(
+def complete_profile_onboarding(
     app: Flask,
     *,
     user_id: str,
@@ -187,7 +136,7 @@ def _commit_v2_state_with_race_retry(
         return run_once()
 
 
-def skip_profile_onboarding_v2(*, user_id: str) -> dict[str, Any]:
+def skip_profile_onboarding(*, user_id: str) -> dict[str, Any]:
     """Durably defer canonical onboarding without downgrading completion."""
 
     def operation() -> UserOnboardingState:

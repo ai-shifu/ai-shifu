@@ -1,5 +1,12 @@
 # Unified Learner Profile Dialog
 
+## Superseded Entry Contract Note (2026-08-25)
+
+The single-dialog UX remains current. The temporary non-blocking onboarding
+presentation and legacy/V2 completion dispatch described below have since been
+removed; automatic entry now receives only `blocking` or `hidden`, while menu
+entry remains dismissible through the dialog's exit policy.
+
 ## Purpose / Big Picture
 
 Learners should experience research, AI optimization, editing, and saving as

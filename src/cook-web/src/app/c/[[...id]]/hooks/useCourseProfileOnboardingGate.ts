@@ -153,18 +153,12 @@ export const useCourseProfileOnboardingGate = ({
           setReadyScope(learnerProfileScope);
           return;
         }
-        if (
-          nextStatus.presentation === 'blocking' ||
-          nextStatus.presentation === 'non_blocking'
-        ) {
+        if (nextStatus.presentation === 'blocking') {
           eligibilityRef.current = 'show';
           setStatus(nextStatus);
           setError('');
           setAutoStartCollection(true);
           setDialogOpen(true);
-          if (nextStatus.presentation === 'non_blocking') {
-            setReadyScope(learnerProfileScope);
-          }
           return;
         }
         eligibilityRef.current = 'complete';

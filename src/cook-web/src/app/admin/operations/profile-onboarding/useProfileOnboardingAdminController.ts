@@ -13,8 +13,6 @@ type ProfileOnboardingConfig = {
   enabled?: boolean;
   markdownflow?: string;
   config_revision?: number;
-  allowed_variable_keys?: string[];
-  version?: number;
   updated_by?: string;
   updated_at?: string;
 };
@@ -47,9 +45,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     void api
       .getAdminOperationProfileOnboardingConfig({})
       .then((response: ProfileOnboardingConfig) => {
-        const loadedRevision = Number(
-          response.config_revision ?? response.version ?? 0,
-        );
+        const loadedRevision = Number(response.config_revision ?? 0);
         const hasStoredConfiguration = loadedRevision > 0;
         setEnabled(Boolean(response.enabled));
         setMarkdownflow(
@@ -96,9 +92,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
           ? (response.markdownflow ?? submittedConfig.markdownflow)
           : currentValue,
       );
-      setConfigRevision(
-        Number(response.config_revision ?? response.version ?? configRevision),
-      );
+      setConfigRevision(Number(response.config_revision ?? configRevision));
       setUpdatedBy(response.updated_by || updatedBy);
       setUpdatedAt(response.updated_at || updatedAt);
       toast({ title: t('module.profileOnboarding.admin.saveSuccess') });

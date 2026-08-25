@@ -94,11 +94,6 @@ describe('ProfileOnboardingAdminPage', () => {
     mockGetConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      allowed_variable_keys: [
-        'sys_user_nickname',
-        'sys_user_style',
-        'sys_user_background',
-      ],
       config_revision: 2,
       updated_by: 'operator-1',
       updated_at: '2026-06-15T00:00:00+00:00',
@@ -191,7 +186,7 @@ describe('ProfileOnboardingAdminPage', () => {
     ).toHaveValue('module.profileOnboarding.admin.defaultMarkdownflow');
   });
 
-  test('accepts the legacy version alias and compatibility allowlist', async () => {
+  test('ignores retired version and allowlist fields', async () => {
     mockGetConfig.mockResolvedValue({
       enabled: false,
       markdownflow: '',
@@ -202,15 +197,14 @@ describe('ProfileOnboardingAdminPage', () => {
     render(<ProfileOnboardingAdminPage />);
 
     await screen.findByLabelText('module.profileOnboarding.admin.markdownflow');
-    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getAllByText('-')).not.toHaveLength(0);
     expect(screen.queryByText('sys_user_background')).not.toBeInTheDocument();
   });
 
-  test('uses the legacy version alias returned after save', async () => {
+  test('does not use a retired version alias returned after save', async () => {
     mockUpdateConfig.mockResolvedValue({
       enabled: true,
       markdownflow: '?[%{{research_topic}}...最近在关注什么？]',
-      allowed_variable_keys: ['sys_user_background'],
       version: 9,
     });
 
@@ -224,7 +218,7 @@ describe('ProfileOnboardingAdminPage', () => {
       }),
     );
 
-    expect(await screen.findByText('9')).toBeInTheDocument();
+    expect(await screen.findByText('2')).toBeInTheDocument();
   });
 
   test('requires a document only when collection is enabled', async () => {

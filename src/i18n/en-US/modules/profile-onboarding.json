@@ -50,7 +50,6 @@
     "keepEditing": "Keep editing",
     "later": "Maybe later",
     "legacyPrefill": {
-      "background": "My background: {value}",
       "style": "My preferred language style: {value}"
     },
     "loadFailed": "Could not load these details. Try again.",

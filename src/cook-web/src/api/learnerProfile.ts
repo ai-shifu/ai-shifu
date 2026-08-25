@@ -12,10 +12,7 @@ export type LearnerProfile = {
   nickname?: string;
   nickname_max_length?: number;
   legacy_profile_values?: Partial<
-    Record<
-      'sys_user_nickname' | 'sys_user_background' | 'sys_user_style',
-      string
-    >
+    Record<'sys_user_nickname' | 'sys_user_style', string>
   >;
 };
 
@@ -23,10 +20,7 @@ export type OptimizedLearnerProfile = {
   optimized_learner_profile: string;
 };
 
-export type ProfileOnboardingPresentation =
-  | 'blocking'
-  | 'non_blocking'
-  | 'hidden';
+export type ProfileOnboardingPresentation = 'blocking' | 'hidden';
 
 export type ProfileOnboardingSessionIntent = 'onboarding' | 'settings';
 
@@ -39,22 +33,10 @@ export type ProfileOnboardingV2Status = LearnerProfile & {
   should_show: boolean;
   presentation: ProfileOnboardingPresentation;
   handled: boolean;
-  legacy_handled: boolean;
   config_revision?: number;
 };
 
-export type ProfileOnboardingStatus = {
-  enabled: boolean;
-  should_show: boolean;
-  markdownflow: string;
-  allowed_variable_keys: string[];
-  current_values: Record<string, string>;
-  contract_version?: typeof PROFILE_ONBOARDING_CONTRACT_VERSION;
-  profile_v2?: Omit<ProfileOnboardingV2Status, 'contract_version'>;
-};
-
-export type ProfileOnboardingV2AdapterStatus =
-  Partial<ProfileOnboardingV2Status>;
+export type ProfileOnboardingStatus = Partial<ProfileOnboardingV2Status>;
 
 export type CompleteProfileOnboardingPayload = {
   learner_profile: string;
@@ -87,12 +69,9 @@ export const isProfileOnboardingV2Status = (
     value.contract_version === PROFILE_ONBOARDING_CONTRACT_VERSION &&
     typeof value.enabled === 'boolean' &&
     typeof value.should_show === 'boolean' &&
-    ['blocking', 'non_blocking', 'hidden'].includes(
-      String(value.presentation || ''),
-    ) &&
+    ['blocking', 'hidden'].includes(String(value.presentation || '')) &&
     typeof value.guided_available === 'boolean' &&
     typeof value.handled === 'boolean' &&
-    typeof value.legacy_handled === 'boolean' &&
     typeof value.has_learner_profile === 'boolean' &&
     typeof value.learner_profile === 'string' &&
     (typeof value.learner_profile_updated_at === 'string' ||
@@ -105,22 +84,6 @@ export const isProfileOnboardingV2Status = (
 
 export const getProfileOnboarding = (): Promise<ProfileOnboardingStatus> =>
   request.get('/api/user/profile-onboarding', { skipErrorToast: true });
-
-export const getProfileOnboardingV2 =
-  async (): Promise<ProfileOnboardingV2AdapterStatus> => {
-    const response: unknown = await getProfileOnboarding();
-    if (
-      isRecord(response) &&
-      response.contract_version === PROFILE_ONBOARDING_CONTRACT_VERSION &&
-      isRecord(response.profile_v2)
-    ) {
-      return {
-        ...response.profile_v2,
-        contract_version: PROFILE_ONBOARDING_CONTRACT_VERSION,
-      };
-    }
-    return {};
-  };
 
 export const createProfileOnboardingSession = (
   language?: string,

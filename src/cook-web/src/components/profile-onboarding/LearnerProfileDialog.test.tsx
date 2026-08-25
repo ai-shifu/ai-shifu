@@ -10,7 +10,7 @@ import {
   completeGuidedProfileOnboarding,
   createProfileOnboardingSession,
   getLearnerProfile,
-  getProfileOnboardingV2,
+  getProfileOnboarding,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
   type ProfileOnboardingV2Status,
@@ -159,7 +159,7 @@ jest.mock('@/api/learnerProfile', () => ({
   completeGuidedProfileOnboarding: jest.fn(),
   createProfileOnboardingSession: jest.fn(),
   getLearnerProfile: jest.fn(),
-  getProfileOnboardingV2: jest.fn(),
+  getProfileOnboarding: jest.fn(),
   isProfileOnboardingV2Status: (value: unknown) =>
     typeof value === 'object' &&
     value !== null &&
@@ -200,7 +200,7 @@ const mockCompleteGuidedProfileOnboarding =
 const mockCreateProfileOnboardingSession =
   createProfileOnboardingSession as jest.Mock;
 const mockGetLearnerProfile = getLearnerProfile as jest.Mock;
-const mockGetProfileOnboardingV2 = getProfileOnboardingV2 as jest.Mock;
+const mockGetProfileOnboardingV2 = getProfileOnboarding as jest.Mock;
 const mockOptimizeLearnerProfile = optimizeLearnerProfile as jest.Mock;
 const mockRunProfileOnboardingSession =
   runProfileOnboardingSession as jest.Mock;
@@ -237,7 +237,6 @@ const onboardingStatus = (
     should_show: true,
     presentation: 'blocking',
     handled: false,
-    legacy_handled: false,
     ...emptyProfile,
     ...overrides,
   }) as ProfileOnboardingV2Status;
@@ -1192,7 +1191,6 @@ describe('LearnerProfileDialog', () => {
       nickname: '',
       legacy_profile_values: {
         sys_user_nickname: 'Legacy name',
-        sys_user_background: 'Legacy background',
         sys_user_style: 'Legacy style',
       },
     });

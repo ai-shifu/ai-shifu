@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Never
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
+from flaskr.service.learn.learner_profile_prompt import build_course_prompt
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.funcs import (
+    get_user_profile_labels,
     get_user_profiles,
     save_user_profiles,
     update_user_profile_with_lable,
@@ -143,7 +147,7 @@ def test_legacy_nickname_writers_keep_pre_profile_mapping_behavior(
         assert stored_user.nickname == "After"
 
 
-def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
+def test_background_writers_dual_write_canonical_profile_and_variable_history(
     app: object, monkeypatch: object
 ) -> None:
     definitions = [
@@ -157,7 +161,7 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
         lambda *_args, **_kwargs: definitions,
     )
     monkeypatch.setattr(
-        "flaskr.service.profile.funcs.check_text_content",
+        "flaskr.service.profile.learner_profile.check_text_content",
         lambda *_args, **_kwargs: True,
     )
 
@@ -174,6 +178,7 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
                 ProfileToSave("sys_user_style", "legacy style", None),
             ],
         )
+        db.session.commit()
         update_user_profile_with_lable(
             app,
             user_bid,
@@ -187,6 +192,7 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
 
         profiles = get_user_profiles(app, user_bid, "course-one")
         values = _active_legacy_values(user_bid)
+        user = UserInfo.query.filter_by(user_bid=user_bid).one()
 
         assert [(value.key, value.value) for value in values] == [
             ("sys_user_background", "legacy background"),
@@ -194,16 +200,25 @@ def test_completed_v2_state_preserves_legacy_profile_read_write_paths(
             ("sys_user_background", "another background"),
             ("sys_user_style", "another style"),
         ]
+        assert user.learner_profile == "another background"
+        assert user.learner_profile_updated_at is not None
         assert profiles["sys_user_background"] == "another background"
         assert profiles["sys_user_style"] == "another style"
+        assert "another background" in (
+            build_course_prompt("COURSE", learner=user) or ""
+        )
 
 
-def test_skipped_v2_state_preserves_legacy_profile_behavior(
+def test_background_write_keeps_state_row_unchanged_but_status_is_completed(
     app: object, monkeypatch: object
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.profile.funcs.get_profile_item_definition_list",
         lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
     )
 
     with app.app_context():
@@ -219,9 +234,256 @@ def test_skipped_v2_state_preserves_legacy_profile_behavior(
         db.session.commit()
 
         values = _active_legacy_values(user_bid)
+        user = UserInfo.query.filter_by(user_bid=user_bid).one()
+        state = UserOnboardingState.query.filter_by(user_bid=user_bid).one()
+        from flaskr.service.profile.onboarding import get_profile_onboarding_status
+
+        status = get_profile_onboarding_status(app, user_id=user_bid)
+
         assert [(value.key, value.value) for value in values] == [
             ("sys_user_background", "preserved background")
         ]
+        assert user.learner_profile == "preserved background"
+        assert state.status == "skipped"
+        assert status["completed"] is True
+        assert status["skipped"] is False
+        assert status["status"] == "completed"
+
+
+def test_historical_background_rows_never_override_canonical_profile(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [
+            SimpleNamespace(
+                profile_key="sys_user_background",
+                profile_id="background-variable",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        user_bid = "canonical-background-read-authority"
+        create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Test learner",
+            learner_profile="Canonical background",
+            learner_profile_updated_at=now_utc(),
+            language="en-US",
+        )
+        db.session.add(
+            VariableValue(
+                variable_value_bid="newer-historical-background",
+                variable_bid="background-variable",
+                shifu_bid="",
+                user_bid=user_bid,
+                key="sys_user_background",
+                value="Historical background",
+            )
+        )
+        db.session.commit()
+
+        profiles = get_user_profiles(app, user_bid, "course-one")
+        labels = {
+            item.key: item.value
+            for item in get_user_profile_labels(
+                app,
+                user_bid,
+                "course-one",
+            ).profiles
+        }
+        update_user_profile_with_lable(
+            app,
+            user_bid,
+            [{"key": "sys_user_background", "value": ""}],
+            update_all=True,
+            course_id="course-one",
+        )
+        db.session.commit()
+        cleared_profiles = get_user_profiles(app, user_bid, "course-one")
+        cleared_labels = {
+            item.key: item.value
+            for item in get_user_profile_labels(
+                app,
+                user_bid,
+                "course-one",
+            ).profiles
+        }
+        rows = _active_legacy_values(user_bid)
+
+    assert profiles["sys_user_background"] == "Canonical background"
+    assert labels["sys_user_background"] == "Canonical background"
+    assert cleared_profiles["sys_user_background"] == ""
+    assert cleared_labels["sys_user_background"] == ""
+    assert [row.value for row in rows] == ["Historical background", ""]
+
+
+def test_null_canonical_background_is_empty_instead_of_falling_back(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [
+            SimpleNamespace(
+                profile_key="sys_user_background",
+                profile_id="background-variable",
+            )
+        ],
+    )
+
+    with app.app_context():
+        user_bid = "canonical-null-background-read-authority"
+        user = create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Test learner",
+            language="en-US",
+        )
+        user.learner_profile = None
+        db.session.add(
+            VariableValue(
+                variable_value_bid="historical-background-beside-null",
+                variable_bid="background-variable",
+                shifu_bid="",
+                user_bid=user_bid,
+                key="sys_user_background",
+                value="Historical background",
+            )
+        )
+        db.session.commit()
+
+        profiles = get_user_profiles(app, user_bid, "course-one")
+        labels = {
+            item.key: item.value
+            for item in get_user_profile_labels(
+                app,
+                user_bid,
+                "course-one",
+            ).profiles
+        }
+
+    assert profiles["sys_user_background"] == ""
+    assert labels["sys_user_background"] == ""
+
+
+@pytest.mark.parametrize("writer", ["save", "label"])
+def test_background_writers_enforce_canonical_length_before_writing(
+    app: object, monkeypatch: object, writer: object
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile.learner_profile.check_text_content",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with app.app_context():
+        user_bid = f"canonical-background-length-{writer}"
+        create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Test learner",
+            learner_profile="Existing canonical profile",
+            learner_profile_updated_at=now_utc(),
+            language="en-US",
+        )
+        db.session.commit()
+
+        def write_oversized_background() -> None:
+            if writer == "save":
+                save_user_profiles(
+                    app,
+                    user_bid,
+                    "course-one",
+                    [ProfileToSave("sys_user_background", "界" * 1_001, None)],
+                )
+            else:
+                update_user_profile_with_lable(
+                    app,
+                    user_bid,
+                    [{"key": "sys_user_background", "value": "界" * 1_001}],
+                    update_all=True,
+                    course_id="course-one",
+                )
+
+        with pytest.raises(AppError, match="learner_profile"):
+            write_oversized_background()
+        db.session.rollback()
+
+        user = UserInfo.query.filter_by(user_bid=user_bid).one()
+        rows = _active_legacy_values(user_bid)
+
+    assert user.learner_profile == "Existing canonical profile"
+    assert rows == []
+
+
+def test_background_moderation_rejection_and_flush_failure_roll_back_both_writes(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+
+    with app.app_context():
+        user_bid = "canonical-background-atomicity"
+        create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            nickname="Test learner",
+            learner_profile="Existing canonical profile",
+            learner_profile_updated_at=now_utc(),
+            language="en-US",
+        )
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.profile.learner_profile.check_text_content",
+            lambda *_args, **_kwargs: False,
+        )
+        with pytest.raises(AppError):
+            save_user_profiles(
+                app,
+                user_bid,
+                "course-one",
+                [ProfileToSave("sys_user_background", "Rejected profile", None)],
+            )
+        db.session.rollback()
+
+        monkeypatch.setattr(
+            "flaskr.service.profile.learner_profile.check_text_content",
+            lambda *_args, **_kwargs: True,
+        )
+        original_flush = db.session.flush
+
+        def fail_flush() -> Never:
+            msg = "flush unavailable"
+            raise RuntimeError(msg)
+
+        monkeypatch.setattr(db.session, "flush", fail_flush)
+        with pytest.raises(RuntimeError, match="flush unavailable"):
+            save_user_profiles(
+                app,
+                user_bid,
+                "course-one",
+                [ProfileToSave("sys_user_background", "Replacement profile", None)],
+            )
+        db.session.rollback()
+        monkeypatch.setattr(db.session, "flush", original_flush)
+
+        user = UserInfo.query.filter_by(user_bid=user_bid).one()
+        rows = _active_legacy_values(user_bid)
+
+    assert user.learner_profile == "Existing canonical profile"
+    assert rows == []
 
 
 def test_legacy_nickname_writers_still_update_user_and_runtime_nickname(

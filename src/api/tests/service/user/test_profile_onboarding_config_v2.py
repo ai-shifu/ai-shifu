@@ -49,18 +49,14 @@ def test_profile_onboarding_config_uses_runtime_validation(
 
     assert validated_documents == [document]
     assert saved_payloads[0]["revision"] == 5
-    assert result["revision"] == 5
     assert result["config_revision"] == 5
-    assert result["version"] == 5
     assert result["markdownflow"] == document
     assert "document_prompt" not in result
     assert saved_payloads[0]["markdownflow"] == document
     assert "document_prompt" not in saved_payloads[0]
-    assert result["allowed_variable_keys"] == [
-        "sys_user_nickname",
-        "sys_user_style",
-        "sys_user_background",
-    ]
+    assert "revision" not in result
+    assert "version" not in result
+    assert "allowed_variable_keys" not in result
 
 
 @pytest.mark.parametrize(
@@ -227,7 +223,7 @@ def test_profile_onboarding_config_drops_legacy_document_prompt(
     assert "document_prompt" not in result
 
 
-def test_profile_onboarding_config_reads_legacy_version_as_revision() -> None:
+def test_profile_onboarding_config_ignores_legacy_version_alias() -> None:
     from flaskr.service.common.profile_onboarding import (
         normalize_profile_onboarding_config_payload,
     )
@@ -240,4 +236,4 @@ def test_profile_onboarding_config_reads_legacy_version_as_revision() -> None:
         }
     )
 
-    assert result["revision"] == 7
+    assert result["revision"] == 0

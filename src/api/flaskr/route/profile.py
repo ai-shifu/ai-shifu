@@ -25,9 +25,8 @@ from flaskr.service.profile.learner_profile_optimizer_admission import (
 )
 from flaskr.service.profile.onboarding import (
     complete_profile_onboarding,
-    complete_profile_onboarding_v2,
     get_profile_onboarding_status,
-    skip_profile_onboarding_v2,
+    skip_profile_onboarding,
 )
 
 if TYPE_CHECKING:
@@ -96,10 +95,9 @@ def register_profile_routes(
     app: Flask,
     path_prefix: str,
     *,
-    commit_legacy_completion: Callable[[], None],
     resolve_onboarding_language: Callable[[UserInfo, str | None], str],
 ) -> None:
-    """Register canonical learner-profile and rolling onboarding routes."""
+    """Register canonical learner-profile and onboarding routes."""
     _resolve_profile_onboarding_runtime_language = resolve_onboarding_language
 
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
@@ -135,13 +133,12 @@ def register_profile_routes(
         if not bool(config.get("enabled")) or not document:
             raise_param_error("profile_onboarding")
         status = get_profile_onboarding_status(app, user_id=request.user.user_id)
-        if not status["profile_v2"]["guided_available"]:
+        if not status["guided_available"]:
             raise_param_error("profile_onboarding")
-        if intent == "onboarding" and not status["profile_v2"]["should_show"]:
+        if intent == "onboarding" and not status["should_show"]:
             raise_param_error("intent")
         if intent == "settings" and not (
-            status["profile_v2"]["handled"]
-            or status["profile_v2"]["has_learner_profile"]
+            status["handled"] or status["has_learner_profile"]
         ):
             raise_param_error("intent")
         from flaskr.service.profile_research.api import (
@@ -156,9 +153,7 @@ def register_profile_routes(
                 user_bid=request.user.user_id,
                 document=document,
                 purpose=PROFILE_ONBOARDING_PURPOSE,
-                config_revision=int(
-                    config.get("revision") or config.get("version") or 0
-                ),
+                config_revision=int(config.get("config_revision") or 0),
                 output_language=_resolve_profile_onboarding_runtime_language(
                     request.user,
                     language,
@@ -171,7 +166,7 @@ def register_profile_routes(
                 app,
                 user_id=request.user.user_id,
             )
-            if not latest_status["profile_v2"]["should_show"]:
+            if not latest_status["should_show"]:
                 _delete_profile_onboarding_session(
                     app,
                     user_bid=request.user.user_id,
@@ -223,42 +218,33 @@ def register_profile_routes(
                 description: onboarding completion result
         """
         payload = _request_json_object("profile_onboarding")
-        legacy_fields = {"skipped", "variables"}
-        v2_fields = {"learner_profile", "trigger_source", "session_id", "nickname"}
+        allowed_fields = {
+            "learner_profile",
+            "trigger_source",
+            "session_id",
+            "nickname",
+        }
         keys = set(payload)
-        if keys and keys.issubset(legacy_fields) and "skipped" in keys:
-            if not isinstance(payload["skipped"], bool):
-                raise_param_error("skipped")
-            result = complete_profile_onboarding(
-                app,
-                user_id=request.user.user_id,
-                skipped=payload["skipped"],
-                variables=payload.get("variables"),
-            )
-            # The legacy helper only flushes so its historical route owns the
-            # transaction. Canonical v2 helpers commit inside their UoW.
-            commit_legacy_completion()
-        elif {"learner_profile", "trigger_source"}.issubset(keys) and keys.issubset(
-            v2_fields
-        ):
-            session_id = _optional_profile_research_session_id(payload)
-            nickname_kwargs = {}
-            if "nickname" in payload:
-                if not isinstance(payload["nickname"], str):
-                    raise_param_error("nickname")
-                nickname_kwargs["nickname"] = payload["nickname"]
-            result = complete_profile_onboarding_v2(
-                app,
-                user_id=request.user.user_id,
-                learner_profile=payload["learner_profile"],
-                trigger_source=payload["trigger_source"],
-                **nickname_kwargs,
-            )
-            _delete_profile_onboarding_session(
-                app, user_bid=request.user.user_id, session_id=session_id
-            )
-        else:
+        if not {"learner_profile", "trigger_source"}.issubset(
+            keys
+        ) or not keys.issubset(allowed_fields):
             raise_param_error("profile_onboarding")
+        session_id = _optional_profile_research_session_id(payload)
+        nickname_kwargs = {}
+        if "nickname" in payload:
+            if not isinstance(payload["nickname"], str):
+                raise_param_error("nickname")
+            nickname_kwargs["nickname"] = payload["nickname"]
+        result = complete_profile_onboarding(
+            app,
+            user_id=request.user.user_id,
+            learner_profile=payload["learner_profile"],
+            trigger_source=payload["trigger_source"],
+            **nickname_kwargs,
+        )
+        _delete_profile_onboarding_session(
+            app, user_bid=request.user.user_id, session_id=session_id
+        )
         return make_common_response(result)
 
     @app.route(path_prefix + "/profile-onboarding/skip", methods=["POST"])
@@ -270,7 +256,7 @@ def register_profile_routes(
             parameter_name="profile_onboarding",
         )
         session_id = _optional_profile_research_session_id(payload)
-        result = skip_profile_onboarding_v2(user_id=request.user.user_id)
+        result = skip_profile_onboarding(user_id=request.user.user_id)
         _delete_profile_onboarding_session(
             app, user_bid=request.user.user_id, session_id=session_id
         )

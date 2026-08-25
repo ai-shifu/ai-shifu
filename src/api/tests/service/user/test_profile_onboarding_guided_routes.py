@@ -53,28 +53,22 @@ def _markdownflow_for_preview_config_size(*, target_bytes: int) -> str:
     )
 
 
-def test_profile_onboarding_status_merges_config_and_v2_state(
+def test_profile_onboarding_status_returns_direct_v2_state(
     monkeypatch: object, test_client: object
 ) -> None:
     user = _authenticate(monkeypatch)
     expected = {
-        "enabled": True,
-        "should_show": False,
-        "markdownflow": "A valid snapshot",
-        "allowed_variable_keys": ["sys_user_nickname"],
-        "current_values": {"sys_user_nickname": "小明"},
         "contract_version": "profile-v2",
-        "profile_v2": {
-            "enabled": True,
-            "should_show": True,
-            "presentation": "non_blocking",
-            "legacy_handled": True,
-            "has_learner_profile": False,
-            "learner_profile_updated_at": None,
-            "max_length": 1000,
-            "config_revision": 7,
-            "guided_available": True,
-        },
+        "enabled": True,
+        "should_show": True,
+        "presentation": "blocking",
+        "handled": False,
+        "has_learner_profile": False,
+        "learner_profile": "",
+        "learner_profile_updated_at": None,
+        "max_length": 1000,
+        "config_revision": 7,
+        "guided_available": True,
     }
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
@@ -95,16 +89,12 @@ def test_profile_onboarding_status_disabled_kill_switch_hides_collection(
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
         lambda _app, **_kwargs: {
+            "contract_version": "profile-v2",
             "enabled": False,
             "should_show": False,
-            "contract_version": "profile-v2",
-            "profile_v2": {
-                "enabled": False,
-                "should_show": False,
-                "presentation": "hidden",
-                "guided_available": False,
-                "has_learner_profile": True,
-            },
+            "presentation": "hidden",
+            "guided_available": False,
+            "has_learner_profile": True,
         },
     )
 
@@ -112,11 +102,11 @@ def test_profile_onboarding_status_disabled_kill_switch_hides_collection(
         test_client.get("/api/user/profile-onboarding", headers={"Token": "token"})
     )
 
-    assert data["profile_v2"]["enabled"] is False
-    assert data["profile_v2"]["should_show"] is False
-    assert data["profile_v2"]["presentation"] == "hidden"
-    assert data["profile_v2"]["guided_available"] is False
-    assert data["profile_v2"]["has_learner_profile"] is True
+    assert data["enabled"] is False
+    assert data["should_show"] is False
+    assert data["presentation"] == "hidden"
+    assert data["guided_available"] is False
+    assert data["has_learner_profile"] is True
 
 
 def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
@@ -125,13 +115,13 @@ def test_profile_onboarding_complete_and_skip_delegate_strict_payloads(
     user = _authenticate(monkeypatch)
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding_v2",
+        "flaskr.route.profile.complete_profile_onboarding",
         lambda _app, **kwargs: (
             calls.append(("complete", kwargs)) or {"completed": True}
         ),
     )
     monkeypatch.setattr(
-        "flaskr.route.profile.skip_profile_onboarding_v2",
+        "flaskr.route.profile.skip_profile_onboarding",
         lambda **kwargs: calls.append(("skip", kwargs)) or {"skipped": True},
     )
     monkeypatch.setattr(
@@ -191,7 +181,7 @@ def test_profile_onboarding_skip_without_session_cleans_the_active_owner_session
     user = _authenticate(monkeypatch)
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.profile.skip_profile_onboarding_v2",
+        "flaskr.route.profile.skip_profile_onboarding",
         lambda **kwargs: calls.append(("skip", kwargs)) or {"skipped": True},
     )
     monkeypatch.setattr(
@@ -225,7 +215,7 @@ def test_profile_onboarding_complete_forwards_explicit_nickname(
     user = _authenticate(monkeypatch)
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding_v2",
+        "flaskr.route.profile.complete_profile_onboarding",
         lambda _app, **kwargs: (
             calls.append(("complete", kwargs)) or {"completed": True}
         ),
@@ -270,13 +260,13 @@ def test_v2_mutations_do_not_commit_again_after_durable_service_and_cleanup(
     user = _authenticate(monkeypatch)
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding_v2",
+        "flaskr.route.profile.complete_profile_onboarding",
         lambda _app, **kwargs: (
             calls.append(("complete", kwargs)) or {"completed": True}
         ),
     )
     monkeypatch.setattr(
-        "flaskr.route.profile.skip_profile_onboarding_v2",
+        "flaskr.route.profile.skip_profile_onboarding",
         lambda **kwargs: calls.append(("skip", kwargs)) or {"skipped": True},
     )
     monkeypatch.setattr(
@@ -328,30 +318,6 @@ def test_v2_mutations_do_not_commit_again_after_durable_service_and_cleanup(
     ]
 
 
-def test_legacy_complete_keeps_its_route_owned_commit(
-    monkeypatch: object, test_client: object
-) -> None:
-    _authenticate(monkeypatch)
-    commits = []
-    monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding",
-        lambda _app, **kwargs: {"completed": True, "skipped": kwargs["skipped"]},
-    )
-    monkeypatch.setattr(
-        "flaskr.route.user.db.session.commit",
-        lambda: commits.append("commit"),
-    )
-
-    response = test_client.post(
-        "/api/user/profile-onboarding/complete",
-        headers={"Token": "token"},
-        json={"skipped": True},
-    )
-
-    assert _data(response) == {"completed": True, "skipped": True}
-    assert commits == ["commit"]
-
-
 @pytest.mark.parametrize(
     ("path", "payload"),
     [
@@ -383,11 +349,11 @@ def test_profile_onboarding_rejects_invalid_session_id_before_mutation(
     _authenticate(monkeypatch)
     calls = []
     monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding_v2",
+        "flaskr.route.profile.complete_profile_onboarding",
         lambda _app, **kwargs: calls.append(("complete", kwargs)),
     )
     monkeypatch.setattr(
-        "flaskr.route.profile.skip_profile_onboarding_v2",
+        "flaskr.route.profile.skip_profile_onboarding",
         lambda **kwargs: calls.append(("skip", kwargs)),
     )
     monkeypatch.setattr(
@@ -406,7 +372,7 @@ def test_profile_onboarding_complete_ignores_session_cleanup_failure(
 ) -> None:
     _authenticate(monkeypatch)
     monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding_v2",
+        "flaskr.route.profile.complete_profile_onboarding",
         lambda _app, **_kwargs: {"completed": True},
     )
 
@@ -437,7 +403,7 @@ def test_profile_onboarding_skip_ignores_busy_session_cleanup(
 ) -> None:
     _authenticate(monkeypatch)
     monkeypatch.setattr(
-        "flaskr.route.profile.skip_profile_onboarding_v2",
+        "flaskr.route.profile.skip_profile_onboarding",
         lambda **_kwargs: {"skipped": True},
     )
 
@@ -469,18 +435,16 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
         lambda: {
             "enabled": True,
             "markdownflow": "  ?[Continue]  ",
-            "revision": 12,
+            "config_revision": 12,
         },
     )
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
         lambda _app, **_kwargs: {
-            "profile_v2": {
-                "guided_available": True,
-                "handled": False,
-                "should_show": True,
-                "has_learner_profile": False,
-            },
+            "guided_available": True,
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
         },
     )
     monkeypatch.setattr(
@@ -523,18 +487,16 @@ def test_profile_onboarding_session_start_rejects_unsupported_language(
         lambda: {
             "enabled": True,
             "markdownflow": "?[continue]",
-            "revision": 1,
+            "config_revision": 1,
         },
     )
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
         lambda _app, **_kwargs: {
-            "profile_v2": {
-                "guided_available": True,
-                "handled": False,
-                "should_show": True,
-                "has_learner_profile": False,
-            },
+            "guided_available": True,
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
         },
     )
     monkeypatch.setattr(
@@ -561,7 +523,7 @@ def test_profile_onboarding_session_start_respects_collection_kill_switch(
         lambda: {
             "enabled": False,
             "markdownflow": "guided flow",
-            "revision": 12,
+            "config_revision": 12,
         },
     )
 
@@ -638,14 +600,12 @@ def test_profile_onboarding_session_start_enforces_intent_eligibility(
         lambda: {
             "enabled": True,
             "markdownflow": "?[继续]",
-            "revision": 1,
+            "config_revision": 1,
         },
     )
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
-        lambda _app, **_kwargs: {
-            "profile_v2": {"guided_available": True, **state},
-        },
+        lambda _app, **_kwargs: {"guided_available": True, **state},
     )
     monkeypatch.setattr(
         "flaskr.service.profile_research.api.start_profile_research_session",
@@ -676,18 +636,16 @@ def test_profile_onboarding_session_start_maps_busy_error(
         lambda: {
             "enabled": True,
             "markdownflow": "?[继续]",
-            "revision": 1,
+            "config_revision": 1,
         },
     )
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_status",
         lambda _app, **_kwargs: {
-            "profile_v2": {
-                "guided_available": True,
-                "handled": False,
-                "should_show": True,
-                "has_learner_profile": False,
-            },
+            "guided_available": True,
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
         },
     )
 
@@ -715,20 +673,16 @@ def test_profile_onboarding_session_start_removes_a_late_ineligible_session(
     user = _authenticate(monkeypatch)
     statuses = [
         {
-            "profile_v2": {
-                "guided_available": True,
-                "handled": False,
-                "should_show": True,
-                "has_learner_profile": False,
-            },
+            "guided_available": True,
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
         },
         {
-            "profile_v2": {
-                "guided_available": True,
-                "handled": True,
-                "should_show": False,
-                "has_learner_profile": False,
-            },
+            "guided_available": True,
+            "handled": True,
+            "should_show": False,
+            "has_learner_profile": False,
         },
     ]
     calls = []
@@ -737,7 +691,7 @@ def test_profile_onboarding_session_start_removes_a_late_ineligible_session(
         lambda: {
             "enabled": True,
             "markdownflow": "?[Continue]",
-            "revision": 1,
+            "config_revision": 1,
         },
     )
     monkeypatch.setattr(
@@ -873,6 +827,11 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
         ),
         ("/api/user/profile-onboarding/complete", {}),
         ("/api/user/profile-onboarding/complete", []),
+        ("/api/user/profile-onboarding/complete", {"skipped": True}),
+        (
+            "/api/user/profile-onboarding/complete",
+            {"skipped": False, "variables": {"sys_user_style": "direct"}},
+        ),
         (
             "/api/user/profile-onboarding/complete",
             {"learner_profile": 123, "trigger_source": "guided"},
@@ -963,11 +922,7 @@ def test_profile_onboarding_complete_rejects_invalid_nickname_contract_without_w
     calls = []
     monkeypatch.setattr(
         "flaskr.route.profile.complete_profile_onboarding",
-        lambda _app, **kwargs: calls.append(("legacy", kwargs)),
-    )
-    monkeypatch.setattr(
-        "flaskr.route.profile.complete_profile_onboarding_v2",
-        lambda _app, **kwargs: calls.append(("v2", kwargs)),
+        lambda _app, **kwargs: calls.append(("complete", kwargs)),
     )
     monkeypatch.setattr(
         "flaskr.route.profile._delete_profile_onboarding_session",
@@ -1191,11 +1146,7 @@ def test_operator_profile_onboarding_preview_rejects_unsavable_utf8_payload(
     monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-16T00:00:00Z")
     monkeypatch.setattr(
         "flaskr.route.admin_profile_onboarding.get_operator_profile_onboarding_config",
-        lambda _app: {
-            "config_revision": 5,
-            "version": 50,
-            "allowed_variable_keys": ["compatibility-only"],
-        },
+        lambda _app: {"config_revision": 5},
     )
     monkeypatch.setattr(
         "flaskr.service.profile_research.runtime._ProfileResearchSessionStore.save",

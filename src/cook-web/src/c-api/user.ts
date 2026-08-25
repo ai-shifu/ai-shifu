@@ -56,7 +56,7 @@ export const updateWxcode = ({ wxcode }) => {
 export {
   completeGuidedProfileOnboarding as completeProfileOnboarding,
   createProfileOnboardingSession,
-  getProfileOnboardingV2 as getProfileOnboarding,
+  getProfileOnboarding,
   isProfileOnboardingV2Status,
   PROFILE_ONBOARDING_CONTRACT_VERSION,
   runProfileOnboardingSession,
@@ -69,7 +69,7 @@ export type {
   ProfileOnboardingRunEvent,
   ProfileOnboardingSession,
   ProfileOnboardingSessionIntent,
-  ProfileOnboardingV2AdapterStatus as ProfileOnboardingStatus,
+  ProfileOnboardingStatus,
   ProfileOnboardingV2Status,
 } from '@/api/learnerProfile';
 

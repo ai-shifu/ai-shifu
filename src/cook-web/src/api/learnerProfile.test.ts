@@ -5,7 +5,6 @@ import {
   createProfileOnboardingSession,
   getLearnerProfile,
   getProfileOnboarding,
-  getProfileOnboardingV2,
   isProfileOnboardingV2Status,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
@@ -33,7 +32,6 @@ const v2Status = {
   presentation: 'blocking' as const,
   guided_available: true,
   handled: false,
-  legacy_handled: false,
   has_learner_profile: false,
   learner_profile: '',
   learner_profile_updated_at: null,
@@ -103,44 +101,23 @@ describe('learner profile api', () => {
     );
   });
 
-  test('keeps the passive dual-protocol GET silent and unwraps nested v2', async () => {
-    const response = {
-      enabled: true,
-      should_show: true,
-      markdownflow: '?[legacy]',
-      allowed_variable_keys: ['any_variable'],
-      current_values: {},
-      contract_version: 'profile-v2' as const,
-      profile_v2: {
-        ...v2Status,
-        contract_version: undefined,
-      },
-    };
-    (request.get as jest.Mock).mockResolvedValue(response);
+  test('keeps the passive direct v2 GET silent', async () => {
+    (request.get as jest.Mock).mockResolvedValue(v2Status);
 
-    await expect(getProfileOnboarding()).resolves.toEqual(response);
-    await expect(getProfileOnboardingV2()).resolves.toEqual(v2Status);
-    expect(request.get).toHaveBeenNthCalledWith(
-      1,
-      '/api/user/profile-onboarding',
-      { skipErrorToast: true },
-    );
-    expect(request.get).toHaveBeenNthCalledWith(
-      2,
-      '/api/user/profile-onboarding',
-      { skipErrorToast: true },
-    );
+    await expect(getProfileOnboarding()).resolves.toEqual(v2Status);
+    expect(request.get).toHaveBeenCalledWith('/api/user/profile-onboarding', {
+      skipErrorToast: true,
+    });
     expect(isProfileOnboardingV2Status(v2Status)).toBe(true);
   });
 
-  test('fails open when the backend does not expose the nested v2 contract', async () => {
-    (request.get as jest.Mock).mockResolvedValue({
-      enabled: true,
-      should_show: true,
-      markdownflow: '?[legacy]',
-    });
-
-    await expect(getProfileOnboardingV2()).resolves.toEqual({});
+  test('rejects the retired wrapped contract', () => {
+    expect(
+      isProfileOnboardingV2Status({
+        contract_version: 'profile-v2',
+        profile_v2: v2Status,
+      }),
+    ).toBe(false);
   });
 
   test('rejects incomplete or unknown v2 status objects', () => {

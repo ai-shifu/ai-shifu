@@ -224,11 +224,6 @@ def _best_effort_password_login_user(app: Flask) -> UserInfo | None:
         return None
 
 
-def _commit_legacy_profile_onboarding() -> None:
-    """Keep the retiring route's transaction at its grandfathered boundary."""
-    db.session.commit()
-
-
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the user routes on the Flask application."""
 
@@ -264,7 +259,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     register_profile_routes(
         app,
         path_prefix,
-        commit_legacy_completion=_commit_legacy_profile_onboarding,
         resolve_onboarding_language=_resolve_profile_onboarding_runtime_language,
     )
 

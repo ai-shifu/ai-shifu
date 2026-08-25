@@ -14,6 +14,7 @@ from flaskr.service.profile.learner_profile import (
     load_learner_profile_state,
     merge_learner_profile_for_sign_in,
 )
+from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
 from flaskr.service.user.common import update_user_info
@@ -842,6 +843,77 @@ def test_legacy_profile_migration_preserves_target_nickname(
         assert stored_target.learner_profile == "guest profile"
         assert stored_target.nickname == "Target nickname"
         assert token.userInfo.name == "Target nickname"
+
+
+@pytest.mark.parametrize("sign_in_method", ["phone", "email"])
+def test_sign_in_generic_label_migration_ignores_historical_background(
+    app: object,
+    monkeypatch: object,
+    sign_in_method: object,
+) -> None:
+    from flaskr.service.user import email_flow, phone_flow
+
+    flow = phone_flow if sign_in_method == "phone" else email_flow
+    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+    monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
+    monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.check_text_content",
+        lambda *_args: True,
+    )
+
+    with app.app_context():
+        identifier = (
+            f"155{uuid.uuid4().int % 10**8:08d}"
+            if sign_in_method == "phone"
+            else f"{uuid.uuid4().hex[:12]}@example.com"
+        )
+        source = _create_user(identify=uuid.uuid4().hex)
+        target = _create_user(identify=identifier)
+        db.session.add(
+            VariableValue(
+                variable_value_bid=f"historical-background-{sign_in_method}",
+                variable_bid="",
+                shifu_bid="",
+                user_bid=source.user_bid,
+                key="sys_user_background",
+                value="Historical guest background",
+            )
+        )
+        db.session.commit()
+
+        if sign_in_method == "phone":
+            flow.verify_phone_code(
+                app,
+                user_id=source.user_bid,
+                phone=identifier,
+                code="9999",
+                course_id="background-migration-course",
+            )
+        else:
+            flow.verify_email_code(
+                app,
+                user_id=source.user_bid,
+                email=identifier,
+                code="9999",
+                course_id="background-migration-course",
+            )
+        db.session.commit()
+
+        stored_target = UserInfo.query.filter_by(user_bid=target.user_bid).one()
+        migrated_rows = VariableValue.query.filter_by(
+            user_bid=target.user_bid,
+            key="sys_user_background",
+            deleted=0,
+        ).all()
+
+    assert stored_target.learner_profile == ""
+    assert migrated_rows == []
 
 
 @pytest.mark.parametrize("sign_in_method", ["phone", "email"])

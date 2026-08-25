@@ -165,7 +165,6 @@ def test_empty_profile_prefill_uses_canonical_nickname_and_latest_legacy_values(
     assert loaded["nickname_max_length"] == 64
     assert loaded["legacy_profile_values"] == {
         "sys_user_nickname": "当前称呼",
-        "sys_user_background": "办公室工作",
         "sys_user_style": "亲切直接",
     }
 
@@ -823,7 +822,7 @@ def test_profile_safety_audit_records_text_and_provider_response(
     )
 
 
-def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(
+def test_direct_status_hides_for_canonical_profile_or_fixed_v2_state(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile import onboarding as onboarding_module
@@ -839,7 +838,7 @@ def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(
         lambda *_args, **_kwargs: {
             "enabled": True,
             "markdownflow": "?[%{{sys_user_background}}...背景]",
-            "version": 7,
+            "revision": 7,
         },
     )
 
@@ -867,18 +866,14 @@ def test_legacy_status_hides_for_canonical_profile_or_fixed_v2_state(
     assert new_status["should_show"] is True
     assert canonical_status["should_show"] is False
     assert v2_status["should_show"] is False
-    assert set(v2_status) == {
-        "enabled",
-        "should_show",
-        "markdownflow",
-        "allowed_variable_keys",
-        "current_values",
-        "contract_version",
-        "profile_v2",
-    }
-    assert new_status["profile_v2"]["presentation"] == "blocking"
-    assert canonical_status["profile_v2"]["presentation"] == "hidden"
-    assert v2_status["profile_v2"]["presentation"] == "hidden"
+    assert new_status["contract_version"] == "profile-v2"
+    assert new_status["config_revision"] == 7
+    assert "profile_v2" not in v2_status
+    assert "legacy_handled" not in v2_status
+    assert "markdownflow" not in v2_status
+    assert new_status["presentation"] == "blocking"
+    assert canonical_status["presentation"] == "hidden"
+    assert v2_status["presentation"] == "hidden"
 
 
 def test_complete_atomically_writes_profile_and_fixed_v2_state(
@@ -1076,7 +1071,7 @@ def test_clear_locks_user_then_state_before_clearing_profile(
     assert result["learner_profile"] == ""
 
 
-def test_complete_preserves_legacy_variable_values_for_old_courses(
+def test_complete_preserves_historical_variable_rows_for_old_courses(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile.learner_profile import save_learner_profile
@@ -1137,7 +1132,7 @@ def test_complete_preserves_legacy_variable_values_for_old_courses(
     }
 
 
-def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(
+def test_clear_profile_keeps_v2_completed_and_ignores_historical_background(
     app: object,
 ) -> None:
     from flaskr.service.profile.learner_profile import (
@@ -1192,7 +1187,6 @@ def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(
     assert result["learner_profile"] == ""
     assert result["learner_profile_updated_at"] is None
     assert loaded["legacy_profile_values"] == {
-        "sys_user_background": "旧全局背景",
         "sys_user_style": "旧全局风格",
     }
     assert user.learner_profile == ""
@@ -1207,7 +1201,7 @@ def test_clear_profile_keeps_v2_completed_and_returns_legacy_prefill(
     }
 
 
-def test_empty_profile_save_returns_legacy_prefill_on_next_get(
+def test_empty_profile_save_never_revives_historical_background_on_next_get(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.profile.learner_profile import (
@@ -1256,7 +1250,6 @@ def test_empty_profile_save_returns_legacy_prefill_on_next_get(
     assert saved["learner_profile"] == ""
     assert loaded["learner_profile"] == ""
     assert loaded["legacy_profile_values"] == {
-        "sys_user_background": "办公室工作",
         "sys_user_style": "亲切直接",
     }
     assert state.status == "completed"

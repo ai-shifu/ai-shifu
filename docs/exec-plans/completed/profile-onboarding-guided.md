@@ -1,5 +1,14 @@
 # Profile onboarding guided questions (PR2)
 
+## Superseded Contract Note (2026-08-25)
+
+This plan records the backend-first rolling compatibility contract that was
+required when guided onboarding first shipped. That release bridge has now
+been retired by `canonical-background-onboarding-contract.md`: learner status
+is a direct profile-v2 response, legacy completion and sentinel projection are
+gone, and the admin API exposes only `config_revision`. The historical details
+below remain accurate for the original delivery, not for the current contract.
+
 ## Purpose / Big Picture
 
 Deliver the second learner-profile PR on `sunner/profile-onboarding-guided`. PR1 merged at `020f0392138e8c1cc9c619add1896a39b86b50fd`; the branch is synchronized with current `main` at `e65aa770ac19c611233d710d622fa58fddf8f58f`. Learners answer the teacher's MarkdownFlow questions, review the generated plain-text learner profile, and can defer only through an explicit low-emphasis action. The release preserves the established legacy onboarding protocol during backend-first rollout.

@@ -33,9 +33,6 @@ const api = {
   setPassword: 'POST /user/set_password',
   changePassword: 'POST /user/change_password',
   resetPassword: 'POST /user/reset_password',
-  getProfileOnboarding: 'GET /user/profile-onboarding',
-  completeProfileOnboarding: 'POST /user/profile-onboarding/complete',
-
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
   getReferralInvitePreview: 'GET /referral/invite-preview',

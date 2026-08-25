@@ -130,9 +130,7 @@ def register_operator_profile_onboarding_routes(
                 app,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 markdownflow=markdownflow.strip(),
-                config_revision=int(
-                    config.get("config_revision") or config.get("version") or 0
-                ),
+                config_revision=int(config.get("config_revision") or 0),
                 output_language=(
                     _normalize_profile_onboarding_language(app, language)
                     if language is not None

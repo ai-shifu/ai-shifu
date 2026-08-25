@@ -1,5 +1,13 @@
 # Learner Profile Dialog
 
+## Superseded Compatibility Note (2026-08-25)
+
+The dialog behavior in this plan remains current, but its background-prefill
+compatibility description has been retired. `sys_user_background` now reads
+only `user_users.learner_profile`; historical background variable rows never
+prefill the editor. Legacy nickname and style compatibility remains as stated
+where applicable.
+
 ## Purpose / Big Picture
 
 The learning experience uses one responsive dialog for first-time learner

@@ -4,7 +4,7 @@ import {
   completeGuidedProfileOnboarding,
   createProfileOnboardingSession,
   getLearnerProfile,
-  getProfileOnboardingV2,
+  getProfileOnboarding,
   isProfileOnboardingV2Status,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
@@ -181,7 +181,7 @@ export const useLearnerProfileDialogController = ({
         const openingOnboardingStatus = initialOnboardingStatusRef.current;
         const onboardingStatusRequest = openingOnboardingStatus
           ? Promise.resolve(openingOnboardingStatus)
-          : getProfileOnboardingV2().catch(() => null);
+          : getProfileOnboarding().catch(() => null);
         const response = await getLearnerProfile();
         if (
           !isCurrent(dialog, scope) ||

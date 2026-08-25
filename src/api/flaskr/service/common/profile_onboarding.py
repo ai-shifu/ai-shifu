@@ -13,15 +13,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
-PROFILE_ONBOARDING_STATE_KEY = "_sys_profile_onboarding_state"
-PROFILE_ONBOARDING_SCENE_KEY = "profile_onboarding"
-PROFILE_ONBOARDING_VERSION = "profile-v2"
 PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES = 65_535
-ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS = (
-    "sys_user_nickname",
-    "sys_user_style",
-    "sys_user_background",
-)
 
 
 def _now_iso() -> str:
@@ -46,7 +38,7 @@ def normalize_profile_onboarding_config_payload(payload: object) -> dict[str, ob
             {
                 "enabled": bool(payload.get("enabled", False)),
                 "markdownflow": str(payload.get("markdownflow") or ""),
-                "revision": int(payload.get("revision") or payload.get("version") or 0),
+                "revision": int(payload.get("revision") or 0),
                 "updated_by": str(payload.get("updated_by") or ""),
                 "updated_at": str(payload.get("updated_at") or ""),
             }
@@ -133,10 +125,11 @@ def build_profile_onboarding_config_response(
     """Build profile onboarding config response."""
     normalized = normalize_profile_onboarding_config_payload(payload)
     return {
-        **normalized,
+        "enabled": normalized["enabled"],
+        "markdownflow": normalized["markdownflow"],
         "config_revision": normalized["revision"],
-        "version": normalized["revision"],
-        "allowed_variable_keys": list(ALLOWED_PROFILE_ONBOARDING_VARIABLE_KEYS),
+        "updated_by": normalized["updated_by"],
+        "updated_at": normalized["updated_at"],
     }
 
 

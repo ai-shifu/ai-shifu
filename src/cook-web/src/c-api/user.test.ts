@@ -28,7 +28,7 @@ jest.mock('@/c-store/useSystemStore', () => ({
 
 describe('legacy c-api learner-profile adapter', () => {
   test('re-exports the modern implementation without duplicate request paths', () => {
-    expect(getProfileOnboarding).toBe(learnerProfileApi.getProfileOnboardingV2);
+    expect(getProfileOnboarding).toBe(learnerProfileApi.getProfileOnboarding);
     expect(completeProfileOnboarding).toBe(
       learnerProfileApi.completeGuidedProfileOnboarding,
     );

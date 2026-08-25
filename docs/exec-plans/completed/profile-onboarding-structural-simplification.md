@@ -1,5 +1,13 @@
 # Profile Onboarding Structural Simplification
 
+## Superseded Compatibility Note (2026-08-25)
+
+The module boundaries produced by this refactor remain current. Its preserved
+rolling protocol is no longer current: the isolated legacy projection was
+deleted after the rollout window, learner onboarding now uses one direct
+profile-v2 contract, and admin revision aliases were removed. See
+`canonical-background-onboarding-contract.md` for the replacement contract.
+
 ## Purpose / Big Picture
 
 PR #2308 already provides the intended learner-profile collection and editing
