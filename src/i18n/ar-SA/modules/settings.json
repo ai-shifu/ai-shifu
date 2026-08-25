@@ -12,7 +12,7 @@
   "passwordPlaceholder": "تعيين كلمة المرور",
   "passwordSetSuccess": "تم تعيين كلمة المرور بنجاح",
   "phone": "رقم الهاتف",
-  "resendCountdown": "إعادة الإرسال بعد {count} ثانية",
+  "resendCountdown": "إعادة الإرسال بعد {count, plural, zero {# ثانية} one {ثانية واحدة} two {ثانيتين} few {# ثوانٍ} many {# ثانيةً} other {# ثانية}}",
   "sendCode": "إرسال رمز التحقق",
   "setPassword": "تعيين كلمة المرور",
   "verificationCode": "رمز التحقق",
