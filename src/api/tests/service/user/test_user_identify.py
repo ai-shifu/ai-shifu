@@ -338,6 +338,14 @@ def test_send_email_code_uses_requested_language_and_singular_expiry(
             assert "1 minutes" not in plain_body
             assert "Ce code expire dans 1 minute." in html_body
             assert "1 minutes" not in html_body
+            assert '<html lang="fr-FR" dir="ltr">' in html_body
+
+            _subject, _plain_body, arabic_html_body = (
+                user_utils._format_email_verification_message(
+                    "5678", 60, language="ar-SA"
+                )
+            )
+            assert '<html lang="ar-SA" dir="rtl">' in arabic_html_body
             assert user_utils.get_current_language() == "en-US"
         finally:
             app.config["MAIL_CODE_EXPIRE_TIME"] = original_expire_time

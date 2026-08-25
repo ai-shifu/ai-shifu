@@ -157,8 +157,13 @@ def _format_email_verification_message(
     code: str, expire_seconds: int, language: str | None = None
 ) -> tuple[str, str, str]:
     previous_language = get_current_language()
+    resolved_language = (
+        _normalize_language_code(language) or language
+        if language
+        else _normalize_language_code(previous_language) or previous_language
+    )
     if language:
-        set_language(_normalize_language_code(language) or language)
+        set_language(resolved_language)
 
     try:
         expire_minutes = max(1, int(expire_seconds) // 60)
@@ -184,9 +189,13 @@ def _format_email_verification_message(
         if language:
             set_language(previous_language)
 
+    html_language = html.escape(resolved_language, quote=True)
+    html_direction = (
+        "rtl" if resolved_language.split("-", maxsplit=1)[0].lower() == "ar" else "ltr"
+    )
     html_body = f"""\
 <!doctype html>
-<html>
+<html lang="{html_language}" dir="{html_direction}">
   <body style="margin:0;background:#f5f7fb;padding:24px;font-family:Arial,'Helvetica Neue',sans-serif;color:#111827;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
       <tr>
