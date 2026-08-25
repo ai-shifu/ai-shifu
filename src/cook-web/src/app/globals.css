@@ -173,6 +173,37 @@ body.listen-mode-vh-fallback #root {
   -moz-osx-font-smoothing: auto;
 }
 
+/* Keep technical content readable when Arabic makes the document RTL. */
+html[dir='rtl'] {
+  :is(
+    pre,
+    code,
+    kbd,
+    samp,
+    .markdown-flow-editor,
+    .markdown-flow-editor .cm-content,
+    .markdown-flow-editor .cm-line,
+    .content-render-iframe-sandbox,
+    .content-render-iframe,
+    input[type='email'],
+    input[type='url'],
+    input[type='number'],
+    input[inputmode='decimal'],
+    input[inputmode='numeric'],
+    input[inputmode='tel'],
+    input[autocomplete='one-time-code'],
+    input[pattern='[0-9]*']
+  ) {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
+  :is(a[href^='http://'], a[href^='https://'], a[href^='mailto:']) {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+}
+
 /* HACK: markdown-flow-ui relies on CSS variables, so keep dedicated aliases for primary colors */
 .content-render-theme {
   strong {
