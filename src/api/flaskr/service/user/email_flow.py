@@ -144,6 +144,7 @@ def verify_email_code(
                     user_id,
                     course_id,
                     include_nickname=include_legacy_nickname,
+                    include_background=False,
                 )
                 update_user_profile_with_lable(
                     app,

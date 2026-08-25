@@ -20,16 +20,21 @@ describe('auth api definitions', () => {
 });
 
 describe('profile onboarding api definitions', () => {
-  test('exposes learner and operator profile onboarding endpoints', () => {
-    expect(api.getProfileOnboarding).toBe('GET /user/profile-onboarding');
-    expect(api.completeProfileOnboarding).toBe(
-      'POST /user/profile-onboarding/complete',
-    );
+  test('keeps learner requests in the typed API and exposes operator endpoints', () => {
+    expect(
+      Object.prototype.hasOwnProperty.call(api, 'getProfileOnboarding'),
+    ).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(api, 'completeProfileOnboarding'),
+    ).toBe(false);
     expect(api.getAdminOperationProfileOnboardingConfig).toBe(
       'GET /shifu/admin/operations/profile-onboarding',
     );
     expect(api.updateAdminOperationProfileOnboardingConfig).toBe(
       'POST /shifu/admin/operations/profile-onboarding',
+    );
+    expect(api.createAdminOperationProfileOnboardingPreview).toBe(
+      'POST /shifu/admin/operations/profile-onboarding/preview',
     );
     expect(api.getAdminOperationConfigRates).toBe(
       'GET /shifu/admin/operations/config/rates',

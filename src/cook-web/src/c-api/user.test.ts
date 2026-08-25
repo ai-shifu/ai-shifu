@@ -1,59 +1,48 @@
-import request from '@/lib/request';
-import { completeProfileOnboarding, getProfileOnboarding } from './user';
+import * as learnerProfileApi from '@/api/learnerProfile';
+import {
+  completeProfileOnboarding,
+  createProfileOnboardingSession,
+  getProfileOnboarding,
+  isProfileOnboardingStatus,
+  runProfileOnboardingSession,
+  skipProfileOnboarding,
+} from './user';
+
+jest.mock('@/lib/profileOnboardingSse', () => ({
+  streamProfileOnboardingRuntime: jest.fn(),
+}));
 
 jest.mock('@/lib/request', () => ({
   __esModule: true,
   default: {
     get: jest.fn(),
     post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
 jest.mock('@/c-store/useSystemStore', () => ({
-  useSystemStore: {
-    getState: () => ({
-      channel: 'web',
-      language: 'zh-CN',
-      wechatCode: '',
-    }),
-  },
+  useSystemStore: { getState: jest.fn(() => ({})) },
 }));
 
-describe('user profile onboarding c-api', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  test('fetches profile onboarding status', async () => {
-    (request.get as jest.Mock).mockResolvedValue({ should_show: true });
-
-    await expect(getProfileOnboarding()).resolves.toEqual({
-      should_show: true,
-    });
-
-    expect(request.get).toHaveBeenCalledWith('/api/user/profile-onboarding');
-  });
-
-  test('submits profile onboarding completion', async () => {
-    (request.post as jest.Mock).mockResolvedValue({ completed: true });
-
-    await expect(
-      completeProfileOnboarding({
-        skipped: false,
-        variables: {
-          sys_user_nickname: '小明',
-        },
-      }),
-    ).resolves.toEqual({ completed: true });
-
-    expect(request.post).toHaveBeenCalledWith(
-      '/api/user/profile-onboarding/complete',
-      {
-        skipped: false,
-        variables: {
-          sys_user_nickname: '小明',
-        },
-      },
+describe('legacy c-api learner-profile adapter', () => {
+  test('re-exports the modern implementation without duplicate request paths', () => {
+    expect(getProfileOnboarding).toBe(learnerProfileApi.getProfileOnboarding);
+    expect(completeProfileOnboarding).toBe(
+      learnerProfileApi.completeGuidedProfileOnboarding,
+    );
+    expect(skipProfileOnboarding).toBe(
+      learnerProfileApi.skipGuidedProfileOnboarding,
+    );
+    expect(createProfileOnboardingSession).toBe(
+      learnerProfileApi.createProfileOnboardingSession,
+    );
+    expect(runProfileOnboardingSession).toBe(
+      learnerProfileApi.runProfileOnboardingSession,
+    );
+    expect(isProfileOnboardingStatus).toBe(
+      learnerProfileApi.isProfileOnboardingStatus,
     );
   });
 });

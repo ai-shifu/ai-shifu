@@ -13,6 +13,7 @@ from flaskr.service.check_risk.models import RiskControlResult
 from flaskr.service.common.models import AppError
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.profile import learner_profile_optimizer as optimizer
+from flaskr.service.profile.learner_profile import PROFILE_ONBOARDING_STATE_VERSION
 from flaskr.service.user.models import UserInfo, UserOnboardingState
 from flaskr.service.user.repository import create_user_entity
 
@@ -33,7 +34,7 @@ def _create_profile_state(user_bid: str, *, language: str = "zh-CN") -> None:
         UserOnboardingState(
             user_bid=user_bid,
             scene_key="profile_onboarding",
-            version="profile-v2",
+            version=PROFILE_ONBOARDING_STATE_VERSION,
             status="completed",
             trigger_source="settings",
             completed_at=STATE_COMPLETED_AT,
@@ -47,7 +48,7 @@ def _snapshot_profile_state(user_bid: str) -> tuple:
     state = UserOnboardingState.query.filter_by(
         user_bid=user_bid,
         scene_key="profile_onboarding",
-        version="profile-v2",
+        version=PROFILE_ONBOARDING_STATE_VERSION,
     ).one()
     return (
         user.learner_profile,

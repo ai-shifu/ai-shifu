@@ -22,8 +22,9 @@ interface MockMainMenuModalProps {
 }
 
 interface MockLearnerProfileDialogProps {
+  autoStartCollection?: boolean;
   draftStorageScope: string;
-  mode: 'onboarding' | 'settings';
+  exitPolicy: 'blocking' | 'dismissible';
   onClose: (reason: 'dismiss' | 'saved') => void | Promise<void>;
   onSaved?: () => void | Promise<void>;
   open: boolean;
@@ -51,8 +52,9 @@ const mockMainMenuModal = jest.fn(
 
 const mockLearnerProfileDialog = jest.fn(
   ({
+    autoStartCollection,
     draftStorageScope,
-    mode,
+    exitPolicy,
     onClose,
     onSaved,
     open,
@@ -60,7 +62,8 @@ const mockLearnerProfileDialog = jest.fn(
     open ? (
       <div
         data-testid='learner-profile-dialog'
-        data-mode={mode}
+        data-auto-start-collection={String(Boolean(autoStartCollection))}
+        data-exit-policy={exitPolicy}
         data-scope={draftStorageScope}
       >
         <button
@@ -657,11 +660,18 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(
+      screen.queryByTestId('learner-profile-dialog'),
+    ).not.toBeInTheDocument();
     openLearnerProfileSettings();
 
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
-      'data-mode',
-      'settings',
+      'data-auto-start-collection',
+      'false',
+    );
+    expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+      'data-exit-policy',
+      'dismissible',
     );
     expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
       'data-scope',

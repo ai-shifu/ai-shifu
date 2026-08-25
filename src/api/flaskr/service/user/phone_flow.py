@@ -358,6 +358,7 @@ def verify_phone_code(
                     user_id,
                     normalized_course_id,
                     include_nickname=include_legacy_nickname,
+                    include_background=False,
                 )
                 update_user_profile_with_lable(
                     app,

@@ -20,19 +20,6 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
-from flaskr.service.profile.learner_profile import (
-    clear_learner_profile,
-    get_learner_profile,
-    replace_learner_profile,
-)
-from flaskr.service.profile.learner_profile_optimizer import optimize_learner_profile
-from flaskr.service.profile.learner_profile_optimizer_admission import (
-    learner_profile_optimization_admission,
-)
-from flaskr.service.profile.onboarding import (
-    complete_profile_onboarding,
-    get_profile_onboarding_status,
-)
 from flaskr.service.referral.service import extract_referral_post_auth_fields
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import OAuthCallbackRequest, VerificationRequest
@@ -80,25 +67,12 @@ from flaskr.service.user.verification_codes import consume_verification_code
 from flaskr.util.uuid import generate_id
 
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
+from .profile import register_profile_routes
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
-
-
-def _request_json_object(parameter_name: str) -> dict:
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        raise_param_error(parameter_name)
-    return payload
-
-
-def _reject_unknown_fields(
-    payload: dict, *, allowed_fields: set[str], parameter_name: str
-) -> None:
-    if set(payload) - allowed_fields:
-        raise_param_error(parameter_name)
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:
@@ -137,6 +111,31 @@ def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
             return supported_language
 
     return normalized_language
+
+
+def _resolve_profile_onboarding_runtime_language(
+    user: UserInfo, raw_language: str | None
+) -> str:
+    """Resolve profile research to a bounded application-supported locale."""
+    supported_languages = (
+        tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
+    )
+    if raw_language is not None:
+        resolved_language = _resolve_supported_runtime_language(raw_language)
+        if resolved_language in supported_languages:
+            return resolved_language
+        raise_param_error("language")
+
+    request_language = _extract_request_language({})
+    for candidate in (
+        request_language,
+        getattr(user, "language", None),
+        "en-US",
+    ):
+        resolved_language = _resolve_supported_runtime_language(candidate)
+        if resolved_language in supported_languages:
+            return resolved_language
+    return supported_languages[0]
 
 
 def _extract_request_language(payload: dict | None = None) -> str | None:
@@ -256,6 +255,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         user = validate_user(app, token)
         set_language(_resolve_runtime_language(user))
         request.user = user
+
+    register_profile_routes(
+        app,
+        path_prefix,
+        resolve_onboarding_language=_resolve_profile_onboarding_runtime_language,
+    )
 
     @app.route(path_prefix + "/info", methods=["GET"])
     def info() -> str:
@@ -393,102 +398,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(
             update_user_info(app, request.user, name, email, mobile, language, avatar)
         )
-
-    @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
-    def profile_onboarding_status_api() -> str:
-        """Get platform-level profile onboarding state for current user.
-
-        ---
-        tags:
-            - user
-        responses:
-            200:
-                description: onboarding config and current user state
-        """
-        return make_common_response(
-            get_profile_onboarding_status(app, user_id=request.user.user_id)
-        )
-
-    @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
-    def complete_profile_onboarding_api() -> str:
-        """Complete or skip platform-level profile onboarding.
-
-        ---
-        tags:
-            - user
-        responses:
-            200:
-                description: onboarding completion result
-        """
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("profile_onboarding")
-        result = complete_profile_onboarding(
-            app,
-            user_id=request.user.user_id,
-            skipped=bool(payload.get("skipped", False)),
-            variables=payload.get("variables") or {},
-        )
-        db.session.commit()
-        return make_common_response(result)
-
-    @app.route(path_prefix + "/learner-profile", methods=["GET"])
-    def learner_profile_api() -> str:
-        """Return the current user's canonical learning profile."""
-        return make_common_response(get_learner_profile(user_id=request.user.user_id))
-
-    @app.route(path_prefix + "/learner-profile", methods=["PUT"])
-    def update_learner_profile_api() -> str:
-        """Replace the current user's canonical learning profile."""
-        payload = _request_json_object("learner_profile")
-        _reject_unknown_fields(
-            payload,
-            allowed_fields={"learner_profile", "nickname"},
-            parameter_name="learner_profile",
-        )
-        learner_profile = payload.get("learner_profile")
-        if not isinstance(learner_profile, str):
-            raise_param_error("learner_profile")
-        nickname = payload.get("nickname")
-        if "nickname" in payload and not isinstance(nickname, str):
-            raise_param_error("nickname")
-        return make_common_response(
-            replace_learner_profile(
-                app,
-                user_id=request.user.user_id,
-                learner_profile=learner_profile,
-                nickname=nickname,
-            )
-        )
-
-    @app.route(path_prefix + "/learner-profile", methods=["DELETE"])
-    def clear_learner_profile_api() -> str:
-        """Clear the profile while keeping profile-v2 handled."""
-        return make_common_response(clear_learner_profile(user_id=request.user.user_id))
-
-    @app.route(path_prefix + "/learner-profile/optimize", methods=["POST"])
-    def optimize_learner_profile_api() -> str:
-        """Return an LLM-optimized draft without saving profile state."""
-        payload = _request_json_object("learner_profile")
-        _reject_unknown_fields(
-            payload,
-            allowed_fields={"learner_profile"},
-            parameter_name="learner_profile",
-        )
-        learner_profile = payload.get("learner_profile")
-        if not isinstance(learner_profile, str):
-            raise_param_error("learner_profile")
-        with learner_profile_optimization_admission(
-            app,
-            user_id=request.user.user_id,
-        ):
-            result = optimize_learner_profile(
-                app,
-                user_id=request.user.user_id,
-                learner_profile=learner_profile,
-                output_language=getattr(request.user, "language", None),
-            )
-        return make_common_response(result)
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation
