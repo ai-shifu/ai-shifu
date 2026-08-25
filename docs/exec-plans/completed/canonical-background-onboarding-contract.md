@@ -104,7 +104,6 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
   - `src/api/flaskr/service/profile/funcs.py`
 - Learner onboarding contract and routes:
   - `src/api/flaskr/service/profile/onboarding.py`
-  - `src/api/flaskr/service/profile/legacy_onboarding.py`
   - `src/api/flaskr/service/common/profile_onboarding.py`
   - `src/api/flaskr/route/profile.py`
 - Admin onboarding contract:
@@ -112,7 +111,7 @@ passed. A separate proxy-free run passed all seven LangFuse semantics tests.
 - Frontend API, gate, dialog, and admin consumers:
   - `src/cook-web/src/api/learnerProfile.ts`
   - `src/cook-web/src/components/profile-onboarding/`
-  - `src/cook-web/src/app/c/[courseId]/useCourseProfileOnboardingGate.ts`
+  - `src/cook-web/src/app/c/[[...id]]/hooks/useCourseProfileOnboardingGate.ts`
   - `src/cook-web/src/app/admin/operations/profile-onboarding/`
 
 ## Plan of Work
