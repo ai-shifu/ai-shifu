@@ -110,9 +110,7 @@
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
     "reviewCollection": "查看并确认",
-    "starting": "正在准备欢迎仪式…",
-    "streamError": "提问意外中断了，请再试一次。",
-    "thinking": "正在根据你的回答继续…"
+    "streamError": "提问意外中断了，请再试一次。"
   },
   "loadFailed": "个性化设置暂时加载失败，已直接为你打开课程，请稍后重试。",
   "next": "下一步",

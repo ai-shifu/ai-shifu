@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { MarkdownFlow } from 'markdown-flow-ui/renderer';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
@@ -144,13 +144,7 @@ export default function ProfileOnboardingConversation({
   const visibleErrorMessage = submissionLimitError
     ? t('module.profileOnboarding.guided.inputLimitError')
     : errorMessage;
-  const latestItem = items[items.length - 1];
-  const streamingNonInteraction = Boolean(
-    runInFlight && latestItem && !latestItem.interaction,
-  );
-  const hasVisibleStatus = Boolean(
-    visibleErrorMessage || loading || streamingNonInteraction || retryAvailable,
-  );
+  const hasVisibleStatus = Boolean(visibleErrorMessage || retryAvailable);
   const canUseAssistant = Boolean(
     assistantView &&
     assistantPrompt &&
@@ -247,16 +241,6 @@ export default function ProfileOnboardingConversation({
             <span className='min-w-0 flex-1 text-destructive'>
               {visibleErrorMessage}
             </span>
-          ) : loading || streamingNonInteraction ? (
-            <>
-              <Loader2
-                className='h-4 w-4 animate-spin motion-reduce:animate-none'
-                aria-hidden='true'
-              />
-              {items.length
-                ? t('module.profileOnboarding.guided.thinking')
-                : t('module.profileOnboarding.guided.starting')}
-            </>
           ) : null}
           {retryAvailable ? (
             <Button

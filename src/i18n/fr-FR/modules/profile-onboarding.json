@@ -110,9 +110,7 @@
     "retry": "Réessayer",
     "retryableError": "La connexion a été interrompue. Votre réponse est conservée. Réessayez.",
     "reviewCollection": "Vérifier et confirmer",
-    "starting": "Préparation de votre accueil…",
-    "streamError": "Les questions se sont interrompues. Réessayez.",
-    "thinking": "Préparation de la suite à partir de votre réponse…"
+    "streamError": "Les questions se sont interrompues. Réessayez."
   },
   "loadFailed": "Vos paramètres de personnalisation n’ont pas pu être chargés ; le cours a donc été ouvert. Réessayez plus tard.",
   "next": "Suivant",

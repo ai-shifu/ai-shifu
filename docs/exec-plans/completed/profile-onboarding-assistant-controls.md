@@ -7,6 +7,8 @@ prompts, a floating lower-right learner entry, concise assistant instructions,
 no copy-section heading, explicit processing after paste, and correct speaker
 conversion of MarkdownFlow interaction text. These supersede the initial
 read-only prompt and automatic-paste decisions in the earlier completed plans.
+The subsequent UI correction removes the conversation's startup and continuation
+progress text and spinner while preserving request state and recovery actions.
 
 ## Progress
 
@@ -37,6 +39,12 @@ read-only prompt and automatic-paste decisions in the earlier completed plans.
   publishing. The expanded backend suite passed 356 tests, including missing
   terminal metadata; the full frontend suite still passed 1,517 tests, and
   TypeScript and Ruff passed. Keep this second review fix separate.
+- [x] 2026-08-26 UTC: Remove conversation startup/continuation progress text and
+  spinner, including their unused keys in five locales. The updated regressions
+  failed against the old UI, then all 87 related tests and 1,517 frontend tests
+  passed. A real-browser fixture confirmed zero progress rows/spinners during
+  session setup, initial response and final content streaming; error text and
+  retry remained visible. Remove the temporary fixture after verification.
 
 ## Surprises & Discoveries
 
@@ -89,6 +97,10 @@ a code fix. No old introduction is silently merged into the reviewed result.
   Show as soon as a frozen public prompt is available, even before the question.
 - Paste and typing only edit the draft. Only the processing button submits;
   request replay, import locks, account isolation and confirmation remain.
+- The subsequent request removes the entire normal-progress row, including its
+  startup variant, without removing error/retry UI, aria-busy state, read-only
+  interaction protection or the in-flight request lock. The same shared view
+  serves learner sessions and administrator previews.
 - Interaction text inside ?[] is displayed to the learner: its "you" means the
   learner, while an option such as "I won't tell you" already uses learner "I".
   Preserve that speaker identity when compiling first-person questions. Do not
@@ -108,6 +120,11 @@ describes the interviewer-versus-learner roles inside ?[] and preserves choices
 that already speak as the learner. No live model was asked to regenerate an
 existing config; stored prompts and sessions do not change until an operator
 saves a new version and the learner starts a new collection.
+
+The later progress-display correction removes both guided.starting and
+guided.thinking and their spinner instead of hiding only the Chinese text.
+Regression coverage retains the terminal-cursor lock and final-draft handoff;
+the browser checks use controlled session callbacks, not live LLM requests.
 
 Local implementation and verification are complete, including all repository
 gates and lefthook. GitHub PR #2669 is the delivery surface; its description

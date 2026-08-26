@@ -110,9 +110,7 @@
     "retry": "Try again",
     "retryableError": "The connection was interrupted. Your answer is still here. Try again.",
     "reviewCollection": "Review and confirm",
-    "starting": "Preparing your welcome…",
-    "streamError": "The questions stopped unexpectedly. Try again.",
-    "thinking": "Continuing from your answer…"
+    "streamError": "The questions stopped unexpectedly. Try again."
   },
   "loadFailed": "Your personalization settings could not be loaded, so the course was opened. Please try again later.",
   "next": "Next",

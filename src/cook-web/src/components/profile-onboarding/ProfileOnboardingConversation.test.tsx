@@ -305,7 +305,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(screen.getByText('Explain with examples')).toBeInTheDocument();
   });
 
-  test('keeps an interaction read-only until its terminal done cursor arrives', async () => {
+  test('waits without progress indicators and keeps input read-only until its cursor arrives', async () => {
     let firstOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onRunInFlightChange = jest.fn();
     const runSession = jest.fn(({ onMessage }) => {
@@ -313,7 +313,7 @@ describe('ProfileOnboardingConversation', () => {
       return { close: jest.fn() };
     });
 
-    render(
+    const { container } = render(
       <ProfileOnboardingConversation
         createSession={async () => ({ session_id: 'session-terminal-race' })}
         runSession={runSession}
@@ -322,8 +322,27 @@ describe('ProfileOnboardingConversation', () => {
         onError={jest.fn()}
       />,
     );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
     expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
+
+    act(() => {
+      firstOnMessage?.({
+        type: 'element',
+        content: {
+          element_bid: 'welcome-before-interaction',
+          element_type: 'content',
+          content: 'Let us get to know you.',
+        },
+      });
+    });
+    expect(screen.getByText('Let us get to know you.')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('.profile-onboarding-markdownflow'),
+    ).toHaveAttribute('aria-busy', 'true');
 
     act(() => {
       firstOnMessage?.({
@@ -364,7 +383,7 @@ describe('ProfileOnboardingConversation', () => {
     );
   });
 
-  test('keeps progress visible after the final response until the profile draft is ready', async () => {
+  test('waits without progress indicators after the final response until the draft is ready', async () => {
     let finalOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onDraftReady = jest.fn();
     const runSession = jest
@@ -392,7 +411,7 @@ describe('ProfileOnboardingConversation', () => {
         return { close: jest.fn() };
       });
 
-    render(
+    const { container } = render(
       <ProfileOnboardingConversation
         createSession={async () => ({ session_id: 'session-final-progress' })}
         runSession={runSession}
@@ -419,9 +438,11 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
 
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'module.profileOnboarding.guided.thinking',
-    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('.profile-onboarding-markdownflow'),
+    ).toHaveAttribute('aria-busy', 'true');
     expect(onDraftReady).not.toHaveBeenCalled();
 
     act(() => {
