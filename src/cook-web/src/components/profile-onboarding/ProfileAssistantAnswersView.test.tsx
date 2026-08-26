@@ -193,3 +193,45 @@ test('storage failures do not prevent continuing the flow', () => {
   expect(() => writeProfileAssistantDraft('account', 'answer')).not.toThrow();
   setItem.mockRestore();
 });
+
+test.each([undefined, 'missing-account-key', 'unrelated-session-key'])(
+  'clears all account drafts with an absent or stale active pointer (%s)',
+  activeKey => {
+    const storage = window.sessionStorage;
+    storage.setItem('unrelated-session-key', 'Keep this value');
+    storage.setItem(
+      'profile-onboarding-paste-draft:profile-v2',
+      'Legacy draft',
+    );
+    writeProfileAssistantDraft('account-a', 'Private A');
+    writeProfileAssistantDraft('account-b', 'Private B');
+    if (activeKey) {
+      storage.setItem(
+        'profile-onboarding-paste-draft:active-user:profile-v2',
+        activeKey,
+      );
+    }
+
+    clearProfileAssistantDrafts();
+
+    expect(storage.length).toBe(1);
+    expect(storage.getItem('unrelated-session-key')).toBe('Keep this value');
+  },
+);
+
+test.each(['key', 'removeItem'] as const)(
+  'tolerates storage %s failures while clearing drafts',
+  method => {
+    writeProfileAssistantDraft('account', 'Private answer');
+    const failingMethod = jest
+      .spyOn(Storage.prototype, method)
+      .mockImplementation(() => {
+        throw new Error('Storage blocked');
+      });
+    try {
+      expect(() => clearProfileAssistantDrafts()).not.toThrow();
+    } finally {
+      failingMethod.mockRestore();
+    }
+  },
+);

@@ -36,5 +36,18 @@ export const writeProfileAssistantDraft = (scope: string, draft: string) => {
 };
 
 export const clearProfileAssistantDrafts = () => {
-  readProfileAssistantDraft('');
+  if (typeof window === 'undefined') return;
+  try {
+    const storage = window.sessionStorage;
+    // The active pointer can be missing or stale, so also remove orphaned drafts.
+    // Walk backwards because removing a key changes the remaining key indexes.
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (key === LEGACY_KEY || key === ACTIVE_KEY || key?.startsWith(PREFIX)) {
+        storage.removeItem(key);
+      }
+    }
+  } catch {
+    // Storage may be unavailable in restricted browser modes.
+  }
 };
