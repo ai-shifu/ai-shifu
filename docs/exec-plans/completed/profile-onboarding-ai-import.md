@@ -21,7 +21,11 @@ learner access. Existing configurations without a prompt remain usable.
 - [x] 2026-08-26 CST: Verify five locales, regression suites and browser layouts.
   All eight Chinese/Arabic viewport flows pass; the existing narrow RTL course
   shell overflow is recorded below rather than silently treated as clean.
-- [ ] 2026-08-26 CST: Commit, push ready PR, check CI and natural review threads.
+- [x] 2026-08-26 CST: Commit `9070a4b0e`, push ready PR #2669 targeting main.
+  Initial remote CI all passed, including backend and runtime harness.
+- [x] 2026-08-26 CST: Verify scoped natural-review follow-ups; publish each
+  independent fix as its own commit. Latest CI and review state is maintained
+  on PR #2669; no merge or deployment is part of completion.
 
 ## Surprises & Discoveries
 
@@ -80,8 +84,10 @@ learner access. Existing configurations without a prompt remain usable.
 
 ## Outcomes & Retrospective
 
-Implementation and local/browser verification are complete; PR publication
-and remote CI/review remain in progress. Current evidence: full frontend Jest **175 suites / 1,432 tests**,
+Implementation, local/browser verification, and ready PR publication are
+complete. Initial remote CI passed. Natural-review follow-ups were verified
+locally and committed separately; the PR records the latest post-push CI state.
+Current evidence: full frontend Jest **175 suites / 1,438 tests**,
 TypeScript and ESLint pass (existing global warnings remain); backend focused
 config/profile suite **112 tests**, runtime/routes/request-validation suite
 **195 tests**, using official MarkdownFlow **0.3.1** installed in `/tmp/pr3-python`.
@@ -96,6 +102,41 @@ has been performed. LLM behavior is tested with deterministic providers; this
 is not a claim of live-model semantic accuracy. SQLite persistence tests replace
 MySQL GET_LOCK with a test lock, while separate tests exercise advisory-lock
 acquisition/cleanup failures with mocked connections.
+
+## Review Follow-up
+
+PR: https://github.com/ai-shifu/ai-shifu/pull/2669 (ready, base main).
+Initial commit `9070a4b0e` passed all remote checks, including backend tests
+(6m32s), frontend tests, runtime harness (7m58s), static checks, lint, formatting,
+CodeQL, and GitGuardian. Ready is not a merge-readiness claim: GitHub reported
+BEHIND main, although conflict-free. No merge or deployment was performed.
+
+Natural CodeRabbit review
+https://github.com/ai-shifu/ai-shifu/pull/2669#pullrequestreview-5027665065
+has six nonblocking suggestions. Fixed orphaned account drafts at logout (`414e00248`) and
+focus restoration on subview switches (`bfb50c25d`) in separate verified commits. Draft
+cleanup passed 17 focused tests including missing/stale pointer and storage
+failures; view focus passed 40 focused tests, full TypeScript, and ESLint.
+Entering focuses the instructions so the copy step stays first, and returning
+restores the entry without stealing initial focus or scrolling. Skip
+moving existing storage tests and consolidating already-tested limit literals
+as low-value layout/style changes. Keep the uncertain-request synchronous ref:
+every mutation is paired with reducer dispatch, and retry-control tests cover
+its rendering; adding duplicated state fixes no current failure. Do not add
+redundant locale plumbing: the shared SSE transport already resolves current
+(and pending) UI language through `getCurrentLanguageHeaders` when no explicit
+language is provided; the frozen public prompt is never localized.
+
+Devin observation
+https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3860413947
+asks whether nickname-only confirmation may replace an existing introduction
+with an empty one. This is the approved replacement contract: show the exact
+result in the confirmation editor and only write after explicit confirmation;
+do not merge old saved information automatically. Explain without changing
+behavior and left the thread open (not a verified fix); explanation:
+https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3860462617. Copilot could not
+review because of quota exhaustion; do not report it as approval. No reviewer
+was manually triggered.
 
 ## Browser Evidence
 

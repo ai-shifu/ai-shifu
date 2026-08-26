@@ -23,7 +23,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
-- [Let learners answer onboarding questions with their AI](./active/profile-onboarding-ai-import.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 
@@ -43,6 +42,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [Let learners answer onboarding questions with their AI](./completed/profile-onboarding-ai-import.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
