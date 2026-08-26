@@ -37,9 +37,7 @@ from flaskr.service.billing.models import (  # noqa: E402
     BillingSubscription,
 )
 from flaskr.service.billing.notifications import (  # noqa: E402
-    enqueue_subscription_purchase_sms,
     load_creator_mobile_snapshot,
-    requeue_subscription_purchase_sms,
     stage_subscription_purchase_sms_for_paid_order,
 )
 from flaskr.service.billing.queries import (  # noqa: E402
@@ -107,19 +105,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--subscription-sms-template-code",
-        default="",
-        help=(
-            "Optional Aliyun SMS template code for this compensation bonus "
-            "plan only. Defaults to the global subscription purchase template."
-        ),
+        required=True,
+        help="Aliyun SMS template code for this compensation bonus plan.",
     )
     parser.add_argument(
         "--subscription-sms-product-name",
-        default="",
-        help=(
-            "Product name used by --subscription-sms-template-code. "
-            "Required when the custom template expects a product variable."
-        ),
+        required=True,
+        help="Product name used by the compensation SMS template.",
     )
     parser.add_argument(
         "--apply",
@@ -132,14 +124,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     """Run the one-month plan bonus script."""
     args = _build_parser().parse_args()
-    if (
-        args.subscription_sms_template_code
-        and not str(args.subscription_sms_product_name or "").strip()
-    ):
-        message = (
-            "--subscription-sms-product-name is required when "
-            "--subscription-sms-template-code is set."
-        )
+    if not str(args.subscription_sms_product_name or "").strip():
+        message = "--subscription-sms-product-name is required."
         raise RuntimeError(message)
     rows = filter_rows_by_user_bid(
         load_reference_rows(args.input, sheet_name=args.sheet),
@@ -261,17 +247,11 @@ def main() -> int:
             db.session.commit()
             subscription_sms_result: dict[str, object] = {"status": "not_staged"}
             if should_enqueue_subscription_sms:
-                if args.subscription_sms_template_code:
-                    subscription_sms_result = _send_bonus_subscription_sms(
-                        app,
-                        bill_order_bid=bill_order_bid,
-                        template_code=args.subscription_sms_template_code,
-                    )
-                else:
-                    subscription_sms_result = enqueue_subscription_purchase_sms(
-                        app,
-                        bill_order_bid=bill_order_bid,
-                    )
+                subscription_sms_result = _send_bonus_subscription_sms(
+                    app,
+                    bill_order_bid=bill_order_bid,
+                    template_code=args.subscription_sms_template_code,
+                )
 
             results.append(
                 {
@@ -601,18 +581,11 @@ def _resume_existing_subscription_sms(
         db.session.add(order)
         db.session.commit()
 
-    if template_code:
-        return _send_bonus_subscription_sms(
-            app,
-            bill_order_bid=order.bill_order_bid,
-            template_code=template_code,
-        )
-
-    if not current_status:
-        stage_subscription_purchase_sms_for_paid_order(order, previous_status=None)
-        db.session.add(order)
-        db.session.commit()
-    return requeue_subscription_purchase_sms(app, bill_order_bid=order.bill_order_bid)
+    return _send_bonus_subscription_sms(
+        app,
+        bill_order_bid=order.bill_order_bid,
+        template_code=template_code,
+    )
 
 
 def _write_subscription_sms_status(
@@ -779,6 +752,7 @@ def _resolve_deferred_cycle_start_at(
         .all()
     )
     latest_cycle_end_at = boundary_at
+    # Stack after every paid renewal cycle so compensation never shortens already queued rights.
     for row in rows:
         metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
         cycle_end_at = extract_order_metadata_datetime(metadata, "renewal_cycle_end_at")

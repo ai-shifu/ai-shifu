@@ -54,6 +54,29 @@ def test_reference_loader_rejects_duplicate_user_bid(tmp_path: Path) -> None:
         load_reference_rows(str(csv_path), sheet_name=DEFAULT_SHEET_NAME)
 
 
+def test_reference_loader_accepts_standard_thousands_amount(tmp_path: Path) -> None:
+    csv_path = tmp_path / "input.csv"
+    csv_path.write_text(
+        f'{USER_BID_HEADER},{AMOUNT_HEADER}\nuser-a,"1,234.56"\n',
+        encoding="utf-8",
+    )
+
+    rows = load_reference_rows(str(csv_path), sheet_name=DEFAULT_SHEET_NAME)
+
+    assert rows[0].amount == Decimal("1234.56")
+
+
+def test_reference_loader_rejects_invalid_amount(tmp_path: Path) -> None:
+    csv_path = tmp_path / "input.csv"
+    csv_path.write_text(
+        f"{USER_BID_HEADER},{AMOUNT_HEADER}\nuser-a,not-a-number\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Invalid credit amount"):
+        load_reference_rows(str(csv_path), sheet_name=DEFAULT_SHEET_NAME)
+
+
 def test_existing_credit_grant_reports_amount_mismatch() -> None:
     row = type(
         "Row",

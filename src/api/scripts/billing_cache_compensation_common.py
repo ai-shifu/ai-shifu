@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -24,6 +25,7 @@ NICKNAME_HEADER = "\u6635\u79f0"
 SCENES_HEADER = "\u6d89\u53ca\u573a\u666f"
 AMOUNT_HEADER = "\u5efa\u8bae\u8865\u53d1\u79ef\u5206"
 REQUIRED_HEADERS = (USER_BID_HEADER, AMOUNT_HEADER)
+_STANDARD_THOUSANDS_AMOUNT_PATTERN = re.compile(r"^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$")
 
 
 def ensure_api_root_on_path() -> None:
@@ -165,7 +167,7 @@ def _parse_mapping_row(
         identify=_normalize_cell(row.get(IDENTIFY_HEADER)),
         nickname=_normalize_cell(row.get(NICKNAME_HEADER)),
         scenes=_normalize_cell(row.get(SCENES_HEADER)),
-        amount=_parse_amount(row.get(AMOUNT_HEADER)),
+        amount=_parse_amount(row.get(AMOUNT_HEADER), row_number=row_number),
         row_number=row_number,
     )
 
@@ -186,13 +188,18 @@ def _validate_required_headers(headers: Iterable[object]) -> None:
         raise ValueError(message)
 
 
-def _parse_amount(value: object) -> Decimal:
+def _parse_amount(value: object, *, row_number: int) -> Decimal:
+    raw = str(value or "").strip()
+    if _STANDARD_THOUSANDS_AMOUNT_PATTERN.fullmatch(raw):
+        raw = raw.replace(",", "")
     try:
-        parsed = Decimal(str(value or "0").strip())
-    except (InvalidOperation, ValueError, TypeError):
-        return Decimal(0)
+        parsed = Decimal(raw)
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        message = f"Invalid credit amount at row {row_number}: {value!r}"
+        raise ValueError(message) from exc
     if not parsed.is_finite():
-        return Decimal(0)
+        message = f"Invalid credit amount at row {row_number}: {value!r}"
+        raise ValueError(message)
     return quantize_credit_amount(parsed)
 
 
