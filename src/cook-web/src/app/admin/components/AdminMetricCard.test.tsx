@@ -166,11 +166,39 @@ describe('AdminMetricCardGroup', () => {
 
     expect(screen.getByText('Learners').closest('.relative')).toHaveClass(
       'p-4',
+      'hover:border-primary/30',
     );
     expect(
       screen.getByRole('button', {
         name: 'Users who started or joined this course',
       }),
     ).toBeInTheDocument();
+  });
+
+  test('requires action labels for clickable metrics with non-text labels', () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    expect(() =>
+      render(
+        <AdminMetricCardGroup
+          items={[
+            // @ts-expect-error actionLabel is required for clickable non-text labels.
+            {
+              key: 'custom',
+              label: React.createElement('span', null, 'Custom metric'),
+              value: 7,
+              tooltip: 'Custom metric tooltip',
+              onClick: jest.fn(),
+            },
+          ]}
+        />,
+      ),
+    ).toThrow(
+      'AdminMetricCard requires actionLabel when a clickable metric uses a non-text label.',
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });

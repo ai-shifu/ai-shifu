@@ -13,14 +13,34 @@ export type AdminMetricCardHoverMode = 'card' | 'control';
 export type AdminMetricCardVariant = 'default' | 'count';
 export type AdminMetricCardSize = 'default' | 'compact';
 
-export type AdminMetricCardItem = {
+type AdminMetricCardBaseItem = {
   key: string;
-  label: ReactNode;
   value: ReactNode;
   tooltip: string;
+};
+
+type AdminMetricCardTextItem = AdminMetricCardBaseItem & {
+  label: string;
   onClick?: () => void;
   actionLabel?: string;
 };
+
+type AdminMetricCardStaticNodeItem = AdminMetricCardBaseItem & {
+  label: Exclude<ReactNode, string>;
+  onClick?: undefined;
+  actionLabel?: string;
+};
+
+type AdminMetricCardClickableNodeItem = AdminMetricCardBaseItem & {
+  label: Exclude<ReactNode, string>;
+  onClick: () => void;
+  actionLabel: string;
+};
+
+export type AdminMetricCardItem =
+  | AdminMetricCardTextItem
+  | AdminMetricCardStaticNodeItem
+  | AdminMetricCardClickableNodeItem;
 
 export type AdminMetricCardActiveFilter = {
   label: ReactNode;
@@ -57,7 +77,12 @@ const CLICKABLE_CARD_HOVER_CLASS =
   'transition-colors has-[.metric-control:hover]:border-primary/30 has-[.metric-control:hover]:bg-primary/[0.04]';
 const STATIC_CARD_HOVER_CLASS =
   'transition-colors hover:border-primary/30 hover:bg-primary/[0.04]';
-const COUNT_CARD_CLASS = 'relative';
+const COUNT_CARD_CLASS =
+  'relative rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] [background:linear-gradient(180deg,rgba(23,23,23,0.00)_0%,var(--base-primary,rgba(23,23,23,0.05))_100%),var(--base-card,#FFF)]';
+const COUNT_CLICKABLE_CARD_HOVER_CLASS =
+  'transition-colors has-[.metric-control:hover]:border-primary/30 has-[.metric-control:hover]:[background:color-mix(in_srgb,var(--primary)_4%,transparent)]';
+const COUNT_STATIC_CARD_HOVER_CLASS =
+  'transition-colors hover:border-primary/30 hover:[background:color-mix(in_srgb,var(--primary)_4%,transparent)]';
 const CONTROL_CLASS =
   'group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 const INSET_CONTROL_CLASS =
@@ -65,10 +90,6 @@ const INSET_CONTROL_CLASS =
 const TOOLTIP_TRIGGER_CLASS =
   'inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 const COUNT_CARD_STYLE: CSSProperties = {
-  borderRadius: 'var(--border-radius-rounded-xl, 14px)',
-  border: 'var(--border-width-border, 1px) solid var(--base-border, #E5E5E5)',
-  background:
-    'linear-gradient(180deg, rgba(23, 23, 23, 0.00) 0%, var(--base-primary, rgba(23, 23, 23, 0.05)) 100%), var(--base-card, #FFF)',
   boxShadow:
     'var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px) var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0) var(--shadow-sm-1-color, rgba(0, 0, 0, 0.10)), var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px) var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px) var(--shadow-sm-2-color, rgba(0, 0, 0, 0.10))',
 };
@@ -88,6 +109,13 @@ export function AdminMetricCard({
   const isCountVariant = variant === 'count';
   const clickableAriaLabel =
     actionLabel || (typeof label === 'string' ? label : undefined);
+
+  if (onClick && !clickableAriaLabel) {
+    throw new Error(
+      'AdminMetricCard requires actionLabel when a clickable metric uses a non-text label.',
+    );
+  }
+
   const content = (
     <>
       <div
@@ -130,10 +158,12 @@ export function AdminMetricCard({
           ? [COUNT_CARD_CLASS, size === 'compact' ? 'p-4' : 'p-6']
           : CARD_CLASS,
         hoverMode === 'card' &&
-          (onClick
-            ? CLICKABLE_CARD_HOVER_CLASS
-            : isCountVariant
-              ? 'transition-colors hover:border-primary/30'
+          (isCountVariant
+            ? onClick
+              ? COUNT_CLICKABLE_CARD_HOVER_CLASS
+              : COUNT_STATIC_CARD_HOVER_CLASS
+            : onClick
+              ? CLICKABLE_CARD_HOVER_CLASS
               : STATIC_CARD_HOVER_CLASS),
         className,
       )}
