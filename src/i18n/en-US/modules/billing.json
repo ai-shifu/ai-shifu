@@ -593,6 +593,12 @@
     "processing": "Processing...",
     "productLabel": "Product",
     "providerLabel": "Payment provider",
+    "redirect": {
+      "creating": "Creating your order...",
+      "description": "Please keep this page open. If it does not redirect automatically, use the button below to try again.",
+      "openingStripe": "Opening Stripe secure checkout...",
+      "retry": "Open checkout again"
+    },
     "subject": {
       "plan": {
         "day": "Daily plan",

@@ -593,6 +593,12 @@
     "processing": "Traitement…",
     "productLabel": "Produit",
     "providerLabel": "Fournisseur de paiement",
+    "redirect": {
+      "creating": "Création de votre commande...",
+      "description": "Gardez cette page ouverte. Si la redirection ne se fait pas automatiquement, utilisez le bouton ci-dessous pour réessayer.",
+      "openingStripe": "Ouverture du paiement sécurisé Stripe...",
+      "retry": "Rouvrir la page de paiement"
+    },
     "subject": {
       "plan": {
         "day": "Forfait quotidien",
