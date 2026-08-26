@@ -115,10 +115,11 @@ class StripeProvider(PaymentProvider):
                     metadata.update(existing_metadata)
                 payment_intent_data["metadata"] = metadata
                 params["payment_intent_data"] = payment_intent_data
+            is_subscription_mode = params.get("mode") == "subscription"
             params["payment_method_types"] = ["card"]
-            if get_config("STRIPE_ALIPAY_ENABLED"):
+            if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
                 params["payment_method_types"].append("alipay")
-            if get_config("STRIPE_WECHAT_PAY_ENABLED"):
+            if not is_subscription_mode and get_config("STRIPE_WECHAT_PAY_ENABLED"):
                 params["payment_method_types"].append("wechat_pay")
                 params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
 
