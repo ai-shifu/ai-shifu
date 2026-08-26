@@ -51,6 +51,10 @@ STATE_MAPPING = {
     "1104": USER_STATE_PAID,
 }
 
+WECHAT_PROVIDER = "wechat"
+WECHAT_OPEN_ID_FORMAT = "open_id"
+WECHAT_UNION_ID_FORMAT = "unicon_id"
+
 STATE_TO_PUBLIC_STATE = {
     USER_STATE_UNREGISTERED: 0,
     USER_STATE_REGISTERED: 1,
@@ -75,6 +79,35 @@ class CredentialSummary:
     def is_verified(self) -> bool:
         """Return whether the credential is verified."""
         return self.state == CREDENTIAL_STATE_VERIFIED
+
+    @property
+    def app_id(self) -> str:
+        """Return the provider app that issued this credential, if scoped.
+
+        Subjects issued by a creator's own provider app are stored as
+        ``"<app_id>:<subject_id>"`` so they cannot collide with the ones the
+        platform app issues; a bare subject means the platform app.
+        """
+        suffix = f":{self.subject_id}"
+        if self.subject_id and self.identifier.endswith(suffix):
+            return self.identifier[: -len(suffix)]
+        return ""
+
+
+def _preferred_credential(credentials: list[CredentialSummary]) -> CredentialSummary:
+    """Pick one credential out of several equally valid ones.
+
+    Verified beats unverified, then the most recently written row wins: when a
+    learner signs in from a second account of the same provider app, the new
+    subject lands in a new row and the old one is what they just stopped using.
+    Rows reach the aggregate in primary-key order (see ``list_credentials``), so
+    the later position is the later write -- a more reliable ordering than
+    ``created_at``, which backfilled rows can share down to the second.
+    """
+    return max(
+        enumerate(credentials),
+        key=lambda item: (item[1].is_verified, item[0]),
+    )[1]
 
 
 @dataclass
@@ -130,27 +163,44 @@ class UserAggregate:
             return self.identify
         return ""
 
+    def _wechat_subject(self, subject_format: str, app_id: str) -> str:
+        matches = [
+            credential
+            for credential in self.credentials
+            if credential.provider == WECHAT_PROVIDER
+            and credential.subject_format == subject_format
+        ]
+        if not matches:
+            return ""
+        scoped = [credential for credential in matches if credential.app_id == app_id]
+        return _preferred_credential(scoped or matches).subject_id
+
+    def wechat_open_id_for_app(self, app_id: str = "") -> str:
+        """Return the WeChat open ID issued by ``app_id``, if present.
+
+        An account can legitimately hold one open ID per WeChat app: the
+        platform app plus, for learners of a creator who runs their own
+        official account, that creator's app. WeChat JSAPI payment only accepts
+        the open ID issued by the app it is charging through, so callers that
+        know which app is asking must say so; pass an empty ``app_id`` for the
+        platform app. Callers with no app in hand fall back to the best row
+        overall so they still get a stable answer.
+        """
+        return self._wechat_subject(WECHAT_OPEN_ID_FORMAT, app_id)
+
+    def wechat_union_id_for_app(self, app_id: str = "") -> str:
+        """Return the WeChat union ID issued by ``app_id``, if present."""
+        return self._wechat_subject(WECHAT_UNION_ID_FORMAT, app_id)
+
     @property
     def wechat_open_id(self) -> str:
-        """Return the available WeChat open ID, if present."""
-        for credential in self.credentials:
-            if (
-                credential.provider == "wechat"
-                and credential.subject_format == "open_id"
-            ):
-                return credential.subject_id
-        return ""
+        """Return the platform app's WeChat open ID, or the best one available."""
+        return self.wechat_open_id_for_app()
 
     @property
     def wechat_union_id(self) -> str:
-        """Return the available WeChat union ID, if present."""
-        for credential in self.credentials:
-            if (
-                credential.provider == "wechat"
-                and credential.subject_format == "unicon_id"
-            ):
-                return credential.subject_id
-        return ""
+        """Return the platform app's WeChat union ID, or the best one available."""
+        return self.wechat_union_id_for_app()
 
     @property
     def username(self) -> str:
@@ -822,11 +872,14 @@ def find_credential(
 def list_credentials(
     *, user_bid: str, provider_name: str | None = None
 ) -> list[AuthCredential]:
-    """Return credentials."""
+    """Return credentials, oldest first."""
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
-    return query.all()
+    # Callers pick one row out of several (see ``_preferred_credential``), so the
+    # order has to be the same on every read rather than whatever the engine
+    # happens to return.
+    return query.order_by(AuthCredential.id.asc()).all()
 
 
 def get_first_verified_credential_created_at(*, user_bid: str) -> datetime | None:

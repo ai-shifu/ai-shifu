@@ -615,6 +615,26 @@ def resolve_creator_public_integrations(
     return result
 
 
+def resolve_creator_wechat_oauth_app_id(creator_bid: str) -> str:
+    """Resolve the WeChat OAuth app id a creator signs their learners in with.
+
+    Returns an empty string when the creator has no verified WeChat OAuth
+    integration of their own, meaning learners are signed in through the
+    platform app.
+    """
+    normalized = normalize_bid(creator_bid)
+    if not normalized:
+        return ""
+    custom_wechat = resolve_creator_public_integrations(normalized).get("wechat_oauth")
+    if not custom_wechat:
+        return ""
+    app_id = str(custom_wechat.get("app_id") or "").strip()
+    if not app_id:
+        message = "Custom WeChat OAuth integration is missing app_id"
+        raise RuntimeError(message)
+    return app_id
+
+
 def resolve_provider_credential_context(
     app: Flask,
     *,
