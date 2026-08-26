@@ -21,11 +21,26 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
+def _parse_completed_prompt(raw: str) -> str:
+    """Require a complete compiler envelope before exposing its plain text."""
+    payload = json.loads(raw)
+    if (
+        not isinstance(payload, dict)
+        or set(payload) != {"assistant_prompt", "complete"}
+        or payload["complete"] is not True
+        or not isinstance(payload["assistant_prompt"], str)
+    ):
+        message = "Assistant prompt compiler returned an invalid envelope"
+        raise ValueError(message)
+    return payload["assistant_prompt"].strip()
+
+
 def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> str:
     """Compile only the source document; no learner or UI language is provided."""
     trace = None
     span = None
     prompt = ""
+    truncated = False
     try:
         trace, span = create_trace_with_root_span(
             client=get_langfuse_client(),
@@ -39,6 +54,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
             json.dumps({"markdownflow": document}, ensure_ascii=False),
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
+            json=True,
             generation_name="profile_onboarding_assistant_compiler",
             temperature=0,
             timeout=120,
@@ -47,7 +63,20 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             usage_scene=BILL_USAGE_SCENE_DEBUG,
             billable=0,
         )
-        prompt = "".join(chunk.result for chunk in responses).strip()
+        parts: list[str] = []
+        # Consume the stream before rejecting so the shared wrapper can finish
+        # usage accounting and tracing even for incomplete output.
+        for chunk in responses:
+            parts.append(chunk.result)
+            truncated = (
+                truncated
+                or bool(getattr(chunk, "is_truncated", False))
+                or (getattr(chunk, "finish_reason", None) == "length")
+            )
+        if not truncated:
+            # The shared wrapper may omit a content-free terminal chunk and
+            # its finish reason. An unfinished JSON envelope still fails here.
+            prompt = _parse_completed_prompt("".join(parts))
     except Exception as exc:
         app.logger.warning(
             "Onboarding assistant compilation failed: %s", type(exc).__name__
@@ -62,6 +91,6 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
                     trace_payload={"output": prompt},
                     root_span_payload={"output": prompt},
                 )
-    if not prompt:
+    if truncated or not prompt:
         raise_error("server.profile.profileOnboardingPromptGenerationFailed")
     return prompt

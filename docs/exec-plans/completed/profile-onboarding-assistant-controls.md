@@ -33,6 +33,10 @@ read-only prompt and automatic-paste decisions in the earlier completed plans.
   CodeQL and security checks. Natural CodeRabbit review completed.
 - [x] 2026-08-26 UTC: Fix copied feedback after a failed retry; all 13 assistant
   view tests and focused ESLint passed. Keep this review fix in its own commit.
+- [x] 2026-08-26 UTC: Reject truncated or incomplete compiler responses without
+  publishing. The expanded backend suite passed 356 tests, including missing
+  terminal metadata; the full frontend suite still passed 1,517 tests, and
+  TypeScript and Ruff passed. Keep this second review fix separate.
 
 ## Surprises & Discoveries
 
@@ -52,6 +56,22 @@ clipboard regression now asserts the retry label without advancing any timer.
 The [review](https://github.com/ai-shifu/ai-shifu/pull/2669#pullrequestreview-5029668284)
 is outside the diff range and has no resolvable inline thread. It is handled as
 an independent verified follow-up commit.
+
+The [truncation review](https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3862124509)
+exposed a shared-wrapper limitation: content-free terminal chunks, including
+their finish reason, do not reach callers. The compiler now requests one strict
+JSON envelope containing the public text and a trailing completion flag. It
+rejects visible truncation metadata and incomplete/invalid envelopes, including
+partial output without terminal metadata. It consumes the entire response
+iterator so shared usage accounting and tracing still finish. Only the extracted
+plain prompt is published; manual edits, stored JSON, user APIs and frozen
+sessions retain their contract. The shared LLM wrapper is unchanged, and there
+is no plaintext fallback or second compiler protocol.
+
+A [nickname-only observation](https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3862118393)
+matches the previously approved explicit-replacement contract. It was explained
+with the prior decision link and left open as an observation, not resolved as
+a code fix. No old introduction is silently merged into the reviewed result.
 
 ## Decision Log
 

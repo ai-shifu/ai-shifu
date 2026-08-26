@@ -430,7 +430,10 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
 
     def invoke(*args: object, **kwargs: object) -> object:
         calls.append((args, kwargs))
-        return [SimpleNamespace(result="Public "), SimpleNamespace(result="prompt")]
+        return [
+            SimpleNamespace(result='{"assistant_prompt":"Public '),
+            SimpleNamespace(result='prompt","complete":true}'),
+        ]
 
     monkeypatch.setattr(module, "invoke_llm", invoke)
     document = (
@@ -445,6 +448,7 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
     args, kwargs = calls[0]
     assert json.loads(args[4]) == {"markdownflow": document}
     assert args[1] == ""
+    assert kwargs["json"] is True
     assert "output_language" not in kwargs
     assert "without bound variables" in kwargs["system"]
     assert 'begin exactly\nwith "请根据你对我的了解"' in kwargs["system"]
@@ -578,3 +582,138 @@ def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
         )
     publisher.assert_called_once()
     compiler.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "is_truncated", "tail"),
+    [
+        ("length", False, 'prompt","complete":true}'),
+        ("stop", True, 'prompt","complete":true}'),
+        (None, False, "prompt"),
+        (None, False, 'prompt","complete":tr'),
+    ],
+)
+def test_compiler_rejects_nonempty_truncated_output_without_publishing(
+    app: object,
+    monkeypatch: object,
+    finish_reason: str | None,
+    is_truncated: bool,
+    tail: str,
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.common import profile_onboarding as config
+    from flaskr.service.common import profile_onboarding_prompt as compiler
+
+    previous = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": "?[...Previous question]",
+            "assistant_prompt": "Previously published prompt",
+            "revision": 7,
+        }
+    )
+    stream_finished = []
+
+    def invoke(*_args: object, **_kwargs: object) -> object:
+        yield LLMStreamResponse(
+            response_id="part-1",
+            is_end=False,
+            is_truncated=False,
+            result='{"assistant_prompt":"Incomplete ',
+            finish_reason=None,
+            usage=None,
+        )
+        yield LLMStreamResponse(
+            response_id="part-2",
+            is_end=bool(finish_reason),
+            is_truncated=is_truncated,
+            result=tail,
+            finish_reason=finish_reason,
+            usage=None,
+        )
+        stream_finished.append(True)
+
+    publisher = Mock()
+    monkeypatch.setattr(compiler, "invoke_llm", invoke)
+    monkeypatch.setattr(
+        config,
+        "compile_profile_onboarding_assistant_prompt",
+        compiler.compile_profile_onboarding_assistant_prompt,
+    )
+    monkeypatch.setattr(
+        config, "read_profile_onboarding_database", lambda _app: previous
+    )
+    monkeypatch.setattr(config, "publish_profile_onboarding_database", publisher)
+    payload = {"enabled": True, "markdownflow": "?[...New question]"}
+    with pytest.raises(AppError):
+        config.update_profile_onboarding_config(
+            app, payload=payload, operator_user_bid="operator"
+        )
+    publisher.assert_not_called()
+    assert config.read_profile_onboarding_database(app) == previous
+    assert payload == {"enabled": True, "markdownflow": "?[...New question]"}
+    assert stream_finished == [True]
+
+
+@pytest.mark.parametrize("finish_reason", [None, "stop"])
+def test_compiler_accepts_nontruncated_shared_wrapper_chunks(
+    app: object, monkeypatch: object, finish_reason: str | None
+) -> None:
+    from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    monkeypatch.setattr(
+        module,
+        "invoke_llm",
+        lambda *_args, **_kwargs: [
+            LLMStreamResponse(
+                response_id="part-1",
+                is_end=False,
+                is_truncated=False,
+                result='{"assistant_prompt":" Complete',
+                finish_reason=None,
+                usage=None,
+            ),
+            LLMStreamResponse(
+                response_id="part-2",
+                is_end=bool(finish_reason),
+                is_truncated=False,
+                result=' prompt ","complete":true}',
+                finish_reason=finish_reason,
+                usage=None,
+            ),
+        ],
+    )
+    assert (
+        module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
+        == "Complete prompt"
+    )
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "[]",
+        '{"assistant_prompt":"Prompt"}',
+        '{"assistant_prompt":"Prompt","complete":false}',
+        '{"assistant_prompt":"Prompt","complete":1}',
+        '{"assistant_prompt":null,"complete":true}',
+        '{"assistant_prompt":" ","complete":true}',
+        '{"assistant_prompt":"Prompt","complete":true,"extra":"ignored"}',
+        "A plain-text response without the required completion envelope.",
+    ],
+)
+def test_compiler_rejects_missing_or_invalid_completion_envelope(
+    app: object, monkeypatch: object, output: str
+) -> None:
+    from types import SimpleNamespace
+
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    monkeypatch.setattr(
+        module, "invoke_llm", lambda *_args, **_kwargs: [SimpleNamespace(result=output)]
+    )
+    with pytest.raises(AppError):
+        module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
