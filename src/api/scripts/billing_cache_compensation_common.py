@@ -114,6 +114,19 @@ def row_to_payload(row: CompensationInputRow) -> dict[str, object]:
     }
 
 
+def add_mismatch(
+    mismatch: dict[str, object],
+    field: str,
+    *,
+    expected: object,
+    actual: object,
+) -> None:
+    """Append one mismatch when the normalized values differ."""
+    if _normalize_mismatch_value(expected) == _normalize_mismatch_value(actual):
+        return
+    mismatch[field] = {"expected": expected, "actual": actual}
+
+
 def _load_csv_rows(path: Path) -> list[CompensationInputRow]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -201,6 +214,14 @@ def _parse_amount(value: object, *, row_number: int) -> Decimal:
         message = f"Invalid credit amount at row {row_number}: {value!r}"
         raise ValueError(message)
     return quantize_credit_amount(parsed)
+
+
+def _normalize_mismatch_value(value: object) -> str:
+    if isinstance(value, datetime):
+        return to_utc_iso(value)
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    return str(value or "").strip()
 
 
 def _reject_duplicate_user_bids(

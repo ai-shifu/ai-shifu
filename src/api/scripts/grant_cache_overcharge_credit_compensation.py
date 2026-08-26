@@ -11,6 +11,7 @@ from billing_cache_compensation_common import (
     DEFAULT_INPUT_PATH,
     DEFAULT_OPERATOR_USER_BID,
     DEFAULT_SHEET_NAME,
+    add_mismatch,
     dump_json,
     ensure_api_root_on_path,
     filter_rows_by_user_bid,
@@ -22,6 +23,7 @@ ensure_api_root_on_path()
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 
 from app import create_app  # noqa: E402
+from flaskr.dao import db  # noqa: E402
 from flaskr.service.billing.manual_credit_grants import (  # noqa: E402
     MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
     MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
@@ -32,7 +34,7 @@ from flaskr.service.billing.queries import (  # noqa: E402
     load_primary_active_subscription,
 )
 from flaskr.service.user.repository import load_user_aggregate  # noqa: E402
-from flaskr.util.datetime import now_utc  # noqa: E402
+from flaskr.util.datetime import now_utc, to_utc_iso  # noqa: E402
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -111,7 +113,6 @@ def main() -> int:
                     existing_ledger,
                     row=row,
                     request_id=request_id,
-                    subscription=subscription,
                 )
                 if mismatch:
                     results.append(
@@ -158,6 +159,13 @@ def main() -> int:
                 display_name="LLM cache overcharge compensation",
                 note="LLM cache overcharge compensation",
                 grant_channel="cache_overcharge_compensation_script",
+            )
+            _write_compensation_grant_metadata(
+                ledger_bid=grant_result.ledger_bid,
+                campaign_id=args.campaign_id,
+                request_id=request_id,
+                row=row,
+                subscription=subscription,
             )
             results.append(
                 {
@@ -214,61 +222,88 @@ def _compare_existing_credit_grant(
     *,
     row: object,
     request_id: str,
-    subscription: object,
 ) -> dict[str, object]:
     mismatch: dict[str, object] = {}
     expected_key = f"operator_manual_grant:{request_id}"
     metadata = ledger.metadata_json if isinstance(ledger.metadata_json, dict) else {}
 
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "creator_bid",
         expected=row.user_bid,
         actual=ledger.creator_bid,
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "amount",
         expected=row.amount,
         actual=ledger.amount,
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "idempotency_key",
         expected=expected_key,
         actual=ledger.idempotency_key,
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "grant_source",
         expected=MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
         actual=metadata.get("grant_source"),
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "validity_preset",
         expected=MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
         actual=metadata.get("validity_preset"),
     )
-    _add_mismatch(
+    expected_expires_at = (
+        metadata.get("compensation_period_end_at") or ledger.expires_at
+    )
+    add_mismatch(
         mismatch,
         "expires_at",
-        expected=subscription.current_period_end_at,
+        expected=expected_expires_at,
         actual=ledger.expires_at,
     )
     return mismatch
 
 
-def _add_mismatch(
-    mismatch: dict[str, object],
-    field: str,
+def _write_compensation_grant_metadata(
     *,
-    expected: object,
-    actual: object,
+    ledger_bid: str,
+    campaign_id: str,
+    request_id: str,
+    row: object,
+    subscription: object,
 ) -> None:
-    if str(expected or "").strip() == str(actual or "").strip():
+    if not ledger_bid:
         return
-    mismatch[field] = {"expected": expected, "actual": actual}
+    ledger = CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.ledger_bid == ledger_bid,
+    ).first()
+    if ledger is None:
+        return
+    metadata = (
+        dict(ledger.metadata_json) if isinstance(ledger.metadata_json, dict) else {}
+    )
+    metadata.update(
+        {
+            "compensation_campaign_id": campaign_id,
+            "compensation_request_id": request_id,
+            "compensation_input_amount": format(row.amount, "f"),
+            "compensation_subscription_bid": str(
+                getattr(subscription, "subscription_bid", "") or ""
+            ).strip(),
+            "compensation_period_end_at": to_utc_iso(
+                subscription.current_period_end_at
+            ),
+        }
+    )
+    ledger.metadata_json = metadata
+    db.session.add(ledger)
+    db.session.commit()
 
 
 if __name__ == "__main__":

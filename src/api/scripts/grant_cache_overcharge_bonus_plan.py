@@ -10,6 +10,7 @@ from billing_cache_compensation_common import (
     DEFAULT_INPUT_PATH,
     DEFAULT_OPERATOR_USER_BID,
     DEFAULT_SHEET_NAME,
+    add_mismatch,
     dump_json,
     ensure_api_root_on_path,
     filter_rows_by_user_bid,
@@ -366,38 +367,38 @@ def _compare_existing_bonus_order(
     mismatch: dict[str, object] = {}
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
 
-    _add_mismatch(mismatch, "creator_bid", expected=user_bid, actual=order.creator_bid)
-    _add_mismatch(
+    add_mismatch(mismatch, "creator_bid", expected=user_bid, actual=order.creator_bid)
+    add_mismatch(
         mismatch, "product_bid", expected=product.product_bid, actual=order.product_bid
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "payment_provider",
         expected=_MANUAL_PROVIDER_NAME,
         actual=order.payment_provider,
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch, "channel", expected=_MANUAL_PROVIDER_NAME, actual=order.channel
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "provider_reference_id",
         expected=_provider_reference(request_id),
         actual=order.provider_reference_id,
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "checkout_type",
         expected=_CHECKOUT_TYPE,
         actual=metadata.get("checkout_type"),
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch,
         "campaign_id",
         expected=campaign_id,
         actual=metadata.get("campaign_id"),
     )
-    _add_mismatch(
+    add_mismatch(
         mismatch, "request_id", expected=request_id, actual=metadata.get("request_id")
     )
 
@@ -433,18 +434,6 @@ def _compare_existing_bonus_order(
     return mismatch
 
 
-def _add_mismatch(
-    mismatch: dict[str, object],
-    field: str,
-    *,
-    expected: object,
-    actual: object,
-) -> None:
-    if str(expected or "").strip() == str(actual or "").strip():
-        return
-    mismatch[field] = {"expected": expected, "actual": actual}
-
-
 def _send_bonus_subscription_sms(
     app: object,
     *,
@@ -470,7 +459,9 @@ def _send_bonus_subscription_sms(
         db.session.commit()
         return {"status": "skipped_no_mobile", "bill_order_bid": bill_order_bid}
 
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
     product = str(metadata.get("bonus_product_name") or "").strip()
     if not product:
         _write_subscription_sms_status(
@@ -597,13 +588,13 @@ def _write_subscription_sms_status(
     error_message: str = "",
     provider_response: dict[str, object] | None = None,
 ) -> None:
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
     notifications = metadata.get("notifications")
-    if not isinstance(notifications, dict):
-        notifications = {}
+    notifications = {} if not isinstance(notifications, dict) else dict(notifications)
     payload = notifications.get("subscription_purchase_sms")
-    if not isinstance(payload, dict):
-        payload = {}
+    payload = {} if not isinstance(payload, dict) else dict(payload)
     now = to_utc_iso(now_utc())
     payload["status"] = status
     payload["updated_at"] = now
