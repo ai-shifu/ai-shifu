@@ -97,7 +97,6 @@ describe.each(['ltr', 'rtl'] as const)('%s selection visuals', direction => {
             </DropdownMenuSub>
           </DropdownMenuContent>
         </DropdownMenu>
-        ,
       </DirectionProvider>,
     );
 
