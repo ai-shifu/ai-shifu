@@ -76,7 +76,7 @@ describe('buildAdminMenuItems', () => {
         },
         {
           id: 'operations-referrals',
-          label: 'common.core.referralInvitation',
+          label: 'module.referral.operator.title',
           href: '/admin/operations/referrals',
         },
         {

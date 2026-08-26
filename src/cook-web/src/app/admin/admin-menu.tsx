@@ -111,7 +111,7 @@ export const buildAdminMenuItems = ({
         },
         {
           id: 'operations-referrals',
-          label: t('common.core.referralInvitation'),
+          label: t('module.referral.operator.title'),
           href: '/admin/operations/referrals',
         },
         {
