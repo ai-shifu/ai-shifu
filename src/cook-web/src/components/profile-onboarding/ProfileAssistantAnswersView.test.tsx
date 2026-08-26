@@ -177,12 +177,14 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
     value: { writeText },
   });
   setup();
+  const copyButton = screen.getByRole('button', {
+    name: 'module.profileOnboarding.assistant.copy',
+  });
+  expect(copyButton).toHaveTextContent(
+    'module.profileOnboarding.assistant.copyShort',
+  );
   await act(async () => {
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.assistant.copy',
-      }),
-    );
+    fireEvent.click(copyButton);
   });
   expect(writeText).toHaveBeenCalledWith('Public prompt');
   expect(

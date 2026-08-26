@@ -36,6 +36,7 @@
     "copied": "Copié",
     "copy": "Copier la consigne",
     "copyFailed": "La copie a échoué. Sélectionnez et copiez la consigne manuellement.",
+    "copyShort": "Copier",
     "entry": "Demander à mon IA de m’aider à répondre",
     "error": "Nous n’avons pas pu organiser d’informations utilisables. Modifiez la réponse ou réessayez, ou revenez aux questions.",
     "instructions": "Envoyez d’abord la consigne ci-dessous à l’assistant IA qui vous connaît le mieux, par exemple ChatGPT, Claude, WorkBuddy, Doubao, Qwen, OpenClaw, Hermes Agent, entre autres.",

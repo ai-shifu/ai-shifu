@@ -36,6 +36,7 @@
     "copied": "已复制",
     "copy": "复制提示词",
     "copyFailed": "复制失败，请手动选择并复制提示词。",
+    "copyShort": "复制",
     "entry": "让我的 AI 帮我回答",
     "error": "没能整理出有效信息。请修改或重试，也可以返回继续回答问题。",
     "instructions": "先把下面提示词发给最熟悉你的 AI 助理，比如 ChatGPT、Claude、WorkBuddy、豆包、千问、OpenClaw、Hermes Agent 等",

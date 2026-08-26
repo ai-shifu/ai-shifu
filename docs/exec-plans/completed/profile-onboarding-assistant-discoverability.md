@@ -17,6 +17,9 @@ Use the learner's first-person voice in compiled prompts and update examples.
 - [x] 2026-08-26 UTC: Update five locale examples and first-person compilation.
 - [x] 2026-08-26 UTC: Verify regression tests, static checks and browser layouts.
   Follow-up publication and live CI/review results are tracked in PR #2669.
+- [x] 2026-08-26 UTC: Replace the assistant prompt card's separate copy header
+  with a compact in-card action, preserving a clear accessible label and
+  readable prompt width across narrow and RTL layouts.
 
 ## Surprises & Discoveries
 
@@ -27,6 +30,11 @@ without altering the source checkout.
 The entry previously required `awaiting_input`. The assistant view also used
 one disabled flag for copying, editing, returning and submitting; simply
 removing the entry condition would expose a disabled copy workflow.
+
+Keeping the full localized copy label in a side-by-side card was also too
+expensive on narrow screens: the French label left only about 88 CSS pixels for
+the prompt. A short visible action needs a separate full accessible name rather
+than relying on one string for both jobs.
 
 ## Decision Log
 
@@ -41,6 +49,11 @@ removing the entry condition would expose a disabled copy workflow.
 - Template updates affect future generation. Preserve existing same-document
   prompt reuse and frozen sessions; do not silently rewrite a published config
   or add compiler-version/config migration machinery in this UX change.
+- Remove the prompt card's dedicated header and use a two-column grid so the
+  prompt remains independently scrollable. Show a localized short copy action,
+  while retaining the existing full copy label as `aria-label` and hover text.
+  Keep `dir="auto"` on the prompt content so its language, not the surrounding
+  interface locale, determines text direction.
 
 ## Outcomes & Retrospective
 
@@ -62,6 +75,15 @@ and validate the repository harness in a separate documentation commit. The
 repeated suggestions to relocate storage tests and extract the tested import
 limit remain deferred as previously documented; no runtime behavior is broken.
 Post-documentation CI and thread resolution are recorded on PR #2669.
+
+The compact-card follow-up passes the 56 focused view/conversation tests and
+the full frontend regression suite (178 suites / 1,558 tests), TypeScript,
+focused and full ESLint (existing repository warnings only), translation
+parity/usage, architecture boundaries and the repository harness. Browser QA
+used the real dialog and assistant view at a 360-style narrow width plus Arabic
+RTL: the prompt and action no longer overlap, the action follows logical RTL
+placement, and the unified card is 114 CSS pixels high. The temporary QA route
+and tabs were removed after inspection.
 
 Browser inspection used the real conversation, assistant view, official renderer
 and shared Dialog in a temporary local fixture matching the dialog dimensions,

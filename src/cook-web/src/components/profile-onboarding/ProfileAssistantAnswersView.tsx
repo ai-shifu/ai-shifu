@@ -34,6 +34,11 @@ export function ProfileAssistantAnswersView({
   const submissionDisabled = disabled || processingDisabled || unresolved;
   const length = Array.from(value).length;
   const overLimit = length > 10_000;
+  const copyLabel = t(
+    copied
+      ? 'module.profileOnboarding.assistant.copied'
+      : 'module.profileOnboarding.assistant.copy',
+  );
 
   React.useEffect(
     () => () => {
@@ -72,39 +77,42 @@ export function ProfileAssistantAnswersView({
           {t('module.profileOnboarding.assistant.instructions')}
         </p>
       </div>
-      <div className='overflow-hidden rounded-xl border border-border bg-muted/25'>
-        <div className='flex justify-end border-b border-border/70 px-3 py-2'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            disabled={disabled}
-            onClick={() => void copyPrompt()}
-          >
-            {copied ? (
-              <Check
-                className='size-4'
-                aria-hidden='true'
-              />
-            ) : (
-              <Copy
-                className='size-4'
-                aria-hidden='true'
-              />
-            )}
-            {t(
-              copied
-                ? 'module.profileOnboarding.assistant.copied'
-                : 'module.profileOnboarding.assistant.copy',
-            )}
-          </Button>
-        </div>
+      <div className='grid grid-cols-[minmax(0,1fr)_auto] items-start overflow-hidden rounded-xl border border-border bg-muted/25'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          className='col-start-2 row-start-1 m-2 ms-1 min-w-20 rounded-lg bg-background shadow-sm'
+          disabled={disabled}
+          aria-label={copyLabel}
+          title={copyLabel}
+          onClick={() => void copyPrompt()}
+        >
+          {copied ? (
+            <Check
+              className='size-4'
+              aria-hidden='true'
+            />
+          ) : (
+            <Copy
+              className='size-4'
+              aria-hidden='true'
+            />
+          )}
+          {copied
+            ? t('module.profileOnboarding.assistant.copied')
+            : t('module.profileOnboarding.assistant.copyShort')}
+        </Button>
         <div
           tabIndex={0}
-          dir='auto'
-          className='max-h-28 select-text overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm leading-6'
+          className='col-start-1 row-start-1 max-h-28 select-text overflow-y-auto whitespace-pre-wrap break-words p-3 pe-1 text-sm leading-6'
         >
-          {prompt}
+          <span
+            dir='auto'
+            className='block'
+          >
+            {prompt}
+          </span>
         </div>
       </div>
       {copyError ? (

@@ -36,6 +36,7 @@
     "copied": "Copied",
     "copy": "Copy prompt",
     "copyFailed": "Could not copy. Select and copy the prompt manually.",
+    "copyShort": "Copy",
     "entry": "Let my AI help me answer",
     "error": "We could not organize usable information. Edit or retry the answer, or return to the questions.",
     "instructions": "First, send the prompt below to the AI assistant that knows you best, such as ChatGPT, Claude, WorkBuddy, Doubao, Qwen, OpenClaw, Hermes Agent, and others.",

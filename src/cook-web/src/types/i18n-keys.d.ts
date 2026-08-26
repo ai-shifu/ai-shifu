@@ -3119,6 +3119,7 @@ export type I18nKey =
   | 'module.profileOnboarding.assistant.copied'
   | 'module.profileOnboarding.assistant.copy'
   | 'module.profileOnboarding.assistant.copyFailed'
+  | 'module.profileOnboarding.assistant.copyShort'
   | 'module.profileOnboarding.assistant.entry'
   | 'module.profileOnboarding.assistant.error'
   | 'module.profileOnboarding.assistant.instructions'
