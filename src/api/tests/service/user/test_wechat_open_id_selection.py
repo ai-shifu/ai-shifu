@@ -138,8 +138,8 @@ def test_verified_beats_a_newer_unverified_binding(app: Flask) -> None:
             _cleanup(user_bid)
 
 
-def test_falls_back_across_apps_rather_than_returning_nothing(app: Flask) -> None:
-    """A creator may run their own OAuth app while charging through the platform."""
+def test_asking_about_any_binding_accepts_another_apps_subject(app: Flask) -> None:
+    """The bare question is "bound to WeChat at all?", which the profile answers."""
     with app.app_context():
         user_bid = _create_learner()
         _insert_open_id(user_bid, "o_creator", app_id=CREATOR_APP)
@@ -147,5 +147,18 @@ def test_falls_back_across_apps_rather_than_returning_nothing(app: Flask) -> Non
             aggregate = load_user_aggregate(user_bid)
             assert aggregate.wechat_open_id_for_app(PLATFORM_APP) == "o_creator"
             assert aggregate.wechat_open_id == "o_creator"
+        finally:
+            _cleanup(user_bid)
+
+
+def test_a_named_app_never_borrows_another_apps_open_id(app: Flask) -> None:
+    """WeChat rejects a foreign open ID, so reporting nothing is the honest answer."""
+    with app.app_context():
+        user_bid = _create_learner()
+        _insert_open_id(user_bid, "o_platform")
+        try:
+            assert (
+                load_user_aggregate(user_bid).wechat_open_id_for_app(CREATOR_APP) == ""
+            )
         finally:
             _cleanup(user_bid)

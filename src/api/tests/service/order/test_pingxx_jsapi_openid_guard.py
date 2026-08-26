@@ -199,3 +199,24 @@ def test_jsapi_charge_falls_back_to_the_platform_app_when_resolution_fails(
     assert pingxx_provider.requests[0].extra["charge_extra"] == {
         "open_id": "o_platform"
     }
+
+
+def test_jsapi_charge_refuses_a_foreign_apps_open_id(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    pingxx_provider: _RecordingProvider,
+) -> None:
+    """Charging a creator's app with a platform open ID would be rejected."""
+    user = _UserStub({"": "o_platform"})
+    monkeypatch.setattr(order_funs, "load_user_aggregate", lambda _user_bid: user)
+    monkeypatch.setattr(
+        order_funs,
+        "resolve_creator_wechat_oauth_app_id",
+        lambda _creator_bid: "wx-creator-app",
+    )
+
+    with app.app_context(), pytest.raises(AppError) as excinfo:
+        _generate(app, creator_bid="creator-with-wechat")
+
+    assert excinfo.value.code == WECHAT_OPEN_ID_REQUIRED_CODE
+    assert pingxx_provider.requests == []

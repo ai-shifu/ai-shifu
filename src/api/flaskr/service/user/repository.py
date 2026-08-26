@@ -173,7 +173,14 @@ class UserAggregate:
         if not matches:
             return ""
         scoped = [credential for credential in matches if credential.app_id == app_id]
-        return _preferred_credential(scoped or matches).subject_id
+        if scoped:
+            return _preferred_credential(scoped).subject_id
+        if app_id:
+            # A subject issued by a different app is not a usable substitute:
+            # WeChat rejects it outright. Report nothing so the caller can say
+            # so, rather than handing over a value that is certain to fail.
+            return ""
+        return _preferred_credential(matches).subject_id
 
     def wechat_open_id_for_app(self, app_id: str = "") -> str:
         """Return the WeChat open ID issued by ``app_id``, if present.
@@ -181,10 +188,13 @@ class UserAggregate:
         An account can legitimately hold one open ID per WeChat app: the
         platform app plus, for learners of a creator who runs their own
         official account, that creator's app. WeChat JSAPI payment only accepts
-        the open ID issued by the app it is charging through, so callers that
-        know which app is asking must say so; pass an empty ``app_id`` for the
-        platform app. Callers with no app in hand fall back to the best row
-        overall so they still get a stable answer.
+        the open ID issued by the app it is charging through, so a caller that
+        names an app gets that app's subject or nothing at all.
+
+        Passing an empty ``app_id`` asks a weaker question -- "is this account
+        bound to WeChat at all?" -- and prefers the platform app while accepting
+        any other subject. That is what the serialized profile answers, and what
+        callers with no app in hand need.
         """
         return self._wechat_subject(WECHAT_OPEN_ID_FORMAT, app_id)
 
