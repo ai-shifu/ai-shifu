@@ -60,9 +60,24 @@ describe('buildAdminMenuItems', () => {
           href: '/admin/operations/promotions',
         },
         {
+          id: 'operations-brand-payments',
+          label: 'common.core.brandPaymentsManagement',
+          href: '/admin/operations/billing',
+        },
+        {
+          id: 'operations-config',
+          label: 'common.core.rateManagement',
+          href: '/admin/operations/config',
+        },
+        {
           id: 'operations-credit-notification',
           label: 'common.core.creditNotificationManagement',
           href: '/admin/operations/credit-notifications',
+        },
+        {
+          id: 'operations-referrals',
+          label: 'common.core.referralInvitation',
+          href: '/admin/operations/referrals',
         },
         {
           id: 'operations-voice-clone',
@@ -74,35 +89,29 @@ describe('buildAdminMenuItems', () => {
           label: 'common.core.profileOnboardingManagement',
           href: '/admin/operations/profile-onboarding',
         },
-        {
-          id: 'operations-config',
-          label: 'common.core.rateManagement',
-          href: '/admin/operations/config',
-        },
-        {
-          id: 'operations-brand-payments',
-          label: 'common.core.brandPaymentsManagement',
-          href: '/admin/operations/billing',
-        },
       ],
     });
   });
 
-  test('shows package management for Stripe operator environments', () => {
+  test('shows package management in the requested Stripe operator menu order', () => {
     const menuItems = buildAdminMenuItems({
       t,
       isOperator: true,
       showPackageManagement: true,
     });
 
-    expect(menuItems.at(-1)?.children).toEqual(
-      expect.arrayContaining([
-        {
-          id: 'operations-package-management',
-          label: 'common.core.packageManagement',
-          href: '/admin/operations/provider-prices',
-        },
-      ]),
-    );
+    expect(menuItems.at(-1)?.children?.map(item => item.id)).toEqual([
+      'operations-course',
+      'operations-user',
+      'operations-order',
+      'operations-promotion',
+      'operations-package-management',
+      'operations-brand-payments',
+      'operations-config',
+      'operations-credit-notification',
+      'operations-referrals',
+      'operations-voice-clone',
+      'operations-profile-onboarding',
+    ]);
   });
 });

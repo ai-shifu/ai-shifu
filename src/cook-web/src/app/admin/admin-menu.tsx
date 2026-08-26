@@ -85,10 +85,34 @@ export const buildAdminMenuItems = ({
           label: t('common.core.promotionManagement'),
           href: '/admin/operations/promotions',
         },
+        ...(showPackageManagement
+          ? [
+              {
+                id: 'operations-package-management',
+                label: t('common.core.packageManagement'),
+                href: '/admin/operations/provider-prices',
+              },
+            ]
+          : []),
+        {
+          id: 'operations-brand-payments',
+          label: t('common.core.brandPaymentsManagement'),
+          href: '/admin/operations/billing',
+        },
+        {
+          id: 'operations-config',
+          label: t('common.core.rateManagement'),
+          href: '/admin/operations/config',
+        },
         {
           id: 'operations-credit-notification',
           label: t('common.core.creditNotificationManagement'),
           href: '/admin/operations/credit-notifications',
+        },
+        {
+          id: 'operations-referrals',
+          label: t('common.core.referralInvitation'),
+          href: '/admin/operations/referrals',
         },
         {
           id: 'operations-voice-clone',
@@ -100,25 +124,6 @@ export const buildAdminMenuItems = ({
           label: t('common.core.profileOnboardingManagement'),
           href: '/admin/operations/profile-onboarding',
         },
-        {
-          id: 'operations-config',
-          label: t('common.core.rateManagement'),
-          href: '/admin/operations/config',
-        },
-        {
-          id: 'operations-brand-payments',
-          label: t('common.core.brandPaymentsManagement'),
-          href: '/admin/operations/billing',
-        },
-        ...(showPackageManagement
-          ? [
-              {
-                id: 'operations-package-management',
-                label: t('common.core.packageManagement'),
-                href: '/admin/operations/provider-prices',
-              },
-            ]
-          : []),
       ],
     });
   }
