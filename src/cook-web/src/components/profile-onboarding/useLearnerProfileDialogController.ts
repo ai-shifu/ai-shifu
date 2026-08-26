@@ -65,13 +65,27 @@ export const useLearnerProfileDialogController = ({
     learnerProfileDialogReducer,
     initialLearnerProfileDialogState,
   );
-  const [assistantDraft, setAssistantDraft] = React.useState('');
+  const scopeRef = React.useRef(draftStorageScope);
+  const [assistantDraftState, setAssistantDraftState] = React.useState({
+    scope: draftStorageScope,
+    value: '',
+  });
+  // Account changes must hide the previous value during render, before the
+  // restoration effect can clear storage and load the new account's draft.
+  const assistantDraft =
+    assistantDraftState.scope === draftStorageScope
+      ? assistantDraftState.value
+      : '';
   React.useEffect(() => {
-    setAssistantDraft(readProfileAssistantDraft(draftStorageScope));
+    setAssistantDraftState({
+      scope: draftStorageScope,
+      value: readProfileAssistantDraft(draftStorageScope),
+    });
   }, [draftStorageScope]);
   const changeAssistantDraft = React.useCallback(
     (draft: string) => {
-      setAssistantDraft(draft);
+      if (scopeRef.current !== draftStorageScope) return;
+      setAssistantDraftState({ scope: draftStorageScope, value: draft });
       writeProfileAssistantDraft(draftStorageScope, draft);
     },
     [draftStorageScope],
@@ -83,7 +97,6 @@ export const useLearnerProfileDialogController = ({
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const mountedRef = React.useRef(false);
   const openRef = React.useRef(open);
-  const scopeRef = React.useRef(draftStorageScope);
   const presentationRef = React.useRef(presentation);
   const autoStartCollectionRef = React.useRef(autoStartCollection);
   const initialOnboardingStatusRef = React.useRef(initialOnboardingStatus);

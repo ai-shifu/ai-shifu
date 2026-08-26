@@ -147,6 +147,20 @@ and restoration without recreating the session. This is a separate review fix,
 validated with 68 conversation/dialog tests and full TypeScript. Remote CI for
 `efe2371ad` passed all checks before publishing this final boundary correction.
 
+A later natural Codex review
+https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3860605044
+found that resetting the raw assistant draft only in a passive effect could
+render the previous account's draft once under a new scope. The follow-up binds
+the state to its account scope and masks mismatched content synchronously;
+stale callbacks from the old account must not write drafts. Verification must
+capture the first render, not merely the DOM after effects have flushed. The
+39-test dialog suite verifies first-render masking, account B restoration,
+stale callback rejection, same-account reopening, and closed account switches.
+
+The earlier nickname-only observation was subsequently resolved by its reviewer,
+not by this task, as conforming to the approved contract:
+https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3860549604.
+
 ## Browser Evidence
 
 Real headed Chromium exercised the actual Next.js course shell and official

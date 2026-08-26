@@ -53,10 +53,20 @@ type ConversationControl = {
 };
 
 const mockConversationControls: ConversationControl[] = [];
+const mockAssistantDraftRenders: Array<{
+  value: string | undefined;
+  change: ProfileOnboardingConversationProps['onAssistantDraftChange'];
+}> = [];
 
 function MockProfileOnboardingConversation(
   props: ProfileOnboardingConversationProps,
 ) {
+  // Capture render-time props, including the account-switch render before
+  // passive effects restore the next account's draft.
+  mockAssistantDraftRenders.push({
+    value: props.assistantDraft,
+    change: props.onAssistantDraftChange,
+  });
   const propsRef = React.useRef(props);
   const mountedRef = React.useRef(true);
   const sessionIdRef = React.useRef('');
@@ -321,6 +331,7 @@ describe('LearnerProfileDialog', () => {
     jest.clearAllMocks();
     window.sessionStorage.clear();
     mockConversationControls.splice(0);
+    mockAssistantDraftRenders.splice(0);
     mockLanguage = 'en-US';
     mockTrackEventIdentity = mockTrackEvent;
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
@@ -1015,6 +1026,59 @@ describe('LearnerProfileDialog', () => {
         'profile-onboarding-paste-draft:profile-v2:user-a',
       ),
     ).toBeNull();
+  });
+
+  test('never renders the previous account paste during a switch and rejects its stale change callback', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:profile-v2:user-b',
+      'Private account B draft',
+    );
+    const { rerender, props } = renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls
+        .at(-1)
+        ?.changeAssistantDraft('Private account A draft'),
+    );
+    const priorRender = mockAssistantDraftRenders.at(-1);
+    expect(priorRender?.value).toBe('Private account A draft');
+    const transitionRenderIndex = mockAssistantDraftRenders.length;
+
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        draftStorageScope='user-b'
+      />,
+    );
+    // This is the first render of the still-mounted conversation, before
+    // useEffect resets the old collection or restores account B's draft.
+    expect(mockAssistantDraftRenders[transitionRenderIndex]?.value).toBe('');
+    expect(
+      mockAssistantDraftRenders
+        .slice(transitionRenderIndex)
+        .map(rendered => rendered.value),
+    ).not.toContain('Private account A draft');
+    await waitForCollectionSession();
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Private account B draft',
+    );
+
+    act(() => priorRender?.change?.('Delayed account A update'));
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Private account B draft',
+    );
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-b',
+      ),
+    ).toBe('Private account B draft');
   });
 
   test('persists a guided result once with its session, trigger, and collected nickname', async () => {
