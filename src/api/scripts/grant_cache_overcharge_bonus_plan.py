@@ -165,6 +165,11 @@ def main() -> int:
                     {**base, "status": "skipped", "reason": "user_not_found"}
                 )
                 continue
+            if row.amount <= 0:
+                results.append(
+                    {**base, "status": "skipped", "reason": "non_positive_amount"}
+                )
+                continue
 
             request_id = f"{args.campaign_id}:bonus-plan:{row.user_bid}"
             existing_order = _load_existing_bonus_order(
@@ -172,6 +177,25 @@ def main() -> int:
                 request_id=request_id,
             )
             if existing_order is not None:
+                mismatch = _compare_existing_bonus_order(
+                    existing_order,
+                    user_bid=row.user_bid,
+                    product=product,
+                    campaign_id=args.campaign_id,
+                    request_id=request_id,
+                )
+                if mismatch:
+                    results.append(
+                        {
+                            **base,
+                            "status": "existing_mismatch",
+                            "request_id": request_id,
+                            "bill_order_bid": existing_order.bill_order_bid,
+                            "subscription_bid": existing_order.subscription_bid,
+                            "mismatch": mismatch,
+                        }
+                    )
+                    continue
                 subscription_sms_result = {"status": "not_attempted_dry_run"}
                 if args.apply:
                     subscription_sms_result = _resume_existing_subscription_sms(
@@ -183,7 +207,7 @@ def main() -> int:
                 results.append(
                     {
                         **base,
-                        "status": "existing",
+                        "status": "existing_match",
                         "request_id": request_id,
                         "bill_order_bid": existing_order.bill_order_bid,
                         "subscription_bid": existing_order.subscription_bid,
@@ -279,12 +303,17 @@ def main() -> int:
                 1 for item in results if item["status"] in {"granted", "noop_existing"}
             ),
             "existing_count": sum(
-                1 for item in results if item["status"] == "existing"
+                1 for item in results if item["status"] == "existing_match"
+            ),
+            "mismatch_count": sum(
+                1 for item in results if item["status"] == "existing_mismatch"
             ),
             "skipped_count": sum(1 for item in results if item["status"] == "skipped"),
             "results": results,
         }
     )
+    if any(item["status"] == "existing_mismatch" for item in results):
+        return 2
     return 0
 
 
@@ -344,6 +373,96 @@ def _load_existing_bonus_order(
 
 def _provider_reference(request_id: str) -> str:
     return f"{_CHECKOUT_TYPE}:{request_id}"
+
+
+def _compare_existing_bonus_order(
+    order: BillingOrder,
+    *,
+    user_bid: str,
+    product: BillingProduct,
+    campaign_id: str,
+    request_id: str,
+) -> dict[str, object]:
+    mismatch: dict[str, object] = {}
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+
+    _add_mismatch(mismatch, "creator_bid", expected=user_bid, actual=order.creator_bid)
+    _add_mismatch(
+        mismatch, "product_bid", expected=product.product_bid, actual=order.product_bid
+    )
+    _add_mismatch(
+        mismatch,
+        "payment_provider",
+        expected=_MANUAL_PROVIDER_NAME,
+        actual=order.payment_provider,
+    )
+    _add_mismatch(
+        mismatch, "channel", expected=_MANUAL_PROVIDER_NAME, actual=order.channel
+    )
+    _add_mismatch(
+        mismatch,
+        "provider_reference_id",
+        expected=_provider_reference(request_id),
+        actual=order.provider_reference_id,
+    )
+    _add_mismatch(
+        mismatch,
+        "checkout_type",
+        expected=_CHECKOUT_TYPE,
+        actual=metadata.get("checkout_type"),
+    )
+    _add_mismatch(
+        mismatch,
+        "campaign_id",
+        expected=campaign_id,
+        actual=metadata.get("campaign_id"),
+    )
+    _add_mismatch(
+        mismatch, "request_id", expected=request_id, actual=metadata.get("request_id")
+    )
+
+    order_type = int(order.order_type or 0)
+    if order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START:
+        start_at = extract_order_metadata_datetime(metadata, "applied_cycle_start_at")
+        end_at = extract_order_metadata_datetime(metadata, "applied_cycle_end_at")
+    elif order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        start_at = extract_order_metadata_datetime(metadata, "renewal_cycle_start_at")
+        end_at = extract_order_metadata_datetime(metadata, "renewal_cycle_end_at")
+    else:
+        mismatch["order_type"] = {
+            "expected": [
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            ],
+            "actual": order.order_type,
+        }
+        start_at = None
+        end_at = None
+
+    if not order.subscription_bid:
+        mismatch["subscription_bid"] = {
+            "expected": "non_empty",
+            "actual": order.subscription_bid,
+        }
+    if start_at is None:
+        mismatch["cycle_start_at"] = {"expected": "present", "actual": None}
+    if end_at is None:
+        mismatch["cycle_end_at"] = {"expected": "present", "actual": None}
+    if start_at is not None and end_at is not None and end_at <= start_at:
+        mismatch["cycle_window"] = {"expected": "end_after_start", "actual": "invalid"}
+    return mismatch
+
+
+def _add_mismatch(
+    mismatch: dict[str, object],
+    field: str,
+    *,
+    expected: object,
+    actual: object,
+) -> None:
+    if str(expected or "").strip() == str(actual or "").strip():
+        return
+    mismatch[field] = {"expected": expected, "actual": actual}
 
 
 def _send_bonus_subscription_sms(

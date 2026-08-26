@@ -107,10 +107,27 @@ def main() -> int:
             request_id = f"{args.campaign_id}:credit:{row.user_bid}"
             existing_ledger = _load_existing_credit_grant(request_id)
             if existing_ledger is not None:
+                mismatch = _compare_existing_credit_grant(
+                    existing_ledger,
+                    row=row,
+                    request_id=request_id,
+                    subscription=subscription,
+                )
+                if mismatch:
+                    results.append(
+                        {
+                            **base,
+                            "status": "existing_mismatch",
+                            "request_id": request_id,
+                            "ledger_bid": existing_ledger.ledger_bid,
+                            "mismatch": mismatch,
+                        }
+                    )
+                    continue
                 results.append(
                     {
                         **base,
-                        "status": "existing",
+                        "status": "existing_match",
                         "request_id": request_id,
                         "wallet_bucket_bid": existing_ledger.wallet_bucket_bid,
                         "ledger_bid": existing_ledger.ledger_bid,
@@ -167,12 +184,17 @@ def main() -> int:
                 1 for item in results if item["status"] in {"granted", "noop_existing"}
             ),
             "existing_count": sum(
-                1 for item in results if item["status"] == "existing"
+                1 for item in results if item["status"] == "existing_match"
+            ),
+            "mismatch_count": sum(
+                1 for item in results if item["status"] == "existing_mismatch"
             ),
             "skipped_count": sum(1 for item in results if item["status"] == "skipped"),
             "results": results,
         }
     )
+    if any(item["status"] == "existing_mismatch" for item in results):
+        return 2
     return 0
 
 
@@ -185,6 +207,68 @@ def _load_existing_credit_grant(request_id: str) -> CreditLedgerEntry | None:
         .order_by(CreditLedgerEntry.id.desc())
         .first()
     )
+
+
+def _compare_existing_credit_grant(
+    ledger: CreditLedgerEntry,
+    *,
+    row: object,
+    request_id: str,
+    subscription: object,
+) -> dict[str, object]:
+    mismatch: dict[str, object] = {}
+    expected_key = f"operator_manual_grant:{request_id}"
+    metadata = ledger.metadata_json if isinstance(ledger.metadata_json, dict) else {}
+
+    _add_mismatch(
+        mismatch,
+        "creator_bid",
+        expected=row.user_bid,
+        actual=ledger.creator_bid,
+    )
+    _add_mismatch(
+        mismatch,
+        "amount",
+        expected=row.amount,
+        actual=ledger.amount,
+    )
+    _add_mismatch(
+        mismatch,
+        "idempotency_key",
+        expected=expected_key,
+        actual=ledger.idempotency_key,
+    )
+    _add_mismatch(
+        mismatch,
+        "grant_source",
+        expected=MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
+        actual=metadata.get("grant_source"),
+    )
+    _add_mismatch(
+        mismatch,
+        "validity_preset",
+        expected=MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+        actual=metadata.get("validity_preset"),
+    )
+    _add_mismatch(
+        mismatch,
+        "expires_at",
+        expected=subscription.current_period_end_at,
+        actual=ledger.expires_at,
+    )
+    return mismatch
+
+
+def _add_mismatch(
+    mismatch: dict[str, object],
+    field: str,
+    *,
+    expected: object,
+    actual: object,
+) -> None:
+    if str(expected or "").strip() == str(actual or "").strip():
+        return
+    mismatch[field] = {"expected": expected, "actual": actual}
 
 
 if __name__ == "__main__":

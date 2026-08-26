@@ -81,9 +81,9 @@ def load_reference_rows(
         message = f"Input file does not exist: {path}"
         raise FileNotFoundError(message)
     if path.suffix.lower() == ".csv":
-        return _load_csv_rows(path)
+        return _reject_duplicate_user_bids(_load_csv_rows(path))
     if path.suffix.lower() in {".xlsx", ".xlsm"}:
-        return _load_xlsx_rows(path, sheet_name=sheet_name)
+        return _reject_duplicate_user_bids(_load_xlsx_rows(path, sheet_name=sheet_name))
     message = "Input file must be .xlsx, .xlsm, or .csv"
     raise ValueError(message)
 
@@ -194,3 +194,32 @@ def _parse_amount(value: object) -> Decimal:
     if not parsed.is_finite():
         return Decimal(0)
     return quantize_credit_amount(parsed)
+
+
+def _reject_duplicate_user_bids(
+    rows: list[CompensationInputRow],
+) -> list[CompensationInputRow]:
+    by_user: dict[str, list[CompensationInputRow]] = {}
+    for row in rows:
+        by_user.setdefault(row.user_bid, []).append(row)
+
+    duplicates = {
+        user_bid: user_rows
+        for user_bid, user_rows in by_user.items()
+        if len(user_rows) > 1
+    }
+    if not duplicates:
+        return rows
+
+    details = [
+        (
+            f"{user_bid}: "
+            + ", ".join(
+                f"row {row.row_number} amount {format(row.amount, 'f')}"
+                for row in user_rows
+            )
+        )
+        for user_bid, user_rows in sorted(duplicates.items())
+    ]
+    message = "Input file contains duplicate user_bid rows: " + "; ".join(details)
+    raise ValueError(message)
