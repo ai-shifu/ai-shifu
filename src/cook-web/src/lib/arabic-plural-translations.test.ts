@@ -7,8 +7,9 @@ import arHeader from '../../../i18n/ar-SA/components/header.json';
 import arAuth from '../../../i18n/ar-SA/modules/auth.json';
 import arBilling from '../../../i18n/ar-SA/modules/billing.json';
 import arSettings from '../../../i18n/ar-SA/modules/settings.json';
+import arOperationsOrder from '../../../i18n/ar-SA/modules/operations-order.json';
 
-describe('Arabic temporal plural translations', () => {
+describe('Arabic plural translations', () => {
   const i18n = i18next.createInstance().use(new ICU());
 
   beforeAll(async () => {
@@ -23,11 +24,29 @@ describe('Arabic temporal plural translations', () => {
               auth: arAuth,
               billing: arBilling,
               settings: arSettings,
+              operationsOrder: arOperationsOrder,
             },
           },
         },
       },
     });
+  });
+
+  test.each([
+    [0, 'لا توجد طلبات'],
+    [1, 'طلب واحد إجمالًا'],
+    [2, 'طلبان إجمالًا'],
+    [3, 'إجمالي ٣ طلبات'],
+    [10, 'إجمالي ١٠ طلبات'],
+    [11, 'إجمالي ١١ طلبًا'],
+    [99, 'إجمالي ٩٩ طلبًا'],
+    [100, 'إجمالي ١٠٠ طلب'],
+    [102, 'إجمالي ١٠٢ طلب'],
+    [103, 'إجمالي ١٠٣ طلبات'],
+  ])('formats an operations order total of %s', (count, expected) => {
+    expect(i18n.t('module.operationsOrder.totalCount', { count })).toBe(
+      expected,
+    );
   });
 
   test('selects distinct month and year forms', () => {
