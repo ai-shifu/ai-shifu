@@ -172,12 +172,14 @@ def main() -> int:
                 request_id=request_id,
             )
             if existing_order is not None:
-                subscription_sms_result = _resume_existing_subscription_sms(
-                    app,
-                    order=existing_order,
-                    template_code=args.subscription_sms_template_code,
-                    product_name=args.subscription_sms_product_name,
-                )
+                subscription_sms_result = {"status": "not_attempted_dry_run"}
+                if args.apply:
+                    subscription_sms_result = _resume_existing_subscription_sms(
+                        app,
+                        order=existing_order,
+                        template_code=args.subscription_sms_template_code,
+                        product_name=args.subscription_sms_product_name,
+                    )
                 results.append(
                     {
                         **base,
