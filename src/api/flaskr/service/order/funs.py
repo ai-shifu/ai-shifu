@@ -22,6 +22,7 @@ from flaskr.i18n import _
 from flaskr.service.billing.api import (
     build_provider_config_overrides,
     resolve_creator_public_integrations,
+    resolve_creator_wechat_oauth_app_id,
     resolve_payment_integration_for_new_order,
     resolve_provider_credential_context,
 )
@@ -732,6 +733,29 @@ def _resolve_custom_payment_provider_hints(creator_bid: str) -> set[str]:
     }
 
 
+def _resolve_charge_wechat_app_id(app: Flask, creator_bid: str) -> str:
+    """Return the WeChat app whose open ID this order must be charged with.
+
+    Learners of a creator running their own official account hold an open ID
+    scoped to that app, and WeChat rejects an open ID issued by a different one.
+    The creator comes from the order rather than the request-scoped shifu
+    context, which this endpoint does not set up. A creator without a WeChat
+    integration -- or a lookup that fails -- means the platform app, which is
+    also the safe answer for a money flow: never a new failure path.
+    """
+    if not creator_bid:
+        return ""
+    try:
+        return resolve_creator_wechat_oauth_app_id(creator_bid)
+    except Exception:
+        app.logger.warning(
+            "failed to resolve creator WeChat app; creator_bid=%s",
+            creator_bid,
+            exc_info=True,
+        )
+        return ""
+
+
 def _format_response_channel(payment_channel: str, provider_channel: str) -> str:
     if payment_channel == "stripe":
         return (
@@ -779,7 +803,17 @@ def _generate_pingxx_charge(
         qr_url_key = "alipay_qr"
     elif channel == "wx_pub":  # wxpay JSAPI
         user = load_user_aggregate(buy_record.user_bid)
-        charge_extra = {"open_id": user.wechat_open_id} if user else {}
+        wechat_app_id = _resolve_charge_wechat_app_id(
+            app, str(buy_record.creator_bid or "")
+        )
+        open_id = (
+            str(user.wechat_open_id_for_app(wechat_app_id) or "").strip()
+            if user
+            else ""
+        )
+        if not open_id:
+            raise_error("server.pay.wechatOpenIdRequired")
+        charge_extra = {"open_id": open_id}
         qr_url_key = "wx_pub"
     elif channel == "wx_wap":  # wxpay H5
         charge_extra = {}
@@ -1098,7 +1132,14 @@ def _generate_wechatpay_charge(
     }
     if channel == "wx_pub":
         user = load_user_aggregate(buy_record.user_bid)
-        open_id = str(user.wechat_open_id or "").strip() if user else ""
+        wechat_app_id = _resolve_charge_wechat_app_id(
+            app, str(buy_record.creator_bid or "")
+        )
+        open_id = (
+            str(user.wechat_open_id_for_app(wechat_app_id) or "").strip()
+            if user
+            else ""
+        )
         if not open_id:
             raise_error("server.pay.wechatOpenIdRequired")
         extra["open_id"] = open_id
