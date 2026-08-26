@@ -43,6 +43,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
 - [Let learners answer onboarding questions with their AI](./completed/profile-onboarding-ai-import.md)
+- [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)
 - [Profile onboarding guided questions (PR2)](./completed/profile-onboarding-guided.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)

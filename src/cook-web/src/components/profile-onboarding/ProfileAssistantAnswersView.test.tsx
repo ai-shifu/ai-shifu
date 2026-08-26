@@ -103,6 +103,47 @@ test('an empty or cancelled paste does not arm the next ordinary keystroke', () 
   expect(onSubmit).not.toHaveBeenCalled();
 });
 
+test('pasting while questions load remains editable and never submits on readiness', () => {
+  const onSubmit = jest.fn();
+  function Harness({ pending }: { pending: boolean }) {
+    const [value, setValue] = React.useState('');
+    return (
+      <ProfileAssistantAnswersView
+        prompt='Public prompt'
+        value={value}
+        disabled={false}
+        processingDisabled={pending}
+        waitingForQuestion={pending}
+        unresolved={false}
+        onChange={setValue}
+        onSubmit={onSubmit}
+        onBack={jest.fn()}
+      />
+    );
+  }
+  const { rerender } = render(<Harness pending />);
+  const input = screen.getByLabelText(
+    'module.profileOnboarding.assistant.resultLabel',
+  );
+  expect(input).toBeEnabled();
+  fireEvent.paste(input);
+  fireEvent.change(input, {
+    target: { value: 'Answer pasted before the question' },
+  });
+  rerender(<Harness pending={false} />);
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+  expect(input).toHaveValue('Answer pasted before the question');
+  expect(onSubmit).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.process',
+    }),
+  );
+  expect(onSubmit).toHaveBeenCalledWith('Answer pasted before the question');
+});
+
 test('an edit after paste cancels auto-submit and manual processing remains available', () => {
   const { input, onSubmit } = setup();
   fireEvent.paste(input);

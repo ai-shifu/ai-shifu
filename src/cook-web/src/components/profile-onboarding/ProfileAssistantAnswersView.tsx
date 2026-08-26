@@ -11,6 +11,8 @@ export function ProfileAssistantAnswersView({
   prompt,
   value,
   disabled,
+  processingDisabled = false,
+  waitingForQuestion = false,
   unresolved,
   onChange,
   onSubmit,
@@ -20,6 +22,8 @@ export function ProfileAssistantAnswersView({
   prompt: string;
   value: string;
   disabled: boolean;
+  processingDisabled?: boolean;
+  waitingForQuestion?: boolean;
   unresolved: boolean;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
@@ -35,8 +39,13 @@ export function ProfileAssistantAnswersView({
   const composingRef = React.useRef(false);
   const pastePendingRef = React.useRef(false);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
-  const latestRef = React.useRef({ value, disabled, onSubmit });
-  latestRef.current = { value, disabled, onSubmit };
+  const submissionDisabled = disabled || processingDisabled || unresolved;
+  const latestRef = React.useRef({
+    value,
+    disabled: submissionDisabled,
+    onSubmit,
+  });
+  latestRef.current = { value, disabled: submissionDisabled, onSubmit };
   const length = Array.from(value).length;
   const overLimit = length > 10_000;
 
@@ -52,8 +61,8 @@ export function ProfileAssistantAnswersView({
     [cancelPaste],
   );
   React.useEffect(() => {
-    if (disabled) cancelPaste();
-  }, [cancelPaste, disabled]);
+    if (submissionDisabled) cancelPaste();
+  }, [cancelPaste, submissionDisabled]);
 
   const copyPrompt = async () => {
     try {
@@ -172,6 +181,7 @@ export function ProfileAssistantAnswersView({
             onChange(next);
             if (
               shouldProcess &&
+              !submissionDisabled &&
               next.trim() &&
               Array.from(next).length <= 10_000
             ) {
@@ -206,6 +216,14 @@ export function ProfileAssistantAnswersView({
               })}
         </p>
       </div>
+      {waitingForQuestion ? (
+        <p
+          role='status'
+          className='text-sm text-muted-foreground'
+        >
+          {t('module.profileOnboarding.assistant.waitingForQuestion')}
+        </p>
+      ) : null}
       <div className='flex flex-wrap justify-between gap-2'>
         <Button
           type='button'
@@ -220,7 +238,7 @@ export function ProfileAssistantAnswersView({
         </Button>
         <Button
           type='button'
-          disabled={disabled || unresolved || !value.trim() || overLimit}
+          disabled={submissionDisabled || !value.trim() || overLimit}
           onClick={() => {
             cancelPaste();
             onSubmit(value);

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { MarkdownFlow } from 'markdown-flow-ui/renderer';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
@@ -100,6 +100,7 @@ export default function ProfileOnboardingConversation({
     uncertainRequest,
     loading,
     runInFlight,
+    assistantProcessing,
     retryAvailable,
     submissionLimitError,
     send,
@@ -170,10 +171,35 @@ export default function ProfileOnboardingConversation({
     <div
       data-testid='profile-onboarding-conversation'
       className='flex h-full min-h-0 flex-col gap-3'
-      aria-busy={disabled || loading || runInFlight}
+      aria-busy={disabled || assistantProcessing}
     >
+      {!showAssistant &&
+      assistantView &&
+      assistantPrompt &&
+      status !== 'completed' &&
+      status !== 'fatal_error' ? (
+        <div className='flex shrink-0 flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between'>
+          <p className='text-sm leading-5 text-foreground'>
+            {t('module.profileOnboarding.assistant.entryHint')}
+          </p>
+          <Button
+            ref={assistantEntryRef}
+            type='button'
+            className='h-auto min-h-10 shrink-0 whitespace-normal py-2 text-start'
+            disabled={disabled}
+            onClick={() => setAssistantVisible(true)}
+          >
+            <Sparkles
+              className='size-4 shrink-0'
+              aria-hidden='true'
+            />
+            {t('module.profileOnboarding.assistant.entry')}
+          </Button>
+        </div>
+      ) : null}
       <div
         hidden={showAssistant}
+        aria-busy={loading || (runInFlight && !assistantProcessing)}
         className={cn(
           'profile-onboarding-markdownflow min-h-0 flex-1 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
           showAssistant && 'hidden',
@@ -194,7 +220,11 @@ export default function ProfileOnboardingConversation({
           headingRef={assistantHeadingRef}
           prompt={assistantPrompt}
           value={assistantView.draft}
-          disabled={disabled || runInFlight}
+          disabled={disabled || assistantProcessing}
+          waitingForQuestion={runInFlight && !assistantProcessing}
+          processingDisabled={
+            !['awaiting_input', 'retryable_error'].includes(status)
+          }
           unresolved={uncertainRequest}
           onChange={assistantView.onChange}
           onSubmit={submitAssistantAnswers}
@@ -202,18 +232,6 @@ export default function ProfileOnboardingConversation({
             if (resumeQuestions()) setAssistantVisible(false);
           }}
         />
-      ) : assistantView && assistantPrompt && status === 'awaiting_input' ? (
-        <Button
-          ref={assistantEntryRef}
-          type='button'
-          variant='ghost'
-          size='sm'
-          className='shrink-0 self-start whitespace-normal text-start font-normal text-muted-foreground'
-          disabled={disabled || runInFlight}
-          onClick={() => setAssistantVisible(true)}
-        >
-          {t('module.profileOnboarding.assistant.entry')}
-        </Button>
       ) : null}
       {hasVisibleStatus ? (
         <div

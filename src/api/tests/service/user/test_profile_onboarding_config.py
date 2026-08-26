@@ -423,3 +423,6 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
     assert args[1] == ""
     assert "output_language" not in kwargs
     assert "without bound variables" in kwargs["system"]
+    assert 'begin exactly\nwith "请根据你对我的了解"' in kwargs["system"]
+    assert "Rewrite every extracted question in the first person" in kwargs["system"]
+    assert "for other languages, use the equivalent" in kwargs["system"]

@@ -11,6 +11,7 @@ import ProfileOnboardingConversation, {
   isProfileOnboardingSubmissionWithinLimits,
   resolveProfileDraftFromRunEvent,
   resolveProfileNicknameFromRunEvent,
+  type ProfileOnboardingRunSession,
 } from './ProfileOnboardingConversation';
 
 const ANSWER_GUIDED_QUESTION_LABEL = 'answer guided question';
@@ -1339,24 +1340,30 @@ describe('ProfileOnboardingConversation', () => {
 });
 
 describe('assistant answers in the existing session', () => {
-  const begin = async (assistantPrompt = 'Shared research questions') => {
+  const begin = async (
+    assistantPrompt = 'Shared research questions',
+    questionPending = false,
+  ) => {
     const createSession = jest.fn(async () => ({
       session_id: 'shared-session',
       assistant_prompt: assistantPrompt,
     }));
-    const runSession = jest.fn(({ onMessage }) => {
-      onMessage({
-        event_type: 'interaction',
-        content: 'Question one',
-        generated_block_bid: 'one',
-      });
-      onMessage({
-        event_type: 'done',
-        is_terminal: true,
-        content: { done: false, next_block_index: 2 },
-      });
-      return { close: jest.fn() };
-    });
+    const runSession = jest.fn(
+      ({ onMessage }: Parameters<ProfileOnboardingRunSession>[0]) => {
+        if (questionPending) return { close: jest.fn() };
+        onMessage({
+          event_type: 'interaction',
+          content: 'Question one',
+          generated_block_bid: 'one',
+        });
+        onMessage({
+          event_type: 'done',
+          is_terminal: true,
+          content: { done: false, next_block_index: 2 },
+        });
+        return { close: jest.fn() };
+      },
+    );
     const assistantAnswers = jest.fn(() => ({ close: jest.fn() }));
     const onAssistantDraftReady = jest.fn();
     const onDraftReady = jest.fn();
@@ -1398,6 +1405,115 @@ describe('assistant answers in the existing session', () => {
         name: 'module.profileOnboarding.assistant.process',
       }),
     );
+
+  test('offers copying before the first question and keeps its stream alive when returning', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const result = await begin('Shared research questions', true);
+    const entry = screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.entry',
+    });
+    expect(entry).toBeEnabled();
+    expect(
+      screen.getByTestId('profile-onboarding-conversation'),
+    ).toHaveAttribute('aria-busy', 'false');
+    expect(screen.queryByText('Question one')).not.toBeInTheDocument();
+    expect(
+      entry.compareDocumentPosition(
+        screen.getByLabelText('unsent question answer'),
+      ),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    enter();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.assistant.copy',
+        }),
+      );
+    });
+    expect(writeText).toHaveBeenCalledWith('Shared research questions');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeDisabled();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      }),
+    ).toHaveFocus();
+    expect(
+      result.runSession.mock.results[0].value.close,
+    ).not.toHaveBeenCalled();
+    enter();
+    act(() => {
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'interaction',
+        content: 'Question one',
+        generated_block_bid: 'one',
+      });
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 2 },
+      });
+    });
+    expect(screen.getByText('Question one')).not.toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeEnabled();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    process();
+    expect(result.assistantAnswers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'shared-session',
+        expectedBlockIndex: 2,
+        rawText: 'External answer',
+      }),
+    );
+    expect(result.createSession).toHaveBeenCalledTimes(1);
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('requires replay of a disconnected initial run before importing early answers', async () => {
+    const result = await begin('Shared research questions', true);
+    enter();
+    // The transport reports an uncertain outcome, so the cursor is not usable yet.
+    act(() => {
+      result.runSession.mock.calls[0][0].onError(new Error('Disconnected'));
+    });
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    expect(result.runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        requestId: result.runSession.mock.calls[0][0].requestId,
+        expectedBlockIndex: 0,
+      }),
+    );
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+  });
 
   test('hides the entry for sessions without a frozen public prompt', async () => {
     await begin('');

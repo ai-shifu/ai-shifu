@@ -457,7 +457,12 @@ export const useProfileOnboardingSession = ({
   );
 
   const resumeQuestions = React.useCallback(() => {
-    if (runInFlightRef.current || uncertainRequestRef.current) return false;
+    if (
+      uncertainRequestRef.current ||
+      (runInFlightRef.current &&
+        lastRunRequestRef.current?.rawText !== undefined)
+    )
+      return false;
     if (
       lastRunRequestRef.current?.rawText !== undefined &&
       statusRef.current === 'retryable_error'
@@ -483,6 +488,8 @@ export const useProfileOnboardingSession = ({
     uncertainRequest: uncertainRequestRef.current,
     loading,
     runInFlight,
+    assistantProcessing:
+      runInFlight && lastRunRequestRef.current?.rawText !== undefined,
     retryAvailable: state.status === 'retryable_error',
     send,
     retry,
