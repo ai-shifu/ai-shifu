@@ -216,11 +216,11 @@ def _parse_amount(value: object, *, row_number: int) -> Decimal:
     return quantize_credit_amount(parsed)
 
 
-def _normalize_mismatch_value(value: object) -> str:
+def _normalize_mismatch_value(value: object) -> object:
     if isinstance(value, datetime):
         return to_utc_iso(value)
     if isinstance(value, Decimal):
-        return format(value, "f")
+        return value
     return str(value or "").strip()
 
 
