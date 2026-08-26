@@ -631,7 +631,7 @@ describe('GlobalBillingPricing', () => {
       screen.getByTestId('billing-stripe-redirect-overlay'),
     ).toHaveTextContent('Creating your order...');
     expect(
-      within(business).getByRole('button', { name: 'Opening checkout...' }),
+      within(business).getByText('Opening checkout...').closest('button'),
     ).toBeDisabled();
 
     await act(async () => {

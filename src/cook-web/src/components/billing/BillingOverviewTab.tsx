@@ -386,6 +386,8 @@ export function BillingOverviewTab({
           title: t('module.billing.checkout.unsupported'),
           variant: 'destructive',
         });
+        setCheckoutTarget(null);
+        setCheckoutAgreed(false);
         return;
       }
 
@@ -429,7 +431,16 @@ export function BillingOverviewTab({
         });
         setSelectedPingxxChannel(qrCode.channel);
         setCheckoutTarget(null);
+        return;
       }
+
+      setStripeRedirect(null);
+      toast({
+        title: t('module.billing.checkout.unsupported'),
+        variant: 'destructive',
+      });
+      setCheckoutTarget(null);
+      setCheckoutAgreed(false);
     } catch (error: any) {
       setStripeRedirect(null);
       toast({
