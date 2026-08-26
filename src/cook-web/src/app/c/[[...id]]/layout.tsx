@@ -59,8 +59,11 @@ const isDefinitiveClassroomAccessDenial = (error: unknown) => {
     return true;
   }
 
-  const status = Number(fetchError?.status ?? fetchError?.code);
-  return CLASSROOM_ACCESS_DENIAL_STATUSES.has(status);
+  // Business-code denials can arrive inside a successful HTTP response.
+  return (
+    CLASSROOM_ACCESS_DENIAL_STATUSES.has(Number(fetchError?.status)) ||
+    CLASSROOM_ACCESS_DENIAL_STATUSES.has(Number(fetchError?.code))
+  );
 };
 
 const getClassroomAccessForCourse = (courseId: string) => {
