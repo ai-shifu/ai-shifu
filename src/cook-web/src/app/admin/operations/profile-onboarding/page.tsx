@@ -21,6 +21,7 @@ export default function ProfileOnboardingAdminPage() {
     markdownflow,
     setMarkdownflow,
     assistantPrompt,
+    setAssistantPrompt,
     configRevision,
     updatedBy,
     updatedAt,
@@ -128,7 +129,7 @@ export default function ProfileOnboardingAdminPage() {
               )}
               minRows={4}
               maxRows={12}
-              readOnly
+              onChange={event => setAssistantPrompt(event.target.value)}
             />
           </div>
 

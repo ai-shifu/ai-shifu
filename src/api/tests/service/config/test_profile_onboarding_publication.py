@@ -202,3 +202,107 @@ def test_publication_lock_cleanup_cannot_mask_completed_write(
     with app.app_context(), module._publication_lock():
         pass
     connection.invalidate.assert_called_once()
+
+
+@pytest.mark.parametrize("cache_failure", [False, True])
+def test_manual_assistant_prompt_uses_existing_durable_publication(
+    app: object, publication: object, monkeypatch: object, cache_failure: bool
+) -> None:
+    import json
+
+    from flaskr.service.common import profile_onboarding as config
+
+    compiler = Mock()
+    monkeypatch.setattr(config, "compile_profile_onboarding_assistant_prompt", compiler)
+    if cache_failure:
+        publication.redis.set.side_effect = RuntimeError("cache offline")
+    result = config.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "  Operator wording  ",
+        },
+        operator_user_bid="operator",
+    )
+    saved = json.loads(publication.read_profile_onboarding_database(app))
+    assert saved["assistant_prompt"] == "Operator wording"
+    assert saved["markdownflow"] == "?[...Answer]"
+    assert saved["revision"] == result["config_revision"] == 1
+    assert bool(result.get("cache_refresh_pending")) is cache_failure
+    compiler.assert_not_called()
+
+
+def test_manual_prompt_edit_cannot_replace_a_newer_saved_prompt(
+    app: object, publication: object, monkeypatch: object
+) -> None:
+    import json
+
+    from flaskr.service.common import profile_onboarding as config
+
+    old = json.dumps(
+        {"revision": 1, "markdownflow": "?[...Answer]", "assistant_prompt": "Original"}
+    )
+    winner = json.dumps(
+        {
+            "revision": 2,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "Newer operator edit",
+        }
+    )
+    publication.publish_profile_onboarding_database(
+        app, expected_value=None, value=old, updated_by="first"
+    )
+
+    def read_then_race(_app: object) -> str:
+        publication.publish_profile_onboarding_database(
+            app, expected_value=old, value=winner, updated_by="second"
+        )
+        return old
+
+    compiler = Mock()
+    monkeypatch.setattr(config, "read_profile_onboarding_database", read_then_race)
+    monkeypatch.setattr(config, "compile_profile_onboarding_assistant_prompt", compiler)
+    payload = {
+        "enabled": True,
+        "markdownflow": "?[...Answer]",
+        "assistant_prompt": "Stale operator edit",
+    }
+    with pytest.raises(AppError):
+        config.update_profile_onboarding_config(
+            app, payload=payload, operator_user_bid="first"
+        )
+    assert publication.read_profile_onboarding_database(app) == winner
+    assert payload["assistant_prompt"] == "Stale operator edit"
+    compiler.assert_not_called()
+
+
+def test_failed_reset_keeps_previously_saved_manual_prompt(
+    app: object, publication: object, monkeypatch: object
+) -> None:
+    import json
+
+    from flaskr.service.common import profile_onboarding as config
+
+    old = json.dumps(
+        {
+            "revision": 1,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "Saved manual wording",
+        }
+    )
+    publication.publish_profile_onboarding_database(
+        app, expected_value=None, value=old, updated_by="operator"
+    )
+    monkeypatch.setattr(
+        config,
+        "compile_profile_onboarding_assistant_prompt",
+        Mock(side_effect=RuntimeError("provider unavailable")),
+    )
+    payload = {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": ""}
+    with pytest.raises(RuntimeError, match="provider unavailable"):
+        config.update_profile_onboarding_config(
+            app, payload=payload, operator_user_bid="operator"
+        )
+    assert publication.read_profile_onboarding_database(app) == old
+    assert payload["assistant_prompt"] == ""

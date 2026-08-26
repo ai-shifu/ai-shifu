@@ -1002,8 +1002,9 @@ def test_learner_profile_update_rejects_invalid_shapes(
     assert response.get_json(force=True)["code"] != 0
 
 
+@pytest.mark.parametrize("extra_payload", [{}, {"assistant_prompt": " Edited prompt "}])
 def test_operator_profile_onboarding_config_routes_delegate(
-    monkeypatch: object, test_client: object
+    monkeypatch: object, test_client: object, extra_payload: dict
 ) -> None:
     user = _authenticate(monkeypatch)
     calls = []
@@ -1029,6 +1030,7 @@ def test_operator_profile_onboarding_config_routes_delegate(
         json={
             "enabled": True,
             "markdownflow": "flow",
+            **extra_payload,
         },
     )
 
@@ -1039,6 +1041,7 @@ def test_operator_profile_onboarding_config_routes_delegate(
             "payload": {
                 "enabled": True,
                 "markdownflow": "flow",
+                **extra_payload,
             },
             "operator_user_bid": user.user_id,
         }
@@ -1307,6 +1310,8 @@ def test_operator_profile_onboarding_preview_start_maps_busy_error(
     [
         None,
         [],
+        {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": None},
+        {"enabled": True, "markdownflow": "?[...Answer]", "assistant_prompt": []},
         {"enabled": True, "markdownflow": "flow", "revision": 4},
         {
             "enabled": True,
@@ -1341,7 +1346,7 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
         ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview",
-            {"markdownflow": "flow", "unexpected": 3},
+            {"markdownflow": "flow", "assistant_prompt": "Not allowed in preview"},
         ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview",
@@ -1397,13 +1402,25 @@ def test_operator_profile_onboarding_preview_rejects_invalid_shapes(
     assert response.get_json(force=True)["code"] != 0
 
 
+@pytest.mark.parametrize("method", ["get", "post"])
 def test_operator_profile_onboarding_config_requires_operator(
-    monkeypatch: object, test_client: object
+    monkeypatch: object, test_client: object, method: str
 ) -> None:
     _authenticate(monkeypatch, is_operator=False)
-    response = test_client.get(
+    response = getattr(test_client, method)(
         "/api/shifu/admin/operations/profile-onboarding",
         headers={"Token": "token"},
+        **(
+            {
+                "json": {
+                    "enabled": True,
+                    "markdownflow": "?[...Answer]",
+                    "assistant_prompt": "Unauthorized edit",
+                }
+            }
+            if method == "post"
+            else {}
+        ),
     )
     assert response.get_json(force=True)["code"] != 0
 

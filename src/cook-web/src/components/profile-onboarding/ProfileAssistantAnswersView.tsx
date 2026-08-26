@@ -32,37 +32,17 @@ export function ProfileAssistantAnswersView({
   const { t } = useTranslation();
   const [copied, setCopied] = React.useState(false);
   const [copyError, setCopyError] = React.useState(false);
-  const pasteTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const composingRef = React.useRef(false);
-  const pastePendingRef = React.useRef(false);
-  const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const submissionDisabled = disabled || processingDisabled || unresolved;
-  const latestRef = React.useRef({
-    value,
-    disabled: submissionDisabled,
-    onSubmit,
-  });
-  latestRef.current = { value, disabled: submissionDisabled, onSubmit };
   const length = Array.from(value).length;
   const overLimit = length > 10_000;
 
-  const cancelPaste = React.useCallback(() => {
-    pastePendingRef.current = false;
-    if (pasteTimerRef.current) clearTimeout(pasteTimerRef.current);
-  }, []);
   React.useEffect(
     () => () => {
-      cancelPaste();
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     },
-    [cancelPaste],
+    [],
   );
-  React.useEffect(() => {
-    if (submissionDisabled) cancelPaste();
-  }, [cancelPaste, submissionDisabled]);
 
   const copyPrompt = async () => {
     try {
@@ -94,10 +74,7 @@ export function ProfileAssistantAnswersView({
         </p>
       </div>
       <div className='overflow-hidden rounded-xl border border-border bg-muted/25'>
-        <div className='flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-3 py-2'>
-          <p className='text-sm font-medium'>
-            {t('module.profileOnboarding.assistant.promptLabel')}
-          </p>
+        <div className='flex justify-end border-b border-border/70 px-3 py-2'>
           <Button
             type='button'
             variant='outline'
@@ -125,6 +102,7 @@ export function ProfileAssistantAnswersView({
         </div>
         <div
           tabIndex={0}
+          dir='auto'
           className='max-h-28 select-text overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm leading-6'
         >
           {prompt}
@@ -147,7 +125,6 @@ export function ProfileAssistantAnswersView({
         </label>
         <Textarea
           id='profile-assistant-answer'
-          ref={inputRef}
           rows={4}
           className='min-h-28 resize-none'
           value={value}
@@ -157,47 +134,7 @@ export function ProfileAssistantAnswersView({
           placeholder={t(
             'module.profileOnboarding.assistant.resultPlaceholder',
           )}
-          onCompositionStart={() => {
-            composingRef.current = true;
-            cancelPaste();
-          }}
-          onCompositionEnd={() => {
-            composingRef.current = false;
-            cancelPaste();
-          }}
-          onPaste={() => {
-            cancelPaste();
-            pastePendingRef.current = !composingRef.current;
-            // A paste that does not change the input must not arm later typing.
-            pasteTimerRef.current = setTimeout(() => {
-              pastePendingRef.current = false;
-            }, 0);
-          }}
-          onChange={event => {
-            const next = event.target.value;
-            const shouldProcess =
-              pastePendingRef.current && !composingRef.current;
-            cancelPaste();
-            onChange(next);
-            if (
-              shouldProcess &&
-              !submissionDisabled &&
-              next.trim() &&
-              Array.from(next).length <= 10_000
-            ) {
-              pasteTimerRef.current = setTimeout(() => {
-                const current = latestRef.current;
-                if (
-                  !current.disabled &&
-                  !composingRef.current &&
-                  current.value === next &&
-                  inputRef.current?.value === next
-                ) {
-                  current.onSubmit(next);
-                }
-              }, 600);
-            }
-          }}
+          onChange={event => onChange(event.target.value)}
         />
         <p
           id='profile-assistant-answer-limit'
@@ -229,20 +166,14 @@ export function ProfileAssistantAnswersView({
           type='button'
           variant='ghost'
           disabled={disabled || unresolved}
-          onClick={() => {
-            cancelPaste();
-            onBack();
-          }}
+          onClick={onBack}
         >
           {t('module.profileOnboarding.assistant.back')}
         </Button>
         <Button
           type='button'
           disabled={submissionDisabled || !value.trim() || overLimit}
-          onClick={() => {
-            cancelPaste();
-            onSubmit(value);
-          }}
+          onClick={() => onSubmit(value)}
         >
           {t(
             disabled

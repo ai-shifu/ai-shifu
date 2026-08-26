@@ -1421,11 +1421,10 @@ describe('assistant answers in the existing session', () => {
       screen.getByTestId('profile-onboarding-conversation'),
     ).toHaveAttribute('aria-busy', 'false');
     expect(screen.queryByText('Question one')).not.toBeInTheDocument();
-    expect(
-      entry.compareDocumentPosition(
-        screen.getByLabelText('unsent question answer'),
-      ),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(entry.parentElement).toContainElement(
+      screen.getByLabelText('unsent question answer'),
+    );
+    expect(entry.closest('[aria-busy="true"]')).toBeNull();
     enter();
     expect(
       screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),

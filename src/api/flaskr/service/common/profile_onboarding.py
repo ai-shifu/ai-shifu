@@ -166,14 +166,21 @@ def update_profile_onboarding_config(
     operator_user_bid: str,
 ) -> dict[str, object]:
     """Update profile onboarding config."""
-    if set(payload) - {"enabled", "markdownflow"}:
+    if set(payload) - {"enabled", "markdownflow", "assistant_prompt"}:
         raise_param_error("profile_onboarding_config")
     if not isinstance(payload.get("enabled", False), bool):
         raise_param_error("enabled")
     raw_markdownflow = payload.get("markdownflow", "")
     if not isinstance(raw_markdownflow, str):
         raise_param_error("markdownflow")
+    has_explicit_prompt = "assistant_prompt" in payload
+    raw_assistant_prompt = payload.get("assistant_prompt", "")
+    if not isinstance(raw_assistant_prompt, str):
+        raise_param_error("assistant_prompt")
+    explicit_prompt = raw_assistant_prompt.strip()
     markdownflow = raw_markdownflow.strip()
+    if explicit_prompt and not markdownflow:
+        raise_param_error("assistant_prompt")
     if markdownflow:
         validate_profile_onboarding_markdownflow(markdownflow)
     elif payload.get("enabled", False):
@@ -187,8 +194,12 @@ def update_profile_onboarding_config(
     except (TypeError, ValueError):
         existing = _default_config_payload()
     assistant_prompt = str(existing.get("assistant_prompt") or "")
-    if markdownflow and (
-        markdownflow != existing["markdownflow"] or not assistant_prompt
+    if explicit_prompt:
+        assistant_prompt = explicit_prompt
+    elif markdownflow and (
+        has_explicit_prompt
+        or markdownflow != existing["markdownflow"]
+        or not assistant_prompt
     ):
         # Reject oversized input before spending a model call, then check the
         # complete JSON again after the generated prompt is included.

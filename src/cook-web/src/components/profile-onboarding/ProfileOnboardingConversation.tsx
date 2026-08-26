@@ -151,6 +151,12 @@ export default function ProfileOnboardingConversation({
   const hasVisibleStatus = Boolean(
     visibleErrorMessage || loading || streamingNonInteraction || retryAvailable,
   );
+  const canUseAssistant = Boolean(
+    assistantView &&
+    assistantPrompt &&
+    status !== 'completed' &&
+    status !== 'fatal_error',
+  );
 
   // Hidden questions cannot be edited; keep their renderer props unchanged
   // while an import runs or fails. The session hook also rejects manual sends.
@@ -173,19 +179,32 @@ export default function ProfileOnboardingConversation({
       className='flex h-full min-h-0 flex-col gap-3'
       aria-busy={disabled || assistantProcessing}
     >
-      {!showAssistant &&
-      assistantView &&
-      assistantPrompt &&
-      status !== 'completed' &&
-      status !== 'fatal_error' ? (
-        <div className='flex shrink-0 flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between'>
-          <p className='text-sm leading-5 text-foreground'>
-            {t('module.profileOnboarding.assistant.entryHint')}
-          </p>
+      <div
+        hidden={showAssistant}
+        className={cn('relative min-h-0 flex-1', showAssistant && 'hidden')}
+      >
+        <div
+          aria-busy={loading || (runInFlight && !assistantProcessing)}
+          className={cn(
+            'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
+            canUseAssistant && 'scroll-pb-20 pb-20',
+          )}
+        >
+          <StableMarkdownFlow
+            locale={locale}
+            initialContentList={contentList}
+            onSend={send}
+          />
+          <div
+            ref={latestItemRef}
+            aria-hidden='true'
+          />
+        </div>
+        {!showAssistant && canUseAssistant ? (
           <Button
             ref={assistantEntryRef}
             type='button'
-            className='h-auto min-h-10 shrink-0 whitespace-normal py-2 text-start'
+            className='absolute bottom-3 right-3 z-10 h-auto min-h-10 max-w-[calc(100%-1.5rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg'
             disabled={disabled}
             onClick={() => setAssistantVisible(true)}
           >
@@ -195,25 +214,7 @@ export default function ProfileOnboardingConversation({
             />
             {t('module.profileOnboarding.assistant.entry')}
           </Button>
-        </div>
-      ) : null}
-      <div
-        hidden={showAssistant}
-        aria-busy={loading || (runInFlight && !assistantProcessing)}
-        className={cn(
-          'profile-onboarding-markdownflow min-h-0 flex-1 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
-          showAssistant && 'hidden',
-        )}
-      >
-        <StableMarkdownFlow
-          locale={locale}
-          initialContentList={contentList}
-          onSend={send}
-        />
-        <div
-          ref={latestItemRef}
-          aria-hidden='true'
-        />
+        ) : null}
       </div>
       {showAssistant && assistantView ? (
         <ProfileAssistantAnswersView

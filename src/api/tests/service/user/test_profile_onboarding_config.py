@@ -78,6 +78,26 @@ def test_profile_onboarding_config_uses_runtime_validation(
         ({"enabled": "false", "markdownflow": "?[Continue]"}, "enabled"),
         ({"enabled": True, "markdownflow": ""}, "markdownflow"),
         ({"enabled": False, "markdownflow": []}, "markdownflow"),
+        (
+            {"enabled": False, "markdownflow": "?[Continue]", "assistant_prompt": None},
+            "assistant_prompt",
+        ),
+        (
+            {"enabled": False, "markdownflow": "?[Continue]", "assistant_prompt": []},
+            "assistant_prompt",
+        ),
+        (
+            {"enabled": False, "markdownflow": "?[Continue]", "assistant_prompt": 123},
+            "assistant_prompt",
+        ),
+        (
+            {
+                "enabled": False,
+                "markdownflow": "?[Continue]",
+                "assistant_prompt": False,
+            },
+            "assistant_prompt",
+        ),
     ],
 )
 def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
@@ -99,8 +119,9 @@ def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
         )
 
 
+@pytest.mark.parametrize("explicit_prompt", [{}, {"assistant_prompt": "Manual prompt"}])
 def test_profile_onboarding_config_rejects_unanswerable_interaction(
-    app: object, monkeypatch: object
+    app: object, monkeypatch: object, explicit_prompt: dict
 ) -> None:
     from flaskr.service.common import profile_onboarding as module
 
@@ -119,7 +140,7 @@ def test_profile_onboarding_config_rejects_unanswerable_interaction(
     with pytest.raises(AppError, match="markdownflow"):
         module.update_profile_onboarding_config(
             app,
-            payload={"enabled": True, "markdownflow": "?[]"},
+            payload={"enabled": True, "markdownflow": "?[]", **explicit_prompt},
             operator_user_bid="operator-1",
         )
 
@@ -336,8 +357,9 @@ def test_compiler_failure_and_generated_size_never_publish(
 
 
 @pytest.mark.parametrize("override", ["environment", "context"])
+@pytest.mark.parametrize("prompt_fields", [{}, {"assistant_prompt": "Manual wording"}])
 def test_nonpersistable_config_is_rejected_before_generation(
-    app: object, monkeypatch: object, override: object
+    app: object, monkeypatch: object, override: object, prompt_fields: dict
 ) -> None:
     from flaskr.service.common import profile_onboarding as module
     from flaskr.service.config import profile_onboarding as persistence
@@ -357,22 +379,22 @@ def test_nonpersistable_config_is_rejected_before_generation(
     with pytest.raises(AppError):
         module.update_profile_onboarding_config(
             app,
-            payload={"enabled": True, "markdownflow": "?[...Answer]"},
+            payload={"enabled": True, "markdownflow": "?[...Answer]", **prompt_fields},
             operator_user_bid="operator",
         )
     assert calls == []
 
 
-def test_assistant_prompt_is_readonly_even_for_service_callers(app: object) -> None:
+def test_assistant_prompt_cannot_be_saved_without_a_markdownflow(app: object) -> None:
     from flaskr.service.common import profile_onboarding as module
 
-    with pytest.raises(AppError, match="profile_onboarding_config"):
+    with pytest.raises(AppError, match="assistant_prompt"):
         module.update_profile_onboarding_config(
             app,
             payload={
                 "enabled": False,
                 "markdownflow": "",
-                "assistant_prompt": "injected",
+                "assistant_prompt": "Orphan prompt",
             },
             operator_user_bid="operator",
         )
@@ -413,6 +435,8 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
     monkeypatch.setattr(module, "invoke_llm", invoke)
     document = (
         "How do you work?\n```\nverbatim source\n```\n?[...Answer without a variable]"
+        "\n\n?[%{{sys_user_nickname}}...我可以怎样称呼你？]"
+        "\n\n?[ 我不告诉你 | ...你的专业、职业是什么？ ]"
     )
     assert (
         module.compile_profile_onboarding_assistant_prompt(app, document)
@@ -426,3 +450,131 @@ def test_compiler_receives_complete_document_without_user_or_ui_language(
     assert 'begin exactly\nwith "请根据你对我的了解"' in kwargs["system"]
     assert "Rewrite every extracted question in the first person" in kwargs["system"]
     assert "for other languages, use the equivalent" in kwargs["system"]
+    assert "?[] interactions is displayed directly to the learner" in kwargs["system"]
+    assert 'so ask "我希望被怎样称呼？"' in kwargs["system"]
+    assert '"我不告诉你" already uses the learner\'s "我"' in kwargs["system"]
+
+
+@pytest.mark.parametrize(
+    "existing_document", ["", "?[...Answer]", "?[...Old question]"]
+)
+def test_explicit_assistant_prompt_bypasses_compilation_after_validation(
+    app: object, monkeypatch: object, existing_document: str
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    current = json.dumps(
+        {
+            "markdownflow": existing_document,
+            "assistant_prompt": "Old prompt",
+            "revision": 8,
+        }
+    )
+    compiler = Mock()
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+    result = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "  My edited prompt.\nKeep this line.  ",
+        },
+        operator_user_bid="operator",
+    )
+    compiler.assert_not_called()
+    assert result["assistant_prompt"] == "My edited prompt.\nKeep this line."
+    assert result["config_revision"] == 9
+    assert writes[0][0]["assistant_prompt"] == result["assistant_prompt"]
+    assert writes[0][1]["expected_value"] == current
+
+
+@pytest.mark.parametrize("explicit_prompt", ["", " \n\t "])
+def test_clearing_assistant_prompt_regenerates_unchanged_markdownflow(
+    app: object, monkeypatch: object, explicit_prompt: str
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    current = json.dumps(
+        {
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "Manual wording",
+            "revision": 8,
+        }
+    )
+    compiler = Mock(return_value="Regenerated wording")
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda *_args, **_kwargs: False,
+    )
+    result = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": explicit_prompt,
+        },
+        operator_user_bid="operator",
+    )
+    compiler.assert_called_once_with(app, "?[...Answer]")
+    assert result["assistant_prompt"] == "Regenerated wording"
+
+
+def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-26T00:00:00Z")
+    monkeypatch.setattr(module, "read_profile_onboarding_database", lambda _app: None)
+    compiler = Mock()
+    publisher = Mock(return_value=False)
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
+    base = module.build_profile_onboarding_config_payload(
+        enabled=False, markdownflow="?[...Answer]", revision=1, updated_by="operator"
+    )
+    remaining = module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES - len(
+        json.dumps(base, ensure_ascii=False).encode("utf-8")
+    )
+    prompt = "测" * (remaining // 3) + "x" * (remaining % 3)
+    payload = {
+        "enabled": False,
+        "markdownflow": "?[...Answer]",
+        "assistant_prompt": prompt,
+    }
+    response = module.update_profile_onboarding_config(
+        app, payload=payload, operator_user_bid="operator"
+    )
+    assert response["assistant_prompt"] == prompt
+    assert (
+        len(publisher.call_args.kwargs["value"].encode("utf-8"))
+        == module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    )
+    with pytest.raises(AppError, match="profile_onboarding_config"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={**payload, "assistant_prompt": prompt + "测"},
+            operator_user_bid="operator",
+        )
+    publisher.assert_called_once()
+    compiler.assert_not_called()

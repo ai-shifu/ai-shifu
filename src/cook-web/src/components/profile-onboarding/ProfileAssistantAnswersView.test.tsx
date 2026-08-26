@@ -46,17 +46,24 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('only a real stable paste submits once after 600ms', () => {
+test('a real stable paste waits for the processing button and submits once', () => {
   const { input, onSubmit } = setup();
   fireEvent.paste(input);
   fireEvent.change(input, { target: { value: 'Pasted answer' } });
   act(() => {
-    jest.advanceTimersByTime(599);
+    jest.advanceTimersByTime(600);
   });
   expect(onSubmit).not.toHaveBeenCalled();
   act(() => {
-    jest.advanceTimersByTime(1);
+    jest.advanceTimersByTime(5000);
   });
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(input).toHaveValue('Pasted answer');
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.process',
+    }),
+  );
   expect(onSubmit).toHaveBeenCalledTimes(1);
   expect(onSubmit).toHaveBeenCalledWith('Pasted answer');
 });
@@ -90,17 +97,20 @@ test('typing, draft restoration, composition and over-limit paste never auto-sub
   ).toBeDisabled();
 });
 
-test('an empty or cancelled paste does not arm the next ordinary keystroke', () => {
-  const { input, onSubmit } = setup();
+test('returning after paste does not submit the draft', () => {
+  const { input, onSubmit, onBack } = setup();
   fireEvent.paste(input);
-  act(() => {
-    jest.advanceTimersByTime(0);
-  });
-  fireEvent.change(input, { target: { value: 'Typed later' } });
+  fireEvent.change(input, { target: { value: 'Pasted answer' } });
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.back',
+    }),
+  );
   act(() => {
     jest.advanceTimersByTime(1000);
   });
   expect(onSubmit).not.toHaveBeenCalled();
+  expect(onBack).toHaveBeenCalledTimes(1);
 });
 
 test('pasting while questions load remains editable and never submits on readiness', () => {
@@ -144,7 +154,7 @@ test('pasting while questions load remains editable and never submits on readine
   expect(onSubmit).toHaveBeenCalledWith('Answer pasted before the question');
 });
 
-test('an edit after paste cancels auto-submit and manual processing remains available', () => {
+test('editing after paste submits only the latest draft when processing is clicked', () => {
   const { input, onSubmit } = setup();
   fireEvent.paste(input);
   fireEvent.change(input, { target: { value: 'Pasted' } });
