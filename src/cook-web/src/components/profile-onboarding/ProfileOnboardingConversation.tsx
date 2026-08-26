@@ -58,7 +58,7 @@ export default function ProfileOnboardingConversation({
   createSession,
   runSession,
   assistantAnswers,
-  assistantDraft = '',
+  assistantDraft,
   onAssistantDraftChange,
   onAssistantDraftReady,
   disabled = false,
@@ -72,18 +72,25 @@ export default function ProfileOnboardingConversation({
 }: ProfileOnboardingConversationProps) {
   const { t, i18n } = useTranslation();
   const [assistantVisible, setAssistantVisible] = React.useState(false);
+  const assistantView =
+    assistantAnswers &&
+    typeof assistantDraft === 'string' &&
+    onAssistantDraftChange
+      ? { draft: assistantDraft, onChange: onAssistantDraftChange }
+      : null;
+  const showAssistant = assistantVisible && assistantView !== null;
   const latestItemRef = React.useRef<HTMLDivElement>(null);
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (previousAssistantVisibleRef.current === assistantVisible) return;
-    previousAssistantVisibleRef.current = assistantVisible;
+    if (previousAssistantVisibleRef.current === showAssistant) return;
+    previousAssistantVisibleRef.current = showAssistant;
     // Start with the instructions and copy step, not the paste textarea.
-    const target = assistantVisible ? assistantHeadingRef : assistantEntryRef;
+    const target = showAssistant ? assistantHeadingRef : assistantEntryRef;
     target.current?.focus({ preventScroll: true });
-  }, [assistantVisible]);
+  }, [showAssistant]);
   const {
     items,
     status,
@@ -147,8 +154,7 @@ export default function ProfileOnboardingConversation({
   // Hidden questions cannot be edited; keep their renderer props unchanged
   // while an import runs or fails. The session hook also rejects manual sends.
   const questionReadonly =
-    !assistantVisible &&
-    (disabled || runInFlight || status !== 'awaiting_input');
+    !showAssistant && (disabled || runInFlight || status !== 'awaiting_input');
   const contentList = React.useMemo(
     () =>
       items.map(item => ({
@@ -167,10 +173,10 @@ export default function ProfileOnboardingConversation({
       aria-busy={disabled || loading || runInFlight}
     >
       <div
-        hidden={assistantVisible}
+        hidden={showAssistant}
         className={cn(
           'profile-onboarding-markdownflow min-h-0 flex-1 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
-          assistantVisible && 'hidden',
+          showAssistant && 'hidden',
         )}
       >
         <StableMarkdownFlow
@@ -183,20 +189,20 @@ export default function ProfileOnboardingConversation({
           aria-hidden='true'
         />
       </div>
-      {assistantVisible ? (
+      {showAssistant && assistantView ? (
         <ProfileAssistantAnswersView
           headingRef={assistantHeadingRef}
           prompt={assistantPrompt}
-          value={assistantDraft}
+          value={assistantView.draft}
           disabled={disabled || runInFlight}
           unresolved={uncertainRequest}
-          onChange={onAssistantDraftChange ?? (() => {})}
+          onChange={assistantView.onChange}
           onSubmit={submitAssistantAnswers}
           onBack={() => {
             if (resumeQuestions()) setAssistantVisible(false);
           }}
         />
-      ) : assistantAnswers && assistantPrompt && status === 'awaiting_input' ? (
+      ) : assistantView && assistantPrompt && status === 'awaiting_input' ? (
         <Button
           ref={assistantEntryRef}
           type='button'

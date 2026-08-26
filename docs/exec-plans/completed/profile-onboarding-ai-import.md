@@ -138,6 +138,15 @@ https://github.com/ai-shifu/ai-shifu/pull/2669#discussion_r3860462617. Copilot c
 review because of quota exhaustion; do not report it as approval. No reviewer
 was manually triggered.
 
+Second natural review
+https://github.com/ai-shifu/ai-shifu/pull/2669#pullrequestreview-5027762459
+identified a component boundary that allowed assistant support without its
+controlled draft or setter. Current production callers supply both; nevertheless,
+the entry/view now requires them together, with regressions for each omission
+and restoration without recreating the session. This is a separate review fix,
+validated with 68 conversation/dialog tests and full TypeScript. Remote CI for
+`efe2371ad` passed all checks before publishing this final boundary correction.
+
 ## Browser Evidence
 
 Real headed Chromium exercised the actual Next.js course shell and official

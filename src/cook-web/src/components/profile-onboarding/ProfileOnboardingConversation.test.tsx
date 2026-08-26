@@ -1408,6 +1408,30 @@ describe('assistant answers in the existing session', () => {
     ).not.toBeInTheDocument();
   });
 
+  test.each(['assistantDraft', 'onAssistantDraftChange'] as const)(
+    'requires %s before offering the controlled assistant input',
+    async missingProp => {
+      const result = await begin();
+      result.rerender(
+        React.cloneElement(result.renderConversation(), {
+          [missingProp]: undefined,
+        }),
+      );
+      expect(
+        screen.queryByRole('button', {
+          name: 'module.profileOnboarding.assistant.entry',
+        }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Question one')).toBeVisible();
+      result.rerender(result.renderConversation());
+      enter();
+      expect(
+        screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+      ).toHaveValue('External answer');
+      expect(result.createSession).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test('focuses the assistant introduction on entry and restores the entry on return without stealing initial focus', async () => {
     const priorFocus = document.createElement('button');
     document.body.appendChild(priorFocus);
