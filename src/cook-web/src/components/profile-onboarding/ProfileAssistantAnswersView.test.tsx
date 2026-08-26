@@ -202,6 +202,11 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
   expect(screen.getByRole('alert')).toHaveTextContent(
     'module.profileOnboarding.assistant.copyFailed',
   );
+  expect(
+    screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.copy',
+    }),
+  ).toBeEnabled();
   expect(screen.getByText('Public prompt')).toBeVisible();
 });
 

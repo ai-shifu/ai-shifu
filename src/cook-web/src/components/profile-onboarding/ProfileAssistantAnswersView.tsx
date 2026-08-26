@@ -52,6 +52,7 @@ export function ProfileAssistantAnswersView({
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
       copyTimerRef.current = setTimeout(() => setCopied(false), 1800);
     } catch {
+      setCopied(false);
       setCopyError(true);
     }
   };

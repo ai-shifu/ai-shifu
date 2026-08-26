@@ -28,6 +28,11 @@ read-only prompt and automatic-paste decisions in the earlier completed plans.
   the browser viewport/language and leave the user's frontend server running.
 - [x] 2026-08-26 UTC: Complete final types, lint, repository harness and
   lefthook verification before publication to the existing ready PR.
+- [x] 2026-08-26 UTC: Publish implementation as 3e1f1ed6a. All CI passed:
+  backend 7m04s, frontend 1m48s, runtime harness 6m42s, static/format/lint,
+  CodeQL and security checks. Natural CodeRabbit review completed.
+- [x] 2026-08-26 UTC: Fix copied feedback after a failed retry; all 13 assistant
+  view tests and focused ESLint passed. Keep this review fix in its own commit.
 
 ## Surprises & Discoveries
 
@@ -40,6 +45,13 @@ The saved public prompt's language is independent of the interface. Its preview
 now uses automatic text direction, keeping a Chinese prompt readable inside
 Arabic UI without changing the copied text. Browser viewport captures can lag
 a resize by one frame; final captures were checked after layout had settled.
+
+Natural review found a clipboard feedback mismatch after success followed by
+failure. Clear the copied state immediately in the failure handler; the existing
+clipboard regression now asserts the retry label without advancing any timer.
+The [review](https://github.com/ai-shifu/ai-shifu/pull/2669#pullrequestreview-5029668284)
+is outside the diff range and has no resolvable inline thread. It is handled as
+an independent verified follow-up commit.
 
 ## Decision Log
 
