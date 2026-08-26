@@ -366,7 +366,9 @@ def test_teacher_bonus_main_existing_mismatch_blocks_apply(
         subscription_bid="subscription-a",
     )
 
-    monkeypatch.setattr(sys, "argv", _teacher_bonus_argv())
+    persist_calls: list[object] = []
+
+    monkeypatch.setattr(sys, "argv", [*_teacher_bonus_argv(), "--apply"])
     monkeypatch.setattr(teacher_bonus_plan, "create_app", _create_fake_app)
     monkeypatch.setattr(
         teacher_bonus_plan,
@@ -397,9 +399,36 @@ def test_teacher_bonus_main_existing_mismatch_blocks_apply(
         "_compare_existing_bonus_order",
         lambda *_, **__: {"product_bid": {"expected": "a", "actual": "b"}},
     )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_persist_bonus_order",
+        lambda *args, **kwargs: persist_calls.append((args, kwargs)),
+    )
     monkeypatch.setattr(teacher_bonus_plan, "dump_json", lambda _payload: None)
 
     assert teacher_bonus_plan.main() == 2
+    assert persist_calls == []
+
+
+def test_teacher_bonus_main_rejects_blank_sms_template_before_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_calls: list[object] = []
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        _teacher_bonus_argv(template_code="   "),
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "create_app",
+        lambda: app_calls.append(object()),
+    )
+
+    with pytest.raises(RuntimeError, match="--subscription-sms-template-code"):
+        teacher_bonus_plan.main()
+    assert app_calls == []
 
 
 def test_teacher_bonus_masks_identifiers_and_sms_mobile() -> None:
@@ -422,6 +451,12 @@ def test_teacher_bonus_masks_identifiers_and_sms_mobile() -> None:
     assert sms_result["mobile"] == "139****9000"
 
 
+def test_teacher_bonus_escapes_like_literal_prefix() -> None:
+    assert teacher_bonus_plan._escape_like_literal("cache_overcharge%\\") == (
+        "cache\\_overcharge\\%\\\\"
+    )
+
+
 def _bonus_argv(csv_path: Path) -> list[str]:
     return [
         "grant_cache_overcharge_bonus_plan.py",
@@ -434,11 +469,11 @@ def _bonus_argv(csv_path: Path) -> list[str]:
     ]
 
 
-def _teacher_bonus_argv() -> list[str]:
+def _teacher_bonus_argv(template_code: str = "SMS_TEST") -> list[str]:
     return [
         "grant_cache_overcharge_teacher_bonus_plan.py",
         "--subscription-sms-template-code",
-        "SMS_TEST",
+        template_code,
         "--subscription-sms-product-name",
         "AI Shifu test plan",
     ]

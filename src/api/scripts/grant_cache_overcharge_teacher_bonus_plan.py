@@ -115,9 +115,14 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     """Run the follow-up teacher one-month plan bonus script."""
     args = _build_parser().parse_args()
-    if not str(args.subscription_sms_product_name or "").strip():
-        message = "--subscription-sms-product-name is required."
-        raise RuntimeError(message)
+    subscription_sms_template_code = _normalize_required_arg(
+        args.subscription_sms_template_code,
+        "--subscription-sms-template-code",
+    )
+    subscription_sms_product_name = _normalize_required_arg(
+        args.subscription_sms_product_name,
+        "--subscription-sms-product-name",
+    )
 
     app = create_app()
     results: list[dict[str, object]] = []
@@ -135,6 +140,10 @@ def main() -> int:
         product_bid = str(product.product_bid or "").strip()
         product_code = str(product.product_code or "").strip()
         now = now_utc()
+        existing_sms_indexes: list[tuple[int, BillingOrder]] = []
+        grant_items: list[
+            tuple[TeacherBonusTarget, dict[str, object], str, dict[str, object]]
+        ] = []
 
         for target in targets:
             base = _target_to_payload(target)
@@ -173,14 +182,6 @@ def main() -> int:
                         }
                     )
                     continue
-                subscription_sms_result = {"status": "not_attempted_dry_run"}
-                if args.apply:
-                    subscription_sms_result = _resume_existing_subscription_sms(
-                        app,
-                        order=existing_order,
-                        template_code=args.subscription_sms_template_code,
-                        product_name=args.subscription_sms_product_name,
-                    )
                 results.append(
                     {
                         **base,
@@ -189,10 +190,12 @@ def main() -> int:
                         "bill_order_bid": existing_order.bill_order_bid,
                         "subscription_bid": existing_order.subscription_bid,
                         "subscription_sms_result": _sanitize_sms_result(
-                            subscription_sms_result
+                            {"status": "not_attempted_dry_run"}
                         ),
                     }
                 )
+                if args.apply:
+                    existing_sms_indexes.append((len(results) - 1, existing_order))
                 continue
 
             shape = _resolve_order_shape(
@@ -201,10 +204,8 @@ def main() -> int:
                 product=product,
                 now=now,
             )
-            if args.subscription_sms_product_name:
-                shape["metadata"]["bonus_product_name"] = str(
-                    args.subscription_sms_product_name
-                ).strip()
+            if subscription_sms_product_name:
+                shape["metadata"]["bonus_product_name"] = subscription_sms_product_name
             if not args.apply:
                 results.append(
                     {
@@ -218,7 +219,31 @@ def main() -> int:
                     }
                 )
                 continue
+            grant_items.append((target, base, request_id, shape))
 
+        if any(item["status"] == "existing_mismatch" for item in results):
+            _dump_summary(
+                args=args,
+                product_bid=product_bid,
+                product_code=product_code,
+                targets=targets,
+                results=results,
+                status="validation_failed",
+            )
+            return 2
+
+        for result_index, existing_order in existing_sms_indexes:
+            subscription_sms_result = _resume_existing_subscription_sms(
+                app,
+                order=existing_order,
+                template_code=subscription_sms_template_code,
+                product_name=subscription_sms_product_name,
+            )
+            results[result_index]["subscription_sms_result"] = _sanitize_sms_result(
+                subscription_sms_result
+            )
+
+        for target, base, request_id, shape in grant_items:
             order = _persist_bonus_order(
                 app=app,
                 user_bid=target.user_bid,
@@ -243,7 +268,7 @@ def main() -> int:
                 subscription_sms_result = _send_bonus_subscription_sms(
                     app,
                     bill_order_bid=bill_order_bid,
-                    template_code=args.subscription_sms_template_code,
+                    template_code=subscription_sms_template_code,
                 )
 
             results.append(
@@ -262,9 +287,29 @@ def main() -> int:
                 }
             )
 
+    _dump_summary(
+        args=args,
+        product_bid=product_bid,
+        product_code=product_code,
+        targets=targets,
+        results=results,
+        status="applied" if args.apply else "dry_run",
+    )
+    return 0
+
+
+def _dump_summary(
+    *,
+    args: argparse.Namespace,
+    product_bid: str,
+    product_code: str,
+    targets: list[TeacherBonusTarget],
+    results: list[dict[str, object]],
+    status: str,
+) -> None:
     dump_json(
         {
-            "status": "applied" if args.apply else "dry_run",
+            "status": status,
             "dry_run": not args.apply,
             "campaign_id": args.campaign_id,
             "previous_campaign_id": args.previous_campaign_id,
@@ -293,9 +338,6 @@ def main() -> int:
             "results": results,
         }
     )
-    if any(item["status"] == "existing_mismatch" for item in results):
-        return 2
-    return 0
 
 
 def _load_teacher_targets(user_bids: list[str]) -> list[TeacherBonusTarget]:
@@ -323,20 +365,38 @@ def _load_teacher_targets(user_bids: list[str]) -> list[TeacherBonusTarget]:
     ]
 
 
+def _normalize_required_arg(value: object, flag_name: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        message = f"{flag_name} is required."
+        raise RuntimeError(message)
+    return normalized
+
+
 def _load_previous_bonus_creator_bids(previous_campaign_id: str) -> set[str]:
     provider_reference_prefix = (
         f"{_PREVIOUS_BONUS_CHECKOUT_TYPE}:{previous_campaign_id}:bonus-plan:"
     )
+    provider_reference_pattern = f"{_escape_like_literal(provider_reference_prefix)}%"
     rows = (
         BillingOrder.query.with_entities(BillingOrder.creator_bid)
         .filter(
             BillingOrder.deleted == 0,
             BillingOrder.payment_provider == _MANUAL_PROVIDER_NAME,
-            BillingOrder.provider_reference_id.like(f"{provider_reference_prefix}%"),
+            BillingOrder.provider_reference_id.like(
+                provider_reference_pattern,
+                escape="\\",
+            ),
         )
         .all()
     )
     return {str(row.creator_bid or "").strip() for row in rows if row.creator_bid}
+
+
+def _escape_like_literal(value: str) -> str:
+    return (
+        str(value or "").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    )
 
 
 def _target_to_payload(target: TeacherBonusTarget) -> dict[str, object]:
