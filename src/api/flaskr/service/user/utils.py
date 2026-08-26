@@ -64,10 +64,10 @@ def _normalize_language_code(language_code: str) -> str:
 
 
 def _resolve_supported_language_code(language_code: str) -> str:
-    """Resolve a language code to the loaded locale with the same primary language."""
+    """Resolve a loaded locale or the same English fallback used by translations."""
     normalized = _normalize_language_code(language_code)
     if not normalized:
-        return ""
+        return "en-US"
 
     supported_languages = get_i18n_list()
     normalized_lower = normalized.lower()
@@ -80,7 +80,7 @@ def _resolve_supported_language_code(language_code: str) -> str:
         if supported_language.lower().split("-", maxsplit=1)[0] == primary_language:
             return supported_language
 
-    return normalized
+    return "en-US"
 
 
 def get_user_language(user: object) -> str:
@@ -178,9 +178,7 @@ def _format_email_verification_message(
 ) -> tuple[str, str, str]:
     previous_language = get_current_language()
     requested_language = language or previous_language
-    resolved_language = (
-        _resolve_supported_language_code(requested_language) or requested_language
-    )
+    resolved_language = _resolve_supported_language_code(requested_language)
     set_language(resolved_language)
 
     try:
