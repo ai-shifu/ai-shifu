@@ -14,7 +14,7 @@ from flaskr.service.order.admin import (
 )
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
+    PROFILE_ONBOARDING_STATE_VERSION,
     get_learner_profile,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
@@ -170,7 +170,7 @@ def test_import_activation_keeps_pre_profile_nickname_behavior(
                 UserOnboardingState(
                     user_bid=user.user_bid,
                     scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                    version=PROFILE_ONBOARDING_VERSION,
+                    version=PROFILE_ONBOARDING_STATE_VERSION,
                     status="completed",
                     trigger_source="settings",
                     completed_at=PROFILE_UPDATED_AT,
@@ -224,7 +224,7 @@ def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
             UserOnboardingState(
                 user_bid=user.user_bid,
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                version=PROFILE_ONBOARDING_VERSION,
+                version=PROFILE_ONBOARDING_STATE_VERSION,
                 status="completed",
                 trigger_source="settings",
                 completed_at=PROFILE_UPDATED_AT,

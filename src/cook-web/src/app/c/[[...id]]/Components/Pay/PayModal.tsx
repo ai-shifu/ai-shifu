@@ -4,6 +4,7 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { normalizeLanguage } from '@/i18n';
 
 import Image from 'next/image';
 import { LoaderIcon, LoaderCircleIcon } from 'lucide-react';
@@ -607,7 +608,10 @@ export const PayModal = ({
     }
   }
 
-  const payInfoBg = userInfo?.language === 'en-US' ? payInfoBgEn : payInfoBgCn;
+  const payInfoBg =
+    normalizeLanguage(userInfo?.language) === 'zh-CN'
+      ? payInfoBgCn
+      : payInfoBgEn;
 
   return (
     <>

@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.llm",
+  "__flat__": {
+    "modelNotSupported": "ไม่รองรับโมเดล {model}",
+    "requestFailed": "เรียกใช้โมเดล {model} ไม่สำเร็จ: {message}",
+    "specifiedLlmNotConfigured": "ยังไม่ได้ตั้งค่าโมเดล {model} โปรดตรวจสอบตัวแปร {config_var} ใน .env"
+  }
+}

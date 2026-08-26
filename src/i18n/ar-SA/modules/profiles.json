@@ -1,0 +1,18 @@
+{
+  "__namespace__": "module.profiles",
+  "add": "إضافة",
+  "addNewVariable": "إضافة متغير جديد",
+  "cancel": "إلغاء",
+  "confirm": "تأكيد",
+  "confirmDelete": "تأكيد الحذف",
+  "confirmDeleteDescription": "ستؤدي هذه العملية إلى فقدان المحتوى الحالي. هل تريد المتابعة؟",
+  "createNewCustomVariable": "إنشاء متغير مخصص جديد.",
+  "customVariable": "متغير مخصص",
+  "defaultValue": "القيمة الافتراضية",
+  "editVariable": "تعديل المتغير",
+  "modifyExistingVariable": "تعديل خصائص المتغير الحالي.",
+  "noVariableFound": "لم يتم العثور على المتغير",
+  "save": "حفظ",
+  "systemVariable": "متغير النظام",
+  "variableName": "اسم المتغير"
+}

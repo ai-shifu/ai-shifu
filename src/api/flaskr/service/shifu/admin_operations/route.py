@@ -7,6 +7,9 @@ from datetime import UTC, datetime
 
 from flask import Flask, request
 from flaskr.common.config import get_config
+from flaskr.route.admin_profile_onboarding import (
+    register_operator_profile_onboarding_routes,
+)
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.api import (
     build_operator_credit_orders_overview,
@@ -80,10 +83,6 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     requeue_operator_credit_notification,
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
-)
-from flaskr.service.shifu.admin_operations.profile_onboarding import (
-    get_operator_profile_onboarding_config,
-    update_operator_profile_onboarding_config,
 )
 from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_credit_usage_detail,
@@ -309,6 +308,11 @@ def register_admin_operations_routes(
     app: Flask, *, path_prefix: str = "/api/shifu"
 ) -> None:
     """Register operator admin operation routes."""
+    register_operator_profile_onboarding_routes(
+        app,
+        path_prefix,
+        require_operator=_require_operator,
+    )
 
     @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
     def admin_operations_courses() -> str:
@@ -1004,33 +1008,6 @@ def register_admin_operations_routes(
             raise_param_error("credit_notification_config")
         return make_common_response(
             update_operator_credit_notification_config(
-                app,
-                payload=payload,
-                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/profile-onboarding",
-        methods=["GET"],
-    )
-    def admin_operation_profile_onboarding_config() -> str:
-        """Get operator profile onboarding config."""
-        _require_operator()
-        return make_common_response(get_operator_profile_onboarding_config(app))
-
-    @app.route(
-        path_prefix + "/admin/operations/profile-onboarding",
-        methods=["POST"],
-    )
-    def admin_operation_update_profile_onboarding_config() -> str:
-        """Update operator profile onboarding config."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("profile_onboarding_config")
-        return make_common_response(
-            update_operator_profile_onboarding_config(
                 app,
                 payload=payload,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),

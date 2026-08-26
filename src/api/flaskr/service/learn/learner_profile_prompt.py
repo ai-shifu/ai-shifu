@@ -16,7 +16,7 @@ class _LearnerWithProfile(Protocol):
 
 
 LEARNER_PROFILE_PROMPT_MARKER = (
-    "<!-- ai-shifu:composed-document-prompt:learner-profile:v2 -->"
+    "<!-- ai-shifu:composed-document-prompt:learner-profile -->"
 )
 _COMPOSITION_OPEN = "<composition_contract>"
 _COMPOSITION_CLOSE = "</composition_contract>"

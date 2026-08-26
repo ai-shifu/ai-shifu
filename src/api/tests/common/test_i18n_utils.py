@@ -14,6 +14,11 @@ def test_existing_english_and_chinese_names_are_unchanged() -> None:
     assert resolve_markdownflow_output_language("zh-CN") == "简体中文"
 
 
+def test_arabic_and_thai_locales_use_native_language_names() -> None:
+    assert resolve_markdownflow_output_language("ar-SA") == "العربية"
+    assert resolve_markdownflow_output_language("th-TH") == "ไทย"
+
+
 def test_french_native_name_reaches_content_and_interaction_prompts() -> None:
     class CapturingProvider:
         def __init__(self) -> None:

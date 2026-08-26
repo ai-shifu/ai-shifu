@@ -1,0 +1,6 @@
+{
+  "__namespace__": "server.api",
+  "__flat__": {
+    "alibabaCloudNotConfigured": "ยังไม่ได้ตั้งค่าพารามิเตอร์ Alibaba Cloud {config_var}"
+  }
+}

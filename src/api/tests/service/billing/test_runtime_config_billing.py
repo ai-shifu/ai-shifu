@@ -216,6 +216,8 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
         "fr-FR": "/legal/agreement/fr",
+        "ar-SA": "",
+        "th-TH": "",
     }
     assert payload["domain"] == {
         "request_host": "creator.example.com",
@@ -456,6 +458,8 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
         "fr-FR": "",
+        "ar-SA": "",
+        "th-TH": "",
     }
 
 

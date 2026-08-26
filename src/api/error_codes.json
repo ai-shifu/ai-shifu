@@ -64,6 +64,7 @@
   "server.shifu.outlineItemNotFound": 4009,
   "server.shifu.outlineStructureBroken": 4010,
   "server.learn.ttsRateLimited": 4011,
+  "server.profile.profileOnboardingBusy": 4013,
   "server.pay.payChannelNotSupport": 5001,
   "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,
@@ -90,6 +91,7 @@
   "server.billing.manualPlanGrantFailed": 7122,
   "server.billing.manualCreditGrantFailed": 7123,
   "server.billing.rateConfigAlreadyExists": 7124,
+  "server.billing.debugDisabledBySoftLimit": 7125,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

@@ -203,20 +203,19 @@ jobs:
                   "src/api/AGENTS.md",
                   "src/api/CLAUDE.md",
                   "src/api/SKILL.md",
-                  ".github/workflows/backend-tests.yml",
               }:
                   return True
               return path.startswith("src/api/scripts/")
 
           for path in changed:
               if path in {
+                  ".github/workflows/backend-tests.yml",
                   "src/api/requirements.txt",
+                  "src/api/requirements-ci.txt",
               }:
                   full_run = True
                   break
               if not path.startswith("src/api/"):
-                  if path == ".github/workflows/backend-tests.yml":
-                      continue
                   continue
               if is_control_plane_backend_path(path):
                   continue
@@ -254,8 +253,10 @@ jobs:
               print("Selected targets: <skipped>")
           else:
               print(f"Selected targets: {targets_list}")
+              print(f"Test mode: {'full (no deselection)' if full_run else 'incremental'}")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
               env_file.write(f"SKIP_BACKEND_TESTS={'1' if skip_run else '0'}\n")
+              env_file.write(f"FULL_BACKEND_TESTS={'1' if full_run else '0'}\n")
               env_file.write(f"TEST_TARGETS={targets_list}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
               summary.write("### Backend test targets (PR)\n")
@@ -264,6 +265,7 @@ jobs:
                   summary.write("- Reason: control-plane or tooling-only backend changes.\n")
               else:
                   summary.write(f"- Targets: `{targets_list}`\n")
+                  summary.write(f"- Mode: `{'full (no deselection)' if full_run else 'incremental'}`\n")
           PY
 
       - name: Skip backend tests (unrelated pull request)
@@ -276,11 +278,18 @@ jobs:
         run: |
           echo "Skipping backend tests because the PR only changed backend control-plane or tooling files."
 
-      - name: Run tests (PR incremental)
+      - name: Run tests (PR)
         if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run == 'true' && env.SKIP_BACKEND_TESTS != '1'
         working-directory: src/api
         run: |
-          python -m pytest --testmon $TEST_TARGETS
+          read -r -a test_targets <<< "$TEST_TARGETS"
+          if [[ "$FULL_BACKEND_TESTS" == "1" ]]; then
+            # Migration discovery and other filesystem dependencies may be
+            # invisible to testmon. A full target set must also disable selection.
+            python -m pytest --testmon-noselect "${test_targets[@]}"
+          else
+            python -m pytest --testmon "${test_targets[@]}"
+          fi
 
       - name: Run tests with coverage (main/full)
         if: github.event_name != 'pull_request'

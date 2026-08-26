@@ -78,6 +78,10 @@ import {
   type ReadModeTypewriterCache,
 } from './readModeTypewriterGate';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import {
+  isCreditInsufficientBusinessCode,
+  resolveCourseCreditInsufficientAudience,
+} from '@/lib/creditInsufficientToast';
 import { Button } from '@/components/ui/Button';
 import { shouldHideReadModeContentForLoading } from './readModeRenderState';
 import {
@@ -100,8 +104,6 @@ import type {
   LessonUpdateHandler,
   NextLessonIdGetter,
 } from './useChatLogicHook.types';
-
-const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
 // Max concurrent listen-mode audio backfill requests. Entering listen mode used
 // to fire TTS synthesis for every missing block at once (Promise.all), which
@@ -200,12 +202,17 @@ export const NewChatComponents = ({
       refreshUserInfo: state.refreshUserInfo,
     })),
   );
-  const { courseAvatar, courseName } = useCourseStore(
+  const { courseAvatar, courseName, isCurrentUserCourseOwner } = useCourseStore(
     useShallow(state => ({
       courseAvatar: state.courseAvatar,
       courseName: state.courseName,
+      isCurrentUserCourseOwner: state.isCurrentUserCourseOwner,
     })),
   );
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode,
+    isCurrentUserCourseOwner,
+  });
   const { mobileStyle } = useContext(AppContext);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
@@ -590,7 +597,7 @@ export const NewChatComponents = ({
         items: items.filter(
           item =>
             item.type !== ChatContentItemType.ERROR ||
-            item.business_code === CREDIT_INSUFFICIENT_ERROR_CODE,
+            isCreditInsufficientBusinessCode(item.business_code),
         ),
         askListByAnchorElementBid: scopedAskListByAnchorElementBid,
         mobileStyle,
@@ -1723,14 +1730,14 @@ export const NewChatComponents = ({
                           onAudioPlayStateChange={handleAudioPlayStateChange}
                           onAudioEnded={handleAudioEnded}
                         />
-                        {item.business_code ===
-                        CREDIT_INSUFFICIENT_ERROR_CODE ? (
+                        {isCreditInsufficientBusinessCode(item.business_code) &&
+                        creditInsufficientAudience === 'teacher' ? (
                           <Button
                             type='button'
                             size='sm'
                             onClick={handleGoToBilling}
                           >
-                            {t('module.shifu.previewArea.goToBilling')}
+                            {t('module.billing.alerts.actions.checkoutTopup')}
                           </Button>
                         ) : null}
                       </div>

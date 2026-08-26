@@ -296,8 +296,8 @@ const ChapterSettingsDialog = ({
       }}
     >
       <SheetContent
-        side='right'
-        className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
+        side='end'
+        className='flex w-full flex-col overflow-hidden border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
         onInteractOutside={() => {
           onConfirm(true, 'manual');
         }}
@@ -305,8 +305,8 @@ const ChapterSettingsDialog = ({
           onConfirm(true, 'manual');
         }}
       >
-        <div className='border-b border-border px-6 py-[17.5px] pr-12'>
-          <SheetHeader className='space-y-1 text-left'>
+        <div className='border-b border-border px-6 py-[17.5px] pe-12'>
+          <SheetHeader className='space-y-1 text-start'>
             <SheetTitle className='text-lg font-medium text-foreground'>
               {isChapter
                 ? t('module.chapterSetting.chapterSettingsTitle')

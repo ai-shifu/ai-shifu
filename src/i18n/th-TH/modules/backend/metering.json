@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.metering",
+  "__flat__": {
+    "usageSceneDebug": "ดีบัก",
+    "usageScenePreview": "ตัวอย่าง",
+    "usageSceneProduction": "ใช้งานจริง",
+    "usageTypeLlm": "LLM",
+    "usageTypeTts": "TTS"
+  }
+}

@@ -133,7 +133,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(
     from flaskr.dao import db
     from flaskr.service.profile.learner_profile import (
         PROFILE_ONBOARDING_SCENE_KEY,
-        PROFILE_ONBOARDING_VERSION,
+        PROFILE_ONBOARDING_STATE_VERSION,
         load_learner_profile_state,
     )
     from flaskr.service.user import phone_flow
@@ -164,7 +164,7 @@ def test_password_login_merges_authenticated_guest_learner_profile(
             UserOnboardingState(
                 user_bid=guest_user_id,
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                version=PROFILE_ONBOARDING_VERSION,
+                version=PROFILE_ONBOARDING_STATE_VERSION,
                 status="completed",
                 trigger_source="settings",
                 completed_at=profile_updated_at,

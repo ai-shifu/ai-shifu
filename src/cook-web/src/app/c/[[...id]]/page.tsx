@@ -33,12 +33,7 @@ import {
   applyLessonSelection,
   resolveRequestedLessonId,
 } from './lessonNavigation';
-import {
-  completeProfileOnboarding,
-  getProfileOnboarding,
-  updateWxcode,
-  type ProfileOnboardingStatus,
-} from '@/c-api/user';
+import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import type { EnvStoreState } from '@/c-types/store';
 import {
@@ -62,16 +57,10 @@ import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
+import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
-import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { debugWarn } from '@/c-utils/debugConsole';
-import { ErrorWithCode } from '@/lib/request';
-import {
-  resolveLearnerErrorMessage,
-  resolveLearnerErrorToast,
-} from '@/lib/learnerError';
-import { toast } from '@/hooks/useToast';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -81,7 +70,6 @@ const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
 });
 
 type LessonUpdate = Pick<LessonTreeLesson, 'id'> & Partial<LessonTreeLesson>;
-type ProfileOnboardingEligibility = 'idle' | 'pending' | 'show' | 'complete';
 
 // import LoginModal from './Components/Login/LoginModal';
 
@@ -134,8 +122,6 @@ export default function ChatPage() {
   const { trackEvent } = useTracking();
   const attemptedCourseVisitKeyRef = useRef<string | null>(null);
   const pendingCourseVisitKeyRef = useRef<string | null>(null);
-  const profileOnboardingRequestedScopeRef = useRef<string | null>(null);
-  const profileOnboardingRequestIdRef = useRef(0);
   const initialCourseVisitEntryTypeRef = useRef<'catalog' | 'deep_link' | null>(
     null,
   );
@@ -149,8 +135,6 @@ export default function ChatPage() {
   const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const initialized = isUserInitialized;
   const learnerProfileScope = userInfo?.user_id || 'guest';
-  const learnerProfileScopeRef = useRef(learnerProfileScope);
-  learnerProfileScopeRef.current = learnerProfileScope;
 
   const { wechatCode, previewMode, learningMode } = useSystemStore(
     useShallow(state => ({
@@ -410,230 +394,18 @@ export default function ChatPage() {
     })),
   );
 
-  const [learnerProfileSettingsOpen, setLearnerProfileSettingsOpen] =
-    useState(false);
-  const learnerProfileSettingsOpenRef = useRef(learnerProfileSettingsOpen);
-  learnerProfileSettingsOpenRef.current = learnerProfileSettingsOpen;
-  const [profileOnboardingStatus, setProfileOnboardingStatus] =
-    useState<ProfileOnboardingStatus | null>(null);
-  const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
-  const [profileOnboardingSubmitting, setProfileOnboardingSubmitting] =
-    useState(false);
-  const [profileOnboardingError, setProfileOnboardingError] = useState('');
-  const [profileOnboardingReadyScope, setProfileOnboardingReadyScope] =
-    useState<string | null>(null);
-  const profileOnboardingRuntimeReady =
-    initialized &&
-    (!isLoggedIn ||
-      previewMode ||
-      profileOnboardingReadyScope === learnerProfileScope);
-  const profileOnboardingEligibilityRef =
-    useRef<ProfileOnboardingEligibility>('idle');
-
-  const releaseProfileOnboarding = useCallback(() => {
-    profileOnboardingEligibilityRef.current = 'complete';
-    setProfileOnboardingStatus(null);
-    setProfileOnboardingOpen(false);
-    setProfileOnboardingError('');
-    setProfileOnboardingReadyScope(learnerProfileScope);
-  }, [learnerProfileScope]);
-
-  const resolveProfileOnboardingError = useCallback(
-    (error: unknown) => {
-      return resolveLearnerErrorMessage({
-        error: error as Partial<ErrorWithCode>,
-        fallbackMessage: t('module.profileOnboarding.submitFailed'),
-      });
-    },
-    [t],
-  );
-
-  const notifyProfileOnboardingLoadFailure = useCallback(
-    (error: unknown) => {
-      const resolvedToast = resolveLearnerErrorToast({
-        error: error as Partial<ErrorWithCode>,
-        fallbackMessage: t('module.profileOnboarding.loadFailed'),
-      });
-      toast({
-        title: resolvedToast.message,
-        variant: resolvedToast.variant,
-      });
-    },
-    [t],
-  );
-
-  const notifyProfileOnboardingRefreshDelay = useCallback(() => {
-    toast({
-      title: t('module.profileOnboarding.refreshPending'),
-    });
-  }, [t]);
-
-  useEffect(() => {
-    profileOnboardingRequestedScopeRef.current = null;
-    profileOnboardingRequestIdRef.current += 1;
-    profileOnboardingEligibilityRef.current = 'idle';
-    setLearnerProfileSettingsOpen(false);
-    setProfileOnboardingStatus(null);
-    setProfileOnboardingOpen(false);
-    setProfileOnboardingSubmitting(false);
-    setProfileOnboardingError('');
-    setProfileOnboardingReadyScope(null);
-  }, [initialized, isLoggedIn, learnerProfileScope, previewMode]);
-
-  useEffect(() => {
-    if (!initialized) {
-      profileOnboardingEligibilityRef.current = 'idle';
-      setProfileOnboardingReadyScope(null);
-      return;
-    }
-    if (!isLoggedIn || previewMode) {
-      profileOnboardingEligibilityRef.current = 'complete';
-      return;
-    }
-    if (
-      !courseName ||
-      profileOnboardingRequestedScopeRef.current === learnerProfileScope
-    ) {
-      return;
-    }
-
-    const token = useUserStore.getState().getToken?.();
-    if (!token) {
-      profileOnboardingEligibilityRef.current = 'complete';
-      setProfileOnboardingReadyScope(learnerProfileScope);
-      return;
-    }
-
-    profileOnboardingEligibilityRef.current = 'pending';
-    setProfileOnboardingReadyScope(null);
-    profileOnboardingRequestedScopeRef.current = learnerProfileScope;
-    const requestId = ++profileOnboardingRequestIdRef.current;
-    void getProfileOnboarding()
-      .then(status => {
-        if (
-          requestId !== profileOnboardingRequestIdRef.current ||
-          learnerProfileScopeRef.current !== learnerProfileScope
-        ) {
-          return;
-        }
-        if (status?.should_show && status.markdownflow?.trim()) {
-          profileOnboardingEligibilityRef.current = 'show';
-          setProfileOnboardingStatus(status);
-          setProfileOnboardingError('');
-          if (!learnerProfileSettingsOpenRef.current) {
-            setProfileOnboardingOpen(true);
-          }
-          return;
-        }
-        profileOnboardingEligibilityRef.current = 'complete';
-        setProfileOnboardingReadyScope(learnerProfileScope);
-      })
-      .catch(error => {
-        if (
-          requestId !== profileOnboardingRequestIdRef.current ||
-          learnerProfileScopeRef.current !== learnerProfileScope
-        ) {
-          return;
-        }
-        debugWarn('[profile-onboarding] failed to load status', error);
-        notifyProfileOnboardingLoadFailure(error);
-        profileOnboardingEligibilityRef.current = 'complete';
-        setProfileOnboardingReadyScope(learnerProfileScope);
-      });
-  }, [
-    courseName,
+  const {
+    runtimeReady: profileOnboardingRuntimeReady,
+    openFromMenu: openLearnerProfileFromMenu,
+    dialogProps: learnerProfileDialogProps,
+  } = useCourseProfileOnboardingGate({
     initialized,
     isLoggedIn,
-    learnerProfileScope,
-    notifyProfileOnboardingLoadFailure,
     previewMode,
-  ]);
-
-  const handleProfileOnboardingComplete = useCallback(
-    async (variables: Record<string, string>) => {
-      const requestScope = learnerProfileScope;
-      setProfileOnboardingSubmitting(true);
-      setProfileOnboardingError('');
-      try {
-        await completeProfileOnboarding({
-          skipped: false,
-          variables,
-        });
-        if (learnerProfileScopeRef.current !== requestScope) {
-          return;
-        }
-        await refreshUserInfo().catch(error => {
-          debugWarn('[profile-onboarding] failed to refresh user info', error);
-          notifyProfileOnboardingRefreshDelay();
-        });
-        if (learnerProfileScopeRef.current === requestScope) {
-          releaseProfileOnboarding();
-        }
-      } catch (error) {
-        if (learnerProfileScopeRef.current === requestScope) {
-          setProfileOnboardingError(resolveProfileOnboardingError(error));
-        }
-      } finally {
-        if (learnerProfileScopeRef.current === requestScope) {
-          setProfileOnboardingSubmitting(false);
-        }
-      }
-    },
-    [
-      learnerProfileScope,
-      notifyProfileOnboardingRefreshDelay,
-      refreshUserInfo,
-      releaseProfileOnboarding,
-      resolveProfileOnboardingError,
-    ],
-  );
-
-  const handleProfileOnboardingSkip = useCallback(async () => {
-    const requestScope = learnerProfileScope;
-    setProfileOnboardingSubmitting(true);
-    setProfileOnboardingError('');
-    try {
-      await completeProfileOnboarding({
-        skipped: true,
-        variables: {},
-      });
-      if (learnerProfileScopeRef.current === requestScope) {
-        releaseProfileOnboarding();
-      }
-    } catch (error) {
-      if (learnerProfileScopeRef.current === requestScope) {
-        setProfileOnboardingError(resolveProfileOnboardingError(error));
-      }
-    } finally {
-      if (learnerProfileScopeRef.current === requestScope) {
-        setProfileOnboardingSubmitting(false);
-      }
-    }
-  }, [
+    courseName,
     learnerProfileScope,
-    releaseProfileOnboarding,
-    resolveProfileOnboardingError,
-  ]);
-
-  const handleLearnerProfileSettingsClose = useCallback(
-    (reason: 'dismiss' | 'saved') => {
-      setLearnerProfileSettingsOpen(false);
-      if (
-        reason === 'dismiss' &&
-        profileOnboardingEligibilityRef.current === 'show'
-      ) {
-        setProfileOnboardingOpen(true);
-      }
-    },
-    [],
-  );
-
-  const handleLearnerProfileSaved = useCallback(async () => {
-    profileOnboardingRequestIdRef.current += 1;
-    profileOnboardingRequestedScopeRef.current = learnerProfileScope;
-    releaseProfileOnboarding();
-    await refreshUserInfo();
-  }, [learnerProfileScope, refreshUserInfo, releaseProfileOnboarding]);
+    refreshUserInfo,
+  });
 
   useEffect(() => {
     if (!courseName) {
@@ -920,12 +692,11 @@ export default function ChatPage() {
   // const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
 
   const onGoToSettingPersonal = useCallback(() => {
-    setProfileOnboardingOpen(false);
-    setLearnerProfileSettingsOpen(true);
+    openLearnerProfileFromMenu();
     if (mobileStyle) {
       onNavClose();
     }
-  }, [mobileStyle, onNavClose]);
+  }, [mobileStyle, onNavClose, openLearnerProfileFromMenu]);
 
   // const onLoginModalClose = useCallback(async () => {
   //   setLoginModalOpen(false);
@@ -1146,28 +917,10 @@ export default function ChatPage() {
 
         {initialized ? <TrackingVisit /> : null}
 
-        {profileOnboardingStatus ? (
-          <ProfileOnboardingModal
-            open={profileOnboardingOpen}
-            markdownflow={profileOnboardingStatus.markdownflow}
-            currentValues={profileOnboardingStatus.current_values}
-            errorMessage={profileOnboardingError}
-            submitting={profileOnboardingSubmitting}
-            onComplete={handleProfileOnboardingComplete}
-            onSkip={handleProfileOnboardingSkip}
-          />
-        ) : null}
-
-        {learnerProfileSettingsOpen ? (
-          <LearnerProfileDialog
-            key={`${learnerProfileScope}:settings`}
-            open
-            mode='settings'
-            draftStorageScope={learnerProfileScope}
-            onSaved={handleLearnerProfileSaved}
-            onClose={handleLearnerProfileSettingsClose}
-          />
-        ) : null}
+        <LearnerProfileDialog
+          key={learnerProfileScope}
+          {...learnerProfileDialogProps}
+        />
 
         <FeedbackModal
           open={feedbackModalOpen}

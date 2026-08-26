@@ -3,7 +3,8 @@ import {
   clearPendingRequestLanguage,
   setPendingRequestLanguage,
 } from '@/lib/request-language';
-import { getRunMessage } from './studyV2';
+import { getRunMessage, streamGeneratedBlockAudio } from './studyV2';
+import { attachSseBusinessResponseFallback } from '@/lib/request';
 
 jest.mock('sse.js', () => ({
   SSE: jest.fn().mockImplementation(() => ({
@@ -67,6 +68,7 @@ describe('getRunMessage language snapshot', () => {
       'lesson-1',
       false,
       { input: 'hello' },
+      'learner',
       jest.fn(),
     );
 
@@ -87,7 +89,38 @@ describe('getRunMessage language snapshot', () => {
       listen: false,
     });
     expect(source.stream).toHaveBeenCalledTimes(1);
+    expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+      source,
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          creditInsufficientAudience: 'learner',
+        }),
+      }),
+    );
   });
+
+  test.each(['teacher', 'teacher-collaborator'] as const)(
+    'passes the explicit %s audience to preview runs',
+    audience => {
+      const source = getRunMessage(
+        'course-1',
+        'lesson-1',
+        true,
+        { input: 'hello' },
+        audience,
+        jest.fn(),
+      );
+
+      expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+        source,
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            creditInsufficientAudience: audience,
+          }),
+        }),
+      );
+    },
+  );
 
   test('keeps an explicit request language as the immutable run snapshot', () => {
     getRunMessage(
@@ -95,6 +128,7 @@ describe('getRunMessage language snapshot', () => {
       'lesson-1',
       false,
       { input: {}, language: 'zh-CN' },
+      'learner',
       jest.fn(),
     );
 
@@ -111,6 +145,7 @@ describe('getRunMessage language snapshot', () => {
       'lesson-1',
       false,
       { input: {}, language: ' \t ' },
+      'learner',
       jest.fn(),
     );
 
@@ -118,4 +153,29 @@ describe('getRunMessage language snapshot', () => {
     expect(options.headers['Accept-Language']).toBe('fr-FR');
     expect(JSON.parse(options.payload).language).toBe('fr-FR');
   });
+
+  test.each([
+    [false, 'learner'],
+    [true, 'teacher'],
+  ] as const)(
+    'marks generated-block TTS preview=%s with the %s audience',
+    (previewMode, audience) => {
+      const source = streamGeneratedBlockAudio({
+        shifu_bid: 'course-1',
+        generated_block_bid: 'block-1',
+        preview_mode: previewMode,
+        creditInsufficientAudience: audience,
+        onMessage: jest.fn(),
+      });
+
+      expect(attachSseBusinessResponseFallback).toHaveBeenCalledWith(
+        source,
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            creditInsufficientAudience: audience,
+          }),
+        }),
+      );
+    },
+  );
 });

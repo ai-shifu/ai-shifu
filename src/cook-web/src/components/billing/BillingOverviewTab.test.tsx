@@ -126,9 +126,29 @@ jest.mock('@/components/ui/Dialog', () => ({
   __esModule: true,
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div>{children}</div> : null,
-  DialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  DialogContent: (
+    props: React.HTMLAttributes<HTMLDivElement> & {
+      children: React.ReactNode;
+      onEscapeKeyDown?: (event: Event) => void;
+      onPointerDownOutside?: (event: Event) => void;
+      overlayClassName?: string;
+      showClose?: boolean;
+    },
+  ) => {
+    const {
+      children,
+      onEscapeKeyDown,
+      onPointerDownOutside,
+      overlayClassName,
+      showClose,
+      ...contentProps
+    } = props;
+    void onEscapeKeyDown;
+    void onPointerDownOutside;
+    void overlayClassName;
+    void showClose;
+    return <div {...contentProps}>{children}</div>;
+  },
   DialogDescription: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -1698,10 +1718,10 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('low_balance')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('link', {
         name: 'module.billing.alerts.actions.checkoutTopup',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
   });
 
   test('resumes a cancel-scheduled subscription from the billing alert', async () => {
@@ -1848,6 +1868,69 @@ describe('BillingOverviewTab', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/checkout',
     );
+    expect(
+      screen.getByTestId('billing-stripe-redirect-overlay'),
+    ).toHaveTextContent('module.billing.checkout.redirect.openingStripe');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.checkout.redirect.retry',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('clears the Stripe redirect overlay when checkout falls through to manual pending', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 12,
+          reserved_credits: 0,
+          lifetime_granted_credits: 120,
+          lifetime_consumed_credits: 108,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-manual-pending-1',
+      provider: 'manual',
+      payment_mode: 'subscription',
+      status: 'pending',
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('billing-stripe-redirect-overlay'),
+      ).toBeNull();
+    });
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.billing.checkout.unsupported',
+      variant: 'destructive',
+    });
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
   });
 
   test('uses the returned provider when a same-package checkout reuses an existing QR order', async () => {

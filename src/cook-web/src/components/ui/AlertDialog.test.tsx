@@ -4,6 +4,8 @@ import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
   AlertDialogTitle,
   ALERT_DIALOG_CONTENT_LAYER_CLASS,
   ALERT_DIALOG_OVERLAY_LAYER_CLASS,
@@ -57,5 +59,28 @@ describe('AlertDialog layering', () => {
 
     expect(dialog).toHaveClass(ALERT_DIALOG_CONTENT_LAYER_CLASS);
     expect(dialog).not.toHaveClass('z-[51]');
+  });
+
+  it('uses logical alignment and direction-neutral action spacing', () => {
+    render(
+      <AlertDialog open={true}>
+        <AlertDialogContent>
+          <AlertDialogHeader data-testid='alert-dialog-header'>
+            <AlertDialogTitle>{ALERT_DIALOG_TITLE}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {ALERT_DIALOG_DESCRIPTION}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter data-testid='alert-dialog-footer'>
+            Actions
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>,
+    );
+
+    expect(screen.getByTestId('alert-dialog-header')).toHaveClass(
+      'sm:text-start',
+    );
+    expect(screen.getByTestId('alert-dialog-footer')).toHaveClass('sm:gap-2');
   });
 });

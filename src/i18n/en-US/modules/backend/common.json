@@ -1,7 +1,6 @@
 {
   "__namespace__": "server.common",
   "__flat__": {
-    "backgroundNotAllowed": "Oops, illegal background.",
     "dataLoadFailed": "Failed to load data, please try again later",
     "nicknameNotAllowed": "Oops, illegal nickname.",
     "operationFailed": "Service error, please try again later",

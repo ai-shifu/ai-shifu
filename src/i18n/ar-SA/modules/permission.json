@@ -1,0 +1,28 @@
+{
+  "__namespace__": "module.permission",
+  "errors": {
+    "authRequired": "يرجى تسجيل الدخول والمحاولة مرة أخرى",
+    "authRequiredTitle": "يلزم تسجيل الدخول",
+    "forbidden": "رُفض الوصول",
+    "forbiddenTitle": "الوصول ممنوع",
+    "generalError": "حدث خطأ، يرجى المحاولة مرة أخرى لاحقًا",
+    "generalErrorTitle": "حدث خطأ",
+    "noPermission": "ليست لديك صلاحية الوصول إلى هذه الصفحة حاليًا، يرجى التواصل مع المسؤول للحصول على الصلاحية",
+    "noPermissionTitle": "صلاحيات غير كافية",
+    "notFound": "المورد المطلوب غير موجود",
+    "notFoundTitle": "لم يتم العثور عليه",
+    "serverError": "خطأ في الخادم، يرجى المحاولة مرة أخرى لاحقًا",
+    "serverErrorTitle": "خطأ في الخادم"
+  },
+  "permission": {
+    "requestDescription": "اشرح بإيجاز سبب طلبك للصلاحية، وسنعالج طلبك في أقرب وقت ممكن.",
+    "requestError": "فشل إرسال الطلب، يرجى المحاولة مرة أخرى لاحقًا",
+    "requestPlaceholder": "أدخل سبب الطلب (مثل: حاجة العمل، غرض التعلم، وغير ذلك)",
+    "requestSubmit": "إرسال الطلب",
+    "requestSuccess": "تم إرسال طلب الصلاحية، وسنعالجه في أقرب وقت ممكن",
+    "requestTitle": "طلب صلاحية الوصول"
+  },
+  "user": {
+    "login": "تسجيل الدخول"
+  }
+}

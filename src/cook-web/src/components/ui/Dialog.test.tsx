@@ -5,6 +5,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
 
@@ -118,5 +120,25 @@ describe('Dialog fullscreen portal', () => {
     ).find(element => element.className.includes('z-[100]'));
 
     expect(overlayElement).toHaveClass('bg-slate-950/45');
+  });
+
+  it('uses logical alignment and spacing that mirror in RTL layouts', () => {
+    render(
+      <Dialog open={true}>
+        <DialogContent>
+          <DialogHeader data-testid='dialog-header'>
+            <DialogTitle>RTL Dialog</DialogTitle>
+            <DialogDescription>RTL dialog description</DialogDescription>
+          </DialogHeader>
+          <DialogFooter data-testid='dialog-footer'>Actions</DialogFooter>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    expect(screen.getByTestId('dialog-header')).toHaveClass('sm:text-start');
+    expect(screen.getByTestId('dialog-footer')).toHaveClass('sm:gap-2');
+    expect(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    ).toHaveClass('end-4');
   });
 });

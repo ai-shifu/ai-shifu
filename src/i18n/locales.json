@@ -1,12 +1,20 @@
 {
   "default": "en-US",
   "locales": {
+    "ar-SA": {
+      "label": "العربية",
+      "rtl": true
+    },
     "en-US": {
       "label": "English",
       "rtl": false
     },
     "fr-FR": {
       "label": "Français",
+      "rtl": false
+    },
+    "th-TH": {
+      "label": "ไทย",
       "rtl": false
     },
     "zh-CN": {
