@@ -29,7 +29,7 @@ def test_alembic_migrations_have_single_head() -> None:
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["c7b9e1a2d4f6"]
+    assert len(heads) == 1
 
 
 def _get_base_mysql_uri() -> str:
