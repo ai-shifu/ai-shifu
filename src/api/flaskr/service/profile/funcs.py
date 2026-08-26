@@ -402,6 +402,25 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     return result
 
 
+def _resolve_profile_language_label(
+    language: str | None,
+    locale_labels: dict[str, str],
+    default: str,
+) -> str:
+    """Resolve legacy codes without treating locale insertion order as a default."""
+    normalized = str(language or "").strip().replace("_", "-").casefold()
+    for code, label in locale_labels.items():
+        if normalized in (code.casefold(), label.casefold()):
+            return label
+
+    primary = normalized.split("-", maxsplit=1)[0]
+    for code, label in locale_labels.items():
+        if code.casefold().split("-", maxsplit=1)[0] == primary:
+            return label
+
+    return locale_labels.get(default, "")
+
+
 def get_user_profile_labels(
     app: Flask,
     user_id: str,
@@ -469,7 +488,11 @@ def get_user_profile_labels(
                 if value_entry:
                     raw_value = value_entry.value
             display_value = raw_value
-            if meta.get("items_mapping"):
+            if mapping == "user_language":
+                display_value = _resolve_profile_language_label(
+                    raw_value, meta["items_mapping"], meta["default"]
+                )
+            elif meta.get("items_mapping"):
                 mapping_items = meta.get("items", [])
                 default_value = mapping_items[0] if mapping_items else ""
                 display_value = meta["items_mapping"].get(raw_value, default_value)
