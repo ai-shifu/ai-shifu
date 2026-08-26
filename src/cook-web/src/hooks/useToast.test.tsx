@@ -1,11 +1,18 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { ToastAction } from '@/components/ui/Toast';
 import { Toaster } from '@/components/ui/Toaster';
 import { toast, toastOnce } from './useToast';
 
+let mockPathname = '/current-page';
+
+jest.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+}));
+
 describe('toast duration', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mockPathname = '/current-page';
   });
 
   afterEach(() => {
@@ -72,6 +79,28 @@ describe('toast duration', () => {
 
     expect(screen.queryByText('Temporary notice')).not.toBeInTheDocument();
   });
+
+  it('dismisses a route-scoped permanent toast after navigation', async () => {
+    const { rerender } = render(<Toaster />);
+
+    act(() => {
+      toast({
+        title: 'Credit notice',
+        duration: 0,
+        dismissOnNavigation: true,
+      });
+    });
+    expect(screen.getByText('Credit notice')).toBeInTheDocument();
+
+    act(() => {
+      mockPathname = '/next-page';
+      rerender(<Toaster />);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Credit notice')).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe('toastOnce', () => {
@@ -94,6 +123,38 @@ describe('toastOnce', () => {
     });
 
     expect(second.id).toBe(first.id);
+  });
+
+  it('suppresses permanent duplicates until the previous toast is dismissed', () => {
+    jest.useFakeTimers();
+    const first = toastOnce({
+      dedupeKey: 'credit-insufficient:teacher:7101',
+      dedupeWindowMs: Number.POSITIVE_INFINITY,
+      title: 'first',
+      duration: 0,
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    const duplicate = toastOnce({
+      dedupeKey: 'credit-insufficient:teacher:7101',
+      dedupeWindowMs: Number.POSITIVE_INFINITY,
+      title: 'duplicate',
+      duration: 0,
+    });
+    expect(duplicate.id).toBe(first.id);
+
+    act(() => first.dismiss());
+    const afterDismiss = toastOnce({
+      dedupeKey: 'credit-insufficient:teacher:7101',
+      dedupeWindowMs: Number.POSITIVE_INFINITY,
+      title: 'after dismiss',
+      duration: 0,
+    });
+    expect(afterDismiss.id).not.toBe(first.id);
+    jest.useRealTimers();
   });
 
   it('re-shows a deduped toast after the previous toast is dismissed', () => {

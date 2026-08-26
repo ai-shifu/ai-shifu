@@ -46,6 +46,7 @@ from flaskr.service.billing.operation_credits import (
     release_reserved_operation_credits,
     reserve_operation_credits,
 )
+from flaskr.service.billing.ownership import resolve_shifu_creator_bid
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_operator_credit_orders_overview,
@@ -60,9 +61,13 @@ from flaskr.service.billing.referral_reward_grants import (
     grant_referral_reward_credits_to_user,
     load_referral_reward_summary,
 )
+from flaskr.service.common.models import raise_error
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
 if TYPE_CHECKING:
     from decimal import Decimal
+
+    from flask import Flask
 
 
 def is_billing_enabled(*, default: bool = False) -> bool:
@@ -90,6 +95,24 @@ def to_decimal(value: object) -> Decimal:
     return billing_primitives.to_decimal(value)
 
 
+def admit_creator_preview_usage(
+    app: Flask,
+    *,
+    shifu_bid: str,
+) -> CreatorUsageAdmission:
+    """Admit preview usage against the course owner's debug limits and wallet."""
+    creator_bid = str(resolve_shifu_creator_bid(app, shifu_bid) or "").strip()
+    if not creator_bid:
+        raise_error("server.shifu.shifuNotFound")
+    assert_creator_debug_allowed(app, creator_bid)
+    return admit_creator_usage(
+        app,
+        creator_bid=creator_bid,
+        shifu_bid=shifu_bid,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+
+
 __all__ = [
     "CreatorUsageAdmission",
     "OperationCreditCaptureResult",
@@ -97,6 +120,7 @@ __all__ = [
     "OperationCreditReleaseResult",
     "OperationCreditReservationResult",
     "ReferralPlanRewardRequest",
+    "admit_creator_preview_usage",
     "admit_creator_usage",
     "assert_creator_debug_allowed",
     "build_billing_catalog",

@@ -34,13 +34,17 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
-function renderDialog() {
+function renderDialog(
+  cloneCost: React.ComponentProps<
+    typeof MiniMaxVoiceCloneDialog
+  >['cloneCost'] = { can_submit: true, estimated_credits: '0' },
+) {
   return render(
     <MiniMaxVoiceCloneDialog
       open
       onOpenChange={jest.fn()}
       shifuId='shifu-1'
-      cloneCost={{ can_submit: true, estimated_credits: '0' }}
+      cloneCost={cloneCost}
       onRefreshCost={jest.fn().mockResolvedValue(undefined)}
       onVoiceChange={jest.fn()}
       onVoiceReady={jest.fn()}
@@ -74,6 +78,16 @@ describe('MiniMaxVoiceCloneDialog', () => {
       screen.queryByText('module.shifuSetting.minimaxCloneUpload'),
     ).not.toBeInTheDocument();
     expect(container.querySelector('#minimax-source-upload')).toBeNull();
+  });
+
+  test('shows the shared purchase link when credits are insufficient', () => {
+    renderDialog({ can_submit: false, estimated_credits: '10' });
+
+    expect(
+      screen.getByRole('link', {
+        name: 'module.billing.alerts.actions.checkoutTopup',
+      }),
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
   });
 
   test('shows a friendly error when source recording permission fails', async () => {

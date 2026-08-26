@@ -104,6 +104,8 @@ export interface CourseStoreState {
       defaultListenModeEnabled: boolean | null;
     },
   ) => void;
+  isCurrentUserCourseOwner: boolean | null;
+  updateIsCurrentUserCourseOwner: (isOwner: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;
@@ -150,7 +152,7 @@ export interface UserStoreState {
   login: (userInfo: any, token: string) => Promise<void>;
   logout: (reload?: boolean) => Promise<void>;
   updateUserInfo: (info: Partial<UserInfo>) => void;
-  refreshUserInfo: () => Promise<void>;
+  refreshUserInfo: (options?: { skipErrorToast?: boolean }) => Promise<void>;
   ensureGuestToken: () => Promise<void>;
 }
 
