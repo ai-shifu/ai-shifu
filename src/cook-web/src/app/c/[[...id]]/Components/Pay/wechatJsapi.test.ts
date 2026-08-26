@@ -24,7 +24,7 @@ describe('isWechatJsapiAvailable', () => {
     expect(isWechatJsapiAvailable(available)).toBe(true);
   });
 
-  test.each([null, undefined, ''])(
+  test.each([null, undefined, '', '   '])(
     'refuses JSAPI when the account openid is %p',
     (openId: string | null | undefined) => {
       expect(isWechatJsapiAvailable({ ...available, openId })).toBe(false);

@@ -1462,6 +1462,52 @@ describe('ChatPage profile onboarding gate', () => {
       expect(mockUpdateWxcode).toHaveBeenLastCalledWith({ wxcode: 'code-2' });
     });
 
+    test('buys a fresh code when the exchange yields nothing', async () => {
+      mockSystemStoreState.wechatCode = 'spent-code';
+      mockUpdateWxcode.mockResolvedValue('');
+
+      renderInWechat();
+
+      await waitFor(() => expect(mockWechatLogin).toHaveBeenCalledTimes(1));
+    });
+
+    test('buys a fresh code when the exchange is rejected', async () => {
+      mockSystemStoreState.wechatCode = 'spent-code';
+      mockUpdateWxcode.mockRejectedValue(new Error('exchange failed'));
+
+      renderInWechat();
+
+      await waitFor(() => expect(mockWechatLogin).toHaveBeenCalledTimes(1));
+    });
+
+    test('does not buy a fresh code for an account that is already bound', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockInWechat = true;
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: 'o_existing',
+      };
+      mockUpdateWxcode.mockResolvedValue('');
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockUpdateWxcode).toHaveBeenCalledTimes(1));
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('treats a blank openid as no binding at all', async () => {
+      mockSystemStoreState.wechatCode = '';
+      mockInWechat = true;
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: '   ',
+      };
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockWechatLogin).toHaveBeenCalledTimes(1));
+    });
+
     test('requests a fresh code once per session when none is left', async () => {
       mockSystemStoreState.wechatCode = '';
 

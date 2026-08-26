@@ -151,6 +151,13 @@ const requestWechatCodeForOpenIdRebind = () => {
   });
 };
 
+const requestWechatCodeForOpenIdRebindIfUnbound = (openId: string) => {
+  if (openId) {
+    return;
+  }
+  requestWechatCodeForOpenIdRebind();
+};
+
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
@@ -185,7 +192,10 @@ export default function ChatPage() {
     (state: EnvStoreState) => state.enableWxcode,
   );
   const wxcodeEnabled = isWechatCodeFlowEnabled(enableWxcode);
-  const wechatOpenId = userInfo?.openid || '';
+  // Trimmed to match the backend, which strips the value before deciding
+  // whether it has one: a blank string must take the rebinding path here
+  // rather than reach the gateway as a missing parameter.
+  const wechatOpenId = (userInfo?.openid || '').trim();
   // The account profile arrives after the login state does, and a not-yet-loaded
   // profile must not be read as "this account has no openid".
   const isUserProfileLoaded = Boolean(userInfo);
@@ -218,9 +228,7 @@ export default function ChatPage() {
     }
 
     if (!wechatCode) {
-      if (!wechatOpenId) {
-        requestWechatCodeForOpenIdRebind();
-      }
+      requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
       return;
     }
     if (attemptedWechatCodeRef.current === wechatCode) {
@@ -232,6 +240,10 @@ export default function ChatPage() {
       .then(openid => {
         if (!openid) {
           debugWarn('[lesson-page] WeChat OpenID binding returned no openid');
+          // The code is spent either way, and the ref stops this effect from
+          // trying again with it, so an unbound account would stay unbound for
+          // the rest of the session. Spend the one fresh code instead.
+          requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
           return undefined;
         }
         if (openid === wechatOpenId) {
@@ -241,6 +253,7 @@ export default function ChatPage() {
       })
       .catch(err => {
         debugWarn('[lesson-page] failed to update WeChat OpenID', err);
+        requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
       });
   }, [
     initialized,

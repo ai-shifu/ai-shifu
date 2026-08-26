@@ -22,4 +22,8 @@ export const isWechatJsapiAvailable = ({
   enableWxcode: string | null | undefined;
   openId: string | null | undefined;
 }): boolean =>
-  inWechatBrowser && isWechatCodeFlowEnabled(enableWxcode) && Boolean(openId);
+  inWechatBrowser &&
+  isWechatCodeFlowEnabled(enableWxcode) &&
+  // Trimmed because the backend trims before deciding it has one: a blank
+  // string is not a binding, and offering JSAPI on it fails at the gateway.
+  Boolean(openId?.trim());
