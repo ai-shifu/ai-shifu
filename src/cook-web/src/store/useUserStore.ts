@@ -8,6 +8,7 @@ import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
+import { clearProfileAssistantDrafts } from '@/lib/profileAssistantDraft';
 import { clearGoogleOAuthSession } from '@/lib/google-oauth-session';
 import { identifyUmamiUser } from '@/c-common/tools/tracking';
 
@@ -133,6 +134,7 @@ export const useUserStore = create<
 
     // Public API: Logout user
     logout: async (reload = true) => {
+      clearProfileAssistantDrafts();
       let didTriggerReload = false;
       const tokenDataBeforeLogout = tokenTool.get();
       debugWarn('[auth-chain] logout start', {

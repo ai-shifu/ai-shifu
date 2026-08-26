@@ -434,6 +434,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
             "enabled": True,
             "markdownflow": "  ?[Continue]  ",
             "config_revision": 12,
+            "assistant_prompt": "Shared questionnaire prompt",
         },
     )
     monkeypatch.setattr(
@@ -469,6 +470,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
             "document": "?[Continue]",
             "purpose": "profile-onboarding",
             "config_revision": 12,
+            "assistant_prompt": "Shared questionnaire prompt",
             "output_language": "zh-CN",
         }
     ]
@@ -1404,3 +1406,93 @@ def test_operator_profile_onboarding_config_requires_operator(
         headers={"Token": "token"},
     )
     assert response.get_json(force=True)["code"] != 0
+
+
+def test_assistant_answers_route_uses_same_session_without_saving_profile(
+    monkeypatch: object, test_client: object
+) -> None:
+    user = _authenticate(monkeypatch)
+    calls = []
+    saves = []
+    monkeypatch.setattr(
+        "flaskr.route.profile.complete_profile_onboarding",
+        lambda *_args, **kwargs: saves.append(kwargs),
+    )
+
+    def stream(_app: object, **kwargs: object) -> object:
+        calls.append(kwargs)
+        yield {
+            "type": "done",
+            "event_type": "done",
+            "is_terminal": True,
+            "content": {
+                "nickname": "Rain",
+                "profile_draft": "",
+                "operation": "delegate",
+                "done": True,
+            },
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.stream_profile_research_assistant_answers",
+        stream,
+    )
+    response = test_client.post(
+        f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/assistant-answers",
+        headers={"Token": "token"},
+        json={
+            "raw_text": "  Call me Rain.  ",
+            "expected_block_index": 3,
+            "request_id": "import-1",
+        },
+    )
+    assert response.mimetype == "text/event-stream"
+    assert '"nickname": "Rain"' in response.get_data(as_text=True)
+    assert calls == [
+        {
+            "user_bid": user.user_id,
+            "session_id": _SESSION_ID_1,
+            "raw_text": "  Call me Rain.  ",
+            "expected_block_index": 3,
+            "request_id": "import-1",
+        }
+    ]
+    assert not saves
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"raw_text": "Answer"},
+        {"raw_text": "Answer", "expected_block_index": 0},
+        {"raw_text": "Answer", "expected_block_index": 0, "request_id": ""},
+        {"raw_text": "Answer", "expected_block_index": True, "request_id": "a"},
+        {"raw_text": "Answer", "expected_block_index": -1, "request_id": "a"},
+        {
+            "raw_text": "Answer",
+            "expected_block_index": 0,
+            "request_id": "a",
+            "nickname": "Injected",
+        },
+        {"raw_text": " ", "expected_block_index": 0, "request_id": "a"},
+        {"raw_text": "x" * 10001, "expected_block_index": 0, "request_id": "a"},
+        {"raw_text": {}, "expected_block_index": 0, "request_id": "a"},
+    ],
+)
+def test_assistant_answers_route_rejects_invalid_envelopes(
+    monkeypatch: object, test_client: object, payload: dict
+) -> None:
+    _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.stream_profile_research_assistant_answers",
+        lambda *_args, **kwargs: calls.append(kwargs),
+    )
+    response = test_client.post(
+        f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/assistant-answers",
+        headers={"Token": "token"},
+        json=payload,
+    )
+    assert response.get_json(force=True)["code"] != 0
+    assert not calls

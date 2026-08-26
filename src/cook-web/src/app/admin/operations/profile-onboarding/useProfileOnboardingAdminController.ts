@@ -12,6 +12,8 @@ import type { ErrorWithCode } from '@/lib/request';
 type ProfileOnboardingConfig = {
   enabled?: boolean;
   markdownflow?: string;
+  assistant_prompt?: string;
+  cache_refresh_pending?: boolean;
   config_revision?: number;
   updated_by?: string;
   updated_at?: string;
@@ -22,6 +24,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const { toast } = useToast();
   const [enabled, setEnabled] = React.useState(false);
   const [markdownflow, setMarkdownflow] = React.useState('');
+  const [assistantPrompt, setAssistantPrompt] = React.useState('');
   const [configRevision, setConfigRevision] = React.useState(0);
   const [updatedBy, setUpdatedBy] = React.useState('');
   const [updatedAt, setUpdatedAt] = React.useState('');
@@ -53,6 +56,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
             ? (response.markdownflow ?? defaultMarkdownflow)
             : response.markdownflow || defaultMarkdownflow,
         );
+        setAssistantPrompt(response.assistant_prompt || '');
         setConfigRevision(loadedRevision);
         setUpdatedBy(response.updated_by || '');
         setUpdatedAt(response.updated_at || '');
@@ -92,10 +96,19 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
           ? (response.markdownflow ?? submittedConfig.markdownflow)
           : currentValue,
       );
+      setAssistantPrompt(response.assistant_prompt || '');
       setConfigRevision(Number(response.config_revision ?? configRevision));
       setUpdatedBy(response.updated_by || updatedBy);
       setUpdatedAt(response.updated_at || updatedAt);
-      toast({ title: t('module.profileOnboarding.admin.saveSuccess') });
+      if (response.cache_refresh_pending) {
+        toast({
+          title: t('module.profileOnboarding.admin.saveCacheRefreshPending'),
+          className: 'border-amber-300 bg-amber-50 text-amber-950',
+          duration: 8000,
+        });
+      } else {
+        toast({ title: t('module.profileOnboarding.admin.saveSuccess') });
+      }
     } catch (caughtError) {
       const typedError = caughtError as Partial<ErrorWithCode>;
       setError(
@@ -160,6 +173,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     setEnabled,
     markdownflow,
     setMarkdownflow,
+    assistantPrompt,
     configRevision,
     updatedBy,
     updatedAt,

@@ -1,6 +1,9 @@
 {
   "__namespace__": "module.profileOnboarding",
   "admin": {
+    "assistantPrompt": "Saved public assistant prompt",
+    "assistantPromptEmpty": "Save the research document to generate the public assistant prompt.",
+    "assistantPromptHint": "Generated when the research document is saved. Everyone using the same version receives the same text. This shows the saved result and cannot be edited separately.",
     "configRevision": "Config revision",
     "defaultMarkdownflow": "Carry out the following tasks in a warm, friendly tone.\n\nGreet the user very enthusiastically. Then, warmly and with a hint of mystery, tell them that the courses here can use their preferred teaching style and examples they find familiar. Naturally invite them to share a little about themselves so the explanations can relate to their everyday life and interests. Casually let them know that there are 5 short questions ahead, just like having a chat.\n\n?[%{{sys_user_nickname}}...What may I call you?]\n\nDraw a picture expressing a warm welcome, include the user's preferred name, and sincerely compliment it.\n\nFor question 2, ask in words what teaching style the user prefers.\n\n?[ Concise and direct | Patient and guiding | Witty and humorous | Anime-inspired | ...Describe your preferred style ]\n\nUse this style for all subsequent output.\n\nFirst explain your understanding of this style, then create a slide in this style that demonstrates your deep understanding of it.\n\nFor question 3, begin asking about the user's identity and background.\n\n?[ I'd rather not say | ...What is your field of study or profession?]\n\nCompliment this field or profession, then continue with question 4.\n\n?[ I'd rather not say | ...What industry do you work in?]\n\nCompliment this industry, then ask the final question.\n\n?[ I'd rather not say | ...What have you been interested in recently? Is anything puzzling you?]\n\nOffer praise and encouragement.",
     "description": "Configure interactive learning-profile collection. The platform generates a personal introduction draft when collection finishes.",
@@ -20,11 +23,28 @@
     "publishState": "Current config",
     "restartPreview": "Restart preview",
     "save": "Save",
+    "saveCacheRefreshPending": "Configuration saved, but the cache could not refresh. The previous version may still appear. Save again later to retry the cache refresh.",
     "saveFailed": "Failed to save the learning-profile guide configuration",
     "saveSuccess": "Learning-profile guide configuration saved",
     "title": "Learning Profile Guide",
     "updatedAt": "Updated at",
     "updatedBy": "Updated by"
+  },
+  "assistant": {
+    "back": "Back to the questions",
+    "copied": "Copied",
+    "copy": "Copy prompt",
+    "copyFailed": "Could not copy. Select and copy the prompt manually.",
+    "entry": "Let my AI help me answer",
+    "error": "We could not organize usable information. Edit or retry the answer, or return to the questions.",
+    "instructions": "Copy the prompt and send it to an AI assistant that knows you, such as ChatGPT, Claude, WorkBuddy, OpenClaw, Hermes Agent, Doubao, Kimi, or DeepSeek. Then paste its answer below. Your existing answers will be kept; unknown details can be left out.",
+    "limitError": "The answer cannot exceed 10,000 characters. Shorten it and try again.",
+    "process": "Organize answer",
+    "processing": "Organizing your answer…",
+    "promptLabel": "Prompt for your AI",
+    "resultLabel": "Paste the AI answer",
+    "resultPlaceholder": "Paste your AI assistant’s answer here…",
+    "title": "Ask your AI assistant to answer"
   },
   "back": "Previous",
   "characterCount": "{count} / {max} characters",

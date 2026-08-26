@@ -14,6 +14,7 @@ from flaskr.service.profile_research.runtime import (
     delete_active_profile_research_session,
     delete_profile_research_session,
     start_profile_research_session,
+    stream_profile_research_assistant_answers,
     stream_profile_research_session,
     validate_profile_research_document,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "delete_active_profile_research_session",
     "delete_profile_research_session",
     "start_profile_research_session",
+    "stream_profile_research_assistant_answers",
     "stream_profile_research_session",
     "validate_profile_research_document",
 ]

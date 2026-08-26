@@ -1,6 +1,9 @@
 {
   "__namespace__": "module.profileOnboarding",
   "admin": {
+    "assistantPrompt": "Consigne publique enregistrée pour les assistants IA",
+    "assistantPromptEmpty": "Enregistrez le questionnaire pour générer la consigne publique.",
+    "assistantPromptHint": "Générée à l’enregistrement du questionnaire. Tous les utilisateurs d’une même version reçoivent le même texte. Ce résultat enregistré ne peut pas être modifié séparément.",
     "configRevision": "Révision de configuration",
     "defaultMarkdownflow": "Effectuez les tâches suivantes sur un ton chaleureux et amical.\n\nSaluez la personne avec beaucoup d’enthousiasme. Puis, avec chaleur et une touche de mystère, expliquez-lui que les cours peuvent adopter le style d’enseignement qu’elle préfère et s’appuyer sur des exemples qui lui sont familiers. Invitez-la naturellement à parler un peu d’elle pour que les explications fassent écho à son quotidien et à ses centres d’intérêt. Annoncez-lui sur un ton détendu les 5 petites questions à venir, comme dans une simple conversation.\n\n?[%{{sys_user_nickname}}...Comment puis-je vous appeler ?]\n\nDessinez une image exprimant un accueil chaleureux, en y intégrant le nom choisi par la personne, et complimentez sincèrement ce nom.\n\nPour la question 2, demandez par écrit quel style d’enseignement la personne préfère.\n\n?[ Concis et direct | Patient et progressif | Plein d’esprit et d’humour | Inspiré des animes | ...Décrivez votre style préféré ]\n\nAdoptez ce style pour toutes les réponses suivantes.\n\nExpliquez d’abord votre compréhension de ce style, puis créez une diapositive dans ce style qui montre que vous le comprenez en profondeur.\n\nPour la question 3, commencez à poser des questions sur l’identité et le parcours de la personne.\n\n?[ Je préfère ne pas le dire | ...Quel est votre domaine d’études ou votre métier ?]\n\nComplimentez ce domaine ou ce métier, puis passez à la question 4.\n\n?[ Je préfère ne pas le dire | ...Dans quel secteur travaillez-vous ?]\n\nComplimentez ce secteur, puis posez la dernière question.\n\n?[ Je préfère ne pas le dire | ...À quoi vous intéressez-vous récemment ? Y a-t-il des sujets qui vous laissent perplexe ?]\n\nOffrez des compliments et des encouragements.",
     "description": "Configurez la collecte interactive du profil d’apprentissage. La plateforme génère une présentation personnelle à la fin de la collecte.",
@@ -20,11 +23,28 @@
     "publishState": "Configuration actuelle",
     "restartPreview": "Relancer l’aperçu",
     "save": "Enregistrer",
+    "saveCacheRefreshPending": "La configuration est enregistrée, mais le cache n’a pas pu être actualisé. L’ancienne version peut encore apparaître. Enregistrez à nouveau plus tard pour réessayer l’actualisation du cache.",
     "saveFailed": "Échec de l’enregistrement de la configuration du guide du profil d’apprentissage",
     "saveSuccess": "Configuration du guide du profil d’apprentissage enregistrée",
     "title": "Guide du profil d’apprentissage",
     "updatedAt": "Mis à jour le",
     "updatedBy": "Mis à jour par"
+  },
+  "assistant": {
+    "back": "Revenir aux questions",
+    "copied": "Copié",
+    "copy": "Copier la consigne",
+    "copyFailed": "La copie a échoué. Sélectionnez et copiez la consigne manuellement.",
+    "entry": "Demander à mon IA de m’aider à répondre",
+    "error": "Nous n’avons pas pu organiser d’informations utilisables. Modifiez la réponse ou réessayez, ou revenez aux questions.",
+    "instructions": "Copiez la consigne et envoyez-la à un assistant IA qui vous connaît, par exemple ChatGPT, Claude, WorkBuddy, OpenClaw, Hermes Agent, Doubao, Kimi ou DeepSeek. Collez ensuite sa réponse ci-dessous. Vos réponses existantes seront conservées ; les informations inconnues peuvent être omises.",
+    "limitError": "La réponse ne peut pas dépasser 10 000 caractères. Raccourcissez-la et réessayez.",
+    "process": "Organiser la réponse",
+    "processing": "Organisation de votre réponse…",
+    "promptLabel": "Consigne pour votre IA",
+    "resultLabel": "Coller la réponse de l’IA",
+    "resultPlaceholder": "Collez ici la réponse de votre assistant IA…",
+    "title": "Laisser votre assistant IA répondre"
   },
   "back": "Précédent",
   "characterCount": "{count} / {max} caractères",

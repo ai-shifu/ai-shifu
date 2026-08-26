@@ -101,3 +101,31 @@ def parse_profile_research_run_request(
         expected_block_index=expected_block_index,
         request_id=request_id,
     )
+
+
+@dataclass(frozen=True)
+class ProfileResearchAssistantAnswersRequest:
+    """Required idempotency identity and unmodified external answer text."""
+
+    raw_text: str
+    expected_block_index: int
+    request_id: str
+
+
+def parse_profile_research_assistant_answers_request(
+    payload: dict, *, parameter_name: str
+) -> ProfileResearchAssistantAnswersRequest:
+    """Validate the external-answer envelope before starting its SSE stream."""
+    if set(payload) != {"raw_text", "expected_block_index", "request_id"}:
+        raise_param_error(parameter_name)
+    raw_text = payload["raw_text"]
+    if not isinstance(raw_text, str) or not raw_text.strip() or len(raw_text) > 10_000:
+        raise_param_error("raw_text")
+    expected_block_index, request_id = profile_research_run_identity(
+        payload, parameter_name=parameter_name
+    )
+    return ProfileResearchAssistantAnswersRequest(
+        raw_text=raw_text,
+        expected_block_index=expected_block_index,
+        request_id=request_id,
+    )

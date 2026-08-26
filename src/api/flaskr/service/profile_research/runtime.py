@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import Callable, Generator, Iterable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,6 +22,11 @@ from flaskr.dao import (
     is_protocol_interrupt_error,
     release_session_classified,
 )
+from flaskr.service.profile.api import (
+    LEARNER_PROFILE_MAX_LENGTH,
+    LEARNER_PROFILE_NICKNAME_MAX_LENGTH,
+)
+from flaskr.service.profile_research.assistant_answers import parse_assistant_answers
 from flaskr.service.profile_research.document import (
     _append_profile_summary,
     validate_profile_research_document,
@@ -87,6 +93,7 @@ __all__ = [
     "delete_active_profile_research_session",
     "delete_profile_research_session",
     "start_profile_research_session",
+    "stream_profile_research_assistant_answers",
     "stream_profile_research_session",
     "validate_profile_research_document",
 ]
@@ -166,6 +173,7 @@ class ProfileResearchRuntime:
         purpose: str,
         config_revision: int,
         output_language: str | None,
+        assistant_prompt: str = "",
     ) -> dict[str, Any]:
         """Validate the document and create one owner-purpose session."""
         normalized_user_bid = str(user_bid or "").strip()
@@ -208,6 +216,7 @@ class ProfileResearchRuntime:
             user_bid=normalized_user_bid,
             purpose=normalized_purpose,
             document=snapshotted_document,
+            assistant_prompt=assistant_prompt,
             model=model,
             temperature=temperature,
             output_language=normalized_output_language,
@@ -385,7 +394,11 @@ class ProfileResearchRuntime:
         expected_block_index: int | None,
         user_input: dict[str, list[str]],
         events: list[dict[str, Any]],
+        operation: str = "run",
+        raw_text: str = "",
     ) -> None:
+        session.last_operation = operation
+        session.last_raw_text = raw_text if request_id else ""
         session.last_request_id = request_id or ""
         session.last_expected_block_index = expected_block_index
         session.last_user_input = user_input if request_id else {}
@@ -398,6 +411,8 @@ class ProfileResearchRuntime:
         request_id: str | None,
         expected_block_index: int | None,
         user_input: dict[str, list[str]],
+        operation: str = "run",
+        raw_text: str = "",
     ) -> list[dict[str, Any]] | None:
         if request_id is None and expected_block_index is None:
             return None
@@ -410,7 +425,9 @@ class ProfileResearchRuntime:
             raise ProfileResearchValidationError(msg)
         if normalized_request_id == session.last_request_id:
             if (
-                expected_block_index == session.last_expected_block_index
+                operation == session.last_operation
+                and raw_text == session.last_raw_text
+                and expected_block_index == session.last_expected_block_index
                 and user_input == session.last_user_input
                 and session.last_events
             ):
@@ -794,6 +811,176 @@ class ProfileResearchRuntime:
             with contextlib.suppress(Exception):
                 owner_lock.release()
 
+    def _extract_assistant_answers(
+        self, session: _ProfileResearchSession, raw_text: str
+    ) -> tuple[str, str]:
+        trace, root_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload={
+                "id": get_request_trace_id(),
+                "name": "profile_research_assistant_answers",
+                "user_id": session.user_bid,
+                "session_id": session.session_id,
+            },
+            root_span_payload={"name": "profile_research_answer_extraction"},
+        )
+        try:
+            provider = self._provider_factory(self.app, session, root_span)
+            return parse_assistant_answers(provider, session, raw_text)
+        finally:
+            finalize_langfuse_trace(trace=trace, root_span=root_span)
+
+    def stream_assistant_answers(
+        self,
+        *,
+        user_bid: str,
+        session_id: str,
+        raw_text: str,
+        expected_block_index: int,
+        request_id: str,
+    ) -> Generator[dict[str, Any], None, None]:
+        """Atomically import supplemental answers and run the frozen final block."""
+        if (
+            not isinstance(raw_text, str)
+            or not raw_text.strip()
+            or len(raw_text) > 10_000
+        ):
+            msg = "assistant answers must contain at most 10000 characters"
+            raise ProfileResearchValidationError(msg)
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_session_id = str(session_id or "").strip()
+        purpose = self._resolve_existing_session_purpose(
+            user_bid=normalized_user_bid,
+            session_id=normalized_session_id,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+        owner_lock = self.store.owner_lock(
+            user_bid=normalized_user_bid, purpose=purpose
+        )
+        with (
+            _hold_profile_research_lock(owner_lock),
+            _hold_profile_research_lock(self.store.lock(normalized_session_id)),
+        ):
+            session = self._load_authorized_session(
+                user_bid=normalized_user_bid,
+                session_id=normalized_session_id,
+                expected_purpose=purpose,
+            )
+            active = self.store.active_session_id(
+                user_bid=session.user_bid, purpose=purpose
+            )
+            if active is not None and active != session.session_id:
+                msg = "session not found"
+                raise ProfileResearchSessionNotFound(msg)
+            replay = self._replay_or_validate_request(
+                session,
+                request_id=request_id,
+                expected_block_index=expected_block_index,
+                user_input={},
+                operation="delegate",
+                raw_text=raw_text,
+            )
+            if replay is not None:
+                yield from replay
+                return
+            if not session.assistant_prompt or session.done:
+                msg = "assistant answers are not available for this session"
+                raise ProfileResearchValidationError(msg)
+
+            # All provider work happens on a detached snapshot. No cursor,
+            # variables, or context is published until both steps succeed.
+            staged = deepcopy(session)
+            answers, nickname = self._extract_assistant_answers(staged, raw_text)
+            if nickname and not _collected_nickname(staged):
+                staged.variables[_NICKNAME_VARIABLE_KEY] = nickname
+            if (
+                len(_collected_nickname(staged) or "")
+                > LEARNER_PROFILE_NICKNAME_MAX_LENGTH
+            ):
+                msg = "assistant nickname is too long"
+                raise ProfileResearchValidationError(msg)
+            has_manual_answers = any(
+                key != _NICKNAME_VARIABLE_KEY and bool(value)
+                for key, value in staged.variables.items()
+            ) or any(message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context)
+            if (
+                not answers
+                and not has_manual_answers
+                and not _collected_nickname(staged)
+            ):
+                msg = "assistant answers contain no usable information"
+                raise ProfileResearchValidationError(msg)
+            if answers:
+                staged.context.append(
+                    {
+                        "role": "user",
+                        "content": answers,
+                    }
+                )
+            staged.block_index = staged.profile_draft_block_index
+            # This is the same official MarkdownFlow execution used by the
+            # ordinary question flow, with no fabricated per-question runs.
+            execution = yield from self._execute_block(session=staged, user_input={})
+            has_profile_evidence = bool(answers or has_manual_answers)
+            draft = execution.outcome.content.strip() if has_profile_evidence else ""
+            if (has_profile_evidence and not draft) or len(
+                draft
+            ) > LEARNER_PROFILE_MAX_LENGTH:
+                msg = "assistant profile draft is invalid"
+                raise ProfileResearchValidationError(msg)
+            staged.profile_draft = draft
+            staged.block_index = staged.block_count
+            staged.awaiting_input = False
+            staged.done = True
+            summary = self._summary(
+                staged, processed_block_index=session.block_index, advanced=True
+            )
+            summary["operation"] = "delegate"
+            event = _event(
+                "done", summary, run_session_bid=staged.session_id, is_terminal=True
+            )
+            self._remember_request(
+                staged,
+                request_id=request_id,
+                expected_block_index=expected_block_index,
+                user_input={},
+                operation="delegate",
+                raw_text=raw_text,
+                events=[event],
+            )
+            yield from self._save_assistant_result(staged, event)
+
+    def _save_assistant_result(
+        self, session: _ProfileResearchSession, event: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Resolve a session-write outcome before permitting another operation."""
+        try:
+            self.store.save(session)
+        except Exception:
+            # save() writes the replay payload before refreshing its active
+            # pointer. A refresh failure does not undo a committed result.
+            # Keep the owner/session locks while reading back that outcome.
+            try:
+                persisted = self.store.load(session.session_id)
+                replay = self._replay_or_validate_request(
+                    persisted,
+                    request_id=session.last_request_id,
+                    expected_block_index=session.last_expected_block_index,
+                    user_input={},
+                    operation="delegate",
+                    raw_text=session.last_raw_text,
+                )
+            except Exception as exc:
+                # Busy means retry the same request, not edit the draft or
+                # switch back to manual while the write outcome is unknown.
+                msg = "assistant result persistence is uncertain"
+                raise ProfileResearchSessionBusy(msg) from exc
+            if replay is not None:
+                return replay
+            # A readable unchanged cursor confirms failure before publication.
+            raise
+        return [event]
+
 
 def start_profile_research_session(
     app: Flask,
@@ -803,6 +990,7 @@ def start_profile_research_session(
     purpose: str,
     config_revision: int = 0,
     output_language: str | None = None,
+    assistant_prompt: str = "",
 ) -> dict[str, Any]:
     """Create a profile-research session through the shared runtime."""
     return ProfileResearchRuntime(app).start_session(
@@ -811,6 +999,7 @@ def start_profile_research_session(
         purpose=purpose,
         config_revision=config_revision,
         output_language=output_language,
+        assistant_prompt=assistant_prompt,
     )
 
 
@@ -830,6 +1019,25 @@ def stream_profile_research_session(
         session_id=session_id,
         user_input=user_input,
         expected_purpose=expected_purpose,
+        expected_block_index=expected_block_index,
+        request_id=request_id,
+    )
+
+
+def stream_profile_research_assistant_answers(
+    app: Flask,
+    *,
+    user_bid: str,
+    session_id: str,
+    raw_text: str,
+    expected_block_index: int,
+    request_id: str,
+) -> Generator[dict[str, Any], None, None]:
+    """Import external answers into an authorized learner session."""
+    yield from ProfileResearchRuntime(app).stream_assistant_answers(
+        user_bid=user_bid,
+        session_id=session_id,
+        raw_text=raw_text,
         expected_block_index=expected_block_index,
         request_id=request_id,
     )

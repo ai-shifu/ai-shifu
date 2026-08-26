@@ -20,6 +20,7 @@ export default function ProfileOnboardingAdminPage() {
     setEnabled,
     markdownflow,
     setMarkdownflow,
+    assistantPrompt,
     configRevision,
     updatedBy,
     updatedAt,
@@ -109,6 +110,25 @@ export default function ProfileOnboardingAdminPage() {
               className='min-h-[360px] font-mono text-sm'
               maxRows={24}
               onChange={event => setMarkdownflow(event.target.value)}
+            />
+          </div>
+
+          <div className='space-y-2'>
+            <Label htmlFor='profile-onboarding-assistant-prompt'>
+              {t('module.profileOnboarding.admin.assistantPrompt')}
+            </Label>
+            <p className='text-sm text-muted-foreground'>
+              {t('module.profileOnboarding.admin.assistantPromptHint')}
+            </p>
+            <Textarea
+              id='profile-onboarding-assistant-prompt'
+              value={assistantPrompt}
+              placeholder={t(
+                'module.profileOnboarding.admin.assistantPromptEmpty',
+              )}
+              minRows={4}
+              maxRows={12}
+              readOnly
             />
           </div>
 

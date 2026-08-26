@@ -8,10 +8,16 @@ import { Button } from '@/components/ui/Button';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { cn } from '@/lib/utils';
 import type {
+  ProfileOnboardingAssistantAnswers,
   ProfileOnboardingRunSession,
   ProfileOnboardingSessionInfo,
 } from './profileOnboardingConversationModel';
+import { ProfileAssistantAnswersView } from './ProfileAssistantAnswersView';
 import { useProfileOnboardingSession } from './useProfileOnboardingSession';
+
+// ContentRender recreates its custom interaction component on every render.
+// Isolate it from sibling view/copy/paste state to preserve unsent input.
+const StableMarkdownFlow = React.memo(MarkdownFlow);
 
 export {
   isProfileOnboardingSubmissionWithinLimits,
@@ -26,6 +32,14 @@ export type {
 export type ProfileOnboardingConversationProps = {
   createSession: () => Promise<ProfileOnboardingSessionInfo>;
   runSession: ProfileOnboardingRunSession;
+  assistantAnswers?: ProfileOnboardingAssistantAnswers;
+  assistantDraft?: string;
+  onAssistantDraftChange?: (draft: string) => void;
+  onAssistantDraftReady?: (
+    draft: string,
+    sessionId: string,
+    nickname?: string,
+  ) => void;
   disabled?: boolean;
   errorMessage?: string;
   onSessionStarted?: (sessionId: string) => void;
@@ -43,6 +57,10 @@ export type ProfileOnboardingConversationProps = {
 export default function ProfileOnboardingConversation({
   createSession,
   runSession,
+  assistantAnswers,
+  assistantDraft = '',
+  onAssistantDraftChange,
+  onAssistantDraftReady,
   disabled = false,
   errorMessage = '',
   onSessionStarted,
@@ -53,9 +71,15 @@ export default function ProfileOnboardingConversation({
   onRetry,
 }: ProfileOnboardingConversationProps) {
   const { t, i18n } = useTranslation();
+  const [assistantVisible, setAssistantVisible] = React.useState(false);
   const latestItemRef = React.useRef<HTMLDivElement>(null);
   const {
     items,
+    status,
+    assistantPrompt,
+    submitAssistantAnswers,
+    resumeQuestions,
+    uncertainRequest,
     loading,
     runInFlight,
     retryAvailable,
@@ -65,11 +89,14 @@ export default function ProfileOnboardingConversation({
   } = useProfileOnboardingSession({
     createSession,
     runSession,
+    assistantAnswers,
+    onAssistantDraftReady,
     disabled,
     messages: {
       retryableError: t('module.profileOnboarding.guided.retryableError'),
       streamError: t('module.profileOnboarding.guided.streamError'),
       missingDraft: t('module.profileOnboarding.guided.missingDraft'),
+      assistantError: t('module.profileOnboarding.assistant.error'),
     },
     onSessionStarted,
     onRunInFlightChange,
@@ -106,22 +133,38 @@ export default function ProfileOnboardingConversation({
     visibleErrorMessage || loading || streamingNonInteraction || retryAvailable,
   );
 
+  // Hidden questions cannot be edited; keep their renderer props unchanged
+  // while an import runs or fails. The session hook also rejects manual sends.
+  const questionReadonly =
+    !assistantVisible &&
+    (disabled || runInFlight || status !== 'awaiting_input');
+  const contentList = React.useMemo(
+    () =>
+      items.map(item => ({
+        content: item.content,
+        isFinished: item.finished,
+        readonly: questionReadonly || item.finished || !item.interaction,
+        userInput: item.userInput,
+      })),
+    [items, questionReadonly],
+  );
+
   return (
     <div
       data-testid='profile-onboarding-conversation'
       className='flex h-full min-h-0 flex-col gap-3'
       aria-busy={disabled || loading || runInFlight}
     >
-      <div className='profile-onboarding-markdownflow min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]'>
-        <MarkdownFlow
+      <div
+        hidden={assistantVisible}
+        className={cn(
+          'profile-onboarding-markdownflow min-h-0 flex-1 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
+          assistantVisible && 'hidden',
+        )}
+      >
+        <StableMarkdownFlow
           locale={locale}
-          initialContentList={items.map(item => ({
-            content: item.content,
-            isFinished: item.finished,
-            readonly:
-              disabled || runInFlight || item.finished || !item.interaction,
-            userInput: item.userInput,
-          }))}
+          initialContentList={contentList}
           onSend={send}
         />
         <div
@@ -129,6 +172,30 @@ export default function ProfileOnboardingConversation({
           aria-hidden='true'
         />
       </div>
+      {assistantVisible ? (
+        <ProfileAssistantAnswersView
+          prompt={assistantPrompt}
+          value={assistantDraft}
+          disabled={disabled || runInFlight}
+          unresolved={uncertainRequest}
+          onChange={onAssistantDraftChange ?? (() => {})}
+          onSubmit={submitAssistantAnswers}
+          onBack={() => {
+            if (resumeQuestions()) setAssistantVisible(false);
+          }}
+        />
+      ) : assistantAnswers && assistantPrompt && status === 'awaiting_input' ? (
+        <Button
+          type='button'
+          variant='ghost'
+          size='sm'
+          className='shrink-0 self-start whitespace-normal text-start font-normal text-muted-foreground'
+          disabled={disabled || runInFlight}
+          onClick={() => setAssistantVisible(true)}
+        >
+          {t('module.profileOnboarding.assistant.entry')}
+        </Button>
+      ) : null}
       {hasVisibleStatus ? (
         <div
           className={cn(

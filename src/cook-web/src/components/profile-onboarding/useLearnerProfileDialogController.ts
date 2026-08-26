@@ -8,11 +8,16 @@ import {
   isProfileOnboardingStatus,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
+  submitProfileOnboardingAssistantAnswers,
   updateLearnerProfile,
   type ProfileOnboardingSessionIntent,
 } from '@/api/learnerProfile';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useToast } from '@/hooks/useToast';
+import {
+  readProfileAssistantDraft,
+  writeProfileAssistantDraft,
+} from '@/lib/profileAssistantDraft';
 import { PROFILE_ONBOARDING_EVENTS } from './events';
 import {
   DEFAULT_NICKNAME_MAX_LENGTH,
@@ -60,6 +65,20 @@ export const useLearnerProfileDialogController = ({
     learnerProfileDialogReducer,
     initialLearnerProfileDialogState,
   );
+  const [assistantDraft, setAssistantDraft] = React.useState('');
+  React.useEffect(() => {
+    setAssistantDraft(readProfileAssistantDraft(draftStorageScope));
+  }, [draftStorageScope]);
+  const changeAssistantDraft = React.useCallback(
+    (draft: string) => {
+      setAssistantDraft(draft);
+      writeProfileAssistantDraft(draftStorageScope, draft);
+    },
+    [draftStorageScope],
+  );
+  const clearAssistantDraft = React.useCallback(() => {
+    changeAssistantDraft('');
+  }, [changeAssistantDraft]);
   const stateRef = React.useRef(state);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const mountedRef = React.useRef(false);
@@ -471,6 +490,7 @@ export const useLearnerProfileDialogController = ({
         return;
       }
 
+      clearAssistantDraft();
       applyProfileResponse(response);
       if (completion) {
         const shownAt = collectionShownAtRef.current;
@@ -504,6 +524,7 @@ export const useLearnerProfileDialogController = ({
     }
   }, [
     applyProfileResponse,
+    clearAssistantDraft,
     draftStorageScope,
     exitPolicy,
     externalSubmitting,
@@ -516,35 +537,47 @@ export const useLearnerProfileDialogController = ({
     trackEvent,
   ]);
 
-  const dismiss = React.useCallback(async () => {
-    const current = stateRef.current;
-    if (current.submissionStatus !== 'idle') {
-      return;
-    }
-    const dialog = requestEpochRef.current.dialog;
-    const scope = draftStorageScope;
-    bumpEpoch('optimize');
-    dispatch({
-      type: 'patch',
-      patch: { submissionStatus: 'dismissing', error: '' },
-    });
-    try {
-      await onClose('dismiss');
-    } catch (caughtError) {
-      if (isCurrent(dialog, scope)) {
-        setError(
-          errorMessage(
-            caughtError,
-            t('module.profileOnboarding.dialog.dismissFailed'),
-          ),
-        );
+  const dismiss = React.useCallback(
+    async (discardDraft = false) => {
+      const current = stateRef.current;
+      if (current.submissionStatus !== 'idle') {
+        return;
       }
-    } finally {
-      if (isCurrent(dialog, scope)) {
-        dispatch({ type: 'patch', patch: { submissionStatus: 'idle' } });
+      const dialog = requestEpochRef.current.dialog;
+      const scope = draftStorageScope;
+      bumpEpoch('optimize');
+      dispatch({
+        type: 'patch',
+        patch: { submissionStatus: 'dismissing', error: '' },
+      });
+      try {
+        if (discardDraft) clearAssistantDraft();
+        await onClose('dismiss');
+      } catch (caughtError) {
+        if (isCurrent(dialog, scope)) {
+          setError(
+            errorMessage(
+              caughtError,
+              t('module.profileOnboarding.dialog.dismissFailed'),
+            ),
+          );
+        }
+      } finally {
+        if (isCurrent(dialog, scope)) {
+          dispatch({ type: 'patch', patch: { submissionStatus: 'idle' } });
+        }
       }
-    }
-  }, [bumpEpoch, draftStorageScope, isCurrent, onClose, setError, t]);
+    },
+    [
+      bumpEpoch,
+      clearAssistantDraft,
+      draftStorageScope,
+      isCurrent,
+      onClose,
+      setError,
+      t,
+    ],
+  );
 
   const requestClose = React.useCallback(() => {
     const values = selectLearnerProfileDialog(
@@ -690,7 +723,7 @@ export const useLearnerProfileDialogController = ({
         !isCurrent(requestEpochRef.current.dialog, scopeRef.current) ||
         collectionCompletionRef.current
       ) {
-        return;
+        return false;
       }
       collectionCompletionRef.current = true;
       dispatch({
@@ -715,6 +748,7 @@ export const useLearnerProfileDialogController = ({
             : { nickname: result.nickname }),
         },
       });
+      return true;
     },
     [isCurrent],
   );
@@ -748,7 +782,7 @@ export const useLearnerProfileDialogController = ({
   const handleCollectionDraftReady = React.useCallback(
     (draft: string, sessionId: string, nickname?: string) => {
       const current = stateRef.current;
-      acceptCollectionResult(
+      return acceptCollectionResult(
         {
           draft,
           ...(nickname ? { nickname } : {}),
@@ -762,6 +796,15 @@ export const useLearnerProfileDialogController = ({
       );
     },
     [acceptCollectionResult],
+  );
+
+  const handleAssistantDraftReady = React.useCallback(
+    (draft: string, sessionId: string, nickname?: string) => {
+      if (handleCollectionDraftReady(draft, sessionId, nickname)) {
+        dispatch({ type: 'patch', patch: { phase: 'save' } });
+      }
+    },
+    [handleCollectionDraftReady],
   );
 
   const handleCollectionRetry = React.useCallback(() => {
@@ -932,6 +975,7 @@ export const useLearnerProfileDialogController = ({
           (current.collectionIntent === 'settings' ? 'settings' : 'guided'),
         presentation,
       });
+      clearAssistantDraft();
       await onClose('dismiss');
     } catch (caughtError) {
       if (isCurrent(dialog, scope)) {
@@ -955,6 +999,7 @@ export const useLearnerProfileDialogController = ({
     isCurrent,
     onClose,
     onDefer,
+    clearAssistantDraft,
     presentation,
     setError,
     t,
@@ -965,7 +1010,7 @@ export const useLearnerProfileDialogController = ({
     const confirmation = stateRef.current.confirmation;
     setConfirmation(null);
     if (confirmation === 'discard') {
-      void dismiss();
+      void dismiss(true);
     } else if (confirmation === 'replace-collection') {
       beginCollection(stateRef.current.preferredCollectionIntent, true);
     }
@@ -1007,6 +1052,10 @@ export const useLearnerProfileDialogController = ({
     conversationProps: {
       createSession: createCollectionSession,
       runSession: runCollectionSession,
+      assistantAnswers: submitProfileOnboardingAssistantAnswers,
+      assistantDraft,
+      onAssistantDraftChange: changeAssistantDraft,
+      onAssistantDraftReady: handleAssistantDraftReady,
       disabled: derived.busy,
       errorMessage: combinedCollectionError,
       onSessionStarted: handleSessionStarted,

@@ -8,6 +8,7 @@ import {
   isProfileOnboardingStatus,
   optimizeLearnerProfile,
   runProfileOnboardingSession,
+  submitProfileOnboardingAssistantAnswers,
   skipGuidedProfileOnboarding,
   updateLearnerProfile,
 } from './learnerProfile';
@@ -303,5 +304,28 @@ describe('learner profile api', () => {
       onMessage,
       onError,
     });
+  });
+});
+
+test('imports raw assistant answers through the existing SSE transport without changing the public prompt', () => {
+  const onMessage = jest.fn();
+  const onError = jest.fn();
+  submitProfileOnboardingAssistantAnswers({
+    sessionId: 'session/one',
+    expectedBlockIndex: 3,
+    requestId: 'delegate-1',
+    rawText: '  Original AI output  ',
+    onMessage,
+    onError,
+  });
+  expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith({
+    path: '/api/user/profile-onboarding/session/session%2Fone/assistant-answers',
+    payload: {
+      expected_block_index: 3,
+      request_id: 'delegate-1',
+      raw_text: '  Original AI output  ',
+    },
+    onMessage,
+    onError,
   });
 });

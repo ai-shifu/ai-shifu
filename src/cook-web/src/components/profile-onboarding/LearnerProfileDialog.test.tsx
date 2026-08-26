@@ -45,6 +45,9 @@ const translateKey = (
 type ConversationControl = {
   deliverDraft: (draft?: string, nickname?: string) => void;
   deliverError: (error?: Error) => void;
+  deliverAssistantDraft: (draft: string, nickname?: string) => void;
+  changeAssistantDraft: (draft: string) => void;
+  assistantDraft: () => string | undefined;
   setRunInFlight: (runInFlight: boolean) => void;
   sessionId: () => string;
 };
@@ -69,6 +72,15 @@ function MockProfileOnboardingConversation(
           propsRef.current.onDraftReady(draft, sessionIdRef.current, nickname);
         }
       },
+      deliverAssistantDraft: (draft, nickname) =>
+        propsRef.current.onAssistantDraftReady?.(
+          draft,
+          sessionIdRef.current,
+          nickname,
+        ),
+      changeAssistantDraft: draft =>
+        propsRef.current.onAssistantDraftChange?.(draft),
+      assistantDraft: () => propsRef.current.assistantDraft,
       deliverError: (error = new Error('Collection failed')) => {
         if (mountedRef.current) {
           propsRef.current.onError(error);
@@ -307,6 +319,7 @@ const continueCollectionToSave = async () => {
 describe('LearnerProfileDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
     mockConversationControls.splice(0);
     mockLanguage = 'en-US';
     mockTrackEventIdentity = mockTrackEvent;
@@ -705,6 +718,60 @@ describe('LearnerProfileDialog', () => {
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
   });
 
+  test('preserves the paste on ordinary settings close and restores it on same-account reopen', async () => {
+    const onClose = jest.fn();
+    const { rerender, props } = renderDialog({ onClose });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.interactiveCollection',
+      }),
+    );
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls
+        .at(-1)
+        ?.changeAssistantDraft('Keep this paste for later'),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.discardTitle'),
+    ).not.toBeInTheDocument();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBe('Keep this paste for later');
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        open={false}
+      />,
+    );
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        open
+      />,
+    );
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.interactiveCollection',
+      }),
+    );
+    await waitForCollectionSession();
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Keep this paste for later',
+    );
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+  });
+
   test('falls back to a manual empty editor when guided research is unavailable', async () => {
     mockGetLearnerProfile.mockResolvedValue(emptyProfile);
     mockGetProfileOnboardingStatus.mockResolvedValue(
@@ -868,6 +935,86 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     expect(profileInput()).toHaveValue('Collection draft');
+  });
+
+  test('assistant nickname-only result opens confirmation without optimizing or saving and preserves the changed nickname payload', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    mockCompleteGuidedProfileOnboarding.mockResolvedValue({
+      ...emptyProfile,
+      nickname: 'Robin',
+    });
+    renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls.at(-1)?.changeAssistantDraft('Call me Robin'),
+    );
+    act(() =>
+      mockConversationControls.at(-1)?.deliverAssistantDraft('', 'Robin'),
+    );
+    expect(
+      await screen.findByLabelText(
+        'module.profileOnboarding.dialog.nicknameLabel',
+      ),
+    ).toHaveValue('Robin');
+    expect(profileInput()).toHaveValue('');
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBe('Call me Robin');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.complete' }),
+    );
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
+        learner_profile: '',
+        nickname: 'Robin',
+        trigger_source: 'guided',
+        session_id: SESSION_ID,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        window.sessionStorage.getItem(
+          'profile-onboarding-paste-draft:profile-v2:user-a',
+        ),
+      ).toBeNull(),
+    );
+  });
+
+  test('restores the same account paste without submitting and clears the previous account even when the dialog is closed', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:profile-v2:user-a',
+      'Restored private draft',
+    );
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:active-user:profile-v2',
+      'profile-onboarding-paste-draft:profile-v2:user-a',
+    );
+    const { rerender, props } = renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Restored private draft',
+    );
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        open={false}
+        draftStorageScope='user-b'
+      />,
+    );
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
   });
 
   test('persists a guided result once with its session, trigger, and collected nickname', async () => {
@@ -1402,6 +1549,10 @@ describe('LearnerProfileDialog', () => {
 
   test('confirms before discarding dirty settings edits', async () => {
     const onClose = jest.fn();
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:profile-v2:user-a',
+      'Draft to discard',
+    );
     renderDialog({ onClose });
     await screen.findByDisplayValue(existingProfile.learner_profile);
     fireEvent.change(profileInput(), { target: { value: 'Unsaved edit' } });
@@ -1422,6 +1573,11 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
   });
 
   test('preserves an open draft when the tracking callback identity changes', async () => {
