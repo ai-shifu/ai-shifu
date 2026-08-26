@@ -39,6 +39,7 @@ from flaskr.service.billing.models import (  # noqa: E402
 from flaskr.service.billing.notifications import (  # noqa: E402
     enqueue_subscription_purchase_sms,
     load_creator_mobile_snapshot,
+    requeue_subscription_purchase_sms,
     stage_subscription_purchase_sms_for_paid_order,
 )
 from flaskr.service.billing.queries import (  # noqa: E402
@@ -57,6 +58,13 @@ DEFAULT_PRODUCT_CODE = "creator-plan-monthly-pro"
 DEFAULT_EXPECTED_PRICE_AMOUNT = 19900
 _MANUAL_PROVIDER_NAME = "manual"
 _CHECKOUT_TYPE = "cache_overcharge_bonus_plan"
+_RETRYABLE_SUBSCRIPTION_SMS_STATUSES = {
+    "",
+    "pending",
+    "processing",
+    "failed_provider",
+    "failed_missing_date",
+}
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -154,6 +162,12 @@ def main() -> int:
                 request_id=request_id,
             )
             if existing_order is not None:
+                subscription_sms_result = _resume_existing_subscription_sms(
+                    app,
+                    order=existing_order,
+                    template_code=args.subscription_sms_template_code,
+                    product_name=args.subscription_sms_product_name,
+                )
                 results.append(
                     {
                         **base,
@@ -161,6 +175,7 @@ def main() -> int:
                         "request_id": request_id,
                         "bill_order_bid": existing_order.bill_order_bid,
                         "subscription_bid": existing_order.subscription_bid,
+                        "subscription_sms_result": subscription_sms_result,
                     }
                 )
                 continue
@@ -409,6 +424,54 @@ def _send_bonus_subscription_sms(
         "mobile": mobile,
         "template_code": template_code,
     }
+
+
+def _resume_existing_subscription_sms(
+    app: object,
+    *,
+    order: BillingOrder,
+    template_code: str,
+    product_name: str,
+) -> dict[str, object]:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    notifications = metadata.get("notifications")
+    payload = {}
+    if isinstance(notifications, dict) and isinstance(
+        notifications.get("subscription_purchase_sms"),
+        dict,
+    ):
+        payload = dict(notifications["subscription_purchase_sms"])
+    current_status = str(payload.get("status") or "").strip()
+    if current_status == "sent":
+        return {
+            "status": "already_sent",
+            "bill_order_bid": order.bill_order_bid,
+        }
+    if current_status not in _RETRYABLE_SUBSCRIPTION_SMS_STATUSES:
+        return {
+            "status": "not_retryable",
+            "bill_order_bid": order.bill_order_bid,
+            "notification_status": current_status or None,
+        }
+
+    if product_name:
+        metadata["bonus_product_name"] = str(product_name).strip()
+        order.metadata_json = metadata
+        db.session.add(order)
+        db.session.commit()
+
+    if template_code:
+        return _send_bonus_subscription_sms(
+            app,
+            bill_order_bid=order.bill_order_bid,
+            template_code=template_code,
+        )
+
+    if not current_status:
+        stage_subscription_purchase_sms_for_paid_order(order, previous_status=None)
+        db.session.add(order)
+        db.session.commit()
+    return requeue_subscription_purchase_sms(app, bill_order_bid=order.bill_order_bid)
 
 
 def _write_subscription_sms_status(

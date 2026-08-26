@@ -100,8 +100,12 @@ def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
             },
             "manual",
         ),
+        (
+            {"checkout_type": "cache_overcharge_bonus_plan"},
+            "manual",
+        ),
     ],
-    ids=("pingxx", "preorder", "referral"),
+    ids=("pingxx", "preorder", "referral", "cache_overcharge_bonus_plan"),
 )
 def test_subscription_renewal_activation_defers_future_boundary(
     monkeypatch: pytest.MonkeyPatch,

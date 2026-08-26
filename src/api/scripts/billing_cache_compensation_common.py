@@ -32,6 +32,7 @@ def ensure_api_root_on_path() -> None:
 ensure_api_root_on_path()
 
 from flaskr.service.billing.primitives import quantize_credit_amount  # noqa: E402
+from flaskr.util.datetime import to_utc_iso  # noqa: E402
 
 
 @dataclass(slots=True, frozen=True)
@@ -54,7 +55,7 @@ class JsonEncoder(json.JSONEncoder):
         if isinstance(value, Decimal):
             return format(value, "f")
         if isinstance(value, datetime):
-            return value.isoformat()
+            return to_utc_iso(value)
         if isinstance(value, date):
             return value.isoformat()
         return super().default(value)
