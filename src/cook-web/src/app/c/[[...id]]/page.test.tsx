@@ -12,6 +12,9 @@ import ChatPage from './page';
 const mockGetProfileOnboarding = jest.fn();
 const mockSkipProfileOnboarding = jest.fn();
 const mockUpdateWxcode = jest.fn();
+const mockWechatLogin = jest.fn();
+let mockInWechat = false;
+let mockInMiniProgram = false;
 const mockRefreshUserInfo = jest.fn();
 const mockUpdateCourseId = jest.fn();
 const mockLoadTree = jest.fn();
@@ -228,6 +231,7 @@ type MockUserInfo = {
   name: string;
   email: string;
   language: string;
+  openid?: string;
 };
 
 type MockUserStoreState = {
@@ -279,6 +283,12 @@ const mockUiLayoutStoreState = {
   updateFrameLayout: jest.fn(),
 };
 
+const mockEnvStoreState = {
+  updateCourseId: mockUpdateCourseId,
+  enableWxcode: 'true',
+  appId: 'wx-app-id',
+};
+
 jest.mock('next/dynamic', () => ({
   __esModule: true,
   default: () =>
@@ -313,22 +323,17 @@ jest.mock('@/c-constants/uiConstants', () => ({
   FRAME_LAYOUT_MOBILE: 'mobile',
   LISTEN_MODE_VH_FALLBACK_CLASSNAME: 'listen-mode-vh-fallback',
   calcFrameLayout: () => 'desktop',
-  inWechat: () => false,
-  inMiniProgram: () => false,
+  inWechat: () => mockInWechat,
+  inMiniProgram: () => mockInMiniProgram,
+  wechatLogin: (...args: unknown[]) => mockWechatLogin(...args),
 }));
 
 jest.mock('@/c-store', () => ({
   useEnvStore: Object.assign(
-    (
-      selector?: (state: {
-        updateCourseId: typeof mockUpdateCourseId;
-      }) => unknown,
-    ) =>
-      selector ? selector({ updateCourseId: mockUpdateCourseId }) : undefined,
+    (selector?: (state: typeof mockEnvStoreState) => unknown) =>
+      selector ? selector(mockEnvStoreState) : undefined,
     {
-      getState: () => ({
-        updateCourseId: mockUpdateCourseId,
-      }),
+      getState: () => mockEnvStoreState,
     },
   ),
   useCourseStore: Object.assign(
@@ -488,6 +493,12 @@ describe('ChatPage profile onboarding gate', () => {
     };
     mockSystemStoreState.previewMode = false;
     mockSystemStoreState.learningMode = 'read';
+    mockSystemStoreState.wechatCode = '';
+    mockEnvStoreState.enableWxcode = 'true';
+    mockEnvStoreState.appId = 'wx-app-id';
+    mockInWechat = false;
+    mockInMiniProgram = false;
+    sessionStorage.clear();
     mockUiLayoutStoreState.frameLayout = 'desktop';
     mockSelectedLessonId = 'lesson-1';
     mockToast.mockReset();
@@ -1360,5 +1371,114 @@ describe('ChatPage profile onboarding gate', () => {
       'data-runtime-ready',
       'true',
     );
+  });
+
+  describe('WeChat openid rebinding', () => {
+    const renderInWechat = () => {
+      mockInWechat = true;
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: '',
+      };
+      return render(<ChatPage />);
+    };
+
+    test('binds the openid and refreshes the account when one is missing', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockResolvedValue('o_new_openid');
+
+      renderInWechat();
+
+      await waitFor(() =>
+        expect(mockUpdateWxcode).toHaveBeenCalledWith({ wxcode: 'code-1' }),
+      );
+      await waitFor(() => expect(mockRefreshUserInfo).toHaveBeenCalled());
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('leaves an already bound account alone', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockInWechat = true;
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: 'o_existing',
+      };
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('does not spend the same code twice when the exchange yields nothing', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockResolvedValue('');
+
+      renderInWechat();
+
+      await waitFor(() => expect(mockUpdateWxcode).toHaveBeenCalledTimes(1));
+      expect(mockRefreshUserInfo).not.toHaveBeenCalled();
+
+      mockSystemStoreState.wechatCode = 'code-2';
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockUpdateWxcode).toHaveBeenCalledTimes(2));
+      expect(mockUpdateWxcode).toHaveBeenLastCalledWith({ wxcode: 'code-2' });
+    });
+
+    test('requests a fresh code once per session when none is left', async () => {
+      mockSystemStoreState.wechatCode = '';
+
+      renderInWechat();
+
+      await waitFor(() => expect(mockWechatLogin).toHaveBeenCalledTimes(1));
+      expect(mockWechatLogin).toHaveBeenCalledWith(
+        expect.objectContaining({ appId: 'wx-app-id' }),
+      );
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    });
+
+    test('waits for the account profile before judging the openid', async () => {
+      mockSystemStoreState.wechatCode = '';
+      mockInWechat = true;
+      mockUserStoreState.userInfo = null;
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    });
+
+    test('stays out of the WeChat flow outside WeChat', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: '',
+      };
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('does not act when the WeChat code flow is disabled', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockEnvStoreState.enableWxcode = 'false';
+
+      renderInWechat();
+
+      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
   });
 });

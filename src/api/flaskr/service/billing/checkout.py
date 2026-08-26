@@ -1981,7 +1981,10 @@ def _build_pingxx_provider_options(
         charge_extra = {}
     elif normalized_channel == "wx_pub":
         user = load_user_aggregate(creator_bid)
-        charge_extra = {"open_id": user.wechat_open_id} if user else {}
+        open_id = str(user.wechat_open_id or "").strip() if user else ""
+        if not open_id:
+            raise_error("server.pay.wechatOpenIdRequired")
+        charge_extra = {"open_id": open_id}
     elif normalized_channel == "wx_wap":
         charge_extra = {}
     else:
