@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import grant_cache_overcharge_bonus_plan as bonus_plan  # noqa: E402
+import grant_cache_overcharge_teacher_bonus_plan as teacher_bonus_plan  # noqa: E402
 from billing_cache_compensation_common import (  # noqa: E402
     AMOUNT_HEADER,
     DEFAULT_SHEET_NAME,
@@ -44,6 +45,7 @@ from grant_cache_overcharge_bonus_plan import (  # noqa: E402
 from grant_cache_overcharge_credit_compensation import (  # noqa: E402
     _compare_existing_credit_grant,
 )
+from grant_cache_overcharge_teacher_bonus_plan import TeacherBonusTarget  # noqa: E402
 
 
 class _FakeApp:
@@ -280,6 +282,181 @@ def test_bonus_main_returns_two_for_existing_mismatch(
     assert bonus_plan.main() == 2
 
 
+def test_teacher_bonus_main_skips_original_batch_and_dry_run_does_not_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    product = BillingProduct(
+        product_bid="product-a",
+        product_code="creator-plan-monthly-pro",
+        price_amount=19900,
+    )
+    payloads: list[dict[str, object]] = []
+    persist_calls: list[object] = []
+    sms_calls: list[object] = []
+
+    monkeypatch.setattr(sys, "argv", _teacher_bonus_argv())
+    monkeypatch.setattr(teacher_bonus_plan, "create_app", _create_fake_app)
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_load_teacher_targets",
+        lambda _user_bids: [
+            TeacherBonusTarget(
+                user_bid="already-bonus",
+                identify="13800138000",
+                nickname="previous",
+                state=1102,
+            ),
+            TeacherBonusTarget(
+                user_bid="new-teacher",
+                identify="teacher@example.com",
+                nickname="new",
+                state=1102,
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_load_previous_bonus_creator_bids",
+        lambda _campaign_id: {"already-bonus"},
+    )
+    monkeypatch.setattr(teacher_bonus_plan, "_load_target_product", lambda **_: product)
+    monkeypatch.setattr(
+        teacher_bonus_plan, "_validate_product", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan, "_load_existing_bonus_order", lambda **_: None
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_resolve_order_shape",
+        lambda **_: {"metadata": {}, "preview": {"grant_mode": "immediate"}},
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_persist_bonus_order",
+        lambda *args, **kwargs: persist_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_send_bonus_subscription_sms",
+        lambda *args, **kwargs: sms_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(teacher_bonus_plan, "dump_json", payloads.append)
+
+    assert teacher_bonus_plan.main() == 0
+    assert persist_calls == []
+    assert sms_calls == []
+    assert payloads[0]["candidate_teacher_count"] == 2
+    assert payloads[0]["excluded_original_bonus_count"] == 1
+    assert payloads[0]["eligible_count"] == 1
+    assert payloads[0]["results"][0]["reason"] == "already_in_original_bonus_batch"
+
+
+def test_teacher_bonus_main_existing_mismatch_blocks_apply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    product = BillingProduct(
+        product_bid="product-a",
+        product_code="creator-plan-monthly-pro",
+        price_amount=19900,
+    )
+    order = BillingOrder(
+        bill_order_bid="order-a",
+        creator_bid="teacher-a",
+        subscription_bid="subscription-a",
+    )
+
+    persist_calls: list[object] = []
+
+    monkeypatch.setattr(sys, "argv", [*_teacher_bonus_argv(), "--apply"])
+    monkeypatch.setattr(teacher_bonus_plan, "create_app", _create_fake_app)
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_load_teacher_targets",
+        lambda _user_bids: [
+            TeacherBonusTarget(
+                user_bid="teacher-a",
+                identify="13800138000",
+                nickname="teacher",
+                state=1102,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_load_previous_bonus_creator_bids",
+        lambda _campaign_id: set(),
+    )
+    monkeypatch.setattr(teacher_bonus_plan, "_load_target_product", lambda **_: product)
+    monkeypatch.setattr(
+        teacher_bonus_plan, "_validate_product", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan, "_load_existing_bonus_order", lambda **_: order
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_compare_existing_bonus_order",
+        lambda *_, **__: {"product_bid": {"expected": "a", "actual": "b"}},
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "_persist_bonus_order",
+        lambda *args, **kwargs: persist_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(teacher_bonus_plan, "dump_json", lambda _payload: None)
+
+    assert teacher_bonus_plan.main() == 2
+    assert persist_calls == []
+
+
+def test_teacher_bonus_main_rejects_blank_sms_template_before_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app_calls: list[object] = []
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        _teacher_bonus_argv(template_code="   "),
+    )
+    monkeypatch.setattr(
+        teacher_bonus_plan,
+        "create_app",
+        lambda: app_calls.append(object()),
+    )
+
+    with pytest.raises(RuntimeError, match="--subscription-sms-template-code"):
+        teacher_bonus_plan.main()
+    assert app_calls == []
+
+
+def test_teacher_bonus_masks_identifiers_and_sms_mobile() -> None:
+    target = TeacherBonusTarget(
+        user_bid="teacher-a",
+        identify="13800138000",
+        nickname="teacher",
+        state=1102,
+    )
+
+    payload = teacher_bonus_plan._target_to_payload(target)
+    sms_result = teacher_bonus_plan._sanitize_sms_result(
+        {"status": "sent", "mobile": "13900139000"}
+    )
+
+    assert payload["identify"] == "138****8000"
+    assert teacher_bonus_plan._mask_identifier("teacher@example.com") == (
+        "te***@example.com"
+    )
+    assert sms_result["mobile"] == "139****9000"
+
+
+def test_teacher_bonus_escapes_like_literal_prefix() -> None:
+    assert teacher_bonus_plan._escape_like_literal("cache_overcharge%\\") == (
+        "cache\\_overcharge\\%\\\\"
+    )
+
+
 def _bonus_argv(csv_path: Path) -> list[str]:
     return [
         "grant_cache_overcharge_bonus_plan.py",
@@ -287,6 +464,16 @@ def _bonus_argv(csv_path: Path) -> list[str]:
         str(csv_path),
         "--subscription-sms-template-code",
         "SMS_TEST",
+        "--subscription-sms-product-name",
+        "AI Shifu test plan",
+    ]
+
+
+def _teacher_bonus_argv(template_code: str = "SMS_TEST") -> list[str]:
+    return [
+        "grant_cache_overcharge_teacher_bonus_plan.py",
+        "--subscription-sms-template-code",
+        template_code,
         "--subscription-sms-product-name",
         "AI Shifu test plan",
     ]
