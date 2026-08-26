@@ -230,8 +230,8 @@ export function CreditNotificationDetailSheet({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <SheetContent className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[480px] lg:w-[600px]'>
-        <SheetHeader className='border-b border-border px-6 py-4 pr-12'>
+      <SheetContent className='flex w-full flex-col overflow-hidden border-border bg-white p-0 sm:w-[360px] md:w-[480px] lg:w-[600px]'>
+        <SheetHeader className='border-b border-border px-6 py-4 pe-12'>
           <SheetTitle className='text-base font-semibold text-foreground'>
             {t('module.operationsCreditNotifications.detail.title')}
           </SheetTitle>

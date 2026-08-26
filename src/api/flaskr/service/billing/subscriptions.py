@@ -723,6 +723,16 @@ def _is_referral_invitation_renewal(order: BillingOrder) -> bool:
     )
 
 
+def _is_deferred_compensation_bonus_renewal(order: BillingOrder) -> bool:
+    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        return False
+
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    return str(metadata.get("checkout_type") or "").strip() == (
+        "cache_overcharge_bonus_plan"
+    )
+
+
 def _is_paid_referral_invitation_renewal(order: BillingOrder) -> bool:
     return int(
         order.status or 0
@@ -749,10 +759,11 @@ def _should_defer_subscription_renewal_activation(
         _should_defer_pingxx_renewal_activation(order)
         or _is_preorder_order(order)
         or _is_referral_invitation_renewal(order)
+        or _is_deferred_compensation_bonus_renewal(order)
     )
 
 
-def _has_paid_referral_invitation_renewal_at_boundary(
+def _has_paid_deferred_manual_renewal_at_boundary(
     subscription: BillingSubscription,
     *,
     boundary_at: datetime | None,
@@ -766,7 +777,9 @@ def _has_paid_referral_invitation_renewal_at_boundary(
     )
     if order is None:
         return False
-    return _is_referral_invitation_renewal(order)
+    return _is_referral_invitation_renewal(
+        order
+    ) or _is_deferred_compensation_bonus_renewal(order)
 
 
 def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
@@ -2299,12 +2312,9 @@ def _sync_subscription_lifecycle_events(
             event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
             scheduled_at=renewal_scheduled_at or scheduled_at,
         )
-        if (
-            provider_name == "pingxx"
-            or _has_paid_referral_invitation_renewal_at_boundary(
-                subscription,
-                boundary_at=scheduled_at,
-            )
+        if provider_name == "pingxx" or _has_paid_deferred_manual_renewal_at_boundary(
+            subscription,
+            boundary_at=scheduled_at,
         ):
             _upsert_subscription_renewal_event(
                 app,

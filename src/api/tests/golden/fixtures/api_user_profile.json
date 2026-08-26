@@ -41,9 +41,11 @@
         "type": "select",
         "value": "English",
         "items": [
-          "中文",
+          "العربية",
           "English",
-          "Français"
+          "Français",
+          "ไทย",
+          "中文"
         ]
       },
       {

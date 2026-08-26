@@ -18,24 +18,15 @@ const emptyProfileWithLegacyValues = {
   max_length: 1000,
   legacy_profile_values: {
     sys_user_nickname: '小林',
-    sys_user_background: '办公室工作',
     sys_user_style: '亲切直接',
   },
 };
 
 describe('buildLearnerProfileDraft', () => {
   test.each([
-    ['zh-CN', zhProfile, '我的背景：办公室工作\n我喜欢的语言风格：亲切直接'],
-    [
-      'en-US',
-      enProfile,
-      'My background: 办公室工作\nMy preferred language style: 亲切直接',
-    ],
-    [
-      'fr-FR',
-      frProfile,
-      'Mon parcours : 办公室工作\nMon style de langage préféré : 亲切直接',
-    ],
+    ['zh-CN', zhProfile, '我喜欢的语言风格：亲切直接'],
+    ['en-US', enProfile, 'My preferred language style: 亲切直接'],
+    ['fr-FR', frProfile, 'Mon style de langage préféré : 亲切直接'],
   ])(
     'interpolates legacy values with the production ICU formatter in %s',
     async (locale, profileTranslations, expected) => {

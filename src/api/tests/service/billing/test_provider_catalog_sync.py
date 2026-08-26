@@ -113,6 +113,9 @@ def test_stripe_product_webhook_stores_unlinked_snapshot_with_metadata_suggestio
     monkeypatch: object,
 ) -> None:
     _patch_account(monkeypatch)
+    # The session-scoped database may already contain mappings from other tests.
+    # Keep the unlinked product distinct from their shared prod_growth fixture.
+    provider_product_id = "prod_catalog_unlinked"
     with app.app_context():
         db.session.add(_product())
         db.session.commit()
@@ -124,7 +127,7 @@ def test_stripe_product_webhook_stores_unlinked_snapshot_with_metadata_suggestio
                 event_type="product.created",
                 created=1_780_000_000,
                 data_object={
-                    "id": "prod_growth",
+                    "id": provider_product_id,
                     "object": "product",
                     "active": True,
                     "livemode": False,
@@ -135,7 +138,7 @@ def test_stripe_product_webhook_stores_unlinked_snapshot_with_metadata_suggestio
         )
 
         snapshot = BillingProviderCatalogSnapshot.query.filter_by(
-            object_type="product", object_id="prod_growth"
+            object_type="product", object_id=provider_product_id
         ).one()
         event = BillingProviderCatalogEvent.query.filter_by(
             provider_event_id="evt_product_created"

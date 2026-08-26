@@ -1,6 +1,6 @@
 import { UserInfo } from './index';
 
-export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR';
+export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR' | 'ar-SA' | 'th-TH';
 
 export type LearningMode = 'listen' | 'read' | 'classroom';
 
@@ -104,6 +104,8 @@ export interface CourseStoreState {
       defaultListenModeEnabled: boolean | null;
     },
   ) => void;
+  isCurrentUserCourseOwner: boolean | null;
+  updateIsCurrentUserCourseOwner: (isOwner: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;
@@ -150,7 +152,7 @@ export interface UserStoreState {
   login: (userInfo: any, token: string) => Promise<void>;
   logout: (reload?: boolean) => Promise<void>;
   updateUserInfo: (info: Partial<UserInfo>) => void;
-  refreshUserInfo: () => Promise<void>;
+  refreshUserInfo: (options?: { skipErrorToast?: boolean }) => Promise<void>;
   ensureGuestToken: () => Promise<void>;
 }
 

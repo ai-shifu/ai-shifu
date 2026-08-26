@@ -1,0 +1,210 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "عدد الفصول",
+      "courseName": "اسم الدورة",
+      "createdAt": "وقت الإنشاء",
+      "learnerCount": "عدد المتعلمين",
+      "status": "حالة الدورة",
+      "statusLabels": {
+        "published": "منشورة",
+        "unpublished": "غير منشورة"
+      },
+      "title": "المعلومات الأساسية"
+    },
+    "courseIdLabel": "معرّف الدورة",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "اعرض سؤال المتابعة الحالي وإجابته المقابلة للمساعدة في تحديد نقاط تعثر المتعلم ووضوح صياغة الدورة.",
+        "fields": {
+          "currentAnswer": "الإجابة الحالية",
+          "currentFollowUp": "سؤال المتابعة الحالي",
+          "followUpTime": "وقت سؤال المتابعة",
+          "lesson": "الفصل المرتبط",
+          "nickname": "اسم الشهرة",
+          "turnIndex": "الجولة",
+          "user": "المتعلم"
+        },
+        "sections": {
+          "basicInfo": "المعلومات الأساسية",
+          "currentRecord": "السجل الحالي",
+          "timeline": "الخط الزمني لأسئلة المتابعة"
+        },
+        "timeline": {
+          "current": "الحالي",
+          "student": "المتعلم",
+          "teacher": "إجابة المعلم عن الدورة"
+        },
+        "title": "تفاصيل سؤال المتابعة"
+      },
+      "filters": {
+        "chapterKeyword": "الفصل",
+        "chapterKeywordPlaceholder": "اسم الفصل/الدرس",
+        "followUpTime": "وقت سؤال المتابعة",
+        "lessonKeyword": "الدرس الفرعي",
+        "lessonKeywordPlaceholder": "اسم الدرس الفرعي",
+        "reset": "إعادة ضبط",
+        "resultCount": "الإجمالي {count}",
+        "search": "بحث",
+        "sourceStatus": "تحديد موضع الإخراج الأصلي",
+        "sourceStatusAll": "جميع الحالات",
+        "sourceStatusMissing": "لم يتم تحديد موضع الإخراج الأصلي",
+        "sourceStatusResolved": "تم تحديد موضع الإخراج الأصلي",
+        "timePlaceholder": "وقت البدء ~ وقت الانتهاء",
+        "userKeyword": "المتعلم",
+        "userKeywordPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+        "userKeywordPlaceholderPhone": "رقم الهاتف / اسم الشهرة"
+      },
+      "summary": {
+        "followUpCount": "إجمالي أسئلة المتابعة",
+        "latestFollowUpAt": "آخر وقت لسؤال المتابعة",
+        "lessonCount": "عدد الدروس المتأثرة",
+        "scopeHint": "اعرض أسئلة المتعلمين حول محتوى الدورة للمساعدة في تحديد نقاط التعثر المتكررة والفصول التي تحتاج إلى تحسين.",
+        "userCount": "عدد المتعلمين الذين طرحوا أسئلة متابعة"
+      },
+      "table": {
+        "action": "الإجراء",
+        "chapter": "الفصل",
+        "content": "محتوى سؤال المتابعة",
+        "createdAt": "وقت سؤال المتابعة",
+        "detailAction": "التفاصيل",
+        "empty": "لا توجد بيانات لأسئلة المتابعة حاليًا",
+        "lesson": "الدرس الفرعي",
+        "sourceMissing": "لم يتم تحديد موضع الإخراج الأصلي",
+        "sourceResolved": "تم تحديد موضع الإخراج الأصلي",
+        "title": "قائمة أسئلة المتابعة",
+        "turnIndex": "الجولة",
+        "user": "المتعلم"
+      },
+      "title": "بيانات أسئلة المتابعة",
+      "turnIndex": "الجولة {count}",
+      "turnIndexHelp": "ترتّب جولات أسئلة المتابعة حسب ترتيب وقت طرحها ضمن سجل التعلم نفسه"
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "وقت الانضمام",
+        "lastLearningAt": "آخر وقت للتعلم",
+        "name": "المتعلم",
+        "progress": "تقدم التعلم",
+        "questions": "إجمالي أسئلة المتابعة",
+        "status": "حالة التعلم"
+      },
+      "empty": "لا يوجد متعلمون حاليًا",
+      "filters": {
+        "lastLearningTime": "آخر وقت للتعلم",
+        "lastLearningTimePlaceholder": "وقت البدء ~ وقت الانتهاء",
+        "learningStatus": "حالة التعلم",
+        "statusAll": "الكل",
+        "userKeyword": "المتعلم"
+      },
+      "searchPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+      "searchPlaceholderPhone": "رقم الهاتف / اسم الشهرة",
+      "status": {
+        "completed": "مكتمل",
+        "learning": "قيد التعلم",
+        "notStarted": "لم يبدأ"
+      },
+      "title": "قائمة المتعلمين",
+      "totalCount": "الإجمالي {count} متعلمًا",
+      "viewFollowUps": "عرض أسئلة المتابعة",
+      "viewFollowUpsForLearner": "عرض أسئلة المتابعة الخاصة بـ {learner}"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "المتعلمون النشطون خلال 7 أيام",
+      "completedLearners": "عدد من أكملوا الدورة",
+      "completionRate": "معدل إكمال الدورة",
+      "learningLearners": "عدد المتعلمين حاليًا",
+      "newLearnersLast7Days": "المتعلمون الجدد خلال 7 أيام",
+      "orderAmount": "مبلغ الطلبات",
+      "orderCount": "عدد الطلبات",
+      "rating": "تقييم الدورة",
+      "title": "البيانات الأساسية",
+      "totalQuestions": "عدد أسئلة المتابعة"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "الفصل",
+        "chapterKeywordPlaceholder": "اسم الفصل/الدرس",
+        "commentStatus": "محتوى التقييم",
+        "commentStatusAll": "الكل",
+        "commentStatusCommented": "عرض التقييمات التي تحتوي على تعليق فقط",
+        "ratingTime": "وقت التقييم",
+        "reset": "إعادة ضبط",
+        "resultCount": "الإجمالي {count}",
+        "score": "التقييم",
+        "scoreAll": "جميع التقييمات",
+        "search": "بحث",
+        "timePlaceholder": "وقت البدء ~ وقت الانتهاء",
+        "userKeyword": "المتعلم",
+        "userKeywordPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+        "userKeywordPlaceholderPhone": "رقم الهاتف / اسم الشهرة"
+      },
+      "scoreValue": "{score} نقطة",
+      "summary": {
+        "averageScore": "متوسط التقييم",
+        "latestRatedAt": "آخر وقت للتقييم",
+        "ratingCount": "عدد التقييمات",
+        "scopeHint": "اعرض تقييمات المتعلمين وملاحظاتهم على فصول الدورة للمساعدة في تحديد رضاهم والمحتوى الذي يحتاج إلى تعزيز.",
+        "userCount": "عدد المتعلمين الذين قيّموا الدورة"
+      },
+      "table": {
+        "comment": "محتوى التقييم",
+        "empty": "لا توجد بيانات تقييم حاليًا",
+        "guestUser": "متعلم مجهول",
+        "lesson": "الفصل",
+        "ratedAt": "وقت التقييم",
+        "score": "التقييم",
+        "title": "قائمة التقييمات",
+        "user": "المتعلم"
+      },
+      "title": "بيانات التقييمات"
+    },
+    "subtitle": "إحصاءات معلومات الدورة الأساسية ومؤشراتها الرئيسية وبيانات تعلم المتعلمين محدثة لحظيًا.",
+    "title": "تفاصيل الدورة"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "عدد الدورات",
+      "learners": "إجمالي المتعلمين",
+      "orderAmount": "إجمالي مبلغ الطلبات",
+      "orders": "إجمالي الطلبات"
+    },
+    "table": {
+      "action": "الإجراء",
+      "course": "الدورة",
+      "empty": "لا توجد دورات حاليًا",
+      "footnote": "عدد الدورات: {count} (نطاق الإحصاءات: يشمل فقط بيانات الدورات التي أنشأتها وتملكها أنت؛ ولا يشمل بيانات الدورات التعاونية.)",
+      "lastActive": "آخر نشاط",
+      "learners": "عدد المتعلمين",
+      "orderAmount": "مبلغ الطلبات",
+      "orders": "عدد الطلبات",
+      "reset": "إعادة ضبط",
+      "scopeNote": "نطاق الإحصاءات: يشمل فقط بيانات الدورات التي أنشأتها وتملكها أنت؛ ولا يشمل بيانات الدورات التعاونية.",
+      "search": "بحث",
+      "searchPlaceholder": "معرّف الدورة / اسم الدورة",
+      "title": "قائمة الدورات",
+      "totalCount": "الإجمالي {count}",
+      "viewCourse": "عرض الدورة",
+      "viewOrders": "عرض الطلبات"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "وقت البدء ~ وقت الانتهاء",
+    "reset": "إعادة ضبط"
+  },
+  "messages": {
+    "loadCourseDetailFailed": "فشل تحميل تفاصيل الدورة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadCoursesFailed": "فشل تحميل قائمة الدورات، يرجى التحديث والمحاولة مرة أخرى",
+    "loadFollowUpDetailFailed": "فشل تحميل تفاصيل سؤال المتابعة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadFollowUpsFailed": "فشل تحميل بيانات أسئلة المتابعة، يرجى التحديث والمحاولة مرة أخرى",
+    "loadLearnersFailed": "فشل تحميل قائمة المتعلمين، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadRatingsFailed": "فشل تحميل بيانات التقييمات، يرجى التحديث والمحاولة مرة أخرى"
+  },
+  "pagination": {
+    "next": "الصفحة التالية",
+    "prev": "الصفحة السابقة"
+  },
+  "title": "البيانات"
+}

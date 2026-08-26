@@ -19,6 +19,7 @@ TRANSLATIONS_DEFAULT_NAME = "i18n"
 
 _thread_local = threading.local()
 _translations: dict[str, dict[str, str]] = defaultdict(dict)
+_locale_labels: dict[str, str] = {}
 
 
 def _shared_json_root() -> Path:
@@ -77,7 +78,17 @@ def _load_json_translations(app: Flask, root: Path) -> None:
     if metadata_path.exists():
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            language_codes = metadata.get("locales", {}).keys()
+            locales = metadata.get("locales", {})
+            if isinstance(locales, dict):
+                language_codes = locales.keys()
+                _locale_labels.update(
+                    {
+                        str(code): config.get("label", str(code))
+                        if isinstance(config, dict)
+                        else str(code)
+                        for code, config in locales.items()
+                    }
+                )
         except Exception:  # pragma: no cover - defensive log
             app.logger.exception(
                 "Failed to parse locales metadata at %s", metadata_path
@@ -256,6 +267,7 @@ def load_translations(app: Flask, translations_dir: object = None) -> None:
         return
 
     _translations.clear()
+    _locale_labels.clear()
 
     shared_root = _shared_json_root()
     try:
@@ -306,10 +318,18 @@ def get_i18n_list() -> list[str]:
     return list(_translations.keys())
 
 
+def get_locale_labels() -> dict[str, str]:
+    """Return locale codes and native labels from the shared metadata registry."""
+    if _locale_labels:
+        return _locale_labels.copy()
+    return {language: language for language in _translations}
+
+
 __all__ = [
     "_",
     "clear_language",
     "get_i18n_list",
+    "get_locale_labels",
     "load_translations",
     "set_language",
     "translate_for_language",

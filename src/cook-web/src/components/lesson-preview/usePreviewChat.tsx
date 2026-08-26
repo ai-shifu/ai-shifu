@@ -38,6 +38,12 @@ import {
   resolveLearnerErrorToast,
 } from '@/lib/learnerError';
 import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
+import {
+  type CreditInsufficientAudience,
+  getCreditInsufficientMessage,
+  isCreditInsufficientBusinessCode,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
@@ -116,10 +122,26 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
 type PreviewSseResponseData = {
   type?: string;
   event_type?: string;
+  code?: number;
   content?: unknown;
   data?: unknown;
   generated_block_bid?: unknown;
   is_terminal?: unknown;
+};
+
+const resolvePreviewBusinessCode = (
+  response: PreviewSseResponseData,
+): number | undefined => {
+  if (typeof response.code === 'number') {
+    return response.code;
+  }
+  for (const candidate of [response.content, response.data]) {
+    const payload = parseObjectPayload<{ code?: unknown }>(candidate);
+    if (typeof payload?.code === 'number') {
+      return payload.code;
+    }
+  }
+  return undefined;
 };
 
 const PREVIEW_LOADING_ITEM_BID = 'loading';
@@ -456,7 +478,11 @@ export const replacePreviewLoadingWithBusinessError = (
   ];
 };
 
-export function usePreviewChat() {
+export function usePreviewChat({
+  creditInsufficientAudience,
+}: {
+  creditInsufficientAudience: CreditInsufficientAudience | null;
+}) {
   const { t } = useTranslation();
   const { actions } = useShifu();
   const getCurrentMdflow = actions?.getCurrentMdflow;
@@ -779,10 +805,27 @@ export function usePreviewChat() {
         typeof errorOrMessage === 'string'
           ? fallbackCode
           : (errorOrMessage?.code ?? fallbackCode);
-      const displayMessage = showPreviewErrorToast(
-        resolvedToast.message,
-        t('module.preview.llmError'),
-      );
+      const isCreditError = isCreditInsufficientBusinessCode(resolvedCode);
+      let displayMessage: string;
+      if (isCreditError) {
+        if (creditInsufficientAudience === null) {
+          stopPreview();
+          return;
+        }
+        displayMessage = getCreditInsufficientMessage(
+          creditInsufficientAudience,
+          resolvedCode,
+        );
+        showCreditInsufficientToast({
+          audience: creditInsufficientAudience,
+          code: resolvedCode,
+        });
+      } else {
+        displayMessage = showPreviewErrorToast(
+          resolvedToast.message,
+          t('module.preview.llmError'),
+        );
+      }
       setTrackedContentList(prev =>
         replacePreviewLoadingWithBusinessError(
           prev,
@@ -793,7 +836,13 @@ export function usePreviewChat() {
       setError(displayMessage);
       stopPreview();
     },
-    [setTrackedContentList, showPreviewErrorToast, stopPreview, t],
+    [
+      creditInsufficientAudience,
+      setTrackedContentList,
+      showPreviewErrorToast,
+      stopPreview,
+      t,
+    ],
   );
 
   const resetPreview = useCallback(() => {
@@ -1296,7 +1345,10 @@ export function usePreviewChat() {
           const errorMessage =
             resolveResponseStringPayload(response) ||
             t('module.preview.llmError');
-          handlePreviewBusinessError(errorMessage);
+          handlePreviewBusinessError(
+            errorMessage,
+            resolvePreviewBusinessCode(response),
+          );
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
           const audioSegment = normalizeAudioSegmentPayload(
             resolveResponsePayload(response),
@@ -1367,6 +1419,9 @@ export function usePreviewChat() {
       systemVariableKeys,
       visual_mode = false,
     }: StartPreviewParams) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       const normalizedUserInput =
         user_input &&
         Object.values(user_input).some(value =>
@@ -1477,6 +1532,7 @@ export function usePreviewChat() {
             requestId: traceHeaders.requestId,
             harnessRunId: traceHeaders.harnessRunId,
             skipErrorToast: true,
+            creditInsufficientAudience,
           },
           onHandled: error => {
             if (sseRef.current !== source) {
@@ -1553,6 +1609,7 @@ export function usePreviewChat() {
     },
     [
       finalizePreviewItems,
+      creditInsufficientAudience,
       handlePreviewBusinessError,
       handlePayload,
       invalidatePreviewRun,
@@ -1677,6 +1734,9 @@ export function usePreviewChat() {
       blockBid: string,
       options?: { skipStreamCheck?: boolean; skipConfirm?: boolean },
     ) => {
+      if (creditInsufficientAudience === null) {
+        return false;
+      }
       if (!options?.skipStreamCheck && isStreamingRef.current) {
         showOutputInProgressToast();
         return false;
@@ -1781,6 +1841,7 @@ export function usePreviewChat() {
       return true;
     },
     [
+      creditInsufficientAudience,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
       showOutputInProgressToast,
@@ -1794,6 +1855,9 @@ export function usePreviewChat() {
 
   const onRefresh = useCallback(
     async (elementBid: string) => {
+      if (creditInsufficientAudience === null) {
+        return;
+      }
       if (isStreamingRef.current) {
         showOutputInProgressToast();
         return;
@@ -1849,6 +1913,7 @@ export function usePreviewChat() {
       });
     },
     [
+      creditInsufficientAudience,
       resolveLatestMdflow,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
@@ -1952,7 +2017,7 @@ export function usePreviewChat() {
       blockId: string;
       text: string;
     }): Promise<AudioCompleteData | null> => {
-      if (!shifuBid || !blockId) {
+      if (creditInsufficientAudience === null || !shifuBid || !blockId) {
         return null;
       }
       const previewRunId = previewRunIdRef.current;
@@ -2030,6 +2095,7 @@ export function usePreviewChat() {
             requestToken: tokenValue || '',
             requestId: traceHeaders.requestId,
             harnessRunId: traceHeaders.harnessRunId,
+            creditInsufficientAudience,
           },
           onHandled: error => {
             if (
@@ -2142,6 +2208,7 @@ export function usePreviewChat() {
     },
     [
       closeTtsStream,
+      creditInsufficientAudience,
       ensureAudioItem,
       isCurrentPreviewRun,
       resolveBaseUrl,

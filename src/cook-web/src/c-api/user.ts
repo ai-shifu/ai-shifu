@@ -1,4 +1,4 @@
-import request from '@/lib/request';
+import request, { type RequestConfig } from '@/lib/request';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
 const getCurrentShifuBid = (): string => {
@@ -11,8 +11,8 @@ const getCurrentShifuBid = (): string => {
  * @description Fetch user information
  * @returns
  */
-export const getUserInfo = () => {
-  return request.get('/api/user/info');
+export const getUserInfo = (config?: Pick<RequestConfig, 'skipErrorToast'>) => {
+  return request.get('/api/user/info', config);
 };
 
 /**
@@ -51,28 +51,26 @@ export const updateWxcode = ({ wxcode }) => {
   return request.post('/api/user/update_openid', { wxcode, shifu_bid });
 };
 
-export type ProfileOnboardingStatus = {
-  enabled: boolean;
-  should_show: boolean;
-  markdownflow: string;
-  allowed_variable_keys: string[];
-  current_values: Record<string, string>;
-};
-
-export type CompleteProfileOnboardingPayload = {
-  skipped: boolean;
-  variables?: Record<string, string>;
-};
-
-export const getProfileOnboarding = (): Promise<ProfileOnboardingStatus> => {
-  return request.get('/api/user/profile-onboarding');
-};
-
-export const completeProfileOnboarding = (
-  payload: CompleteProfileOnboardingPayload,
-) => {
-  return request.post('/api/user/profile-onboarding/complete', payload);
-};
+// The maintained `c` route still imports this compatibility module. Keep the
+// learner-profile transport and validation owned by the modern API module.
+export {
+  completeGuidedProfileOnboarding as completeProfileOnboarding,
+  createProfileOnboardingSession,
+  getProfileOnboarding,
+  isProfileOnboardingStatus,
+  runProfileOnboardingSession,
+  skipGuidedProfileOnboarding as skipProfileOnboarding,
+} from '@/api/learnerProfile';
+export type {
+  CompleteProfileOnboardingPayload,
+  LearnerProfile as CompleteProfileOnboardingResponse,
+  ProfileOnboardingPresentation,
+  ProfileOnboardingRunEvent,
+  ProfileOnboardingSession,
+  ProfileOnboardingSessionIntent,
+  ProfileOnboardingStatus,
+  ProfileOnboardingStatusResponse,
+} from '@/api/learnerProfile';
 
 /**
  * Send SMS verification code

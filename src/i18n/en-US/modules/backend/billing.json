@@ -7,6 +7,7 @@
     "campaignLockedAfterHit": "This package campaign already has paid hit orders. Campaign products and benefit rules can no longer be changed.",
     "campaignNotFound": "Package campaign not found.",
     "campaignOverlapActive": "Products {product_names} already have an active package campaign in the selected time range. Adjust the campaign window or choose different products.",
+    "campaignProviderDiscountLocked": "This package campaign already has active Stripe Coupons. Create a new campaign version or retire the coupons before changing products, rules, or dates.",
     "creditInsufficient": "Insufficient credits. Subscribe or buy credits before continuing.",
     "customDomainDisabled": "Custom domains are not enabled for this teacher.",
     "debugDisabledBySoftLimit": "Credits are below the configured reminder threshold. Subscribe or buy credits before continuing debug previews.",

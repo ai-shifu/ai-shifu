@@ -6,6 +6,10 @@ import { Check, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  BillingStripeRedirectOverlay,
+  type BillingStripeRedirectPhase,
+} from '@/components/billing/BillingStripeRedirectOverlay';
 import { TopupCard } from '@/components/billing/BillingOverviewCards';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   buildBillingSwrKey,
   formatBillingCredits,
+  formatBillingPercent,
   formatBillingPrice,
   openBillingCheckoutUrl,
 } from '@/lib/billing';
@@ -257,6 +262,10 @@ export function GlobalBillingPricing() {
   const [billingCycle, setBillingCycle] =
     React.useState<BillingCycle>('annual');
   const [checkoutLoadingKey, setCheckoutLoadingKey] = React.useState('');
+  const [stripeRedirect, setStripeRedirect] = React.useState<{
+    phase: BillingStripeRedirectPhase;
+    retryUrl?: string;
+  } | null>(null);
   const { data, error, isLoading } = useSWR<BillingCatalogResponse>(
     buildBillingSwrKey('billing-catalog'),
     async () =>
@@ -300,6 +309,7 @@ export function GlobalBillingPricing() {
 
       const loadingKey = buildCheckoutLoadingKey(product);
       setCheckoutLoadingKey(loadingKey);
+      setStripeRedirect({ phase: 'creating' });
       try {
         let result: BillingCheckoutResult;
         if (product.product_type === 'plan') {
@@ -329,6 +339,7 @@ export function GlobalBillingPricing() {
         });
 
         if (result.status === 'unsupported' || !result.redirect_url) {
+          setStripeRedirect(null);
           toast({
             title: t('module.billing.checkout.unsupported'),
             variant: 'destructive',
@@ -336,8 +347,13 @@ export function GlobalBillingPricing() {
           return;
         }
 
+        setStripeRedirect({
+          phase: 'redirecting',
+          retryUrl: result.redirect_url,
+        });
         openBillingCheckoutUrl(result.redirect_url);
       } catch (error: any) {
+        setStripeRedirect(null);
         toast({
           title: error?.message || t('common.core.requestFailed'),
           variant: 'destructive',
@@ -354,6 +370,17 @@ export function GlobalBillingPricing() {
       className='mx-auto w-full max-w-[1440px] space-y-8'
       data-testid='global-billing-pricing'
     >
+      <BillingStripeRedirectOverlay
+        open={Boolean(stripeRedirect)}
+        phase={stripeRedirect?.phase || 'creating'}
+        retryUrl={stripeRedirect?.retryUrl}
+        onRetry={() => {
+          if (stripeRedirect?.retryUrl) {
+            openBillingCheckoutUrl(stripeRedirect.retryUrl);
+          }
+        }}
+      />
+
       <Tabs
         value={pricingTab}
         onValueChange={value => setPricingTab(value as PricingTab)}
@@ -705,8 +732,11 @@ function PlanCard({
     ? monthlyProduct.price_amount * 12 - annualProduct.price_amount
     : 0;
   const annualSavingsPercent = annualProduct
-    ? ((annualSavings / (monthlyProduct.price_amount * 12)) * 100).toFixed(1)
-    : '0.0';
+    ? formatBillingPercent(
+        (annualSavings / (monthlyProduct.price_amount * 12)) * 100,
+        locale,
+      )
+    : formatBillingPercent(0, locale);
   const featureIncludeKey = PLAN_FEATURE_INCLUDE_KEYS[tierSpec.tier];
   const pricingDetailsClassName =
     cycle === 'annual' ? 'min-h-[150px]' : 'min-h-[86px]';

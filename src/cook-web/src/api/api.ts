@@ -33,9 +33,6 @@ const api = {
   setPassword: 'POST /user/set_password',
   changePassword: 'POST /user/change_password',
   resetPassword: 'POST /user/reset_password',
-  getProfileOnboarding: 'GET /user/profile-onboarding',
-  completeProfileOnboarding: 'POST /user/profile-onboarding/complete',
-
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
   getReferralInvitePreview: 'GET /referral/invite-preview',
@@ -217,6 +214,8 @@ const api = {
     'GET /shifu/admin/operations/profile-onboarding',
   updateAdminOperationProfileOnboardingConfig:
     'POST /shifu/admin/operations/profile-onboarding',
+  createAdminOperationProfileOnboardingPreview:
+    'POST /shifu/admin/operations/profile-onboarding/preview',
   getAdminOperationConfigRates: 'GET /shifu/admin/operations/config/rates',
   updateAdminOperationConfigRate: 'POST /shifu/admin/operations/config/rates',
   getAdminOperationReferrals: 'GET /shifu/admin/operations/referrals',
@@ -317,6 +316,16 @@ const api = {
   updateAdminBillingCampaign: 'POST /admin/billing/campaigns/{campaign_bid}',
   updateAdminBillingCampaignStatus:
     'POST /admin/billing/campaigns/{campaign_bid}/status',
+  getAdminBillingCampaignProviderDiscounts:
+    'GET /admin/billing/campaigns/{campaign_bid}/provider-discounts',
+  publishAdminBillingCampaign:
+    'POST /admin/billing/campaigns/{campaign_bid}/publish',
+  retryPublishAdminBillingCampaign:
+    'POST /admin/billing/campaigns/{campaign_bid}/publish/retry',
+  retireAdminBillingCampaign:
+    'POST /admin/billing/campaigns/{campaign_bid}/retire',
+  validateAdminBillingCampaignProviderDiscount:
+    'POST /admin/billing/campaign-provider-discounts/{campaign_provider_discount_bid}/validate',
   getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
   grantAdminBillingEntitlement: 'POST /admin/billing/entitlements/grants',
   getAdminBillingOpsState: 'GET /admin/billing/ops-state',

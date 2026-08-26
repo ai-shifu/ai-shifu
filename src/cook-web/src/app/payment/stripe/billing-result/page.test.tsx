@@ -196,4 +196,29 @@ describe('StripeBillingResultPage', () => {
       expect(mockRequestPost).toHaveBeenCalledTimes(2);
     });
   });
+
+  test.each(['failed', 'canceled', 'timeout', 'refunded', 'unknown'])(
+    'does not show success when sync returns %s',
+    async status => {
+      jest.useFakeTimers();
+      mockSearchParams.set('bill_order_bid', `bill-order-${status}`);
+      mockSearchParams.set('session_id', `sess-${status}`);
+      mockRequestPost.mockResolvedValue({ status });
+
+      render(<StripeBillingResultPage />);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Billing sync failed' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Billing updated')).not.toBeInTheDocument();
+      expect(screen.queryByText('Payment confirmed')).not.toBeInTheDocument();
+      expect(mockMutateSWRCache).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+
+      expect(mockPush).not.toHaveBeenCalled();
+    },
+  );
 });

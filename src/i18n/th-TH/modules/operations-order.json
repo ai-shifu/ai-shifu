@@ -1,0 +1,164 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits}",
+    "detail": {
+      "description": "ดูรายละเอียดคำสั่งซื้อเครดิต",
+      "labels": {
+        "creatorId": "รหัสผู้ใช้",
+        "failedAt": "เวลาล้มเหลว",
+        "failureCode": "รหัสข้อผิดพลาด",
+        "failureMessage": "สาเหตุที่ล้มเหลว",
+        "grantSourceId": "รหัสแหล่งที่มาของการมอบ",
+        "grantSourceType": "ประเภทแหล่งที่มาของการมอบ",
+        "grantedCredits": "เครดิตที่ได้รับ",
+        "orderType": "ประเภทคำสั่งซื้อ",
+        "paidAt": "เวลาชำระเงิน",
+        "productCode": "รหัสสินค้า",
+        "providerReference": "หมายเลขรายการชำระเงิน",
+        "validFrom": "เวลามีผล"
+      },
+      "sections": {
+        "creator": "ข้อมูลผู้ใช้",
+        "grant": "บันทึกการมอบ",
+        "metadata": "ข้อมูลเพิ่มเติม",
+        "payment": "ข้อมูลการชำระเงิน",
+        "product": "ข้อมูลแพ็กเกจเครดิต",
+        "summary": "ข้อมูลคำสั่งซื้อ"
+      },
+      "title": "รายละเอียดคำสั่งซื้อเครดิต"
+    },
+    "emptyList": "ยังไม่มีข้อมูลคำสั่งซื้อเครดิต",
+    "filters": {
+      "creatorKeyword": "ผู้ใช้",
+      "creatorKeywordPlaceholderEmail": "อีเมล",
+      "creatorKeywordPlaceholderPhone": "หมายเลขโทรศัพท์",
+      "orderKind": "ประเภทคำสั่งซื้อ",
+      "paymentProvider": "ผู้ให้บริการชำระเงิน",
+      "productKeyword": "ค้นหาแพ็กเกจเครดิต",
+      "productKeywordPlaceholder": "ชื่อแพ็กเกจเครดิต / แพ็กเครดิต"
+    },
+    "kind": {
+      "other": "อื่น ๆ",
+      "plan": "แพ็กเกจเครดิต",
+      "topup": "แพ็กเครดิต"
+    },
+    "longTerm": "ใช้ได้ระยะยาว",
+    "overview": {
+      "metrics": {
+        "creditAmount": "เครดิตที่ใช้ได้ปัจจุบัน",
+        "paidAmount": "ยอดชำระจริง",
+        "paidOrders": "ชำระเงินแล้ว",
+        "totalOrders": "คำสั่งซื้อทั้งหมด"
+      },
+      "tooltips": {
+        "creditAmount": "เครดิตที่ยังไม่ได้ใช้และยังใช้เรียน ดูตัวอย่าง และดีบักได้รวมกันในบัญชีครูทั้งหมด",
+        "paidAmount": "ยอดชำระจริงรวมของคำสั่งซื้อเครดิตที่ชำระเงินแล้ว",
+        "paidOrders": "จำนวนคำสั่งซื้อเครดิตที่ชำระเงินแล้ว",
+        "totalOrders": "จำนวนคำสั่งซื้อเครดิตทั้งหมด"
+      }
+    },
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "productIntervals": {
+      "day": "รายวัน",
+      "month": "รายเดือน",
+      "year": "รายปี"
+    },
+    "productNameFormat": "{interval}-{name}",
+    "table": {
+      "creator": "ผู้ใช้",
+      "creditAmount": "จำนวนเครดิต",
+      "orderId": "รหัสคำสั่งซื้อเครดิต",
+      "orderKind": "ประเภทคำสั่งซื้อ",
+      "paymentChannel": "วิธีการชำระเงิน",
+      "product": "แพ็กเกจเครดิต",
+      "validTo": "ใช้ได้ถึง"
+    }
+  },
+  "detail": {
+    "fallback": "รายละเอียดคำสั่งซื้อ",
+    "sections": {
+      "activities": "ข้อมูลกิจกรรม",
+      "coupons": "รหัสแลกรับ",
+      "course": "ข้อมูลหลักสูตร",
+      "payment": "ยอดเงินและการชำระเงิน",
+      "summary": "ข้อมูลคำสั่งซื้อ",
+      "user": "ข้อมูลผู้ใช้"
+    },
+    "title": "รายละเอียดคำสั่งซื้อ"
+  },
+  "emptyList": "ยังไม่มีข้อมูลคำสั่งซื้อ",
+  "filters": {
+    "course": "หลักสูตร",
+    "courseId": "รหัสหลักสูตร",
+    "courseIdPlaceholder": "รหัสหลักสูตร",
+    "courseName": "ชื่อหลักสูตร",
+    "courseNamePlaceholder": "ชื่อหลักสูตร",
+    "courseQueryPlaceholder": "รหัสหลักสูตร / ชื่อหลักสูตร",
+    "createdAt": "เวลาสั่งซื้อ",
+    "endTime": "เวลาสิ้นสุด",
+    "orderId": "รหัสคำสั่งซื้อ",
+    "orderIdPlaceholder": "รหัสคำสั่งซื้อ",
+    "paymentChannel": "ช่องทางการชำระเงิน",
+    "reset": "รีเซ็ต",
+    "search": "ค้นหา",
+    "source": "แหล่งที่มาของคำสั่งซื้อ",
+    "startTime": "เวลาเริ่มต้น",
+    "status": "สถานะ",
+    "timeRangePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+    "userKeyword": "ผู้ใช้",
+    "userKeywordPlaceholder": "หมายเลขโทรศัพท์ / อีเมล",
+    "userKeywordPlaceholderEmail": "อีเมล",
+    "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์"
+  },
+  "messages": {
+    "loadCreditOrderDetailFailed": "โหลดรายละเอียดคำสั่งซื้อเครดิตไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadDetailFailed": "โหลดรายละเอียดคำสั่งซื้อไม่สำเร็จ โปรดลองอีกครั้งภายหลัง"
+  },
+  "overview": {
+    "activeFilter": "ตัวกรองปัจจุบัน",
+    "metrics": {
+      "paidAmount": "ยอดชำระจริง",
+      "paidOrders": "ชำระเงินแล้ว",
+      "totalOrders": "คำสั่งซื้อทั้งหมด"
+    },
+    "staleData": "โหลดภาพรวมข้อมูลไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "title": "ภาพรวมข้อมูล",
+    "tooltips": {
+      "paidAmount": "ยอดชำระจริงรวมของคำสั่งซื้อการเรียนที่ชำระเงินแล้ว",
+      "paidOrders": "จำนวนคำสั่งซื้อการเรียนที่ชำระเงินแล้ว",
+      "totalOrders": "จำนวนคำสั่งซื้อการเรียนทั้งหมด"
+    }
+  },
+  "source": {
+    "couponRedeem": "แลกรับด้วยรหัสแลกรับ",
+    "importActivation": "เปิดใช้งานจากการนำเข้า",
+    "openApi": "เปิดใช้งานผ่าน Open API",
+    "userPurchase": "ผู้ใช้สั่งซื้อ"
+  },
+  "table": {
+    "action": "การดำเนินการ",
+    "coupons": "รหัสแลกรับ",
+    "course": "หลักสูตร",
+    "createdAt": "เวลาสั่งซื้อ",
+    "discountAmount": "ส่วนลด",
+    "empty": "ยังไม่มีข้อมูลคำสั่งซื้อ",
+    "orderId": "รหัสคำสั่งซื้อ",
+    "paidAmount": "ยอดรับจริง",
+    "paymentChannel": "ช่องทางการชำระเงิน",
+    "source": "แหล่งที่มาของคำสั่งซื้อ",
+    "status": "สถานะ",
+    "updatedAt": "เวลาอัปเดตคำสั่งซื้อ",
+    "user": "ผู้ใช้",
+    "userId": "รหัสผู้ใช้",
+    "view": "ดูรายละเอียด"
+  },
+  "tabs": {
+    "credits": "คำสั่งซื้อเครดิต",
+    "learn": "คำสั่งซื้อการเรียน"
+  },
+  "title": "การจัดการคำสั่งซื้อ",
+  "totalCount": "คำสั่งซื้อทั้งหมด {count} รายการ"
+}

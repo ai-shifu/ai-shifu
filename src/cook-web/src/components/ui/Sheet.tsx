@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
+import { useDirection } from '@radix-ui/react-direction';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -50,10 +51,11 @@ const sheetVariants = cva(
   },
 );
 
-interface SheetContentProps
-  extends
-    React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {
+interface SheetContentProps extends React.ComponentPropsWithoutRef<
+  typeof SheetPrimitive.Content
+> {
+  /** Logical sides mirror in RTL; explicit left/right remain physical. */
+  side?: VariantProps<typeof sheetVariants>['side'] | 'start' | 'end';
   onCloseIconClick?: React.MouseEventHandler<HTMLButtonElement>;
   hideOverlay?: boolean;
 }
@@ -64,7 +66,8 @@ const SheetContent = React.forwardRef<
 >(
   (
     {
-      side = 'right',
+      side = 'end',
+      dir,
       className,
       children,
       onInteractOutside,
@@ -73,28 +76,45 @@ const SheetContent = React.forwardRef<
       ...props
     },
     ref,
-  ) => (
-    <SheetPortal>
-      {hideOverlay ? null : <SheetOverlay />}
-      <SheetPrimitive.Content
-        ref={ref}
-        onInteractOutside={event => {
-          onInteractOutside?.(event);
-        }}
-        className={cn(sheetVariants({ side }), className)}
-        {...props}
-      >
-        {children}
-        <SheetPrimitive.Close
-          className='absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary'
-          onClick={onCloseIconClick}
+  ) => {
+    const direction = useDirection(
+      dir === 'ltr' || dir === 'rtl' ? dir : undefined,
+    );
+    const physicalSide =
+      side === 'end'
+        ? direction === 'rtl'
+          ? 'left'
+          : 'right'
+        : side === 'start'
+          ? direction === 'rtl'
+            ? 'right'
+            : 'left'
+          : side;
+
+    return (
+      <SheetPortal>
+        {hideOverlay ? null : <SheetOverlay />}
+        <SheetPrimitive.Content
+          ref={ref}
+          dir={direction}
+          onInteractOutside={event => {
+            onInteractOutside?.(event);
+          }}
+          className={cn(sheetVariants({ side: physicalSide }), className)}
+          {...props}
         >
-          <X className='h-4 w-4' />
-          <SheetCloseLabel />
-        </SheetPrimitive.Close>
-      </SheetPrimitive.Content>
-    </SheetPortal>
-  ),
+          {children}
+          <SheetPrimitive.Close
+            className='absolute end-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary'
+            onClick={onCloseIconClick}
+          >
+            <X className='h-4 w-4' />
+            <SheetCloseLabel />
+          </SheetPrimitive.Close>
+        </SheetPrimitive.Content>
+      </SheetPortal>
+    );
+  },
 );
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
@@ -104,7 +124,7 @@ const SheetHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col space-y-2 text-center sm:text-left',
+      'flex flex-col space-y-2 text-center sm:text-start',
       className,
     )}
     {...props}
@@ -118,7 +138,7 @@ const SheetFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2',
+      'flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2',
       className,
     )}
     {...props}

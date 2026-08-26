@@ -104,8 +104,8 @@ describe('Select layering', () => {
       SELECT_ITEM_BASE_CLASS.split(' ')[0],
     );
     expect(selectItemElement.className).toContain('rounded-md');
-    expect(selectItemElement.className).toContain('pl-3');
-    expect(selectItemElement.className).toContain('pr-9');
+    expect(selectItemElement.className).toContain('ps-3');
+    expect(selectItemElement.className).toContain('pe-9');
   });
 });
 

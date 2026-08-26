@@ -363,10 +363,20 @@ export function formatBillingCredits(value: number, locale: string): string {
   return formatBillingNumber(value, locale);
 }
 
-export function formatBillingCreditBalance(value: number): string {
+export function formatBillingPercent(value: number, locale: string): string {
+  return formatBillingNumber(value, locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+export function formatBillingCreditBalance(
+  value: number,
+  locale = 'en-US',
+): string {
   const numeric = Number(value ?? 0);
   const floored = Number.isFinite(numeric) ? Math.floor(numeric) : 0;
-  return formatBillingNumber(floored, 'en-US', { maximumFractionDigits: 0 });
+  return formatBillingNumber(floored, locale, { maximumFractionDigits: 0 });
 }
 
 export function formatBillingCreditAmount(value: number): string {
@@ -1004,6 +1014,10 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.alerts.actions.checkoutTopup'),
     t('module.billing.alerts.actions.openOrders'),
     t('module.billing.alerts.actions.resumeSubscription'),
+    t('module.billing.creditInsufficient.learner'),
+    t('module.billing.creditInsufficient.purchaseActionAltText'),
+    t('module.billing.creditInsufficient.teacher'),
+    t('module.billing.creditInsufficient.teacherSoftlimit'),
     t('module.billing.alerts.cancelScheduled'),
     t('module.billing.alerts.lowBalance'),
     t('module.billing.alerts.subscriptionPastDue'),

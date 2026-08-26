@@ -257,6 +257,7 @@ export function BillingCreditDetailsPanel({
 
   const totalCreditsLabel = formatBillingCreditBalance(
     overview?.wallet.available_credits || 0,
+    i18n.language,
   );
   const emptyValidityLabel = t('module.billing.details.emptyValidityLabel');
   const neverExpiresLabel = t('module.billing.ledger.neverExpires');

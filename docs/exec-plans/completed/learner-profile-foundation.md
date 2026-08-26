@@ -10,8 +10,8 @@ teacher-owned Course Prompt plus JSON-encoded learner data.
 ## Progress
 
 - [x] 2026-08-15 CST: Canonical profile persistence, compatibility behavior,
-  prompt composition, migration graph, and focused regression coverage are
-  complete.
+      prompt composition, migration graph, and focused regression coverage are
+      complete.
 
 ## Surprises & Discoveries
 
@@ -64,7 +64,7 @@ affected contract before changing legacy compatibility paths.
 
 - `user_users.learner_profile` and
   `user_users.learner_profile_updated_at` are managed atomically with the
-  fixed profile-v2 handled state.
+  fixed profile onboarding handled state.
 - Canonical GET, PUT, and DELETE remain authenticated and compatible with
   legacy onboarding behavior.
 - Legacy `sys_*` writes, reads, parser behavior, and old-course runtime
@@ -87,7 +87,7 @@ revision.
 ## Interfaces and Dependencies
 
 - Database: canonical fields on `user_users` and the existing
-  `user_onboarding_states` profile-v2 row.
+  `user_onboarding_states` profile onboarding row.
 - API: `GET|PUT|DELETE /api/user/learner-profile`; legacy
   `GET|POST /api/user/profile-onboarding[/complete]` remains stable.
 - Prompt API: `build_course_prompt(course_prompt, learner=...)` produces the

@@ -646,6 +646,7 @@ class AdminBillingCampaignDTO(BillingBaseDTO):
     product_types: list[str] = Field(default_factory=list)
     product_names: list[str] = Field(default_factory=list)
     has_custom_product_rules: bool = False
+    provider_discount_summary: dict[str, object] = Field(default_factory=dict)
     computed_status: str
     hit_order_count: int = 0
     start_at: datetime | None
@@ -856,6 +857,8 @@ class RuntimeLocalizedUrlDTO(BillingBaseDTO):
     zh_cn: str = Field(alias="zh-CN")
     en_us: str = Field(alias="en-US")
     fr_fr: str = Field(alias="fr-FR")
+    ar_sa: str = Field(alias="ar-SA")
+    th_th: str = Field(alias="th-TH")
 
 
 class RuntimeLegalUrlsDTO(BillingBaseDTO):

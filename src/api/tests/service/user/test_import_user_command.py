@@ -8,7 +8,7 @@ from flaskr.command.import_user import import_user
 from flaskr.dao import db
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
-    PROFILE_ONBOARDING_VERSION,
+    PROFILE_ONBOARDING_STATE_VERSION,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserInfo, UserOnboardingState
@@ -67,7 +67,7 @@ def test_import_user_keeps_pre_profile_nickname_behavior(
                 UserOnboardingState(
                     user_bid=user.user_bid,
                     scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                    version=PROFILE_ONBOARDING_VERSION,
+                    version=PROFILE_ONBOARDING_STATE_VERSION,
                     status="completed",
                     trigger_source="settings",
                     completed_at=now_utc(),
@@ -128,7 +128,7 @@ def test_import_user_does_not_consult_profile_state_before_nickname_defaults(
             UserOnboardingState(
                 user_bid=user.user_bid,
                 scene_key=PROFILE_ONBOARDING_SCENE_KEY,
-                version=PROFILE_ONBOARDING_VERSION,
+                version=PROFILE_ONBOARDING_STATE_VERSION,
                 status="completed",
                 trigger_source="settings",
                 completed_at=now_utc(),

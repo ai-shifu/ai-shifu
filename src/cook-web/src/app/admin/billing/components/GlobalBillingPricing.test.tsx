@@ -20,6 +20,7 @@ let mockBillingSubscription: BillingSubscription | null = null;
 let mockBillingOverview:
   | { subscription: BillingSubscription | null }
   | undefined;
+let mockResolvedLanguage = 'zh-CN';
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
@@ -121,6 +122,12 @@ jest.mock('react-i18next', () => ({
         'module.billing.globalPricing.approximatePricePrefix': 'Approx.',
         'module.billing.checkout.unsupported':
           'This payment method is not available right now.',
+        'module.billing.checkout.redirect.creating': 'Creating your order...',
+        'module.billing.checkout.redirect.description':
+          'Please keep this page open. If it does not redirect automatically, use the button below to try again.',
+        'module.billing.checkout.redirect.openingStripe':
+          'Opening Stripe secure checkout...',
+        'module.billing.checkout.redirect.retry': 'Open checkout again',
         'module.billing.globalPricing.checkoutNotice':
           'Stripe checkout is available. You will be redirected to Stripe to complete payment.',
         'module.billing.globalPricing.cycles.annual': 'Annual',
@@ -200,8 +207,8 @@ jest.mock('react-i18next', () => ({
       t: translate,
       i18n: {
         getFixedT: () => translate,
-        language: 'zh-CN',
-        resolvedLanguage: 'zh-CN',
+        language: mockResolvedLanguage,
+        resolvedLanguage: mockResolvedLanguage,
       },
     };
   },
@@ -288,6 +295,7 @@ describe('GlobalBillingPricing', () => {
     mockBillingOverview = {
       subscription: mockBillingSubscription,
     };
+    mockResolvedLanguage = 'zh-CN';
     mockGetBillingCatalog.mockResolvedValue(buildGlobalCatalog());
   });
 
@@ -407,6 +415,23 @@ describe('GlobalBillingPricing', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('formats annual savings with the active language locale', async () => {
+    mockResolvedLanguage = 'fr-FR';
+
+    renderPricing();
+
+    const studio = await screen.findByTestId('global-plan-studio');
+    const growth = await screen.findByTestId('global-plan-growth');
+    expect(within(studio).getByText(/59\s\$/)).toBeInTheDocument();
+    expect(within(growth).getByText(/183\s\$/)).toBeInTheDocument();
+    expect(
+      within(growth).getByText(/Save 549\s\$ per year \(20,0%\)/),
+    ).toBeInTheDocument();
+    expect(
+      within(growth).getByText(/50\s000 credits per 12-month billing period/),
+    ).toBeInTheDocument();
+  });
+
   test('switches to monthly pricing without a Studio first-month offer', async () => {
     const user = userEvent.setup();
     renderPricing();
@@ -510,6 +535,12 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/session',
     );
+    expect(
+      screen.getByTestId('billing-stripe-redirect-overlay'),
+    ).toHaveTextContent('Opening Stripe secure checkout...');
+    expect(
+      screen.getByRole('button', { name: 'Open checkout again' }),
+    ).toBeInTheDocument();
     expect(mockCheckoutTopup).not.toHaveBeenCalled();
   });
 
@@ -575,6 +606,48 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/topup',
     );
+  });
+
+  test('shows an immediate Stripe transition state while checkout is being created', async () => {
+    const user = userEvent.setup();
+    let resolveCheckout: (
+      value: Awaited<ReturnType<typeof mockCheckoutSubscription>>,
+    ) => void = () => {};
+    mockCheckoutSubscription.mockReturnValue(
+      new Promise(resolve => {
+        resolveCheckout = resolve;
+      }),
+    );
+    renderPricing();
+
+    const business = await screen.findByTestId('global-plan-business');
+    await act(async () => {
+      await user.click(
+        within(business).getByRole('button', { name: 'Choose plan' }),
+      );
+    });
+
+    expect(
+      screen.getByTestId('billing-stripe-redirect-overlay'),
+    ).toHaveTextContent('Creating your order...');
+    expect(
+      within(business).getByText('Opening checkout...').closest('button'),
+    ).toBeDisabled();
+
+    await act(async () => {
+      resolveCheckout({
+        bill_order_bid: 'order-business-annual',
+        provider: 'stripe',
+        payment_mode: 'subscription',
+        status: 'pending',
+        redirect_url: 'https://checkout.stripe.test/session',
+        checkout_session_id: 'cs_test_plan',
+      });
+    });
+
+    expect(
+      screen.getByTestId('billing-stripe-redirect-overlay'),
+    ).toHaveTextContent('Opening Stripe secure checkout...');
   });
 
   test('uses immediate upgrade and disables unsupported active plan transitions', async () => {

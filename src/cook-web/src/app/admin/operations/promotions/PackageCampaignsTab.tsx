@@ -25,11 +25,15 @@ import {
   renderTimeRange,
   renderTooltipText,
   resolvePackageCampaignBenefitTypeLabel,
+  resolvePackageCampaignProviderDiscountLabel,
   resolvePackageCampaignProductSummary,
   resolvePackageCampaignProductTypeLabel,
   resolvePackageCampaignRuleLabel,
   SectionCard,
   shouldShowPackageCampaignStatusToggle,
+  shouldShowPackageCampaignProviderPublish,
+  shouldShowPackageCampaignProviderRetire,
+  shouldShowPackageCampaignProviderRetry,
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
   TABLE_CELL_CLASS,
@@ -62,6 +66,15 @@ type PackageCampaignsTabProps = {
   onOpenProductDetails: (item: AdminBillingCampaignItem) => void;
   onEdit: (item: AdminBillingCampaignItem) => void | Promise<void>;
   onToggleStatus: (item: AdminBillingCampaignItem) => void | Promise<void>;
+  onPublishProviderDiscounts: (
+    item: AdminBillingCampaignItem,
+  ) => void | Promise<void>;
+  onRetryProviderDiscounts: (
+    item: AdminBillingCampaignItem,
+  ) => void | Promise<void>;
+  onRetireProviderDiscounts: (
+    item: AdminBillingCampaignItem,
+  ) => void | Promise<void>;
 };
 
 export default function PackageCampaignsTab({
@@ -85,6 +98,9 @@ export default function PackageCampaignsTab({
   onOpenProductDetails,
   onEdit,
   onToggleStatus,
+  onPublishProviderDiscounts,
+  onRetryProviderDiscounts,
+  onRetireProviderDiscounts,
 }: PackageCampaignsTabProps) {
   return (
     <>
@@ -169,6 +185,13 @@ export default function PackageCampaignsTab({
                 >
                   {tPromotion('packageCampaign.rule')}
                   {renderResizeHandle('rule')}
+                </TableHead>
+                <TableHead
+                  className={TABLE_HEAD_CLASS}
+                  style={getColumnStyle('providerDiscount')}
+                >
+                  {tPromotion('packageCampaign.providerDiscount')}
+                  {renderResizeHandle('providerDiscount')}
                 </TableHead>
                 <TableHead
                   className={TABLE_HEAD_CLASS}
@@ -260,6 +283,17 @@ export default function PackageCampaignsTab({
                   </TableCell>
                   <TableCell
                     className={TABLE_CELL_CLASS}
+                    style={getColumnStyle('providerDiscount')}
+                  >
+                    {renderTooltipText(
+                      resolvePackageCampaignProviderDiscountLabel(
+                        tPromotion,
+                        item,
+                      ),
+                    )}
+                  </TableCell>
+                  <TableCell
+                    className={TABLE_CELL_CLASS}
                     style={getColumnStyle('campaignTime')}
                   >
                     {renderTooltipText(
@@ -322,6 +356,32 @@ export default function PackageCampaignsTab({
                             hidden:
                               !shouldShowPackageCampaignStatusToggle(item),
                             onClick: () => void onToggleStatus(item),
+                          },
+                          {
+                            key: 'publish-provider-discounts',
+                            label: tPromotion(
+                              'actions.publishProviderDiscounts',
+                            ),
+                            hidden:
+                              !shouldShowPackageCampaignProviderPublish(item),
+                            onClick: () =>
+                              void onPublishProviderDiscounts(item),
+                          },
+                          {
+                            key: 'retry-provider-discounts',
+                            label: tPromotion('actions.retryProviderDiscounts'),
+                            hidden:
+                              !shouldShowPackageCampaignProviderRetry(item),
+                            onClick: () => void onRetryProviderDiscounts(item),
+                          },
+                          {
+                            key: 'retire-provider-discounts',
+                            label: tPromotion(
+                              'actions.retireProviderDiscounts',
+                            ),
+                            hidden:
+                              !shouldShowPackageCampaignProviderRetire(item),
+                            onClick: () => void onRetireProviderDiscounts(item),
                           },
                         ]}
                       />

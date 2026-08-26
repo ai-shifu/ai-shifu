@@ -42,6 +42,10 @@ import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
 import { BillingOverviewShowcase } from './BillingOverviewShowcase';
 import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
+import {
+  BillingStripeRedirectOverlay,
+  type BillingStripeRedirectPhase,
+} from './BillingStripeRedirectOverlay';
 import type { ShowcaseTab } from './BillingOverviewCards';
 
 type BillingCatalogResponse = {
@@ -224,6 +228,10 @@ export function BillingOverviewTab({
   const [selectedPingxxChannel, setSelectedPingxxChannel] =
     useState<BillingPingxxChannel>('wx_pub_qr');
   const [checkoutAgreed, setCheckoutAgreed] = useState(false);
+  const [stripeRedirect, setStripeRedirect] = useState<{
+    phase: BillingStripeRedirectPhase;
+    retryUrl?: string;
+  } | null>(null);
   const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
     'cancel' | 'resume' | ''
   >('');
@@ -305,7 +313,11 @@ export function BillingOverviewTab({
       checkoutTarget.kind === 'plan'
         ? `${loadingKey}:${planAction || 'subscription'}`
         : loadingKey;
+    const isStripeCheckout = checkoutTarget.provider === 'stripe';
     setCheckoutLoadingKey(loadingKeyWithAction);
+    if (isStripeCheckout) {
+      setStripeRedirect({ phase: 'creating' });
+    }
     try {
       let result: BillingCheckoutResult;
       const checkoutChannel = isQrBillingProvider(checkoutTarget.provider)
@@ -330,6 +342,7 @@ export function BillingOverviewTab({
       }
 
       if (result.status === 'unsupported') {
+        setStripeRedirect(null);
         toast({
           title: t('module.billing.checkout.unsupported'),
           variant: 'destructive',
@@ -341,6 +354,7 @@ export function BillingOverviewTab({
 
       if (result.status === 'paid') {
         await refreshBillingData();
+        setStripeRedirect(null);
         toast({
           title: t('module.billing.checkout.completed'),
         });
@@ -351,6 +365,10 @@ export function BillingOverviewTab({
 
       const resolvedProvider = result.provider;
       if (resolvedProvider === 'stripe' && result.redirect_url) {
+        setStripeRedirect({
+          phase: 'redirecting',
+          retryUrl: result.redirect_url,
+        });
         if (result.checkout_session_id) {
           rememberStripeCheckoutSession(
             result.checkout_session_id,
@@ -362,8 +380,19 @@ export function BillingOverviewTab({
         openBillingCheckoutUrl(result.redirect_url);
         return;
       }
+      if (resolvedProvider === 'stripe') {
+        setStripeRedirect(null);
+        toast({
+          title: t('module.billing.checkout.unsupported'),
+          variant: 'destructive',
+        });
+        setCheckoutTarget(null);
+        setCheckoutAgreed(false);
+        return;
+      }
 
       if (isQrBillingProvider(resolvedProvider)) {
+        setStripeRedirect(null);
         const preferredChannel =
           checkoutChannel ||
           (resolvedProvider === 'pingxx'
@@ -371,6 +400,7 @@ export function BillingOverviewTab({
             : resolveDefaultBillingQrChannel(resolvedProvider));
         const qrCode = extractBillingPingxxQrCode(result, preferredChannel);
         if (!qrCode) {
+          setStripeRedirect(null);
           toast({
             title: t('module.billing.checkout.unsupported'),
             variant: 'destructive',
@@ -401,8 +431,18 @@ export function BillingOverviewTab({
         });
         setSelectedPingxxChannel(qrCode.channel);
         setCheckoutTarget(null);
+        return;
       }
+
+      setStripeRedirect(null);
+      toast({
+        title: t('module.billing.checkout.unsupported'),
+        variant: 'destructive',
+      });
+      setCheckoutTarget(null);
+      setCheckoutAgreed(false);
     } catch (error: any) {
+      setStripeRedirect(null);
       toast({
         title: error?.message || t('common.core.unknownError'),
         variant: 'destructive',
@@ -734,6 +774,17 @@ export function BillingOverviewTab({
             void refreshBillingData();
             setPingxxCheckout(null);
             setCheckoutAgreed(false);
+          }
+        }}
+      />
+
+      <BillingStripeRedirectOverlay
+        open={Boolean(stripeRedirect)}
+        phase={stripeRedirect?.phase || 'creating'}
+        retryUrl={stripeRedirect?.retryUrl}
+        onRetry={() => {
+          if (stripeRedirect?.retryUrl) {
+            openBillingCheckoutUrl(stripeRedirect.retryUrl);
           }
         }}
       />

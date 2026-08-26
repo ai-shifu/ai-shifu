@@ -109,7 +109,6 @@
   "askTemperature": "Follow-up answer temperature",
   "askTemperatureHint": "Control how varied follow-up answers can be (0-2, 0 is recommended)",
   "askTitle": "Learner follow-up settings",
-  "debugDisabledBySoftLimit": "Credit balance is below the reminder threshold. Debug preview is disabled.",
   "defaultListenModeDescription": "When enabled, learners start this course in listen mode by default",
   "defaultListenModeTitle": "Open in listen by default",
   "draftConflictDescription": "This course was updated by {phone}. Load the latest content to continue editing safely.",

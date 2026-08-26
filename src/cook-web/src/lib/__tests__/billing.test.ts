@@ -5,6 +5,7 @@ import {
   formatBillingCredits,
   formatBillingNumber,
   formatBillingPlanInterval,
+  formatBillingPercent,
   formatBillingPrice,
   getBillingProductCampaignBonusCredits,
   hasBillingProductBonusCampaign,
@@ -79,6 +80,7 @@ describe('formatBillingNumber (unified display rule)', () => {
     expect(formatBillingNumber(1234567, 'en-US')).toBe('1,234,567');
     expect(formatBillingNumber(1234567, 'zh-CN')).toBe('1,234,567');
     expect(formatBillingNumber(1234567.89, 'en-US')).toBe('1,234,567.89');
+    expect(formatBillingNumber(1234567.89, 'fr-FR')).toBe('1 234 567,89');
   });
 
   test('falls back to zero for non-finite or nullish input', () => {
@@ -107,6 +109,7 @@ describe('formatBillingCredits', () => {
   test('renders integers without decimals and groups thousands', () => {
     expect(formatBillingCredits(5, 'en-US')).toBe('5');
     expect(formatBillingCredits(10000, 'en-US')).toBe('10,000');
+    expect(formatBillingCredits(10000, 'fr-FR')).toBe('10 000');
   });
 
   test('keeps meaningful decimals up to two places', () => {
@@ -167,6 +170,7 @@ describe('formatBillingCreditBalance', () => {
     expect(formatBillingCreditBalance(1.99)).toBe('1');
     expect(formatBillingCreditBalance(10000)).toBe('10,000');
     expect(formatBillingCreditBalance(32277.76)).toBe('32,277');
+    expect(formatBillingCreditBalance(32277.76, 'fr-FR')).toBe('32 277');
   });
 
   test('falls back to zero for non-finite or nullish input', () => {
@@ -259,6 +263,14 @@ describe('formatBillingCreditDetail', () => {
   });
 });
 
+describe('formatBillingPercent', () => {
+  test('formats one decimal with locale-specific separators', () => {
+    expect(formatBillingPercent(20, 'en-US')).toBe('20.0');
+    expect(formatBillingPercent(20, 'fr-FR')).toBe('20,0');
+    expect(formatBillingPercent(20.55, 'fr-FR')).toBe('20,6');
+  });
+});
+
 describe('formatBillingPrice', () => {
   test('formats minor units to currency without trailing zeros', () => {
     expect(formatBillingPrice(1, 'CNY', 'zh-CN')).toBe('¥0.01');
@@ -273,6 +285,7 @@ describe('formatBillingPrice', () => {
 
   test('supports other currencies', () => {
     expect(formatBillingPrice(9950, 'USD', 'en-US')).toBe('$99.5');
+    expect(formatBillingPrice(219900, 'USD', 'fr-FR')).toBe('2 199 $');
   });
 
   test('handles 0-decimal currency (JPY) without dividing by 100', () => {

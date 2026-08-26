@@ -224,6 +224,7 @@ export const PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   status: 110,
   products: 260,
   rule: 160,
+  providerDiscount: 150,
   campaignTime: 280,
   benefitType: 120,
   productType: 120,
@@ -985,6 +986,62 @@ export const resolvePackageCampaignRuleLabel = (
   }
   return EMPTY_VALUE;
 };
+
+export const resolvePackageCampaignProviderDiscountLabel = (
+  tPromotion: (key: string) => string,
+  item: Pick<
+    AdminBillingCampaignItem,
+    'benefit_type' | 'provider_discount_summary'
+  >,
+) => {
+  if (item.benefit_type !== 'discount') {
+    return tPromotion('packageCampaign.providerDiscountNotRequired');
+  }
+  const summary = item.provider_discount_summary || {};
+  const total = Number(summary.total || 0);
+  if (total <= 0) {
+    return tPromotion('packageCampaign.providerDiscountUnpublished');
+  }
+  const active = Number(summary.active || 0);
+  const failed = Number(summary.failed || 0);
+  const invalid = Number(summary.provider_invalid || 0);
+  const cleanup = Number(summary.cleanup_required || 0);
+  const requiresRepublish = Number(summary.requires_republish || 0);
+  if (failed || invalid || cleanup) {
+    return tPromotion('packageCampaign.providerDiscountAttention');
+  }
+  if (requiresRepublish) {
+    return tPromotion('packageCampaign.providerDiscountRequiresRepublish');
+  }
+  if (active === total) {
+    return tPromotion('packageCampaign.providerDiscountActive');
+  }
+  return tPromotion('packageCampaign.providerDiscountPartial');
+};
+
+export const shouldShowPackageCampaignProviderPublish = (
+  item: AdminBillingCampaignItem,
+) =>
+  item.benefit_type === 'discount' &&
+  Number(item.provider_discount_summary?.active || 0) <= 0;
+
+export const shouldShowPackageCampaignProviderRetry = (
+  item: AdminBillingCampaignItem,
+) => {
+  const summary = item.provider_discount_summary || {};
+  return (
+    item.benefit_type === 'discount' &&
+    (Number(summary.failed || 0) > 0 ||
+      Number(summary.provider_invalid || 0) > 0 ||
+      Number(summary.requires_republish || 0) > 0)
+  );
+};
+
+export const shouldShowPackageCampaignProviderRetire = (
+  item: AdminBillingCampaignItem,
+) =>
+  item.benefit_type === 'discount' &&
+  Number(item.provider_discount_summary?.active || 0) > 0;
 
 export const resolvePackageCampaignProductSummary = (
   tPromotion: (key: string) => string,

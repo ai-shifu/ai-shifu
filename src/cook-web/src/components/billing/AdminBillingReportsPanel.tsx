@@ -633,9 +633,7 @@ export function AdminBillingReportsPanel() {
                             {t(
                               'module.billing.admin.reports.table.latestActivityHint',
                               {
-                                days: Number(
-                                  item.active_days_7d || 0,
-                                ).toLocaleString(i18n.language),
+                                days: Number(item.active_days_7d || 0),
                               },
                             )}
                           </div>
