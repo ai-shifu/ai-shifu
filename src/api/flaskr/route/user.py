@@ -72,7 +72,13 @@ from .profile import register_profile_routes
 P = ParamSpec("P")
 R = TypeVar("R")
 
-_DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+_DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
+    "zh-CN",
+    "en-US",
+    "fr-FR",
+    "ar-SA",
+    "th-TH",
+)
 
 
 def _normalize_runtime_language_code(language_code: str) -> str:

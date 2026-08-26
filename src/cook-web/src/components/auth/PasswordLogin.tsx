@@ -181,6 +181,7 @@ export function PasswordLogin({
           </Label>
           <Input
             id='identifier'
+            data-bidi='ltr'
             type={isEmailOnlyIdentifier ? 'email' : 'text'}
             inputMode={isEmailOnlyIdentifier ? 'email' : undefined}
             autoComplete={isEmailOnlyIdentifier ? 'email' : 'username'}
@@ -210,6 +211,7 @@ export function PasswordLogin({
           <div className='relative'>
             <Input
               id='password'
+              data-bidi='ltr'
               type={showPassword ? 'text' : 'password'}
               placeholder={t('module.auth.passwordPlaceholder')}
               value={password}

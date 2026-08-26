@@ -197,7 +197,13 @@ def test_optimize_returns_model_text_without_quality_postprocessing(
 
 @pytest.mark.parametrize(
     ("language", "expected_output_language"),
-    [("zh-CN", "简体中文"), ("en-US", "English"), ("fr-FR", "Français")],
+    [
+        ("zh-CN", "简体中文"),
+        ("en-US", "English"),
+        ("fr-FR", "Français"),
+        ("ar-SA", "العربية"),
+        ("th-TH", "ไทย"),
+    ],
 )
 def test_optimizer_uses_the_current_users_system_language(
     app: object, monkeypatch: object, language: object, expected_output_language: object

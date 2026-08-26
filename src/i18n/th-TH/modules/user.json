@@ -1,0 +1,15 @@
+{
+  "__namespace__": "module.user",
+  "confirmLogoutContent": "ยืนยันการออกจากระบบหรือไม่",
+  "confirmLogoutTitle": "ยืนยันการออกจากระบบหรือไม่",
+  "defaultUserName": "ผู้ใช้ไม่ระบุชื่อ",
+  "gender": {
+    "female": "หญิง",
+    "male": "ชาย",
+    "secret": "ไม่เปิดเผย"
+  },
+  "login": "เข้าสู่ระบบ",
+  "loginMainButton": "เข้าสู่ระบบ / สมัครสมาชิก",
+  "logout": "ออกจากระบบ",
+  "notLogin": "ยังไม่ได้เข้าสู่ระบบ"
+}

@@ -856,8 +856,8 @@ export function AdminBillingProviderPricesPanel() {
           }
         }}
       >
-        <SheetContent className='flex w-full flex-col overflow-y-auto border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'>
-          <SheetHeader className='border-b border-border px-5 py-5 pr-12 text-left'>
+        <SheetContent className='flex w-full flex-col overflow-y-auto border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'>
+          <SheetHeader className='border-b border-border px-5 py-5 pe-12 text-start'>
             <SheetTitle>
               {t('module.billing.admin.providerPrices.issueDrawer.title')}
             </SheetTitle>

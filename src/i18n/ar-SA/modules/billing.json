@@ -1,0 +1,1220 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "attention": "يحتاج إلى متابعة",
+    "backToCreatorBilling": "العودة إلى مركز العضوية",
+    "entitlements": {
+      "actions": {
+        "viewDetail": "تعديل الإعدادات"
+      },
+      "configProgress": {
+        "complete": "تم الإعداد",
+        "exception": "استثناء",
+        "loading": "جارٍ التحميل",
+        "partial": "إعداد جزئي",
+        "unconfigured": "غير مهيأ"
+      },
+      "configStatus": {
+        "completed": "مكتمل",
+        "exception": "خلل في الإعداد",
+        "in_progress": "قيد الإعداد",
+        "pending": "بانتظار الإعداد"
+      },
+      "configStatusHelp": {
+        "completed": "أكملت العمليات متابعة الإعداد لهذه الجولة.",
+        "exception": "يوجد عائق أو خلل أثناء الإعداد، وتحتاج المتابعة إلى الاستمرار.",
+        "in_progress": "المواد أو الإعداد قيد المعالجة ولم تكتمل الخطوات النهائية.",
+        "pending": "تم تفعيل القدرة، لكن لم يبدأ استكمال إعدادها المقابل بعد."
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "متوقف",
+          "draft": "مسودة",
+          "failed": "خلل",
+          "unconfigured": "غير مهيأ",
+          "verified": "تم التحقق"
+        },
+        "loading": "جارٍ تحميل الإعداد...",
+        "logoReady": "تم التحميل",
+        "providers": {
+          "alipay": "Alipay",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "حساب WeChat الرسمي",
+          "wechatpay": "الدفع عبر WeChat"
+        }
+      },
+      "description": "اعرض المعلمين الذين فُعّلت لهم علامة تجارية مستقلة أو قدرة دفع، وتابع تقدم إعدادهم عبر العمليات.",
+      "empty": "لا يوجد معلمون لديهم علامة تجارية مستقلة أو قدرة دفع مفعّلة حاليًا.",
+      "followDefault": "الإعداد الافتراضي",
+      "grant": {
+        "brandingInlineDescription": "حمّل شعار العلامة التجارية، مع دعم إدخال عنوان الصورة مباشرة أو تحميل ملف صورة.",
+        "cancel": "إلغاء",
+        "configStatusHint": "يمكن تبديل الحالة مباشرة في القائمة؛ ويعرض هذا القسم الحالة الحالية فقط.",
+        "configurationSection": "محتوى الإعداد",
+        "configurationSectionDescription": "أكمل إعداد شعار العلامة التجارية والنطاق المستقل وحساب WeChat الرسمي وقنوات الدفع، ثم احفظ لمزامنة أحدث نتيجة.",
+        "createdContinue": "تمت إضافة إعداد العلامة التجارية والدفع لـ {creator}، ويمكنك متابعة استكمال التفاصيل أدناه.",
+        "creatorBidPlaceholder": "أدخل BID لمسؤول الدورة",
+        "creatorEmailPlaceholder": "أدخل بريد مسؤول الدورة الإلكتروني",
+        "creatorMobilePlaceholder": "أدخل رقم هاتف مسؤول الدورة",
+        "description": "فعّل وأدر إعدادات العلامة التجارية والنطاق وWeChat والدفع للمعلمين بشكل موحّد، ثم احفظ لمزامنة القدرات المقابلة.",
+        "disabled": "غير مفعّل",
+        "domainInlineDescription": "أدخل النطاق المستقل وأكمل التحقق لتسهيل تأكيد إتاحته رسميًا لاحقًا.",
+        "edit": "تعديل",
+        "editTitle": "تعديل إعدادات العلامة التجارية والدفع",
+        "emailHint": "أدخل البريد الإلكتروني. إذا لم يكن مسجلًا، سينشئ النظام الحساب أولًا ويفعّل هوية المعلم افتراضيًا.",
+        "enabled": "مفعّل",
+        "errors": {
+          "creatorBidRequired": "أدخل BID لمسؤول الدورة",
+          "creatorEmailInvalid": "أدخل عنوان بريد إلكتروني صالحًا",
+          "creatorEmailRequired": "أدخل بريد مسؤول الدورة الإلكتروني",
+          "creatorMobileInvalid": "أدخل رقم هاتف صالحًا",
+          "creatorMobileRequired": "أدخل رقم هاتف مسؤول الدورة"
+        },
+        "fields": {
+          "branding_enabled": "شعار العلامة التجارية",
+          "configStatus": "حالة الإعداد",
+          "creatorBid": "BID لمسؤول الدورة",
+          "creatorEmail": "بريد مسؤول الدورة الإلكتروني",
+          "creatorMobile": "رقم هاتف مسؤول الدورة",
+          "custom_domain_enabled": "النطاق المستقل",
+          "custom_payment_enabled": "إعدادات الدفع المستقلة",
+          "custom_wechat_enabled": "حساب WeChat الرسمي المستقل",
+          "note": "ملاحظة العمليات"
+        },
+        "mobileHint": "أدخل رقم الهاتف. إذا لم يكن مسجلًا، سينشئ النظام الحساب أولًا ويفعّل هوية المعلم افتراضيًا.",
+        "notePlaceholder": "أدخل التقدم الحالي أو المواد الناقصة أو وصف الخلل",
+        "open": "إضافة إعداد",
+        "paymentInlineDescription": "أدخل معاملات قناة الدفع وأكمل التحقق لتأكيد إتاحة قدرة الدفع للاستخدام الطبيعي.",
+        "pendingConfiguration": {
+          "branding_enabled": "بعد حفظ عنصر التفعيل الحالي، يمكنك متابعة تحميل شعار العلامة التجارية.",
+          "custom_domain_enabled": "بعد حفظ عنصر التفعيل الحالي، يمكنك متابعة إدخال النطاق المستقل والتحقق منه.",
+          "custom_payment_enabled": "بعد حفظ عنصر التفعيل الحالي، يمكنك متابعة استكمال معاملات قناة الدفع.",
+          "custom_wechat_enabled": "بعد حفظ عنصر التفعيل الحالي، يمكنك متابعة استكمال معاملات الحساب الرسمي.",
+          "title": "استكمال الإعداد بعد الحفظ"
+        },
+        "submit": "حفظ الإعدادات",
+        "submitting": "جارٍ الحفظ...",
+        "success": "تم تحديث إعدادات العلامة التجارية والدفع لـ {creator}",
+        "title": "إضافة إعدادات العلامة التجارية والدفع",
+        "wechatInlineDescription": "أدخل معاملات الحساب الرسمي وتأكد من اكتمال معلومات التفويض وإعدادات الاستدعاء."
+      },
+      "loadError": "تعذر تحميل بيانات مزايا لوحة الإدارة.",
+      "logoPreview": {
+        "next": "الشعار التالي",
+        "open": "معاينة {label}",
+        "previous": "الشعار السابق",
+        "title": "معاينة الشعار"
+      },
+      "notEnabled": "غير مفعّل",
+      "realEffect": {
+        "branding": "الشعار",
+        "domain": "النطاق",
+        "payment": "الدفع",
+        "status": {
+          "active": "ساري",
+          "exception": "خلل",
+          "inactive": "غير ساري",
+          "pending": "قيد المعالجة",
+          "unconfigured": "غير مهيأ"
+        },
+        "wechat": "WeChat"
+      },
+      "source": {
+        "default": "المزايا الافتراضية",
+        "productPayload": "تتبع الباقة",
+        "snapshot": "السجل الساري الحالي"
+      },
+      "sourceReference": "السجل: {value}",
+      "statusReason": {
+        "exceptionDefault": "يوجد خلل في الإعداد، ويلزم إعادة التفويض ثم البدء مرة أخرى.",
+        "inProgress": "لا يزال الإعداد قيد المعالجة، بانتظار اكتمال المواد أو التحقق.",
+        "inactive": "لم يبدأ الإعداد بعد، وبانتظار متابعة العمليات."
+      },
+      "table": {
+        "actions": "الإجراءات",
+        "analytics": "قدرة التحصيل",
+        "configProgress": "تقدم الإعداد",
+        "creator": "المعلم",
+        "domain": "النطاق",
+        "features": "عناصر الإعداد",
+        "logo": "الشعار",
+        "payment": "طريقة الدفع",
+        "priority": "قدرة العلامة التجارية",
+        "realEffect": "السريان الفعلي",
+        "source": "المزايا الحالية",
+        "status": "حالة المتابعة",
+        "support": "مستوى الدعم",
+        "wechat": "إعداد WeChat",
+        "window": "وقت التحديث/الصلاحية"
+      },
+      "title": "عرض المزايا",
+      "window": {
+        "activeNow": "ساري حاليًا",
+        "endsAt": "صالح حتى {date}",
+        "startedAt": "ساري منذ {date}"
+      }
+    },
+    "navigation": {
+      "description": "بدّل العرض حسب الباقات والطلبات والمزايا والنطاقات والتقارير، مع إبقاء حالة القدرات في الأعلى دائمًا.",
+      "title": "أبعاد العرض"
+    },
+    "pagination": {
+      "page": "الصفحة {page} / {pageCount}، إجمالي {total} سجلًا",
+      "total": "الإجمالي {total} سجل"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "طرح",
+        "cancel": "إلغاء",
+        "configure": "إعداد السعر",
+        "create": "إضافة سعر",
+        "restore": "استعادة إلى بانتظار التفعيل",
+        "retire": "سحب",
+        "saveDraft": "حفظ المسودة",
+        "validate": "تحقق",
+        "viewIssues": "عرض المشكلات"
+      },
+      "billingLabel": {
+        "monthly": "دفع شهري",
+        "yearly": "دفع سنوي"
+      },
+      "confirm": {
+        "activate": "هل تريد طرح {productName}؟ بعد الطرح، ستستخدم الدفعات اللاحقة لهذا المنتج سعر التحصيل هذا.",
+        "restore": "هل تريد استعادة {productName}؟ بعد الاستعادة سيعود إلى حالة بانتظار التفعيل، ويلزم التحقق مرة أخرى قبل طرحه.",
+        "retire": "هل تريد سحب {productName}؟ بعد السحب، لن يمكن الدفع لهذا المنتج بسعر ثابت مؤقتًا."
+      },
+      "description": "أدر أسعار تحصيل الباقات وحزم الأرصدة الخارجية لضمان تطابق السعر الظاهر للمستخدم والمبلغ المدفوع فعليًا والمزايا التي تصل إلى الحساب.",
+      "dialog": {
+        "autoDetectHint": "سيتحقق النظام تلقائيًا من المبلغ والعملة والدورة والبيئة الحالية؛ فعّل السعر بعد التأكد من صحتها.",
+        "description": "انسخ معرّف المنتج ومعرّف السعر من لوحة Stripe. سيقرأ النظام معلومات السعر تلقائيًا بعد الحفظ.",
+        "title": "إعداد سعر التحصيل"
+      },
+      "empty": "لا توجد باقات أو حزم أرصدة قابلة للإعداد حاليًا.",
+      "environment": {
+        "live": "إنتاج",
+        "test": "اختبار"
+      },
+      "fields": {
+        "priceId": "معرّف سعر Stripe",
+        "product": "المنتج",
+        "productId": "معرّف منتج Stripe",
+        "productPlaceholder": "اختر منتجًا"
+      },
+      "filters": {
+        "allProducts": "جميع المنتجات",
+        "product": "المنتج",
+        "status": "الحالة"
+      },
+      "health": {
+        "active": "مطروح",
+        "draft": "بانتظار التفعيل",
+        "healthy": "سليم",
+        "invalid": "فشل التحقق",
+        "missing": "غير مهيأ",
+        "retired": "مسحوب",
+        "warning": "يتطلب تأكيدًا"
+      },
+      "interval": {
+        "day": "{count, plural, zero {كل # يوم} one {كل يوم} two {كل يومين} few {كل # أيام} many {كل # يومًا} other {كل # يوم}}",
+        "month": "{count, plural, zero {كل # شهر} one {كل شهر} two {كل شهرين} few {كل # أشهر} many {كل # شهرًا} other {كل # شهر}}",
+        "oneTime": "لمرة واحدة",
+        "year": "{count, plural, zero {كل # سنة} one {كل سنة} two {كل سنتين} few {كل # سنوات} many {كل # سنةً} other {كل # سنة}}"
+      },
+      "issueDrawer": {
+        "description": "اعرض سبب المشكلة الموجه للعمليات مع الاحتفاظ بالـ code الأصلي لتسهيل التشخيص التقني.",
+        "issues": "سبب المشكلة",
+        "noIssues": "لا توجد تفاصيل مشكلات حاليًا",
+        "priceId": "معرّف سعر Stripe",
+        "raw": "المعلومات الأصلية",
+        "title": "مشكلات التحقق من السعر"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "عدد دورات الفوترة لا يتطابق مع المنتج المحلي",
+        "billing_interval_mismatch": "دورة الفوترة لا تتطابق مع المنتج المحلي",
+        "currency_mismatch": "العملة لا تتطابق مع المنتج المحلي",
+        "local_plan_billing_mode_invalid": "إعداد طريقة فوترة الباقة المحلية غير صحيح",
+        "local_topup_billing_interval_count_invalid": "يجب أن يكون عدد دورات حزمة الأرصدة المحلية 0",
+        "local_topup_billing_interval_invalid": "لا ينبغي إعداد دورة لحزمة الأرصدة المحلية",
+        "local_topup_billing_mode_invalid": "إعداد طريقة فوترة حزمة الأرصدة المحلية غير صحيح",
+        "plan_requires_licensed_recurring_price": "يجب أن تستخدم الباقة سعرًا دوريًا licensed",
+        "plan_requires_recurring_price": "يجب ربط الباقة بسعر دوري في Stripe",
+        "price_livemode_mismatch": "بيئة سعر Stripe لا تتطابق مع الإعداد الحالي",
+        "price_metadata_billing_interval_mismatch": "metadata دورة فوترة سعر Stripe غير متطابقة",
+        "price_metadata_billing_interval_missing": "يفتقد سعر Stripe إلى metadata دورة الفوترة",
+        "price_metadata_credit_amount_mismatch": "metadata عدد أرصدة سعر Stripe غير متطابقة",
+        "price_metadata_credit_amount_missing": "يفتقد سعر Stripe إلى metadata عدد الأرصدة",
+        "price_metadata_product_code_mismatch": "metadata رمز منتج سعر Stripe غير متطابقة",
+        "price_metadata_product_code_missing": "يفتقد سعر Stripe إلى metadata رمز المنتج",
+        "price_product_mismatch": "لا ينتمي سعر Stripe إلى المنتج الحالي",
+        "product_livemode_mismatch": "بيئة منتج Stripe لا تتطابق مع الإعداد الحالي",
+        "product_metadata_market_mismatch": "metadata سوق منتج Stripe غير متطابقة",
+        "product_metadata_market_missing": "يفتقد منتج Stripe إلى metadata السوق",
+        "product_metadata_plan_tier_mismatch": "metadata مستوى باقة منتج Stripe غير متطابقة",
+        "product_metadata_plan_tier_missing": "يفتقد منتج Stripe إلى metadata مستوى الباقة",
+        "product_metadata_product_type_mismatch": "metadata نوع منتج Stripe غير متطابقة",
+        "product_metadata_product_type_missing": "يفتقد منتج Stripe إلى metadata نوع المنتج",
+        "provider_account_mismatch": "حساب Stripe غير متطابق",
+        "provider_price_inactive": "تم إيقاف سعر Stripe",
+        "provider_price_mismatch": "لا يتطابق معرّف سعر Stripe مع الإعداد الحالي",
+        "provider_price_unit_amount_missing": "يفتقد سعر Stripe إلى مبلغ ثابت",
+        "provider_product_inactive": "تم إيقاف منتج Stripe",
+        "provider_product_mismatch": "لا يتطابق معرّف منتج Stripe مع الإعداد الحالي",
+        "retired_mapping_cannot_be_activated": "لا يمكن طرح سعر مسحوب مرة أخرى",
+        "retired_mapping_cannot_be_validated": "لا يمكن التحقق من سعر مسحوب مرة أخرى",
+        "stripe_catalog_reference_missing": "يفتقد إلى معرّف منتج Stripe أو معرّف السعر",
+        "stripe_catalog_retrieve_failed": "تعذر قراءة المنتج أو السعر من Stripe",
+        "topup_requires_one_time_price": "يجب ربط حزمة الأرصدة بسعر لمرة واحدة في Stripe",
+        "unit_amount_mismatch": "لا يتطابق مبلغ التحصيل مع السعر الظاهر في الصفحة",
+        "unknown": "مشكلة غير معروفة",
+        "unsupported_product_type": "لا يدعم نوع المنتج هذا إعداد سعر التحصيل حاليًا"
+      },
+      "loadError": "تعذر تحميل إعدادات أسعار الباقات مؤقتًا.",
+      "loading": "جارٍ تحميل أسعار الباقات...",
+      "menuTitle": "إدارة الباقات",
+      "pageDescription": "أدر أسعار تحصيل الباقات وحزم الأرصدة الخارجية لضمان تطابق عرض الصفحة والدفع الفعلي والمصالحة اللاحقة.",
+      "productCredits": "{credits} رصيد",
+      "productType": {
+        "plan": "باقة",
+        "topup": "حزمة أرصدة"
+      },
+      "status": {
+        "active": "مطروح",
+        "all": "جميع الحالات",
+        "draft": "بانتظار التفعيل",
+        "invalid": "فشل التحقق",
+        "missing": "غير مهيأ",
+        "retired": "مسحوب"
+      },
+      "table": {
+        "actions": "الإجراءات",
+        "benefit": "المزايا",
+        "localPrice": "السعر الظاهر في الصفحة",
+        "product": "المنتج",
+        "productType": "النوع",
+        "status": "الحالة",
+        "stripePrice": "سعر التحصيل",
+        "validatedAt": "آخر تحقق"
+      },
+      "title": "إدارة الباقات",
+      "toast": {
+        "activateFailed": "فشل طرح السعر",
+        "activateSuccess": "تم طرح السعر",
+        "createFailed": "فشل حفظ السعر",
+        "createSuccess": "تم حفظ السعر",
+        "restoreFailed": "فشل استعادة السعر",
+        "restoreSuccess": "تمت استعادة السعر إلى بانتظار التفعيل",
+        "retireFailed": "فشل سحب السعر",
+        "retireSuccess": "تم سحب السعر",
+        "validateFailed": "فشل التحقق من السعر",
+        "validateSuccess": "اكتمل التحقق من السعر"
+      }
+    },
+    "reports": {
+      "actions": {
+        "viewOrders": "عرض الطلبات"
+      },
+      "attentionReasons": {
+        "active_production": "نشاط استخدام فعلي",
+        "debug_preview_heavy": "استهلاك تصحيح مرتفع",
+        "high_consumption": "استهلاك مرتفع",
+        "high_frequency": "استدعاءات متكررة",
+        "rapid_growth": "نمو سريع في الاستهلاك",
+        "sustained_activity": "نشاط مستمر خلال آخر 7 أيام"
+      },
+      "description": "لخّص المعلمين ذوي الاستهلاك الحديث أو النشاط أو بنية الاستخدام غير الطبيعية لمساعدة العمليات في تحديد أولوية المتابعة.",
+      "empty": "لا يوجد معلمون يحتاجون إلى متابعة مركزة حاليًا.",
+      "emptyHint": "يظهر المعلم بعد مطابقته شرطًا واحدًا على الأقل من الاستهلاك المرتفع أو الاستدعاءات المتكررة أو نشاط الاستخدام الفعلي أو ارتفاع نسبة التصحيح أو النشاط المستمر أو سرعة نمو الاستهلاك.",
+      "filters": {
+        "active_production": "نشاط استخدام فعلي",
+        "all": "جميع العناصر المهمة",
+        "debug_preview_heavy": "استهلاك تصحيح مرتفع",
+        "rapid_growth": "نمو سريع في الاستهلاك"
+      },
+      "sections": {
+        "usage": {
+          "description": "اعرض فقط المعلمين المطابقين لشروط المتابعة، ويمكن الترتيب حسب النمو أو نسبة التصحيح أو استهلاك آخر 30 يومًا.",
+          "title": "قائمة المعلمين موضع المتابعة"
+        }
+      },
+      "sort": {
+        "label": "طريقة الترتيب",
+        "options": {
+          "credits_30d": "حسب استهلاك آخر 30 يومًا",
+          "debug_ratio": "حسب نسبة التصحيح",
+          "growth": "الأولوية للنمو"
+        }
+      },
+      "summary": {
+        "activeTeachers7d": "نشطون خلال آخر 7 أيام",
+        "activeTeachers7dHint": "المعلمون موضع المتابعة الذين لديهم سجلات استهلاك خلال آخر 7 أيام",
+        "debugHeavyCount": "نسبة تصحيح مرتفعة",
+        "debugHeavyCountHint": "المعلمون ذوو نسبة تصحيح/معاينة مرتفعة خلال آخر 30 يومًا",
+        "focusCount": "عدد المعلمين موضع المتابعة",
+        "focusCountHint": "يستوفون شرطًا واحدًا أو أكثر من شروط الاستخدام",
+        "totalCredits": "استهلاك العناصر موضع المتابعة خلال 30 يومًا",
+        "totalCreditsHint": "إجمالي استهلاك المعلمين موضع المتابعة خلال آخر 30 يومًا"
+      },
+      "table": {
+        "actions": "الإجراءات",
+        "activeDays7d": "أيام النشاط خلال 7 أيام",
+        "attentionReasons": "قاعدة المتابعة",
+        "attentionReasonsMore": "الإجمالي {count} عناصر",
+        "creator": "المعلم",
+        "credits30d": "استهلاك 30 يومًا",
+        "credits30dBreakdown": "استخدام فعلي {production} · تصحيح/معاينة {debugPreview}",
+        "credits30dDebugPreview": "تصحيح/معاينة {debugPreview}",
+        "credits30dProduction": "استخدام فعلي {production}",
+        "credits7d": "استهلاك 7 أيام",
+        "latestActivity": "آخر وقت للنشاط",
+        "latestActivityHint": "نشط لمدة {days, plural, zero {# يوم} one {يوم واحد} two {يومين} few {# أيام} many {# يومًا} other {# يوم}} خلال آخر 7 أيام",
+        "productionRatio": "نسبة الاستهلاك الفعلي",
+        "recordCount7d": "عدد الاستدعاءات خلال 7 أيام"
+      },
+      "title": "ملخص متابعة الاستخدام"
+    },
+    "subscriptions": {
+      "description": "اعرض اشتراكات المعلمين التي تحتاج إلى متابعة وأرصدة الأرصدة وحالة المعالجة اللاحقة.",
+      "empty": "لا توجد اشتراكات تحتاج إلى متابعة حاليًا.",
+      "filters": {
+        "reset": "إعادة ضبط",
+        "search": "بحث",
+        "searchPlaceholderEmail": "بريد المعلم الإلكتروني",
+        "searchPlaceholderPhone": "رقم هاتف المعلم",
+        "status": "حالة الاشتراك",
+        "statusAll": "جميع حالات الاشتراك",
+        "teacherField": "المعلم"
+      },
+      "loadError": "فشل تحميل بيانات الاشتراكات من لوحة الإدارة، يرجى التحديث والمحاولة مرة أخرى.",
+      "preorderTarget": "شراء مسبق: {product}",
+      "results": {
+        "cancelAtPeriodEnd": "لا تجديد عند الانتهاء",
+        "cancelAtPeriodEndWithDate": "ينتهي في {date}",
+        "expire": "لا تجديد عند الانتهاء",
+        "expireWithDate": "ينتهي في {date}",
+        "preorder": "التحويل إلى {product} بعد الانتهاء",
+        "preorderWithDate": "التحويل إلى {product} في {date}",
+        "renewalFailed": "فشل التجديد، بانتظار المعالجة",
+        "renewalFailedWithError": "فشل التجديد، بانتظار المعالجة",
+        "renewalScheduled": "تمت جدولة التجديد التلقائي",
+        "renewalScheduledWithDate": "تمت جدولة التجديد التلقائي في {date}"
+      },
+      "table": {
+        "availableCredits": "الأرصدة المتاحة",
+        "creator": "المعلم",
+        "currentPeriodEnd": "صالح حتى",
+        "product": "الباقة الحالية",
+        "provider": "طريقة الدفع",
+        "renewal": "حالة التجديد/الانتهاء",
+        "renewalStatus": "حالة التجديد",
+        "scheduled": "مجدول في",
+        "status": "حالة الاشتراك"
+      },
+      "title": "متابعة الاشتراكات"
+    },
+    "subtitle": "تابع حالات الاشتراك والاستخدام وإعدادات العلامة التجارية والدفع بشكل موحّد.",
+    "table": {},
+    "tabs": {
+      "domains": "النطاقات",
+      "entitlements": "إعدادات العلامة التجارية والدفع",
+      "reports": "متابعة الاستخدام",
+      "subscriptions": "متابعة الاشتراكات"
+    },
+    "title": "العمليات التجارية"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "شراء أرصدة",
+      "openOrders": "عرض سجلات الدفع",
+      "resumeSubscription": "استئناف الاشتراك"
+    },
+    "cancelScheduled": "تم ضبط الاشتراك الحالي على الإلغاء عند انتهاء الدورة. إذا أردت متابعة منح الأرصدة حسب الدورة، يرجى استئناف الاشتراك.",
+    "lowBalance": "لم يعد لدى حساب المعلم الحالي أرصدة متاحة، يرجى تفعيل اشتراك أو شراء أرصدة قبل التسوية التالية.",
+    "lowBalanceDescription": "لقد نفدت الأرصدة، ولا يمكن متابعة تجربة المحتوى الذي ينتجه الذكاء الاصطناعي.",
+    "lowBalanceTitle": "نفدت أرصدتك، وتوقف الذكاء الاصطناعي عن العمل",
+    "subscriptionPastDue": "حالة تجديد الاشتراك غير طبيعية حاليًا، يرجى التحقق من سجلات الدفع أولًا ومزامنة أحدث حالة للمزوّد."
+  },
+  "capabilities": {
+    "description": "يلخص هذا القسم الوحدات المتاحة مباشرة حاليًا في إدارة العلامة التجارية والدفع. تعني «بانتظار الإعداد» أن الكود متصل لكنه غير مفعّل افتراضيًا؛ وتعني «للعمليات الخلفية فقط» أنها تُستخدم في مسارات المهام أو التعويض أو التشغيل، ولا تظهر مباشرة في الصفحة.",
+    "fallbackDescription": "تُحدد حالة القدرة وفق billing capability registry.",
+    "fallbackTitle": "قدرات Billing",
+    "items": {
+      "adminEntitlements": {
+        "description": "لا تزال مشاهدة مزايا لوحة الإدارة متاحة.",
+        "title": "مزايا لوحة الإدارة"
+      },
+      "adminLedgerAdjust": {
+        "description": "لا يزال تصحيح دفتر الحسابات يدويًا من لوحة الإدارة متاحًا.",
+        "title": "تصحيح دفتر الحسابات في لوحة الإدارة"
+      },
+      "adminReports": {
+        "description": "لا تزال تقارير usage وledger في لوحة الإدارة متاحة.",
+        "title": "تقارير لوحة الإدارة"
+      },
+      "adminSubscriptions": {
+        "description": "لا تزال مشاهدة الاشتراكات من لوحة الإدارة متاحة.",
+        "title": "اشتراكات لوحة الإدارة"
+      },
+      "billingFeatureFlag": {
+        "description": "لا يزال مفتاح ميزة billing متوقفًا افتراضيًا في إعدادات seed.",
+        "title": "مفتاح ميزة Billing"
+      },
+      "creatorCatalog": {
+        "description": "لا يزال دليل الباقات وحزم الأرصدة active.",
+        "title": "دليل منتجات المعلمين"
+      },
+      "creatorOrders": {
+        "description": "لا تزال عمليات طلبات المعلمين وsync وrefund وtopup مفعّلة.",
+        "title": "طلبات المعلمين"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "لا تزال عمليات شراء اشتراك المعلمين وإلغائه واستعادته مفعّلة.",
+        "title": "دورة حياة اشتراك المعلم"
+      },
+      "creatorWalletLedger": {
+        "description": "لا تزال مشاهدة دفعات الأرصدة ودفتر الحسابات للحساب مفعّلة.",
+        "title": "حساب المعلم ودفتر الحسابات"
+      },
+      "dailyAggregateRebuild": {
+        "description": "لا تزال إعادة بناء التقارير اليومية وfinalize قدرة داخلية.",
+        "title": "إعادة بناء التقارير اليومية"
+      },
+      "domainVerifyRefresh": {
+        "description": "لا يزال تحديث التحقق من النطاق قدرة داخلية.",
+        "title": "تحديث التحقق من النطاق"
+      },
+      "lowBalanceAlerts": {
+        "description": "لا يزال إنشاء تنبيهات الرصيد المنخفض قدرة داخلية.",
+        "title": "تنبيهات الرصيد المنخفض"
+      },
+      "providerReconcile": {
+        "description": "لا تزال مصالحة provider جزءًا من مسار الاستعادة الداخلي.",
+        "title": "تعويض مصالحة Provider"
+      },
+      "renewalCompensation": {
+        "description": "لا يزال التعويض عن التجديد وإعادة المحاولة قدرة داخلية.",
+        "title": "تعويض التجديد"
+      },
+      "renewalTaskQueue": {
+        "description": "لا يزال تنفيذ عامل التجديد متوقفًا افتراضيًا في إعدادات seed.",
+        "title": "قائمة مهام التجديد"
+      },
+      "runtimeBillingExtensions": {
+        "description": "لا يزال runtime-config يخرج سياق billing entitlement وdomain.",
+        "title": "امتدادات Billing وقت التشغيل"
+      },
+      "usageSettlement": {
+        "description": "لا تزال تسوية usage وreplay جزءًا من مسارات task/CLI الداخلية.",
+        "title": "تسوية Usage"
+      },
+      "walletBucketExpiration": {
+        "description": "لا يزال فحص انتهاء دفعات أرصدة الحساب قدرة داخلية.",
+        "title": "فحص انتهاء دفعات الأرصدة"
+      }
+    },
+    "status": {
+      "active": "متاح مباشرة",
+      "defaultDisabled": "بانتظار الإعداد",
+      "internalOnly": "للعمليات الخلفية فقط"
+    },
+    "summary": {
+      "active": "{count} متاح مباشرة",
+      "defaultDisabled": "{count} بانتظار الإعداد",
+      "internalOnly": "{count} للعمليات الخلفية فقط"
+    },
+    "title": "الوحدات المتاحة حاليًا"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "جارٍ المعالجة..."
+    },
+    "badges": {
+      "bestValue": "الأفضل قيمة",
+      "recommended": "شائع"
+    },
+    "labels": {
+      "everyDays": "{count, plural, zero {كل # يوم} one {كل يوم} two {كل يومين} few {كل # أيام} many {كل # يومًا} other {كل # يوم}}",
+      "everyMonths": "{count, plural, zero {كل # شهر} one {كل شهر} two {كل شهرين} few {كل # أشهر} many {كل # شهرًا} other {كل # شهر}}",
+      "everyYears": "{count, plural, zero {كل # سنة} one {كل سنة} two {كل سنتين} few {كل # سنوات} many {كل # سنةً} other {كل # سنة}}",
+      "perDay": "يوميًا",
+      "perMonth": "شهريًا",
+      "perYear": "سنويًا",
+      "providerAlipay": "Alipay",
+      "providerManual": "تفعيل يدوي",
+      "providerPingxx": "Pingxx",
+      "providerStripe": "Stripe",
+      "providerWechatpay": "الدفع عبر WeChat",
+      "providerWithChannel": "{provider} / {channel}"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "مناسب لتجربة دورة خفيفة",
+        "title": "الإصدار الخفيف"
+      },
+      "creatorMonthlyPro": {
+        "description": "مناسب لخدمة عدد قليل من المتعلمين",
+        "title": "الإصدار الأساسي"
+      },
+      "creatorYearly": {
+        "description": "مناسب للمؤسسات الكبيرة",
+        "title": "الإصدار المتقدم"
+      },
+      "creatorYearlyLite": {
+        "description": "مناسب للمؤسسات الصغيرة والمتوسطة",
+        "title": "الإصدار الاحترافي"
+      },
+      "creatorYearlyPremium": {
+        "description": "مناسب للمؤسسات فائقة الكبر",
+        "title": "الإصدار الرائد"
+      }
+    },
+    "topups": {
+      "default": {
+        "description": "يُستخدم لتكميل الأرصدة خلال مدة الباقة الحالية، وتنتهي الكمية غير المستخدمة مع الباقة.",
+        "title": "حزمة أرصدة {credits}"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "اتفاقية شراء الأرصدة",
+    "agreementPrefix": "لقد قرأت وأوافق على",
+    "bonusCreditsLabel": "{baseCredits} + هدية {bonusCredits}",
+    "cancel": "إلغاء",
+    "completed": "اكتمل الدفع.",
+    "confirm": "متابعة الدفع",
+    "creditsLabel": "الأرصدة",
+    "expired": "انتهت صلاحية الطلب، يرجى إنشاء طلب جديد.",
+    "expiresInLabel": "مدة الصلاحية المتبقية",
+    "expiresInValue": "تنتهي الصلاحية بعد {countdown}",
+    "planDescription": "هذه هي مرحلة الدفع لاشتراك الأرصدة.",
+    "preorderDescription": "ستُدفع قيمة هذه الباقة مسبقًا الآن، وستسري بعد انتهاء الدورة الحالية.",
+    "prepaidOffsetLabel": "خصم الشراء المسبق",
+    "priceLabel": "السعر",
+    "processing": "جارٍ المعالجة...",
+    "productLabel": "المنتج",
+    "providerLabel": "قناة الدفع",
+    "subject": {
+      "plan": {
+        "day": "باقة يومية",
+        "month": "باقة شهرية",
+        "year": "باقة سنوية"
+      }
+    },
+    "title": "تأكيد الشراء",
+    "topupDescription": "ستدخل إلى مرحلة تأكيد الدفع لشراء حزمة أرصدة لمرة واحدة.",
+    "unsupported": "طريقة الدفع الحالية غير متاحة مؤقتًا.",
+    "upgradeDescription": "ستسري هذه الترقية فورًا.",
+    "upgradeWithPreorderDescription": "ستسري هذه الترقية فورًا، وسيُستخدم الدفع المسبق الحالي كخصم."
+  },
+  "common": {
+    "empty": "لا يوجد"
+  },
+  "customization": {
+    "actions": {
+      "clear": "مسح",
+      "saveConfiguration": "حفظ الإعدادات",
+      "saveIntegration": "حفظ إعدادات الدفع",
+      "secretSaved": "تم الحفظ، ويمكن إعادة الإدخال للاستبدال"
+    },
+    "branding": {
+      "favicon": "أيقونة الموقع Favicon",
+      "faviconHint": "أيقونة علامة تبويب المتصفح. يدعم PNG/JPEG/WebP (يحوّلها تلقائيًا إلى ICO) أو تحميل .ico مباشرة؛ وإذا لم تُحمّل، فسيُستخدم الشعار المربع.",
+      "homeUrl": "رابط انتقال الشعار",
+      "homeUrlHint": "عنوان URL الذي ينتقل إليه المستخدم عند النقر على الشعار في صفحة التعلم، ويُستخدم العنوان الافتراضي عند تركه فارغًا.",
+      "homeUrlPlaceholder": "مثل https://www.example.com",
+      "invalidFile": "يدعم فقط صور PNG أو JPEG أو WebP بحجم لا يتجاوز 2MB",
+      "resizeNotice": "لا تتطابق أبعاد الصورة تمامًا مع المواصفات المقترحة، وسيتم تغيير حجمها بالطريقة المعتادة بعد الحفظ.",
+      "squareHint": "يُفضّل تحميل شعار مربع بحجم 32x32px، كما يدعم صورة أعلى دقة.",
+      "squareLogo": "الشعار المربع",
+      "title": "شعار العلامة التجارية",
+      "uploadFailed": "فشل تحميل الصورة، يرجى المحاولة مرة أخرى لاحقًا.",
+      "uploadFavicon": "تحميل أيقونة الموقع",
+      "uploadSquare": "تحميل الشعار المربع",
+      "uploadWide": "تحميل الشعار الأفقي",
+      "urlPlaceholder": "يمكنك أيضًا إدخال عنوان الصورة مباشرة",
+      "wideHint": "يُفضّل تحميل شعار أفقي بارتفاع 32px وعرض لا يتجاوز 220px، كما يدعم صورة مضاعفة الدقة.",
+      "wideLogo": "الشعار الأفقي"
+    },
+    "disable": "إيقاف",
+    "domain": {
+      "bind": "ربط النطاق",
+      "disableSuccess": "تم إيقاف النطاق.",
+      "dnsTitle": "أضف سجل TXT التالي في لوحة DNS للنطاق",
+      "lastError": "آخر نتيجة للتحقق: {reason}",
+      "placeholder": "مثل learn.example.com",
+      "record": "{name} = {value}",
+      "recordName": "سجل المضيف",
+      "recordType": "نوع السجل",
+      "recordValue": "قيمة السجل",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "النطاق المستقل",
+      "verify": "التحقق من DNS",
+      "verifyFailed": "لم ينجح التحقق من DNS بعد، يرجى التأكد من سريان سجل TXT ثم المحاولة مرة أخرى.",
+      "verifyInstruction": "انقر على التحقق بعد سريان DNS، وسيُتابع النظام معالجة شهادة HTTPS بعد نجاح التحقق.",
+      "verifySuccess": "نجح التحقق من DNS، وتم تحديث حالة النطاق."
+    },
+    "integrationStatus": {
+      "disabled": "متوقف",
+      "draft": "بانتظار التفعيل",
+      "failed": "فشل التفعيل",
+      "unconfigured": "غير مهيأ",
+      "verified": "مفعّل"
+    },
+    "integrations": {
+      "title": "إعدادات WeChat والدفع"
+    },
+    "loading": "جارٍ تحميل محتوى الإعدادات...",
+    "locked": "لا تتضمن الباقة الحالية هذه الميزة، يرجى ترقية الباقة أو التواصل مع العمليات لتفعيلها.",
+    "paymentProvider": {
+      "description": "يمكنك اختيار طريقة دفع واحدة أو أكثر لواجهة التعلم. بعد الحفظ، ستنشئ واجهة التعلم رمز الدفع وفق الطرق المهيأة.",
+      "title": "طرق الدفع"
+    },
+    "pendingActivation": "يرجى حفظ عناصر التفعيل الحالية أولًا. بعد سريان المزايا، يمكنك متابعة حفظ الإعداد والتحقق منه.",
+    "providers": {
+      "alipay": "Alipay",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "حساب WeChat الرسمي",
+      "wechatpay": "الدفع عبر WeChat"
+    },
+    "verify": "التحقق والتفعيل"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "الترقية الآن"
+    },
+    "emptyValidityLabel": "--",
+    "subtitle": "اعرض إجمالي أرصدة مساحة المعلم الحالية وأرصدة كل نوع ومدة صلاحيتها المقابلة.",
+    "table": {
+      "balance": "الرصيد",
+      "creditType": "النوع",
+      "validUntil": "صالح حتى"
+    },
+    "topupAvailabilityLabel": "غير محدود المدة",
+    "topupAvailabilityTooltip": "لا يمكن استخدامه إلا بعد تفعيل أي باقة سارية",
+    "totalCreditsDescription": "تُستخدم أرصدة الباقة أولًا، ثم حزمة الأرصدة",
+    "totalCreditsLabel": "الرصيد",
+    "usageTable": {
+      "columns": {
+        "scene": "عنصر الاستهلاك"
+      },
+      "title": "تفاصيل الاستهلاك"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "لم يتم التحقق بعد"
+    },
+    "ssl": {
+      "active": "SSL ساري",
+      "failed": "خلل في SSL",
+      "issued": "تم إصدار SSL",
+      "not_requested": "لم يُطلب SSL",
+      "pending": "SSL قيد المعالجة",
+      "provisioning": "SSL قيد المعالجة"
+    },
+    "status": {
+      "disabled": "متوقف",
+      "failed": "فشل التحقق",
+      "pending": "بانتظار التحقق",
+      "verified": "تم التحقق"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "تحليلات متقدمة",
+      "basic": "تحليلات أساسية",
+      "enterprise": "تحليلات المؤسسات"
+    },
+    "flags": {
+      "branding": "شعار العلامة التجارية",
+      "customDomain": "نطاق مستقل",
+      "customPayment": "طريقة الدفع",
+      "customWechat": "حساب WeChat رسمي مستقل",
+      "disabled": "غير مفعّل",
+      "enabled": "مفعّل"
+    },
+    "metrics": {
+      "analyticsTier": "مستوى التحليلات",
+      "maxConcurrency": "الحد الأقصى للتزامن",
+      "priorityClass": "الأولوية",
+      "supportTier": "مستوى الدعم"
+    },
+    "priority": {
+      "priority": "ضمان الأولوية",
+      "standard": "قياسي",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "دعم خلال ساعات العمل",
+      "priority": "دعم ذو أولوية",
+      "selfServe": "دعم ذاتي"
+    }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "شراء أرصدة",
+      "checkoutLoading": "جارٍ فتح الدفع...",
+      "choosePlan": "اختيار الباقة",
+      "cycleSwitchDisabled": "لا يدعم تبديل الدورة حاليًا",
+      "viewMonthly": "عرض الباقات الشهرية"
+    },
+    "annualSavings": "التوفير السنوي {amount} ({percent}%)",
+    "approximatePricePrefix": "حوالي",
+    "audienceLabel": "المشهد المناسب",
+    "billedAnnually": "الدفع كل 12 شهرًا بقيمة {price}",
+    "cancelAnytime": "الدفع شهريًا، ويمكن الإلغاء في أي وقت.",
+    "checkoutNotice": "يدعم الدفع الإلكتروني عبر Stripe. بعد النقر، ستنتقل إلى Stripe لإكمال الدفع.",
+    "comingSoon": {
+      "close": "فهمت",
+      "description": "نعمل حاليًا على تطوير ميزة الدفع، ترقّبها قريبًا.",
+      "inlineNotice": "لا تزال ميزة الدفع الإلكتروني قيد التطوير، ولن يؤدي اختيار باقة أو حزمة أرصدة إلى خصم.",
+      "title": "ميزة الدفع متاحة قريبًا"
+    },
+    "creditPacks": {
+      "activeSubscriptionRequired": "لاستخدام أرصدة حزمة الأرصدة، يجب أن يكون للحساب اشتراك ساري. بعد انتهاء الاشتراك، تبقى الأرصدة غير المستخدمة في الحساب؛ ويمكن متابعة استخدامها بعد تفعيل باقة مرة أخرى.",
+      "instantAndPermanent": "تصل الأرصدة فور الشراء وتظل صالحة إلى أجل غير مسمى.",
+      "packName": "{credits} رصيد"
+    },
+    "creditsLabel": "أرصدة الدورة",
+    "creditsPerMonth": "{credits} رصيد شهريًا",
+    "creditsPerYear": "{credits} رصيد لكل دورة فوترة مدتها 12 شهرًا",
+    "cycles": {
+      "annual": "دفع سنوي",
+      "monthly": "دفع شهري"
+    },
+    "features": {
+      "coreTeaching": "جميع وظائف إنشاء الدورات والتدريس وتسليمها للمتعلمين",
+      "customBranding": "هوية علامة تجارية مخصصة",
+      "customDomain": "نطاق مخصص",
+      "dedicatedSupport": "دعم تقني مخصص",
+      "exclusiveTraining": "تدريب مخصص على إنشاء الدورات",
+      "higherConcurrency": "دعم إنشاء دورات أكثر وتعلم متعلمين أكثر في الوقت نفسه",
+      "prioritySupport": "دعم تقني بأولوية"
+    },
+    "featuresIncludes": {
+      "business": "يشمل جميع مزايا Growth، بالإضافة إلى:",
+      "growth": "يشمل جميع مزايا Studio، بالإضافة إلى:",
+      "scale": "يشمل جميع مزايا Business، بالإضافة إلى:"
+    },
+    "featuresLabel": "المزايا المشمولة",
+    "footnote": {
+      "intro": "تقدير عدد المتعلمين مبني على خبرة المنصة، وفق افتراض «إكمال شخص واحد دورة كاملة مرة واحدة، بحجم يقارب 10 دروس، ومتوسط تعلم طبيعي يقارب 15 دقيقة لكل درس، باستخدام النموذج الافتراضي وتفعيل وضع الاستماع». تُسوى الخصومات الفعلية حسب استهلاك النماذج الناتج عن التعلم والمعاينة والتصحيح، ويُعتد بتفاصيل الأرصدة نهائيًا. عوامل استهلاك الأرصدة:",
+      "validity": "صلاحية الأرصدة: تسري أرصدة الباقة الشهرية لمدة 30 يومًا من وقت الوصول (شامل يوم الوصول)، وتسري أرصدة الباقة السنوية لمدة 12 شهرًا. وينتهي كلاهما عند 23:59 من يوم الانتهاء."
+    },
+    "learnerEstimateLabel": "عدد المتعلمين المتوقع دعمه",
+    "learnerEstimateValue": "{minimum} - {maximum} متعلمًا",
+    "monthlyOnly": "الدفع الشهري فقط",
+    "mostPopular": "الأكثر شعبية",
+    "perMonth": "/ شهر",
+    "plans": {
+      "business": {
+        "description": "مؤسسات كبيرة تقدم تعلمًا مخصصًا على نطاق واسع.",
+        "estimates": {
+          "annual": "500 - 1,500 متعلم",
+          "monthly": "40 - 120 متعلمًا"
+        },
+        "name": "Business"
+      },
+      "growth": {
+        "description": "مؤسسات تعليمية صغيرة ومتوسطة.",
+        "estimates": {
+          "annual": "250 - 750 متعلمًا",
+          "monthly": "20 - 60 متعلمًا"
+        },
+        "name": "Growth"
+      },
+      "scale": {
+        "description": "مؤسسات فائقة الكبر تنفذ مشاريع تعلم واسعة النطاق.",
+        "estimates": {
+          "annual": "1,100 - 3,300 متعلم",
+          "monthly": "90 - 270 متعلمًا"
+        },
+        "name": "Scale"
+      },
+      "studio": {
+        "description": "تجربة دورة خفيفة أو التحقق من أول مشروع تعلم.",
+        "estimates": {
+          "annual": "الدفع الشهري فقط",
+          "monthly": "5 - 15 متعلمًا"
+        },
+        "name": "Studio"
+      }
+    },
+    "saveBadge": "توفير يقارب 20%",
+    "states": {
+      "loading": "جارٍ تحميل الباقات...",
+      "unavailableDescription": "يرجى المحاولة لاحقًا؛ وإذا استمرت المشكلة، تواصل مع الدعم التقني.",
+      "unavailableTitle": "الباقة غير متاحة مؤقتًا"
+    },
+    "tabs": {
+      "creditPacks": "حزم الأرصدة",
+      "plans": "الباقات"
+    },
+    "validity": {
+      "annual": "سارية لمدة 12 شهرًا من وقت وصول الأرصدة، وتنتهي عند 23:59 من يوم الانتهاء.",
+      "monthly": "سارية لمدة 30 يومًا من وقت وصول الأرصدة (شامل يوم الوصول)، وتنتهي عند 23:59 من يوم الانتهاء."
+    },
+    "validityLabel": "صلاحية الأرصدة"
+  },
+  "ledger": {
+    "bucketDescription": "اعرض دفعات مصدر الأرصدة ورصيدها الحالي وترتيب استخدامها عند الخصم الفعلي لاحقًا.",
+    "category": {
+      "subscription": "أرصدة الباقة",
+      "topup": "حزمة الأرصدة"
+    },
+    "empty": "لا توجد دفعات مصدر أرصدة حاليًا، وستظهر هنا بعد أول منح.",
+    "entriesDescription": "سيتم ربط تدفقات دفتر الحسابات مثل grant / consume / refund / expire بمهمة billing التالية.",
+    "entriesTitle": "تدفقات دفتر الحسابات",
+    "entryType": {
+      "adjustment": "تعديل",
+      "consume": "استهلاك",
+      "expire": "انتهاء",
+      "grant": "منح",
+      "hold": "تجميد",
+      "refund": "إرجاع بعد رد المبلغ",
+      "release": "تحرير"
+    },
+    "loadError": "فشل تحميل مصدر الأرصدة، يرجى التحديث والمحاولة مرة أخرى.",
+    "neverExpires": "تتبع صلاحية أرصدة الباقة",
+    "pagination": {
+      "page": "الصفحة {page} / {pageCount}، إجمالي {total} من سجلات دفتر الحسابات"
+    },
+    "source": {
+      "campaignBonus": "أرصدة هدية من الحملة",
+      "gift": "أرصدة مجانية",
+      "manual": "تعديل يدوي",
+      "refund": "إرجاع بعد رد المبلغ",
+      "subscription": "أرصدة الباقة",
+      "topup": "حزمة الأرصدة",
+      "usage": "تسوية الاستخدام"
+    },
+    "summary": {
+      "activeBuckets": "دفعات الأرصدة السارية",
+      "nextExpiry": "أقرب انتهاء",
+      "totalAvailable": "إجمالي أرصدة المصدر"
+    },
+    "table": {
+      "action": "الإجراء",
+      "amount": "الكمية",
+      "availableCredits": "الأرصدة المتاحة",
+      "balanceAfter": "الرصيد بعد التغيير",
+      "createdAt": "الوقت",
+      "detail": "عرض التفاصيل",
+      "effectiveWindow": "وقت السريان",
+      "entryType": "نوع دفتر الحسابات",
+      "priority": "الأولوية",
+      "source": "مصدر الأرصدة",
+      "status": "الحالة"
+    },
+    "usageScene": {
+      "debug": "تصحيح",
+      "preview": "معاينة",
+      "production": "تعلم",
+      "tts": "صوت"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "ملغى",
+      "failed": "فشل",
+      "init": "تم الإنشاء",
+      "paid": "مدفوع",
+      "pending": "قيد المعالجة",
+      "refunded": "تم رد المبلغ",
+      "timeout": "انتهت المهلة"
+    },
+    "type": {
+      "manual": "طلب يدوي",
+      "refund": "طلب رد مبلغ",
+      "subscriptionRenewal": "تجديد الاشتراك",
+      "subscriptionStart": "تفعيل الاشتراك",
+      "subscriptionUpgrade": "ترقية الاشتراك",
+      "topup": "طلب حزمة أرصدة"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "الأرصدة المتاحة",
+    "feedback": {
+      "cancelSuccess": "سيُلغى الاشتراك الحالي بعد انتهاء هذه الدورة.",
+      "resumeSuccess": "تم استئناف تجديد الاشتراك."
+    },
+    "loadError": "فشل تحميل بيانات الحسابات، يرجى التحديث والمحاولة مرة أخرى.",
+    "walletTitle": "ملخص الأرصدة"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "الشراء الآن",
+      "currentSubscription": "الاشتراك الحالي",
+      "currentUsing": "قيد الاستخدام حاليًا",
+      "downgradeDisabled": "لا يدعم التخفيض",
+      "freeTrial": "منتهي",
+      "monthlySwitchDisabled": "لا يدعم التحويل إلى الدفع الشهري حاليًا",
+      "nonMemberTooltip": "الحساب غير عضو حاليًا، ولا يلزم إجراء",
+      "preorderDowngrade": "شراء تخفيض مسبقًا",
+      "preorderLocked": "الشراء المسبق مقفل",
+      "preorderLockedTooltip": "هناك شراء مسبق لباقة بانتظار السريان، وتدعم العملية الحالية الترقية الفورية فقط.",
+      "preorderProviderUnsupportedTooltip": "لا يدعم الشراء المسبق للباقة إلا قناة الدفع التي يديرها النظام حاليًا.",
+      "preorderRenewal": "تجديد مسبق الدفع",
+      "preorderScheduled": "تم الشراء مسبقًا",
+      "subscribeNow": "الاشتراك الآن",
+      "upgradeNow": "الترقية الآن",
+      "upgradeOnlyTooltip": "لا تدعم الباقة الحالية أثناء سريانها إلا الترقية، ولا يمكن شراء باقة مساوية أو أقل"
+    },
+    "campaign": {
+      "bonusBadge": "هدية {credits} رصيد",
+      "discountBadge": "عرض لفترة محدودة"
+    },
+    "creditPeriod": {
+      "oneTime": "لمرة واحدة"
+    },
+    "creditSummary": {
+      "daily": "الأرصدة اليومية {credits}",
+      "days": "الأرصدة {count, plural, zero {كل # يوم} one {كل يوم} two {كل يومين} few {كل # أيام} many {كل # يومًا} other {كل # يوم}} {credits}",
+      "monthly": "الأرصدة الشهرية {credits}",
+      "months": "الأرصدة {count, plural, zero {كل # شهر} one {كل شهر} two {كل شهرين} few {كل # أشهر} many {كل # شهرًا} other {كل # شهر}} {credits}",
+      "yearly": "الأرصدة السنوية {credits}",
+      "years": "الأرصدة {count, plural, zero {كل # سنة} one {كل سنة} two {كل سنتين} few {كل # سنوات} many {كل # سنةً} other {كل # سنة}} {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "يشمل جميع مزايا الإصدار الأساسي، بالإضافة إلى:",
+        "parallelProcessing": "قدرة معالجة متوازية أعلى",
+        "taskPriority": "معالجة المهام بأولوية",
+        "techBasic": "دعم تقني أساسي"
+      },
+      "common": {
+        "allLearning": "جميع وظائف التعلم",
+        "allTeachingAndLearning": "جميع وظائف البحث والتدريس",
+        "createDebugPublish": "إنشاء الدورات وتصحيحها ونشرها",
+        "higherConcurrency": "دعم تزامن أعلى",
+        "unlimitedCourses": "عدد دورات غير محدود"
+      },
+      "daily": {
+        "preview": "مناسب للتحقق السريع والتجربة قصيرة الدورة",
+        "publish": "يدعم النشر قصير المدى والبدء السريع",
+        "support": "دعم تشغيل الاشتراك اليومي"
+      },
+      "free": {
+        "preview": "تسليم الدورة للمتعلمين واستيراد حسابات التعلم",
+        "publish": "إنشاء الدورة وتخزين المحتوى"
+      },
+      "monthly": {
+        "preview": "تسليم الدورة للمتعلمين واستيراد حسابات التعلم",
+        "publish": "إنشاء الدورة وتخزين المحتوى"
+      },
+      "premium": {
+        "concurrencyQuota": "حصة أعلى للمهام المتزامنة",
+        "dedicatedSupport": "دعم تقني مخصص",
+        "includesLabel": "يشمل جميع مزايا الإصدار المتقدم، بالإضافة إلى:",
+        "onboarding": "تدريب مخصص على إنشاء الدورات"
+      },
+      "pro": {
+        "branding": "هوية علامة تجارية مخصصة",
+        "customDomain": "نطاق مخصص",
+        "includesLabel": "يشمل جميع مزايا الإصدار الاحترافي، بالإضافة إلى:",
+        "techPriority": "دعم تقني بأولوية"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "قدرة معالجة متوازية أعلى",
+          "publish": "معالجة المهام بأولوية"
+        },
+        "premium": {
+          "analytics": "حصة أعلى للمهام المتزامنة",
+          "branding": "هوية علامة تجارية مخصصة",
+          "domain": "نطاق مخصص",
+          "priority": "دعم تقني مخصص",
+          "support": "تدريب مخصص على إنشاء الدورات"
+        },
+        "pro": {
+          "analytics": "دعم تقني بأولوية",
+          "branding": "هوية علامة تجارية مخصصة",
+          "domain": "نطاق مخصص",
+          "priority": "قدرة معالجة متوازية أعلى",
+          "support": "دعم تقني أساسي"
+        }
+      }
+    },
+    "featuresTitle": "المزايا المشمولة:",
+    "footnote": {
+      "learnerEstimateIntro": "تقدير عدد المتعلمين مبني على خبرة المنصة، وفق افتراض «إكمال شخص واحد دورة كاملة مرة واحدة، بحجم يقارب 10 دروس، ومتوسط تعلم طبيعي يقارب 15 دقيقة لكل درس، باستخدام النموذج الافتراضي وتفعيل وضع الاستماع». تُسوى الخصومات الفعلية حسب استهلاك النماذج الناتج عن التعلم والمعاينة والتصحيح، ويُعتد بتفاصيل الأرصدة نهائيًا. عوامل استهلاك الأرصدة:",
+      "learnerEstimateMode": "عند إيقاف وضع الاستماع والإبقاء على التعلم التفاعلي بالنصوص والصور فقط، قد يزيد عدد المتعلمين المدعومين من 1 إلى 4 أضعاف.",
+      "learnerEstimateModel": "يؤثر اختيار نموذج أغلى أو أرخص في استهلاك الأرصدة.",
+      "learnerEstimateScale": "تؤثر تغييرات عدد دروس الدورة وطول كل درس وعدد التفاعلات ومعدل إكمال الدورة وعدد أسئلة الطلاب في استهلاك الأرصدة.",
+      "validity": "صلاحية الأرصدة: تسري أرصدة الباقة الشهرية لمدة 30 يومًا من وقت الحصول عليها (شامل يوم الحصول)، وتسري أرصدة الباقة السنوية حسب السنة الميلادية. وينتهي كلاهما عند 23:59 من يوم الانتهاء."
+    },
+    "free": {
+      "creditSummary": "الأرصدة المجانية {credits}",
+      "description": "مناسب للتجربة الأولى",
+      "priceNote": "/ {days, plural, zero {صالح في يوم التسجيل فقط} one {صالح خلال أول يوم من التسجيل الجديد} two {صالح خلال أول يومين من التسجيل الجديد} few {صالح خلال أول # أيام من التسجيل الجديد} many {صالح خلال أول # يومًا من التسجيل الجديد} other {صالح خلال أول # يوم من التسجيل الجديد}}",
+      "priceNoteGranted": "/ فُعّل في {grantedAt}، صالح حتى {expiresAt}",
+      "title": "الإصدار التجريبي"
+    },
+    "intervalTabs": {
+      "daily": "الباقة اليومية",
+      "monthly": "الباقة الشهرية",
+      "plans": "باقات الأرصدة",
+      "topup": "حزمة الأرصدة",
+      "yearly": "الباقة السنوية"
+    },
+    "preorder": {
+      "pending": "شراء مسبق بانتظار السريان: ستسري {plan} في {date}."
+    },
+    "scale": {
+      "advanced": {
+        "students": "250 - 750 متعلمًا"
+      },
+      "basic": {
+        "students": "5 - 15 متعلمًا"
+      },
+      "free": {
+        "students": "5 - 15 متعلمًا"
+      },
+      "lite": {
+        "students": "أقل من متعلم واحد"
+      },
+      "premium": {
+        "students": "1100 - 3300 متعلم"
+      },
+      "pro": {
+        "students": "500 - 1500 متعلم"
+      },
+      "sectionTitle": "حجم دعم المتعلمين (مرجعي)"
+    },
+    "subtitle": "اختر باقة الأرصدة المناسبة",
+    "table": {
+      "creditsRowLabel": "أرصدة الدورة",
+      "emptyValue": "—",
+      "featuresRowLabel": "المزايا",
+      "studentsRowLabel": "عدد المتعلمين المتوقع دعمه",
+      "validityRowLabel": "صلاحية الأرصدة"
+    },
+    "title": "شراء الأرصدة",
+    "topup": {
+      "creditLabel": "{credits} رصيد",
+      "noteFrozen": "لا يمكن استخدام حزمة الأرصدة إلا عند وجود باقة أرصدة سارية في الحساب",
+      "noteInstant": "تسري فور الشراء، ولا تنتهي صلاحية الأرصدة."
+    },
+    "topupComingSoon": "ترقّبوا قريبًا",
+    "validity": {
+      "daily": "الصلاحية: تسري يوميًا بدءًا من يوم الشراء",
+      "days": "الصلاحية: {count, plural, zero {تتجدد كل # يوم} one {تتجدد كل يوم} two {تتجدد كل يومين} few {تتجدد كل # أيام} many {تتجدد كل # يومًا} other {تتجدد كل # يوم}} بدءًا من يوم الشراء",
+      "free": "الصلاحية: {days, plural, zero {تسري في يوم التسجيل فقط} one {تسري ليوم واحد من تاريخ التسجيل} two {تسري ليومين من تاريخ التسجيل} few {تسري خلال # أيام من تاريخ التسجيل} many {تسري خلال # يومًا من تاريخ التسجيل} other {تسري خلال # يوم من تاريخ التسجيل}}",
+      "monthly": "الصلاحية: تسري خلال 30 يومًا من يوم الشراء (شامل يوم الشراء)",
+      "months": "الصلاحية: {count, plural, zero {لا تتكرر فترة الصلاحية} one {تتجدد كل فترة من 30 يومًا بدءًا من يوم الشراء (شامل يوم الشراء)} two {تتجدد كل فترتين من 30 يومًا بدءًا من يوم الشراء (شامل يوم الشراء)} few {تتجدد كل # فترات من 30 يومًا بدءًا من يوم الشراء (شامل يوم الشراء)} many {تتجدد كل # فترةً من 30 يومًا بدءًا من يوم الشراء (شامل يوم الشراء)} other {تتجدد كل # فترة من 30 يومًا بدءًا من يوم الشراء (شامل يوم الشراء)}}",
+      "yearly": "الصلاحية: تسري حسب السنة الميلادية بدءًا من يوم الشراء",
+      "years": "الصلاحية: {count, plural, zero {تتجدد كل # سنة ميلادية} one {تتجدد كل سنة ميلادية} two {تتجدد كل سنتين ميلاديتين} few {تتجدد كل # سنوات ميلادية} many {تتجدد كل # سنةً ميلادية} other {تتجدد كل # سنة ميلادية}} بدءًا من يوم الشراء"
+    },
+    "validityShort": {
+      "free": "{days, plural, zero {# يوم} one {يوم واحد} two {يومان} few {# أيام} many {# يومًا} other {# يوم}}",
+      "monthly": "{count, plural, zero {# شهر} one {شهر واحد} two {شهران} few {# أشهر} many {# شهرًا} other {# شهر}}",
+      "yearly": "{count, plural, zero {# سنة} one {سنة واحدة} two {سنتان} few {# سنوات} many {# سنةً} other {# سنة}}"
+    }
+  },
+  "page": {
+    "adminLink": "فتح عرض الحسابات في لوحة الإدارة",
+    "tabs": {
+      "customization": "العلامة التجارية والدفع",
+      "ledger": "تفاصيل الأرصدة",
+      "plans": "شراء الأرصدة"
+    },
+    "title": "العضوية والأرصدة"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "سريان الإلغاء",
+      "downgradeEffective": "سريان التخفيض",
+      "expire": "معالجة الانتهاء",
+      "reconcile": "تصحيح المصالحة",
+      "renewal": "تجديد تلقائي",
+      "retry": "إعادة المحاولة بعد الفشل"
+    },
+    "status": {
+      "canceled": "ملغى",
+      "failed": "فشل",
+      "pending": "بانتظار التنفيذ",
+      "processing": "قيد المعالجة",
+      "succeeded": "مكتمل"
+    }
+  },
+  "reports": {
+    "empty": "لا توجد بيانات تقرير يومي حاليًا.",
+    "loadError": "تعذر تحميل تقرير الحسابات حاليًا.",
+    "metric": {
+      "llmCacheTokens": "رموز ذاكرة LLM",
+      "llmInputTokens": "رموز إدخال LLM",
+      "llmOutputTokens": "رموز إخراج LLM",
+      "ttsInputChars": "أحرف إدخال TTS",
+      "ttsOutputChars": "أحرف إخراج TTS",
+      "ttsRequestCount": "عدد طلبات TTS"
+    },
+    "table": {
+      "count": "عدد العناصر",
+      "credits": "الأرصدة",
+      "date": "التاريخ",
+      "entryType": "نوع دفتر الحسابات",
+      "metric": "مؤشر الفوترة",
+      "provider": "Provider / Model",
+      "rawAmount": "الاستخدام الأصلي",
+      "scene": "المشهد",
+      "shifu": "Shifu",
+      "source": "المصدر",
+      "usageType": "نوع Usage",
+      "window": "نافذة الإحصاء"
+    },
+    "usageType": {
+      "llm": "استدعاء النموذج",
+      "tts": "تحويل النص إلى كلام"
+    }
+  },
+  "result": {
+    "countdown": "العودة تلقائيًا إلى مركز العضوية بعد {seconds}s",
+    "errorTitle": "فشل مزامنة الحسابات",
+    "missingOrder": "يفتقد الطلب إلى رقم billing، يرجى العودة إلى مركز العضوية ثم مزامنته من قائمة الطلبات.",
+    "openBilling": "فتح مركز العضوية",
+    "pending": "لا تزال نتيجة الدفع قيد المعالجة، ويمكنك مزامنتها مرة أخرى لاحقًا.",
+    "pendingTitle": "بانتظار تأكيد الحسابات",
+    "processing": "جارٍ مزامنة حالة الدفع",
+    "retry": "المزامنة مرة أخرى",
+    "success": "تم تأكيد الدفع، وجارٍ تحديث بيانات العضوية والأرصدة.",
+    "successTitle": "تم تحديث الحسابات"
+  },
+  "sidebar": {
+    "creditsLabel": "الأرصدة المتبقية",
+    "cta": "الانتقال إلى مركز العضوية",
+    "dailyBalanceTitle": "رصيد الباقة اليومية",
+    "dailyTitle": "اشتراك يومي",
+    "description": "اعرض حالة العضوية ورصيد الأرصدة والإجراءات المالية اللاحقة.",
+    "expired": "منتهية",
+    "expiresInDays": "{days, plural, zero {تنتهي اليوم} one {تنتهي بعد يوم واحد} two {تنتهي بعد يومين} few {تنتهي بعد # أيام} many {تنتهي بعد # يومًا} other {تنتهي بعد # يوم}}",
+    "monthlyBalanceTitle": "رصيد الباقة الشهرية",
+    "monthlyTitle": "اشتراك شهري",
+    "nonMemberBalanceTitle": "رصيد الأرصدة",
+    "nonMemberTitle": "غير عضو",
+    "periodLabel": "دورة الباقة",
+    "placeholderValue": "--",
+    "subscriptionPending": "متاحة قريبًا",
+    "subscriptionStatusLabel": "حالة الاشتراك",
+    "summaryTitle": "الأرصدة",
+    "upgradeCta": "ترقية",
+    "usageCta": "عرض التفاصيل",
+    "yearlyBalanceTitle": "رصيد الباقة السنوية",
+    "yearlyTitle": "اشتراك سنوي"
+  },
+  "status": {
+    "active": "ساري",
+    "cancelScheduled": "تم جدولة الإلغاء",
+    "canceled": "ملغى",
+    "draft": "بانتظار الدفع",
+    "expired": "منتهي الصلاحية",
+    "none": "غير مفعّل",
+    "pastDue": "فشل التجديد",
+    "paused": "متوقف مؤقتًا"
+  },
+  "welcomeTrial": {
+    "confirm": "حسنًا، ابدأ الاستخدام!",
+    "description": "{days, plural, zero {يحصل المستخدم الجديد على باقة أساسية ليوم التسجيل فقط، تتضمن {credits} رصيدًا. ابدأ الآن بإنشاء دورتك الأولى!} one {يحصل المستخدم الجديد على باقة أساسية لمدة يوم واحد، تتضمن {credits} رصيدًا. ابدأ الآن بإنشاء دورتك الأولى!} two {يحصل المستخدم الجديد على باقة أساسية لمدة يومين، تتضمن {credits} رصيدًا. ابدأ الآن بإنشاء دورتك الأولى!} few {يحصل المستخدم الجديد على باقة أساسية لمدة # أيام، تتضمن {credits} رصيدًا. ابدأ الآن بإنشاء دورتك الأولى!} many {يحصل المستخدم الجديد على باقة أساسية لمدة # يومًا، تتضمن {credits} رصيدًا. ابدأ الآن بإنشاء دورتك الأولى!} other {يحصل المستخدم الجديد على باقة أساسية لمدة # يوم، تتضمن {credits} رصيدًا. ابدأ الآن بإنشاء دورتك الأولى!}}",
+    "title": "مرحبًا بك في {appName}"
+  }
+}

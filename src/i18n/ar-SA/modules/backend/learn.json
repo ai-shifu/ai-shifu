@@ -1,0 +1,18 @@
+{
+  "__namespace__": "server.learn",
+  "__flat__": {
+    "askProviderAuthFailed": "فشلت مصادقة قاعدة المعرفة، يرجى التحقق من صحة API Key وClient ID",
+    "askProviderNoResults": "لم يتم العثور على محتوى ذي صلة في قاعدة المعرفة",
+    "askProviderNotMember": "لم يفعّل حساب Dedao Brain العضوية، ولا يمكنه استدعاء الواجهة المفتوحة",
+    "askProviderRateLimited": "تخضع طلبات قاعدة المعرفة أو حصتها لقيود، يرجى المحاولة لاحقًا",
+    "askProviderTimeout": "انتهت مهلة استجابة قاعدة المعرفة الخارجية، يرجى المحاولة لاحقًا",
+    "askProviderUnavailable": "قاعدة المعرفة الخارجية غير متاحة مؤقتًا",
+    "generatedBlockNotFound": "لم يتم العثور على الكتلة المُنشأة",
+    "invalidAction": "عملية غير صالحة",
+    "lessonFeedbackCommentPlaceholder": "اختياري: أخبرنا باقتراحك",
+    "llmStreamInterrupted": "انقطع الاتصال أثناء الإنشاء، يرجى التحديث ثم المحاولة مرة أخرى",
+    "nextChapterButton": "الفصل التالي",
+    "outputInProgress": "يجري إخراج المحتوى، يرجى الانتظار حتى ينتهي ثم المحاولة مرة أخرى",
+    "ttsRateLimited": "خدمة الصوت مشغولة حاليًا، يرجى المحاولة مرة أخرى لاحقًا"
+  }
+}

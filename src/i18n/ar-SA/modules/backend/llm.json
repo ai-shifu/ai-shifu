@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.llm",
+  "__flat__": {
+    "modelNotSupported": "النموذج {model} غير مدعوم",
+    "requestFailed": "فشل استدعاء النموذج {model}: {message}",
+    "specifiedLlmNotConfigured": "لم يتم إعداد النموذج {model}، يرجى التحقق من المتغير {config_var} في .env"
+  }
+}

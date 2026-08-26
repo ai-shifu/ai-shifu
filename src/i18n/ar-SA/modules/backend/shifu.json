@@ -1,0 +1,31 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "copyCourseDemoNotAllowed": "لا تدعم الدورة الإرشادية المضمّنة النسخ",
+    "copyCourseDraftNotFound": "تفتقد الدورة الحالية إلى أحدث مسودة قابلة للنسخ",
+    "copyCourseTitleFallback": "الدورة",
+    "copyCourseTitleSuffix": "- نسخة",
+    "defaultChapterName": "فصل بلا اسم",
+    "defaultLessonName": "درس بلا اسم",
+    "draftConflict": "حدّث مستخدم آخر محتوى الدورة",
+    "importFileInvalid": "ملف الاستيراد غير صالح",
+    "noPermission": "ليست لديك صلاحية",
+    "outlineItemNotFound": "وحدة المخطط غير موجودة",
+    "outlineNameTooLong": "اسم المخطط طويل جدًا",
+    "outlineStructureBroken": "توجد مشكلة في بنية مخطط الدورة (تتعارض مواضع بعض الوحدات)، يرجى التحقق ثم المحاولة مرة أخرى",
+    "parentOutlineNotFound": "المخطط الأصل غير موجود",
+    "permissionContactLimit": "تدعم صلاحية المشاركة بحد أقصى {count} مستخدمين",
+    "shifuDescriptionTooLong": "يجب ألا يتجاوز وصف الدورة 500 حرف",
+    "shifuNameRequired": "يرجى إدخال اسم الدورة",
+    "shifuNameTooLong": "يجب ألا يتجاوز اسم الدورة {max_length} حرفًا",
+    "shifuNotFound": "الدورة غير موجودة",
+    "shifuPriceTooLow": "لا يمكن أن يقل سعر الدورة عن {min_shifu_price} يوان",
+    "shifuStructNotFound": "هيكل الدورة غير موجود",
+    "transferCreatorDemoNotAllowed": "لا تدعم الدورة الإرشادية المضمّنة نقل مسؤول الدورة",
+    "transferCreatorSameUser": "المستخدم المستهدف هو المسؤول الحالي بالفعل",
+    "transferCreatorTargetNotFound": "لم يتم العثور على مستخدم مسؤول الدورة المستهدف",
+    "ttsNotEnabled": "لم يتم تفعيل تحويل النص إلى كلام",
+    "unitNameTooLong": "اسم الوحدة طويل جدًا",
+    "unitNotFound": "الوحدة غير موجودة"
+  }
+}

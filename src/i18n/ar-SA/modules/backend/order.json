@@ -1,0 +1,32 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "checkout": "الانتقال إلى الدفع",
+    "courseNotPaid": "لم يتم شراء الدورة، يرجى شراء الدورة أولًا",
+    "emailAlreadyActivated": "تم تفعيل هذه الدورة للبريد الإلكتروني {email} بالفعل",
+    "importActivationFailed": "فشل الاستيراد والتفعيل، يرجى التحقق من بيانات الصف ثم المحاولة مرة أخرى.",
+    "learnStatusBranch": "فرع",
+    "learnStatusCompleted": "مكتمل",
+    "learnStatusInProgress": "قيد التعلم",
+    "learnStatusLocked": "غير مفتوح",
+    "learnStatusNotStarted": "متاح للتعلم",
+    "learnStatusRefund": "استرداد المبلغ",
+    "learnStatusReset": "إعادة ضبط",
+    "learnStatusUnavailable": "غير متاح",
+    "mobileAlreadyActivated": "تم تفعيل هذه الدورة لرقم الهاتف {mobile} بالفعل",
+    "orderHasPaid": "تم دفع الطلب بالفعل",
+    "orderNotFound": "لم يتم العثور على الطلب",
+    "orderPayExpired": "انتهت صلاحية الطلب، يرجى إنشاء طلب جديد",
+    "orderRefundError": "فشل استرداد المبلغ",
+    "orderStatusError": "لا تدعم حالة الطلب الحالية هذه العملية",
+    "orderStatusInit": "لم يبدأ الدفع",
+    "orderStatusRefund": "استرداد المبلغ",
+    "orderStatusSuccess": "تم الشراء بنجاح",
+    "orderStatusTimeout": "منتهي الصلاحية",
+    "orderStatusToBePaid": "بانتظار الدفع",
+    "payItemBasePrice": "السعر الأساسي",
+    "payItemCoupon": "الخصم",
+    "payItemProduct": "المنتج",
+    "payItemPromotion": "الحملة"
+  }
+}

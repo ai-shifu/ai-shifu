@@ -12,6 +12,8 @@ describe('i18n language normalization', () => {
         'en-US': { label: 'English' },
         'zh-CN': { label: '中文' },
         'fr-FR': { label: 'Français' },
+        'ar-SA': { label: 'العربية', rtl: true },
+        'th-TH': { label: 'ไทย', rtl: false },
       },
     };
 
@@ -159,6 +161,8 @@ describe('i18n language normalization', () => {
         'en-US': { label: 'English' },
         'zh-CN': { label: '中文' },
         'fr-FR': { label: 'Français' },
+        'ar-SA': { label: 'العربية', rtl: true },
+        'th-TH': { label: 'ไทย', rtl: false },
       },
       namespaces: ['common.core'],
     };
@@ -166,15 +170,19 @@ describe('i18n language normalization', () => {
     jest.resetModules();
     process.env.NEXT_PUBLIC_I18N_META = JSON.stringify(meta);
 
-    const { getLocaleLabel, localeEntries, namespaces } =
+    const { getLocaleLabel, isRtlLocale, localeEntries, namespaces } =
       await import('../lib/i18n-locales');
 
     expect(localeEntries.map(([code]) => code)).toEqual([
       'en-US',
       'zh-CN',
       'fr-FR',
+      'ar-SA',
+      'th-TH',
     ]);
     expect(getLocaleLabel('fr-FR')).toBe('Français');
+    expect(isRtlLocale('ar-SA')).toBe(true);
+    expect(isRtlLocale('th-TH')).toBe(false);
     expect(namespaces).toEqual(['common.core']);
   });
 });

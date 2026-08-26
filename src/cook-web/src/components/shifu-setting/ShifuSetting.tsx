@@ -1675,7 +1675,7 @@ export default function ShifuSettingDialog({
           </div>
         </SheetTrigger>
         <SheetContent
-          side='right'
+          side='end'
           hideOverlay={isOnboardingOpen}
           onInteractOutside={event => {
             if (isOnboardingOpen) {

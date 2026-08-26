@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.discount",
+  "__flat__": {
+    "couponCodeGenerationFailed": "فشل إنشاء رمز الخصم، يرجى المحاولة مرة أخرى لاحقًا.",
+    "discountAlreadyExpired": "انتهت صلاحية رمز الاسترداد",
+    "discountAlreadyUsed": "تم استخدام رمز الاسترداد",
+    "discountLimitExceeded": "تم بلوغ الحد الأقصى لاستخدام رمز الاسترداد",
+    "discountNotApply": "لا ينطبق رمز الاسترداد على هذه الدورة",
+    "discountNotFound": "رمز الاسترداد غير موجود",
+    "discountNotStart": "لم يبدأ رمز الاسترداد بعد",
+    "orderDiscountAlreadyUsed": "استخدم الطلب رمز الاسترداد بالفعل"
+  }
+}
