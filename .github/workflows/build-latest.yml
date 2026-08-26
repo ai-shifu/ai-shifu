@@ -140,6 +140,8 @@ jobs:
           tags: ${{ env.HAS_PUSH_TARGET == 'true' && steps.meta.outputs.tags || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
