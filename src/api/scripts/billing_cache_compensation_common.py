@@ -9,7 +9,10 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_INPUT_PATH = "cache_overcharge.csv"
 DEFAULT_SHEET_NAME = "\u6700\u7ec8\u8865\u53d1\u6e05\u5355"
@@ -20,6 +23,7 @@ IDENTIFY_HEADER = "\u8d26\u53f7/\u624b\u673a\u53f7"
 NICKNAME_HEADER = "\u6635\u79f0"
 SCENES_HEADER = "\u6d89\u53ca\u573a\u666f"
 AMOUNT_HEADER = "\u5efa\u8bae\u8865\u53d1\u79ef\u5206"
+REQUIRED_HEADERS = (USER_BID_HEADER, AMOUNT_HEADER)
 
 
 def ensure_api_root_on_path() -> None:
@@ -111,6 +115,7 @@ def row_to_payload(row: CompensationInputRow) -> dict[str, object]:
 def _load_csv_rows(path: Path) -> list[CompensationInputRow]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
+        _validate_required_headers(reader.fieldnames or [])
         rows: list[CompensationInputRow] = []
         for row_number, row in enumerate(reader, start=2):
             parsed = _parse_mapping_row(row, row_number=row_number)
@@ -134,6 +139,7 @@ def _load_xlsx_rows(path: Path, *, sheet_name: str) -> list[CompensationInputRow
     header_map = {
         str(header or "").strip(): index for index, header in enumerate(headers)
     }
+    _validate_required_headers(header_map.keys())
     rows: list[CompensationInputRow] = []
     for row_number, values in enumerate(iterator, start=2):
         mapping = {
@@ -172,9 +178,19 @@ def _normalize_cell(value: object) -> str:
     return str(value).strip()
 
 
+def _validate_required_headers(headers: Iterable[object]) -> None:
+    normalized = {str(header or "").strip() for header in headers}
+    missing = [header for header in REQUIRED_HEADERS if header not in normalized]
+    if missing:
+        message = f"Input file is missing required headers: {', '.join(missing)}"
+        raise ValueError(message)
+
+
 def _parse_amount(value: object) -> Decimal:
     try:
         parsed = Decimal(str(value or "0").strip())
     except (InvalidOperation, ValueError, TypeError):
+        return Decimal(0)
+    if not parsed.is_finite():
         return Decimal(0)
     return quantize_credit_amount(parsed)

@@ -64,6 +64,7 @@ _RETRYABLE_SUBSCRIPTION_SMS_STATUSES = {
     "processing",
     "failed_provider",
     "failed_missing_date",
+    "failed_missing_product",
 }
 
 
@@ -131,6 +132,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     """Run the one-month plan bonus script."""
     args = _build_parser().parse_args()
+    if (
+        args.subscription_sms_template_code
+        and not str(args.subscription_sms_product_name or "").strip()
+    ):
+        message = (
+            "--subscription-sms-product-name is required when "
+            "--subscription-sms-template-code is set."
+        )
+        raise RuntimeError(message)
     rows = filter_rows_by_user_bid(
         load_reference_rows(args.input, sheet_name=args.sheet),
         args.user_bid,
@@ -360,7 +370,17 @@ def _send_bonus_subscription_sms(
         return {"status": "skipped_no_mobile", "bill_order_bid": bill_order_bid}
 
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    product = str(metadata.get("bonus_product_name") or order.product_bid or "").strip()
+    product = str(metadata.get("bonus_product_name") or "").strip()
+    if not product:
+        _write_subscription_sms_status(
+            order,
+            status="failed_missing_product",
+            error_code="missing_product",
+            error_message="Subscription SMS product name is empty.",
+        )
+        db.session.add(order)
+        db.session.commit()
+        return {"status": "failed_missing_product", "bill_order_bid": bill_order_bid}
     date_text = str(metadata.get("bonus_cycle_end_at") or "").strip()
     if not date_text:
         date_text = str(metadata.get("applied_cycle_end_at") or "").strip()
@@ -500,6 +520,7 @@ def _write_subscription_sms_status(
         "failed_provider",
         "skipped_no_mobile",
         "failed_missing_date",
+        "failed_missing_product",
     }:
         payload["processed_at"] = now
     if status == "sent":
