@@ -90,6 +90,21 @@ def test_reference_loader_rejects_invalid_amount(tmp_path: Path) -> None:
         load_reference_rows(str(csv_path), sheet_name=DEFAULT_SHEET_NAME)
 
 
+def test_reference_loader_preserves_xlsx_numeric_zero_amount(tmp_path: Path) -> None:
+    openpyxl = pytest.importorskip("openpyxl")
+    xlsx_path = tmp_path / "input.xlsx"
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = DEFAULT_SHEET_NAME
+    worksheet.append([USER_BID_HEADER, AMOUNT_HEADER])
+    worksheet.append(["user-a", 0])
+    workbook.save(xlsx_path)
+
+    rows = load_reference_rows(str(xlsx_path), sheet_name=DEFAULT_SHEET_NAME)
+
+    assert rows[0].amount == Decimal("0.00")
+
+
 def test_existing_credit_grant_reports_amount_mismatch() -> None:
     row = type(
         "Row",

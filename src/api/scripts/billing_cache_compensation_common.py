@@ -202,7 +202,7 @@ def _validate_required_headers(headers: Iterable[object]) -> None:
 
 
 def _parse_amount(value: object, *, row_number: int) -> Decimal:
-    raw = str(value or "").strip()
+    raw = "" if value is None else str(value).strip()
     if _STANDARD_THOUSANDS_AMOUNT_PATTERN.fullmatch(raw):
         raw = raw.replace(",", "")
     try:
