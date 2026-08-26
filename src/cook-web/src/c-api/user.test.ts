@@ -3,10 +3,12 @@ import {
   completeProfileOnboarding,
   createProfileOnboardingSession,
   getProfileOnboarding,
+  getUserInfo,
   isProfileOnboardingStatus,
   runProfileOnboardingSession,
   skipProfileOnboarding,
 } from './user';
+import request from '@/lib/request';
 
 jest.mock('@/lib/profileOnboardingSse', () => ({
   streamProfileOnboardingRuntime: jest.fn(),
@@ -44,5 +46,25 @@ describe('legacy c-api learner-profile adapter', () => {
     expect(isProfileOnboardingStatus).toBe(
       learnerProfileApi.isProfileOnboardingStatus,
     );
+  });
+});
+
+describe('getUserInfo', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('keeps error notifications enabled by default', async () => {
+    await getUserInfo();
+
+    expect(request.get).toHaveBeenCalledWith('/api/user/info', undefined);
+  });
+
+  it('supports quiet recovery through the existing request path', async () => {
+    await getUserInfo({ skipErrorToast: true });
+
+    expect(request.get).toHaveBeenCalledWith('/api/user/info', {
+      skipErrorToast: true,
+    });
   });
 });

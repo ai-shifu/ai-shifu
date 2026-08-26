@@ -149,7 +149,7 @@ describe('PreviewSettingsModal', () => {
       },
     });
 
-    render(<PreviewSettingsModal />);
+    const { rerender } = render(<PreviewSettingsModal />);
 
     const previewButton = screen.getByRole('button', {
       name: /module.preview.previewAll/,
@@ -163,6 +163,18 @@ describe('PreviewSettingsModal', () => {
     expect(mockSaveMdflow).not.toHaveBeenCalled();
     expect(api.previewShifu).not.toHaveBeenCalled();
     expect(showCreditInsufficientToast).not.toHaveBeenCalled();
+
+    mockUserInfo = ownerUserInfo;
+    rerender(<PreviewSettingsModal />);
+    expect(previewButton).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(previewButton);
+    });
+    expect(api.previewShifu).toHaveBeenCalledWith(
+      expect.objectContaining({ shifu_bid: 'shifu-1' }),
+      { creditInsufficientAudience: 'teacher' },
+    );
   });
 
   it('starts preview when debug is allowed', async () => {

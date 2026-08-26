@@ -16,6 +16,8 @@ const mockMarkdownFlowEditor = jest.fn();
 const mockLessonPreview = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUsePreviewChat = jest.fn();
+const mockRefreshUserInfo = jest.fn();
+let mockUserToken = 'token';
 
 jest.mock('next/dynamic', () => () => {
   const MockMarkdownFlowEditor = (props: Record<string, unknown>) => {
@@ -338,6 +340,7 @@ const mockUserStoreState: {
   isInitialized: boolean;
   isGuest: boolean;
   getToken: () => string;
+  refreshUserInfo: typeof mockRefreshUserInfo;
 } = {
   userInfo: {
     user_bid: 'user-1',
@@ -346,14 +349,18 @@ const mockUserStoreState: {
   },
   isInitialized: true,
   isGuest: false,
-  getToken: () => 'token',
+  getToken: () => mockUserToken,
+  refreshUserInfo: mockRefreshUserInfo,
 };
 
 jest.mock('@/store', () => ({
   __esModule: true,
   useShifu: () => mockShifuState,
-  useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
-    selector(mockUserStoreState),
+  useUserStore: Object.assign(
+    (selector: (state: typeof mockUserStoreState) => unknown) =>
+      selector(mockUserStoreState),
+    { getState: () => mockUserStoreState },
+  ),
   useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
     selector({
       replayScenes: {
@@ -381,6 +388,10 @@ describe('ShifuEdit draft conflict checks', () => {
     mockLessonPreview.mockReset();
     mockTrackEvent.mockReset();
     mockUsePreviewChat.mockReset();
+    mockRefreshUserInfo.mockReset();
+    mockUserToken = 'token';
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.isGuest = false;
     mockLoadDraftMeta.mockReset();
     mockLoadModels.mockReset();
     mockLoadChapters.mockReset();
@@ -477,6 +488,166 @@ describe('ShifuEdit draft conflict checks', () => {
       screen.getByText('module.shifu.previewArea.action').closest('button'),
     ).toBeDisabled();
   });
+
+  test.each([
+    ['user-1', 'teacher'],
+    ['another-owner', 'teacher-collaborator'],
+  ])(
+    'recovers preview ownership for course owner %s after profile loading fails',
+    async (courseOwnerId, audience) => {
+      jest.useFakeTimers();
+      setLessonNode();
+      mockShifuState.currentShifu.created_user_bid = courseOwnerId;
+      mockUserStoreState.userInfo = null;
+      mockRefreshUserInfo
+        .mockRejectedValueOnce(new Error('Temporary profile failure'))
+        .mockImplementationOnce(async () => {
+          mockUserStoreState.userInfo = {
+            user_bid: 'user-1',
+            user_id: 'user-1',
+            language: 'zh-CN',
+          };
+        });
+
+      const { rerender } = render(<ScriptEditor id='shifu-1' />);
+      const previewButton = screen
+        .getByText('module.shifu.previewArea.action')
+        .closest('button');
+      expect(previewButton).toBeDisabled();
+      expect(mockRefreshUserInfo).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1000);
+      });
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+      expect(mockRefreshUserInfo).toHaveBeenLastCalledWith({
+        skipErrorToast: true,
+      });
+      expect(previewButton).toBeDisabled();
+      expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+        creditInsufficientAudience: null,
+      });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(2000);
+      });
+      rerender(<ScriptEditor id='shifu-1' />);
+
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(2);
+      expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+        creditInsufficientAudience: audience,
+      });
+      expect(previewButton).toBeEnabled();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(30000);
+      });
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  test.each([
+    { status: 401 },
+    { status: 403 },
+    { status: 404 },
+    { status: 200, code: 401 },
+    { status: 200, code: 403 },
+    { status: 200, code: 1001 },
+    { status: 200, code: 1004 },
+    { status: 200, code: 1005 },
+    { status: 200, code: 9002 },
+  ])('stops profile recovery after a terminal error %j', async error => {
+    jest.useFakeTimers();
+    mockUserStoreState.userInfo = null;
+    mockRefreshUserInfo.mockRejectedValue(error);
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60000);
+    });
+    expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+    expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
+      creditInsufficientAudience: null,
+    });
+  });
+
+  test.each(['known-profile', 'guest', 'uninitialized', 'missing-token'])(
+    'does not start profile recovery for %s',
+    async state => {
+      jest.useFakeTimers();
+      if (state !== 'known-profile') {
+        mockUserStoreState.userInfo = null;
+      }
+      mockUserStoreState.isGuest = state === 'guest';
+      mockUserStoreState.isInitialized = state !== 'uninitialized';
+      mockUserToken = state === 'missing-token' ? '' : 'token';
+
+      render(<ScriptEditor id='shifu-1' />);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(30000);
+      });
+      expect(mockRefreshUserInfo).not.toHaveBeenCalled();
+    },
+  );
+
+  test('keeps only one profile recovery request in flight and stops after unmount', async () => {
+    jest.useFakeTimers();
+    mockUserStoreState.userInfo = null;
+    let rejectRefresh: (error: Error) => void = () => undefined;
+    mockRefreshUserInfo.mockReturnValueOnce(
+      new Promise<void>((_resolve, reject) => {
+        rejectRefresh = reject;
+      }),
+    );
+
+    const { unmount } = render(
+      <React.StrictMode>
+        <ScriptEditor id='shifu-1' />
+      </React.StrictMode>,
+    );
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30000);
+    });
+    expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await act(async () => {
+      rejectRefresh(new Error('Late profile failure'));
+      await jest.advanceTimersByTimeAsync(30000);
+    });
+    expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['logout', 'token-change', 'unmount'])(
+    'cancels pending profile retries on %s',
+    async transition => {
+      jest.useFakeTimers();
+      mockUserStoreState.userInfo = null;
+      mockRefreshUserInfo.mockRejectedValue(new Error('Temporary failure'));
+      const { unmount } = render(<ScriptEditor id='shifu-1' />);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1000);
+      });
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+
+      if (transition === 'logout') {
+        mockUserStoreState.isGuest = true;
+      } else if (transition === 'token-change') {
+        mockUserToken = 'new-session-token';
+      } else {
+        unmount();
+      }
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(30000);
+      });
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('defaults editor onboarding trigger source for direct editor entry', () => {
     expect(resolveEditorOnboardingTriggerSource(null)).toBe('editor_entry');

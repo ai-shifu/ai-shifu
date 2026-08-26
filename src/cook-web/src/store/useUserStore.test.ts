@@ -98,6 +98,39 @@ describe('useUserStore.initUser', () => {
     expect(mockChangeLanguage).not.toHaveBeenCalled();
   });
 
+  test('recovers a missing profile quietly after initialization preserves a signed-in session', async () => {
+    mockTokenState = { token: 'owner-token', faked: false };
+    mockGetUserInfo.mockRejectedValueOnce(new Error('Temporary failure'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await useUserStore.getState().initUser();
+    } finally {
+      warnSpy.mockRestore();
+    }
+
+    expect(useUserStore.getState()).toMatchObject({
+      userInfo: null,
+      isInitialized: true,
+      isLoggedIn: true,
+      isGuest: false,
+    });
+    const profile = {
+      user_id: 'owner-id',
+      user_bid: 'owner-id',
+      email: 'owner@example.com',
+      language: 'zh-CN',
+    };
+    mockGetUserInfo.mockResolvedValueOnce(profile);
+
+    await useUserStore.getState().refreshUserInfo({ skipErrorToast: true });
+
+    expect(mockGetUserInfo).toHaveBeenLastCalledWith({ skipErrorToast: true });
+    expect(useUserStore.getState().userInfo).toEqual(profile);
+    expect(mockTokenState).toEqual({ token: 'owner-token', faked: false });
+    expect(mockRegisterTmp).not.toHaveBeenCalled();
+  });
+
   test('ignores a refresh response after the signed-in account changes', async () => {
     let resolveRefresh: (value: {
       user_id: string;

@@ -93,6 +93,8 @@ const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
 ]);
 const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
 const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
+const PROFILE_RECOVERY_INITIAL_DELAY_MS = 1000;
+const PROFILE_RECOVERY_MAX_DELAY_MS = 10000;
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
 
@@ -146,6 +148,7 @@ const ScriptEditor = ({
   const profile = useUserStore(state => state.userInfo);
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
   const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
@@ -276,6 +279,62 @@ const ScriptEditor = ({
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
+
+  useEffect(() => {
+    if (!isInitialized || isGuest || profile || !token) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryDelay = PROFILE_RECOVERY_INITIAL_DELAY_MS;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const needsProfileRecovery = () => {
+      const state = useUserStore.getState();
+      return (
+        !cancelled &&
+        state.isInitialized &&
+        !state.isGuest &&
+        !state.userInfo &&
+        state.getToken() === token
+      );
+    };
+
+    const recoverProfile = async () => {
+      if (!needsProfileRecovery()) {
+        return;
+      }
+
+      try {
+        // Initialization can complete without a profile after a network failure.
+        // Keep ownership unresolved while quietly recovering that profile.
+        await refreshUserInfo({ skipErrorToast: true });
+      } catch (error) {
+        const { status, code } = (error ?? {}) as {
+          status?: unknown;
+          code?: unknown;
+        };
+        if (
+          [401, 403, 404].includes(Number(status)) ||
+          [401, 403, 404, 1001, 1004, 1005, 9002].includes(Number(code))
+        ) {
+          return;
+        }
+      }
+
+      if (needsProfileRecovery()) {
+        retryDelay = Math.min(retryDelay * 2, PROFILE_RECOVERY_MAX_DELAY_MS);
+        timeoutId = setTimeout(recoverProfile, retryDelay);
+      }
+    };
+
+    // Defer even the first attempt so StrictMode cleanup prevents duplicate work.
+    timeoutId = setTimeout(recoverProfile, retryDelay);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [isGuest, isInitialized, profile, refreshUserInfo, token]);
+
   const isHistoryPage = initialViewMode === 'history';
   const editorOnboardingTriggerSource = useMemo(() => {
     const source =

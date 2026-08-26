@@ -1,4 +1,4 @@
-import request from '@/lib/request';
+import request, { type RequestConfig } from '@/lib/request';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
 const getCurrentShifuBid = (): string => {
@@ -11,8 +11,8 @@ const getCurrentShifuBid = (): string => {
  * @description Fetch user information
  * @returns
  */
-export const getUserInfo = () => {
-  return request.get('/api/user/info');
+export const getUserInfo = (config?: Pick<RequestConfig, 'skipErrorToast'>) => {
+  return request.get('/api/user/info', config);
 };
 
 /**
