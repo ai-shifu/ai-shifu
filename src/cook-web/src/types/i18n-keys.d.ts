@@ -3128,7 +3128,6 @@ export type I18nKey =
   | 'module.profileOnboarding.assistant.resultLabel'
   | 'module.profileOnboarding.assistant.resultPlaceholder'
   | 'module.profileOnboarding.assistant.title'
-  | 'module.profileOnboarding.assistant.waitingForQuestion'
   | 'module.profileOnboarding.back'
   | 'module.profileOnboarding.characterCount'
   | 'module.profileOnboarding.characterCountOverLimit'

@@ -12,7 +12,6 @@ export function ProfileAssistantAnswersView({
   value,
   disabled,
   processingDisabled = false,
-  waitingForQuestion = false,
   unresolved,
   onChange,
   onSubmit,
@@ -23,7 +22,6 @@ export function ProfileAssistantAnswersView({
   value: string;
   disabled: boolean;
   processingDisabled?: boolean;
-  waitingForQuestion?: boolean;
   unresolved: boolean;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
@@ -154,14 +152,6 @@ export function ProfileAssistantAnswersView({
               })}
         </p>
       </div>
-      {waitingForQuestion ? (
-        <p
-          role='status'
-          className='text-sm text-muted-foreground'
-        >
-          {t('module.profileOnboarding.assistant.waitingForQuestion')}
-        </p>
-      ) : null}
       <div className='flex flex-wrap justify-between gap-2'>
         <Button
           type='button'

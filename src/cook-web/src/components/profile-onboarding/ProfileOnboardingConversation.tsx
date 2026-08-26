@@ -95,6 +95,7 @@ export default function ProfileOnboardingConversation({
     items,
     status,
     assistantPrompt,
+    assistantAvailable,
     submitAssistantAnswers,
     resumeQuestions,
     uncertainRequest,
@@ -146,10 +147,7 @@ export default function ProfileOnboardingConversation({
     : errorMessage;
   const hasVisibleStatus = Boolean(visibleErrorMessage || retryAvailable);
   const canUseAssistant = Boolean(
-    assistantView &&
-    assistantPrompt &&
-    status !== 'completed' &&
-    status !== 'fatal_error',
+    assistantView && assistantPrompt && assistantAvailable,
   );
 
   // Hidden questions cannot be edited; keep their renderer props unchanged
@@ -216,10 +214,7 @@ export default function ProfileOnboardingConversation({
           prompt={assistantPrompt}
           value={assistantView.draft}
           disabled={disabled || assistantProcessing}
-          waitingForQuestion={runInFlight && !assistantProcessing}
-          processingDisabled={
-            !['awaiting_input', 'retryable_error'].includes(status)
-          }
+          processingDisabled={!assistantAvailable}
           unresolved={uncertainRequest}
           onChange={assistantView.onChange}
           onSubmit={submitAssistantAnswers}

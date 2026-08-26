@@ -113,7 +113,7 @@ test('returning after paste does not submit the draft', () => {
   expect(onBack).toHaveBeenCalledTimes(1);
 });
 
-test('pasting while questions load remains editable and never submits on readiness', () => {
+test('reenabling processing never submits a pasted draft without a click', () => {
   const onSubmit = jest.fn();
   function Harness({ pending }: { pending: boolean }) {
     const [value, setValue] = React.useState('');
@@ -123,7 +123,6 @@ test('pasting while questions load remains editable and never submits on readine
         value={value}
         disabled={false}
         processingDisabled={pending}
-        waitingForQuestion={pending}
         unresolved={false}
         onChange={setValue}
         onSubmit={onSubmit}

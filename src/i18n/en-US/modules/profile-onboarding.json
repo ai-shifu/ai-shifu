@@ -44,8 +44,7 @@
     "processing": "Organizing your answer…",
     "resultLabel": "Paste the AI answer",
     "resultPlaceholder": "Paste your AI assistant’s answer here…",
-    "title": "Ask your AI assistant to answer",
-    "waitingForQuestion": "Questions are still being prepared. You can copy the prompt and fill in an answer now, then process it when ready."
+    "title": "Ask your AI assistant to answer"
   },
   "back": "Previous",
   "characterCount": "{count} / {max} characters",

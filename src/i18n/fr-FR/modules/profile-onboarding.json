@@ -44,8 +44,7 @@
     "processing": "Organisation de votre réponse…",
     "resultLabel": "Coller la réponse de l’IA",
     "resultPlaceholder": "Collez ici la réponse de votre assistant IA…",
-    "title": "Laisser votre assistant IA répondre",
-    "waitingForQuestion": "Les questions sont en préparation. Vous pouvez déjà copier la consigne et saisir une réponse, puis la traiter dès que tout est prêt."
+    "title": "Laisser votre assistant IA répondre"
   },
   "back": "Précédent",
   "characterCount": "{count} / {max} caractères",
