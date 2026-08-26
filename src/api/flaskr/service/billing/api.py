@@ -67,6 +67,8 @@ from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 if TYPE_CHECKING:
     from decimal import Decimal
 
+    from flask import Flask
+
 
 def is_billing_enabled(*, default: bool = False) -> bool:
     """Return whether billing enabled."""
@@ -94,7 +96,7 @@ def to_decimal(value: object) -> Decimal:
 
 
 def admit_creator_preview_usage(
-    app,
+    app: Flask,
     *,
     shifu_bid: str,
 ) -> CreatorUsageAdmission:

@@ -42,7 +42,7 @@ def test_get_shifu_info_returns_dto(app: object) -> None:
     assert dto.is_owner is False
 
 
-def test_get_shifu_info_marks_matching_preview_viewer_as_owner(app):
+def test_get_shifu_info_marks_matching_preview_viewer_as_owner(app: object) -> None:
     with app.app_context():
         shifu = DraftShifu(
             shifu_bid="shifu-preview-owner",

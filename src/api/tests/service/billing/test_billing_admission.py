@@ -45,7 +45,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-def test_preview_admission_checks_resolved_owner_before_wallet(monkeypatch):
+def test_preview_admission_checks_resolved_owner_before_wallet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app = Flask(__name__)
     calls: list[tuple[str, object]] = []
     expected_admission = object()
@@ -88,7 +90,9 @@ def test_preview_admission_checks_resolved_owner_before_wallet(monkeypatch):
     ]
 
 
-def test_preview_admission_stops_when_owner_softlimit_disables_debug(monkeypatch):
+def test_preview_admission_stops_when_owner_softlimit_disables_debug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     app = Flask(__name__)
     wallet_admission_called = False
 
@@ -98,12 +102,12 @@ def test_preview_admission_stops_when_owner_softlimit_disables_debug(monkeypatch
         lambda _app, _shifu_bid: "owner-softlimit",
     )
 
-    def reject_debug(_app, _creator_bid):
+    def reject_debug(_app: Flask, _creator_bid: str) -> None:
         from flaskr.service.common.models import raise_error
 
         raise_error("server.billing.debugDisabledBySoftLimit")
 
-    def capture_wallet_admission(_app, **_kwargs):
+    def capture_wallet_admission(_app: Flask, **_kwargs: object) -> None:
         nonlocal wallet_admission_called
         wallet_admission_called = True
 
