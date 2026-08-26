@@ -20,6 +20,9 @@ Use the learner's first-person voice in compiled prompts and update examples.
 - [x] 2026-08-26 UTC: Replace the assistant prompt card's separate copy header
   with a compact in-card action, preserving a clear accessible label and
   readable prompt width across narrow and RTL layouts.
+- [x] 2026-08-26 UTC: Float copying at the prompt card's bottom corner, make the
+  assistant workspace fill the dialog body, clarify the return/process actions,
+  and visually elevate the fixed dialog footer above the collection surface.
 
 ## Surprises & Discoveries
 
@@ -35,6 +38,12 @@ Keeping the full localized copy label in a side-by-side card was also too
 expensive on narrow screens: the French label left only about 88 CSS pixels for
 the prompt. A short visible action needs a separate full accessible name rather
 than relying on one string for both jobs.
+
+The first responsive workspace prototype let its grid shrink on phones. At
+360x640 that collapsed the grid track to zero and visually overlapped its
+children with the action row. Keeping the stacked mobile workspace at intrinsic
+height, and enabling flexible equal columns only from the desktop breakpoint,
+preserves one scroll owner and prevents the overlap.
 
 ## Decision Log
 
@@ -54,6 +63,11 @@ than relying on one string for both jobs.
   while retaining the existing full copy label as `aria-label` and hover text.
   Keep `dir="auto"` on the prompt content so its language, not the surrounding
   interface locale, determines text direction.
+- On desktop, place the public prompt and pasted answer in equal columns that
+  consume the remaining body height. Stack them at intrinsic height on phones
+  and let the assistant section scroll. Anchor copying to the prompt card's
+  logical bottom-end corner so RTL mirrors it. Use a muted body surface plus an
+  opaque, shadowed footer to express the footer as the higher interaction layer.
 
 ## Outcomes & Retrospective
 
@@ -84,6 +98,16 @@ used the real dialog and assistant view at a 360-style narrow width plus Arabic
 RTL: the prompt and action no longer overlap, the action follows logical RTL
 placement, and the unified card is 114 CSS pixels high. The temporary QA route
 and tabs were removed after inspection.
+
+The body/footer redesign passes 95 focused dialog/conversation/assistant tests
+and the full frontend regression suite (178 suites / 1,558 tests), TypeScript,
+full ESLint (existing repository warnings only), translation parity/usage,
+architecture boundaries and the repository harness. Controlled browser QA used
+the actual Dialog and assistant view at desktop, 360x640 and 390x844 sizes plus
+RTL. Desktop content fills the body without hiding either action; mobile content
+stacks and scrolls without overlap or horizontal overflow; the copy action stays
+at the prompt card's logical bottom-end. The temporary route, screenshots and
+browser tabs were removed.
 
 Browser inspection used the real conversation, assistant view, official renderer
 and shared Dialog in a temporary local fixture matching the dialog dimensions,

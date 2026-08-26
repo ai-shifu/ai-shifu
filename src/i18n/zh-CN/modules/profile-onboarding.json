@@ -32,7 +32,7 @@
     "updatedBy": "更新人"
   },
   "assistant": {
-    "back": "返回回答问题",
+    "back": "还是自己答吧",
     "copied": "已复制",
     "copy": "复制提示词",
     "copyFailed": "复制失败，请手动选择并复制提示词。",
@@ -41,8 +41,8 @@
     "error": "没能整理出有效信息。请修改或重试，也可以返回继续回答问题。",
     "instructions": "先把下面提示词发给最熟悉你的 AI 助理，比如 ChatGPT、Claude、WorkBuddy、豆包、千问、OpenClaw、Hermes Agent 等",
     "limitError": "回答不能超过 10,000 个字符，请缩短后重试。",
-    "process": "整理回答",
-    "processing": "正在整理回答…",
+    "process": "整理 AI 的回答",
+    "processing": "正在整理 AI 的回答…",
     "resultLabel": "粘贴 AI 的回答",
     "resultPlaceholder": "在这里粘贴 AI 助理的回答…",
     "title": "让你的 AI 助理代答"

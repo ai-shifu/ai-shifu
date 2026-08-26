@@ -161,7 +161,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <div
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
-          className='flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-gutter:stable] [@media(max-height:620px)]:py-3 sm:px-8 sm:py-6'
+          className='relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-muted/25 px-5 py-5 [scrollbar-gutter:stable] [@media(max-height:620px)]:py-3 sm:px-8 sm:py-6'
         >
           {loading ? (
             <div
@@ -249,7 +249,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
 
         <footer
           data-testid='learner-profile-dialog-footer'
-          className='flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
+          className='relative z-10 flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)] sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
         >
           {confirmation ? (
             <>

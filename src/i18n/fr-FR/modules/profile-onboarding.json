@@ -32,7 +32,7 @@
     "updatedBy": "Mis à jour par"
   },
   "assistant": {
-    "back": "Revenir aux questions",
+    "back": "Je préfère répondre moi-même",
     "copied": "Copié",
     "copy": "Copier la consigne",
     "copyFailed": "La copie a échoué. Sélectionnez et copiez la consigne manuellement.",
@@ -41,8 +41,8 @@
     "error": "Nous n’avons pas pu organiser d’informations utilisables. Modifiez la réponse ou réessayez, ou revenez aux questions.",
     "instructions": "Envoyez d’abord la consigne ci-dessous à l’assistant IA qui vous connaît le mieux, par exemple ChatGPT, Claude, WorkBuddy, Doubao, Qwen, OpenClaw, Hermes Agent, entre autres.",
     "limitError": "La réponse ne peut pas dépasser 10 000 caractères. Raccourcissez-la et réessayez.",
-    "process": "Organiser la réponse",
-    "processing": "Organisation de votre réponse…",
+    "process": "Organiser la réponse de l’IA",
+    "processing": "Organisation de la réponse de l’IA…",
     "resultLabel": "Coller la réponse de l’IA",
     "resultPlaceholder": "Collez ici la réponse de votre assistant IA…",
     "title": "Laisser votre assistant IA répondre"

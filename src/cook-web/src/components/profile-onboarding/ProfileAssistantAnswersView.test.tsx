@@ -180,6 +180,17 @@ test('copy uses the exact frozen prompt and offers manual copying on clipboard f
   const copyButton = screen.getByRole('button', {
     name: 'module.profileOnboarding.assistant.copy',
   });
+  expect(screen.getByTestId('profile-assistant-answers')).toHaveClass(
+    'flex',
+    'h-full',
+    'flex-col',
+  );
+  expect(copyButton).toHaveClass('absolute', 'bottom-2', 'end-2');
+  expect(copyButton.parentElement).toHaveClass('relative');
+  expect(copyButton.parentElement?.parentElement?.parentElement).toHaveClass(
+    'md:flex-1',
+    'md:grid-cols-2',
+  );
   expect(copyButton).toHaveTextContent(
     'module.profileOnboarding.assistant.copyShort',
   );

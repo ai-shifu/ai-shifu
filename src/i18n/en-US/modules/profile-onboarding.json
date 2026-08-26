@@ -32,7 +32,7 @@
     "updatedBy": "Updated by"
   },
   "assistant": {
-    "back": "Back to the questions",
+    "back": "I'll answer myself",
     "copied": "Copied",
     "copy": "Copy prompt",
     "copyFailed": "Could not copy. Select and copy the prompt manually.",
@@ -41,8 +41,8 @@
     "error": "We could not organize usable information. Edit or retry the answer, or return to the questions.",
     "instructions": "First, send the prompt below to the AI assistant that knows you best, such as ChatGPT, Claude, WorkBuddy, Doubao, Qwen, OpenClaw, Hermes Agent, and others.",
     "limitError": "The answer cannot exceed 10,000 characters. Shorten it and try again.",
-    "process": "Organize answer",
-    "processing": "Organizing your answer…",
+    "process": "Organize AI's answer",
+    "processing": "Organizing AI's answer…",
     "resultLabel": "Paste the AI answer",
     "resultPlaceholder": "Paste your AI assistant’s answer here…",
     "title": "Ask your AI assistant to answer"

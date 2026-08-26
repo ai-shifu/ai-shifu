@@ -400,10 +400,16 @@ describe('LearnerProfileDialog', () => {
     );
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-y-auto',
+      'bg-muted/25',
     );
     expect(
       screen.getByTestId('mock-profile-onboarding-conversation').parentElement,
     ).toHaveClass('min-h-40', '[@media(max-height:620px)]:min-h-32');
+    expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
+      'relative',
+      'z-10',
+      'shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)]',
+    );
     expect(
       screen.getByTestId('learner-profile-dialog-footer'),
     ).toContainElement(informationUsageControl());
