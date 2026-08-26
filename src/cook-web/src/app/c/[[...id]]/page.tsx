@@ -193,20 +193,19 @@ export default function ChatPage() {
   // failed exchange is not retried in a loop with the same (single-use) code.
   const attemptedWechatCodeRef = useRef('');
 
-  // WeChat JSAPI payment needs an openid bound to the account. The OAuth code
-  // carried by the URL can be consumed elsewhere first (guest registration) or
-  // its exchange can fail, and the code is then dropped from the URL on login,
-  // which used to leave the account without an openid for good. Retry the
-  // binding whenever the openid is still missing, and fetch a fresh code once
-  // per session when no usable one is left.
+  // WeChat JSAPI payment needs the openid of the WeChat account currently
+  // viewing the page. Every unspent code is handed to the backend, which only
+  // writes when the openid actually differs, so signing in from another WeChat
+  // account moves the binding over instead of paying with a stale openid. The
+  // code itself can be consumed elsewhere first (guest registration) or fail to
+  // exchange, and login drops it from the URL, which used to leave an account
+  // without any openid for good -- so when none is left and nothing is bound,
+  // fetch a fresh code once per session.
   useEffect(() => {
     if (!initialized) {
       return;
     }
     if (!isLoggedIn || !isUserProfileLoaded) {
-      return;
-    }
-    if (wechatOpenId) {
       return;
     }
     if (!inWechat() || inMiniProgram() || !wxcodeEnabled) {
@@ -219,7 +218,9 @@ export default function ChatPage() {
     }
 
     if (!wechatCode) {
-      requestWechatCodeForOpenIdRebind();
+      if (!wechatOpenId) {
+        requestWechatCodeForOpenIdRebind();
+      }
       return;
     }
     if (attemptedWechatCodeRef.current === wechatCode) {
@@ -231,6 +232,9 @@ export default function ChatPage() {
       .then(openid => {
         if (!openid) {
           debugWarn('[lesson-page] WeChat OpenID binding returned no openid');
+          return undefined;
+        }
+        if (openid === wechatOpenId) {
           return undefined;
         }
         return refreshUserInfo();

@@ -1396,8 +1396,8 @@ describe('ChatPage profile onboarding gate', () => {
       expect(mockWechatLogin).not.toHaveBeenCalled();
     });
 
-    test('leaves an already bound account alone', async () => {
-      mockSystemStoreState.wechatCode = 'code-1';
+    test('leaves a bound account alone when no code is left to spend', async () => {
+      mockSystemStoreState.wechatCode = '';
       mockInWechat = true;
       mockUserStoreState.userInfo = {
         ...defaultMockUserInfo,
@@ -1408,6 +1408,41 @@ describe('ChatPage profile onboarding gate', () => {
 
       await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
       expect(mockUpdateWxcode).not.toHaveBeenCalled();
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('moves the binding over when another WeChat account signs in', async () => {
+      mockSystemStoreState.wechatCode = 'code-from-other-wechat';
+      mockInWechat = true;
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: 'o_previous',
+      };
+      mockUpdateWxcode.mockResolvedValue('o_other_account');
+
+      render(<ChatPage />);
+
+      await waitFor(() =>
+        expect(mockUpdateWxcode).toHaveBeenCalledWith({
+          wxcode: 'code-from-other-wechat',
+        }),
+      );
+      await waitFor(() => expect(mockRefreshUserInfo).toHaveBeenCalled());
+    });
+
+    test('skips the refresh when the code resolves to the bound openid', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockInWechat = true;
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: 'o_same',
+      };
+      mockUpdateWxcode.mockResolvedValue('o_same');
+
+      render(<ChatPage />);
+
+      await waitFor(() => expect(mockUpdateWxcode).toHaveBeenCalledTimes(1));
+      expect(mockRefreshUserInfo).not.toHaveBeenCalled();
       expect(mockWechatLogin).not.toHaveBeenCalled();
     });
 
