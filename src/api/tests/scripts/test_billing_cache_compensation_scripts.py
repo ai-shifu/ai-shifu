@@ -19,6 +19,7 @@ from billing_cache_compensation_common import (  # noqa: E402
     AMOUNT_HEADER,
     DEFAULT_SHEET_NAME,
     USER_BID_HEADER,
+    add_mismatch,
     load_reference_rows,
 )
 from flaskr.service.billing.consts import (  # noqa: E402
@@ -103,6 +104,19 @@ def test_reference_loader_preserves_xlsx_numeric_zero_amount(tmp_path: Path) -> 
     rows = load_reference_rows(str(xlsx_path), sheet_name=DEFAULT_SHEET_NAME)
 
     assert rows[0].amount == Decimal("0.00")
+
+
+def test_add_mismatch_compares_decimal_values_without_scale_noise() -> None:
+    mismatch: dict[str, object] = {}
+
+    add_mismatch(
+        mismatch,
+        "amount",
+        expected=Decimal("8739.02"),
+        actual=Decimal("8739.0200000000"),
+    )
+
+    assert mismatch == {}
 
 
 def test_existing_credit_grant_reports_amount_mismatch() -> None:
