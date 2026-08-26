@@ -144,6 +144,7 @@
     "loadUsagesFailed": "使用记录加载失败，请稍后重试",
     "packageCampaignDisabledSuccess": "套餐活动已停用",
     "packageCampaignEnabledSuccess": "套餐活动已启用",
+    "packageCampaignProviderAttention": "部分 Stripe Coupon 需处理，请查看状态",
     "packageCampaignProviderPublished": "Stripe Coupon 已发布",
     "packageCampaignProviderRetired": "Stripe Coupon 已停止",
     "packageCampaignProviderRetried": "Stripe Coupon 已重试发布",

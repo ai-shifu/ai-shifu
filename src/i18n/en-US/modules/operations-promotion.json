@@ -144,6 +144,7 @@
     "loadUsagesFailed": "Failed to load usage records. Please try again later.",
     "packageCampaignDisabledSuccess": "Package campaign disabled",
     "packageCampaignEnabledSuccess": "Package campaign enabled",
+    "packageCampaignProviderAttention": "Some Stripe Coupons need attention. Check the status column.",
     "packageCampaignProviderPublished": "Stripe Coupons published",
     "packageCampaignProviderRetired": "Stripe Coupons stopped",
     "packageCampaignProviderRetried": "Stripe Coupon publish retried",

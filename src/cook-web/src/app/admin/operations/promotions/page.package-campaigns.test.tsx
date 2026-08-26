@@ -109,6 +109,78 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         'module.operationsPromotion.messages.packageCampaignProviderPublished',
     });
   });
+
+  test('shows an error when package campaign provider publish request fails', async () => {
+    mockPublishPackageCampaignProviderDiscounts.mockRejectedValueOnce(
+      new Error('provider publish failed'),
+    );
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetPackageCampaigns).toHaveBeenCalled());
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'provider publish failed',
+        variant: 'destructive',
+      }),
+    );
+  });
+
+  test('shows an error when provider publish returns failed items', async () => {
+    mockPublishPackageCampaignProviderDiscounts.mockResolvedValueOnce({
+      items: [
+        {
+          status: 'failed',
+          failure_message: 'Stripe credentials rejected',
+        },
+      ],
+    });
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetPackageCampaigns).toHaveBeenCalled());
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'Stripe credentials rejected',
+        variant: 'destructive',
+      }),
+    );
+  });
+
   test('opens package campaign product details from product column', async () => {
     render(<AdminOperationPromotionsPage />);
 

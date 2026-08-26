@@ -108,6 +108,33 @@ import {
  * t('module.operationsPromotion.referralCampaign.latestInviteEventAt')
  * t('module.operationsPromotion.referralCampaign.validityDaysValue')
  */
+type ProviderDiscountActionPayload = {
+  items?: Array<{
+    status?: string;
+    failure_code?: string;
+    failure_message?: string;
+  }>;
+};
+
+const PROVIDER_DISCOUNT_ATTENTION_STATUSES = new Set([
+  'failed',
+  'provider_invalid',
+  'requires_republish',
+  'cleanup_required',
+]);
+
+function resolveProviderDiscountActionError(
+  payload: ProviderDiscountActionPayload,
+): { hasAttention: boolean; message: string } {
+  const item = payload.items?.find(entry =>
+    PROVIDER_DISCOUNT_ATTENTION_STATUSES.has(String(entry.status || '')),
+  );
+  return {
+    hasAttention: Boolean(item),
+    message: item?.failure_message || item?.failure_code || '',
+  };
+}
+
 export default function AdminOperationPromotionsPage() {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
@@ -810,34 +837,70 @@ export default function AdminOperationPromotionsPage() {
     });
   };
 
+  const runPackageCampaignProviderAction = async (
+    item: AdminBillingCampaignItem,
+    action: (campaignBid: string) => Promise<unknown>,
+    successMessageKey:
+      | 'messages.packageCampaignProviderPublished'
+      | 'messages.packageCampaignProviderRetried'
+      | 'messages.packageCampaignProviderRetired',
+  ) => {
+    try {
+      const payload = (await action(
+        item.campaign_bid,
+      )) as ProviderDiscountActionPayload;
+      await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+      const actionError = resolveProviderDiscountActionError(payload);
+      if (actionError.hasAttention) {
+        showErrorToast(
+          actionError.message ||
+            tPromotion('messages.packageCampaignProviderAttention'),
+        );
+        return;
+      }
+      showDefaultToast(tPromotion(successMessageKey));
+    } catch (error) {
+      showErrorToast((error as Error).message || t('common.core.submitFailed'));
+    }
+  };
+
   const handlePackageCampaignProviderPublish = async (
     item: AdminBillingCampaignItem,
   ) => {
-    await api.publishAdminBillingCampaign({
-      campaign_bid: item.campaign_bid,
-    });
-    showDefaultToast(tPromotion('messages.packageCampaignProviderPublished'));
-    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+    await runPackageCampaignProviderAction(
+      item,
+      campaignBid =>
+        api.publishAdminBillingCampaign({
+          campaign_bid: campaignBid,
+        }),
+      'messages.packageCampaignProviderPublished',
+    );
   };
 
   const handlePackageCampaignProviderRetry = async (
     item: AdminBillingCampaignItem,
   ) => {
-    await api.retryPublishAdminBillingCampaign({
-      campaign_bid: item.campaign_bid,
-    });
-    showDefaultToast(tPromotion('messages.packageCampaignProviderRetried'));
-    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+    await runPackageCampaignProviderAction(
+      item,
+      campaignBid =>
+        api.retryPublishAdminBillingCampaign({
+          campaign_bid: campaignBid,
+        }),
+      'messages.packageCampaignProviderRetried',
+    );
   };
 
   const handlePackageCampaignProviderRetire = async (
     item: AdminBillingCampaignItem,
   ) => {
-    await api.retireAdminBillingCampaign({
-      campaign_bid: item.campaign_bid,
-    });
-    showDefaultToast(tPromotion('messages.packageCampaignProviderRetired'));
-    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+    await runPackageCampaignProviderAction(
+      item,
+      campaignBid =>
+        api.retireAdminBillingCampaign({
+          campaign_bid: campaignBid,
+        }),
+      'messages.packageCampaignProviderRetired',
+    );
   };
 
   const handleReferralCampaignStatusToggle = (

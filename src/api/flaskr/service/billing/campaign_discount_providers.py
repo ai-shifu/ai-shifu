@@ -43,6 +43,7 @@ class ProviderDiscountSnapshot:
     amount_off: int | None
     percent_off: Decimal | None
     duration: str
+    applies_to_product_ids: list[str] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
 
 
@@ -77,6 +78,7 @@ class StripeCampaignDiscountProvider:
             "duration": request.duration,
             "metadata": request.metadata,
             "idempotency_key": request.idempotency_key,
+            "applies_to": {"products": [request.provider_product_id]},
         }
         if request.amount_off is not None:
             params["amount_off"] = int(request.amount_off)
@@ -108,6 +110,9 @@ def _stripe_coupon_to_discount_snapshot(coupon: object) -> ProviderDiscountSnaps
     metadata = payload.get("metadata") or {}
     if hasattr(metadata, "to_dict"):
         metadata = metadata.to_dict()
+    applies_to = payload.get("applies_to") or {}
+    if hasattr(applies_to, "to_dict"):
+        applies_to = applies_to.to_dict()
     percent_off = payload.get("percent_off")
     return ProviderDiscountSnapshot(
         provider_coupon_id=str(payload.get("id") or ""),
@@ -134,5 +139,10 @@ def _stripe_coupon_to_discount_snapshot(coupon: object) -> ProviderDiscountSnaps
             else None
         ),
         duration=str(payload.get("duration") or ""),
+        applies_to_product_ids=[
+            str(product_id)
+            for product_id in (dict(applies_to).get("products") or [])
+            if str(product_id or "").strip()
+        ],
         metadata={str(key): str(value) for key, value in dict(metadata).items()},
     )

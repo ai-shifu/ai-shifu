@@ -185,7 +185,8 @@ def list_admin_campaign_provider_discounts(
             )
             .all()
         )
-        return {"items": [serialize_campaign_provider_discount(row) for row in rows]}
+        items = [serialize_campaign_provider_discount(row) for row in rows]
+        return {"items": items, "summary": _summarize_serialized_items(items)}
 
 
 def mark_campaign_provider_discounts_requires_republish(
@@ -232,7 +233,7 @@ def publish_admin_campaign_provider_discounts(
     with app_context_scope(app), unit_of_work():
         campaign = _require_campaign(normalized_campaign_bid)
         if int(campaign.benefit_type or 0) != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
-            return {"items": [], "summary": {"total": 0, "active": 0, "failed": 0}}
+            return {"items": [], "summary": _summarize_serialized_items([])}
         bindings = _load_campaign_discount_bindings(normalized_campaign_bid)
         scope = resolve_current_stripe_provider_price_scope(app)
         rows = [
@@ -309,6 +310,8 @@ def retire_admin_campaign_provider_discounts(
                     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
                     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_PROVIDER_INVALID,
                     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
+                    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
+                    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
                 ]
             ),
         ).all()
@@ -428,10 +431,19 @@ def _create_or_validate_provider_discount(
         row = _require_discount_row(row_bid)
         product = _require_product(row.product_bid)
         if row.provider_coupon_id:
-            snapshot = provider.retrieve_campaign_discount(
-                provider_coupon_id=row.provider_coupon_id,
-                app=app,
-            )
+            try:
+                snapshot = provider.retrieve_campaign_discount(
+                    provider_coupon_id=row.provider_coupon_id,
+                    app=app,
+                )
+            except Exception as exc:
+                row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED
+                row.failure_code = "provider_retrieve_failed"
+                row.failure_message = _sanitize_error_message(exc)
+                row.updated_user_bid = operator_user_bid
+                row.updated_at = now_utc()
+                db.session.add(row)
+                return
         else:
             try:
                 snapshot = provider.create_campaign_discount(
@@ -543,6 +555,7 @@ def _apply_validation_snapshot(
             if snapshot.percent_off is not None
             else None,
             "duration": snapshot.duration,
+            "applies_to_product_ids": snapshot.applies_to_product_ids,
         },
     }
     db.session.add(row)
@@ -571,6 +584,16 @@ def _validate_snapshot(
         return {
             "code": "duration_mismatch",
             "message": "Provider coupon duration does not match",
+        }
+    applies_to_product_ids = {
+        str(product_id or "").strip()
+        for product_id in snapshot.applies_to_product_ids
+        if str(product_id or "").strip()
+    }
+    if row.provider_product_id not in applies_to_product_ids:
+        return {
+            "code": "product_scope_mismatch",
+            "message": "Provider coupon product scope does not match",
         }
     if int(row.discount_type or 0) == BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED:
         if int(snapshot.amount_off or 0) != int(row.discount_amount or 0):
@@ -621,8 +644,36 @@ def _discount_metadata(
 def _discount_idempotency_key(row: BillingCampaignProviderDiscount) -> str:
     return (
         "billing-campaign-provider-discount:"
-        f"{row.campaign_provider_discount_bid}:create:v1"
+        f"{row.campaign_provider_discount_bid}:create:v1:"
+        f"{int(row.discount_type or 0)}:"
+        f"{int(row.discount_amount or 0)}:"
+        f"{to_decimal(row.discount_percent).quantize(Decimal('0.01'))}:"
+        f"{str(row.currency or '').strip().upper()}"
     )
+
+
+def _summarize_serialized_items(items: list[dict[str, Any]]) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "total": 0,
+        "active": 0,
+        "failed": 0,
+        "requires_republish": 0,
+        "provider_invalid": 0,
+        "cleanup_required": 0,
+        "retired": 0,
+        "latest_failure_code": "",
+        "latest_failure_message": "",
+    }
+    for item in items:
+        status = str(item.get("status") or "")
+        if status != "retired":
+            summary["total"] += 1
+        if status in summary:
+            summary[status] += 1
+        if item.get("failure_code") or item.get("failure_message"):
+            summary["latest_failure_code"] = item.get("failure_code") or ""
+            summary["latest_failure_message"] = item.get("failure_message") or ""
+    return summary
 
 
 def _load_campaign_discount_bindings(campaign_bid: str) -> list[BillingCampaignProduct]:

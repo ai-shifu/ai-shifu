@@ -2242,6 +2242,7 @@ export type I18nKey =
   | 'module.operationsPromotion.messages.loadUsagesFailed'
   | 'module.operationsPromotion.messages.packageCampaignDisabledSuccess'
   | 'module.operationsPromotion.messages.packageCampaignEnabledSuccess'
+  | 'module.operationsPromotion.messages.packageCampaignProviderAttention'
   | 'module.operationsPromotion.messages.packageCampaignProviderPublished'
   | 'module.operationsPromotion.messages.packageCampaignProviderRetired'
   | 'module.operationsPromotion.messages.packageCampaignProviderRetried'

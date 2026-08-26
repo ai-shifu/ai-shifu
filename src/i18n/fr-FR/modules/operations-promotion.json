@@ -144,6 +144,7 @@
     "loadUsagesFailed": "Échec du chargement des enregistrements d’utilisation. Veuillez réessayer plus tard.",
     "packageCampaignDisabledSuccess": "Campagne de forfaits désactivée",
     "packageCampaignEnabledSuccess": "Campagne de forfaits activée",
+    "packageCampaignProviderAttention": "Certains coupons Stripe nécessitent une vérification. Consultez la colonne de statut.",
     "packageCampaignProviderPublished": "Coupons Stripe publiés",
     "packageCampaignProviderRetired": "Coupons Stripe arrêtés",
     "packageCampaignProviderRetried": "Publication des coupons Stripe relancée",
