@@ -240,12 +240,30 @@ def test_stripe_campaign_discount_provider_scopes_coupon_to_product(
 
     class FakeCouponApi:
         last_params: ClassVar[dict[str, object]] = {}
+        retrieve_params: ClassVar[dict[str, object]] = {}
 
         @classmethod
         def create(cls, **params: object) -> dict[str, object]:
             cls.last_params = params
             return {
                 "id": "coupon_scoped",
+                "account": "acct_test",
+                "livemode": False,
+                "valid": True,
+                "currency": "usd",
+                "amount_off": 1000,
+                "duration": "once",
+                "applies_to": {"products": ["prod_scoped"]},
+                "metadata": {},
+            }
+
+        @classmethod
+        def retrieve(
+            cls, provider_coupon_id: str, **params: object
+        ) -> dict[str, object]:
+            cls.retrieve_params = {"provider_coupon_id": provider_coupon_id, **params}
+            return {
+                "id": provider_coupon_id,
                 "account": "acct_test",
                 "livemode": False,
                 "valid": True,
@@ -285,7 +303,16 @@ def test_stripe_campaign_discount_provider_scopes_coupon_to_product(
     )
 
     assert FakeCouponApi.last_params["applies_to"] == {"products": ["prod_scoped"]}
+    assert FakeCouponApi.last_params["expand"] == ["applies_to"]
     assert snapshot.applies_to_product_ids == ["prod_scoped"]
+
+    retrieved = StripeCampaignDiscountProvider().retrieve_campaign_discount(
+        provider_coupon_id="coupon_scoped",
+        app=app,
+    )
+
+    assert FakeCouponApi.retrieve_params["expand"] == ["applies_to"]
+    assert retrieved.applies_to_product_ids == ["prod_scoped"]
 
 
 def test_publish_fixed_campaign_creates_amount_off_coupon(
