@@ -65,10 +65,10 @@ describe('DropdownMenu styling', () => {
     expect(dropdownCheckboxItemElement.className).toContain(
       DROPDOWN_MENU_CHECKABLE_ITEM_BASE_CLASS.split(' ')[0],
     );
-    expect(dropdownCheckboxItemElement.className).toContain('pr-9');
+    expect(dropdownCheckboxItemElement.className).toContain('pe-9');
     expect(dropdownRadioItemElement.className).toContain(
       DROPDOWN_MENU_CHECKABLE_ITEM_BASE_CLASS.split(' ')[0],
     );
-    expect(dropdownRadioItemElement.className).toContain('pr-9');
+    expect(dropdownRadioItemElement.className).toContain('pe-9');
   });
 });

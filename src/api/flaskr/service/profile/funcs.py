@@ -10,7 +10,7 @@ from flaskr.api.check import (
     check_text,
 )
 from flaskr.dao import db
-from flaskr.i18n import _
+from flaskr.i18n import _, get_locale_labels
 from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
 from flaskr.service.profile.dtos import ProfileToSave
@@ -178,6 +178,7 @@ def check_text_content(
 
 def get_profile_labels() -> dict[str, dict[str, object]]:
     """Return profile labels."""
+    locale_labels = get_locale_labels()
     return {
         "sys_user_nickname": {
             "label": _("server.profile.nickname"),
@@ -213,13 +214,9 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
         },
         "language": {
             "label": _("server.profile.language"),
-            "items": ["中文", "English", "Français"],
+            "items": list(locale_labels.values()),
             "mapping": "user_language",
-            "items_mapping": {
-                "zh-CN": "中文",
-                "en-US": "English",
-                "fr-FR": "Français",
-            },
+            "items_mapping": locale_labels,
             "default": "zh-CN",
         },
         "sys_user_background": {
@@ -405,6 +402,25 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     return result
 
 
+def _resolve_profile_language_label(
+    language: str | None,
+    locale_labels: dict[str, str],
+    default: str,
+) -> str:
+    """Resolve legacy codes without treating locale insertion order as a default."""
+    normalized = str(language or "").strip().replace("_", "-").casefold()
+    for code, label in locale_labels.items():
+        if normalized in (code.casefold(), label.casefold()):
+            return label
+
+    primary = normalized.split("-", maxsplit=1)[0]
+    for code, label in locale_labels.items():
+        if code.casefold().split("-", maxsplit=1)[0] == primary:
+            return label
+
+    return locale_labels.get(default, "")
+
+
 def get_user_profile_labels(
     app: Flask,
     user_id: str,
@@ -472,7 +488,11 @@ def get_user_profile_labels(
                 if value_entry:
                     raw_value = value_entry.value
             display_value = raw_value
-            if meta.get("items_mapping"):
+            if mapping == "user_language":
+                display_value = _resolve_profile_language_label(
+                    raw_value, meta["items_mapping"], meta["default"]
+                )
+            elif meta.get("items_mapping"):
                 mapping_items = meta.get("items", [])
                 default_value = mapping_items[0] if mapping_items else ""
                 display_value = meta["items_mapping"].get(raw_value, default_value)

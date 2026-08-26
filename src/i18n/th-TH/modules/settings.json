@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.settings",
+  "codeSent": "ส่งรหัสยืนยันแล้ว",
+  "confirmPassword": "ยืนยันรหัสผ่าน",
+  "confirmPasswordEmpty": "โปรดกรอกรหัสผ่านอีกครั้ง",
+  "confirmPasswordPlaceholder": "กรอกรหัสผ่านอีกครั้ง",
+  "email": "อีเมล",
+  "newPassword": "รหัสผ่านใหม่",
+  "noContactMethod": "โปรดผูกหมายเลขโทรศัพท์หรืออีเมลก่อน",
+  "password": "รหัสผ่าน",
+  "passwordMismatch": "รหัสผ่านที่กรอกไม่ตรงกัน",
+  "passwordPlaceholder": "ตั้งรหัสผ่าน",
+  "passwordSetSuccess": "ตั้งรหัสผ่านสำเร็จ",
+  "phone": "หมายเลขโทรศัพท์",
+  "resendCountdown": "ส่งอีกครั้งใน {count} วินาที",
+  "sendCode": "ส่งรหัสยืนยัน",
+  "setPassword": "ตั้งรหัสผ่าน",
+  "verificationCode": "รหัสยืนยัน",
+  "verificationCodePlaceholder": "กรอกรหัสยืนยัน",
+  "verificationCodeRequired": "โปรดกรอกรหัสยืนยัน",
+  "verifyByEmail": "รหัสยืนยันทางอีเมล",
+  "verifyByPhone": "รหัสยืนยันทางโทรศัพท์"
+}

@@ -1,0 +1,18 @@
+{
+  "__namespace__": "module.profiles",
+  "add": "เพิ่ม",
+  "addNewVariable": "เพิ่มตัวแปรใหม่",
+  "cancel": "ยกเลิก",
+  "confirm": "ยืนยัน",
+  "confirmDelete": "ยืนยันการลบ",
+  "confirmDeleteDescription": "การดำเนินการนี้จะทำให้เนื้อหาปัจจุบันสูญหาย ยืนยันหรือไม่",
+  "createNewCustomVariable": "สร้างตัวแปรกำหนดเองใหม่",
+  "customVariable": "ตัวแปรกำหนดเอง",
+  "defaultValue": "ค่าเริ่มต้น",
+  "editVariable": "แก้ไขตัวแปร",
+  "modifyExistingVariable": "แก้ไขคุณสมบัติของตัวแปรที่มีอยู่",
+  "noVariableFound": "ไม่พบตัวแปร",
+  "save": "บันทึก",
+  "systemVariable": "ตัวแปรระบบ",
+  "variableName": "ชื่อตัวแปร"
+}

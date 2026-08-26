@@ -15,7 +15,7 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
-from flaskr.i18n import _, get_current_language, set_language
+from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
@@ -61,6 +61,26 @@ def _normalize_language_code(language_code: str) -> str:
     normalized_parts = [primary]
     normalized_parts.extend(subtags)
     return "-".join(normalized_parts)
+
+
+def _resolve_supported_language_code(language_code: str) -> str:
+    """Resolve a loaded locale or the same English fallback used by translations."""
+    normalized = _normalize_language_code(language_code)
+    if not normalized:
+        return "en-US"
+
+    supported_languages = get_i18n_list()
+    normalized_lower = normalized.lower()
+    for supported_language in supported_languages:
+        if supported_language.lower() == normalized_lower:
+            return supported_language
+
+    primary_language = normalized_lower.split("-", maxsplit=1)[0]
+    for supported_language in supported_languages:
+        if supported_language.lower().split("-", maxsplit=1)[0] == primary_language:
+            return supported_language
+
+    return "en-US"
 
 
 def get_user_language(user: object) -> str:
@@ -157,11 +177,18 @@ def _format_email_verification_message(
     code: str, expire_seconds: int, language: str | None = None
 ) -> tuple[str, str, str]:
     previous_language = get_current_language()
-    if language:
-        set_language(_normalize_language_code(language) or language)
+    requested_language = language or previous_language
+    resolved_language = _resolve_supported_language_code(requested_language)
+    set_language(resolved_language)
 
     try:
         expire_minutes = max(1, int(expire_seconds) // 60)
+        plural_category = _email_verification_plural_category(
+            expire_minutes, resolved_language
+        )
+        expiry_duration = _email_verification_duration_template(plural_category).format(
+            expire_minutes=expire_minutes
+        )
         is_one_minute = expire_minutes == 1
         expiry_key = (
             "server.user.emailVerificationExpirySingular"
@@ -174,19 +201,22 @@ def _format_email_verification_message(
             else "server.user.emailVerificationPlainBody"
         )
         subject = _("server.user.emailVerificationSubject")
-        text = _(plain_body_key).format(code=code, expire_minutes=expire_minutes)
+        text = _(plain_body_key).format(code=code, expiry_duration=expiry_duration)
         title = _("server.user.emailVerificationTitle")
         intro = _("server.user.emailVerificationIntro")
-        expiry = _(expiry_key).format(expire_minutes=expire_minutes)
+        expiry = _(expiry_key).format(expiry_duration=expiry_duration)
         ignore = _("server.user.emailVerificationIgnore")
         footer = _("server.user.emailVerificationFooter")
     finally:
-        if language:
-            set_language(previous_language)
+        set_language(previous_language)
 
+    html_language = html.escape(resolved_language, quote=True)
+    html_direction = (
+        "rtl" if resolved_language.split("-", maxsplit=1)[0].lower() == "ar" else "ltr"
+    )
     html_body = f"""\
 <!doctype html>
-<html>
+<html lang="{html_language}" dir="{html_direction}">
   <body style="margin:0;background:#f5f7fb;padding:24px;font-family:Arial,'Helvetica Neue',sans-serif;color:#111827;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
       <tr>
@@ -217,6 +247,40 @@ def _format_email_verification_message(
 </html>
 """
     return subject, text, html_body
+
+
+def _email_verification_plural_category(count: int, language: str) -> str:
+    """Return the translation-key suffix for a verification expiry count."""
+    if language.split("-", maxsplit=1)[0].lower() != "ar":
+        return "One" if count == 1 else "Other"
+
+    if count == 0:
+        return "Zero"
+    if count == 1:
+        return "One"
+    if count == 2:
+        return "Two"
+    remainder = count % 100
+    if 3 <= remainder <= 10:
+        return "Few"
+    if 11 <= remainder <= 99:
+        return "Many"
+    return "Other"
+
+
+def _email_verification_duration_template(plural_category: str) -> str:
+    """Return a literal translation key so usage checks can discover every form."""
+    if plural_category == "Zero":
+        return _("server.user.emailVerificationMinutesZero")
+    if plural_category == "One":
+        return _("server.user.emailVerificationMinutesOne")
+    if plural_category == "Two":
+        return _("server.user.emailVerificationMinutesTwo")
+    if plural_category == "Few":
+        return _("server.user.emailVerificationMinutesFew")
+    if plural_category == "Many":
+        return _("server.user.emailVerificationMinutesMany")
+    return _("server.user.emailVerificationMinutesOther")
 
 
 def _email_verification_translation_keys_used() -> None:

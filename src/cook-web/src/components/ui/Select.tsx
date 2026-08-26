@@ -11,7 +11,7 @@ const SELECT_CONTENT_LAYER_CLASS = 'z-[112]';
 const SELECT_CONTENT_BASE_CLASS =
   'relative max-h-56 min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-lg border bg-popover text-popover-foreground shadow-md';
 const SELECT_ITEM_BASE_CLASS =
-  'relative flex w-full select-none items-center rounded-md py-2 pl-3 pr-9 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
+  'relative flex w-full select-none items-center rounded-md py-2 ps-3 pe-9 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
 
 const Select = SelectPrimitive.Root;
 
@@ -26,7 +26,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-left text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span:first-child]:min-w-0 [&>span:first-child]:flex-1 [&>span:first-child]:truncate [&>span:first-child>span]:w-full',
+      'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-start text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span:first-child]:min-w-0 [&>span:first-child]:flex-1 [&>span:first-child]:truncate [&>span:first-child>span]:w-full',
       className,
     )}
     {...props}
@@ -104,7 +104,7 @@ const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn('py-1.5 pl-8 pr-2 text-sm font-semibold', className)}
+    className={cn('py-1.5 ps-8 pe-2 text-sm font-semibold', className)}
     {...props}
   />
 ));
@@ -127,7 +127,7 @@ const SelectItem = React.forwardRef<
   >
     <span
       className={cn(
-        'absolute right-2 flex h-3.5 w-3.5 items-center justify-center',
+        'absolute end-2 flex h-3.5 w-3.5 items-center justify-center',
         indicatorClassName,
       )}
     >

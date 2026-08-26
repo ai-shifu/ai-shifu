@@ -1,0 +1,453 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "copyCourse": "نسخ الدورة",
+    "transferCreator": "نقل مسؤول الدورة"
+  },
+  "copyCourseDialog": {
+    "confirm": "تأكيد النسخ",
+    "confirmDescription": "سيتم نسخ أحدث مسودة للدورة <strong>{courseName}</strong>، وسيتولى <strong>{targetCreator}</strong> مسؤولية مسودة الدورة الجديدة <strong>{newCourseName}</strong>.",
+    "confirmTitle": "تأكيد نسخ الدورة",
+    "contactPlaceholderEmail": "أدخل بريد مسؤول الدورة المستهدف",
+    "contactPlaceholderPhone": "أدخل رقم هاتف مسؤول الدورة المستهدف",
+    "contactType": "نوع معلومات التواصل",
+    "contactTypeEmail": "البريد الإلكتروني",
+    "contactTypePhone": "رقم الهاتف",
+    "courseNameFallback": "الدورة",
+    "courseNameSuffix": "- نسخة",
+    "currentCreator": "مسؤول الدورة الحالي",
+    "description": "انسخ أحدث مسودة لهذه الدورة، واجعل مسؤول الدورة المستهدف مسؤولًا عن مسودة الدورة الجديدة.",
+    "identifier": "مسؤول الدورة المستهدف",
+    "identifierRequired": "أدخل معلومات تواصل صالحة لمسؤول الدورة المستهدف",
+    "newCourseName": "اسم الدورة الجديدة",
+    "submitSuccess": "تم نسخ الدورة بنجاح",
+    "title": "نسخ الدورة"
+  },
+  "coursePromptDialog": {
+    "copy": "نسخ",
+    "copyFailed": "فشل نسخ موجه الدورة",
+    "copySuccess": "تم نسخ موجه الدورة",
+    "empty": "لا يوجد موجه للدورة حاليًا",
+    "title": "موجه الدورة"
+  },
+  "detail": {
+    "basicInfo": "المعلومات الأساسية",
+    "boolean": {
+      "no": "لا",
+      "yes": "نعم"
+    },
+    "chapterType": {
+      "chapter": "فصل",
+      "lesson": "درس"
+    },
+    "chapters": "فصول الدورة",
+    "chaptersTable": {
+      "chapterId": "معرّف الفصل",
+      "contentDetail": "تفاصيل المحتوى",
+      "contentStatus": "حالة المحتوى",
+      "detailAction": "التفاصيل",
+      "empty": "لا توجد بيانات فصول حاليًا",
+      "followUpCount": "عدد أسئلة المتابعة",
+      "learningPermission": "صلاحية التعلم",
+      "modifier": "المعدّل",
+      "name": "اسم الفصل",
+      "position": "الترتيب",
+      "ratingCount": "عدد التقييمات",
+      "ratingScore": "التقييم",
+      "type": "النوع",
+      "updatedAt": "وقت التحديث",
+      "visibility": "إمكانية الظهور"
+    },
+    "contentDetailDialog": {
+      "copy": "نسخ",
+      "copyFailed": "فشل النسخ",
+      "copySuccess": "تم نسخ تفاصيل المحتوى",
+      "empty": "لا يوجد محتوى حاليًا",
+      "sections": {
+        "content": "محتوى الدورة",
+        "systemPrompt": "موجه النظام"
+      },
+      "sources": {
+        "chapter": "المصدر: موجه الفصل",
+        "course": "المصدر: موجه الدورة",
+        "lesson": "المصدر: موجه الدرس"
+      },
+      "title": "تفاصيل المحتوى"
+    },
+    "contentStatus": {
+      "empty": "لا يوجد",
+      "has": "يوجد",
+      "unknown": "غير معروف"
+    },
+    "creditUsage": {
+      "count": "{count} سجل",
+      "description": "عرض سجل استهلاك الأرصدة لهذه الدورة.",
+      "details": {
+        "collapse": "طي",
+        "durationMinutesSeconds": "{minutes} دقيقة و{seconds} ثانية",
+        "durationSeconds": "{seconds} ثانية",
+        "empty": "لا توجد تفاصيل استهلاك حاليًا",
+        "expand": "توسيع",
+        "openUsageDetails": "عرض تفاصيل {count} من عمليات الاستهلاك",
+        "table": {
+          "createdAt": "وقت الاستهلاك",
+          "credits": "الأرصدة المستهلكة",
+          "inputTokens": "رموز الإدخال",
+          "model": "النموذج",
+          "outputSummary": "ملخص الإخراج",
+          "outputTokens": "رموز الإخراج",
+          "ttsContent": "المحتوى المُحوّل إلى كلام",
+          "ttsDuration": "مدة الصوت",
+          "ttsSegmentCount": "عدد المقاطع",
+          "ttsWordCount": "عدد الكلمات المُحوّلة إلى كلام"
+        },
+        "title": "تفاصيل استهلاك الأرصدة"
+      },
+      "filters": {
+        "mode": "مشهد الاستهلاك",
+        "modeAll": "الكل",
+        "reset": "إعادة ضبط",
+        "scene": "نوع الاستهلاك",
+        "sceneAll": "الكل",
+        "time": "الوقت",
+        "timePlaceholder": "وقت البدء ~ وقت الانتهاء",
+        "userKeyword": "المستخدم",
+        "userKeywordPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+        "userKeywordPlaceholderPhone": "رقم الهاتف / اسم الشهرة"
+      },
+      "modelSummary": {
+        "variants": "يشمل {count} أنواع"
+      },
+      "modes": {
+        "ask": "سؤال متابعة",
+        "learn": "قراءة",
+        "listen": "استماع",
+        "mixed": "مختلط",
+        "unknown": "مشهد غير معروف"
+      },
+      "scenes": {
+        "debug": "تصحيح",
+        "learning": "تعلم",
+        "preview": "معاينة",
+        "unknown": "نوع غير معروف"
+      },
+      "table": {
+        "chapter": "الفصل",
+        "createdAt": "آخر وقت للاستهلاك",
+        "credits": "إجمالي الأرصدة المستهلكة",
+        "empty": "لا توجد سجلات استهلاك أرصدة حاليًا",
+        "lesson": "الدرس",
+        "mode": "مشهد الاستهلاك",
+        "model": "النموذج",
+        "nickname": "اسم الشهرة",
+        "scene": "نوع الاستهلاك",
+        "usageCount": "عدد مرات الاستهلاك"
+      },
+      "title": "استهلاك الأرصدة"
+    },
+    "creditUsageTab": "استهلاك الأرصدة",
+    "estimatedCreditCost": {
+      "classroom": "الفصل",
+      "creditUnit": "رصيد",
+      "description": "تقدير وفق المحتوى والنموذج والمعدل الحالي؛ لا يشمل الاستهلاك الإضافي مثل إعادة التعلم أو أسئلة المتابعة أو إعادة الإنشاء، ويُعتد بتفاصيل الأرصدة فعليًا.",
+      "disabled": "غير مفعّل",
+      "listen": "استماع",
+      "llm": "LLM",
+      "read": "قراءة",
+      "title": "تقدير استهلاك الدورة كاملة",
+      "tts": "TTS",
+      "unknownModel": "نموذج غير معروف"
+    },
+    "fields": {
+      "courseId": "معرّف الدورة",
+      "courseName": "اسم الدورة",
+      "createdAt": "وقت الإنشاء",
+      "creator": "مسؤول الدورة",
+      "status": "الحالة",
+      "updatedAt": "وقت التحديث"
+    },
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "اقرأ بالترتيب «الإخراج الأصلي الذي طُرح حوله السؤال ← سؤال المتابعة الحالي ← إجابة النظام الحالية»",
+        "fields": {
+          "chapter": "الفصل",
+          "currentAnswer": "إجابة النظام الحالية",
+          "currentFollowUp": "سؤال المتابعة الحالي",
+          "followUpTime": "وقت سؤال المتابعة",
+          "lesson": "الدرس",
+          "nickname": "اسم الشهرة",
+          "sourceOutput": "الإخراج الأصلي الذي طُرح حوله السؤال",
+          "turnIndex": "جولة سؤال المتابعة",
+          "user": "المستخدم",
+          "userId": "معرّف المستخدم"
+        },
+        "sections": {
+          "basicInfo": "المعلومات الأساسية",
+          "currentRecord": "تفاصيل سؤال المتابعة الحالي",
+          "timeline": "الخط الزمني للسياق"
+        },
+        "sourceUnavailable": "تعذر تحديد موضع الإخراج الأصلي المقابل مؤقتًا",
+        "timeline": {
+          "current": "الجولة الحالية",
+          "student": "المتعلم",
+          "teacher": "النظام"
+        },
+        "title": "تفاصيل سؤال المتابعة"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "البحث في الفصل/الدرس",
+        "chapterKeywordPlaceholder": "عنوان الفصل/الدرس",
+        "followUpTime": "وقت سؤال المتابعة",
+        "lessonKeyword": "البحث في الدرس",
+        "lessonKeywordPlaceholder": "عنوان الدرس",
+        "reset": "إعادة ضبط",
+        "resultCount": "الإجمالي {count}",
+        "search": "بحث",
+        "sourceStatus": "تحديد موضع الإخراج الأصلي",
+        "sourceStatusAll": "جميع الحالات",
+        "sourceStatusMissing": "لم يتم تحديد موضع الإخراج الأصلي",
+        "sourceStatusResolved": "تم تحديد موضع الإخراج الأصلي",
+        "timePlaceholder": "وقت البدء ~ وقت الانتهاء",
+        "userKeyword": "البحث عن المستخدم",
+        "userKeywordPlaceholder": "رقم الهاتف / البريد الإلكتروني / اسم الشهرة",
+        "userKeywordPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+        "userKeywordPlaceholderPhone": "رقم الهاتف / اسم الشهرة"
+      },
+      "openMetric": "عرض بيانات أسئلة المتابعة",
+      "summary": {
+        "followUpCount": "إجمالي أسئلة المتابعة",
+        "latestFollowUpAt": "آخر وقت لسؤال المتابعة",
+        "lessonCount": "عدد الدروس المتأثرة",
+        "userCount": "عدد المستخدمين الذين طرحوا أسئلة متابعة"
+      },
+      "table": {
+        "action": "الإجراء",
+        "chapter": "الفصل",
+        "content": "محتوى سؤال المتابعة",
+        "createdAt": "وقت سؤال المتابعة",
+        "detailAction": "عرض التفاصيل",
+        "empty": "لا توجد بيانات لأسئلة المتابعة حاليًا",
+        "lesson": "الدرس",
+        "scopeHint": "اعرض أسئلة المتعلمين حول محتوى الدورة للمساعدة في تحديد نقاط التعثر المتكررة والدروس التي تحتاج إلى تحسين.",
+        "sourceMissing": "لم يتم تحديد موضع الإخراج الأصلي",
+        "sourceResolved": "تم تحديد موضع الإخراج الأصلي",
+        "title": "قائمة أسئلة المتابعة",
+        "turnIndex": "جولة سؤال المتابعة",
+        "user": "المستخدم"
+      },
+      "title": "بيانات أسئلة المتابعة",
+      "turnIndex": "المرة {count}",
+      "turnIndexHelp": "ترتّب جولات أسئلة المتابعة حسب ترتيب وقت طرحها ضمن سجل التعلم نفسه"
+    },
+    "learningPermission": {
+      "free": "مجاني",
+      "guest": "بدون تسجيل الدخول",
+      "paid": "مدفوع",
+      "unknown": "غير معروف"
+    },
+    "metrics": "ملخص البيانات",
+    "metricsLabels": {
+      "completedUserAvgCredits": "متوسط استهلاك الأرصدة لدى المستخدمين الذين أكملوا الدورة",
+      "creditConsumedTotal": "إجمالي الأرصدة المستهلكة",
+      "creditUsageCount": "عدد مرات استهلاك الأرصدة",
+      "creditUserCount": "عدد المستخدمين المستهلكين للأرصدة",
+      "followUpCount": "عدد أسئلة المتابعة",
+      "learnerCount": "عدد المتعلمين",
+      "orderAmount": "إجمالي المبلغ المحصّل (يشمل رموز الاسترداد)",
+      "orderCount": "عدد الطلبات",
+      "ratingScore": "التقييم",
+      "visitCount30d": "عدد الزوار خلال آخر 30 يومًا"
+    },
+    "orders": {
+      "openMetric": "عرض بيانات الطلبات"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "البحث في الفصل/الدرس",
+        "chapterKeywordPlaceholder": "عنوان الفصل/الدرس",
+        "commentStatus": "التعليق",
+        "commentStatusAll": "الكل",
+        "commentStatusCommented": "عرض من لديه تعليق فقط",
+        "lessonKeyword": "البحث في الدرس",
+        "lessonKeywordPlaceholder": "عنوان الدرس",
+        "mode": "وضع التعلم",
+        "modeAll": "جميع الأوضاع",
+        "ratingTime": "وقت التقييم",
+        "reset": "إعادة ضبط",
+        "resultCount": "الإجمالي {count}",
+        "score": "التقييم",
+        "scoreAll": "جميع التقييمات",
+        "search": "بحث",
+        "sortBy": "ترتيب حسب",
+        "sortByLatest": "الأحدث أولًا",
+        "sortByLowScore": "الأدنى تقييمًا أولًا",
+        "timePlaceholder": "وقت البدء ~ وقت الانتهاء",
+        "userKeyword": "البحث عن المستخدم",
+        "userKeywordPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+        "userKeywordPlaceholderPhone": "رقم الهاتف / اسم الشهرة"
+      },
+      "modes": {
+        "listen": "استماع",
+        "read": "قراءة"
+      },
+      "openMetric": "عرض بيانات التقييمات",
+      "scoreValue": "{count} نقطة",
+      "summary": {
+        "averageScore": "متوسط التقييم",
+        "latestRatedAt": "آخر وقت للتقييم",
+        "ratingCount": "عدد التقييمات",
+        "userCount": "عدد المستخدمين الذين قيّموا الدورة"
+      },
+      "table": {
+        "chapter": "الفصل",
+        "comment": "التعليق",
+        "empty": "لا توجد بيانات تقييم حاليًا",
+        "guestUser": "زائر",
+        "lesson": "الدرس",
+        "mode": "وضع التعلم",
+        "ratedAt": "وقت التقييم",
+        "score": "التقييم",
+        "title": "قائمة التقييمات",
+        "user": "المستخدم"
+      },
+      "title": "بيانات التقييمات"
+    },
+    "title": "تفاصيل الدورة",
+    "userLearningStatus": {
+      "completed": "مكتمل",
+      "learning": "قيد التعلم",
+      "notStarted": "لم يبدأ"
+    },
+    "userRole": {
+      "creator": "المعلم",
+      "normal": "مستخدم عادي",
+      "operator": "مسؤول العمليات",
+      "student": "المتعلم"
+    },
+    "users": "بيانات المستخدمين",
+    "usersCount": "إجمالي مستخدمي الدورة {count}",
+    "usersDescription": "اعرض تقدم التعلم وحالة الدفع ووقت آخر نشاط للمستخدمين المرتبطين بالدورة.",
+    "usersFilters": {
+      "all": "الكل",
+      "learningStatus": "حالة التعلم",
+      "paymentPaid": "مدفوع",
+      "paymentStatus": "هل تم الدفع؟",
+      "paymentUnpaid": "غير مدفوع",
+      "userKeyword": "البحث عن المستخدم",
+      "userKeywordPlaceholder": "رقم الهاتف / البريد الإلكتروني / اسم الشهرة",
+      "userKeywordPlaceholderEmail": "البريد الإلكتروني / اسم الشهرة",
+      "userKeywordPlaceholderPhone": "رقم الهاتف / اسم الشهرة",
+      "userRole": "هوية المستخدم"
+    },
+    "usersTable": {
+      "account": "رقم الهاتف / البريد الإلكتروني",
+      "accountEmail": "البريد الإلكتروني",
+      "accountPhone": "رقم الهاتف",
+      "action": "الإجراء",
+      "detailAction": "التفاصيل",
+      "empty": "لا توجد بيانات مستخدمين حاليًا",
+      "isPaid": "هل تم الدفع؟",
+      "joinedAt": "وقت الانضمام إلى الدورة",
+      "lastLearnedAt": "آخر وقت للتعلم",
+      "lastLoginAt": "آخر وقت لتسجيل الدخول",
+      "learningProgress": "تقدم التعلم",
+      "learningStatus": "حالة التعلم",
+      "nickname": "اسم الشهرة",
+      "totalPaidAmount": "إجمالي المبلغ المدفوع",
+      "userId": "معرّف المستخدم",
+      "userRole": "هوية المستخدم"
+    },
+    "visibility": {
+      "hidden": "مخفي",
+      "visible": "ظاهر"
+    }
+  },
+  "emptyList": "لا توجد دورات حاليًا",
+  "filters": {
+    "courseId": "معرّف الدورة",
+    "courseName": "اسم الدورة",
+    "courseQuery": "الدورة",
+    "courseQueryPlaceholder": "معرّف الدورة / اسم الدورة",
+    "createdAt": "وقت الإنشاء",
+    "creator": "منشئ الدورة",
+    "creatorEmailOrUserBid": "بريد مسؤول الدورة الإلكتروني",
+    "creatorMobileOrUserBid": "رقم هاتف مسؤول الدورة",
+    "endTime": "تاريخ الانتهاء",
+    "startTime": "تاريخ البدء",
+    "status": "الحالة"
+  },
+  "messages": {
+    "copyCourseFailed": "فشل نسخ الدورة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadChapterDetailFailed": "فشل تحميل تفاصيل الفصل، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadCourseDetailFailed": "فشل تحميل تفاصيل الدورة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadCourseUsersFailed": "فشل تحميل بيانات مستخدمي الدورة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadCoursesFailed": "فشل تحميل قائمة الدورات، يرجى التحديث والمحاولة مرة أخرى",
+    "loadCreditUsageDetailsFailed": "فشل تحميل تفاصيل استهلاك الأرصدة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadCreditUsageFailed": "فشل تحميل بيانات استهلاك الأرصدة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadFollowUpDetailFailed": "فشل تحميل تفاصيل سؤال المتابعة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadFollowUpsFailed": "فشل تحميل بيانات أسئلة المتابعة، يرجى التحديث والمحاولة مرة أخرى",
+    "loadPromptDetailFailed": "فشل تحميل موجه الدورة، يرجى المحاولة مرة أخرى لاحقًا",
+    "loadRatingsFailed": "فشل تحميل بيانات التقييمات، يرجى التحديث والمحاولة مرة أخرى",
+    "transferCreatorFailed": "فشل نقل مسؤول الدورة، يرجى المحاولة مرة أخرى لاحقًا"
+  },
+  "overview": {
+    "activeFilter": "تصفية سريعة",
+    "metrics": {
+      "createdLast7d": "الدورات الجديدة خلال 7 أيام",
+      "draftCourses": "الدورات المسودة",
+      "learningActive30d": "الدورات التي شهدت تعلمًا خلال 30 يومًا",
+      "ordered30d": "الدورات التي تلقت طلبات خلال 30 يومًا",
+      "publishedCourses": "الدورات المنشورة",
+      "totalCourses": "إجمالي الدورات"
+    },
+    "title": "ملخص البيانات",
+    "tooltips": {
+      "createdLast7d": "عدد الدورات المنشأة خلال آخر 7 أيام",
+      "draftCourses": "عدد الدورات التي لم تُنشر قط",
+      "learningActive30d": "عدد الدورات التي شهدت تعلمًا خلال آخر 30 يومًا",
+      "ordered30d": "عدد الدورات التي حققت مبيعات خلال آخر 30 يومًا",
+      "publishedCourses": "عدد الدورات التي نُشرت مرة واحدة على الأقل",
+      "totalCourses": "إجمالي الدورات"
+    }
+  },
+  "statusLabels": {
+    "published": "منشور",
+    "unknown": "غير معروف",
+    "unpublished": "غير منشور"
+  },
+  "table": {
+    "action": "الإجراء",
+    "courseId": "معرّف الدورة",
+    "courseName": "اسم الدورة",
+    "coursePrompt": "موجه الدورة",
+    "createdAt": "وقت الإنشاء",
+    "creator": "منشئ الدورة",
+    "detailAction": "التفاصيل",
+    "llmModel": "نموذج LLM",
+    "modifier": "المعدّل",
+    "price": "السعر",
+    "status": "الحالة",
+    "ttsModel": "نموذج TTS",
+    "updatedAt": "وقت التحديث"
+  },
+  "title": "إدارة الدورات",
+  "transferCreatorDialog": {
+    "confirm": "تأكيد النقل",
+    "confirmDescription": "سيتم نقل مسؤولية الدورة «{courseName}» من {currentCreator} إلى {targetCreator}.",
+    "confirmTitle": "تأكيد نقل مسؤول الدورة",
+    "contactPlaceholderEmail": "أدخل بريد مسؤول الدورة المستهدف",
+    "contactPlaceholderPhone": "أدخل رقم هاتف مسؤول الدورة المستهدف",
+    "contactType": "نوع معلومات التواصل",
+    "contactTypeEmail": "البريد الإلكتروني",
+    "contactTypePhone": "رقم الهاتف",
+    "currentCreator": "مسؤول الدورة الحالي",
+    "description": "سيتم تغيير مسؤول الدورة فقط، مع إبقاء محتوى الدورة وإعداداتها وصلاحيات المشاركة كما هي.",
+    "identifier": "مسؤول الدورة المستهدف",
+    "identifierRequired": "أدخل معلومات تواصل صالحة لمسؤول الدورة المستهدف",
+    "sameCreator": "معلومات التواصل المستهدفة تخص مسؤول الدورة الحالي بالفعل",
+    "submitSuccess": "تم نقل مسؤول الدورة بنجاح",
+    "title": "نقل مسؤول الدورة"
+  }
+}

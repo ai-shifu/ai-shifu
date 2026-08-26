@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "addLesson": "เพิ่ม",
+  "chapterName": "ชื่อบท",
+  "chapterNamePlaceholder": "กรอกชื่อบท",
+  "chapterPrompt": "พรอมต์ของบท",
+  "chapterPromptHint": "กำหนดข้อจำกัดด้านกลุ่มเป้าหมาย น้ำเสียง และข้อควรระวังสำหรับการสร้างเนื้อหาทั้งบท",
+  "chapterSettingsTitle": "การตั้งค่าบท",
+  "free": "ฟรี",
+  "guest": "ไม่ต้องเข้าสู่ระบบ",
+  "hidden": "ซ่อน",
+  "isHidden": "การมองเห็น",
+  "learningPermission": "สิทธิ์การเรียน",
+  "lessonName": "ชื่อบทเรียน",
+  "lessonNamePlaceholder": "กรอกชื่อบทเรียน",
+  "lessonPrompt": "พรอมต์ของบทเรียน",
+  "lessonPromptHint": "กำหนดข้อจำกัดด้านกลุ่มเป้าหมาย น้ำเสียง และข้อควรระวังสำหรับการสร้างเนื้อหาทั้งบทเรียน",
+  "lessonPromptPlaceholder": "กรอกพรอมต์ หากเว้นว่าง การสร้างเนื้อหาบทเรียนนี้จะถูกกำหนดโดยพรอมต์ของบทที่บทเรียนนี้อยู่ภายใน",
+  "lessonSettingsTitle": "การตั้งค่าบทเรียน",
+  "paid": "มีค่าใช้จ่าย",
+  "promptPlaceholder": "กรอกพรอมต์",
+  "visible": "แสดง"
+}

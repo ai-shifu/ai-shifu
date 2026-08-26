@@ -181,8 +181,8 @@ const OrderDetailSheet = ({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <SheetContent className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[520px]'>
-        <SheetHeader className='border-b border-border px-6 py-4 pr-12'>
+      <SheetContent className='flex w-full flex-col overflow-hidden border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[520px]'>
+        <SheetHeader className='border-b border-border px-6 py-4 pe-12'>
           <SheetTitle className='flex flex-col gap-2'>
             <span className='text-xs font-medium text-muted-foreground'>
               {t('module.order.detailTitle')}

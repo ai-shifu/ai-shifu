@@ -1655,6 +1655,7 @@ function CreateDraftIntegrationFields({
                 {isSecret && MULTILINE_SECRET_FIELDS.has(field) ? (
                   <Textarea
                     rows={3}
+                    data-bidi='ltr'
                     className='min-h-[88px] font-mono text-xs'
                     value={value}
                     placeholder={secretPlaceholder}
@@ -1665,6 +1666,7 @@ function CreateDraftIntegrationFields({
                 ) : (
                   <Input
                     type={isSecret ? 'password' : 'text'}
+                    data-bidi='ltr'
                     value={value}
                     placeholder={secretPlaceholder}
                     onChange={event =>

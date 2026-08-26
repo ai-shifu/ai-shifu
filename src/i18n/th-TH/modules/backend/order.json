@@ -1,0 +1,32 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "checkout": "ไปชำระเงิน",
+    "courseNotPaid": "ยังไม่ได้ซื้อหลักสูตร โปรดซื้อหลักสูตรก่อน",
+    "emailAlreadyActivated": "อีเมล {email} เปิดใช้งานหลักสูตรนี้แล้ว",
+    "importActivationFailed": "นำเข้าและเปิดใช้งานไม่สำเร็จ โปรดตรวจสอบข้อมูลแถวนั้นแล้วลองอีกครั้ง",
+    "learnStatusBranch": "สาขา",
+    "learnStatusCompleted": "เสร็จสิ้น",
+    "learnStatusInProgress": "กำลังเรียน",
+    "learnStatusLocked": "ยังไม่ปลดล็อก",
+    "learnStatusNotStarted": "พร้อมเรียน",
+    "learnStatusRefund": "คืนเงิน",
+    "learnStatusReset": "รีเซ็ต",
+    "learnStatusUnavailable": "ใช้ไม่ได้",
+    "mobileAlreadyActivated": "หมายเลขโทรศัพท์ {mobile} เปิดใช้งานหลักสูตรนี้แล้ว",
+    "orderHasPaid": "ชำระเงินคำสั่งซื้อแล้ว",
+    "orderNotFound": "ไม่พบคำสั่งซื้อ",
+    "orderPayExpired": "คำสั่งซื้อหมดอายุแล้ว โปรดสร้างคำสั่งซื้อใหม่",
+    "orderRefundError": "คืนเงินไม่สำเร็จ",
+    "orderStatusError": "สถานะคำสั่งซื้อปัจจุบันไม่รองรับการดำเนินการนี้",
+    "orderStatusInit": "ยังไม่ได้เริ่มชำระเงิน",
+    "orderStatusRefund": "คืนเงิน",
+    "orderStatusSuccess": "ซื้อสำเร็จ",
+    "orderStatusTimeout": "หมดอายุแล้ว",
+    "orderStatusToBePaid": "รอชำระเงิน",
+    "payItemBasePrice": "ราคาพื้นฐาน",
+    "payItemCoupon": "ส่วนลด",
+    "payItemProduct": "สินค้า",
+    "payItemPromotion": "แคมเปญ"
+  }
+}

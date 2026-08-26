@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.banner",
+  "__flat__": {
+    "bannerPopUpCancelText": "المتابعة في التعلم",
+    "bannerPopUpConfirmText": "فتح جميع المزايا الآن",
+    "bannerPopUpContent": "احصل الآن على مزايا متعددة، مثل طرح أسئلة متابعة بلا حدود، لتتعلم براحة واطمئنان",
+    "bannerPopUpTitle": "افتح كل المحتوى هنا في أي وقت",
+    "bannerTitle": "فتح جميع المزايا"
+  }
+}

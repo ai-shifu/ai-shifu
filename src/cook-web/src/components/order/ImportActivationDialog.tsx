@@ -671,6 +671,7 @@ const ImportActivationDialog = ({
                     <FormControl>
                       <Textarea
                         autoComplete='off'
+                        data-bidi='ltr'
                         placeholder={contactPlaceholder}
                         className='min-h-[80px]'
                         maxLength={MAX_IMPORT_TEXT_LENGTH}

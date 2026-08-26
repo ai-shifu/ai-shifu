@@ -66,6 +66,29 @@ describe('PasswordLogin', () => {
     jest.clearAllMocks();
   });
 
+  it('isolates both credentials when revealing and hiding the password in RTL', () => {
+    render(
+      <div dir='rtl'>
+        <PasswordLogin onLoginSuccess={jest.fn()} />
+      </div>,
+    );
+
+    const identifier = screen.getByLabelText('module.auth.identifier');
+    const password = screen.getByLabelText('module.auth.password');
+    expect(identifier).toHaveAttribute('type', 'text');
+    expect(identifier).toHaveAttribute('data-bidi', 'ltr');
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveAttribute('data-bidi', 'ltr');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password).toHaveAttribute('type', 'text');
+    expect(password).toHaveAttribute('data-bidi', 'ltr');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password).toHaveAttribute('type', 'password');
+    expect(password).toHaveAttribute('data-bidi', 'ltr');
+  });
+
   it('validates email-only identifiers after trimming surrounding whitespace', async () => {
     mockLoginPassword.mockResolvedValue({
       code: 0,

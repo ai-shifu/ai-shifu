@@ -1,0 +1,18 @@
+{
+  "__namespace__": "server.learn",
+  "__flat__": {
+    "askProviderAuthFailed": "ยืนยันตัวตนกับคลังความรู้ไม่สำเร็จ โปรดตรวจสอบว่า API Key และ Client ID ถูกต้อง",
+    "askProviderNoResults": "ไม่พบเนื้อหาที่เกี่ยวข้องในคลังความรู้",
+    "askProviderNotMember": "บัญชี Dedao Brain ยังไม่ได้เปิดสมาชิก จึงเรียกใช้ Open API ไม่ได้",
+    "askProviderRateLimited": "คำขอหรือโควตาคลังความรู้ถูกจำกัด โปรดลองอีกครั้งภายหลัง",
+    "askProviderTimeout": "คลังความรู้ภายนอกตอบกลับเกินเวลา โปรดลองอีกครั้งภายหลัง",
+    "askProviderUnavailable": "คลังความรู้ภายนอกไม่พร้อมใช้งานชั่วคราว",
+    "generatedBlockNotFound": "ไม่พบบล็อกที่สร้างขึ้น",
+    "invalidAction": "การดำเนินการไม่ถูกต้อง",
+    "lessonFeedbackCommentPlaceholder": "ไม่บังคับ: บอกข้อเสนอแนะของคุณให้เราทราบ",
+    "llmStreamInterrupted": "การเชื่อมต่อขัดจังหวะระหว่างการสร้าง โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "nextChapterButton": "บทถัดไป",
+    "outputInProgress": "กำลังส่งออกเนื้อหา โปรดรอจนเสร็จแล้วลองอีกครั้ง",
+    "ttsRateLimited": "บริการเสียงกำลังไม่ว่าง โปรดลองอีกครั้งภายหลัง"
+  }
+}

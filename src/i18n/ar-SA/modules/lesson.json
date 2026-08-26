@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.lesson",
+  "reset": {
+    "confirmContent": "ستؤدي إعادة التعلم إلى مسح بيانات تعلم هذا الدرس. هل تريد إعادة التعلم؟",
+    "confirmTitle": "تأكيد إعادة التعلم",
+    "title": "إعادة التعلم"
+  },
+  "tooltip": {
+    "paidExclusive": "مزايا حصرية مدفوعة"
+  }
+}

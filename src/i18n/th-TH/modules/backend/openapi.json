@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.openapi",
+  "__flat__": {
+    "courseOwnershipRequired": "จัดการสิทธิ์ได้เฉพาะหลักสูตรที่คุณสร้างเองเท่านั้น",
+    "invalidApiKey": "API Key หรือรหัสผู้ใช้ไม่ถูกต้อง",
+    "noActiveAuthorization": "ไม่พบสิทธิ์ที่ยังใช้งานได้ของผู้ใช้และหลักสูตรนี้"
+  }
+}

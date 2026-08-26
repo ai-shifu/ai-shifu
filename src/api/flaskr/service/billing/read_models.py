@@ -179,7 +179,13 @@ if TYPE_CHECKING:
     from flask import Flask
     from flask_sqlalchemy.query import Query
 
-_OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+_OPERATOR_PRODUCT_FILTER_LANGUAGES = (
+    "zh-CN",
+    "en-US",
+    "fr-FR",
+    "ar-SA",
+    "th-TH",
+)
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
     "rapid_growth",
     "high_consumption",
