@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC
 from decimal import Decimal
 from typing import ClassVar
 
@@ -26,7 +27,6 @@ from flaskr.service.billing.consts import (
     BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
-    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_PROVIDER_INVALID,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED,
@@ -430,7 +430,7 @@ def test_validate_and_retire_campaign_provider_discount(
         assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
 
 
-def test_publish_records_retrieve_failure(
+def test_publish_preserves_active_coupon_on_transient_retrieve_failure(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -456,15 +456,18 @@ def test_publish_records_retrieve_failure(
         provider=provider,
     )
 
-    assert payload["items"][0]["status"] == "failed"
-    assert payload["items"][0]["failure_code"] == "provider_retrieve_failed"
-    assert payload["summary"]["failed"] == 1
+    assert payload["items"][0]["status"] == "active"
+    assert payload["items"][0]["failure_code"] == ""
+    assert payload["summary"]["active"] == 1
     with app.app_context():
         row = BillingCampaignProviderDiscount.query.filter_by(
             campaign_bid="campaign-growth-retrieve-failure"
         ).one()
-        assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED
-        assert row.failure_message == "stripe unavailable"
+        assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE
+        metadata = row.metadata_json or {}
+        assert (
+            metadata["last_provider_retrieve_error"]["message"] == "stripe unavailable"
+        )
 
 
 def test_validate_marks_coupon_invalid_when_product_scope_does_not_match(
@@ -706,6 +709,128 @@ def test_retiring_provider_price_requires_campaign_coupon_republish(
         assert refreshed.failure_code == "provider_price_retired"
 
 
+def test_publish_retires_old_provider_coupon_before_republish(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    product_bid = "product-growth-price-replace-1"
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-price-replace",
+            product_bid=product_bid,
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-price-replace",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    with app.app_context():
+        old_row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-price-replace"
+        ).one()
+        old_row_bid = old_row.campaign_provider_discount_bid
+        old_coupon_id = old_row.provider_coupon_id
+        retire_provider_price_mapping(old_row.product_provider_price_bid)
+        db.session.add(
+            BillingProductProviderPrice(
+                provider_price_bid=f"provider-price-{product_bid}-replacement",
+                product_bid=product_bid,
+                provider="stripe",
+                provider_account_id="acct_test",
+                provider_product_id=f"prod_{product_bid}",
+                provider_price_id=f"price_{product_bid}_replacement",
+                livemode=0,
+                currency="USD",
+                unit_amount=5900,
+                billing_mode=BILLING_MODE_RECURRING,
+                billing_interval=BILLING_INTERVAL_MONTH,
+                billing_interval_count=1,
+                status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+                activated_at=now_utc(),
+            )
+        )
+        db.session.commit()
+
+    payload = publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-price-replace",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    active_items = [item for item in payload["items"] if item["status"] == "active"]
+    assert provider.retired == [old_coupon_id]
+    assert len(provider.created) == 2
+    assert len(active_items) == 1
+    assert active_items[0]["campaign_provider_discount_bid"] != old_row_bid
+    with app.app_context():
+        old_row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_provider_discount_bid=old_row_bid
+        ).one()
+        assert old_row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
+
+
+def test_publish_blocks_replacement_when_old_coupon_cleanup_fails(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    product_bid = "product-growth-price-cleanup-1"
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-price-cleanup-block",
+            product_bid=product_bid,
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-price-cleanup-block",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    with app.app_context():
+        row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-price-cleanup-block"
+        ).one()
+        retire_provider_price_mapping(row.product_provider_price_bid)
+        db.session.add(
+            BillingProductProviderPrice(
+                provider_price_bid=f"provider-price-{product_bid}-replacement",
+                product_bid=product_bid,
+                provider="stripe",
+                provider_account_id="acct_test",
+                provider_product_id=f"prod_{product_bid}",
+                provider_price_id=f"price_{product_bid}_replacement",
+                livemode=0,
+                currency="USD",
+                unit_amount=5900,
+                billing_mode=BILLING_MODE_RECURRING,
+                billing_interval=BILLING_INTERVAL_MONTH,
+                billing_interval_count=1,
+                status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+                activated_at=now_utc(),
+            )
+        )
+        db.session.commit()
+
+    provider.retire_error = RuntimeError("stripe cleanup failed")
+    payload = publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-price-cleanup-block",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    assert len(provider.created) == 1
+    assert payload["items"][0]["status"] == "cleanup_required"
+    assert payload["summary"]["cleanup_required"] == 1
+
+
 def test_update_campaign_blocks_rule_changes_after_coupon_publish(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
@@ -752,3 +877,102 @@ def test_update_campaign_blocks_rule_changes_after_coupon_publish(
         )
 
     assert "Stripe Coupon" in str(exc_info.value)
+
+
+def test_update_campaign_blocks_rule_changes_for_republish_coupon(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-republish-rule-lock",
+            product_bid="product-growth-republish-rule-lock-1",
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-republish-rule-lock",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+    with app.app_context():
+        row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-republish-rule-lock"
+        ).one()
+        row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-growth-republish-rule-lock"
+        ).one()
+        start_at = campaign.start_at
+        end_at = campaign.end_at
+        db.session.add(row)
+        db.session.commit()
+
+    with pytest.raises(AppError) as exc_info:
+        update_admin_billing_campaign(
+            app,
+            operator_user_bid="operator",
+            campaign_bid="campaign-growth-republish-rule-lock",
+            payload={
+                "name": "Growth launch updated",
+                "note": "",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "product-growth-republish-rule-lock-1",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": "4800",
+                    }
+                ],
+                "start_at": start_at,
+                "end_at": end_at,
+            },
+        )
+
+    assert "Stripe Coupon" in str(exc_info.value)
+
+
+def test_update_campaign_allows_same_coupon_rule_with_aware_datetime(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-aware-dates",
+            product_bid="product-growth-aware-dates-1",
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-aware-dates",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+    with app.app_context():
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-growth-aware-dates"
+        ).one()
+        start_at = campaign.start_at.replace(tzinfo=UTC)
+        end_at = campaign.end_at.replace(tzinfo=UTC)
+
+    update_admin_billing_campaign(
+        app,
+        operator_user_bid="operator",
+        campaign_bid="campaign-growth-aware-dates",
+        payload={
+            "name": "Growth launch renamed",
+            "note": "",
+            "benefit_type": "discount",
+            "products": [
+                {
+                    "product_bid": "product-growth-aware-dates-1",
+                    "discount_type": "fixed",
+                    "campaign_price_amount": "4900",
+                }
+            ],
+            "start_at": start_at,
+            "end_at": end_at,
+        },
+    )

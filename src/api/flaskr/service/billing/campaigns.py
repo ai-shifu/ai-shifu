@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -20,7 +21,7 @@ from flaskr.util.uuid import generate_id
 from sqlalchemy import func
 
 from .campaign_provider_discounts import (
-    has_active_campaign_provider_discounts,
+    has_open_campaign_provider_coupons,
     summarize_campaign_provider_discounts,
 )
 from .consts import (
@@ -65,8 +66,6 @@ from .serializers import (
 )
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from flask import Flask
 
 
@@ -403,7 +402,7 @@ def update_admin_billing_campaign(
                 row,
                 next_product_configs=product_configs,
             )
-        if has_active_campaign_provider_discounts(normalized_campaign_bid):
+        if has_open_campaign_provider_coupons(normalized_campaign_bid):
             _assert_campaign_provider_discount_rule_unchanged(
                 row,
                 next_product_configs=product_configs,
@@ -977,6 +976,8 @@ def _assert_campaign_provider_discount_rule_unchanged(
 def _campaign_rule_datetime(value: datetime | None) -> datetime | None:
     if value is None:
         return None
+    if value.tzinfo is not None:
+        value = value.astimezone(UTC).replace(tzinfo=None)
     return value.replace(microsecond=0)
 
 

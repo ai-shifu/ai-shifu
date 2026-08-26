@@ -69,6 +69,23 @@ class CampaignProviderDiscountError(RuntimeError):
         return self.message
 
 
+@dataclass(slots=True)
+class PreparedCampaignProviderDiscount:
+    """Carry a row prepared for publishing and whether it needs provider I/O."""
+
+    row: BillingCampaignProviderDiscount
+    should_process: bool = True
+
+
+_PROVIDER_COUPON_OPEN_STATUSES = {
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_PROVIDER_INVALID,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
+}
+
+
 def serialize_campaign_provider_discount(
     row: BillingCampaignProviderDiscount,
 ) -> dict[str, Any]:
@@ -147,8 +164,8 @@ def summarize_campaign_provider_discounts(
     return payload
 
 
-def has_active_campaign_provider_discounts(campaign_bid: str) -> bool:
-    """Return whether a campaign has active provider discounts."""
+def has_open_campaign_provider_coupons(campaign_bid: str) -> bool:
+    """Return whether a campaign may still have live provider coupons."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
         return False
@@ -156,8 +173,8 @@ def has_active_campaign_provider_discounts(campaign_bid: str) -> bool:
         BillingCampaignProviderDiscount.query.filter(
             BillingCampaignProviderDiscount.deleted == 0,
             BillingCampaignProviderDiscount.campaign_bid == normalized_campaign_bid,
-            BillingCampaignProviderDiscount.status
-            == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+            BillingCampaignProviderDiscount.provider_coupon_id != "",
+            BillingCampaignProviderDiscount.status.in_(_PROVIDER_COUPON_OPEN_STATUSES),
         ).first()
         is not None
     )
@@ -236,7 +253,26 @@ def publish_admin_campaign_provider_discounts(
             return {"items": [], "summary": _summarize_serialized_items([])}
         bindings = _load_campaign_discount_bindings(normalized_campaign_bid)
         scope = resolve_current_stripe_provider_price_scope(app)
-        rows = [
+        stale_row_bids = _load_stale_provider_coupon_row_bids(
+            campaign_bid=normalized_campaign_bid,
+            bindings=bindings,
+            provider_account_id=scope.provider_account_id,
+            livemode=scope.livemode,
+        )
+
+    for row_bid in stale_row_bids:
+        _retire_provider_discount(
+            app,
+            row_bid=row_bid,
+            operator_user_bid=normalized_operator_bid,
+            provider=resolved_provider,
+        )
+
+    with app_context_scope(app), unit_of_work():
+        campaign = _require_campaign(normalized_campaign_bid)
+        bindings = _load_campaign_discount_bindings(normalized_campaign_bid)
+        scope = resolve_current_stripe_provider_price_scope(app)
+        prepared_rows = [
             _prepare_discount_row(
                 app,
                 campaign=campaign,
@@ -247,7 +283,11 @@ def publish_admin_campaign_provider_discounts(
             )
             for binding in bindings
         ]
-        row_bids = [row.campaign_provider_discount_bid for row in rows]
+        row_bids = [
+            prepared.row.campaign_provider_discount_bid
+            for prepared in prepared_rows
+            if prepared.should_process
+        ]
 
     for row_bid in row_bids:
         _create_or_validate_provider_discount(
@@ -337,7 +377,7 @@ def _prepare_discount_row(
     scope_account_id: str,
     scope_livemode: bool,
     operator_user_bid: str,
-) -> BillingCampaignProviderDiscount:
+) -> PreparedCampaignProviderDiscount:
     product = _require_product(binding.product_bid)
     mapping = _require_active_provider_price_mapping(
         product_bid=product.product_bid,
@@ -383,6 +423,15 @@ def _prepare_discount_row(
     )
     now = now_utc()
     replaces_discount_bid = ""
+    blocking_row = _load_blocking_provider_coupon_row(
+        campaign_bid=campaign.campaign_bid,
+        product_bid=product.product_bid,
+        provider=PROVIDER_STRIPE,
+        provider_account_id=mapping.provider_account_id,
+        current_product_provider_price_bid=mapping.provider_price_bid,
+    )
+    if blocking_row is not None:
+        return PreparedCampaignProviderDiscount(row=blocking_row, should_process=False)
     if row is not None and _should_create_replacement_row(row):
         replaces_discount_bid = str(row.campaign_provider_discount_bid or "")
         row = None
@@ -417,7 +466,7 @@ def _prepare_discount_row(
     row.metadata_json = _discount_metadata(row, campaign=campaign, product=product)
     db.session.add(row)
     db.session.flush()
-    return row
+    return PreparedCampaignProviderDiscount(row=row)
 
 
 def _create_or_validate_provider_discount(
@@ -437,6 +486,23 @@ def _create_or_validate_provider_discount(
                     app=app,
                 )
             except Exception as exc:
+                if (
+                    int(row.status or 0)
+                    == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE
+                ):
+                    row.metadata_json = {
+                        **normalize_json_object(
+                            row.metadata_json or {}
+                        ).to_metadata_json(),
+                        "last_provider_retrieve_error": {
+                            "message": _sanitize_error_message(exc),
+                            "checked_at": to_utc_iso(now_utc()),
+                        },
+                    }
+                    row.updated_user_bid = operator_user_bid
+                    row.updated_at = now_utc()
+                    db.session.add(row)
+                    return
                 row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED
                 row.failure_code = "provider_retrieve_failed"
                 row.failure_message = _sanitize_error_message(exc)
@@ -765,16 +831,109 @@ def _load_discount_row(
     )
 
 
+def _load_stale_provider_coupon_row_bids(
+    *,
+    campaign_bid: str,
+    bindings: list[BillingCampaignProduct],
+    provider_account_id: str,
+    livemode: bool,
+) -> list[str]:
+    row_bids: list[str] = []
+    seen: set[str] = set()
+    for binding in bindings:
+        product = _require_product(binding.product_bid)
+        mapping = _require_active_provider_price_mapping(
+            product_bid=product.product_bid,
+            provider_account_id=provider_account_id,
+            livemode=livemode,
+        )
+        rows = _load_open_provider_coupon_rows(
+            campaign_bid=campaign_bid,
+            product_bid=product.product_bid,
+            provider=PROVIDER_STRIPE,
+            provider_account_id=provider_account_id,
+            exclude_product_provider_price_bid=mapping.provider_price_bid,
+        )
+        for row in rows:
+            row_bid = str(row.campaign_provider_discount_bid or "")
+            if row_bid and row_bid not in seen:
+                seen.add(row_bid)
+                row_bids.append(row_bid)
+    return row_bids
+
+
+def _load_blocking_provider_coupon_row(
+    *,
+    campaign_bid: str,
+    product_bid: str,
+    provider: str,
+    provider_account_id: str,
+    current_product_provider_price_bid: str,
+) -> BillingCampaignProviderDiscount | None:
+    rows = _load_open_provider_coupon_rows(
+        campaign_bid=campaign_bid,
+        product_bid=product_bid,
+        provider=provider,
+        provider_account_id=provider_account_id,
+        exclude_product_provider_price_bid=current_product_provider_price_bid,
+    )
+    if rows:
+        return rows[0]
+    return (
+        BillingCampaignProviderDiscount.query.filter(
+            BillingCampaignProviderDiscount.deleted == 0,
+            BillingCampaignProviderDiscount.campaign_bid == normalize_bid(campaign_bid),
+            BillingCampaignProviderDiscount.product_bid == normalize_bid(product_bid),
+            BillingCampaignProviderDiscount.product_provider_price_bid
+            == normalize_bid(current_product_provider_price_bid),
+            BillingCampaignProviderDiscount.provider
+            == str(provider or "").strip().lower(),
+            BillingCampaignProviderDiscount.provider_account_id
+            == normalize_bid(provider_account_id),
+            BillingCampaignProviderDiscount.provider_coupon_id != "",
+            BillingCampaignProviderDiscount.status.in_(
+                [
+                    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
+                    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
+                ]
+            ),
+        )
+        .order_by(BillingCampaignProviderDiscount.id.desc())
+        .first()
+    )
+
+
+def _load_open_provider_coupon_rows(
+    *,
+    campaign_bid: str,
+    product_bid: str,
+    provider: str,
+    provider_account_id: str,
+    exclude_product_provider_price_bid: str,
+) -> list[BillingCampaignProviderDiscount]:
+    return (
+        BillingCampaignProviderDiscount.query.filter(
+            BillingCampaignProviderDiscount.deleted == 0,
+            BillingCampaignProviderDiscount.campaign_bid == normalize_bid(campaign_bid),
+            BillingCampaignProviderDiscount.product_bid == normalize_bid(product_bid),
+            BillingCampaignProviderDiscount.product_provider_price_bid
+            != normalize_bid(exclude_product_provider_price_bid),
+            BillingCampaignProviderDiscount.provider
+            == str(provider or "").strip().lower(),
+            BillingCampaignProviderDiscount.provider_account_id
+            == normalize_bid(provider_account_id),
+            BillingCampaignProviderDiscount.provider_coupon_id != "",
+            BillingCampaignProviderDiscount.status.in_(_PROVIDER_COUPON_OPEN_STATUSES),
+        )
+        .order_by(BillingCampaignProviderDiscount.id.desc())
+        .all()
+    )
+
+
 def _should_create_replacement_row(row: BillingCampaignProviderDiscount) -> bool:
     if not row.provider_coupon_id:
         return False
-    return int(row.status or 0) in {
-        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
-        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
-        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_PROVIDER_INVALID,
-        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
-        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED,
-    }
+    return int(row.status or 0) == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
 
 
 def _require_discount_row(row_bid: str) -> BillingCampaignProviderDiscount:
