@@ -86,7 +86,10 @@ export const useProfileOnboardingSession = ({
     React.useState<PendingAssistantRequest | null>(null);
   const pendingAssistantRequestRef =
     React.useRef<PendingAssistantRequest | null>(null);
-  const [finalSummaryRunning, setFinalSummaryRunning] = React.useState(false);
+  // A handoff can change operations without leaving the reducer's streaming state.
+  const [runningOperation, setRunningOperation] = React.useState<
+    'questions' | 'summary' | 'assistant' | null
+  >(null);
   const profileDraftBlockIndexRef = React.useRef<number | null>(null);
   const sessionDoneRef = React.useRef(false);
   const assistantReturnToInputRef = React.useRef(false);
@@ -167,7 +170,7 @@ export const useProfileOnboardingSession = ({
     streamCompletedRef.current = true;
     stopStream();
     setRunInFlight(false);
-    setFinalSummaryRunning(false);
+    setRunningOperation(null);
     dispatch({ type: 'fail', retryable: true });
     onErrorRef.current(new Error(messagesRef.current.retryableError));
   }, [setRunInFlight, stopStream]);
@@ -204,7 +207,7 @@ export const useProfileOnboardingSession = ({
         streamCompletedRef.current = true;
         stopStream();
         setRunInFlight(false);
-        setFinalSummaryRunning(false);
+        setRunningOperation(null);
         if (!retryable || requiresFreshSession) holdAssistantRequest(null);
         dispatch({ type: 'fail', retryable });
         if (requiresFreshSession) {
@@ -236,7 +239,7 @@ export const useProfileOnboardingSession = ({
       streamCompletedRef.current = true;
       stopStream();
       setRunInFlight(false);
-      setFinalSummaryRunning(false);
+      setRunningOperation(null);
       const draft = resolveProfileDraftFromRunEvent(event);
       const nickname = resolveProfileNicknameFromRunEvent(event);
       if (resolveRunDone(event)) {
@@ -309,10 +312,13 @@ export const useProfileOnboardingSession = ({
       runtimeFailedRef.current = false;
       awaitingInteractionRef.current = false;
       setRunInFlight(true);
-      setFinalSummaryRunning(
-        request.rawText === undefined &&
-          profileDraftBlockIndexRef.current !== null &&
-          request.expectedBlockIndex >= profileDraftBlockIndexRef.current,
+      setRunningOperation(
+        request.rawText !== undefined
+          ? 'assistant'
+          : profileDraftBlockIndexRef.current !== null &&
+              request.expectedBlockIndex >= profileDraftBlockIndexRef.current
+            ? 'summary'
+            : 'questions',
       );
       dispatch({ type: 'start_run' });
       const runAttempt = ++runAttemptRef.current;
@@ -397,7 +403,7 @@ export const useProfileOnboardingSession = ({
     sessionIdRef.current = '';
     setAssistantPrompt('');
     holdAssistantRequest(null);
-    setFinalSummaryRunning(false);
+    setRunningOperation(null);
     profileDraftBlockIndexRef.current = null;
     sessionDoneRef.current = false;
     assistantReturnToInputRef.current = false;
@@ -606,7 +612,7 @@ export const useProfileOnboardingSession = ({
     assistantAvailable:
       Boolean(sessionIdRef.current) &&
       !sessionDoneRef.current &&
-      !finalSummaryRunning &&
+      runningOperation !== 'summary' &&
       state.status !== 'fatal_error',
     submitAssistantAnswers,
     resumeQuestions,
@@ -615,7 +621,7 @@ export const useProfileOnboardingSession = ({
     loading,
     runInFlight,
     assistantProcessing:
-      (runInFlight && lastRunRequestRef.current?.rawText !== undefined) ||
+      runningOperation === 'assistant' ||
       (pendingAssistantRequest !== null && state.status !== 'retryable_error'),
     retryAvailable: state.status === 'retryable_error',
     send,

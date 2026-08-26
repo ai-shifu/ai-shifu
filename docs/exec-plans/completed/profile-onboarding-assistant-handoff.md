@@ -34,6 +34,13 @@ before automatically generating another block. Pasting alone never submits.
   types and re-run TypeScript successfully. Keep the local port 3000 server.
 - [x] 2026-08-26 UTC: Prepare verified follow-up publication to ready PR #2669;
   the PR description is the live record for commit, CI and natural-review status.
+- [x] 2026-08-26 UTC: A final regression check reproduced a missed processing
+  render when the click lands between ordinary completion and its queued
+  continuation. Track the running operation in React state (replacing the
+  summary-only flag) so the assistant button and draft lock update even when
+  the conversation remains in its existing streaming state. The strengthened
+  race assertion now passes with all 56 focused tests. Re-running all 1,528
+  frontend tests, TypeScript, ESLint and lefthook also passed.
 
 ## Surprises & Discoveries
 
@@ -46,6 +53,9 @@ not accept an import that its completed backend session could no longer apply.
 An early import can also fail before any question exists. Returning must resume
 the same cursor, rather than mark an empty conversation as awaiting input. When
 an interaction already existed, preserve it and its unsent input as before.
+The existing reducer can remain in streaming across a content-only boundary.
+Switching only request refs therefore does not guarantee a render; the active
+operation must be reactive for immediate processing feedback on a direct handoff.
 
 ## Decision Log
 

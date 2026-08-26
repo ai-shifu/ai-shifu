@@ -1672,6 +1672,14 @@ describe('assistant answers in the existing session', () => {
     });
     expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
     expect(result.runSession).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.processing',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeDisabled();
   });
 
   test('holds a confirmed handoff while externally disabled and resumes it once', async () => {
