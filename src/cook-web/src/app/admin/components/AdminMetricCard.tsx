@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { AlertCircle, X } from 'lucide-react';
 import {
@@ -10,13 +10,16 @@ import {
 import { cn } from '@/lib/utils';
 
 export type AdminMetricCardHoverMode = 'card' | 'control';
+export type AdminMetricCardVariant = 'default' | 'count';
+export type AdminMetricCardSize = 'default' | 'compact';
 
 export type AdminMetricCardItem = {
   key: string;
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   tooltip: string;
   onClick?: () => void;
+  actionLabel?: string;
 };
 
 export type AdminMetricCardActiveFilter = {
@@ -28,6 +31,8 @@ export type AdminMetricCardActiveFilter = {
 
 type AdminMetricCardProps = Omit<AdminMetricCardItem, 'key'> & {
   hoverMode?: AdminMetricCardHoverMode;
+  variant?: AdminMetricCardVariant;
+  size?: AdminMetricCardSize;
   className?: string;
   valueClassName?: string;
 };
@@ -38,6 +43,8 @@ type AdminMetricCardGroupProps = {
   className?: string;
   gridClassName?: string;
   cardHoverMode?: AdminMetricCardHoverMode;
+  cardVariant?: AdminMetricCardVariant;
+  cardSize?: AdminMetricCardSize;
   tooltipDelayDuration?: number;
   valueClassName?: string;
   staleMessage?: ReactNode;
@@ -50,28 +57,64 @@ const CLICKABLE_CARD_HOVER_CLASS =
   'transition-colors has-[.metric-control:hover]:border-primary/30 has-[.metric-control:hover]:bg-primary/[0.04]';
 const STATIC_CARD_HOVER_CLASS =
   'transition-colors hover:border-primary/30 hover:bg-primary/[0.04]';
+const COUNT_CARD_CLASS = 'relative';
 const CONTROL_CLASS =
   'group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 const INSET_CONTROL_CLASS =
   '-m-2 rounded-md border border-transparent p-2 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]';
 const TOOLTIP_TRIGGER_CLASS =
   'inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
+const COUNT_CARD_STYLE: CSSProperties = {
+  borderRadius: 'var(--border-radius-rounded-xl, 14px)',
+  border: 'var(--border-width-border, 1px) solid var(--base-border, #E5E5E5)',
+  background:
+    'linear-gradient(180deg, rgba(23, 23, 23, 0.00) 0%, var(--base-primary, rgba(23, 23, 23, 0.05)) 100%), var(--base-card, #FFF)',
+  boxShadow:
+    'var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px) var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0) var(--shadow-sm-1-color, rgba(0, 0, 0, 0.10)), var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px) var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px) var(--shadow-sm-2-color, rgba(0, 0, 0, 0.10))',
+};
 
 export function AdminMetricCard({
   label,
   value,
   tooltip,
   onClick,
+  actionLabel,
   hoverMode = 'card',
+  variant = 'default',
+  size = 'default',
   className,
   valueClassName,
 }: AdminMetricCardProps) {
+  const isCountVariant = variant === 'count';
+  const clickableAriaLabel =
+    actionLabel || (typeof label === 'string' ? label : undefined);
   const content = (
     <>
-      <div className='text-sm text-muted-foreground'>{label}</div>
       <div
         className={cn(
-          'mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary',
+          isCountVariant
+            ? 'font-[var(--font-weight-normal,400)] text-[var(--base-muted-foreground,#737373)]'
+            : 'text-sm text-muted-foreground',
+          isCountVariant &&
+            (size === 'compact'
+              ? 'text-[length:var(--text-xs-font-size,12px)] leading-[var(--text-xs-line-height,16px)]'
+              : 'text-[length:var(--text-sm-font-size,14px)] leading-[var(--text-sm-line-height,20px)]'),
+        )}
+      >
+        {label}
+      </div>
+      <div
+        className={cn(
+          isCountVariant
+            ? 'font-[var(--font-weight-semibold,600)] text-[var(--base-card-foreground,#0A0A0A)]'
+            : 'mt-3 text-2xl font-semibold text-foreground',
+          isCountVariant && size === 'compact'
+            ? 'mt-1 text-[length:var(--text-2xl-font-size,24px)] leading-[var(--text-2xl-line-height,32px)]'
+            : '',
+          isCountVariant && size === 'default'
+            ? 'mt-1.5 text-[length:var(--text-3xl-font-size,30px)] leading-[var(--text-3xl-line-height,36px)]'
+            : '',
+          'transition-colors group-hover:text-primary',
           valueClassName,
         )}
       >
@@ -83,17 +126,24 @@ export function AdminMetricCard({
   return (
     <div
       className={cn(
-        CARD_CLASS,
+        isCountVariant
+          ? [COUNT_CARD_CLASS, size === 'compact' ? 'p-4' : 'p-6']
+          : CARD_CLASS,
         hoverMode === 'card' &&
-          (onClick ? CLICKABLE_CARD_HOVER_CLASS : STATIC_CARD_HOVER_CLASS),
+          (onClick
+            ? CLICKABLE_CARD_HOVER_CLASS
+            : isCountVariant
+              ? 'transition-colors hover:border-primary/30'
+              : STATIC_CARD_HOVER_CLASS),
         className,
       )}
+      style={isCountVariant ? COUNT_CARD_STYLE : undefined}
     >
       <div className='flex items-start justify-between gap-2'>
         {onClick ? (
           <button
             type='button'
-            aria-label={label}
+            aria-label={clickableAriaLabel}
             className={cn(
               CONTROL_CLASS,
               hoverMode === 'card' && CONTROL_TARGET_CLASS,
@@ -104,7 +154,7 @@ export function AdminMetricCard({
             {content}
           </button>
         ) : (
-          <div className='min-w-0 flex-1'>{content}</div>
+          <div className='min-w-0 flex-1 pr-1'>{content}</div>
         )}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -131,6 +181,8 @@ export function AdminMetricCardGroup({
   className,
   gridClassName,
   cardHoverMode = 'card',
+  cardVariant = 'default',
+  cardSize = 'default',
   tooltipDelayDuration = 150,
   valueClassName,
   staleMessage,
@@ -153,7 +205,10 @@ export function AdminMetricCardGroup({
               value={item.value}
               tooltip={item.tooltip}
               onClick={item.onClick}
+              actionLabel={item.actionLabel}
               hoverMode={cardHoverMode}
+              variant={cardVariant}
+              size={cardSize}
               valueClassName={valueClassName}
             />
           ))}

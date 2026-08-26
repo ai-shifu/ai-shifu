@@ -147,4 +147,30 @@ describe('AdminMetricCardGroup', () => {
 
     expect(onClear).toHaveBeenCalledTimes(1);
   });
+
+  test('supports count-card styling and compact sizing for detail metrics', () => {
+    render(
+      <AdminMetricCardGroup
+        cardVariant='count'
+        cardSize='compact'
+        items={[
+          {
+            key: 'learners',
+            label: 'Learners',
+            value: 128,
+            tooltip: 'Users who started or joined this course',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Learners').closest('.relative')).toHaveClass(
+      'p-4',
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Users who started or joined this course',
+      }),
+    ).toBeInTheDocument();
+  });
 });
