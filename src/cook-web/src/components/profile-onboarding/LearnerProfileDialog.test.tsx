@@ -631,6 +631,14 @@ describe('LearnerProfileDialog', () => {
     expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
       'shrink-0',
     );
+    expect(screen.getByTestId('learner-profile-save-view')).toHaveClass(
+      'flex',
+      'min-h-full',
+      'flex-1',
+      'flex-col',
+    );
+    expect(profileInput().parentElement).toHaveClass('min-h-40', 'flex-1');
+    expect(profileInput()).toHaveClass('min-h-32', 'flex-1', 'resize-none');
     expect(
       screen.queryByText('module.profileOnboarding.steps.collect'),
     ).not.toBeInTheDocument();
@@ -678,6 +686,7 @@ describe('LearnerProfileDialog', () => {
       'learner-profile-optimization-card',
     );
     expect(optimizationCard).toHaveClass(
+      'shrink-0',
       'rounded-xl',
       'border-primary/20',
       'bg-primary/[0.05]',

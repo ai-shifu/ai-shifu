@@ -23,6 +23,9 @@ Use the learner's first-person voice in compiled prompts and update examples.
 - [x] 2026-08-26 UTC: Float copying at the prompt card's bottom corner, make the
   assistant workspace fill the dialog body, clarify the return/process actions,
   and visually elevate the fixed dialog footer above the collection surface.
+- [x] 2026-08-26 UTC: Extend the full-body layout to the confirm-and-save view,
+  letting the personal-introduction editor consume remaining height while the
+  fixed optimization and footer actions retain their hierarchy.
 
 ## Surprises & Discoveries
 
@@ -68,6 +71,10 @@ preserves one scroll owner and prevents the overlap.
   and let the assistant section scroll. Anchor copying to the prompt card's
   logical bottom-end corner so RTL mirrors it. Use a muted body surface plus an
   opaque, shadowed footer to express the footer as the higher interaction layer.
+- Make the confirm-and-save form a full-height flex workspace and assign its
+  remaining height to the personal-introduction editor. Keep a minimum editor
+  height so short mobile viewports scroll the existing body instead of
+  collapsing the editor or overlapping the fixed footer.
 
 ## Outcomes & Retrospective
 
@@ -108,6 +115,18 @@ RTL. Desktop content fills the body without hiding either action; mobile content
 stacks and scrolls without overlap or horizontal overflow; the copy action stays
 at the prompt card's logical bottom-end. The temporary route, screenshots and
 browser tabs were removed.
+
+The confirm-and-save follow-up passes all 39 dialog tests and the full frontend
+regression suite (178 suites / 1,558 tests), TypeScript, focused and full ESLint
+(existing repository warnings only), architecture boundaries, the repository
+harness, dev-tool verification and complete lefthook. Controlled browser QA
+with the actual Dialog and save view measured a 394px-tall save workspace inside
+a 442px desktop body; its personal introduction editor expanded to 160px instead
+of leaving the lower body empty. At 390x844 the editor expanded to 228px with no
+body or document overflow. At 360x640 the body alone gained 112px of scrollable
+content, so the full form and optimization card remain reachable while the
+127px fixed footer keeps its height. The temporary route, screenshots and
+browser tab were removed.
 
 Browser inspection used the real conversation, assistant view, official renderer
 and shared Dialog in a temporary local fixture matching the dialog dimensions,
