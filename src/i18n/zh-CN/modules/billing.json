@@ -593,6 +593,12 @@
     "processing": "处理中...",
     "productLabel": "商品",
     "providerLabel": "支付通道",
+    "redirect": {
+      "creating": "正在创建订单...",
+      "description": "请不要关闭页面；如果没有自动跳转，可以点击下方按钮重试。",
+      "openingStripe": "正在前往 Stripe 安全支付页...",
+      "retry": "重新打开支付页"
+    },
     "subject": {
       "plan": {
         "day": "日套餐",

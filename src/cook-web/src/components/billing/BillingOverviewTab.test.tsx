@@ -1848,6 +1848,14 @@ describe('BillingOverviewTab', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://stripe.test/checkout',
     );
+    expect(
+      screen.getByTestId('billing-stripe-redirect-overlay'),
+    ).toHaveTextContent('module.billing.checkout.redirect.openingStripe');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.checkout.redirect.retry',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('uses the returned provider when a same-package checkout reuses an existing QR order', async () => {
