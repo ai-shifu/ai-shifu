@@ -1408,6 +1408,47 @@ describe('assistant answers in the existing session', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('focuses the assistant introduction on entry and restores the entry on return without stealing initial focus', async () => {
+    const priorFocus = document.createElement('button');
+    document.body.appendChild(priorFocus);
+    priorFocus.focus();
+    try {
+      await begin();
+      expect(priorFocus).toHaveFocus();
+      const entry = screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      });
+      entry.focus();
+      enter();
+      expect(
+        screen.getByRole('heading', {
+          name: 'module.profileOnboarding.assistant.title',
+        }),
+      ).toHaveFocus();
+      expect(
+        screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+      ).not.toHaveFocus();
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.assistant.back',
+        }),
+      );
+      expect(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.assistant.entry',
+        }),
+      ).toHaveFocus();
+      enter();
+      expect(
+        screen.getByRole('heading', {
+          name: 'module.profileOnboarding.assistant.title',
+        }),
+      ).toHaveFocus();
+    } finally {
+      priorFocus.remove();
+    }
+  });
+
   test('keeps the original renderer mounted when switching views and accepts nickname-only completion', async () => {
     const result = await begin();
     const question = screen.getByText('Question one');

@@ -73,6 +73,17 @@ export default function ProfileOnboardingConversation({
   const { t, i18n } = useTranslation();
   const [assistantVisible, setAssistantVisible] = React.useState(false);
   const latestItemRef = React.useRef<HTMLDivElement>(null);
+  const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
+  const previousAssistantVisibleRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (previousAssistantVisibleRef.current === assistantVisible) return;
+    previousAssistantVisibleRef.current = assistantVisible;
+    // Start with the instructions and copy step, not the paste textarea.
+    const target = assistantVisible ? assistantHeadingRef : assistantEntryRef;
+    target.current?.focus({ preventScroll: true });
+  }, [assistantVisible]);
   const {
     items,
     status,
@@ -174,6 +185,7 @@ export default function ProfileOnboardingConversation({
       </div>
       {assistantVisible ? (
         <ProfileAssistantAnswersView
+          headingRef={assistantHeadingRef}
           prompt={assistantPrompt}
           value={assistantDraft}
           disabled={disabled || runInFlight}
@@ -186,6 +198,7 @@ export default function ProfileOnboardingConversation({
         />
       ) : assistantAnswers && assistantPrompt && status === 'awaiting_input' ? (
         <Button
+          ref={assistantEntryRef}
           type='button'
           variant='ghost'
           size='sm'

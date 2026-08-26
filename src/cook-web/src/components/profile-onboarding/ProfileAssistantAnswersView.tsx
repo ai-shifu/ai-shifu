@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 
 export function ProfileAssistantAnswersView({
+  headingRef,
   prompt,
   value,
   disabled,
@@ -15,6 +16,7 @@ export function ProfileAssistantAnswersView({
   onSubmit,
   onBack,
 }: {
+  headingRef?: React.Ref<HTMLHeadingElement>;
   prompt: string;
   value: string;
   disabled: boolean;
@@ -71,7 +73,11 @@ export function ProfileAssistantAnswersView({
       data-testid='profile-assistant-answers'
     >
       <div className='space-y-1'>
-        <h2 className='text-lg font-semibold'>
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className='text-lg font-semibold outline-none'
+        >
           {t('module.profileOnboarding.assistant.title')}
         </h2>
         <p className='text-sm leading-6 text-muted-foreground'>
