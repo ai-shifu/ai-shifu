@@ -6,6 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+import flaskr.service.billing.api as billing_api
 import pytest
 from flask import Flask
 from flaskr import dao
@@ -42,6 +43,89 @@ from tests.common.fixtures.bill_products import build_bill_products
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+def test_preview_admission_checks_resolved_owner_before_wallet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask(__name__)
+    calls: list[tuple[str, object]] = []
+    expected_admission = object()
+
+    monkeypatch.setattr(
+        billing_api,
+        "resolve_shifu_creator_bid",
+        lambda _app, shifu_bid: "owner-1" if shifu_bid == "shifu-1" else None,
+    )
+    monkeypatch.setattr(
+        billing_api,
+        "assert_creator_debug_allowed",
+        lambda _app, creator_bid: calls.append(("debug", creator_bid)),
+    )
+    monkeypatch.setattr(
+        billing_api,
+        "admit_creator_usage",
+        lambda _app, **kwargs: (
+            calls.append(("wallet", kwargs)),
+            expected_admission,
+        )[1],
+    )
+
+    admission = billing_api.admit_creator_preview_usage(
+        app,
+        shifu_bid="shifu-1",
+    )
+
+    assert admission is expected_admission
+    assert calls == [
+        ("debug", "owner-1"),
+        (
+            "wallet",
+            {
+                "creator_bid": "owner-1",
+                "shifu_bid": "shifu-1",
+                "usage_scene": BILL_USAGE_SCENE_PREVIEW,
+            },
+        ),
+    ]
+
+
+def test_preview_admission_stops_when_owner_softlimit_disables_debug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask(__name__)
+    wallet_admission_called = False
+
+    monkeypatch.setattr(
+        billing_api,
+        "resolve_shifu_creator_bid",
+        lambda _app, _shifu_bid: "owner-softlimit",
+    )
+
+    def reject_debug(_app: Flask, _creator_bid: str) -> None:
+        from flaskr.service.common.models import raise_error
+
+        raise_error("server.billing.debugDisabledBySoftLimit")
+
+    def capture_wallet_admission(_app: Flask, **_kwargs: object) -> None:
+        nonlocal wallet_admission_called
+        wallet_admission_called = True
+
+    monkeypatch.setattr(billing_api, "assert_creator_debug_allowed", reject_debug)
+    monkeypatch.setattr(
+        billing_api,
+        "admit_creator_usage",
+        capture_wallet_admission,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        billing_api.admit_creator_preview_usage(
+            app,
+            shifu_bid="shifu-softlimit",
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.debugDisabledBySoftLimit"]
+    assert wallet_admission_called is False
 
 
 @pytest.fixture
@@ -283,7 +367,9 @@ def test_admit_creator_usage_rejects_missing_credits(
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
 
-    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+    assert (
+        exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"] == 7101
+    )
 
 
 def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(

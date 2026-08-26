@@ -370,7 +370,7 @@ export const useUserStore = create<
     },
 
     // Public API: Refresh user information from server
-    refreshUserInfo: async () => {
+    refreshUserInfo: async options => {
       const requestedToken = tokenTool.get().token;
       const requestedUserId = get().userInfo?.user_id;
       const identityChanged = () =>
@@ -378,7 +378,7 @@ export const useUserStore = create<
         get().userInfo?.user_id !== requestedUserId;
       let res: Awaited<ReturnType<typeof getUserInfo>>;
       try {
-        res = await getUserInfo();
+        res = await getUserInfo(options);
       } catch (error) {
         if (identityChanged()) {
           debugInfo(

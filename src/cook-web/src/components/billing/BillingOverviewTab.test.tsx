@@ -1698,10 +1698,10 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('low_balance')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', {
+      screen.getByRole('link', {
         name: 'module.billing.alerts.actions.checkoutTopup',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute('href', '/admin/billing?tab=packages');
   });
 
   test('resumes a cancel-scheduled subscription from the billing alert', async () => {

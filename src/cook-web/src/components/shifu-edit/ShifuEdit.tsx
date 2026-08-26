@@ -36,6 +36,7 @@ import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { resolveCourseCreditInsufficientAudience } from '@/lib/creditInsufficientToast';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
@@ -92,6 +93,8 @@ const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
 ]);
 const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
 const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
+const PROFILE_RECOVERY_INITIAL_DELAY_MS = 1000;
+const PROFILE_RECOVERY_MAX_DELAY_MS = 10000;
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
 
@@ -145,6 +148,7 @@ const ScriptEditor = ({
   const profile = useUserStore(state => state.userInfo);
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
   const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
@@ -196,6 +200,18 @@ const ScriptEditor = ({
     hasDraftConflict,
     autosavePaused,
   } = useShifu();
+  const currentUserId = profile?.user_bid || profile?.user_id || '';
+  const isCourseOwner = profile
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentUserId &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
 
   const {
     items: previewItems,
@@ -211,7 +227,7 @@ const ScriptEditor = ({
     variables: previewVariables,
     requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
-  } = usePreviewChat();
+  } = usePreviewChat({ creditInsufficientAudience });
   const editorScopeKey = useMemo(
     () => `${currentShifu?.bid || ''}:${currentNode?.bid || ''}`,
     [currentNode?.bid, currentShifu?.bid],
@@ -263,10 +279,62 @@ const ScriptEditor = ({
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
-  const currentUserId = useMemo(() => {
-    if (!profile) return '';
-    return profile.user_bid || profile.user_id || '';
-  }, [profile]);
+
+  useEffect(() => {
+    if (!isInitialized || isGuest || profile || !token) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryDelay = PROFILE_RECOVERY_INITIAL_DELAY_MS;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const needsProfileRecovery = () => {
+      const state = useUserStore.getState();
+      return (
+        !cancelled &&
+        state.isInitialized &&
+        !state.isGuest &&
+        !state.userInfo &&
+        state.getToken() === token
+      );
+    };
+
+    const recoverProfile = async () => {
+      if (!needsProfileRecovery()) {
+        return;
+      }
+
+      try {
+        // Initialization can complete without a profile after a network failure.
+        // Keep ownership unresolved while quietly recovering that profile.
+        await refreshUserInfo({ skipErrorToast: true });
+      } catch (error) {
+        const { status, code } = (error ?? {}) as {
+          status?: unknown;
+          code?: unknown;
+        };
+        if (
+          [401, 403, 404].includes(Number(status)) ||
+          [401, 403, 404, 1001, 1004, 1005, 9002].includes(Number(code))
+        ) {
+          return;
+        }
+      }
+
+      if (needsProfileRecovery()) {
+        retryDelay = Math.min(retryDelay * 2, PROFILE_RECOVERY_MAX_DELAY_MS);
+        timeoutId = setTimeout(recoverProfile, retryDelay);
+      }
+    };
+
+    // Defer even the first attempt so StrictMode cleanup prevents duplicate work.
+    timeoutId = setTimeout(recoverProfile, retryDelay);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [isGuest, isInitialized, profile, refreshUserInfo, token]);
+
   const isHistoryPage = initialViewMode === 'history';
   const editorOnboardingTriggerSource = useMemo(() => {
     const source =
@@ -288,11 +356,6 @@ const ScriptEditor = ({
       window.clearTimeout(timeoutId);
     };
   }, [currentShifu?.bid, isHistoryPage]);
-  const isCourseOwner = Boolean(
-    currentShifu?.created_user_bid &&
-    currentUserId &&
-    currentShifu.created_user_bid === currentUserId,
-  );
   const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
     useCreatorOnboardingStatus(Boolean(currentUserId));
   const courseEditorSceneStatus =
@@ -1357,7 +1420,10 @@ const ScriptEditor = ({
   }, [token, baseURL]);
 
   const canPreview = Boolean(
-    currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
+    creditInsufficientAudience !== null &&
+    currentNode?.depth &&
+    currentNode.depth > 0 &&
+    currentShifu?.bid,
   );
 
   const previewToggleLabel = isPreviewPanelOpen
@@ -1869,13 +1935,14 @@ const ScriptEditor = ({
               </Button>
             </div>
           ) : null}
-          {isPreviewPanelOpen ? (
+          {isPreviewPanelOpen && creditInsufficientAudience !== null ? (
             <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
               <div className='h-full'>
                 <LessonPreview
                   loading={previewLoading}
                   errorMessage={previewError || undefined}
                   items={previewItems}
+                  creditInsufficientAudience={creditInsufficientAudience}
                   variables={mergedPreviewVariables}
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}

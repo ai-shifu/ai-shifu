@@ -29,6 +29,10 @@ import {
 } from '@/components/ui/Dialog';
 import { useAlert } from '@/components/ui/UseAlert';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import {
+  type CreditInsufficientAudience,
+  isCreditInsufficientBusinessCode,
+} from '@/lib/creditInsufficientToast';
 import { Button } from '@/components/ui/Button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -39,12 +43,11 @@ import {
   type PreviewTypewriterCache,
 } from './previewTypewriterGate';
 
-const CREDIT_INSUFFICIENT_BUSINESS_CODE = 7101;
-
 interface LessonPreviewProps {
   loading: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
+  creditInsufficientAudience?: CreditInsufficientAudience;
   variables?: PreviewVariablesMap;
   shifuBid: string;
   onRefresh: (elementBid: string) => void;
@@ -174,6 +177,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   errorMessage,
   items = [],
+  creditInsufficientAudience = 'teacher-collaborator',
   variables,
   shifuBid,
   onRefresh,
@@ -488,8 +492,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 }
 
                 if (item.type === ChatContentItemType.ERROR) {
-                  const isCreditInsufficient =
-                    item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
+                  const isCreditInsufficient = isCreditInsufficientBusinessCode(
+                    item.business_code,
+                  );
                   return (
                     <div
                       key={resolveLessonPreviewItemKey(item, idx)}
@@ -513,13 +518,14 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                             : undefined
                         }
                       />
-                      {isCreditInsufficient ? (
+                      {isCreditInsufficient &&
+                      creditInsufficientAudience === 'teacher' ? (
                         <Button
                           type='button'
                           size='sm'
                           onClick={handleGoToBilling}
                         >
-                          {t('module.shifu.previewArea.goToBilling')}
+                          {t('module.billing.alerts.actions.checkoutTopup')}
                         </Button>
                       ) : null}
                     </div>

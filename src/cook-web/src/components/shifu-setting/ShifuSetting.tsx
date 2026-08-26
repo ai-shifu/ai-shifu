@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import Link from 'next/link';
 import { SSE } from 'sse.js';
 import {
   Plus,
@@ -22,7 +23,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
 import { buildTraceHeaders } from '@/lib/request-trace';
+import {
+  type ErrorWithCode,
+  attachSseBusinessResponseFallback,
+} from '@/lib/request';
 import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
+import {
+  DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  isCreditInsufficientBusinessCode,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
@@ -195,6 +206,8 @@ export default function ShifuSettingDialog({
   const { data: billingOverview } = useBillingOverview();
   const debugAllowed =
     !billingEnabled || billingOverview?.debug_allowed === true;
+  const debugBlockedByCredits =
+    billingEnabled && billingOverview?.debug_allowed === false;
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel =
     models.find(option => option.value === defaultLlmModel)?.label ||
@@ -1281,11 +1294,14 @@ export default function ShifuSettingDialog({
         stopTtsPreview();
       }
 
-      if (!debugAllowed && !demoAudioUrl) {
-        toast({
-          title: t('module.shifuSetting.debugDisabledBySoftLimit'),
-          variant: 'destructive',
+      if (debugBlockedByCredits && !demoAudioUrl) {
+        showCreditInsufficientToast({
+          audience: 'teacher',
+          code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
         });
+        return;
+      }
+      if (!debugAllowed && !demoAudioUrl) {
         return;
       }
 
@@ -1371,6 +1387,23 @@ export default function ShifuSettingDialog({
         method: 'POST',
       });
 
+      attachSseBusinessResponseFallback(source, {
+        requestToken: token,
+        meta: {
+          url: `${baseUrl}/api/shifu/tts/preview`,
+          method: 'POST',
+          requestToken: token,
+          requestId: traceHeaders.requestId,
+          harnessRunId: traceHeaders.harnessRunId,
+          creditInsufficientAudience: 'teacher',
+        },
+        onHandled: () => {
+          if (ttsPreviewSessionRef.current === sessionId) {
+            stopTtsPreview();
+          }
+        },
+      });
+
       source.addEventListener('message', event => {
         const raw = event?.data;
         if (!raw) return;
@@ -1443,6 +1476,7 @@ export default function ShifuSettingDialog({
       requestExclusive,
       stopTtsPreview,
       debugAllowed,
+      debugBlockedByCredits,
       t,
       toast,
     ],
@@ -1561,11 +1595,14 @@ export default function ShifuSettingDialog({
     if (currentShifu?.readonly || askPreviewLoading) {
       return;
     }
-    if (!debugAllowed) {
-      toast({
-        title: t('module.shifuSetting.debugDisabledBySoftLimit'),
-        variant: 'destructive',
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: 'teacher',
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
       });
+      return;
+    }
+    if (!debugAllowed) {
       return;
     }
     const query = askPreviewQuery.trim();
@@ -1630,12 +1667,20 @@ export default function ShifuSettingDialog({
         fallbackUsed: Boolean(response?.fallback_used),
       });
     } catch (error) {
-      showAiServiceErrorToast({
-        message: error instanceof Error ? error.message : '',
-        fallbackMessage: t('common.core.unknownError'),
-        includeUnknown: true,
-        unavailableMessage: t('module.preview.aiDebugUnavailable'),
-      });
+      const businessCode = (error as ErrorWithCode | undefined)?.code;
+      if (isCreditInsufficientBusinessCode(businessCode)) {
+        showCreditInsufficientToast({
+          audience: 'teacher',
+          code: businessCode,
+        });
+      } else {
+        showAiServiceErrorToast({
+          message: error instanceof Error ? error.message : '',
+          fallbackMessage: t('common.core.unknownError'),
+          includeUnknown: true,
+          unavailableMessage: t('module.preview.aiDebugUnavailable'),
+        });
+      }
       setAskPreviewResult('');
       setAskPreviewMeta(null);
     } finally {
@@ -1651,6 +1696,7 @@ export default function ShifuSettingDialog({
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
     debugAllowed,
+    debugBlockedByCredits,
     normalizeAskTemperature,
     resolvedAskProvider,
     t,
@@ -1933,6 +1979,25 @@ export default function ShifuSettingDialog({
                     </FormItem>
                   )}
                 />
+
+                {debugBlockedByCredits ? (
+                  <div className='mb-4 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900'>
+                    <span>
+                      {t('module.billing.creditInsufficient.teacherSoftlimit')}
+                    </span>
+                    <Button
+                      asChild
+                      type='button'
+                      variant='link'
+                      size='sm'
+                      className='h-auto shrink-0 p-0 text-amber-900'
+                    >
+                      <Link href={BILLING_PACKAGES_HREF}>
+                        {t('module.billing.alerts.actions.checkoutTopup')}
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
 
                 <div>
                   <AskSettingsSection
@@ -2456,13 +2521,6 @@ export default function ShifuSettingDialog({
                             !debugAllowed
                           }
                           className='w-full'
-                          title={
-                            debugAllowed
-                              ? undefined
-                              : t(
-                                  'module.shifuSetting.debugDisabledBySoftLimit',
-                                )
-                          }
                         >
                           {ttsPreviewLoading &&
                           ttsPreviewTarget === TTS_PREVIEW_CURRENT_TARGET ? (

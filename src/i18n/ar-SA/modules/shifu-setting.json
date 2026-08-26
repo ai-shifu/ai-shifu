@@ -109,7 +109,6 @@
   "askTemperature": "درجة حرارة إجابة سؤال المتابعة",
   "askTemperatureHint": "تحكم في مدى تنوع الإجابات (من 0 إلى 2، والقيمة 0 موصى بها)",
   "askTitle": "إعدادات أسئلة المتعلم اللاحقة",
-  "debugDisabledBySoftLimit": "الرصيد أقل من حد التذكير، وتم إيقاف معاينة التصحيح.",
   "defaultListenModeDescription": "عند التفعيل، يبدأ المتعلم هذه الدورة في وضع الاستماع افتراضيًا",
   "defaultListenModeTitle": "الفتح في وضع الاستماع افتراضيًا",
   "draftConflictDescription": "عدّل {phone} هذه الدورة. حمّل أحدث محتوى لمتابعة التحرير بأمان.",

@@ -4,6 +4,10 @@ import { getDynamicApiBaseUrl } from '@/config/environment';
 import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
+import {
+  type CreditInsufficientAudience,
+  showCreditInsufficientToast,
+} from './creditInsufficientToast';
 import { getPendingRequestLanguage } from './request-language';
 import {
   buildTraceHeaders,
@@ -19,12 +23,15 @@ export type RequestConfig = RequestInit & {
   params?: any;
   data?: any;
   skipErrorToast?: boolean;
+  creditInsufficientAudience?: CreditInsufficientAudience;
 };
 
 export type StreamRequestConfig = RequestInit & {
   params?: any;
   data?: any;
   parseChunk?: (chunkValue: string) => string;
+  skipErrorToast?: boolean;
+  creditInsufficientAudience?: CreditInsufficientAudience;
 };
 export type StreamCallback = (
   done: boolean,
@@ -46,6 +53,7 @@ type RequestDebugMeta = {
   requestId?: string;
   harnessRunId?: string;
   skipErrorToast?: boolean;
+  creditInsufficientAudience?: CreditInsufficientAudience;
 };
 
 export const getBusinessFallbackMessage = () =>
@@ -88,6 +96,7 @@ export class ErrorWithCode extends Error {
   status?: number;
   requestId?: string;
   harnessRunId?: string;
+  toastHandled?: boolean;
   constructor(message: string, code: number) {
     super(message);
     this.code = code;
@@ -311,7 +320,17 @@ export const handleBusinessCode = async (
 
     // Special status codes do not show toast
     if (!isAuthError) {
-      handleApiError(error, !meta.skipErrorToast);
+      const creditToastHandled =
+        !meta.skipErrorToast && meta.creditInsufficientAudience
+          ? showCreditInsufficientToast({
+              audience: meta.creditInsufficientAudience,
+              code: response.code,
+            })
+          : false;
+      if (!creditToastHandled) {
+        handleApiError(error, !meta.skipErrorToast);
+      }
+      error.toastHandled = creditToastHandled || !meta.skipErrorToast;
     }
 
     // If the token has changed since this request was sent, treat the auth error
@@ -575,6 +594,7 @@ export class Request {
           requestId,
           harnessRunId,
           skipErrorToast: Boolean(mergedConfig.skipErrorToast),
+          creditInsufficientAudience: mergedConfig.creditInsufficientAudience,
         });
       }
 
@@ -609,7 +629,9 @@ export class Request {
           }),
         );
       }
-      handleApiError(error, !config.skipErrorToast);
+      if (!error?.toastHandled) {
+        handleApiError(error, !config.skipErrorToast);
+      }
       throw error;
     }
   }
@@ -768,6 +790,8 @@ export class Request {
           httpStatus: response.status,
           requestId: activeRequestId,
           harnessRunId: activeHarnessRunId,
+          skipErrorToast: Boolean(config.skipErrorToast),
+          creditInsufficientAudience: config.creditInsufficientAudience,
         });
       }
 
@@ -899,6 +923,8 @@ export class Request {
             httpStatus: response.status,
             requestId: activeRequestId,
             harnessRunId: activeHarnessRunId,
+            skipErrorToast: Boolean(config.skipErrorToast),
+            creditInsufficientAudience: config.creditInsufficientAudience,
           });
         }
       }
