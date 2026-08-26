@@ -25,6 +25,7 @@ import {
   PAY_CHANNEL_ZHIFUBAO,
   PAY_CHANNEL_STRIPE,
 } from './constans';
+import { isWechatJsapiAvailable } from './wechatJsapi';
 import MainButtonM from '@/c-components/m/MainButtonM';
 import StripeCardForm from './StripeCardForm';
 
@@ -116,7 +117,12 @@ export const PayModalM = ({
   const skipNextCancelEventRef = useRef(false);
 
   const courseId = getStringEnv('courseId');
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const { isLoggedIn, userInfo } = useUserStore(
+    useShallow(state => ({
+      isLoggedIn: state.isLoggedIn,
+      userInfo: state.userInfo,
+    })),
+  );
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const { payByJsApi } = useWechat();
@@ -219,12 +225,11 @@ export const PayModalM = ({
     () => typeof navigator !== 'undefined' && inWechat(),
     [],
   );
-  // JSAPI payment needs an openid, which is only obtainable when the WeChat
-  // code flow is enabled (it is disabled on custom domains).
-  const wechatJsapiAvailable =
-    isWechatBrowser &&
-    typeof enableWxcode === 'string' &&
-    enableWxcode.toLowerCase() === 'true';
+  const wechatJsapiAvailable = isWechatJsapiAvailable({
+    inWechatBrowser: isWechatBrowser,
+    enableWxcode,
+    openId: userInfo?.openid,
+  });
   const wechatPaymentAvailable =
     pingxxChannelEnabled || wechatpayChannelEnabled;
   const alipayPaymentAvailable = pingxxChannelEnabled || alipayChannelEnabled;
