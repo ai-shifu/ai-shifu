@@ -50,7 +50,18 @@ uncertain initial-run replay and no automatic submission when readiness changes.
 Backend compiler/config pytest: 19 passed using MarkdownFlow 0.3.1. TypeScript,
 ESLint (existing warnings), Ruff, translation presence/usage, architecture (zero
 new violations), repository harness and dev-tool verification passed. Complete
-lefthook results and post-push CI are reported on PR #2669.
+lefthook passed. Full frontend regression: 177 suites / 1,511 tests passed.
+Commit `cec4de44c` passed every remote check, including backend (7m00s), frontend
+(1m44s), runtime harness (6m59s), formatting, static, CodeQL and security checks.
+PR #2669 remains ready but BEHIND main, with no human approval or merge.
+
+The natural CodeRabbit review on `cec4de44c` raised one minor documentation
+privacy suggestion: remove the machine-specific path in the original ExecPlan
+(thread `PRRT_kwDOMZ_AH86cZ3aG`). Replace it with an isolated-worktree description
+and validate the repository harness in a separate documentation commit. The
+repeated suggestions to relocate storage tests and extract the tested import
+limit remain deferred as previously documented; no runtime behavior is broken.
+Post-documentation CI and thread resolution are recorded on PR #2669.
 
 Browser inspection used the real conversation, assistant view, official renderer
 and shared Dialog in a temporary local fixture matching the dialog dimensions,

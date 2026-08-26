@@ -13,7 +13,7 @@ learner access. Existing configurations without a prompt remain usable.
 - [x] 2026-08-26 CST: Read root/subtree guidance and current runtime/config/UI.
 - [x] 2026-08-26 CST: Fetched main and created
   `sunner/profile-onboarding-ai-import` at `7b60e7aee707be74945474c0a00e4ffe7d54930d`
-  in `/Users/sunner/.codex/worktrees/f6d4/ai-shifu`; copied local environment
+  in an isolated feature worktree; copied local environment
   files without overwriting existing files or changing the source checkout.
 - [x] 2026-08-26 CST: Compile and atomically publish public prompts on admin save.
 - [x] 2026-08-26 CST: Implement same-session import, replay, and rollback safety.
