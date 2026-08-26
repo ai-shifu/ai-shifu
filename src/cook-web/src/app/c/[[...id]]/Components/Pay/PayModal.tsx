@@ -22,6 +22,7 @@ import {
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_ZHIFUBAO,
 } from './constans';
+import { isWechatJsapiAvailable } from './wechatJsapi';
 import type {
   NativePaymentPayload,
   PaymentChannel,
@@ -158,12 +159,11 @@ export const PayModal = ({
     () => typeof navigator !== 'undefined' && inWechat(),
     [],
   );
-  // JSAPI payment needs an openid, which is only obtainable when the WeChat
-  // code flow is enabled (it is disabled on custom domains).
-  const wechatJsapiAvailable =
-    isWechatBrowser &&
-    typeof enableWxcode === 'string' &&
-    enableWxcode.toLowerCase() === 'true';
+  const wechatJsapiAvailable = isWechatJsapiAvailable({
+    inWechatBrowser: isWechatBrowser,
+    enableWxcode,
+    openId: userInfo?.openid,
+  });
   const isWechatQrAvailable = pingxxChannelEnabled || wechatpayChannelEnabled;
   const isAlipayQrAvailable = pingxxChannelEnabled || alipayChannelEnabled;
   const qrChannelEnabled = isWechatQrAvailable || isAlipayQrAvailable;

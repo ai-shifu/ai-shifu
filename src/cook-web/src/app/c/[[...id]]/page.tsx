@@ -15,6 +15,7 @@ import {
   FRAME_LAYOUT_MOBILE,
   inWechat,
   inMiniProgram,
+  wechatLogin,
 } from '@/c-constants/uiConstants';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import { EVENT_NAMES, events } from './events';
@@ -39,6 +40,7 @@ import type { EnvStoreState } from '@/c-types/store';
 import {
   buildLoginRedirectPath,
   getLessonIdFromQuery,
+  removeParamFromUrl,
   replaceCurrentUrlWithLessonId,
 } from '@/c-utils/urlUtils';
 
@@ -56,6 +58,7 @@ import {
 import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
+import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
@@ -117,6 +120,44 @@ const isEditableElementFocused = () => {
   return isEditableElement(document.activeElement);
 };
 
+const OPENID_REBIND_SESSION_KEY = 'wechat_openid_rebind_attempted';
+
+/**
+ * Send the user through the WeChat code flow once per session to recover an
+ * openid the account never got bound. The redirect target drops the spent
+ * `code`/`state` so the fresh one does not stack onto them.
+ */
+const requestWechatCodeForOpenIdRebind = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const { appId } = useEnvStore.getState() as EnvStoreState;
+  if (!appId) {
+    return;
+  }
+  try {
+    if (sessionStorage.getItem(OPENID_REBIND_SESSION_KEY)) {
+      return;
+    }
+    sessionStorage.setItem(OPENID_REBIND_SESSION_KEY, '1');
+  } catch {
+    // Without session storage there is no way to bound the retries, so skip
+    // the redirect rather than risk looping through OAuth.
+    return;
+  }
+  wechatLogin({
+    appId,
+    redirectUrl: removeParamFromUrl(window.location.href, ['code', 'state']),
+  });
+};
+
+const requestWechatCodeForOpenIdRebindIfUnbound = (openId: string) => {
+  if (openId) {
+    return;
+  }
+  requestWechatCodeForOpenIdRebind();
+};
+
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
@@ -147,14 +188,37 @@ export default function ChatPage() {
   const [lessonUpdateNoticeVisible, setLessonUpdateNoticeVisible] =
     useState(false);
 
+  const enableWxcode = useEnvStore(
+    (state: EnvStoreState) => state.enableWxcode,
+  );
+  const wxcodeEnabled = isWechatCodeFlowEnabled(enableWxcode);
+  // Trimmed to match the backend, which strips the value before deciding
+  // whether it has one: a blank string must take the rebinding path here
+  // rather than reach the gateway as a missing parameter.
+  const wechatOpenId = (userInfo?.openid || '').trim();
+  // The account profile arrives after the login state does, and a not-yet-loaded
+  // profile must not be read as "this account has no openid".
+  const isUserProfileLoaded = Boolean(userInfo);
+  // Tracks which OAuth code this page already spent on a binding attempt, so a
+  // failed exchange is not retried in a loop with the same (single-use) code.
+  const attemptedWechatCodeRef = useRef('');
+
+  // WeChat JSAPI payment needs the openid of the WeChat account currently
+  // viewing the page. Every unspent code is handed to the backend, which only
+  // writes when the openid actually differs, so signing in from another WeChat
+  // account moves the binding over instead of paying with a stale openid. The
+  // code itself can be consumed elsewhere first (guest registration) or fail to
+  // exchange, and login drops it from the URL, which used to leave an account
+  // without any openid for good -- so when none is left and nothing is bound,
+  // fetch a fresh code once per session.
   useEffect(() => {
     if (!initialized) {
       return;
     }
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !isUserProfileLoaded) {
       return;
     }
-    if (!wechatCode || !inWechat()) {
+    if (!inWechat() || inMiniProgram() || !wxcodeEnabled) {
       return;
     }
 
@@ -163,10 +227,43 @@ export default function ChatPage() {
       return;
     }
 
-    void updateWxcode({ wxcode: wechatCode }).catch(err => {
-      debugWarn('[lesson-page] failed to update WeChat OpenID', err);
-    });
-  }, [initialized, isLoggedIn, wechatCode]);
+    if (!wechatCode) {
+      requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
+      return;
+    }
+    if (attemptedWechatCodeRef.current === wechatCode) {
+      return;
+    }
+    attemptedWechatCodeRef.current = wechatCode;
+
+    void updateWxcode({ wxcode: wechatCode })
+      .then(openid => {
+        if (!openid) {
+          debugWarn('[lesson-page] WeChat OpenID binding returned no openid');
+          // The code is spent either way, and the ref stops this effect from
+          // trying again with it, so an unbound account would stay unbound for
+          // the rest of the session. Spend the one fresh code instead.
+          requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
+          return undefined;
+        }
+        if (openid === wechatOpenId) {
+          return undefined;
+        }
+        return refreshUserInfo();
+      })
+      .catch(err => {
+        debugWarn('[lesson-page] failed to update WeChat OpenID', err);
+        requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
+      });
+  }, [
+    initialized,
+    isLoggedIn,
+    isUserProfileLoaded,
+    refreshUserInfo,
+    wechatCode,
+    wechatOpenId,
+    wxcodeEnabled,
+  ]);
 
   // NOTE: User-related features should be organized into one module
   const gotoLogin = useCallback(() => {
@@ -181,15 +278,14 @@ export default function ChatPage() {
    */
   const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
-  const enableWxcode = useEnvStore(
-    (state: EnvStoreState) => state.enableWxcode,
-  );
-  // WeChat JSAPI payment needs an openid, which is only obtainable when the
-  // WeChat code flow is enabled (i.e. not on custom domains). Without it,
-  // guide the user to pay in an external browser instead.
-  const wxcodeEnabled =
-    typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true';
-  const wechatPayUnavailable = inWechat() && !inMiniProgram() && !wxcodeEnabled;
+  // WeChat JSAPI payment needs an openid: the code flow that grants one is
+  // disabled on custom domains, and the binding can also be missing on domains
+  // where it is enabled. Without an openid, guide the user to pay in an
+  // external browser instead of showing a QR code they cannot scan in place.
+  const wechatPayUnavailable =
+    inWechat() &&
+    !inMiniProgram() &&
+    (!wxcodeEnabled || (isLoggedIn && isUserProfileLoaded && !wechatOpenId));
   const showPayGuide = inMiniProgram() || wechatPayUnavailable;
   const [listenMobileViewMode, setListenMobileViewMode] =
     useState<MobileViewMode>(DEFAULT_LISTEN_MOBILE_VIEW_MODE);
