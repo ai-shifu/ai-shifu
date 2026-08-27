@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -97,6 +98,8 @@ def validate_tts_settings_strict(
         )
 
     speed_value = _to_float(speed, "tts_speed")
+    if not math.isfinite(speed_value):
+        _raise_param_error(f"Invalid tts_speed: {speed!r}")
     pitch_value = _to_int(pitch, "tts_pitch")
     emotion_value = (emotion or "").strip()
 

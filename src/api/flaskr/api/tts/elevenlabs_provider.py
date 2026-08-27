@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from typing import Any
 from urllib.parse import quote
 
@@ -194,6 +195,9 @@ class ElevenLabsTTSProvider(BaseTTSProvider):
         except (TypeError, ValueError) as exc:
             message = f"Invalid ElevenLabs speed: {settings.speed!r}"
             raise ValueError(message) from exc
+        if not math.isfinite(speed):
+            message = f"Invalid ElevenLabs speed: {settings.speed!r}"
+            raise ValueError(message)
         if speed < 0.7 or speed > 1.2:
             message = f"ElevenLabs speed out of range: {speed} (expected 0.7-1.2)"
             raise ValueError(message)

@@ -297,6 +297,30 @@ def test_synthesize_rejects_invalid_direct_settings(
         )
 
 
+@pytest.mark.parametrize("speed", [float("nan"), float("inf"), float("-inf")])
+def test_rejects_non_finite_speed_at_validation_and_provider_boundaries(
+    monkeypatch: pytest.MonkeyPatch, speed: float
+) -> None:
+    _patch_config(monkeypatch)
+
+    with pytest.raises(ValueError, match="Invalid ElevenLabs speed"):
+        module.ElevenLabsTTSProvider().synthesize(
+            "Hello",
+            voice_settings=VoiceSettings(voice_id="voice-1", speed=speed),
+            model="eleven_v3",
+        )
+
+    with pytest.raises(AppError):
+        validate_tts_settings_strict(
+            provider="elevenlabs",
+            model="eleven_v3",
+            voice_id="voice-1",
+            speed=speed,
+            pitch=0,
+            emotion="",
+        )
+
+
 def test_strict_validation_requires_approved_voice_model_and_capabilities(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
