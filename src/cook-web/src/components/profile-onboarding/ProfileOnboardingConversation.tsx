@@ -1,24 +1,30 @@
 'use client';
 
 import React from 'react';
-import { MarkdownFlow } from 'markdown-flow-ui/renderer';
+import { ContentRender } from 'markdown-flow-ui/renderer';
 import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { cn } from '@/lib/utils';
 import type {
   ProfileOnboardingAssistantAnswers,
   ProfileOnboardingRunSession,
   ProfileOnboardingSessionInfo,
+  ProfileOnboardingTypewriterCache,
+} from './profileOnboardingConversationModel';
+import {
+  shouldEnableProfileOnboardingTypewriter,
+  syncProfileOnboardingTypewriterCache,
 } from './profileOnboardingConversationModel';
 import { ProfileAssistantAnswersView } from './ProfileAssistantAnswersView';
 import { useProfileOnboardingSession } from './useProfileOnboardingSession';
 
 // ContentRender recreates its custom interaction component on every render.
 // Isolate it from sibling view/copy/paste state to preserve unsent input.
-const StableMarkdownFlow = React.memo(MarkdownFlow);
+const StableProfileContentRender = React.memo(ContentRender);
 
 export {
   isProfileOnboardingSubmissionWithinLimits,
@@ -56,6 +62,12 @@ export type ProfileOnboardingConversationProps = {
   questionScrollFooter?: React.ReactNode;
 };
 
+type PendingProfileDraft = {
+  profileDraft: string;
+  sessionId: string;
+  nickname?: string;
+};
+
 export default function ProfileOnboardingConversation({
   createSession,
   runSession,
@@ -86,6 +98,29 @@ export default function ProfileOnboardingConversation({
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
+  const [isDocumentVisible, setIsDocumentVisible] = React.useState(
+    () =>
+      typeof document === 'undefined' || document.visibilityState !== 'hidden',
+  );
+  const [typewriterCache, setTypewriterCache] =
+    React.useState<ProfileOnboardingTypewriterCache>({});
+  const [pendingProfileDraft, setPendingProfileDraft] =
+    React.useState<PendingProfileDraft | null>(null);
+  const holdProfileDraft = React.useCallback(
+    (profileDraft: string, sessionId: string, nickname?: string) => {
+      setPendingProfileDraft({ profileDraft, sessionId, nickname });
+    },
+    [],
+  );
+
+  React.useEffect(() => {
+    const syncVisibility = () =>
+      setIsDocumentVisible(document.visibilityState !== 'hidden');
+    syncVisibility();
+    document.addEventListener('visibilitychange', syncVisibility);
+    return () =>
+      document.removeEventListener('visibilitychange', syncVisibility);
+  }, []);
 
   React.useEffect(() => {
     if (previousAssistantVisibleRef.current === showAssistant) return;
@@ -123,11 +158,13 @@ export default function ProfileOnboardingConversation({
     },
     onSessionStarted,
     onRunInFlightChange,
-    onDraftReady,
+    onDraftReady: holdProfileDraft,
     onError,
     onSessionCreateRejected,
     onRetry,
   });
+  const itemsRef = React.useRef(items);
+  itemsRef.current = items;
 
   const locale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
@@ -147,12 +184,104 @@ export default function ProfileOnboardingConversation({
   const contentList = React.useMemo(
     () =>
       items.map(item => ({
+        elementBid: item.elementBid,
         content: item.content,
         isFinished: item.finished,
+        finished: item.finished,
+        interaction: item.interaction,
         readonly: questionReadonly || item.finished || !item.interaction,
         userInput: item.userInput,
+        elementType: item.elementType,
       })),
     [items, questionReadonly],
+  );
+
+  React.useEffect(() => {
+    setTypewriterCache(previousCache =>
+      syncProfileOnboardingTypewriterCache(
+        items,
+        previousCache,
+        !isDocumentVisible,
+      ),
+    );
+  }, [isDocumentVisible, items]);
+
+  React.useEffect(() => {
+    if (!pendingProfileDraft) return;
+    const hasUnfinishedGuidance =
+      isDocumentVisible &&
+      items.some(item => {
+        if (item.elementType !== 'text') return false;
+        const cacheEntry = typewriterCache[item.elementBid];
+        return (
+          cacheEntry?.isFinished !== true || cacheEntry.content !== item.content
+        );
+      });
+    if (hasUnfinishedGuidance) return;
+    setPendingProfileDraft(null);
+    if (pendingProfileDraft.nickname) {
+      onDraftReady(
+        pendingProfileDraft.profileDraft,
+        pendingProfileDraft.sessionId,
+        pendingProfileDraft.nickname,
+      );
+    } else {
+      onDraftReady(
+        pendingProfileDraft.profileDraft,
+        pendingProfileDraft.sessionId,
+      );
+    }
+  }, [
+    isDocumentVisible,
+    items,
+    onDraftReady,
+    pendingProfileDraft,
+    typewriterCache,
+  ]);
+
+  const visibleContentList = React.useMemo(() => {
+    if (!isDocumentVisible) return contentList;
+    const visibleItems: typeof contentList = [];
+    for (const item of contentList) {
+      visibleItems.push(item);
+      const cacheEntry = typewriterCache[item.elementBid];
+      if (
+        item.elementType === 'text' &&
+        (!cacheEntry?.isFinished || cacheEntry.content !== item.content)
+      ) {
+        break;
+      }
+    }
+    return visibleItems;
+  }, [contentList, isDocumentVisible, typewriterCache]);
+
+  const handleTypeFinished = React.useCallback((elementBid: string) => {
+    setTypewriterCache(previousCache => {
+      const entry = previousCache[elementBid];
+      const item = itemsRef.current.find(
+        candidate => candidate.elementBid === elementBid,
+      );
+      if (!entry && !item) return previousCache;
+      return {
+        ...previousCache,
+        [elementBid]: {
+          content: entry?.content ?? item?.content ?? '',
+          isFinished: true,
+          isSuppressed: entry?.isSuppressed ?? false,
+        },
+      };
+    });
+  }, []);
+  const typeFinishedCallbacksRef = React.useRef(new Map<string, () => void>());
+  const getTypeFinishedCallback = React.useCallback(
+    (elementBid: string) => {
+      const existingCallback = typeFinishedCallbacksRef.current.get(elementBid);
+      if (existingCallback) return existingCallback;
+      const callback = () => handleTypeFinished(elementBid);
+      typeFinishedCallbacksRef.current.set(elementBid, callback);
+      return callback;
+    },
+    [handleTypeFinished],
   );
 
   return (
@@ -173,18 +302,48 @@ export default function ProfileOnboardingConversation({
             canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
-          <StableMarkdownFlow
-            locale={locale}
-            initialContentList={contentList}
-            onSend={send}
-          />
+          <div className='markdown-flow'>
+            {visibleContentList.length ? (
+              visibleContentList.map(item => (
+                <StableProfileContentRender
+                  key={item.elementBid}
+                  locale={locale}
+                  content={item.content}
+                  userInput={item.userInput}
+                  readonly={item.readonly}
+                  onSend={item.isFinished ? undefined : send}
+                  enableTypewriter={
+                    isDocumentVisible &&
+                    shouldEnableProfileOnboardingTypewriter(
+                      item,
+                      typewriterCache[item.elementBid],
+                    )
+                  }
+                  typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                  onTypeFinished={
+                    item.elementType === 'text'
+                      ? getTypeFinishedCallback(item.elementBid)
+                      : undefined
+                  }
+                />
+              ))
+            ) : (
+              <StableProfileContentRender
+                locale={locale}
+                content=''
+                readonly
+                enableTypewriter={isDocumentVisible}
+                typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+              />
+            )}
+          </div>
           {questionScrollFooter}
         </div>
         <ScrollToBottomControl
           viewportRef={questionViewportRef}
           scrollTarget={questionViewportRef}
           autoScrollOnInit
-          contentVersion={items.length}
+          contentVersion={visibleContentList.length}
           followNewContent={false}
           ariaLabel={t('common.core.scrollToBottom')}
           placement='bottom-center'
