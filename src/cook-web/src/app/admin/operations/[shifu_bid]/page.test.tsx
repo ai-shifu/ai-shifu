@@ -22,6 +22,7 @@ const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
 const mockScrollIntoView = jest.fn();
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+const originalRequestAnimationFrame = window.requestAnimationFrame;
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 let mockLanguage = 'en-US';
 let mockSearchParams = new URLSearchParams();
@@ -337,6 +338,10 @@ describe('AdminOperationCourseDetailPage', () => {
       configurable: true,
       value: mockScrollIntoView,
     });
+    window.requestAnimationFrame = callback => {
+      callback(0);
+      return 0;
+    };
   });
 
   afterAll(() => {
@@ -344,6 +349,7 @@ describe('AdminOperationCourseDetailPage', () => {
       configurable: true,
       value: originalScrollIntoView,
     });
+    window.requestAnimationFrame = originalRequestAnimationFrame;
   });
 
   const openUsersTab = async () => {
