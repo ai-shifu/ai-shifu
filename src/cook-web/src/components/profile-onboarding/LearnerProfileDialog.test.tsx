@@ -477,7 +477,9 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:flex-nowrap',
       '[@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
       '[@media(max-height:620px)]:pt-3',
-      'shadow-[0_-10px_30px_-22px_rgba(15,23,42,0.35)]',
+      'bg-background/90',
+      'backdrop-blur-md',
+      'shadow-[0_-8px_18px_-14px_rgba(15,23,42,0.22)]',
     );
     const inlineInformation = informationUsageControl('inline');
     const popoverInformation = informationUsageControl('popover');
