@@ -491,6 +491,16 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(
       screen.getByText('module.operationsCreditNotifications.config.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'module.operationsCreditNotifications.config.typeTable.smsChannelAvailable',
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.config.typeTable.emailChannelComingSoon',
+      ),
+    ).not.toBeInTheDocument();
     expect(mockReplace).toHaveBeenCalledWith(
       '/admin/operations/credit-notifications?tab=config',
       { scroll: false },
@@ -980,6 +990,17 @@ describe('AdminOperationCreditNotificationsPage', () => {
     render(<AdminOperationCreditNotificationsPage />);
 
     await openConfigTab();
+
+    expect(
+      screen.getAllByText(
+        'module.operationsCreditNotifications.config.typeTable.emailChannelComingSoon',
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.config.typeTable.smsChannelAvailable',
+      ),
+    ).not.toBeInTheDocument();
 
     const listsDialog = await openCreatorListsEditor();
 

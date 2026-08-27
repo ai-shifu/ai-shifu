@@ -32,7 +32,7 @@
       },
       "yes": "Oui"
     },
-    "description": "Gérez au même endroit les interrupteurs, modèles, règles d’envoi, heures calmes et listes sans envoi des SMS de crédits.",
+    "description": "Gérez au même endroit les interrupteurs, modèles, règles d’envoi, heures silencieuses et listes de non-envoi des notifications de crédits.",
     "emptyBlockedCreators": "Aucun enseignant bloqué.",
     "emptyOptedOutCreators": "Aucun enseignant désinscrit.",
     "fieldTips": {
@@ -209,7 +209,7 @@
       "unused": "Variables système inutilisées",
       "variables": "Variables du modèle"
     },
-    "title": "Configuration SMS",
+    "title": "Configuration des notifications",
     "typeDescriptions": {
       "credit_expiring": "Rappelle aux enseignants d’utiliser les crédits avant leur expiration.",
       "credit_granted": "Rappelle aux enseignants de vérifier le résultat après l’arrivée de crédits.",
@@ -238,6 +238,7 @@
       "channel": "Canal",
       "edit": "Modifier",
       "editDescription": "Modifiez le modèle et les règles de déclenchement de ce type de notification. Les changements ne s’appliquent aux prochaines notifications qu’après l’enregistrement.",
+      "emailChannelComingSoon": "E-mail · Bientôt disponible",
       "enabled": "Activé",
       "notificationType": "Type de notification",
       "rule": "Règle de déclenchement",
@@ -247,7 +248,7 @@
         "lowBalanceEstimated": "Seuils de solde : {thresholds} ; rappeler si les crédits peuvent être épuisés sous {days} jours",
         "lowBalanceFixed": "Seuils de solde : {thresholds}"
       },
-      "smsChannel": "SMS",
+      "smsChannelAvailable": "SMS",
       "statusCompatible": "Variables compatibles",
       "statusIncompatible": "Variables incompatibles",
       "statusUnknown": "Non vérifié",
@@ -418,7 +419,7 @@
     "skipped_opt_out": "Limite de stratégie",
     "suppressed_duplicate": "Notification en double"
   },
-  "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
+  "subtitle": "Consultez la distribution des notifications de crédits attribués, expirants et faibles, puis configurez la politique de notification.",
   "table": {
     "action": "Plus",
     "createdAt": "Créé le",
@@ -433,7 +434,7 @@
     "templateParams": "Paramètres"
   },
   "tabs": {
-    "config": "Configuration SMS",
+    "config": "Configuration des notifications",
     "records": "Notifications"
   },
   "templateName": {

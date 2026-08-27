@@ -32,7 +32,7 @@
       },
       "yes": "Yes"
     },
-    "description": "Manage credit SMS notification switches, templates, sending rules, quiet hours, and do-not-send lists in one place.",
+    "description": "Manage credit notification switches, templates, sending rules, quiet hours, and do-not-send lists in one place.",
     "emptyBlockedCreators": "No blocked teachers yet.",
     "emptyOptedOutCreators": "No opted-out teachers yet.",
     "fieldTips": {
@@ -209,7 +209,7 @@
       "unused": "Unused system variables",
       "variables": "Template variables"
     },
-    "title": "SMS Config",
+    "title": "Notification Config",
     "typeDescriptions": {
       "credit_expiring": "Reminds teachers to use credits before they expire.",
       "credit_granted": "Reminds teachers to check the result after credits are added.",
@@ -238,6 +238,7 @@
       "channel": "Channel",
       "edit": "Edit",
       "editDescription": "Edit the template and trigger rules for this notification type. Changes only affect future notifications after saving.",
+      "emailChannelComingSoon": "Email · Coming soon",
       "enabled": "Enabled",
       "notificationType": "Notification type",
       "rule": "Trigger rule",
@@ -247,7 +248,7 @@
         "lowBalanceEstimated": "Balance thresholds: {thresholds}; remind when credits may run out within {days} days",
         "lowBalanceFixed": "Balance thresholds: {thresholds}"
       },
-      "smsChannel": "SMS",
+      "smsChannelAvailable": "SMS",
       "statusCompatible": "Variables compatible",
       "statusIncompatible": "Variables incompatible",
       "statusUnknown": "Not checked",
@@ -418,7 +419,7 @@
     "skipped_opt_out": "Policy limit",
     "suppressed_duplicate": "Duplicate notification"
   },
-  "subtitle": "Inspect credit grant, expiry, and low-balance notification delivery, and configure SMS policy.",
+  "subtitle": "Inspect credit grant, expiry, and low-balance notification delivery, and configure notification policy.",
   "table": {
     "action": "More",
     "createdAt": "Created at",
@@ -433,7 +434,7 @@
     "templateParams": "Param snapshot"
   },
   "tabs": {
-    "config": "SMS Config",
+    "config": "Notification Config",
     "records": "Notification records"
   },
   "templateName": {

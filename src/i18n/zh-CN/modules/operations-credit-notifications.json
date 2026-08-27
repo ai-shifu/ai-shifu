@@ -32,7 +32,7 @@
       },
       "yes": "是"
     },
-    "description": "统一维护积分短信通知的开关、模板、发送规则、免打扰时段和不发送名单。",
+    "description": "统一维护积分通知的开关、模板、发送规则、免打扰时段和不发送名单。",
     "emptyBlockedCreators": "暂无已屏蔽老师。",
     "emptyOptedOutCreators": "暂无已退订老师。",
     "fieldTips": {
@@ -209,7 +209,7 @@
       "unused": "未使用的系统变量",
       "variables": "模板实际变量"
     },
-    "title": "短信配置",
+    "title": "通知配置",
     "typeDescriptions": {
       "credit_expiring": "积分即将到期时提醒老师及时使用。",
       "credit_granted": "积分到账后提醒老师查看到账结果。",
@@ -238,6 +238,7 @@
       "channel": "渠道",
       "edit": "编辑",
       "editDescription": "只修改当前通知类型的模板和触发规则；保存配置后才会对后续通知生效。",
+      "emailChannelComingSoon": "邮件 · 待支持",
       "enabled": "启用",
       "notificationType": "通知类型",
       "rule": "触发规则",
@@ -247,7 +248,7 @@
         "lowBalanceEstimated": "余额阈值：{thresholds}；预计 {days} 天内用完时提醒",
         "lowBalanceFixed": "余额阈值：{thresholds}"
       },
-      "smsChannel": "短信",
+      "smsChannelAvailable": "短信",
       "statusCompatible": "变量可用",
       "statusIncompatible": "变量不兼容",
       "statusUnknown": "待查询",
@@ -418,7 +419,7 @@
     "skipped_opt_out": "策略限制",
     "suppressed_duplicate": "重复通知"
   },
-  "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
+  "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置通知策略。",
   "table": {
     "action": "更多",
     "createdAt": "创建时间",
@@ -433,7 +434,7 @@
     "templateParams": "参数快照"
   },
   "tabs": {
-    "config": "短信配置",
+    "config": "通知配置",
     "records": "通知记录"
   },
   "templateName": {
