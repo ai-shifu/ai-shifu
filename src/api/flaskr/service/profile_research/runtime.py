@@ -558,7 +558,10 @@ class ProfileResearchRuntime:
         provider = self._provider_factory(self.app, session, root_span)
         events: list[dict[str, Any]] = []
         outcome = _StepOutcome()
-        element_content_by_number: dict[int, str] = {}
+        element_content_by_segment: dict[tuple[int, int], str] = {}
+        element_segment_count_by_number: dict[int, int] = {}
+        active_element_identity: tuple[int, str] | None = None
+        active_element_segment = 0
         rerendered_interaction = ""
         try:
             flow = self._build_flow(session, provider)
@@ -637,13 +640,28 @@ class ProfileResearchRuntime:
                     and raw_element_number >= 0
                     else 0
                 )
+                element_identity = (element_number, element_type)
+                if element_identity != active_element_identity:
+                    active_element_identity = element_identity
+                    active_element_segment = element_segment_count_by_number.get(
+                        element_number, 0
+                    )
+                    element_segment_count_by_number[element_number] = (
+                        active_element_segment + 1
+                    )
+                segment_key = (element_number, active_element_segment)
                 element_content = (
-                    element_content_by_number.get(element_number, "") + content
+                    element_content_by_segment.get(segment_key, "") + content
                 )
-                element_content_by_number[element_number] = element_content
+                element_content_by_segment[segment_key] = element_content
                 element_bid = event_bid
-                if not rendering_interaction and element_number > 0:
-                    element_bid = f"{event_bid}:{element_number}"
+                if not rendering_interaction:
+                    if active_element_segment > 0:
+                        element_bid = (
+                            f"{event_bid}:{element_number}:{active_element_segment}"
+                        )
+                    elif element_number > 0:
+                        element_bid = f"{event_bid}:{element_number}"
                 next_event = _event(
                     "interaction" if rendering_interaction else "content",
                     element_content,

@@ -967,6 +967,31 @@ def test_preserved_content_streams_structured_element_types() -> None:
     assert len({event["generated_block_bid"] for event in content_events}) == 3
 
 
+def test_preserved_heading_and_text_with_one_number_use_distinct_bids() -> None:
+    _app, runtime, _providers = _make_runtime()
+    session = runtime.start_session(
+        user_bid="user-1",
+        document="!===\n# Heading\nBody\n!===\n\n---\n\n?[继续]",
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+        config_revision=1,
+        output_language=None,
+    )
+
+    events = list(
+        runtime.stream_session(
+            user_bid="user-1",
+            session_id=session["session_id"],
+            user_input=None,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+    )
+    content_events = [event for event in events if event["event_type"] == "content"]
+
+    assert [event["element_type"] for event in content_events] == ["title", "text"]
+    assert [event["content"] for event in content_events] == ["# Heading\n", "Body"]
+    assert len({event["generated_block_bid"] for event in content_events}) == 2
+
+
 def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> None:
     _app, runtime, providers = _make_runtime(["个性化回应"])
     session = runtime.start_session(
