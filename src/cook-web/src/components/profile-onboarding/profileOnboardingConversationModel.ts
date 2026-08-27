@@ -61,6 +61,7 @@ export const syncProfileOnboardingTypewriterCache = (
       content: item.content,
       isFinished:
         suppressTypewriter ||
+        previousEntry?.isSuppressed === true ||
         (previousEntry?.isFinished === true &&
           previousEntry.content === item.content),
       isSuppressed: previousEntry?.isSuppressed || suppressTypewriter,

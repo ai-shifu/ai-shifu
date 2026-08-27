@@ -1,6 +1,7 @@
 import {
   initialProfileOnboardingConversationState,
   profileOnboardingConversationReducer,
+  syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
 } from './profileOnboardingConversationModel';
 
@@ -90,5 +91,31 @@ describe('profileOnboardingConversationReducer', () => {
         { type: 'accept_submission', userInput: 'late' },
       ),
     ).toBe(initialProfileOnboardingConversationState);
+  });
+});
+
+describe('syncProfileOnboardingTypewriterCache', () => {
+  it('keeps suppressed text finished when its content changes on restore', () => {
+    const textItem: ProfileOnboardingConversationItem = {
+      content: 'Longer guidance',
+      elementBid: 'text-1',
+      elementType: 'text',
+      interaction: false,
+      finished: true,
+    };
+
+    expect(
+      syncProfileOnboardingTypewriterCache(
+        [textItem],
+        {
+          'text-1': {
+            content: 'Guidance',
+            isFinished: true,
+            isSuppressed: true,
+          },
+        },
+        false,
+      )['text-1'],
+    ).toMatchObject({ isFinished: true, isSuppressed: true });
   });
 });
