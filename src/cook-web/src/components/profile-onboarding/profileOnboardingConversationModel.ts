@@ -459,7 +459,12 @@ export const upsertConversationItem = (
   if (index < 0) {
     return [...items, item];
   }
+  const existing = items[index];
+  const merged = { ...existing, ...item };
+  if (existing.interaction && existing.finished && item.interaction) {
+    return [...items.slice(0, index), ...items.slice(index + 1), merged];
+  }
   const next = [...items];
-  next[index] = { ...next[index], ...item };
+  next[index] = merged;
   return next;
 };

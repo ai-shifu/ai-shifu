@@ -5,6 +5,7 @@ import {
   resolveProfileOnboardingElement,
   syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
+  upsertConversationItem,
 } from './profileOnboardingConversationModel';
 
 const interaction: ProfileOnboardingConversationItem = {
@@ -140,5 +141,29 @@ describe('resolveProfileOnboardingElement', () => {
     expect(element && isProfileOnboardingTypewriterCandidate(element)).toBe(
       false,
     );
+  });
+});
+
+describe('upsertConversationItem', () => {
+  it('moves a rejected interaction behind its new validation feedback', () => {
+    const answeredInteraction = {
+      ...interaction,
+      finished: true,
+      userInput: 'invalid answer',
+    };
+    const validationFeedback: ProfileOnboardingConversationItem = {
+      content: 'Please choose one of the available options.',
+      elementBid: 'question-1:feedback',
+      elementType: 'text',
+      interaction: false,
+      finished: true,
+    };
+
+    expect(
+      upsertConversationItem(
+        [answeredInteraction, validationFeedback],
+        interaction,
+      ).map(item => item.elementBid),
+    ).toEqual(['question-1:feedback', 'question-1']);
   });
 });
