@@ -27,6 +27,7 @@ from flaskr.service.billing.credit_notifications import (
 from flaskr.service.billing.customization import (
     build_provider_config_overrides,
     resolve_creator_public_integrations,
+    resolve_creator_wechat_oauth_app_id,
     resolve_payment_integration_for_new_order,
     resolve_provider_credential_context,
 )
@@ -152,6 +153,7 @@ __all__ = [
     "resolve_creator_bid_by_host",
     "resolve_creator_limit_state",
     "resolve_creator_public_integrations",
+    "resolve_creator_wechat_oauth_app_id",
     "resolve_credit_multiplier_label",
     "resolve_effective_custom_origin",
     "resolve_payment_integration_for_new_order",

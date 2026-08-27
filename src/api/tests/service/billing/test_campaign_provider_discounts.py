@@ -17,9 +17,13 @@ from flaskr.service.billing.campaign_provider_discounts import (
     list_admin_campaign_provider_discounts,
     publish_admin_campaign_provider_discounts,
     retire_admin_campaign_provider_discounts,
+    summarize_campaign_provider_discounts,
     validate_admin_campaign_provider_discount,
 )
-from flaskr.service.billing.campaigns import update_admin_billing_campaign
+from flaskr.service.billing.campaigns import (
+    update_admin_billing_campaign,
+    update_admin_billing_campaign_status,
+)
 from flaskr.service.billing.consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
@@ -27,6 +31,7 @@ from flaskr.service.billing.consts import (
     BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_PROVIDER_INVALID,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED,
@@ -56,6 +61,7 @@ class _FakeCampaignDiscountProvider:
         self.created: list[ProviderDiscountCreateRequest] = []
         self.retired: list[str] = []
         self.snapshots: dict[str, ProviderDiscountSnapshot] = {}
+        self.create_error: Exception | None = None
         self.retrieve_error: Exception | None = None
         self.retire_error: Exception | None = None
 
@@ -63,6 +69,8 @@ class _FakeCampaignDiscountProvider:
         self, *, request: ProviderDiscountCreateRequest, app: object
     ) -> ProviderDiscountSnapshot:
         _ = app
+        if self.create_error is not None:
+            raise self.create_error
         self.created.append(request)
         coupon_id = f"coupon_{request.campaign_provider_discount_bid}"
         snapshot = ProviderDiscountSnapshot(
@@ -240,12 +248,30 @@ def test_stripe_campaign_discount_provider_scopes_coupon_to_product(
 
     class FakeCouponApi:
         last_params: ClassVar[dict[str, object]] = {}
+        retrieve_params: ClassVar[dict[str, object]] = {}
 
         @classmethod
         def create(cls, **params: object) -> dict[str, object]:
             cls.last_params = params
             return {
                 "id": "coupon_scoped",
+                "account": "acct_test",
+                "livemode": False,
+                "valid": True,
+                "currency": "usd",
+                "amount_off": 1000,
+                "duration": "once",
+                "applies_to": {"products": ["prod_scoped"]},
+                "metadata": {},
+            }
+
+        @classmethod
+        def retrieve(
+            cls, provider_coupon_id: str, **params: object
+        ) -> dict[str, object]:
+            cls.retrieve_params = {"provider_coupon_id": provider_coupon_id, **params}
+            return {
+                "id": provider_coupon_id,
                 "account": "acct_test",
                 "livemode": False,
                 "valid": True,
@@ -285,7 +311,16 @@ def test_stripe_campaign_discount_provider_scopes_coupon_to_product(
     )
 
     assert FakeCouponApi.last_params["applies_to"] == {"products": ["prod_scoped"]}
+    assert FakeCouponApi.last_params["expand"] == ["applies_to"]
     assert snapshot.applies_to_product_ids == ["prod_scoped"]
+
+    retrieved = StripeCampaignDiscountProvider().retrieve_campaign_discount(
+        provider_coupon_id="coupon_scoped",
+        app=app,
+    )
+
+    assert FakeCouponApi.retrieve_params["expand"] == ["applies_to"]
+    assert retrieved.applies_to_product_ids == ["prod_scoped"]
 
 
 def test_publish_fixed_campaign_creates_amount_off_coupon(
@@ -317,6 +352,34 @@ def test_publish_fixed_campaign_creates_amount_off_coupon(
         row = BillingCampaignProviderDiscount.query.first()
         assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE
         assert row.provider_coupon_id == f"coupon_{row.campaign_provider_discount_bid}"
+
+
+def test_publish_redacts_full_stripe_secret_key_from_provider_failures(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    secret_key = "sk_live_SECRETbody_123"
+    provider.create_error = RuntimeError(f"Stripe rejected key {secret_key}")
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-secret-redaction",
+            product_bid="product-growth-secret-redaction-1",
+        )
+    _patch_scope(monkeypatch)
+
+    payload = publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-secret-redaction",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    failure_message = payload["items"][0]["failure_message"]
+    assert payload["items"][0]["status"] == "failed"
+    assert "sk_****" in failure_message
+    assert "sk_live" not in failure_message
+    assert "SECRETbody" not in failure_message
+    assert "123" not in failure_message
 
 
 def test_publish_percent_campaign_creates_percent_off_coupon(
@@ -674,6 +737,49 @@ def test_list_campaign_provider_discounts_is_read_only(
     assert payload["items"][0]["provider_price_id"] == "price_product-growth-list-1"
 
 
+def test_campaign_provider_discount_summary_uses_stable_failure_order(
+    app: object,
+) -> None:
+    with app.app_context():
+        db.session.add(
+            BillingCampaignProviderDiscount(
+                campaign_provider_discount_bid="discount-z",
+                campaign_bid="campaign-summary-order",
+                product_bid="product-z",
+                product_provider_price_bid="provider-price-z",
+                provider="stripe",
+                provider_account_id="acct_test",
+                provider_coupon_id="coupon-z",
+                status=BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
+                failure_code="latest_failure",
+                failure_message="latest failure by detail ordering",
+            )
+        )
+        db.session.add(
+            BillingCampaignProviderDiscount(
+                campaign_provider_discount_bid="discount-a",
+                campaign_bid="campaign-summary-order",
+                product_bid="product-a",
+                product_provider_price_bid="provider-price-a",
+                provider="stripe",
+                provider_account_id="acct_test",
+                provider_coupon_id="coupon-a",
+                status=BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_FAILED,
+                failure_code="older_failure",
+                failure_message="older failure by detail ordering",
+            )
+        )
+        db.session.commit()
+
+        summary = summarize_campaign_provider_discounts(["campaign-summary-order"])
+
+    assert summary["campaign-summary-order"]["latest_failure_code"] == "latest_failure"
+    assert (
+        summary["campaign-summary-order"]["latest_failure_message"]
+        == "latest failure by detail ordering"
+    )
+
+
 def test_retiring_provider_price_requires_campaign_coupon_republish(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
@@ -976,3 +1082,39 @@ def test_update_campaign_allows_same_coupon_rule_with_aware_datetime(
             "end_at": end_at,
         },
     )
+
+    with app.app_context():
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-growth-aware-dates"
+        ).one()
+        assert campaign.start_at.tzinfo is None
+        assert campaign.end_at.tzinfo is None
+
+
+def test_update_campaign_status_blocks_disabling_open_provider_coupon(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-disable-lock",
+            product_bid="product-growth-disable-lock-1",
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-disable-lock",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        update_admin_billing_campaign_status(
+            app,
+            operator_user_bid="operator",
+            campaign_bid="campaign-growth-disable-lock",
+            payload={"enabled": False},
+        )
+
+    assert "Stripe Coupon" in str(exc_info.value)

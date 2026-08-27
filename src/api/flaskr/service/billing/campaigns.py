@@ -460,6 +460,8 @@ def update_admin_billing_campaign_status(
             product.product_bid
             for product in _load_campaign_products(normalized_campaign_bid)
         )
+        if not enabled and has_open_campaign_provider_coupons(normalized_campaign_bid):
+            raise_error("server.billing.campaignProviderDiscountLocked")
         _validate_campaign_overlap(
             product_bids=product_bids,
             enabled=enabled,
@@ -721,6 +723,8 @@ def _coerce_required_datetime(
     parsed = coerce_datetime(value)
     if parsed is None and required:
         raise_param_error(parameter_name)
+    if parsed is not None and parsed.tzinfo is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 

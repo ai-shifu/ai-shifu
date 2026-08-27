@@ -85,7 +85,9 @@ class StripeCampaignDiscountProvider:
             params["currency"] = request.currency.lower()
         if request.percent_off is not None:
             params["percent_off"] = float(request.percent_off)
-        coupon = stripe.Coupon.create(**params, **request_options)
+        coupon = stripe.Coupon.create(
+            **params, expand=["applies_to"], **request_options
+        )
         return _stripe_coupon_to_discount_snapshot(coupon)
 
     def retrieve_campaign_discount(
@@ -93,7 +95,9 @@ class StripeCampaignDiscountProvider:
     ) -> ProviderDiscountSnapshot:
         """Retrieve a Stripe Coupon snapshot."""
         stripe, request_options = get_stripe_client_options(app)
-        coupon = stripe.Coupon.retrieve(provider_coupon_id, **request_options)
+        coupon = stripe.Coupon.retrieve(
+            provider_coupon_id, expand=["applies_to"], **request_options
+        )
         return _stripe_coupon_to_discount_snapshot(coupon)
 
     def retire_campaign_discount(
