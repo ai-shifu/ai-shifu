@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
 import {
   formatBillingCompactDateTime,
+  formatBillingPlanInterval,
   resolveBillingPlanValidityLabel,
 } from '@/lib/billing';
 import { Button } from '@/components/ui/Button';
@@ -252,6 +253,29 @@ const resolveEstimatedPlanExpiry = (
 
 const stripValidityLabelPrefix = (value: string): string =>
   value.replace(/^[^:：]+[:：]\s*/, '').trim();
+
+const resolvePackagePlanLabel = (
+  t: (key: string, options?: Record<string, unknown>) => string,
+  product: BillingPlan,
+): string => {
+  const productName = t(product.display_name);
+  const intervalCount = Math.max(product.billing_interval_count || 0, 1);
+  let intervalLabel = '';
+
+  if (product.billing_interval === 'month' && intervalCount === 1) {
+    intervalLabel = t(
+      'module.billing.admin.providerPrices.billingLabel.monthly',
+    );
+  } else if (product.billing_interval === 'year' && intervalCount === 1) {
+    intervalLabel = t(
+      'module.billing.admin.providerPrices.billingLabel.yearly',
+    );
+  } else {
+    intervalLabel = formatBillingPlanInterval(t, product);
+  }
+
+  return intervalLabel ? `${productName} ${intervalLabel}` : productName;
+};
 
 const SummaryField = ({
   label,
@@ -545,7 +569,9 @@ export default function UserCreditGrantDialog({
     selectedPlan,
     grantedAt,
   );
-  const packageName = selectedPlan ? t(selectedPlan.display_name) : '--';
+  const packageName = selectedPlan
+    ? resolvePackagePlanLabel(t, selectedPlan)
+    : '--';
   const packageCreditsLabel = selectedPlan
     ? formatAdminCredits(Number(selectedPlan.credit_amount || 0), i18n.language)
     : '--';
@@ -1143,7 +1169,7 @@ export default function UserCreditGrantDialog({
                                 key={plan.product_bid}
                                 value={plan.product_bid}
                               >
-                                {t(plan.display_name)}
+                                {resolvePackagePlanLabel(t, plan)}
                               </SelectItem>
                             ))
                           )}
