@@ -54,17 +54,20 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('markdown-flow-ui/renderer', () => ({
-  MarkdownFlow: ({
-    initialContentList,
+  ContentRender: ({
+    content,
+    userInput,
+    readonly,
     onSend,
+    enableTypewriter,
+    typingSpeed,
   }: {
-    initialContentList: Array<{
-      content: string;
-      isFinished?: boolean;
-      readonly?: boolean;
-      userInput?: string;
-    }>;
-    onSend: (value: OnSendContentParams) => void;
+    content: string;
+    readonly?: boolean;
+    userInput?: string;
+    onSend?: (value: OnSendContentParams) => void;
+    enableTypewriter?: boolean;
+    typingSpeed?: number;
   }) => {
     // Match the library's inline custom-variable renderer: an unnecessary
     // MarkdownFlow re-render remounts the input and loses unsent local state.
@@ -77,18 +80,17 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     return (
       <div>
         <UnsentAnswer />
-        {initialContentList.map((item, index) => (
-          <div key={`${item.content}-${index}`}>
-            <span>{item.content}</span>
-            {item.userInput ? <span>{item.userInput}</span> : null}
-          </div>
-        ))}
-        {initialContentList.some(item => !item.isFinished) ? (
+        <span>{content}</span>
+        {userInput ? <span>{userInput}</span> : null}
+        <span
+          data-testid='profile-onboarding-typewriter'
+          data-enabled={String(Boolean(enableTypewriter))}
+          data-speed={String(typingSpeed)}
+        />
+        {onSend ? (
           <button
             type='button'
-            disabled={initialContentList.some(
-              item => !item.isFinished && item.readonly,
-            )}
+            disabled={readonly}
             onClick={() => onSend(mockRendererSubmission)}
           >
             {ANSWER_GUIDED_QUESTION_LABEL}
@@ -160,6 +162,36 @@ describe('ProfileOnboardingConversation', () => {
         'c'.repeat(2_001),
       ]),
     ).toBe(false);
+  });
+
+  test('uses the learning page typewriter cadence for guided content', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'profile-typewriter-content',
+            element_type: 'text',
+            content: '欢迎，先一起确认你的学习偏好。',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-typewriter' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('欢迎，先一起确认你的学习偏好。');
+    const typewriter = screen.getByTestId('profile-onboarding-typewriter');
+    expect(typewriter).toHaveAttribute('data-enabled', 'true');
+    expect(typewriter).toHaveAttribute('data-speed', '30');
   });
 
   test('keeps an over-limit Unicode answer editable until a valid correction', async () => {

@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
-import { MarkdownFlow } from 'markdown-flow-ui/renderer';
+import { ContentRender } from 'markdown-flow-ui/renderer';
 import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { cn } from '@/lib/utils';
 import type {
@@ -18,7 +19,7 @@ import { useProfileOnboardingSession } from './useProfileOnboardingSession';
 
 // ContentRender recreates its custom interaction component on every render.
 // Isolate it from sibling view/copy/paste state to preserve unsent input.
-const StableMarkdownFlow = React.memo(MarkdownFlow);
+const StableProfileContentRender = React.memo(ContentRender);
 
 export {
   isProfileOnboardingSubmissionWithinLimits,
@@ -147,6 +148,7 @@ export default function ProfileOnboardingConversation({
   const contentList = React.useMemo(
     () =>
       items.map(item => ({
+        elementBid: item.elementBid,
         content: item.content,
         isFinished: item.finished,
         readonly: questionReadonly || item.finished || !item.interaction,
@@ -173,11 +175,30 @@ export default function ProfileOnboardingConversation({
             canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
-          <StableMarkdownFlow
-            locale={locale}
-            initialContentList={contentList}
-            onSend={send}
-          />
+          <div className='markdown-flow'>
+            {contentList.length ? (
+              contentList.map(item => (
+                <StableProfileContentRender
+                  key={item.elementBid}
+                  locale={locale}
+                  content={item.content}
+                  userInput={item.userInput}
+                  readonly={item.readonly}
+                  onSend={item.isFinished ? undefined : send}
+                  enableTypewriter
+                  typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                />
+              ))
+            ) : (
+              <StableProfileContentRender
+                locale={locale}
+                content=''
+                readonly
+                enableTypewriter
+                typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+              />
+            )}
+          </div>
           {questionScrollFooter}
         </div>
         <ScrollToBottomControl
