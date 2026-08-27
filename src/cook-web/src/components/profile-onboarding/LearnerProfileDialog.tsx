@@ -185,8 +185,9 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         className='inset-0 flex h-dvh max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 motion-reduce:animate-none motion-reduce:duration-0 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-lg sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base'
       >
         <header
+          data-testid='learner-profile-dialog-header'
           ref={headerRef}
-          className='absolute inset-x-0 top-0 z-10 border-b border-border/70 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.22)] backdrop-blur-md sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]'
+          className="absolute inset-x-0 top-0 z-10 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-md after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-3 after:h-3 after:border-b after:border-border/70 after:bg-background/60 after:shadow-[0_6px_12px_-10px_rgba(15,23,42,0.32)] after:backdrop-blur-md after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
         >
           <DialogHeader className='w-full space-y-1 pr-12 text-start sm:space-y-2 [@media(max-height:620px)]:space-y-1'>
             <DialogTitle className='text-xl font-bold leading-7 tracking-tight sm:text-[28px] sm:leading-9 [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7'>
@@ -215,7 +216,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
           className={cn(
-            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[var(--learner-profile-footer-height,80px)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[var(--learner-profile-header-height,96px)] shadow-[inset_0_10px_16px_-16px_rgba(15,23,42,0.28),inset_0_-10px_16px_-16px_rgba(15,23,42,0.28)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[var(--learner-profile-footer-height,76px)] sm:pt-[var(--learner-profile-header-height,116px)] [@media(max-height:620px)]:pb-[var(--learner-profile-footer-height,80px)] [@media(max-height:620px)]:pt-[var(--learner-profile-header-height,80px)]',
+            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[calc(var(--learner-profile-footer-height,80px)+0.75rem)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[calc(var(--learner-profile-header-height,96px)+0.75rem)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[calc(var(--learner-profile-footer-height,76px)+0.75rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+0.75rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+0.75rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+0.75rem)]',
             collectionOwnsScroll ? 'overflow-hidden' : 'overflow-y-auto',
           )}
           style={
@@ -318,7 +319,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <footer
           data-testid='learner-profile-dialog-footer'
           ref={footerRef}
-          className='absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-border/70 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-8px_18px_-14px_rgba(15,23,42,0.22)] backdrop-blur-md sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3'
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 backdrop-blur-md before:pointer-events-none before:absolute before:inset-x-0 before:-top-3 before:h-3 before:border-t before:border-border/70 before:bg-background/60 before:shadow-[0_-6px_12px_-10px_rgba(15,23,42,0.32)] before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
         >
           {confirmation ? (
             <>

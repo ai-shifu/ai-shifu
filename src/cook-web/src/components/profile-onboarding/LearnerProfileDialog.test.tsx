@@ -454,10 +454,17 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:text-sm',
       '[@media(max-height:620px)]:leading-5',
     );
+    expect(screen.getByTestId('learner-profile-dialog-header')).toHaveClass(
+      'after:-bottom-3',
+      'after:h-3',
+      'after:bg-background/60',
+      'after:backdrop-blur-md',
+    );
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-hidden',
       'bg-muted/25',
-      'shadow-[inset_0_10px_16px_-16px_rgba(15,23,42,0.28),inset_0_-10px_16px_-16px_rgba(15,23,42,0.28)]',
+      'pb-[calc(var(--learner-profile-footer-height,80px)+0.75rem)]',
+      'pt-[calc(var(--learner-profile-header-height,96px)+0.75rem)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-body')).not.toHaveClass(
       'overflow-y-auto',
@@ -478,7 +485,10 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:pt-3',
       'bg-background/90',
       'backdrop-blur-md',
-      'shadow-[0_-8px_18px_-14px_rgba(15,23,42,0.22)]',
+      'before:-top-3',
+      'before:h-3',
+      'before:bg-background/60',
+      'before:backdrop-blur-md',
     );
     const inlineInformation = informationUsageControl('inline');
     const popoverInformation = informationUsageControl('popover');
