@@ -462,7 +462,11 @@ export const upsertConversationItem = (
   const existing = items[index];
   const merged = { ...existing, ...item };
   if (existing.interaction && existing.finished && item.interaction) {
-    return [...items.slice(0, index), ...items.slice(index + 1), merged];
+    return [
+      ...items.slice(0, index),
+      ...items.slice(index + 1),
+      { ...merged, userInput: item.userInput },
+    ];
   }
   const next = [...items];
   next[index] = merged;

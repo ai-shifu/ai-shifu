@@ -159,11 +159,15 @@ describe('upsertConversationItem', () => {
       finished: true,
     };
 
-    expect(
-      upsertConversationItem(
-        [answeredInteraction, validationFeedback],
-        interaction,
-      ).map(item => item.elementBid),
-    ).toEqual(['question-1:feedback', 'question-1']);
+    const items = upsertConversationItem(
+      [answeredInteraction, validationFeedback],
+      interaction,
+    );
+
+    expect(items.map(item => item.elementBid)).toEqual([
+      'question-1:feedback',
+      'question-1',
+    ]);
+    expect(items[1].userInput).toBeUndefined();
   });
 });
