@@ -112,7 +112,13 @@ def _get_tts_executor() -> ThreadPoolExecutor:
 
 
 _EMPTY_AUDIO_ERROR_MESSAGE = "No audio data received"
-_EMPTY_AUDIO_RETRY_PROVIDERS = {"", "tencent", "tencent_texttovoice", "volcengine"}
+_EMPTY_AUDIO_RETRY_PROVIDERS = {
+    "",
+    "elevenlabs",
+    "tencent",
+    "tencent_texttovoice",
+    "volcengine",
+}
 _EMPTY_AUDIO_RETRY_DELAY_SECONDS = 0.2
 # Provider throttling (e.g. Tencent LimitExceeded.AccessLimit) hits whole
 # bursts of concurrent segments at once; retries back off longer than the
@@ -136,6 +142,7 @@ _RATE_LIMIT_ERROR_MARKERS = (
 _TTS_ERROR_TEXT_PREVIEW_CHARS = 300
 _VOLCENGINE_TIMESTAMP_PROVIDERS = {"volcengine"}
 _NON_SPEAKABLE_TTS_SKIP_PROVIDERS = {
+    "elevenlabs",
     "minimax",
     "tencent",
     "tencent_texttovoice",
