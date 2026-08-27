@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { MarkdownFlow } from 'markdown-flow-ui/renderer';
+import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -79,7 +80,7 @@ export default function ProfileOnboardingConversation({
       ? { draft: assistantDraft, onChange: onAssistantDraftChange }
       : null;
   const showAssistant = assistantVisible && assistantView !== null;
-  const latestItemRef = React.useRef<HTMLDivElement>(null);
+  const questionViewportRef = React.useRef<HTMLDivElement>(null);
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
@@ -126,19 +127,6 @@ export default function ProfileOnboardingConversation({
     onRetry,
   });
 
-  React.useEffect(() => {
-    if (!items.length) {
-      return;
-    }
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    latestItemRef.current?.scrollIntoView?.({
-      block: 'nearest',
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
-    });
-  }, [items.length]);
-
   const locale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -176,6 +164,7 @@ export default function ProfileOnboardingConversation({
         className={cn('relative min-h-0 flex-1', showAssistant && 'hidden')}
       >
         <div
+          ref={questionViewportRef}
           aria-busy={loading || (runInFlight && !assistantProcessing)}
           className={cn(
             'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
@@ -187,16 +176,24 @@ export default function ProfileOnboardingConversation({
             initialContentList={contentList}
             onSend={send}
           />
-          <div
-            ref={latestItemRef}
-            aria-hidden='true'
-          />
         </div>
+        <ScrollToBottomControl
+          viewportRef={questionViewportRef}
+          scrollTarget={questionViewportRef}
+          autoScrollOnInit
+          contentVersion={items.length}
+          followNewContent={false}
+          ariaLabel={t('common.core.scrollToBottom')}
+          placement='bottom-center'
+          position='absolute'
+          bottomOffset={20}
+          zIndex={10}
+        />
         {!showAssistant && canUseAssistant ? (
           <Button
             ref={assistantEntryRef}
             type='button'
-            className='absolute bottom-3 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(100%-1.5rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg sm:inline-flex'
+            className='absolute bottom-3 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(50%-2.75rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg sm:inline-flex'
             disabled={disabled}
             onClick={() => setAssistantVisible(true)}
           >
