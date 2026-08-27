@@ -1612,6 +1612,13 @@ class RunScriptContextV2:
     _last_position: int
     _stop_event: threading.Event | None = None
 
+    def _get_learning_mode(self) -> str:
+        """Return the run learning mode, defaulting for test-built contexts."""
+        learning_mode = getattr(self, "_learning_mode", None)
+        if learning_mode in {"read", "listen", "classroom"}:
+            return learning_mode
+        return "listen" if getattr(self, "_listen", False) else "read"
+
     def __init__(
         self,
         app: Flask,
@@ -1837,7 +1844,7 @@ class RunScriptContextV2:
                 tts_model=validated.model,
                 stream_element_number=stream_element_number,
                 stream_element_type=stream_element_type,
-                learning_mode=self._learning_mode,
+                learning_mode=self._get_learning_mode(),
             )
         except Exception as exc:
             self.app.logger.warning(
@@ -2499,7 +2506,7 @@ class RunScriptContextV2:
             outline_item_bid=run_script_info.outline_bid,
             progress_record_bid=self._current_attend.progress_record_bid,
             usage_scene=usage_scene,
-            learning_mode=self._learning_mode,
+            learning_mode=self._get_learning_mode(),
         )
         llm_provider = RUNLLMProvider(
             app,

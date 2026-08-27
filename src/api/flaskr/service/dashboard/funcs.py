@@ -2687,7 +2687,22 @@ def _build_dashboard_learning_mode_metrics(
         ),
         else_=LEARNING_MODE_READ,
     )
-    ledger_amount_expr = db.func.abs(db.func.coalesce(CreditLedgerEntry.amount, 0))
+    ledger_credit_subquery = (
+        db.session.query(
+            CreditLedgerEntry.source_bid.label("usage_bid"),
+            db.func.coalesce(
+                db.func.sum(db.func.abs(CreditLedgerEntry.amount)), 0
+            ).label("consumed_credits"),
+        )
+        .filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+        )
+        .group_by(CreditLedgerEntry.source_bid)
+        .subquery()
+    )
+    ledger_amount_expr = db.func.coalesce(ledger_credit_subquery.c.consumed_credits, 0)
     rows = (
         db.session.query(
             inferred_learning_mode_expr.label("learning_mode"),
@@ -2711,13 +2726,8 @@ def _build_dashboard_learning_mode_metrics(
             ).label("recent_consumed_credits"),
         )
         .outerjoin(
-            CreditLedgerEntry,
-            and_(
-                CreditLedgerEntry.source_bid == BillUsageRecord.usage_bid,
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
-            ),
+            ledger_credit_subquery,
+            ledger_credit_subquery.c.usage_bid == BillUsageRecord.usage_bid,
         )
         .filter(
             BillUsageRecord.shifu_bid == shifu_bid,
