@@ -62,6 +62,12 @@ export type ProfileOnboardingConversationProps = {
   questionScrollFooter?: React.ReactNode;
 };
 
+type PendingProfileDraft = {
+  profileDraft: string;
+  sessionId: string;
+  nickname?: string;
+};
+
 export default function ProfileOnboardingConversation({
   createSession,
   runSession,
@@ -98,6 +104,14 @@ export default function ProfileOnboardingConversation({
   );
   const [typewriterCache, setTypewriterCache] =
     React.useState<ProfileOnboardingTypewriterCache>({});
+  const [pendingProfileDraft, setPendingProfileDraft] =
+    React.useState<PendingProfileDraft | null>(null);
+  const holdProfileDraft = React.useCallback(
+    (profileDraft: string, sessionId: string, nickname?: string) => {
+      setPendingProfileDraft({ profileDraft, sessionId, nickname });
+    },
+    [],
+  );
 
   React.useEffect(() => {
     const syncVisibility = () =>
@@ -144,7 +158,7 @@ export default function ProfileOnboardingConversation({
     },
     onSessionStarted,
     onRunInFlightChange,
-    onDraftReady,
+    onDraftReady: holdProfileDraft,
     onError,
     onSessionCreateRejected,
     onRetry,
@@ -191,6 +205,39 @@ export default function ProfileOnboardingConversation({
       ),
     );
   }, [isDocumentVisible, items]);
+
+  React.useEffect(() => {
+    if (!pendingProfileDraft) return;
+    const hasUnfinishedGuidance =
+      isDocumentVisible &&
+      items.some(item => {
+        if (item.elementType !== 'text') return false;
+        const cacheEntry = typewriterCache[item.elementBid];
+        return (
+          cacheEntry?.isFinished !== true || cacheEntry.content !== item.content
+        );
+      });
+    if (hasUnfinishedGuidance) return;
+    setPendingProfileDraft(null);
+    if (pendingProfileDraft.nickname) {
+      onDraftReady(
+        pendingProfileDraft.profileDraft,
+        pendingProfileDraft.sessionId,
+        pendingProfileDraft.nickname,
+      );
+    } else {
+      onDraftReady(
+        pendingProfileDraft.profileDraft,
+        pendingProfileDraft.sessionId,
+      );
+    }
+  }, [
+    isDocumentVisible,
+    items,
+    onDraftReady,
+    pendingProfileDraft,
+    typewriterCache,
+  ]);
 
   const visibleContentList = React.useMemo(() => {
     if (!isDocumentVisible) return contentList;

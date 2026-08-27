@@ -527,6 +527,7 @@ describe('ProfileOnboardingConversation', () => {
   });
 
   test('waits without progress indicators after the final response until the draft is ready', async () => {
+    mockAutoFinishTypewriter = false;
     let finalOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onDraftReady = jest.fn();
     const runSession = jest
@@ -575,7 +576,7 @@ describe('ProfileOnboardingConversation', () => {
         type: 'element',
         content: {
           element_bid: 'final-feedback',
-          element_type: 'content',
+          element_type: 'text',
           content: '信息收集完成。',
         },
       });
@@ -596,6 +597,8 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
 
+    expect(onDraftReady).not.toHaveBeenCalled();
+    act(() => mockLatestTypeFinished?.());
     await waitFor(() =>
       expect(onDraftReady).toHaveBeenCalledWith(
         '最终个人介绍',
