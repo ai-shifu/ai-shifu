@@ -149,6 +149,8 @@ export default function ProfileOnboardingConversation({
     onSessionCreateRejected,
     onRetry,
   });
+  const itemsRef = React.useRef(items);
+  itemsRef.current = items;
 
   const locale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
@@ -208,11 +210,31 @@ export default function ProfileOnboardingConversation({
   const handleTypeFinished = React.useCallback((elementBid: string) => {
     setTypewriterCache(previousCache => {
       const entry = previousCache[elementBid];
-      return entry
-        ? { ...previousCache, [elementBid]: { ...entry, isFinished: true } }
-        : previousCache;
+      const item = itemsRef.current.find(
+        candidate => candidate.elementBid === elementBid,
+      );
+      if (!entry && !item) return previousCache;
+      return {
+        ...previousCache,
+        [elementBid]: {
+          content: entry?.content ?? item?.content ?? '',
+          isFinished: true,
+          isSuppressed: entry?.isSuppressed ?? false,
+        },
+      };
     });
   }, []);
+  const typeFinishedCallbacksRef = React.useRef(new Map<string, () => void>());
+  const getTypeFinishedCallback = React.useCallback(
+    (elementBid: string) => {
+      const existingCallback = typeFinishedCallbacksRef.current.get(elementBid);
+      if (existingCallback) return existingCallback;
+      const callback = () => handleTypeFinished(elementBid);
+      typeFinishedCallbacksRef.current.set(elementBid, callback);
+      return callback;
+    },
+    [handleTypeFinished],
+  );
 
   return (
     <div
@@ -250,7 +272,11 @@ export default function ProfileOnboardingConversation({
                     )
                   }
                   typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
-                  onTypeFinished={() => handleTypeFinished(item.elementBid)}
+                  onTypeFinished={
+                    item.elementType === 'text'
+                      ? getTypeFinishedCallback(item.elementBid)
+                      : undefined
+                  }
                 />
               ))
             ) : (

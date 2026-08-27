@@ -61,6 +61,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onSend,
     enableTypewriter,
     typingSpeed,
+    onTypeFinished,
   }: {
     content: string;
     readonly?: boolean;
@@ -68,7 +69,11 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onSend?: (value: OnSendContentParams) => void;
     enableTypewriter?: boolean;
     typingSpeed?: number;
+    onTypeFinished?: () => void;
   }) => {
+    React.useEffect(() => {
+      onTypeFinished?.();
+    }, [onTypeFinished]);
     // Match the library's inline custom-variable renderer: an unnecessary
     // MarkdownFlow re-render remounts the input and loses unsent local state.
     const UnsentAnswer = () => (
