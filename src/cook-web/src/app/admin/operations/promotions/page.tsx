@@ -7,6 +7,7 @@ import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { isGlobalBillingExperience } from '@/app/admin/billing/billingExperience';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
@@ -141,6 +142,13 @@ export default function AdminOperationPromotionsPage() {
   const { isReady } = useOperatorGuard();
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol || '',
+  );
+  const paymentChannels = useEnvStore(
+    (state: EnvStoreState) => state.paymentChannels,
+  );
+  const showStripeProviderDiscounts = React.useMemo(
+    () => isGlobalBillingExperience(paymentChannels),
+    [paymentChannels],
   );
   const clearLabel = t('common.core.close');
   const [tab, setTab] = useState<PromotionTab>('coupons');
@@ -1940,6 +1948,7 @@ export default function AdminOperationPromotionsPage() {
             pageCount={packageCampaignPageCount}
             filters={packageCampaignFilters}
             fetchCampaigns={fetchPackageCampaigns}
+            showProviderDiscounts={showStripeProviderDiscounts}
             getColumnStyle={getPackageCampaignColumnStyle}
             renderResizeHandle={renderPackageCampaignResizeHandle}
             onOpenProductDetails={item => {

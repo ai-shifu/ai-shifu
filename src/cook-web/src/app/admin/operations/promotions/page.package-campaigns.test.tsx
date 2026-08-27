@@ -19,6 +19,7 @@ import {
   mockPublishPackageCampaignProviderDiscounts,
   mockToast,
   mockUpdatePackageCampaignStatus,
+  setMockPaymentChannels,
 } from './promotionsTestUtils.test-support';
 import AdminOperationPromotionsPage from './page';
 
@@ -108,6 +109,38 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
       description:
         'module.operationsPromotion.messages.packageCampaignProviderPublished',
     });
+  });
+
+  test('hides Stripe provider discount column and actions without Stripe channel', async () => {
+    setMockPaymentChannels(['pingxx']);
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.packageCampaign.providerDiscount',
+      ),
+    ).not.toBeInTheDocument();
+
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   test('shows an error when package campaign provider publish request fails', async () => {
