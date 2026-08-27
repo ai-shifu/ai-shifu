@@ -454,11 +454,20 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:text-sm',
       '[@media(max-height:620px)]:leading-5',
     );
+    expect(screen.getByTestId('learner-profile-dialog-header')).toHaveClass(
+      'border-b',
+      'after:-bottom-6',
+      'after:h-6',
+      'after:bg-background/55',
+      'after:backdrop-blur-md',
+    );
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-hidden',
       'bg-muted/25',
-      '[@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+0.5rem)]',
-      '[@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+0.5rem)]',
+      'pb-[var(--learner-profile-footer-height,80px)]',
+      'pt-[var(--learner-profile-header-height,96px)]',
+      'sm:pb-[var(--learner-profile-footer-height,76px)]',
+      'sm:pt-[var(--learner-profile-header-height,116px)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-body')).not.toHaveClass(
       'overflow-y-auto',
@@ -477,7 +486,13 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:flex-nowrap',
       '[@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
       '[@media(max-height:620px)]:pt-3',
-      'shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)]',
+      'border-t',
+      'bg-background/90',
+      'backdrop-blur-xl',
+      'before:-top-6',
+      'before:h-6',
+      'before:bg-background/55',
+      'before:backdrop-blur-md',
     );
     const inlineInformation = informationUsageControl('inline');
     const popoverInformation = informationUsageControl('popover');
@@ -528,6 +543,73 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByText('module.profileOnboarding.steps.review'),
     ).not.toBeInTheDocument();
+  });
+
+  test('measures dialog chrome after a closed dialog opens even when loading fails', async () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    const observe = jest.fn();
+    const disconnect = jest.fn();
+    const resizeObserver = {
+      disconnect,
+      observe,
+      unobserve: jest.fn(),
+    } as unknown as ResizeObserver;
+    let resizeCallback: ResizeObserverCallback | undefined;
+    const ResizeObserverMock = jest.fn((callback: ResizeObserverCallback) => {
+      resizeCallback = callback;
+      return resizeObserver;
+    });
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      value: ResizeObserverMock,
+    });
+    mockGetLearnerProfile.mockRejectedValueOnce(
+      new Error('Profile unavailable'),
+    );
+
+    try {
+      const { props, rerender } = renderDialog({ open: false });
+      expect(ResizeObserverMock).not.toHaveBeenCalled();
+
+      rerender(
+        <LearnerProfileDialog
+          {...props}
+          open
+        />,
+      );
+
+      expect(
+        await screen.findByText('Profile unavailable'),
+      ).toBeInTheDocument();
+      const header = screen.getByTestId('learner-profile-dialog-header');
+      const footer = screen.getByTestId('learner-profile-dialog-footer');
+      jest
+        .spyOn(header, 'getBoundingClientRect')
+        .mockReturnValue({ height: 104 } as DOMRect);
+      jest
+        .spyOn(footer, 'getBoundingClientRect')
+        .mockReturnValue({ height: 72 } as DOMRect);
+
+      await waitFor(() => {
+        expect(observe).toHaveBeenCalledWith(header);
+        expect(observe).toHaveBeenCalledWith(footer);
+      });
+      act(() => resizeCallback?.([], resizeObserver));
+
+      expect(screen.getByTestId('learner-profile-dialog-body')).toHaveStyle({
+        '--learner-profile-footer-height': '72px',
+        '--learner-profile-header-height': '104px',
+      });
+    } finally {
+      if (originalResizeObserver) {
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+          configurable: true,
+          value: originalResizeObserver,
+        });
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    }
   });
 
   test('shows an existing profile without waiting for optional onboarding status', async () => {
@@ -712,6 +794,8 @@ describe('LearnerProfileDialog', () => {
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-y-auto',
+      'pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)]',
+      'pt-[calc(var(--learner-profile-header-height,96px)+1.5rem)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
       'absolute',
