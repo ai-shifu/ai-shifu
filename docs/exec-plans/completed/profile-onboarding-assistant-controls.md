@@ -48,6 +48,17 @@ progress text and spinner while preserving request state and recovery actions.
 - [x] 2026-08-27 UTC: Let an operator disable an unchanged pre-prompt
   configuration without invoking the LLM. The regression failed against the
   reported behavior, then 166 config/publication/route tests and Ruff passed.
+- [x] 2026-08-27 UTC: Hide the learner assistant entry below the dialog's `sm`
+  breakpoint and remove its unused mobile scroll clearance. Preserve the
+  desktop entry, frozen prompt and same-session assistant workflow. All 44
+  conversation tests passed. Real-browser computed styles at 390x844 showed
+  `display:none`, zero button bounds and zero bottom padding; 1280x720 restored
+  the entry and 80px clearance, with no horizontal overflow at either viewport.
+- [x] 2026-08-27 UTC: Reapply the mobile-entry follow-up after the feature
+  branch was patch-equivalently rebased onto current main. All 178 frontend
+  suites / 1,561 tests, TypeScript, focused and full ESLint, architecture
+  boundaries, repository harness, dev tools and the complete lefthook pass on
+  that new base.
 
 ## Surprises & Discoveries
 
@@ -106,8 +117,10 @@ disabled; later enablement or a document edit still initializes it.
   generation for first saves, changed documents, re-enablement and deliberate
   clearing of an existing nonempty prompt.
 - The floating entry stays within the MarkdownFlow viewport at physical bottom
-  right (also in RTL); reserve scroll padding so it cannot cover the last input.
-  Show as soon as a frozen public prompt is available, even before the question.
+  right (also in RTL) on `sm` and wider layouts; reserve scroll padding there so
+  it cannot cover the last input. Hide the entry and its clearance below `sm`.
+  On supported layouts, show it as soon as a frozen public prompt is available,
+  even before the question.
 - Paste and typing only edit the draft. Only the processing button submits;
   request replay, import locks, account isolation and confirmation remain.
 - The subsequent request removes the entire normal-progress row, including its
@@ -145,6 +158,12 @@ The later progress-display correction removes both guided.starting and
 guided.thinking and their spinner instead of hiding only the Chinese text.
 Regression coverage retains the terminal-cursor lock and final-draft handoff;
 the browser checks use controlled session callbacks, not live LLM requests.
+
+The later mobile correction is presentation-only: narrow layouts no longer
+show the assistant entry or reserve empty space for it. It does not remove the
+frozen prompt from the session, change server capability, or interrupt an
+assistant workspace that was already opened before a viewport resize. The
+temporary browser fixture and screenshots were removed after inspection.
 
 Local implementation and verification are complete, including all repository
 gates and lefthook. GitHub PR #2669 is the delivery surface; its description
@@ -185,8 +204,9 @@ for real-browser fixture checks without saving live administrator configuration.
 Manual prompt edits persist and reach fresh sessions unchanged; existing sessions
 retain their version. Empty/omitted/invalid/oversized prompt inputs and failed or
 concurrent publication preserve the existing guarantees. Admin edits survive
-save races and failure. The entry is visible and reachable at all four prior
-viewports in Chinese and Arabic RTL, without covering the final input. Paste,
+save races and failure. The entry is visible and reachable at `sm` and wider
+layouts in Chinese and Arabic RTL, without covering the final input; it is
+hidden below `sm` without leaving scroll clearance. Paste,
 typing, composition and draft restoration never submit, even after timers;
 manual processing submits once. The copy section has no redundant heading and
 the exact requested Chinese instructions use 千问, not 千问工作. Prompt compiler

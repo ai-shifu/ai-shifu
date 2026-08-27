@@ -1842,6 +1842,20 @@ describe('assistant answers in the existing session', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('hides the assistant entry on mobile and reserves clearance only on larger screens', async () => {
+    const result = await begin();
+    const entry = screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.entry',
+    });
+    const markdownFlow = result.container.querySelector(
+      '.profile-onboarding-markdownflow',
+    );
+
+    expect(entry).toHaveClass('hidden', 'sm:inline-flex');
+    expect(markdownFlow).toHaveClass('sm:scroll-pb-20', 'sm:pb-20');
+    expect(markdownFlow).not.toHaveClass('scroll-pb-20', 'pb-20');
+  });
+
   test.each(['assistantDraft', 'onAssistantDraftChange'] as const)(
     'requires %s before offering the controlled assistant input',
     async missingProp => {

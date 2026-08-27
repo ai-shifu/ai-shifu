@@ -179,7 +179,7 @@ export default function ProfileOnboardingConversation({
           aria-busy={loading || (runInFlight && !assistantProcessing)}
           className={cn(
             'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
-            canUseAssistant && 'scroll-pb-20 pb-20',
+            canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
           <StableMarkdownFlow
@@ -196,7 +196,7 @@ export default function ProfileOnboardingConversation({
           <Button
             ref={assistantEntryRef}
             type='button'
-            className='absolute bottom-3 right-3 z-10 h-auto min-h-10 max-w-[calc(100%-1.5rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg'
+            className='absolute bottom-3 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(100%-1.5rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg sm:inline-flex'
             disabled={disabled}
             onClick={() => setAssistantVisible(true)}
           >
