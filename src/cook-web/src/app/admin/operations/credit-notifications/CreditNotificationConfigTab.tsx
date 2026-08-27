@@ -27,10 +27,7 @@ import type {
 import { CreditNotificationCreatorListsSection } from './CreditNotificationCreatorListsSection';
 import { CreditNotificationDryRunPanel } from './CreditNotificationDryRunPanel';
 import { CreditNotificationManagedListDialog } from './CreditNotificationManagedListDialog';
-import {
-  CreditNotificationTypeConfigCard,
-  getTemplateOptionsForType,
-} from './CreditNotificationTypeConfigCard';
+import { CreditNotificationTypeConfigTable } from './CreditNotificationTypeConfigTable';
 import {
   CreditNotificationConfigSection as ConfigSection,
   CreditNotificationFormField as FormField,
@@ -40,7 +37,6 @@ import {
   isEstimatedDaysThreshold,
   isFixedThreshold,
   type KnownNotificationType,
-  NOTIFICATION_TYPES,
 } from './creditNotificationUtils';
 import {
   type UpdatePolicy,
@@ -240,43 +236,32 @@ export function CreditNotificationConfigTab({
               {templateSyncError}
             </div>
           ) : null}
-          <div className='space-y-3'>
-            {NOTIFICATION_TYPES.map(type => (
-              <CreditNotificationTypeConfigCard
-                key={type}
-                type={type}
-                policy={policy}
-                fixedLowBalanceThresholds={fixedLowBalanceThresholds}
-                estimatedDaysThreshold={estimatedDaysThreshold}
-                templateSyncResults={templateSyncResults}
-                templateSyncLoading={templateSyncLoading}
-                templateOptions={templateOptions}
-                templateListSource={templateListSource}
-                templateListError={templateListError}
-                recommendedTemplate={
-                  policy.types[type].template_code.trim()
-                    ? undefined
-                    : getTemplateOptionsForType(templateOptions, type)[0]
-                }
-                openTemplatePicker={openTemplatePicker}
-                editingTemplateTypes={editingTemplateTypes}
-                templateInputValues={templateInputValues}
-                updatePolicy={updatePolicy}
-                syncTemplate={syncTemplate}
-                clearTemplateSyncResult={clearTemplateSyncResult}
-                resolveTypeLabel={resolveTypeLabel}
-                getListInputValue={getListInputValue}
-                updateListInput={updateListInput}
-                finishListInput={finishListInput}
-                getIntegerInputValue={getIntegerInputValue}
-                updateIntegerInput={updateIntegerInput}
-                finishIntegerInput={finishIntegerInput}
-                setOpenTemplatePicker={setOpenTemplatePicker}
-                setEditingTemplateTypes={setEditingTemplateTypes}
-                setTemplateInputValues={setTemplateInputValues}
-              />
-            ))}
-          </div>
+          <CreditNotificationTypeConfigTable
+            policy={policy}
+            fixedLowBalanceThresholds={fixedLowBalanceThresholds}
+            estimatedDaysThreshold={estimatedDaysThreshold}
+            templateSyncResults={templateSyncResults}
+            templateSyncLoading={templateSyncLoading}
+            templateOptions={templateOptions}
+            templateListSource={templateListSource}
+            templateListError={templateListError}
+            openTemplatePicker={openTemplatePicker}
+            editingTemplateTypes={editingTemplateTypes}
+            templateInputValues={templateInputValues}
+            updatePolicy={updatePolicy}
+            syncTemplate={syncTemplate}
+            clearTemplateSyncResult={clearTemplateSyncResult}
+            resolveTypeLabel={resolveTypeLabel}
+            getListInputValue={getListInputValue}
+            updateListInput={updateListInput}
+            finishListInput={finishListInput}
+            getIntegerInputValue={getIntegerInputValue}
+            updateIntegerInput={updateIntegerInput}
+            finishIntegerInput={finishIntegerInput}
+            setOpenTemplatePicker={setOpenTemplatePicker}
+            setEditingTemplateTypes={setEditingTemplateTypes}
+            setTemplateInputValues={setTemplateInputValues}
+          />
         </ConfigSection>
 
         <ConfigSection

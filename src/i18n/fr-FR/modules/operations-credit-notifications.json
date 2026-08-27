@@ -195,6 +195,28 @@
       "credit_granted": "Rappelle aux enseignants de vérifier le résultat après l’arrivée de crédits.",
       "low_balance": "Rappelle les enseignants lorsque le solde est sous un seuil ou que les jours utilisables estimés sont faibles."
     },
+    "typeTable": {
+      "actions": "Actions",
+      "channel": "Canal",
+      "edit": "Modifier",
+      "editDescription": "Modifiez le modèle et les règles de déclenchement de ce type de notification. Les changements ne s’appliquent aux prochaines notifications qu’après l’enregistrement.",
+      "enabled": "Activé",
+      "notificationType": "Type de notification",
+      "rule": "Règle de déclenchement",
+      "rules": {
+        "creditExpiring": "Fenêtres de rappel : {windows}",
+        "creditGranted": "Déclenché après l’attribution des crédits",
+        "lowBalanceEstimated": "Seuils de solde : {thresholds} ; rappeler si les crédits peuvent être épuisés sous {days} jours",
+        "lowBalanceFixed": "Seuils de solde : {thresholds}"
+      },
+      "smsChannel": "SMS",
+      "statusCompatible": "Variables compatibles",
+      "statusIncompatible": "Variables incompatibles",
+      "statusUnknown": "Non vérifié",
+      "template": "Modèle",
+      "templateNotSet": "Non configuré",
+      "templateStatus": "Statut du modèle"
+    },
     "unsavedDialog": {
       "cancel": "Continuer la modification",
       "description": "Quitter cette page abandonnera les modifications et restaurera la dernière configuration enregistrée.",
