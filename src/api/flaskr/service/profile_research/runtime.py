@@ -558,6 +558,7 @@ class ProfileResearchRuntime:
         provider = self._provider_factory(self.app, session, root_span)
         events: list[dict[str, Any]] = []
         outcome = _StepOutcome()
+        element_content_by_number: dict[int, str] = {}
         rerendered_interaction = ""
         try:
             flow = self._build_flow(session, provider)
@@ -620,10 +621,34 @@ class ProfileResearchRuntime:
                     # The generated profile is a structured terminal result,
                     # not part of the learner-visible MarkdownFlow transcript.
                     continue
+                raw_element_type = getattr(llm_result, "type", "")
+                element_type = str(
+                    getattr(raw_element_type, "value", raw_element_type) or ""
+                )
+                if rendering_interaction:
+                    element_type = "interaction"
+                elif not element_type:
+                    element_type = "text"
+                raw_element_number = getattr(llm_result, "number", 0)
+                element_number = (
+                    raw_element_number
+                    if isinstance(raw_element_number, int)
+                    and not isinstance(raw_element_number, bool)
+                    and raw_element_number >= 0
+                    else 0
+                )
+                element_content = (
+                    element_content_by_number.get(element_number, "") + content
+                )
+                element_content_by_number[element_number] = element_content
+                element_bid = event_bid
+                if not rendering_interaction and element_number > 0:
+                    element_bid = f"{event_bid}:{element_number}"
                 next_event = _event(
                     "interaction" if rendering_interaction else "content",
-                    outcome.content,
-                    generated_block_bid=event_bid,
+                    element_content,
+                    element_type=element_type,
+                    generated_block_bid=element_bid,
                     run_session_bid=session.session_id,
                     is_terminal=False,
                 )
@@ -714,6 +739,7 @@ class ProfileResearchRuntime:
                 _event(
                     "interaction",
                     execution.rerendered_interaction,
+                    element_type="interaction",
                     generated_block_bid=(
                         f"profile-research:{session.session_id}:{processed_block_index}"
                     ),

@@ -240,6 +240,35 @@ describe('ProfileOnboardingConversation', () => {
     );
   });
 
+  test('renders HTML content without a typewriter delay', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'content',
+          element_type: 'html',
+          generated_block_bid: 'profile-html-content',
+          content: '<div>Visual card</div>',
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-html' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('<div>Visual card</div>');
+    expect(screen.getByTestId('profile-onboarding-typewriter')).toHaveAttribute(
+      'data-enabled',
+      'false',
+    );
+  });
+
   test('keeps an over-limit Unicode answer editable until a valid correction', async () => {
     const onError = jest.fn();
     mockRendererSubmission = {

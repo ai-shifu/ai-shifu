@@ -433,12 +433,19 @@ export const resolveProfileOnboardingElement = (
     typeof event.content === 'string' &&
     event.content
   ) {
+    const elementType =
+      typeof event.element_type === 'string' && event.element_type
+        ? event.element_type
+        : type === 'interaction'
+          ? 'interaction'
+          : 'text';
+    const interaction = elementType === 'interaction';
     return {
       content: event.content,
       elementBid: event.generated_block_bid || nextFallbackElementBid(),
-      interaction: type === 'interaction',
-      elementType: type === 'interaction' ? 'interaction' : 'text',
-      finished: type !== 'interaction',
+      interaction,
+      elementType,
+      finished: !interaction,
     };
   }
   return null;

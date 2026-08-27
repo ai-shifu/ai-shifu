@@ -1,6 +1,8 @@
 import {
   initialProfileOnboardingConversationState,
+  isProfileOnboardingTypewriterCandidate,
   profileOnboardingConversationReducer,
+  resolveProfileOnboardingElement,
   syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
 } from './profileOnboardingConversationModel';
@@ -117,5 +119,26 @@ describe('syncProfileOnboardingTypewriterCache', () => {
         false,
       )['text-1'],
     ).toMatchObject({ isFinished: true, isSuppressed: true });
+  });
+});
+
+describe('resolveProfileOnboardingElement', () => {
+  it('preserves HTML element types from legacy content events', () => {
+    const element = resolveProfileOnboardingElement({
+      type: 'content',
+      element_type: 'html',
+      generated_block_bid: 'html-1',
+      content: '<div>Visual card</div>',
+    });
+
+    expect(element).toMatchObject({
+      content: '<div>Visual card</div>',
+      elementBid: 'html-1',
+      elementType: 'html',
+      interaction: false,
+    });
+    expect(element && isProfileOnboardingTypewriterCandidate(element)).toBe(
+      false,
+    );
   });
 });
