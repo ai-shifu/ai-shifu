@@ -414,7 +414,7 @@ describe('UserCreditGrantDialog', () => {
           product_bid: 'bill-product-plan-monthly',
           product_code: 'creator-plan-monthly',
           product_type: 'plan',
-          display_name: 'module.billing.catalog.plans.creatorMonthly.title',
+          display_name: 'Growth',
           description:
             'module.billing.catalog.plans.creatorMonthly.description',
           billing_interval: 'month',
@@ -422,6 +422,20 @@ describe('UserCreditGrantDialog', () => {
           currency: 'CNY',
           price_amount: 990,
           credit_amount: 5,
+          auto_renew_enabled: true,
+          highlights: [],
+        },
+        {
+          product_bid: 'bill-product-plan-yearly',
+          product_code: 'creator-plan-yearly',
+          product_type: 'plan',
+          display_name: 'Growth',
+          description: 'module.billing.catalog.plans.creatorYearly.description',
+          billing_interval: 'year',
+          billing_interval_count: 1,
+          currency: 'CNY',
+          price_amount: 9900,
+          credit_amount: 60,
           auto_renew_enabled: true,
           highlights: [],
         },
@@ -451,9 +465,14 @@ describe('UserCreditGrantDialog', () => {
         name: 'module.operationsUser.grantDialog.modeOptions.package',
       }),
     );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Growth module.billing.admin.providerPrices.billingLabel.yearly',
+      }),
+    ).toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'module.billing.catalog.plans.creatorMonthly.title',
+        name: 'Growth module.billing.admin.providerPrices.billingLabel.monthly',
       }),
     );
     fireEvent.change(
