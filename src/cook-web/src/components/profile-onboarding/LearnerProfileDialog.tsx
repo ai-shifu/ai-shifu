@@ -215,7 +215,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
           className={cn(
-            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[var(--learner-profile-footer-height,80px)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[var(--learner-profile-header-height,96px)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[var(--learner-profile-footer-height,76px)] sm:pt-[var(--learner-profile-header-height,116px)] [@media(max-height:620px)]:pb-[var(--learner-profile-footer-height,80px)] [@media(max-height:620px)]:pt-[var(--learner-profile-header-height,80px)]',
+            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[calc(var(--learner-profile-footer-height,80px)+1rem)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[calc(var(--learner-profile-header-height,96px)+1rem)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[calc(var(--learner-profile-footer-height,76px)+1rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+1rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+1rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+1rem)]',
             collectionOwnsScroll ? 'overflow-hidden' : 'overflow-y-auto',
           )}
           style={
