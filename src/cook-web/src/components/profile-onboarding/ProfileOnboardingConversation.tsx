@@ -295,7 +295,7 @@ export default function ProfileOnboardingConversation({
           viewportRef={questionViewportRef}
           scrollTarget={questionViewportRef}
           autoScrollOnInit
-          contentVersion={items.length}
+          contentVersion={visibleContentList.length}
           followNewContent={false}
           ariaLabel={t('common.core.scrollToBottom')}
           placement='bottom-center'

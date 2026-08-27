@@ -21,6 +21,8 @@ const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
   inputText: '学会 AI',
 };
 let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
+let mockAutoFinishTypewriter = true;
+let mockLatestTypeFinished: (() => void) | undefined;
 
 type MockScrollControlProps = {
   ariaLabel: string;
@@ -72,7 +74,8 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onTypeFinished?: () => void;
   }) => {
     React.useEffect(() => {
-      onTypeFinished?.();
+      mockLatestTypeFinished = onTypeFinished;
+      if (mockAutoFinishTypewriter) onTypeFinished?.();
     }, [onTypeFinished]);
     // Match the library's inline custom-variable renderer: an unnecessary
     // MarkdownFlow re-render remounts the input and loses unsent local state.
@@ -119,6 +122,8 @@ const getLatestScrollControlProps = () => {
 describe('ProfileOnboardingConversation', () => {
   beforeEach(() => {
     mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
+    mockAutoFinishTypewriter = true;
+    mockLatestTypeFinished = undefined;
     mockScrollToBottomControl.mockClear();
   });
 
@@ -775,6 +780,49 @@ describe('ProfileOnboardingConversation', () => {
     await waitFor(() => {
       expect(getLatestScrollControlProps().contentVersion).toBe(2);
     });
+  });
+
+  test('updates scroll content version when a gated question becomes visible', async () => {
+    mockAutoFinishTypewriter = false;
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'scroll-guidance',
+            element_type: 'text',
+            content: 'Read this first',
+          },
+        });
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'scroll-question',
+            element_type: 'interaction',
+            content: '?[%{{goal}}...Then answer]',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-scroll-reveal' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('Read this first');
+    expect(screen.queryByText('?[%{{goal}}...Then answer]')).toBeNull();
+    expect(getLatestScrollControlProps().contentVersion).toBe(1);
+
+    act(() => mockLatestTypeFinished?.());
+
+    await screen.findByText('?[%{{goal}}...Then answer]');
+    expect(getLatestScrollControlProps().contentVersion).toBe(2);
   });
 
   test('submits without ES2023 array methods and returns the server profile draft', async () => {
