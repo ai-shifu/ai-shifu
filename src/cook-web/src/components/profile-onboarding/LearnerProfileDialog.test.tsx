@@ -457,10 +457,7 @@ describe('LearnerProfileDialog', () => {
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-hidden',
       'bg-muted/25',
-      'pb-[calc(var(--learner-profile-footer-height,80px)+1rem)]',
-      'pt-[calc(var(--learner-profile-header-height,96px)+1rem)]',
-      '[@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+1rem)]',
-      '[@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+1rem)]',
+      'shadow-[inset_0_10px_16px_-16px_rgba(15,23,42,0.28),inset_0_-10px_16px_-16px_rgba(15,23,42,0.28)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-body')).not.toHaveClass(
       'overflow-y-auto',
