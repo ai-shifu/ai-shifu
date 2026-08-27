@@ -1,5 +1,10 @@
 import React from 'react';
-import { CircleHelp, Loader2, Sparkles } from 'lucide-react';
+import {
+  CircleHelp,
+  Loader2,
+  MessageCircleQuestion,
+  Sparkles,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button, buttonVariants } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -29,10 +34,12 @@ type LearnerProfileSaveViewProps = {
   optimizationDescription: string;
   optimizationOriginal: string | null;
   optimizeDisabled: boolean;
+  guidedAvailable: boolean;
   onNicknameChange: (value: string) => void;
   onProfileChange: (value: string) => void;
   onUndoOptimization: () => void;
   onOptimize: () => void;
+  onRequestCollection: () => void;
 };
 
 export function LearnerProfileSaveView({
@@ -52,10 +59,12 @@ export function LearnerProfileSaveView({
   optimizationDescription,
   optimizationOriginal,
   optimizeDisabled,
+  guidedAvailable,
   onNicknameChange,
   onProfileChange,
   onUndoOptimization,
   onOptimize,
+  onRequestCollection,
 }: LearnerProfileSaveViewProps) {
   const { t } = useTranslation();
 
@@ -64,13 +73,36 @@ export function LearnerProfileSaveView({
       data-testid='learner-profile-save-view'
       className='flex min-h-full flex-1 flex-col gap-5 sm:gap-4'
     >
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className='shrink-0 text-xl font-semibold leading-7 outline-none'
+      <div
+        data-testid='learner-profile-save-heading-row'
+        className='flex shrink-0 items-center justify-between gap-2 sm:block [@media(max-height:620px)]:flex'
       >
-        {t('module.profileOnboarding.dialog.confirmTitle')}
-      </h2>
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className='min-w-0 text-xl font-semibold leading-7 outline-none'
+        >
+          {t('module.profileOnboarding.dialog.confirmTitle')}
+        </h2>
+        {guidedAvailable ? (
+          <Button
+            data-testid='learner-profile-interactive-collection-mobile'
+            type='button'
+            variant='ghost'
+            className='ms-auto h-auto min-h-11 w-fit max-w-[48%] shrink-0 justify-start px-2 py-2 text-start text-sm leading-5 text-muted-foreground !whitespace-normal hover:bg-accent/60 hover:text-foreground sm:hidden [@media(max-height:620px)]:inline-flex'
+            disabled={busy || optimizing}
+            onClick={onRequestCollection}
+          >
+            <MessageCircleQuestion
+              className='shrink-0 text-primary'
+              aria-hidden='true'
+            />
+            <span className='min-w-0'>
+              {t('module.profileOnboarding.dialog.interactiveCollection')}
+            </span>
+          </Button>
+        ) : null}
+      </div>
 
       {manualFallback ? (
         <div className='shrink-0 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'>
@@ -88,7 +120,7 @@ export function LearnerProfileSaveView({
         <div className='space-y-1'>
           <Input
             id='learner-profile-dialog-nickname'
-            className='h-10 rounded-lg shadow-none'
+            className='h-11 rounded-lg text-base shadow-none sm:h-10 sm:text-sm'
             value={nickname}
             disabled={!loaded || busy}
             aria-invalid={nicknameOverLimit || undefined}
@@ -117,7 +149,7 @@ export function LearnerProfileSaveView({
         </div>
       </div>
 
-      <section className='flex min-h-52 flex-1 flex-col gap-3'>
+      <section className='flex min-h-60 flex-1 flex-col gap-3 sm:min-h-52 [@media(max-height:620px)]:min-h-52 [@media(max-height:620px)]:flex-none'>
         <label
           htmlFor='learner-profile-dialog-draft'
           className='text-sm font-medium'
@@ -128,8 +160,8 @@ export function LearnerProfileSaveView({
         <ProfileDraftEditor
           inputId='learner-profile-dialog-draft'
           textareaRef={textareaRef}
-          className='min-h-40 flex-1'
-          textareaClassName='min-h-32 flex-1 resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none'
+          className='min-h-48 flex-1 sm:min-h-40 [@media(max-height:620px)]:min-h-40'
+          textareaClassName='min-h-40 flex-1 resize-none overflow-y-auto rounded-xl border-border px-4 py-3 text-base leading-6 shadow-none sm:min-h-32 sm:text-sm [@media(max-height:620px)]:min-h-32'
           minRows={4}
           autoResize={false}
           value={profile}
@@ -162,7 +194,7 @@ export function LearnerProfileSaveView({
                   type='button'
                   size='sm'
                   variant='outline'
-                  className='min-h-10 flex-1 sm:flex-none'
+                  className='min-h-11 flex-1 sm:min-h-10 sm:flex-none'
                   onClick={onUndoOptimization}
                 >
                   {t('module.profileOnboarding.dialog.undoOptimize')}
@@ -171,7 +203,7 @@ export function LearnerProfileSaveView({
               <Button
                 type='button'
                 size='sm'
-                className='min-h-10 flex-1 px-4 shadow-sm sm:flex-none'
+                className='min-h-11 flex-1 px-4 shadow-sm sm:min-h-10 sm:flex-none'
                 disabled={optimizeDisabled}
                 aria-describedby='learner-profile-optimization-status'
                 onClick={onOptimize}
@@ -197,6 +229,11 @@ export function LearnerProfileSaveView({
           </div>
         </div>
       </section>
+
+      <ProfileInformationUsageControl
+        variant='inline'
+        className='sm:hidden [@media(max-height:620px)]:block'
+      />
     </div>
   );
 }
@@ -215,16 +252,22 @@ export function ProfileCollectionView({
 
   return (
     <section className='flex min-h-0 flex-1 flex-col'>
-      <div className='min-h-40 flex-1 [@media(max-height:620px)]:min-h-32'>
+      <div className='min-h-0 flex-1'>
         <ProfileOnboardingConversation
           key={conversationKey}
           {...conversationProps}
+          questionScrollFooter={
+            <ProfileInformationUsageControl
+              variant='inline'
+              className='mt-4 sm:hidden [@media(max-height:620px)]:block'
+            />
+          }
         />
       </div>
       {collectionReady ? (
         <div
           role='status'
-          className='mt-3 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
+          className='mt-3 shrink-0 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'
         >
           {t('module.profileOnboarding.guided.collectionComplete')}
         </div>
@@ -245,7 +288,7 @@ export function ProfileDialogConfirmationView({
   return (
     <section
       data-testid={`learner-profile-confirmation-${confirmation}`}
-      className='mx-auto flex h-full min-h-64 max-w-lg flex-col justify-center'
+      className='mx-auto flex h-full min-h-64 max-w-lg flex-col justify-start sm:justify-center [@media(max-height:620px)]:justify-start'
     >
       <h2
         ref={headingRef}
@@ -265,22 +308,40 @@ export function ProfileDialogConfirmationView({
             : 'module.profileOnboarding.dialog.replaceResearchDescription',
         )}
       </p>
+      <ProfileInformationUsageControl
+        variant='inline'
+        className='mt-6 sm:hidden [@media(max-height:620px)]:block'
+      />
     </section>
   );
 }
 
-export function ProfileInformationUsageControl() {
+export function ProfileInformationUsageControl({
+  variant = 'popover',
+  className,
+}: {
+  variant?: 'inline' | 'popover';
+  className?: string;
+}) {
   const { t } = useTranslation();
+  const inline = variant === 'inline';
 
   return (
     <details
-      data-testid='learner-profile-information-usage'
-      className='group relative min-w-0 max-sm:w-full'
+      data-testid={`learner-profile-information-usage-${variant}`}
+      className={cn(
+        'group min-w-0',
+        inline
+          ? 'rounded-xl border border-border/80 bg-background/80'
+          : 'relative',
+        className,
+      )}
     >
       <summary
         className={cn(
           buttonVariants({ variant: 'ghost' }),
-          'min-h-10 min-w-0 list-none justify-start px-2 text-left text-sm font-normal text-muted-foreground !whitespace-normal hover:text-foreground max-sm:w-full [&::-webkit-details-marker]:hidden',
+          'h-auto min-h-11 min-w-0 list-none justify-start px-2 text-start text-sm font-normal text-muted-foreground !whitespace-normal hover:text-foreground [&::-webkit-details-marker]:hidden',
+          inline && 'w-full rounded-xl px-3 py-2.5',
         )}
       >
         <span className='flex min-w-0 items-center gap-2'>
@@ -293,12 +354,17 @@ export function ProfileInformationUsageControl() {
       </summary>
       <div
         role='note'
-        className='absolute bottom-[calc(100%+0.5rem)] left-0 z-[110] w-[min(22rem,calc(100vw-2rem))] rounded-xl border bg-popover p-4 text-popover-foreground shadow-md'
+        className={cn(
+          'text-popover-foreground',
+          inline
+            ? 'border-t border-border/70 px-4 pb-4 pt-3'
+            : 'absolute bottom-[calc(100%+0.5rem)] start-0 z-[110] w-[min(22rem,calc(100vw-2rem))] rounded-xl border bg-popover p-4 shadow-md',
+        )}
       >
         <p className='font-medium leading-6'>
           {t('module.profileOnboarding.dialog.informationUsageTitle')}
         </p>
-        <ul className='mt-2 list-disc space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground'>
+        <ul className='mt-2 list-disc space-y-1.5 ps-5 text-sm leading-5 text-muted-foreground'>
           <li>
             {t('module.profileOnboarding.dialog.informationUsagePurpose')}
           </li>

@@ -22,6 +22,30 @@ const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
 };
 let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 
+type MockScrollControlProps = {
+  ariaLabel: string;
+  autoScrollOnInit?: boolean;
+  bottomOffset?: number;
+  contentVersion?: unknown;
+  endRef?: React.RefObject<HTMLElement | null>;
+  followNewContent?: boolean;
+  placement?: string;
+  position?: string;
+  scrollTarget?: React.RefObject<HTMLElement | null>;
+  viewportRef: React.RefObject<HTMLElement | null>;
+  zIndex?: number;
+};
+
+const mockScrollToBottomControl = jest.fn(
+  ({ ariaLabel }: MockScrollControlProps) => (
+    <button
+      type='button'
+      data-testid='profile-scroll-to-bottom-control'
+      aria-label={ariaLabel}
+    />
+  ),
+);
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -75,9 +99,20 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   },
 }));
 
+jest.mock('markdown-flow-ui/scroll', () => ({
+  ScrollToBottomControl: (props: MockScrollControlProps) =>
+    mockScrollToBottomControl(props),
+}));
+
+const getLatestScrollControlProps = () => {
+  const calls = mockScrollToBottomControl.mock.calls;
+  return calls[calls.length - 1]?.[0];
+};
+
 describe('ProfileOnboardingConversation', () => {
   beforeEach(() => {
     mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
+    mockScrollToBottomControl.mockClear();
   });
 
   test('matches backend run-input limits using Unicode code points', () => {
@@ -546,25 +581,50 @@ describe('ProfileOnboardingConversation', () => {
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
   });
 
-  test('keeps the newest guided question visible as the conversation grows', async () => {
-    const scrollIntoView = jest.fn();
-    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
-      HTMLElement.prototype,
-      'scrollIntoView',
+  test('keeps the question footer inside the sole guided scroller with mobile-safe controls', async () => {
+    const runSession = jest.fn(() => ({ close: jest.fn() }));
+    const { container } = render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-scroll-layout' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+        questionScrollFooter={<div data-testid='question-scroll-footer' />}
+      />,
     );
-    const originalMatchMedia = Object.getOwnPropertyDescriptor(
-      window,
-      'matchMedia',
-    );
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
-      configurable: true,
-      value: scrollIntoView,
-    });
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: jest.fn().mockReturnValue({ matches: false }),
-    });
 
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
+    const markdownFlow = container.querySelector(
+      '.profile-onboarding-markdownflow',
+    );
+
+    expect(markdownFlow).toContainElement(
+      screen.getByTestId('question-scroll-footer'),
+    );
+    expect(markdownFlow).toHaveClass(
+      'overflow-y-auto',
+      'overscroll-contain',
+      '[scrollbar-gutter:stable]',
+      'max-sm:[&_button]:min-h-11',
+      'max-sm:[&_button]:min-w-11',
+      'max-sm:[&_input]:min-h-11',
+      'max-sm:[&_input]:text-base',
+      'max-sm:[&_select]:min-h-11',
+      'max-sm:[&_select]:text-base',
+      'max-sm:[&_textarea]:text-base',
+      'sm:any-pointer-coarse:[&_button]:min-h-11',
+      'sm:any-pointer-coarse:[&_button]:min-w-11',
+      'sm:any-pointer-coarse:[&_input]:min-h-11',
+      'sm:any-pointer-coarse:[&_input]:text-base',
+      'sm:any-pointer-coarse:[&_select]:min-h-11',
+      'sm:any-pointer-coarse:[&_select]:text-base',
+      'sm:any-pointer-coarse:[&_textarea]:text-base',
+    );
+    expect(container.querySelectorAll('.overflow-y-auto')).toHaveLength(1);
+    expect(container.querySelector('.overflow-y-auto')).toBe(markdownFlow);
+  });
+
+  test('delegates guided-question scrolling to the library control', async () => {
     const runSession = jest
       .fn()
       .mockImplementationOnce(({ onMessage }) => {
@@ -604,7 +664,7 @@ describe('ProfileOnboardingConversation', () => {
         return { close: jest.fn() };
       });
 
-    const view = render(
+    render(
       <ProfileOnboardingConversation
         createSession={async () => ({ session_id: 'session-scroll' })}
         runSession={runSession}
@@ -613,39 +673,38 @@ describe('ProfileOnboardingConversation', () => {
       />,
     );
 
-    try {
-      await screen.findByText('?[%{{profile_goal}}...第一个问题]');
-      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
-      scrollIntoView.mockClear();
+    await screen.findByText('?[%{{profile_goal}}...第一个问题]');
+    await waitFor(() => {
+      expect(getLatestScrollControlProps().contentVersion).toBe(1);
+    });
 
-      fireEvent.click(
-        screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
-      );
+    const firstProps = getLatestScrollControlProps();
+    expect(firstProps).toEqual(
+      expect.objectContaining({
+        ariaLabel: 'common.core.scrollToBottom',
+        autoScrollOnInit: true,
+        bottomOffset: 20,
+        contentVersion: 1,
+        followNewContent: false,
+        placement: 'bottom-center',
+        position: 'absolute',
+        zIndex: 10,
+      }),
+    );
+    expect(firstProps).not.toHaveProperty('endRef');
+    expect(firstProps.viewportRef).toBe(firstProps.scrollTarget);
+    expect(firstProps.viewportRef.current).toHaveClass(
+      'profile-onboarding-markdownflow',
+    );
 
-      await screen.findByText('?[%{{profile_goal}}...第二个问题]');
-      await waitFor(() =>
-        expect(scrollIntoView).toHaveBeenCalledWith({
-          block: 'nearest',
-          behavior: 'smooth',
-        }),
-      );
-    } finally {
-      view.unmount();
-      if (originalScrollIntoView) {
-        Object.defineProperty(
-          HTMLElement.prototype,
-          'scrollIntoView',
-          originalScrollIntoView,
-        );
-      } else {
-        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
-      }
-      if (originalMatchMedia) {
-        Object.defineProperty(window, 'matchMedia', originalMatchMedia);
-      } else {
-        Reflect.deleteProperty(window, 'matchMedia');
-      }
-    }
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+
+    await screen.findByText('?[%{{profile_goal}}...第二个问题]');
+    await waitFor(() => {
+      expect(getLatestScrollControlProps().contentVersion).toBe(2);
+    });
   });
 
   test('submits without ES2023 array methods and returns the server profile draft', async () => {
@@ -1456,7 +1515,13 @@ describe('assistant answers in the existing session', () => {
       screen.getByLabelText('unsent question answer'),
     );
     expect(entry.closest('[aria-busy="true"]')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'common.core.scrollToBottom' }),
+    ).toBeInTheDocument();
     enter();
+    expect(
+      screen.queryByRole('button', { name: 'common.core.scrollToBottom' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
     ).toBeEnabled();
@@ -1489,6 +1554,9 @@ describe('assistant answers in the existing session', () => {
         name: 'module.profileOnboarding.assistant.entry',
       }),
     ).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: 'common.core.scrollToBottom' }),
+    ).toBeInTheDocument();
     expect(
       result.runSession.mock.results[0].value.close,
     ).not.toHaveBeenCalled();
@@ -1852,6 +1920,7 @@ describe('assistant answers in the existing session', () => {
     );
 
     expect(entry).toHaveClass('hidden', 'sm:inline-flex');
+    expect(entry).toHaveClass('max-w-[calc(50%-2.75rem)]');
     expect(markdownFlow).toHaveClass('sm:scroll-pb-20', 'sm:pb-20');
     expect(markdownFlow).not.toHaveClass('scroll-pb-20', 'pb-20');
   });

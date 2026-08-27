@@ -84,7 +84,7 @@ export function ProfileAssistantAnswersView({
               type='button'
               variant='outline'
               size='sm'
-              className='absolute bottom-2 end-2 z-10 min-w-20 rounded-lg bg-background shadow-md'
+              className='absolute bottom-2 end-2 z-10 min-h-11 min-w-20 rounded-lg bg-background shadow-md sm:min-h-9'
               disabled={disabled}
               aria-label={copyLabel}
               title={copyLabel}
@@ -136,7 +136,7 @@ export function ProfileAssistantAnswersView({
           <Textarea
             id='profile-assistant-answer'
             rows={4}
-            className='min-h-32 flex-1 resize-none bg-background shadow-sm md:min-h-0'
+            className='min-h-32 flex-1 resize-none bg-background text-base shadow-sm sm:text-sm md:min-h-0'
             value={value}
             disabled={disabled || unresolved}
             aria-invalid={overLimit || undefined}
@@ -168,6 +168,7 @@ export function ProfileAssistantAnswersView({
         <Button
           type='button'
           variant='ghost'
+          className='min-h-11 min-w-11 sm:min-h-10'
           disabled={disabled || unresolved}
           onClick={onBack}
         >
@@ -175,6 +176,7 @@ export function ProfileAssistantAnswersView({
         </Button>
         <Button
           type='button'
+          className='min-h-11 min-w-11 sm:min-h-10'
           disabled={submissionDisabled || !value.trim() || overLimit}
           onClick={() => onSubmit(value)}
         >

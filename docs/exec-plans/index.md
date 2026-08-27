@@ -39,6 +39,8 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)
 - [Learner Profile Foundation](./completed/learner-profile-foundation.md)
+- [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
+- [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
