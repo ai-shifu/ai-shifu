@@ -40,6 +40,7 @@ export type I18nKey =
   | 'common.core.requestFailed'
   | 'common.core.retry'
   | 'common.core.save'
+  | 'common.core.scrollToBottom'
   | 'common.core.selectModel'
   | 'common.core.serviceUnavailable'
   | 'common.core.settings'
