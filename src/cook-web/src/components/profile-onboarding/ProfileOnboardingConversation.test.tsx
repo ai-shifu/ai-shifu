@@ -1044,6 +1044,8 @@ describe('ProfileOnboardingConversation', () => {
         name: 'module.profileOnboarding.guided.retry',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveClass('order-first', 'pt-6');
+    expect(screen.getByRole('status')).not.toHaveClass('pb-6');
     expect(onDraftReady).not.toHaveBeenCalled();
   });
 
@@ -1101,6 +1103,8 @@ describe('ProfileOnboardingConversation', () => {
     const retryButton = await screen.findByRole('button', {
       name: 'module.profileOnboarding.guided.retry',
     });
+    expect(screen.getByRole('status')).toHaveClass('pb-6');
+    expect(screen.getByRole('status')).not.toHaveClass('order-first', 'pt-6');
     expect(onError.mock.calls[0][0]).toEqual(
       new Error('module.profileOnboarding.guided.retryableError'),
     );

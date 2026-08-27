@@ -59,7 +59,7 @@ test('keeps the assistant answer and actions mobile-safe inside its scroller', (
     name: 'module.profileOnboarding.assistant.process',
   });
 
-  expect(view).toHaveClass('overflow-y-auto', 'overscroll-contain');
+  expect(view).toHaveClass('overflow-y-auto', 'overscroll-contain', 'py-6');
   expect(input).toHaveClass('text-base', 'sm:text-sm');
   expect(copyButton).toHaveClass('min-h-11', 'min-w-20', 'sm:min-h-9');
   expect(backButton).toHaveClass('min-h-11', 'min-w-11', 'sm:min-h-10');

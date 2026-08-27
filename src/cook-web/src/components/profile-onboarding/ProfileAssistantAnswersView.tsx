@@ -62,7 +62,7 @@ export function ProfileAssistantAnswersView({
 
   return (
     <section
-      className='flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pe-1'
+      className='flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain py-6 pe-1'
       data-testid='profile-assistant-answers'
     >
       <div className='shrink-0 space-y-1'>

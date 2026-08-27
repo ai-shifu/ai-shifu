@@ -227,7 +227,7 @@ export default function ProfileOnboardingConversation({
         <div
           className={cn(
             'flex min-h-9 shrink-0 items-center gap-2 text-sm text-muted-foreground',
-            !items.length && 'order-first',
+            !items.length ? 'order-first pt-6' : 'pb-6',
           )}
           role={visibleErrorMessage ? 'alert' : 'status'}
           aria-live={visibleErrorMessage ? 'assertive' : 'polite'}
