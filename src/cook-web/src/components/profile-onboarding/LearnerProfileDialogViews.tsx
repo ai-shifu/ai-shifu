@@ -60,22 +60,25 @@ export function LearnerProfileSaveView({
   const { t } = useTranslation();
 
   return (
-    <div className='space-y-5 sm:space-y-4'>
+    <div
+      data-testid='learner-profile-save-view'
+      className='flex min-h-full flex-1 flex-col gap-5 sm:gap-4'
+    >
       <h2
         ref={headingRef}
         tabIndex={-1}
-        className='text-xl font-semibold leading-7 outline-none'
+        className='shrink-0 text-xl font-semibold leading-7 outline-none'
       >
         {t('module.profileOnboarding.dialog.confirmTitle')}
       </h2>
 
       {manualFallback ? (
-        <div className='rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'>
+        <div className='shrink-0 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3 text-sm leading-6 text-foreground/80'>
           {t('module.profileOnboarding.dialog.manualFallback')}
         </div>
       ) : null}
 
-      <div className='space-y-1.5 sm:grid sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center sm:gap-3 sm:space-y-0'>
+      <div className='shrink-0 space-y-1.5 sm:grid sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center sm:gap-3 sm:space-y-0'>
         <label
           htmlFor='learner-profile-dialog-nickname'
           className='text-sm font-semibold text-foreground'
@@ -114,7 +117,7 @@ export function LearnerProfileSaveView({
         </div>
       </div>
 
-      <section className='space-y-3'>
+      <section className='flex min-h-52 flex-1 flex-col gap-3'>
         <label
           htmlFor='learner-profile-dialog-draft'
           className='text-sm font-medium'
@@ -125,7 +128,8 @@ export function LearnerProfileSaveView({
         <ProfileDraftEditor
           inputId='learner-profile-dialog-draft'
           textareaRef={textareaRef}
-          textareaClassName='h-[clamp(7rem,18dvh,12rem)] min-h-[clamp(7rem,18dvh,12rem)] max-h-[clamp(7rem,18dvh,12rem)] resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none'
+          className='min-h-40 flex-1'
+          textareaClassName='min-h-32 flex-1 resize-none overflow-y-auto rounded-xl border-border px-4 py-3 leading-6 shadow-none'
           minRows={4}
           autoResize={false}
           value={profile}
@@ -138,7 +142,7 @@ export function LearnerProfileSaveView({
 
         <div
           data-testid='learner-profile-optimization-card'
-          className='rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3'
+          className='shrink-0 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3'
           aria-live='polite'
         >
           <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>

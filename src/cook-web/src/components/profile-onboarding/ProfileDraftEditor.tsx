@@ -11,6 +11,7 @@ export const countUnicodeCodePoints = (value: string) =>
 export function ProfileDraftEditor({
   inputId = 'learner-profile-draft',
   textareaRef,
+  className,
   textareaClassName,
   minRows = 8,
   maxRows = 14,
@@ -24,6 +25,7 @@ export function ProfileDraftEditor({
 }: {
   inputId?: string;
   textareaRef?: React.Ref<HTMLTextAreaElement>;
+  className?: string;
   textareaClassName?: string;
   minRows?: number;
   maxRows?: number;
@@ -49,7 +51,7 @@ export function ProfileDraftEditor({
         });
 
   return (
-    <div className='space-y-2'>
+    <div className={cn('flex flex-col gap-2', className)}>
       <Textarea
         ref={textareaRef}
         id={inputId}

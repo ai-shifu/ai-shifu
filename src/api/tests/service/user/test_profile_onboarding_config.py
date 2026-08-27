@@ -8,6 +8,17 @@ import pytest
 from flaskr.service.common.models import AppError
 
 
+@pytest.fixture(autouse=True)
+def stub_compiler(monkeypatch: object) -> None:
+    from flaskr.service.common import profile_onboarding as module
+
+    monkeypatch.setattr(
+        module,
+        "compile_profile_onboarding_assistant_prompt",
+        lambda _app, _document: "Answer these questions using only known facts.",
+    )
+
+
 def test_profile_onboarding_config_uses_runtime_validation(
     app: object, monkeypatch: object
 ) -> None:
@@ -24,7 +35,9 @@ def test_profile_onboarding_config_uses_runtime_validation(
     saved_payloads: list[dict] = []
 
     monkeypatch.setattr(
-        module, "load_profile_onboarding_config_payload", lambda: current_config
+        module,
+        "read_profile_onboarding_database",
+        lambda _app: json.dumps(current_config),
     )
     monkeypatch.setattr(
         module,
@@ -65,6 +78,26 @@ def test_profile_onboarding_config_uses_runtime_validation(
         ({"enabled": "false", "markdownflow": "?[Continue]"}, "enabled"),
         ({"enabled": True, "markdownflow": ""}, "markdownflow"),
         ({"enabled": False, "markdownflow": []}, "markdownflow"),
+        (
+            {"enabled": False, "markdownflow": "?[Continue]", "assistant_prompt": None},
+            "assistant_prompt",
+        ),
+        (
+            {"enabled": False, "markdownflow": "?[Continue]", "assistant_prompt": []},
+            "assistant_prompt",
+        ),
+        (
+            {"enabled": False, "markdownflow": "?[Continue]", "assistant_prompt": 123},
+            "assistant_prompt",
+        ),
+        (
+            {
+                "enabled": False,
+                "markdownflow": "?[Continue]",
+                "assistant_prompt": False,
+            },
+            "assistant_prompt",
+        ),
     ],
 )
 def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
@@ -74,8 +107,8 @@ def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
 
     monkeypatch.setattr(
         module,
-        "load_profile_onboarding_config_payload",
-        lambda: module.normalize_profile_onboarding_config_payload({}),
+        "read_profile_onboarding_database",
+        lambda _app: None,
     )
 
     with pytest.raises(AppError, match=field):
@@ -86,16 +119,17 @@ def test_profile_onboarding_config_rejects_invalid_types_or_empty_enabled_flow(
         )
 
 
+@pytest.mark.parametrize("explicit_prompt", [{}, {"assistant_prompt": "Manual prompt"}])
 def test_profile_onboarding_config_rejects_unanswerable_interaction(
-    app: object, monkeypatch: object
+    app: object, monkeypatch: object, explicit_prompt: dict
 ) -> None:
     from flaskr.service.common import profile_onboarding as module
 
     saved_payloads: list[dict] = []
     monkeypatch.setattr(
         module,
-        "load_profile_onboarding_config_payload",
-        lambda: module.normalize_profile_onboarding_config_payload({}),
+        "read_profile_onboarding_database",
+        lambda _app: None,
     )
     monkeypatch.setattr(
         module,
@@ -106,7 +140,7 @@ def test_profile_onboarding_config_rejects_unanswerable_interaction(
     with pytest.raises(AppError, match="markdownflow"):
         module.update_profile_onboarding_config(
             app,
-            payload={"enabled": True, "markdownflow": "?[]"},
+            payload={"enabled": True, "markdownflow": "?[]", **explicit_prompt},
             operator_user_bid="operator-1",
         )
 
@@ -121,8 +155,8 @@ def test_profile_onboarding_config_rejects_oversized_button_values(
     saved_payloads: list[dict] = []
     monkeypatch.setattr(
         module,
-        "load_profile_onboarding_config_payload",
-        lambda: module.normalize_profile_onboarding_config_payload({}),
+        "read_profile_onboarding_database",
+        lambda _app: None,
     )
     monkeypatch.setattr(
         module,
@@ -152,8 +186,8 @@ def test_profile_onboarding_config_size_limit_uses_exact_serialized_utf8_bytes(
     monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-16T00:00:00Z")
     monkeypatch.setattr(
         module,
-        "add_config",
-        lambda _app, _key, value, **_kwargs: saved_values.append(value),
+        "publish_profile_onboarding_database",
+        lambda _app, *, value, **_kwargs: saved_values.append(value) or False,
     )
     markdownflow_prefix = "?[Continue]\n\n---\n\n"
     payload = module.build_profile_onboarding_config_payload(
@@ -204,7 +238,9 @@ def test_profile_onboarding_config_drops_legacy_document_prompt(
     )
     saved_payloads: list[dict] = []
     monkeypatch.setattr(
-        module, "load_profile_onboarding_config_payload", lambda: current_config
+        module,
+        "read_profile_onboarding_database",
+        lambda _app: json.dumps(current_config),
     )
     monkeypatch.setattr(
         module,
@@ -237,3 +273,494 @@ def test_profile_onboarding_config_ignores_legacy_version_alias() -> None:
     )
 
     assert result["revision"] == 0
+
+
+@pytest.mark.parametrize(
+    ("changed", "missing"), [(True, False), (False, True), (False, False)]
+)
+def test_saved_prompt_is_compiled_only_when_needed(
+    app: object, monkeypatch: object, changed: object, missing: object
+) -> None:
+    from flaskr.service.common import profile_onboarding as module
+
+    document = "What helps you learn?\n\n?[...Your answer]"
+    current = {
+        "markdownflow": document,
+        "assistant_prompt": "" if missing else "Public prompt",
+        "revision": 8,
+    }
+    calls = []
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: json.dumps(current)
+    )
+    monkeypatch.setattr(
+        module,
+        "compile_profile_onboarding_assistant_prompt",
+        lambda _app, doc: calls.append(doc) or "Compiled prompt",
+    )
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+    submitted = document + ("\n\nAnother question?\n\n?[...Answer]" if changed else "")
+    response = module.update_profile_onboarding_config(
+        app,
+        payload={"enabled": True, "markdownflow": submitted},
+        operator_user_bid="operator",
+    )
+    assert calls == ([submitted] if changed or missing else [])
+    assert response["assistant_prompt"] == (
+        "Compiled prompt" if calls else "Public prompt"
+    )
+    assert writes[0][0]["assistant_prompt"] == response["assistant_prompt"]
+    assert writes[0][1]["expected_value"] == json.dumps(current)
+
+
+def test_disabling_unchanged_legacy_config_skips_prompt_initialization(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    document = "What helps you learn?\n\n?[...Your answer]"
+    current = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": document,
+            "assistant_prompt": "",
+            "revision": 8,
+        }
+    )
+    compiler = Mock(side_effect=AssertionError("disable must not require the LLM"))
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+
+    response = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": False,
+            "markdownflow": document,
+            "assistant_prompt": "",
+        },
+        operator_user_bid="operator",
+    )
+
+    compiler.assert_not_called()
+    assert response["enabled"] is False
+    assert response["assistant_prompt"] == ""
+    assert response["config_revision"] == 9
+    assert writes[0][0]["enabled"] is False
+    assert writes[0][0]["assistant_prompt"] == ""
+    assert writes[0][1]["expected_value"] == current
+
+
+def test_compiler_failure_and_generated_size_never_publish(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.common import profile_onboarding as module
+
+    writes = []
+    monkeypatch.setattr(module, "read_profile_onboarding_database", lambda _app: None)
+    monkeypatch.setattr(
+        module,
+        "publish_profile_onboarding_database",
+        lambda *_args, **kwargs: writes.append(kwargs),
+    )
+
+    def fail(*_args: object) -> object:
+        message = "provider unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", fail)
+    with pytest.raises(RuntimeError, match="provider unavailable"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={"enabled": True, "markdownflow": "?[...Answer]"},
+            operator_user_bid="operator",
+        )
+    monkeypatch.setattr(
+        module,
+        "compile_profile_onboarding_assistant_prompt",
+        lambda *_args: "测" * 22000,
+    )
+    with pytest.raises(AppError, match="profile_onboarding_config"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={"enabled": True, "markdownflow": "?[...Answer]"},
+            operator_user_bid="operator",
+        )
+    assert writes == []
+
+
+@pytest.mark.parametrize("override", ["environment", "context"])
+@pytest.mark.parametrize("prompt_fields", [{}, {"assistant_prompt": "Manual wording"}])
+def test_nonpersistable_config_is_rejected_before_generation(
+    app: object, monkeypatch: object, override: object, prompt_fields: dict
+) -> None:
+    from flaskr.service.common import profile_onboarding as module
+    from flaskr.service.config import profile_onboarding as persistence
+
+    monkeypatch.setattr(
+        persistence, "has_explicit_env_override", lambda _key: override == "environment"
+    )
+    monkeypatch.setattr(
+        persistence, "has_config_override", lambda _key: override == "context"
+    )
+    calls = []
+    monkeypatch.setattr(
+        module,
+        "compile_profile_onboarding_assistant_prompt",
+        lambda *args: calls.append(args),
+    )
+    with pytest.raises(AppError):
+        module.update_profile_onboarding_config(
+            app,
+            payload={"enabled": True, "markdownflow": "?[...Answer]", **prompt_fields},
+            operator_user_bid="operator",
+        )
+    assert calls == []
+
+
+def test_assistant_prompt_cannot_be_saved_without_a_markdownflow(app: object) -> None:
+    from flaskr.service.common import profile_onboarding as module
+
+    with pytest.raises(AppError, match="assistant_prompt"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={
+                "enabled": False,
+                "markdownflow": "",
+                "assistant_prompt": "Orphan prompt",
+            },
+            operator_user_bid="operator",
+        )
+
+
+@pytest.mark.parametrize("result", ["", "provider_error"])
+def test_compiler_wraps_empty_and_provider_failures(
+    app: object, monkeypatch: object, result: object
+) -> None:
+    from types import SimpleNamespace
+
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    def invoke(*_args: object, **_kwargs: object) -> object:
+        if result == "provider_error":
+            message = "provider unavailable"
+            raise RuntimeError(message)
+        return [SimpleNamespace(result="")]
+
+    monkeypatch.setattr(module, "invoke_llm", invoke)
+    with pytest.raises(AppError):
+        module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
+
+
+def test_compiler_receives_complete_document_without_user_or_ui_language(
+    app: object, monkeypatch: object
+) -> None:
+    from types import SimpleNamespace
+
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    calls = []
+
+    def invoke(*args: object, **kwargs: object) -> object:
+        calls.append((args, kwargs))
+        return [
+            SimpleNamespace(result='{"assistant_prompt":"Public '),
+            SimpleNamespace(result='prompt","complete":true}'),
+        ]
+
+    monkeypatch.setattr(module, "invoke_llm", invoke)
+    document = (
+        "How do you work?\n```\nverbatim source\n```\n?[...Answer without a variable]"
+        "\n\n?[%{{sys_user_nickname}}...我可以怎样称呼你？]"
+        "\n\n?[ 我不告诉你 | ...你的专业、职业是什么？ ]"
+    )
+    assert (
+        module.compile_profile_onboarding_assistant_prompt(app, document)
+        == "Public prompt"
+    )
+    args, kwargs = calls[0]
+    assert json.loads(args[4]) == {"markdownflow": document}
+    assert args[1] == ""
+    assert kwargs["json"] is True
+    assert "output_language" not in kwargs
+    assert "without bound variables" in kwargs["system"]
+    assert 'begin exactly\nwith "请根据你对我的了解"' in kwargs["system"]
+    assert "Rewrite every extracted question in the first person" in kwargs["system"]
+    assert "for other languages, use the equivalent" in kwargs["system"]
+    assert "?[] interactions is displayed directly to the learner" in kwargs["system"]
+    assert 'so ask "我希望被怎样称呼？"' in kwargs["system"]
+    assert '"我不告诉你" already uses the learner\'s "我"' in kwargs["system"]
+
+
+@pytest.mark.parametrize(
+    "existing_document", ["", "?[...Answer]", "?[...Old question]"]
+)
+def test_explicit_assistant_prompt_bypasses_compilation_after_validation(
+    app: object, monkeypatch: object, existing_document: str
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    current = json.dumps(
+        {
+            "markdownflow": existing_document,
+            "assistant_prompt": "Old prompt",
+            "revision": 8,
+        }
+    )
+    compiler = Mock()
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+    result = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "  My edited prompt.\nKeep this line.  ",
+        },
+        operator_user_bid="operator",
+    )
+    compiler.assert_not_called()
+    assert result["assistant_prompt"] == "My edited prompt.\nKeep this line."
+    assert result["config_revision"] == 9
+    assert writes[0][0]["assistant_prompt"] == result["assistant_prompt"]
+    assert writes[0][1]["expected_value"] == current
+
+
+@pytest.mark.parametrize("explicit_prompt", ["", " \n\t "])
+def test_clearing_assistant_prompt_regenerates_unchanged_markdownflow(
+    app: object, monkeypatch: object, explicit_prompt: str
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    current = json.dumps(
+        {
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "Manual wording",
+            "revision": 8,
+        }
+    )
+    compiler = Mock(return_value="Regenerated wording")
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda *_args, **_kwargs: False,
+    )
+    result = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": explicit_prompt,
+        },
+        operator_user_bid="operator",
+    )
+    compiler.assert_called_once_with(app, "?[...Answer]")
+    assert result["assistant_prompt"] == "Regenerated wording"
+
+
+def test_manual_assistant_prompt_obeys_complete_utf8_json_limit(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    monkeypatch.setattr(module, "_now_iso", lambda: "2026-08-26T00:00:00Z")
+    monkeypatch.setattr(module, "read_profile_onboarding_database", lambda _app: None)
+    compiler = Mock()
+    publisher = Mock(return_value=False)
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(module, "publish_profile_onboarding_database", publisher)
+    base = module.build_profile_onboarding_config_payload(
+        enabled=False, markdownflow="?[...Answer]", revision=1, updated_by="operator"
+    )
+    remaining = module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES - len(
+        json.dumps(base, ensure_ascii=False).encode("utf-8")
+    )
+    prompt = "测" * (remaining // 3) + "x" * (remaining % 3)
+    payload = {
+        "enabled": False,
+        "markdownflow": "?[...Answer]",
+        "assistant_prompt": prompt,
+    }
+    response = module.update_profile_onboarding_config(
+        app, payload=payload, operator_user_bid="operator"
+    )
+    assert response["assistant_prompt"] == prompt
+    assert (
+        len(publisher.call_args.kwargs["value"].encode("utf-8"))
+        == module.PROFILE_ONBOARDING_CONFIG_MAX_UTF8_BYTES
+    )
+    with pytest.raises(AppError, match="profile_onboarding_config"):
+        module.update_profile_onboarding_config(
+            app,
+            payload={**payload, "assistant_prompt": prompt + "测"},
+            operator_user_bid="operator",
+        )
+    publisher.assert_called_once()
+    compiler.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "is_truncated", "tail"),
+    [
+        ("length", False, 'prompt","complete":true}'),
+        ("stop", True, 'prompt","complete":true}'),
+        (None, False, "prompt"),
+        (None, False, 'prompt","complete":tr'),
+    ],
+)
+def test_compiler_rejects_nonempty_truncated_output_without_publishing(
+    app: object,
+    monkeypatch: object,
+    finish_reason: str | None,
+    is_truncated: bool,
+    tail: str,
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.common import profile_onboarding as config
+    from flaskr.service.common import profile_onboarding_prompt as compiler
+
+    previous = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": "?[...Previous question]",
+            "assistant_prompt": "Previously published prompt",
+            "revision": 7,
+        }
+    )
+    stream_finished = []
+
+    def invoke(*_args: object, **_kwargs: object) -> object:
+        yield LLMStreamResponse(
+            response_id="part-1",
+            is_end=False,
+            is_truncated=False,
+            result='{"assistant_prompt":"Incomplete ',
+            finish_reason=None,
+            usage=None,
+        )
+        yield LLMStreamResponse(
+            response_id="part-2",
+            is_end=bool(finish_reason),
+            is_truncated=is_truncated,
+            result=tail,
+            finish_reason=finish_reason,
+            usage=None,
+        )
+        stream_finished.append(True)
+
+    publisher = Mock()
+    monkeypatch.setattr(compiler, "invoke_llm", invoke)
+    monkeypatch.setattr(
+        config,
+        "compile_profile_onboarding_assistant_prompt",
+        compiler.compile_profile_onboarding_assistant_prompt,
+    )
+    monkeypatch.setattr(
+        config, "read_profile_onboarding_database", lambda _app: previous
+    )
+    monkeypatch.setattr(config, "publish_profile_onboarding_database", publisher)
+    payload = {"enabled": True, "markdownflow": "?[...New question]"}
+    with pytest.raises(AppError):
+        config.update_profile_onboarding_config(
+            app, payload=payload, operator_user_bid="operator"
+        )
+    publisher.assert_not_called()
+    assert config.read_profile_onboarding_database(app) == previous
+    assert payload == {"enabled": True, "markdownflow": "?[...New question]"}
+    assert stream_finished == [True]
+
+
+@pytest.mark.parametrize("finish_reason", [None, "stop"])
+def test_compiler_accepts_nontruncated_shared_wrapper_chunks(
+    app: object, monkeypatch: object, finish_reason: str | None
+) -> None:
+    from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    monkeypatch.setattr(
+        module,
+        "invoke_llm",
+        lambda *_args, **_kwargs: [
+            LLMStreamResponse(
+                response_id="part-1",
+                is_end=False,
+                is_truncated=False,
+                result='{"assistant_prompt":" Complete',
+                finish_reason=None,
+                usage=None,
+            ),
+            LLMStreamResponse(
+                response_id="part-2",
+                is_end=bool(finish_reason),
+                is_truncated=False,
+                result=' prompt ","complete":true}',
+                finish_reason=finish_reason,
+                usage=None,
+            ),
+        ],
+    )
+    assert (
+        module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
+        == "Complete prompt"
+    )
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "[]",
+        '{"assistant_prompt":"Prompt"}',
+        '{"assistant_prompt":"Prompt","complete":false}',
+        '{"assistant_prompt":"Prompt","complete":1}',
+        '{"assistant_prompt":null,"complete":true}',
+        '{"assistant_prompt":" ","complete":true}',
+        '{"assistant_prompt":"Prompt","complete":true,"extra":"ignored"}',
+        "A plain-text response without the required completion envelope.",
+    ],
+)
+def test_compiler_rejects_missing_or_invalid_completion_envelope(
+    app: object, monkeypatch: object, output: str
+) -> None:
+    from types import SimpleNamespace
+
+    from flaskr.service.common import profile_onboarding_prompt as module
+
+    monkeypatch.setattr(
+        module, "invoke_llm", lambda *_args, **_kwargs: [SimpleNamespace(result=output)]
+    )
+    with pytest.raises(AppError):
+        module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")

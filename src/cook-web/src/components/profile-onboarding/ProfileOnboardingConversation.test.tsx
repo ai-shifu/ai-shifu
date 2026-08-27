@@ -11,7 +11,9 @@ import ProfileOnboardingConversation, {
   isProfileOnboardingSubmissionWithinLimits,
   resolveProfileDraftFromRunEvent,
   resolveProfileNicknameFromRunEvent,
+  type ProfileOnboardingRunSession,
 } from './ProfileOnboardingConversation';
+import type { ProfileOnboardingAssistantAnswers } from './profileOnboardingConversationModel';
 
 const ANSWER_GUIDED_QUESTION_LABEL = 'answer guided question';
 const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
@@ -39,27 +41,38 @@ jest.mock('markdown-flow-ui/renderer', () => ({
       userInput?: string;
     }>;
     onSend: (value: OnSendContentParams) => void;
-  }) => (
-    <div>
-      {initialContentList.map((item, index) => (
-        <div key={`${item.content}-${index}`}>
-          <span>{item.content}</span>
-          {item.userInput ? <span>{item.userInput}</span> : null}
-        </div>
-      ))}
-      {initialContentList.some(item => !item.isFinished) ? (
-        <button
-          type='button'
-          disabled={initialContentList.some(
-            item => !item.isFinished && item.readonly,
-          )}
-          onClick={() => onSend(mockRendererSubmission)}
-        >
-          {ANSWER_GUIDED_QUESTION_LABEL}
-        </button>
-      ) : null}
-    </div>
-  ),
+  }) => {
+    // Match the library's inline custom-variable renderer: an unnecessary
+    // MarkdownFlow re-render remounts the input and loses unsent local state.
+    const UnsentAnswer = () => (
+      <input
+        aria-label='unsent question answer'
+        defaultValue=''
+      />
+    );
+    return (
+      <div>
+        <UnsentAnswer />
+        {initialContentList.map((item, index) => (
+          <div key={`${item.content}-${index}`}>
+            <span>{item.content}</span>
+            {item.userInput ? <span>{item.userInput}</span> : null}
+          </div>
+        ))}
+        {initialContentList.some(item => !item.isFinished) ? (
+          <button
+            type='button'
+            disabled={initialContentList.some(
+              item => !item.isFinished && item.readonly,
+            )}
+            onClick={() => onSend(mockRendererSubmission)}
+          >
+            {ANSWER_GUIDED_QUESTION_LABEL}
+          </button>
+        ) : null}
+      </div>
+    );
+  },
 }));
 
 describe('ProfileOnboardingConversation', () => {
@@ -293,7 +306,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(screen.getByText('Explain with examples')).toBeInTheDocument();
   });
 
-  test('keeps an interaction read-only until its terminal done cursor arrives', async () => {
+  test('waits without progress indicators and keeps input read-only until its cursor arrives', async () => {
     let firstOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onRunInFlightChange = jest.fn();
     const runSession = jest.fn(({ onMessage }) => {
@@ -301,7 +314,7 @@ describe('ProfileOnboardingConversation', () => {
       return { close: jest.fn() };
     });
 
-    render(
+    const { container } = render(
       <ProfileOnboardingConversation
         createSession={async () => ({ session_id: 'session-terminal-race' })}
         runSession={runSession}
@@ -310,8 +323,27 @@ describe('ProfileOnboardingConversation', () => {
         onError={jest.fn()}
       />,
     );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
     expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
+
+    act(() => {
+      firstOnMessage?.({
+        type: 'element',
+        content: {
+          element_bid: 'welcome-before-interaction',
+          element_type: 'content',
+          content: 'Let us get to know you.',
+        },
+      });
+    });
+    expect(screen.getByText('Let us get to know you.')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('.profile-onboarding-markdownflow'),
+    ).toHaveAttribute('aria-busy', 'true');
 
     act(() => {
       firstOnMessage?.({
@@ -352,7 +384,7 @@ describe('ProfileOnboardingConversation', () => {
     );
   });
 
-  test('keeps progress visible after the final response until the profile draft is ready', async () => {
+  test('waits without progress indicators after the final response until the draft is ready', async () => {
     let finalOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onDraftReady = jest.fn();
     const runSession = jest
@@ -380,7 +412,7 @@ describe('ProfileOnboardingConversation', () => {
         return { close: jest.fn() };
       });
 
-    render(
+    const { container } = render(
       <ProfileOnboardingConversation
         createSession={async () => ({ session_id: 'session-final-progress' })}
         runSession={runSession}
@@ -407,9 +439,11 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
 
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'module.profileOnboarding.guided.thinking',
-    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('.profile-onboarding-markdownflow'),
+    ).toHaveAttribute('aria-busy', 'true');
     expect(onDraftReady).not.toHaveBeenCalled();
 
     act(() => {
@@ -1324,5 +1358,759 @@ describe('ProfileOnboardingConversation', () => {
       expect(createSession).toHaveBeenCalledTimes(1);
       expect(firstRunSession).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('assistant answers in the existing session', () => {
+  const begin = async (
+    assistantPrompt = 'Shared research questions',
+    questionPending = false,
+    profileDraftBlockIndex = 9,
+  ) => {
+    const createSession = jest.fn(async () => ({
+      session_id: 'shared-session',
+      assistant_prompt: assistantPrompt,
+      profile_draft_block_index: profileDraftBlockIndex,
+    }));
+    const runSession = jest.fn(
+      ({ onMessage }: Parameters<ProfileOnboardingRunSession>[0]) => {
+        if (questionPending) return { close: jest.fn() };
+        onMessage({
+          event_type: 'interaction',
+          content: 'Question one',
+          generated_block_bid: 'one',
+        });
+        onMessage({
+          event_type: 'done',
+          is_terminal: true,
+          content: { done: false, next_block_index: 2 },
+        });
+        return { close: jest.fn() };
+      },
+    );
+    const assistantAnswers = jest.fn<
+      ReturnType<ProfileOnboardingAssistantAnswers>,
+      Parameters<ProfileOnboardingAssistantAnswers>
+    >(() => ({ close: jest.fn() }));
+    const onAssistantDraftReady = jest.fn();
+    const onDraftReady = jest.fn();
+    const onError = jest.fn();
+    const renderConversation = (
+      draft = 'External answer',
+      disabled = false,
+    ) => (
+      <ProfileOnboardingConversation
+        createSession={createSession}
+        runSession={runSession}
+        assistantAnswers={assistantAnswers}
+        assistantDraft={draft}
+        onAssistantDraftChange={jest.fn()}
+        onAssistantDraftReady={onAssistantDraftReady}
+        onDraftReady={onDraftReady}
+        onError={onError}
+        disabled={disabled}
+      />
+    );
+    const result = render(renderConversation());
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
+    return {
+      ...result,
+      createSession,
+      runSession,
+      assistantAnswers,
+      onAssistantDraftReady,
+      onDraftReady,
+      onError,
+      renderConversation,
+    };
+  };
+  const enter = () =>
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      }),
+    );
+  const process = () =>
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    );
+
+  test('offers copying before the first question and keeps its stream alive when returning', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const result = await begin('Shared research questions', true);
+    const entry = screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.entry',
+    });
+    expect(entry).toBeEnabled();
+    expect(
+      screen.getByTestId('profile-onboarding-conversation'),
+    ).toHaveAttribute('aria-busy', 'false');
+    expect(screen.queryByText('Question one')).not.toBeInTheDocument();
+    expect(entry.parentElement).toContainElement(
+      screen.getByLabelText('unsent question answer'),
+    );
+    expect(entry.closest('[aria-busy="true"]')).toBeNull();
+    enter();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.assistant.copy',
+        }),
+      );
+    });
+    expect(writeText).toHaveBeenCalledWith('Shared research questions');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByText(
+        'module.profileOnboarding.assistant.waitingForQuestion',
+      ),
+    ).not.toBeInTheDocument();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      }),
+    ).toHaveFocus();
+    expect(
+      result.runSession.mock.results[0].value.close,
+    ).not.toHaveBeenCalled();
+    enter();
+    act(() => {
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'interaction',
+        content: 'Question one',
+        generated_block_bid: 'one',
+      });
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 2 },
+      });
+    });
+    expect(screen.getByText('Question one')).not.toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeEnabled();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    process();
+    expect(result.assistantAnswers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'shared-session',
+        expectedBlockIndex: 2,
+        rawText: 'External answer',
+      }),
+    );
+    expect(result.createSession).toHaveBeenCalledTimes(1);
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('accepts one early click and imports at the first content-only boundary', async () => {
+    const result = await begin('Shared research questions', true);
+    const first = result.runSession.mock.calls[0][0];
+    enter();
+    process();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.processing',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    ).toBeDisabled();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    expect(
+      result.runSession.mock.results[0].value.close,
+    ).not.toHaveBeenCalled();
+    result.rerender(result.renderConversation('Changed after the click'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.processing',
+      }),
+    );
+    await act(async () => {
+      first.onMessage({ event_type: 'content', content: 'Welcome' });
+      first.onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      });
+    });
+    expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
+    expect(result.assistantAnswers.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        sessionId: 'shared-session',
+        expectedBlockIndex: 1,
+        rawText: 'External answer',
+        requestId: expect.stringContaining('profile-onboarding-assistant-'),
+      }),
+    );
+    act(() => {
+      first.onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 8 },
+      });
+      result.assistantAnswers.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: true, profile_draft: 'Imported profile' },
+      });
+    });
+    expect(result.onAssistantDraftReady).toHaveBeenCalledWith(
+      'Imported profile',
+      'shared-session',
+      undefined,
+    );
+    expect(result.onDraftReady).not.toHaveBeenCalled();
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+    expect(result.createSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('replays an uncertain ordinary request before handing off the accepted paste', async () => {
+    const result = await begin('Shared research questions', true);
+    const first = result.runSession.mock.calls[0][0];
+    enter();
+    process();
+    act(() => first.onError(new Error('Disconnected')));
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeDisabled();
+    result.rerender(result.renderConversation('Do not use this new body'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    const replay = result.runSession.mock.calls[1][0];
+    expect(replay).toEqual(
+      expect.objectContaining({
+        requestId: first.requestId,
+        expectedBlockIndex: first.expectedBlockIndex,
+        userInput: first.userInput,
+      }),
+    );
+    await act(async () =>
+      replay.onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      }),
+    );
+    expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
+    expect(result.assistantAnswers.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        expectedBlockIndex: 1,
+        rawText: 'External answer',
+      }),
+    );
+    expect(result.runSession).toHaveBeenCalledTimes(2);
+  });
+
+  test('finishes an in-flight manual answer before importing at its committed cursor', async () => {
+    const result = await begin();
+    result.runSession.mockImplementationOnce(() => ({ close: jest.fn() }));
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    const manual = result.runSession.mock.calls[1][0];
+    expect(manual.userInput).toEqual({ profile_goal: ['学会 AI'] });
+    enter();
+    process();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    await act(async () =>
+      manual.onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 3 },
+      }),
+    );
+    expect(result.assistantAnswers.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        expectedBlockIndex: 3,
+        rawText: 'External answer',
+      }),
+    );
+    expect(result.runSession).toHaveBeenCalledTimes(2);
+  });
+
+  test('an import click wins over an already scheduled ordinary continuation', async () => {
+    const result = await begin('Shared research questions', true);
+    enter();
+    await act(async () => {
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      });
+      process();
+    });
+    expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.processing',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeDisabled();
+  });
+
+  test('holds a confirmed handoff while externally disabled and resumes it once', async () => {
+    const result = await begin('Shared research questions', true);
+    enter();
+    process();
+    result.rerender(result.renderConversation('External answer', true));
+    await act(async () =>
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      }),
+    );
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+    result.rerender(result.renderConversation());
+    expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns from a rejected early import by generating the next question in the same session', async () => {
+    const result = await begin('Shared research questions', true);
+    enter();
+    process();
+    await act(async () =>
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      }),
+    );
+    act(() =>
+      result.assistantAnswers.mock.calls[0][0].onMessage({
+        event_type: 'error',
+        content: 'transient_markdownflow_invalid',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(result.runSession).toHaveBeenCalledTimes(2);
+    expect(result.runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        sessionId: 'shared-session',
+        expectedBlockIndex: 1,
+        userInput: undefined,
+      }),
+    );
+    expect(result.createSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('a queued import takes the final-summary cursor before ordinary finalization starts', async () => {
+    const result = await begin('Shared research questions', true, 1);
+    enter();
+    process();
+    await act(async () =>
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      }),
+    );
+    expect(result.assistantAnswers.mock.calls[0][0].expectedBlockIndex).toBe(1);
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['unmount', 'fatal', 'expired'] as const)(
+    '%s discards a queued handoff instead of importing into another session',
+    async ending => {
+      const result = await begin('Shared research questions', true);
+      const first = result.runSession.mock.calls[0][0];
+      enter();
+      process();
+      if (ending === 'unmount') {
+        result.unmount();
+      } else {
+        act(() =>
+          first.onMessage({
+            event_type: 'error',
+            content:
+              ending === 'fatal'
+                ? 'transient_markdownflow_invalid'
+                : 'transient_markdownflow_session_not_found',
+          }),
+        );
+        if (ending === 'expired') {
+          fireEvent.click(
+            screen.getByRole('button', {
+              name: 'module.profileOnboarding.guided.retry',
+            }),
+          );
+          await waitFor(() =>
+            expect(result.createSession).toHaveBeenCalledTimes(2),
+          );
+        }
+      }
+      await act(async () =>
+        first.onMessage({
+          event_type: 'done',
+          is_terminal: true,
+          content: { done: false, next_block_index: 1 },
+        }),
+      );
+      expect(result.assistantAnswers).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not offer a new import once the ordinary final summary is running', async () => {
+    const result = await begin('Shared research questions', true, 1);
+    await act(async () =>
+      result.runSession.mock.calls[0][0].onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 1 },
+      }),
+    );
+    expect(result.runSession).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      }),
+    ).not.toBeInTheDocument();
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+  });
+
+  test('requires replay of a disconnected initial run before importing early answers', async () => {
+    const result = await begin('Shared research questions', true);
+    enter();
+    // The transport reports an uncertain outcome, so the cursor is not usable yet.
+    act(() => {
+      result.runSession.mock.calls[0][0].onError(new Error('Disconnected'));
+    });
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    expect(result.runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        requestId: result.runSession.mock.calls[0][0].requestId,
+        expectedBlockIndex: 0,
+      }),
+    );
+    expect(result.assistantAnswers).not.toHaveBeenCalled();
+  });
+
+  test('hides the entry for sessions without a frozen public prompt', async () => {
+    await begin('');
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('hides the assistant entry on mobile and reserves clearance only on larger screens', async () => {
+    const result = await begin();
+    const entry = screen.getByRole('button', {
+      name: 'module.profileOnboarding.assistant.entry',
+    });
+    const markdownFlow = result.container.querySelector(
+      '.profile-onboarding-markdownflow',
+    );
+
+    expect(entry).toHaveClass('hidden', 'sm:inline-flex');
+    expect(markdownFlow).toHaveClass('sm:scroll-pb-20', 'sm:pb-20');
+    expect(markdownFlow).not.toHaveClass('scroll-pb-20', 'pb-20');
+  });
+
+  test.each(['assistantDraft', 'onAssistantDraftChange'] as const)(
+    'requires %s before offering the controlled assistant input',
+    async missingProp => {
+      const result = await begin();
+      result.rerender(
+        React.cloneElement(result.renderConversation(), {
+          [missingProp]: undefined,
+        }),
+      );
+      expect(
+        screen.queryByRole('button', {
+          name: 'module.profileOnboarding.assistant.entry',
+        }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Question one')).toBeVisible();
+      result.rerender(result.renderConversation());
+      enter();
+      expect(
+        screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+      ).toHaveValue('External answer');
+      expect(result.createSession).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('focuses the assistant introduction on entry and restores the entry on return without stealing initial focus', async () => {
+    const priorFocus = document.createElement('button');
+    document.body.appendChild(priorFocus);
+    priorFocus.focus();
+    try {
+      await begin();
+      expect(priorFocus).toHaveFocus();
+      const entry = screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.entry',
+      });
+      entry.focus();
+      enter();
+      expect(
+        screen.getByRole('heading', {
+          name: 'module.profileOnboarding.assistant.title',
+        }),
+      ).toHaveFocus();
+      expect(
+        screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+      ).not.toHaveFocus();
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.assistant.back',
+        }),
+      );
+      expect(
+        screen.getByRole('button', {
+          name: 'module.profileOnboarding.assistant.entry',
+        }),
+      ).toHaveFocus();
+      enter();
+      expect(
+        screen.getByRole('heading', {
+          name: 'module.profileOnboarding.assistant.title',
+        }),
+      ).toHaveFocus();
+    } finally {
+      priorFocus.remove();
+    }
+  });
+
+  test('keeps the original renderer mounted when switching views and accepts nickname-only completion', async () => {
+    const result = await begin();
+    const question = screen.getByText('Question one');
+    fireEvent.change(screen.getByLabelText('unsent question answer'), {
+      target: { value: 'Unsubmitted answer' },
+    });
+    enter();
+    expect(question).toBeInTheDocument();
+    expect(question).not.toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(screen.getByText('Question one')).toBe(question);
+    expect(question).toBeVisible();
+    expect(screen.getByLabelText('unsent question answer')).toHaveValue(
+      'Unsubmitted answer',
+    );
+    enter();
+    process();
+    expect(result.assistantAnswers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'shared-session',
+        expectedBlockIndex: 2,
+        rawText: 'External answer',
+      }),
+    );
+    const request = (
+      result.assistantAnswers.mock.calls[0] as unknown as [
+        { onMessage: (event: unknown) => void },
+      ]
+    )[0];
+    act(() =>
+      request.onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: {
+          done: true,
+          profile_draft: '',
+          nickname: 'Robin',
+          next_block_index: 9,
+        },
+      }),
+    );
+    expect(result.onAssistantDraftReady).toHaveBeenCalledWith(
+      '',
+      'shared-session',
+      'Robin',
+    );
+    expect(result.onDraftReady).not.toHaveBeenCalled();
+    expect(result.createSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('replays a disconnected delegate with the same operation, body and request ID before permitting manual answers', async () => {
+    const result = await begin();
+    enter();
+    process();
+    const first = (
+      result.assistantAnswers.mock.calls[0] as unknown as [
+        {
+          onError: () => void;
+          onMessage: (event: unknown) => void;
+          requestId: string;
+          rawText: string;
+        },
+      ]
+    )[0];
+    act(() => first.onError());
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeDisabled();
+    result.rerender(result.renderConversation('A changed draft'));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    const replay = (
+      result.assistantAnswers.mock.calls[1] as unknown as [typeof first]
+    )[0];
+    expect(replay.requestId).toBe(first.requestId);
+    expect(replay.rawText).toBe('External answer');
+    expect(result.runSession).toHaveBeenCalledTimes(1);
+    act(() =>
+      replay.onMessage({
+        event_type: 'error',
+        content: 'transient_markdownflow_session_busy',
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    const finalReplay = (
+      result.assistantAnswers.mock.calls[2] as unknown as [typeof first]
+    )[0];
+    expect(finalReplay.requestId).toBe(first.requestId);
+    expect(finalReplay.rawText).toBe('External answer');
+
+    act(() =>
+      finalReplay.onMessage({
+        event_type: 'done',
+        is_terminal: true,
+        content: { done: true, profile_draft: 'Verified profile' },
+      }),
+    );
+    expect(result.onAssistantDraftReady).toHaveBeenCalledTimes(1);
+  });
+
+  test('recovers from actual delegate validation errors without advancing or restarting the session', async () => {
+    const result = await begin();
+    fireEvent.change(screen.getByLabelText('unsent question answer'), {
+      target: { value: 'Keep this after an import failure' },
+    });
+    enter();
+    process();
+    const first = (
+      result.assistantAnswers.mock.calls[0] as unknown as [
+        { onMessage: (event: unknown) => void; requestId: string },
+      ]
+    )[0];
+    act(() =>
+      first.onMessage({
+        event_type: 'error',
+        content: 'transient_markdownflow_invalid',
+      }),
+    );
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toHaveValue('External answer');
+    expect(
+      screen.getByLabelText('module.profileOnboarding.assistant.resultLabel'),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.process',
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    ).toBeEnabled();
+    expect(result.onAssistantDraftReady).not.toHaveBeenCalled();
+    result.rerender(result.renderConversation('A useful answer'));
+    process();
+    const corrected = (
+      result.assistantAnswers.mock.calls[1] as unknown as [
+        {
+          expectedBlockIndex: number;
+          requestId: string;
+          onMessage: (event: unknown) => void;
+        },
+      ]
+    )[0];
+    expect(corrected.expectedBlockIndex).toBe(2);
+    expect(corrected.requestId).not.toBe(first.requestId);
+    act(() =>
+      corrected.onMessage({
+        event_type: 'error',
+        content: 'transient_markdownflow_invalid',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.assistant.back',
+      }),
+    );
+    expect(screen.getByLabelText('unsent question answer')).toHaveValue(
+      'Keep this after an import failure',
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    expect(result.runSession).toHaveBeenCalledTimes(2);
+    expect(result.runSession.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ expectedBlockIndex: 2 }),
+    );
+    expect(result.createSession).toHaveBeenCalledTimes(1);
   });
 });
