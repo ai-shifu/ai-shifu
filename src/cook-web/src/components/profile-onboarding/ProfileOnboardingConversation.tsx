@@ -197,9 +197,10 @@ export default function ProfileOnboardingConversation({
     const visibleItems: typeof contentList = [];
     for (const item of contentList) {
       visibleItems.push(item);
+      const cacheEntry = typewriterCache[item.elementBid];
       if (
         item.elementType === 'text' &&
-        !typewriterCache[item.elementBid]?.isFinished
+        (!cacheEntry?.isFinished || cacheEntry.content !== item.content)
       ) {
         break;
       }

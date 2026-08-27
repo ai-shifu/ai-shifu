@@ -23,6 +23,7 @@ const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
 let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 let mockAutoFinishTypewriter = true;
 let mockLatestTypeFinished: (() => void) | undefined;
+let mockRenderedContents: string[] = [];
 
 type MockScrollControlProps = {
   ariaLabel: string;
@@ -73,6 +74,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     typingSpeed?: number;
     onTypeFinished?: () => void;
   }) => {
+    mockRenderedContents.push(content);
     React.useEffect(() => {
       mockLatestTypeFinished = onTypeFinished;
       if (mockAutoFinishTypewriter) onTypeFinished?.();
@@ -124,6 +126,7 @@ describe('ProfileOnboardingConversation', () => {
     mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
     mockAutoFinishTypewriter = true;
     mockLatestTypeFinished = undefined;
+    mockRenderedContents = [];
     mockScrollToBottomControl.mockClear();
   });
 
@@ -823,6 +826,71 @@ describe('ProfileOnboardingConversation', () => {
 
     await screen.findByText('?[%{{goal}}...Then answer]');
     expect(getLatestScrollControlProps().contentVersion).toBe(2);
+  });
+
+  test('hides later questions immediately when finished text content changes', async () => {
+    mockAutoFinishTypewriter = false;
+    let emitMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'] =
+      () => undefined;
+    const runSession = jest.fn(({ onMessage }) => {
+      emitMessage = onMessage;
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'changing-guidance',
+            element_type: 'text',
+            content: 'Initial guidance',
+          },
+        });
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'later-question',
+            element_type: 'interaction',
+            content: '?[%{{goal}}...Later question]',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-content-change' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('Initial guidance');
+    expect(screen.queryByText('?[%{{goal}}...Later question]')).toBeNull();
+
+    act(() => mockLatestTypeFinished?.());
+    await screen.findByText('?[%{{goal}}...Later question]');
+    const questionRenderCount = mockRenderedContents.filter(
+      content => content === '?[%{{goal}}...Later question]',
+    ).length;
+
+    act(() => {
+      emitMessage({
+        type: 'element',
+        content: {
+          element_bid: 'changing-guidance',
+          element_type: 'text',
+          content: 'Updated guidance',
+        },
+      });
+    });
+
+    await screen.findByText('Updated guidance');
+    expect(screen.queryByText('?[%{{goal}}...Later question]')).toBeNull();
+    expect(
+      mockRenderedContents.filter(
+        content => content === '?[%{{goal}}...Later question]',
+      ),
+    ).toHaveLength(questionRenderCount);
   });
 
   test('submits without ES2023 array methods and returns the server profile draft', async () => {
