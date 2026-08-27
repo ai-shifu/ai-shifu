@@ -35,7 +35,10 @@ def test_rate_limit_detector(message: object, expected: object) -> None:
 
 
 def _run_retry(
-    monkeypatch: object, outcomes: object, segment_index: object = 0
+    monkeypatch: object,
+    outcomes: object,
+    segment_index: object = 0,
+    tts_provider: object = "tencent_texttovoice",
 ) -> object:
     calls = []
     sleeps = []
@@ -56,7 +59,7 @@ def _run_retry(
         text="hello",
         voice_settings=None,
         audio_settings=None,
-        tts_provider="tencent_texttovoice",
+        tts_provider=tts_provider,
         tts_model="large-model",
         segment_index=segment_index,
     )
@@ -110,3 +113,16 @@ def test_non_retryable_error_still_raises_immediately(monkeypatch: object) -> No
             monkeypatch,
             [ValueError("Tencent TextToVoice error AuthFailure: bad secret")],
         )
+
+
+def test_elevenlabs_http_429_uses_shared_retry(monkeypatch: object) -> None:
+    success = types.SimpleNamespace(audio_data=b"ok")
+    result, calls, sleeps = _run_retry(
+        monkeypatch,
+        [ValueError("ElevenLabs TTS HTTP 429 rate limit"), success],
+        tts_provider="elevenlabs",
+    )
+
+    assert result is success
+    assert len(calls) == 2
+    assert len(sleeps) == 1

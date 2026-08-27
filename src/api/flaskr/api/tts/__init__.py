@@ -7,6 +7,7 @@ This module provides integration with multiple Text-to-Speech providers:
 - Aliyun (NLS RESTful TTS API)
 - Tencent (TRTC conversational SSE API)
 - Tencent TextToVoice (standard Tencent Cloud TTS API)
+- ElevenLabs (create-speech REST API)
 
 The provider can be selected per-Shifu configuration.
 """
@@ -39,6 +40,7 @@ from flaskr.api.tts.base import (
 from flaskr.api.tts.base import (
     VoiceSettings as VoiceSettings,
 )
+from flaskr.api.tts.elevenlabs_provider import ElevenLabsTTSProvider
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.api.tts.tencent_provider import TencentTTSProvider
 from flaskr.api.tts.tencent_texttovoice_provider import TencentTextToVoiceProvider
@@ -64,6 +66,7 @@ _PROVIDER_REGISTRY = {
     "aliyun": AliyunTTSProvider,
     "tencent": TencentTTSProvider,
     "tencent_texttovoice": TencentTextToVoiceProvider,
+    "elevenlabs": ElevenLabsTTSProvider,
 }
 _PROVIDER_PRIORITY = (
     "minimax",
@@ -73,6 +76,7 @@ _PROVIDER_PRIORITY = (
     "aliyun",
     "tencent",
     "tencent_texttovoice",
+    "elevenlabs",
 )
 _AUTO_DETECT_PROVIDER_PRIORITY = (
     "minimax",
@@ -81,6 +85,8 @@ _AUTO_DETECT_PROVIDER_PRIORITY = (
     "baidu",
     "aliyun",
 )
+_CONFIG_REQUIRES_CONFIGURED_PROVIDER = {"elevenlabs"}
+_CONFIG_REQUIRES_ALLOWED_MODEL = {"elevenlabs"}
 
 # Provider instances (lazy initialized)
 _provider_instances: dict = {}
@@ -530,11 +536,23 @@ def get_all_provider_configs() -> dict:
     """
     providers = []
     provider_payloads: list[tuple[str, dict]] = []
+    allowed_model_keys = set(_parse_allowed_tts_model_keys())
 
     # Get config from each provider
     for name, provider_cls in _iter_provider_classes():
         try:
             provider = provider_cls()
+            if (
+                name in _CONFIG_REQUIRES_CONFIGURED_PROVIDER
+                and not provider.is_configured()
+            ):
+                continue
+            if (
+                name in _CONFIG_REQUIRES_ALLOWED_MODEL
+                and allowed_model_keys
+                and not any(key.startswith(f"{name}/") for key in allowed_model_keys)
+            ):
+                continue
             payload = provider.get_provider_config().to_dict()
             providers.append(payload)
             provider_payloads.append((name, payload))
