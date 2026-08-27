@@ -549,13 +549,16 @@ def get_all_provider_configs() -> dict:
                 continue
             payload = provider.get_provider_config().to_dict()
             if name in _CONFIG_REQUIRES_ALLOWED_MODEL and allowed_model_keys:
-                available_model_keys = {
-                    _normalize_tts_model_key(name, str(item.get("value") or ""))
+                allowed_models = [
+                    item
                     for item in payload.get("models") or []
-                    if isinstance(item, dict) and str(item.get("value") or "").strip()
-                }
-                if not allowed_model_keys.intersection(available_model_keys):
+                    if isinstance(item, dict)
+                    and _normalize_tts_model_key(name, str(item.get("value") or ""))
+                    in allowed_model_keys
+                ]
+                if not allowed_models:
                     continue
+                payload["models"] = allowed_models
             providers.append(payload)
             provider_payloads.append((name, payload))
         except Exception as e:
