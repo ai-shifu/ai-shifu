@@ -1877,6 +1877,7 @@ describe('assistant answers in the existing session', () => {
     );
 
     expect(entry).toHaveClass('hidden', 'sm:inline-flex');
+    expect(entry).toHaveClass('max-w-[calc(50%-2.75rem)]');
     expect(markdownFlow).toHaveClass('sm:scroll-pb-20', 'sm:pb-20');
     expect(markdownFlow).not.toHaveClass('scroll-pb-20', 'pb-20');
   });

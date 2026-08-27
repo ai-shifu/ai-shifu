@@ -193,7 +193,7 @@ export default function ProfileOnboardingConversation({
           <Button
             ref={assistantEntryRef}
             type='button'
-            className='absolute bottom-3 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(100%-1.5rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg sm:inline-flex'
+            className='absolute bottom-3 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(50%-2.75rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg sm:inline-flex'
             disabled={disabled}
             onClick={() => setAssistantVisible(true)}
           >
