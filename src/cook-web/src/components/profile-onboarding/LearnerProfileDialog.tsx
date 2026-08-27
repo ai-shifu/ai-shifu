@@ -134,7 +134,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           aria-hidden='true'
         />
 
-        <header className='relative shrink-0 border-b bg-background px-5 pb-4 pt-5 [@media(max-height:620px)]:py-3 sm:px-8 sm:pb-5 sm:pt-6'>
+        <header className='relative z-10 shrink-0 border-b bg-background/95 px-5 pb-4 pt-5 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm [@media(max-height:620px)]:py-3 sm:px-8 sm:pb-5 sm:pt-6'>
           <DialogHeader className='w-full space-y-2 pr-12 text-left [@media(max-height:620px)]:space-y-1'>
             <DialogTitle className='text-2xl font-bold leading-8 tracking-tight [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7 sm:text-[28px] sm:leading-9'>
               {t('module.profileOnboarding.dialog.unifiedTitle')}
@@ -249,7 +249,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
 
         <footer
           data-testid='learner-profile-dialog-footer'
-          className='relative z-10 flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)] sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
+          className='relative z-10 flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
         >
           {confirmation ? (
             <>
