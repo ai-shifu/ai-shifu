@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -130,10 +131,18 @@ def summarize_campaign_provider_discounts(
     """Return provider discount counts by campaign for list pages."""
     if not campaign_bids:
         return {}
-    rows = BillingCampaignProviderDiscount.query.filter(
-        BillingCampaignProviderDiscount.deleted == 0,
-        BillingCampaignProviderDiscount.campaign_bid.in_(campaign_bids),
-    ).all()
+    rows = (
+        BillingCampaignProviderDiscount.query.filter(
+            BillingCampaignProviderDiscount.deleted == 0,
+            BillingCampaignProviderDiscount.campaign_bid.in_(campaign_bids),
+        )
+        .order_by(
+            BillingCampaignProviderDiscount.campaign_bid.asc(),
+            BillingCampaignProviderDiscount.product_bid.asc(),
+            BillingCampaignProviderDiscount.id.asc(),
+        )
+        .all()
+    )
     payload: dict[str, dict[str, Any]] = {}
     for row in rows:
         campaign_bid = str(row.campaign_bid or "")
@@ -963,6 +972,4 @@ def _error(code: str, message: str, subject: object) -> CampaignProviderDiscount
 
 
 def _sanitize_error_message(exc: Exception) -> str:
-    return (
-        str(exc).replace("sk_live_", "sk_****_").replace("sk_test_", "sk_****_")[:500]
-    )
+    return re.sub(r"sk_(?:live|test)_[A-Za-z0-9_-]+", "sk_****", str(exc))[:500]
