@@ -7,6 +7,7 @@ import {
 const interaction: ProfileOnboardingConversationItem = {
   content: '?[%{{goal}}...Goal?]',
   elementBid: 'question-1',
+  elementType: 'interaction',
   interaction: true,
   finished: false,
 };

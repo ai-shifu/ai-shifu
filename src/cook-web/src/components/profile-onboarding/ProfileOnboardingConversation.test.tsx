@@ -194,6 +194,39 @@ describe('ProfileOnboardingConversation', () => {
     expect(typewriter).toHaveAttribute('data-speed', '30');
   });
 
+  test('renders guided interaction controls without a typewriter delay', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'profile-interaction',
+            element_type: 'interaction',
+            content: '?[%{{profile_goal}}...What do you want to learn?]',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-interaction' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    expect(screen.getByTestId('profile-onboarding-typewriter')).toHaveAttribute(
+      'data-enabled',
+      'false',
+    );
+  });
+
   test('keeps an over-limit Unicode answer editable until a valid correction', async () => {
     const onError = jest.fn();
     mockRendererSubmission = {

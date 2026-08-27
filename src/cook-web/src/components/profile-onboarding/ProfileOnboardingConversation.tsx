@@ -13,6 +13,11 @@ import type {
   ProfileOnboardingAssistantAnswers,
   ProfileOnboardingRunSession,
   ProfileOnboardingSessionInfo,
+  ProfileOnboardingTypewriterCache,
+} from './profileOnboardingConversationModel';
+import {
+  shouldEnableProfileOnboardingTypewriter,
+  syncProfileOnboardingTypewriterCache,
 } from './profileOnboardingConversationModel';
 import { ProfileAssistantAnswersView } from './ProfileAssistantAnswersView';
 import { useProfileOnboardingSession } from './useProfileOnboardingSession';
@@ -87,6 +92,18 @@ export default function ProfileOnboardingConversation({
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
+  const [isDocumentVisible, setIsDocumentVisible] = React.useState(true);
+  const [typewriterCache, setTypewriterCache] =
+    React.useState<ProfileOnboardingTypewriterCache>({});
+
+  React.useEffect(() => {
+    const syncVisibility = () =>
+      setIsDocumentVisible(document.visibilityState !== 'hidden');
+    syncVisibility();
+    document.addEventListener('visibilitychange', syncVisibility);
+    return () =>
+      document.removeEventListener('visibilitychange', syncVisibility);
+  }, []);
 
   React.useEffect(() => {
     if (previousAssistantVisibleRef.current === showAssistant) return;
@@ -151,11 +168,24 @@ export default function ProfileOnboardingConversation({
         elementBid: item.elementBid,
         content: item.content,
         isFinished: item.finished,
+        finished: item.finished,
+        interaction: item.interaction,
         readonly: questionReadonly || item.finished || !item.interaction,
         userInput: item.userInput,
+        elementType: item.elementType,
       })),
     [items, questionReadonly],
   );
+
+  React.useEffect(() => {
+    setTypewriterCache(previousCache =>
+      syncProfileOnboardingTypewriterCache(
+        items,
+        previousCache,
+        !isDocumentVisible,
+      ),
+    );
+  }, [isDocumentVisible, items]);
 
   return (
     <div
@@ -185,7 +215,13 @@ export default function ProfileOnboardingConversation({
                   userInput={item.userInput}
                   readonly={item.readonly}
                   onSend={item.isFinished ? undefined : send}
-                  enableTypewriter
+                  enableTypewriter={
+                    isDocumentVisible &&
+                    shouldEnableProfileOnboardingTypewriter(
+                      item,
+                      typewriterCache[item.elementBid],
+                    )
+                  }
                   typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
                 />
               ))
@@ -194,7 +230,7 @@ export default function ProfileOnboardingConversation({
                 locale={locale}
                 content=''
                 readonly
-                enableTypewriter
+                enableTypewriter={isDocumentVisible}
                 typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
               />
             )}
