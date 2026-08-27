@@ -21,6 +21,7 @@ import {
 } from './CreditNotificationConfigOverviewTable';
 import {
   isEstimatedDaysThreshold,
+  isFixedThreshold,
   type KnownNotificationType,
   NOTIFICATION_TYPES,
 } from './creditNotificationUtils';
@@ -314,7 +315,7 @@ const buildRuleSummary = (
   if (type === 'low_balance') {
     const thresholds = policy.types.low_balance.thresholds || [];
     const fixedValues = thresholds
-      .filter(threshold => threshold.kind === 'fixed')
+      .filter(isFixedThreshold)
       .map(threshold => threshold.value)
       .filter(Boolean);
     const estimated = thresholds.find(isEstimatedDaysThreshold);
