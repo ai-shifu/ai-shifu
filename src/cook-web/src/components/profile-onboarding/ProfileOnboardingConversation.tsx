@@ -189,7 +189,7 @@ export default function ProfileOnboardingConversation({
           ariaLabel={t('common.core.scrollToBottom')}
           placement='bottom-center'
           position='absolute'
-          bottomOffset={20}
+          bottomOffset={36}
           zIndex={10}
         />
         {!showAssistant && canUseAssistant ? (

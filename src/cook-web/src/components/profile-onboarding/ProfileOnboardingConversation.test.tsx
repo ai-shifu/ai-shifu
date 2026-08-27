@@ -683,7 +683,7 @@ describe('ProfileOnboardingConversation', () => {
       expect.objectContaining({
         ariaLabel: 'common.core.scrollToBottom',
         autoScrollOnInit: true,
-        bottomOffset: 20,
+        bottomOffset: 36,
         contentVersion: 1,
         followNewContent: false,
         placement: 'bottom-center',
