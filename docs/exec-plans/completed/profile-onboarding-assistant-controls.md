@@ -45,6 +45,9 @@ progress text and spinner while preserving request state and recovery actions.
   passed. A real-browser fixture confirmed zero progress rows/spinners during
   session setup, initial response and final content streaming; error text and
   retry remained visible. Remove the temporary fixture after verification.
+- [x] 2026-08-27 UTC: Let an operator disable an unchanged pre-prompt
+  configuration without invoking the LLM. The regression failed against the
+  reported behavior, then 166 config/publication/route tests and Ruff passed.
 
 ## Surprises & Discoveries
 
@@ -81,6 +84,12 @@ matches the previously approved explicit-replacement contract. It was explained
 with the prior decision link and left open as an observation, not resolved as
 a code fix. No old introduction is silently merged into the reviewed result.
 
+Natural review also found that an emergency disable of an unchanged legacy
+configuration with MarkdownFlow but no assistant prompt still attempted prompt
+compilation. That made the kill switch depend on an available LLM. The missing
+prompt is now left uninitialized only for this no-op document save while
+disabled; later enablement or a document edit still initializes it.
+
 ## Decision Log
 
 - Only operators may save the optional assistant_prompt field. Explicit
@@ -92,6 +101,10 @@ a code fix. No old introduction is silently merged into the reviewed result.
 - The admin UI submits the field only when edited, including deliberate blank
   text. Preserve edits made while saving and all input on failure. An unchanged
   prompt does not prevent automatic regeneration after document edits.
+- Disabling an unchanged stored document that has never had an assistant prompt
+  is a persistence-only kill-switch operation and must not call the LLM. Keep
+  generation for first saves, changed documents, re-enablement and deliberate
+  clearing of an existing nonempty prompt.
 - The floating entry stays within the MarkdownFlow viewport at physical bottom
   right (also in RTL); reserve scroll padding so it cannot cover the last input.
   Show as soon as a frozen public prompt is available, even before the question.
@@ -120,6 +133,13 @@ describes the interviewer-versus-learner roles inside ?[] and preserves choices
 that already speak as the learner. No live model was asked to regenerate an
 existing config; stored prompts and sessions do not change until an operator
 saves a new version and the learner starts a new collection.
+
+The emergency-disable review regression first reproduced the compiler call with
+an unavailable-provider sentinel, then passed after the narrow guard. The
+focused config, publication-concurrency and operator-route selection passes 166
+tests; the expanded profile-onboarding, research, validation, storage, optimizer
+and compatibility selection passes 398. Ruff check and formatting pass for the
+touched backend files.
 
 The later progress-display correction removes both guided.starting and
 guided.thinking and their spinner instead of hiding only the Chinese text.

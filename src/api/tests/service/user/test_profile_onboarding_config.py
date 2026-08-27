@@ -318,6 +318,53 @@ def test_saved_prompt_is_compiled_only_when_needed(
     assert writes[0][1]["expected_value"] == json.dumps(current)
 
 
+def test_disabling_unchanged_legacy_config_skips_prompt_initialization(
+    app: object, monkeypatch: object
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.service.common import profile_onboarding as module
+
+    document = "What helps you learn?\n\n?[...Your answer]"
+    current = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": document,
+            "assistant_prompt": "",
+            "revision": 8,
+        }
+    )
+    compiler = Mock(side_effect=AssertionError("disable must not require the LLM"))
+    writes = []
+    monkeypatch.setattr(
+        module, "read_profile_onboarding_database", lambda _app: current
+    )
+    monkeypatch.setattr(module, "compile_profile_onboarding_assistant_prompt", compiler)
+    monkeypatch.setattr(
+        module,
+        "save_profile_onboarding_config_payload",
+        lambda _app, payload, **kwargs: writes.append((payload, kwargs)) or False,
+    )
+
+    response = module.update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": False,
+            "markdownflow": document,
+            "assistant_prompt": "",
+        },
+        operator_user_bid="operator",
+    )
+
+    compiler.assert_not_called()
+    assert response["enabled"] is False
+    assert response["assistant_prompt"] == ""
+    assert response["config_revision"] == 9
+    assert writes[0][0]["enabled"] is False
+    assert writes[0][0]["assistant_prompt"] == ""
+    assert writes[0][1]["expected_value"] == current
+
+
 def test_compiler_failure_and_generated_size_never_publish(
     app: object, monkeypatch: object
 ) -> None:

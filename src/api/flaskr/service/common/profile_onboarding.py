@@ -194,12 +194,20 @@ def update_profile_onboarding_config(
     except (TypeError, ValueError):
         existing = _default_config_payload()
     assistant_prompt = str(existing.get("assistant_prompt") or "")
+    defer_missing_prompt_while_disabling = (
+        not bool(payload.get("enabled", False))
+        and markdownflow == existing["markdownflow"]
+        and not assistant_prompt
+    )
     if explicit_prompt:
         assistant_prompt = explicit_prompt
     elif markdownflow and (
-        has_explicit_prompt
-        or markdownflow != existing["markdownflow"]
-        or not assistant_prompt
+        not defer_missing_prompt_while_disabling
+        and (
+            has_explicit_prompt
+            or markdownflow != existing["markdownflow"]
+            or not assistant_prompt
+        )
     ):
         # Reject oversized input before spending a model call, then check the
         # complete JSON again after the generated prompt is included.
