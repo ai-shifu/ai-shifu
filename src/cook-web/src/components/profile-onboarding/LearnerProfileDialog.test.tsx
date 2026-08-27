@@ -545,6 +545,73 @@ describe('LearnerProfileDialog', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('measures dialog chrome after a closed dialog opens even when loading fails', async () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    const observe = jest.fn();
+    const disconnect = jest.fn();
+    const resizeObserver = {
+      disconnect,
+      observe,
+      unobserve: jest.fn(),
+    } as unknown as ResizeObserver;
+    let resizeCallback: ResizeObserverCallback | undefined;
+    const ResizeObserverMock = jest.fn((callback: ResizeObserverCallback) => {
+      resizeCallback = callback;
+      return resizeObserver;
+    });
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      value: ResizeObserverMock,
+    });
+    mockGetLearnerProfile.mockRejectedValueOnce(
+      new Error('Profile unavailable'),
+    );
+
+    try {
+      const { props, rerender } = renderDialog({ open: false });
+      expect(ResizeObserverMock).not.toHaveBeenCalled();
+
+      rerender(
+        <LearnerProfileDialog
+          {...props}
+          open
+        />,
+      );
+
+      expect(
+        await screen.findByText('Profile unavailable'),
+      ).toBeInTheDocument();
+      const header = screen.getByTestId('learner-profile-dialog-header');
+      const footer = screen.getByTestId('learner-profile-dialog-footer');
+      jest
+        .spyOn(header, 'getBoundingClientRect')
+        .mockReturnValue({ height: 104 } as DOMRect);
+      jest
+        .spyOn(footer, 'getBoundingClientRect')
+        .mockReturnValue({ height: 72 } as DOMRect);
+
+      await waitFor(() => {
+        expect(observe).toHaveBeenCalledWith(header);
+        expect(observe).toHaveBeenCalledWith(footer);
+      });
+      act(() => resizeCallback?.([], resizeObserver));
+
+      expect(screen.getByTestId('learner-profile-dialog-body')).toHaveStyle({
+        '--learner-profile-footer-height': '72px',
+        '--learner-profile-header-height': '104px',
+      });
+    } finally {
+      if (originalResizeObserver) {
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+          configurable: true,
+          value: originalResizeObserver,
+        });
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    }
+  });
+
   test('shows an existing profile without waiting for optional onboarding status', async () => {
     const statusRequest = deferred<ReturnType<typeof onboardingStatus>>();
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
