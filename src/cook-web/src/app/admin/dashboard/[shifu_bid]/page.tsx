@@ -361,32 +361,40 @@ export default function AdminDashboardCourseDetailPage() {
       {
         label: t('module.dashboard.detail.metrics.orderCount'),
         value: formatCount(detail.metrics.order_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.orderCount'),
         onClick: orderListUrl ? handleOrderClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.orderCount')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.orderAmount'),
         value: formatOrderAmount(detail.metrics.order_amount, currencySymbol),
+        tooltip: t('module.dashboard.detail.metricsTooltips.orderAmount'),
         onClick: orderListUrl ? handleOrderClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.orderAmount')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.learningLearners'),
         value: formatCount(detail.metrics.learning_learner_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.learningLearners'),
       },
       {
         label: t('module.dashboard.detail.metrics.completedLearners'),
         value: formatCount(detail.metrics.completed_learner_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.completedLearners'),
       },
       {
         label: t('module.dashboard.detail.metrics.completionRate'),
         value: formatPercent(detail.metrics.completion_rate, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.completionRate'),
       },
       {
         label: t('module.dashboard.detail.metrics.newLearnersLast7Days'),
         value: formatCount(
           detail.metrics.new_learner_count_last_7_days,
           emptyValue,
+        ),
+        tooltip: t(
+          'module.dashboard.detail.metricsTooltips.newLearnersLast7Days',
         ),
       },
       {
@@ -395,16 +403,21 @@ export default function AdminDashboardCourseDetailPage() {
           detail.metrics.active_learner_count_last_7_days,
           emptyValue,
         ),
+        tooltip: t(
+          'module.dashboard.detail.metricsTooltips.activeLearnersLast7Days',
+        ),
       },
       {
         label: t('module.dashboard.detail.metrics.totalQuestions'),
         value: formatCount(detail.metrics.total_follow_up_count, emptyValue),
+        tooltip: t('module.dashboard.detail.metricsTooltips.totalQuestions'),
         onClick: followUpListUrl ? handleFollowUpClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.totalQuestions')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.rating'),
         value: detail.metrics.rating_score || emptyValue,
+        tooltip: t('module.dashboard.detail.metricsTooltips.rating'),
         onClick: ratingsPageUrl ? handleRatingClick : undefined,
         actionLabel: `${t('module.dashboard.detail.metrics.rating')}-value`,
       },

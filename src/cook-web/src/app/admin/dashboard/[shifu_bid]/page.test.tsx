@@ -162,7 +162,7 @@ jest.mock('@/components/ErrorDisplay', () => ({
   }) => (
     <div>
       <div>{errorMessage}</div>
-      <button onClick={onRetry}>retry</button>
+      {React.createElement('button', { onClick: onRetry }, 'retry')}
     </div>
   ),
 }));
@@ -208,7 +208,7 @@ jest.mock('@/components/ui/Select', () => ({
   SelectTrigger: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  SelectValue: () => <span>select-value</span>,
+  SelectValue: () => React.createElement('span', null, 'select-value'),
   SelectContent: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
@@ -265,6 +265,16 @@ describe('AdminDashboardCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('¥99.00')).toBeInTheDocument();
     expect(screen.getByText('50.00%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.dashboard.detail.metricsTooltips.orderCount',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.dashboard.detail.metricsTooltips.completionRate',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('13800138000')).toBeInTheDocument();
     expect(screen.getByText('2025-01-02 16:00:00')).toBeInTheDocument();

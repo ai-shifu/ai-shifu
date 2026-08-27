@@ -122,6 +122,17 @@
       "title": "Données clés",
       "totalQuestions": "Questions de suivi"
     },
+    "metricsTooltips": {
+      "activeLearnersLast7Days": "Apprenants ayant eu une activité d’apprentissage au cours des 7 derniers jours, utile pour voir l’engagement récent.",
+      "completedLearners": "Apprenants ayant terminé ce cours, utile pour mesurer le volume de complétion.",
+      "completionRate": "Part des apprenants ayant terminé le cours, utile pour évaluer la complétion globale.",
+      "learningLearners": "Apprenants actuellement en cours, utile pour voir combien utilisent encore le cours.",
+      "newLearnersLast7Days": "Apprenants ayant commencé ou rejoint ce cours au cours des 7 derniers jours, utile pour voir la croissance récente.",
+      "orderAmount": "Valeur totale des commandes de ce cours, valeur des commandes avec code incluse. Ce n’est pas le montant encaissé en espèces.",
+      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées et avec code, utile pour évaluer la conversion.",
+      "rating": "Note moyenne donnée aux leçons par les apprenants, utile pour évaluer l’expérience d’apprentissage.",
+      "totalQuestions": "Questions de suivi posées par les apprenants sur ce cours. Ouvrez pour voir le détail."
+    },
     "ratings": {
       "emptyValue": "--",
       "filters": {

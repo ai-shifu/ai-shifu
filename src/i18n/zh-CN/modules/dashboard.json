@@ -122,6 +122,17 @@
       "title": "核心数据",
       "totalQuestions": "追问数"
     },
+    "metricsTooltips": {
+      "activeLearnersLast7Days": "最近 7 天有学习行为的人数，用来看近期活跃度。",
+      "completedLearners": "已经学完这门课的人数，用来看课程完成规模。",
+      "completionRate": "完课人数占学习人数的比例，用来看课程整体完成情况。",
+      "learningLearners": "当前还在学习中的人数，用来看课程正在被多少学员持续使用。",
+      "newLearnersLast7Days": "最近 7 天新开始学习或加入课程的人数，用来看近期新增趋势。",
+      "orderAmount": "这门课按订单金额口径统计的总额，包含兑换订单价值，不等同于现金实收。",
+      "orderCount": "这门课产生的成功订单数，包含付费订单和兑换订单，用来看课程转化情况。",
+      "rating": "学员给课程章节的平均评分，用来看整体学习体验。",
+      "totalQuestions": "学员围绕这门课提出的追问总数，点击可查看追问明细。"
+    },
     "ratings": {
       "emptyValue": "--",
       "filters": {
