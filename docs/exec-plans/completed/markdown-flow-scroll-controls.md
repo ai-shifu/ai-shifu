@@ -132,17 +132,19 @@ without duplicate host-side scroll state machines or automatic content follow.
   localized accessible label.
 - Learner desktop and mobile layouts retain their current offsets and portal
   behavior; listen and classroom modes do not render the control.
-- Profile onboarding scrolls only the question viewport, follows new content
-  while attached, and hides with the question view when the assistant view is
-  open.
+- Profile onboarding scrolls only the question viewport, does not follow
+  generated content automatically, and hides with the question view when the
+  assistant view is open.
 - English, French, Chinese, Arabic, and Thai translations remain in parity;
   Arabic and Thai resolve to native MarkdownFlow locales.
 - Focused Jest tests, full Jest, type-check, lint, formatting, production build,
   translation checks, architecture checks, repository harness, lefthook, and
   `git diff --check` pass.
-- Desktop/mobile browser checks confirm visibility, click-to-bottom, follow and
-  detach behavior, focus styling, mobile footer clearance, and internal-only
-  profile scrolling in Chinese and Arabic.
+- Learner browser checks confirm control visibility and click-to-bottom
+  behavior. Focused tests cover mobile positioning, localized labels, disabled
+  automatic follow, and profile onboarding's internal-only scroll target and
+  assistant-view hiding; the authenticated profile dialog was not exercised in
+  the browser.
 
 ## Idempotence and Recovery
 
