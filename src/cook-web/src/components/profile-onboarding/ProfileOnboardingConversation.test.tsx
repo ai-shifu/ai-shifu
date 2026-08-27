@@ -803,7 +803,7 @@ describe('ProfileOnboardingConversation', () => {
       }),
     );
     expect(firstProps).not.toHaveProperty('endRef');
-    expect(firstProps.contentRef.current).toHaveClass('markdown-flow');
+    expect(firstProps.contentRef?.current).toHaveClass('markdown-flow');
     expect(firstProps.viewportRef).toBe(firstProps.scrollTarget);
     expect(firstProps.viewportRef.current).toHaveClass(
       'profile-onboarding-markdownflow',
