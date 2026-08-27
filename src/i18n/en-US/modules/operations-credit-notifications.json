@@ -195,6 +195,28 @@
       "credit_granted": "Reminds teachers to check the result after credits are added.",
       "low_balance": "Reminds teachers when credit balance is below a threshold or estimated usable days are low."
     },
+    "typeTable": {
+      "actions": "Actions",
+      "channel": "Channel",
+      "edit": "Edit",
+      "editDescription": "Edit the template and trigger rules for this notification type. Changes only affect future notifications after saving.",
+      "enabled": "Enabled",
+      "notificationType": "Notification type",
+      "rule": "Trigger rule",
+      "rules": {
+        "creditExpiring": "Reminder windows: {windows}",
+        "creditGranted": "Triggered after credits are granted",
+        "lowBalanceEstimated": "Balance thresholds: {thresholds}; remind when credits may run out within {days} days",
+        "lowBalanceFixed": "Balance thresholds: {thresholds}"
+      },
+      "smsChannel": "SMS",
+      "statusCompatible": "Variables compatible",
+      "statusIncompatible": "Variables incompatible",
+      "statusUnknown": "Not checked",
+      "template": "Template",
+      "templateNotSet": "Not configured",
+      "templateStatus": "Template status"
+    },
     "unsavedDialog": {
       "cancel": "Keep editing",
       "description": "Leaving this page will discard your changes and restore the last saved configuration.",

@@ -195,6 +195,28 @@
       "credit_granted": "积分到账后提醒老师查看到账结果。",
       "low_balance": "积分余额低于阈值，或预计可用天数不足时提醒老师。"
     },
+    "typeTable": {
+      "actions": "操作",
+      "channel": "渠道",
+      "edit": "编辑",
+      "editDescription": "只修改当前通知类型的模板和触发规则；保存配置后才会对后续通知生效。",
+      "enabled": "启用",
+      "notificationType": "通知类型",
+      "rule": "触发规则",
+      "rules": {
+        "creditExpiring": "提醒窗口：{windows}",
+        "creditGranted": "积分到账后触发",
+        "lowBalanceEstimated": "余额阈值：{thresholds}；预计 {days} 天内用完时提醒",
+        "lowBalanceFixed": "余额阈值：{thresholds}"
+      },
+      "smsChannel": "短信",
+      "statusCompatible": "变量可用",
+      "statusIncompatible": "变量不兼容",
+      "statusUnknown": "待查询",
+      "template": "模板",
+      "templateNotSet": "未配置",
+      "templateStatus": "模板状态"
+    },
     "unsavedDialog": {
       "cancel": "继续编辑",
       "description": "离开当前页面会放弃本次修改，未保存的内容将恢复为上次保存的配置。",

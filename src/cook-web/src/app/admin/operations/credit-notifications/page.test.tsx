@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import {
   formatAdminDateRangeEndUtc,
@@ -241,6 +247,36 @@ const openConfigTab = async ({
     });
     await screen.findByText('Grant');
   }
+};
+
+const NOTIFICATION_TYPE_EDIT_BUTTON_INDEX = {
+  credit_expiring: 0,
+  credit_granted: 1,
+  low_balance: 2,
+} as const;
+
+const openNotificationTypeEditor = async (
+  type: keyof typeof NOTIFICATION_TYPE_EDIT_BUTTON_INDEX,
+) => {
+  fireEvent.click(
+    screen.getAllByRole('button', {
+      name: 'module.operationsCreditNotifications.config.typeTable.edit',
+    })[NOTIFICATION_TYPE_EDIT_BUTTON_INDEX[type]],
+  );
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getAllByText(type)[0]).toBeInTheDocument();
+  return dialog;
+};
+
+const closeNotificationTypeEditor = async () => {
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'component.header.close',
+    }),
+  );
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 };
 
 const openRecordMoreMenu = () => {
@@ -767,18 +803,22 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     expect(container.querySelector('textarea')).toBeNull();
 
+    let dialog = await openNotificationTypeEditor('credit_granted');
     fireEvent.click(
-      screen.getByRole('button', {
+      within(dialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.changeTemplate',
       }),
     );
-    const templateInputs = screen.getAllByLabelText(
+    const templateInput = within(dialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.templateCode',
-    ) as HTMLInputElement[];
-    fireEvent.change(templateInputs[1], {
+    ) as HTMLInputElement;
+    fireEvent.change(templateInput, {
       target: { value: 'TPL-GRANT-UPDATED' },
     });
-    const windowsInput = screen.getByLabelText(
+    await closeNotificationTypeEditor();
+
+    dialog = await openNotificationTypeEditor('credit_expiring');
+    const windowsInput = within(dialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.windows',
     );
     fireEvent.change(windowsInput, {
@@ -791,13 +831,18 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(windowsInput).toHaveValue('7d,3d,1d,0d');
     fireEvent.blur(windowsInput);
     expect(windowsInput).toHaveValue('7d, 3d, 1d, 0d');
-    const thresholdInput = screen.getByLabelText(
+    await closeNotificationTypeEditor();
+
+    dialog = await openNotificationTypeEditor('low_balance');
+    const thresholdInput = within(dialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.thresholds',
     );
     fireEvent.change(thresholdInput, {
       target: { value: '１００，５０，１０，' },
     });
     expect(thresholdInput).toHaveValue('100,50,10,');
+    await closeNotificationTypeEditor();
+
     const perMobileInput = screen.getByLabelText(
       'module.operationsCreditNotifications.config.fields.perMobilePerDay',
     );
@@ -1189,35 +1234,41 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
+    let dialog = await openNotificationTypeEditor('credit_expiring');
     expect(
-      screen.getAllByText(
+      within(dialog).getByText(
         'module.operationsCreditNotifications.config.placeholders.tolerance',
       ),
-    ).toHaveLength(3);
+    ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      within(dialog).getByText(
         'module.operationsCreditNotifications.config.placeholders.guideTitle.credit_expiring',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(
+      within(dialog).queryByText(
         'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
       ),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
+      within(dialog).getByText(
         'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
       ),
     ).toBeInTheDocument();
+    expect(within(dialog).getByText('${credits}')).toBeInTheDocument();
+    await closeNotificationTypeEditor();
+
+    dialog = await openNotificationTypeEditor('low_balance');
     expect(
-      screen.queryByText(
+      within(dialog).queryByText(
         'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByText('${credits}')).toHaveLength(2);
-    expect(screen.getByText('${available_credits}')).toBeInTheDocument();
     expect(
-      screen.queryByText('${estimated_remaining_days}'),
+      within(dialog).getByText('${available_credits}'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText('${estimated_remaining_days}'),
     ).not.toBeInTheDocument();
   });
 
@@ -1226,23 +1277,28 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
+    const dialog = await openNotificationTypeEditor('low_balance');
     fireEvent.click(
-      screen.getByLabelText(
+      within(dialog).getByLabelText(
         'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
       ),
     );
 
     expect(
-      screen.getByText(
+      within(dialog).getByText(
         'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceEstimated',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('${trigger_days}')).toBeInTheDocument();
-    expect(screen.getByText('${lookback_days}')).toBeInTheDocument();
-    expect(screen.getByText('${avg_daily_consumption}')).toBeInTheDocument();
-    expect(screen.getByText('${estimated_remaining_days}')).toBeInTheDocument();
+    expect(within(dialog).getByText('${trigger_days}')).toBeInTheDocument();
+    expect(within(dialog).getByText('${lookback_days}')).toBeInTheDocument();
     expect(
-      screen.getByText(
+      within(dialog).getByText('${avg_daily_consumption}'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('${estimated_remaining_days}'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
         'module.operationsCreditNotifications.config.placeholders.notes.fallbackLowBalance',
       ),
     ).toBeInTheDocument();
@@ -1253,17 +1309,18 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
-    const templateInputs = screen.getAllByLabelText(
+    const dialog = await openNotificationTypeEditor('credit_expiring');
+    const templateInput = within(dialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.templateCode',
-    ) as HTMLInputElement[];
-    fireEvent.change(templateInputs[0], {
+    ) as HTMLInputElement;
+    fireEvent.change(templateInput, {
       target: { value: 'TPL-EXPIRING' },
     });
 
     fireEvent.click(
-      screen.getAllByRole('button', {
+      within(dialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.applyTemplate',
-      })[0],
+      }),
     );
 
     await waitFor(() => {
@@ -1277,10 +1334,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('${bad_variable}')).toBeInTheDocument();
     expect(
-      screen.getByText(
+      within(dialog).getByText(
         'module.operationsCreditNotifications.config.templateSync.incompatible',
       ),
     ).toBeInTheDocument();
+    await closeNotificationTypeEditor();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -1352,17 +1410,19 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
+    const dialog = await openNotificationTypeEditor('low_balance');
     fireEvent.click(
-      screen.getByLabelText(
+      within(dialog).getByLabelText(
         'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
       ),
     );
     fireEvent.change(
-      screen.getByLabelText(
+      within(dialog).getByLabelText(
         'module.operationsCreditNotifications.config.fields.estimatedDays',
       ),
       { target: { value: '5' } },
     );
+    await closeNotificationTypeEditor();
 
     fireEvent.click(
       screen.getByRole('button', {

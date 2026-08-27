@@ -195,6 +195,28 @@
       "credit_granted": "تنبيه المعلم للتحقق من وصول الأرصدة بعد إضافتها.",
       "low_balance": "تنبيه المعلم عند انخفاض رصيد الأرصدة عن الحد أو عدم كفاية الأيام المتوقعة المتاحة."
     },
+    "typeTable": {
+      "actions": "الإجراءات",
+      "channel": "القناة",
+      "edit": "تعديل",
+      "editDescription": "عدّل القالب وقواعد التشغيل لهذا النوع من الإشعارات. لا تسري التغييرات على الإشعارات اللاحقة إلا بعد الحفظ.",
+      "enabled": "مفعّل",
+      "notificationType": "نوع الإشعار",
+      "rule": "قاعدة التشغيل",
+      "rules": {
+        "creditExpiring": "نوافذ التذكير: {windows}",
+        "creditGranted": "يتم التشغيل بعد إضافة الرصيد",
+        "lowBalanceEstimated": "حدود الرصيد: {thresholds}؛ التذكير عند احتمال نفاد الرصيد خلال {days} أيام",
+        "lowBalanceFixed": "حدود الرصيد: {thresholds}"
+      },
+      "smsChannel": "رسالة نصية",
+      "statusCompatible": "المتغيرات متوافقة",
+      "statusIncompatible": "المتغيرات غير متوافقة",
+      "statusUnknown": "لم يتم التحقق",
+      "template": "القالب",
+      "templateNotSet": "غير مهيأ",
+      "templateStatus": "حالة القالب"
+    },
     "unsavedDialog": {
       "cancel": "متابعة التعديل",
       "description": "سيؤدي مغادرة الصفحة الحالية إلى تجاهل تعديلاتك، وستعود المحتويات غير المحفوظة إلى آخر إعداد محفوظ.",

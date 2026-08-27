@@ -34,7 +34,7 @@ type UpdatePolicy = (
   updater: (draft: AdminOperationCreditNotificationPolicy) => void,
 ) => void;
 
-type CreditNotificationTypeConfigCardProps = {
+export type CreditNotificationTypeConfigCardProps = {
   type: KnownNotificationType;
   policy: AdminOperationCreditNotificationPolicy;
   fixedLowBalanceThresholds: CreditNotificationFixedThreshold[];
