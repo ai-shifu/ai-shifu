@@ -43,6 +43,7 @@ export type CompleteProfileOnboardingPayload = {
 };
 
 export type ProfileOnboardingSession = {
+  assistant_prompt?: string;
   session_id: string;
   block_index: number;
   block_count: number;
@@ -153,6 +154,32 @@ export const runProfileOnboardingSession = ({
       ...(userInput ? { user_input: userInput } : {}),
     },
     language,
+    onMessage,
+    onError,
+  });
+
+export const submitProfileOnboardingAssistantAnswers = ({
+  sessionId,
+  expectedBlockIndex,
+  requestId,
+  rawText,
+  onMessage,
+  onError,
+}: {
+  sessionId: string;
+  expectedBlockIndex: number;
+  requestId: string;
+  rawText: string;
+  onMessage: (event: ProfileOnboardingRunEvent) => void;
+  onError: (error: unknown) => void;
+}) =>
+  streamProfileOnboardingRuntime({
+    path: `/api/user/profile-onboarding/session/${encodeURIComponent(sessionId)}/assistant-answers`,
+    payload: {
+      expected_block_index: expectedBlockIndex,
+      request_id: requestId,
+      raw_text: rawText,
+    },
     onMessage,
     onError,
   });

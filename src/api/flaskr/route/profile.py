@@ -12,6 +12,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.profile_onboarding import get_profile_onboarding_config
 from flaskr.service.common.profile_research_request_validation import (
     normalize_profile_research_session_id,
+    parse_profile_research_assistant_answers_request,
     parse_profile_research_run_request,
 )
 from flaskr.service.profile.learner_profile import (
@@ -154,6 +155,7 @@ def register_profile_routes(
                 document=document,
                 purpose=PROFILE_ONBOARDING_PURPOSE,
                 config_revision=int(config.get("config_revision") or 0),
+                assistant_prompt=str(config.get("assistant_prompt") or ""),
                 output_language=_resolve_profile_onboarding_runtime_language(
                     request.user,
                     language,
@@ -204,6 +206,35 @@ def register_profile_routes(
                 request_id=run_request.request_id,
             ),
             log_context="learner profile onboarding",
+        )
+
+    @app.route(
+        path_prefix + "/profile-onboarding/session/<session_id>/assistant-answers",
+        methods=["POST"],
+    )
+    def import_profile_onboarding_answers_api(session_id: str) -> Response:
+        """Collect external answers without persisting the learner's profile."""
+        normalized_session_id = normalize_profile_research_session_id(session_id)
+        import_request = parse_profile_research_assistant_answers_request(
+            _request_json_object("profile_onboarding_session"),
+            parameter_name="profile_onboarding_session",
+        )
+        from flaskr.service.profile_research.api import (
+            build_profile_research_sse_response,
+            stream_profile_research_assistant_answers,
+        )
+
+        return build_profile_research_sse_response(
+            app,
+            event_iter_factory=lambda: stream_profile_research_assistant_answers(
+                app,
+                user_bid=request.user.user_id,
+                session_id=normalized_session_id,
+                raw_text=import_request.raw_text,
+                expected_block_index=import_request.expected_block_index,
+                request_id=import_request.request_id,
+            ),
+            log_context="learner profile assistant answers",
         )
 
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])

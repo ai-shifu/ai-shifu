@@ -192,11 +192,14 @@ class _ProfileResearchSession:
     block_index: int
     block_count: int
     profile_draft_block_index: int
+    assistant_prompt: str = ""
     variables: dict[str, str | list[str]] = field(default_factory=dict)
     context: list[dict[str, str]] = field(default_factory=list)
     awaiting_input: bool = False
     done: bool = False
     profile_draft: str = ""
+    last_operation: str = "run"
+    last_raw_text: str = ""
     last_request_id: str = ""
     last_expected_block_index: int | None = None
     last_user_input: dict[str, list[str]] = field(default_factory=dict)
@@ -209,6 +212,7 @@ class _ProfileResearchSession:
             "user_bid": self.user_bid,
             "purpose": self.purpose,
             "document": self.document,
+            "assistant_prompt": self.assistant_prompt,
             "model": self.model,
             "temperature": self.temperature,
             "output_language": self.output_language,
@@ -221,6 +225,8 @@ class _ProfileResearchSession:
             "awaiting_input": self.awaiting_input,
             "done": self.done,
             "profile_draft": self.profile_draft,
+            "last_operation": self.last_operation,
+            "last_raw_text": self.last_raw_text,
             "last_request_id": self.last_request_id,
             "last_expected_block_index": self.last_expected_block_index,
             "last_user_input": self.last_user_input,
@@ -249,6 +255,7 @@ class _ProfileResearchSession:
                 user_bid=str(payload["user_bid"]),
                 purpose=str(payload["purpose"]),
                 document=str(payload["document"]),
+                assistant_prompt=str(payload.get("assistant_prompt") or ""),
                 model=str(payload["model"]),
                 temperature=float(payload["temperature"]),
                 output_language=str(payload.get("output_language") or ""),
@@ -261,6 +268,8 @@ class _ProfileResearchSession:
                 awaiting_input=bool(payload.get("awaiting_input", False)),
                 done=bool(payload.get("done", False)),
                 profile_draft=str(payload.get("profile_draft") or ""),
+                last_operation=str(payload.get("last_operation") or "run"),
+                last_raw_text=str(payload.get("last_raw_text") or ""),
                 last_request_id=str(payload.get("last_request_id") or ""),
                 last_expected_block_index=(
                     int(last_expected_block_index)
@@ -287,6 +296,7 @@ class _ProfileResearchSession:
             "profile_draft_block_index": self.profile_draft_block_index,
             "awaiting_input": self.awaiting_input,
             "done": self.done,
+            "assistant_prompt": self.assistant_prompt,
             "expires_in": PROFILE_RESEARCH_SESSION_TTL_SECONDS,
             "config_revision": self.config_revision,
         }
