@@ -92,7 +92,10 @@ export default function ProfileOnboardingConversation({
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
-  const [isDocumentVisible, setIsDocumentVisible] = React.useState(true);
+  const [isDocumentVisible, setIsDocumentVisible] = React.useState(
+    () =>
+      typeof document === 'undefined' || document.visibilityState !== 'hidden',
+  );
   const [typewriterCache, setTypewriterCache] =
     React.useState<ProfileOnboardingTypewriterCache>({});
 
