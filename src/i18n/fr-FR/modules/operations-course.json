@@ -260,14 +260,14 @@
       "visitCount30d": "Visiteurs (30 j)"
     },
     "metricsTooltips": {
-      "completedUserAvgCredits": "Crédits moyens dépensés par les utilisateurs ayant terminé ce cours.",
+      "completedUserAvgCredits": "Crédits moyens dépensés par les utilisateurs ayant terminé ce cours et ayant une consommation de crédits facturée enregistrée.",
       "creditConsumedTotal": "Total des crédits dépensés dans ce cours, y compris l’apprentissage et les questions de suivi.",
       "creditUsageCount": "Nombre de déductions de crédits déclenchées par ce cours, utile pour mesurer la fréquence d’usage.",
       "creditUserCount": "Nombre d’utilisateurs ayant réellement dépensé des crédits dans ce cours.",
       "followUpCount": "Nombre de questions de suivi posées sur ce cours. Ouvrez pour les consulter.",
       "learnerCount": "Nombre d’utilisateurs qui ont commencé ou rejoint ce cours, utile pour estimer sa portée.",
-      "orderAmount": "Revenus réellement encaissés pour ce cours, y compris les commandes avec code de réduction.",
-      "orderCount": "Commandes payées générées par ce cours. Ouvrez pour voir le détail des commandes.",
+      "orderAmount": "Valeur des commandes calculée sur le montant dû, codes de réduction et activations inclus. Ce n’est pas le montant encaissé en espèces.",
+      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées, avec code de réduction et les activations à 0.",
       "ratingScore": "Note moyenne donnée aux leçons, utile pour évaluer l’expérience d’apprentissage."
     },
     "orders": {
