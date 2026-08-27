@@ -186,7 +186,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
       >
         <header
           ref={headerRef}
-          className='absolute inset-x-0 top-0 z-10 border-b border-border/60 bg-gradient-to-b from-background/70 via-background/35 to-transparent pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_10px_30px_-22px_rgba(15,23,42,0.35)] backdrop-blur-[2px] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]'
+          className="absolute inset-x-0 top-0 z-10 border-b border-border/60 bg-background pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_10px_30px_-22px_rgba(15,23,42,0.35)] after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-8 after:h-8 after:bg-gradient-to-b after:from-background/80 after:to-transparent after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
         >
           <DialogHeader className='w-full space-y-1 pr-12 text-start sm:space-y-2 [@media(max-height:620px)]:space-y-1'>
             <DialogTitle className='text-xl font-bold leading-7 tracking-tight sm:text-[28px] sm:leading-9 [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7'>
@@ -215,7 +215,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
           className={cn(
-            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[calc(var(--learner-profile-footer-height,80px)+1rem)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[calc(var(--learner-profile-header-height,96px)+1rem)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[calc(var(--learner-profile-footer-height,76px)+1.5rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+1.5rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+0.5rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+0.5rem)]',
+            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[var(--learner-profile-footer-height,80px)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[var(--learner-profile-header-height,96px)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[var(--learner-profile-footer-height,76px)] sm:pt-[var(--learner-profile-header-height,116px)] [@media(max-height:620px)]:pb-[var(--learner-profile-footer-height,80px)] [@media(max-height:620px)]:pt-[var(--learner-profile-header-height,80px)]',
             collectionOwnsScroll ? 'overflow-hidden' : 'overflow-y-auto',
           )}
           style={
@@ -318,7 +318,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <footer
           data-testid='learner-profile-dialog-footer'
           ref={footerRef}
-          className='absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-border/60 bg-gradient-to-t from-background/70 via-background/35 to-transparent pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-10px_30px_-22px_rgba(15,23,42,0.35)] backdrop-blur-[2px] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3'
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-border/60 bg-background pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-10px_30px_-22px_rgba(15,23,42,0.35)] before:pointer-events-none before:absolute before:inset-x-0 before:-top-8 before:h-8 before:bg-gradient-to-t before:from-background/80 before:to-transparent before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
         >
           {confirmation ? (
             <>
