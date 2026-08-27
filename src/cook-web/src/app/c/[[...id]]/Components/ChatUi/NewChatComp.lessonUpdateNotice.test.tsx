@@ -12,14 +12,62 @@ let mockLearningMode = 'listen';
 let mockLogoHorizontal = '';
 let mockLogoWideUrl = '';
 let mockOfficialSiteUrl = 'https://official.example.com';
+let mockReadFeedbackElementBid = '';
 let mockLessonPdfReady = false;
 let mockLessonPdfPreparing = false;
 const mockPrintLessonPdf = jest.fn();
+
+type MockScrollControlProps = {
+  ariaLabel: string;
+  bottomOffset?: number;
+  contentVersion?: unknown;
+  endRef: React.RefObject<HTMLElement | null>;
+  followNewContent?: boolean;
+  pageScrollFallback?: string;
+  placement?: string;
+  portalTarget?: HTMLElement | null;
+  position?: string;
+  scrollThreshold?: number;
+  viewportRef: React.RefObject<HTMLElement | null>;
+  zIndex?: number;
+};
+
+const mockScrollToBottomControl = jest.fn(
+  ({ ariaLabel }: MockScrollControlProps) => (
+    <button
+      type='button'
+      data-testid='scroll-to-bottom-control'
+      aria-label={ariaLabel}
+    />
+  ),
+);
+const mockIntersectionObserver = jest.fn(
+  (
+    callback: IntersectionObserverCallback,
+    options?: IntersectionObserverInit,
+  ) => {
+    void callback;
+    void options;
+    return {
+      disconnect: jest.fn(),
+      observe: jest.fn(),
+      takeRecords: jest.fn(),
+      unobserve: jest.fn(),
+    };
+  },
+);
+
+Object.defineProperty(global, 'IntersectionObserver', {
+  configurable: true,
+  value: mockIntersectionObserver,
+  writable: true,
+});
 
 jest.mock('react-i18next', () => {
   const translations: Record<string, string> = {
     'common.core.cancel': '取消',
     'common.core.ok': '确认',
+    'common.core.scrollToBottom': '滚动到底部',
     'module.chat.ask': '追问',
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
@@ -53,6 +101,11 @@ jest.mock('react-i18next', () => {
     }),
   };
 });
+
+jest.mock('markdown-flow-ui/scroll', () => ({
+  ScrollToBottomControl: (props: MockScrollControlProps) =>
+    mockScrollToBottomControl(props),
+}));
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -103,7 +156,7 @@ jest.mock(
 );
 
 jest.mock('./lessonFeedbackPromptState', () => ({
-  findLastVisibleLessonFeedbackElementBid: () => '',
+  findLastVisibleLessonFeedbackElementBid: () => mockReadFeedbackElementBid,
 }));
 
 jest.mock('./lessonPdfState', () => ({
@@ -330,12 +383,13 @@ const createNewChatComponentsElement = (
   onLessonUpdateNoticeVisibilityChange: jest.Mock,
   onLessonPdfActionChange: jest.Mock,
   previewMode = false,
+  mobileStyle = false,
 ) => (
   <AppContext.Provider
     value={{
       frameLayout: 1,
       isLoggedIn: true,
-      mobileStyle: false,
+      mobileStyle,
       theme: 'light',
       userInfo: null,
     }}
@@ -365,6 +419,7 @@ const renderNewChatComponents = (
   onLessonPdfActionChange = jest.fn(),
   items: Array<Record<string, unknown>> = [],
   previewMode = false,
+  mobileStyle = false,
 ) => {
   setMockChatLogicItems(items);
   const renderElement = () =>
@@ -372,6 +427,7 @@ const renderNewChatComponents = (
       onLessonUpdateNoticeVisibilityChange,
       onLessonPdfActionChange,
       previewMode,
+      mobileStyle,
     );
   const renderResult = render(renderElement());
 
@@ -381,6 +437,11 @@ const renderNewChatComponents = (
       renderResult.rerender(renderElement());
     },
   });
+};
+
+const getLatestScrollControlProps = () => {
+  const calls = mockScrollToBottomControl.mock.calls;
+  return calls[calls.length - 1]?.[0];
 };
 
 const renderTitlebarLessonUpdateNotice = () =>
@@ -411,6 +472,7 @@ describe('NewChatComponents', () => {
     mockLogoHorizontal = '';
     mockLogoWideUrl = '';
     mockOfficialSiteUrl = 'https://official.example.com';
+    mockReadFeedbackElementBid = '';
     mockLessonPdfReady = false;
     mockLessonPdfPreparing = false;
     documentVisibilityState = 'visible';
@@ -498,6 +560,147 @@ describe('NewChatComponents', () => {
       screen.getByRole('button', { name: '购买积分' }),
     ).toBeInTheDocument();
   });
+
+  it('wires the library scroll control to the desktop read viewport', () => {
+    mockLearningMode = 'read';
+
+    renderNewChatComponents();
+
+    const props = getLatestScrollControlProps();
+    expect(props).toEqual(
+      expect.objectContaining({
+        ariaLabel: '滚动到底部',
+        bottomOffset: 90,
+        followNewContent: false,
+        pageScrollFallback: 'auto',
+        placement: 'bottom-center',
+        portalTarget: null,
+        position: 'absolute',
+        zIndex: 20,
+      }),
+    );
+    expect(props).not.toHaveProperty('contentVersion');
+    expect(props).not.toHaveProperty('scrollThreshold');
+    expect(props.viewportRef.current).toHaveAttribute(
+      'data-lesson-print-scroll',
+      'true',
+    );
+    expect(props.endRef.current).toHaveAttribute('id', 'chat-box-bottom');
+    expect(
+      screen.getByRole('button', { name: '滚动到底部' }),
+    ).toBeInTheDocument();
+  });
+
+  it('uses the mobile footer portal for the library scroll control', async () => {
+    mockLearningMode = 'read';
+    const portalTarget = document.createElement('div');
+    portalTarget.id = 'chat-scroll-target';
+    document.body.appendChild(portalTarget);
+
+    try {
+      renderNewChatComponents(jest.fn(), jest.fn(), [], false, true);
+
+      await waitFor(() => {
+        expect(getLatestScrollControlProps()).toEqual(
+          expect.objectContaining({
+            bottomOffset: 40,
+            pageScrollFallback: 'always',
+            portalTarget,
+            position: 'absolute',
+            zIndex: 50,
+          }),
+        );
+      });
+    } finally {
+      portalTarget.remove();
+    }
+  });
+
+  it('uses a fixed mobile fallback until the footer portal mounts', () => {
+    mockLearningMode = 'read';
+
+    renderNewChatComponents(jest.fn(), jest.fn(), [], false, true);
+
+    expect(getLatestScrollControlProps()).toEqual(
+      expect.objectContaining({
+        bottomOffset: 60,
+        pageScrollFallback: 'always',
+        portalTarget: null,
+        position: 'fixed',
+        zIndex: 50,
+      }),
+    );
+  });
+
+  it('does not render the scroll control in slide modes', () => {
+    renderNewChatComponents();
+    expect(mockScrollToBottomControl).not.toHaveBeenCalled();
+
+    mockLearningMode = 'classroom';
+    renderNewChatComponents();
+    expect(mockScrollToBottomControl).not.toHaveBeenCalled();
+  });
+
+  it.each(['viewport', 'parent', 'document'] as const)(
+    'keeps the lesson-feedback observer rooted in the %s scroll container',
+    async rootKind => {
+      mockLearningMode = 'read';
+      mockReadFeedbackElementBid = 'feedback-1';
+      const scrollHeightSpy = jest
+        .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          if (
+            rootKind === 'viewport' &&
+            this.hasAttribute('data-lesson-print-scroll')
+          ) {
+            return 300;
+          }
+          if (
+            rootKind === 'parent' &&
+            this.hasAttribute('data-lesson-print-content')
+          ) {
+            return 300;
+          }
+          return 100;
+        });
+      const clientHeightSpy = jest
+        .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+        .mockReturnValue(100);
+
+      const view = renderNewChatComponents(jest.fn(), jest.fn(), [
+        {
+          content: '课程正文',
+          element_bid: 'feedback-1',
+          type: 'content',
+        },
+      ]);
+
+      try {
+        await waitFor(() =>
+          expect(mockIntersectionObserver).toHaveBeenCalled(),
+        );
+        const calls = mockIntersectionObserver.mock.calls;
+        const options = calls[calls.length - 1][1];
+        const viewport = view.container.querySelector<HTMLElement>(
+          '[data-lesson-print-scroll="true"]',
+        );
+        const expectedRoot =
+          rootKind === 'viewport'
+            ? viewport
+            : rootKind === 'parent'
+              ? viewport?.parentElement
+              : null;
+
+        expect(options).toEqual(
+          expect.objectContaining({ root: expectedRoot, threshold: 0.98 }),
+        );
+      } finally {
+        view.unmount();
+        scrollHeightSpy.mockRestore();
+        clientHeightSpy.mockRestore();
+      }
+    },
+  );
 
   it('finishes visible read content immediately when the page becomes hidden', async () => {
     mockLearningMode = 'read';

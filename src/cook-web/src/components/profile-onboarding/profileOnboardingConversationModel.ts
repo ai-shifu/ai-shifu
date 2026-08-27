@@ -4,6 +4,7 @@ import type { ProfileOnboardingStreamEvent } from '@/lib/profileOnboardingSse';
 
 export type ProfileOnboardingSessionInfo = {
   session_id: string;
+  assistant_prompt?: string;
   block_index?: number;
   block_count?: number;
   profile_draft_block_index?: number;
@@ -16,6 +17,15 @@ export type ProfileOnboardingRunSession = (params: {
   expectedBlockIndex: number;
   requestId: string;
   userInput?: Record<string, string[]>;
+  onMessage: (event: ProfileOnboardingStreamEvent) => void;
+  onError: (error: unknown) => void;
+}) => { close?: () => void };
+
+export type ProfileOnboardingAssistantAnswers = (params: {
+  sessionId: string;
+  expectedBlockIndex: number;
+  requestId: string;
+  rawText: string;
   onMessage: (event: ProfileOnboardingStreamEvent) => void;
   onError: (error: unknown) => void;
 }) => { close?: () => void };
@@ -44,6 +54,7 @@ export type ProfileOnboardingConversationState = {
 };
 
 export type ProfileOnboardingConversationAction =
+  | { type: 'resume_input' }
   | { type: 'start_session' }
   | { type: 'start_run' }
   | { type: 'receive_item'; item: ProfileOnboardingConversationItem }
@@ -66,6 +77,10 @@ export const profileOnboardingConversationReducer = (
   action: ProfileOnboardingConversationAction,
 ): ProfileOnboardingConversationState => {
   switch (action.type) {
+    case 'resume_input':
+      return state.status === 'retryable_error'
+        ? { ...state, status: 'awaiting_input' }
+        : state;
     case 'start_session':
       return initialProfileOnboardingConversationState;
     case 'start_run':

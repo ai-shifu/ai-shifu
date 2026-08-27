@@ -249,3 +249,29 @@ describe('useUserStore.initUser', () => {
     expect(mockChangeLanguage).not.toHaveBeenCalled();
   });
 });
+
+test('clears private assistant drafts when logging out even if guest bootstrap fails', async () => {
+  window.sessionStorage.setItem(
+    'profile-onboarding-paste-draft:active-user:profile-v2',
+    'profile-onboarding-paste-draft:profile-v2:account',
+  );
+  window.sessionStorage.setItem(
+    'profile-onboarding-paste-draft:profile-v2:account',
+    'Private pasted profile',
+  );
+  mockRegisterTmp.mockRejectedValue(new Error('Guest unavailable'));
+  await useUserStore
+    .getState()
+    .logout(false)
+    .catch(() => undefined);
+  expect(
+    window.sessionStorage.getItem(
+      'profile-onboarding-paste-draft:profile-v2:account',
+    ),
+  ).toBeNull();
+  expect(
+    window.sessionStorage.getItem(
+      'profile-onboarding-paste-draft:active-user:profile-v2',
+    ),
+  ).toBeNull();
+});

@@ -15,7 +15,24 @@
     "syncingTemplate": "Interrogation"
   },
   "config": {
-    "description": "Gérez au même endroit les interrupteurs, modèles, règles d’envoi, heures calmes et listes sans envoi des SMS de crédits.",
+    "deliveryRules": {
+      "active": "Activé",
+      "description": "Consultez au même endroit les plafonds quotidiens, les heures silencieuses, la protection d’usage SMS et les règles de crédits bas enseignant.",
+      "dialogDescription": "Ces règles contrôlent le volume SMS quotidien, les pauses en heures silencieuses et la protection des enseignants quand les crédits sont bas. Elles s’appliquent après enregistrement.",
+      "dialogTitle": "Règles de protection d’envoi",
+      "edit": "Modifier les règles d’envoi",
+      "inactive": "Désactivé",
+      "no": "Non",
+      "summaries": {
+        "budget": "Plafond {limit}/jour ; coût {cost} ; simulation : {dryRun}.",
+        "frequency": "Contact : {perMobile}/jour ; enseignant + type : {perCreatorType}/jour.",
+        "quietHoursOff": "Les heures silencieuses sont désactivées ; les notifications suivent les résultats du scan.",
+        "quietHoursOn": "Suspendre l’envoi de {start} à {end} ({timezone}).",
+        "softlimit": "Sous {threshold} crédits ; alerte {teacherAlert} ; blocage debug {debugLock} ; SMS {sms}."
+      },
+      "yes": "Oui"
+    },
+    "description": "Gérez au même endroit les interrupteurs, modèles, règles d’envoi, heures silencieuses et listes de non-envoi des notifications de crédits.",
     "emptyBlockedCreators": "Aucun enseignant bloqué.",
     "emptyOptedOutCreators": "Aucun enseignant désinscrit.",
     "fieldTips": {
@@ -89,12 +106,15 @@
       "blockedCreatorLimit": "Ajoutez au maximum {count} enseignants à la fois.",
       "blockedDescription": "Recherchez, consultez et supprimez les enseignants bloqués. Les changements prennent effet après enregistrement.",
       "blockedSummary": "{count} enseignants bloqués",
+      "comingSoon": "Bientôt disponible",
       "delete": "Supprimer",
       "duplicateBlockedCreators": "La saisie existe déjà dans la liste de blocage.",
       "emptyPreview": "Aucun détail",
       "emptyResult": "Aucun résultat.",
       "invalidBlockedCreators": "Contenu non reconnu : {values}",
       "manage": "Gérer",
+      "manageLists": "Gérer les listes",
+      "manageListsDescription": "Ajoutez des enseignants à la liste de non-envoi manuelle ou consultez ceux qui se sont désabonnés.",
       "optedOutDescription": "Les enseignants désinscrits sont en lecture seule. Recherchez par contact ou pseudo.",
       "optedOutSummary": "{count} enseignants désinscrits",
       "searchPlaceholderEmail": "E-mail / Pseudonyme",
@@ -152,13 +172,13 @@
       "softlimit": "Quand le solde est sous le seuil de protection, rappeler les enseignants et limiter le debug pour éviter de continuer à consommer."
     },
     "sections": {
-      "budget": "Budget SMS",
+      "budget": "Protection d’usage SMS",
       "deliveryPolicy": "Règles d’envoi",
-      "frequency": "Fréquence d’envoi",
+      "frequency": "Limites quotidiennes d’envoi",
       "lists": "Listes sans envoi",
       "masterSwitch": "Interrupteur général",
       "quietHours": "Heures calmes",
-      "softlimit": "Protection du solde",
+      "softlimit": "Protection crédits bas enseignant",
       "types": "Types de notification"
     },
     "templateList": {
@@ -189,11 +209,52 @@
       "unused": "Variables système inutilisées",
       "variables": "Variables du modèle"
     },
-    "title": "Configuration SMS",
+    "title": "Configuration des notifications",
     "typeDescriptions": {
       "credit_expiring": "Rappelle aux enseignants d’utiliser les crédits avant leur expiration.",
       "credit_granted": "Rappelle aux enseignants de vérifier le résultat après l’arrivée de crédits.",
       "low_balance": "Rappelle les enseignants lorsque le solde est sous un seuil ou que les jours utilisables estimés sont faibles."
+    },
+    "typeEditor": {
+      "descriptions": {
+        "basic": "Contrôlez si ce type de notification participe aux prochains envois.",
+        "template": "Sélectionnez ou validez le modèle SMS. Le guide des variables reste replié jusqu’au dépannage du modèle."
+      },
+      "done": "Terminer la modification",
+      "draftHint": "Les changements restent d’abord dans le brouillon de cette page. Cliquez sur Enregistrer la configuration en bas pour les activer.",
+      "ruleDescriptions": {
+        "credit_expiring": "Configurez quand rappeler les enseignants avant l’expiration des crédits, et si plusieurs lots expirants sont regroupés par enseignant.",
+        "credit_granted": "Cette notification se déclenche après l’attribution de crédits et ne nécessite aucun réglage supplémentaire.",
+        "low_balance": "Configurez des seuils de solde fixes ou des rappels selon les jours d’utilisation restants estimés."
+      },
+      "sections": {
+        "basic": "Paramètres de base",
+        "rules": "Règles de déclenchement",
+        "template": "Modèle SMS"
+      }
+    },
+    "typeTable": {
+      "actions": "Actions",
+      "channel": "Canal",
+      "edit": "Modifier",
+      "editDescription": "Modifiez le modèle et les règles de déclenchement de ce type de notification. Les changements ne s’appliquent aux prochaines notifications qu’après l’enregistrement.",
+      "emailChannelComingSoon": "E-mail · Bientôt disponible",
+      "enabled": "Activé",
+      "notificationType": "Type de notification",
+      "rule": "Règle de déclenchement",
+      "rules": {
+        "creditExpiring": "Fenêtres de rappel : {windows}",
+        "creditGranted": "Déclenché après l’attribution des crédits",
+        "lowBalanceEstimated": "Seuils de solde : {thresholds} ; rappeler si les crédits peuvent être épuisés sous {days} jours",
+        "lowBalanceFixed": "Seuils de solde : {thresholds}"
+      },
+      "smsChannelAvailable": "SMS",
+      "statusCompatible": "Variables compatibles",
+      "statusIncompatible": "Variables incompatibles",
+      "statusUnknown": "Non vérifié",
+      "template": "Modèle",
+      "templateNotSet": "Non configuré",
+      "templateStatus": "Statut du modèle"
     },
     "unsavedDialog": {
       "cancel": "Continuer la modification",
@@ -358,7 +419,7 @@
     "skipped_opt_out": "Limite de stratégie",
     "suppressed_duplicate": "Notification en double"
   },
-  "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
+  "subtitle": "Consultez la distribution des notifications de crédits attribués, expirants et faibles, puis configurez la politique de notification.",
   "table": {
     "action": "Plus",
     "createdAt": "Créé le",
@@ -373,7 +434,7 @@
     "templateParams": "Paramètres"
   },
   "tabs": {
-    "config": "Configuration SMS",
+    "config": "Configuration des notifications",
     "records": "Notifications"
   },
   "templateName": {

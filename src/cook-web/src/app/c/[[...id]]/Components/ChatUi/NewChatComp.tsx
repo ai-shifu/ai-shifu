@@ -1,5 +1,6 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, X } from 'lucide-react';
+import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
+import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -228,7 +229,6 @@ export const NewChatComponents = ({
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [listenFullscreenPortalTarget, setListenFullscreenPortalTarget] =
     useState<HTMLElement | null>(null);
-  const [showScrollDown, setShowScrollDown] = useState(false);
   const [isReadFeedbackReady, setIsReadFeedbackReady] = useState(false);
   const [isReadFeedbackAnchorVisible, setIsReadFeedbackAnchorVisible] =
     useState(false);
@@ -242,87 +242,30 @@ export const NewChatComponents = ({
   const listenAudioBackfillFailedBlockBidsRef = useRef<Set<string>>(new Set());
   const listenAudioBackfillLessonIdRef = useRef('');
 
-  const scrollToBottom = useCallback(() => {
-    chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-
-  const isNearBottom = useCallback(
-    (element?: HTMLElement | Document | null) => {
+  const isScrollableElementForFeedback = useCallback(
+    (element?: HTMLElement | null) => {
       if (!element) {
-        return true;
+        return false;
       }
-      if (element instanceof HTMLElement) {
-        const { scrollTop, scrollHeight, clientHeight } = element;
-        return (
-          scrollHeight <= clientHeight ||
-          scrollHeight - scrollTop - clientHeight < 150
-        );
-      }
-      const docEl = document.documentElement;
-      const scrollTop = window.scrollY || docEl.scrollTop;
-      const { scrollHeight, clientHeight } = docEl;
-      return (
-        scrollHeight <= clientHeight ||
-        scrollHeight - scrollTop - clientHeight < 150
-      );
+
+      return element.scrollHeight > element.clientHeight + 1;
     },
     [],
   );
 
-  const isScrollableElement = useCallback((element?: HTMLElement | null) => {
-    if (!element) {
-      return false;
-    }
-
-    return element.scrollHeight > element.clientHeight + 1;
-  }, []);
-
-  const resolveScrollPresentation = useCallback(() => {
-    const localContainers: HTMLElement[] = [];
-
-    if (chatRef.current) {
-      localContainers.push(chatRef.current);
-      if (chatRef.current.parentElement) {
-        localContainers.push(chatRef.current.parentElement);
-      }
-    }
-
-    const containers: Array<HTMLElement | Document> = [...localContainers];
-    const shouldUseDocumentScroll =
-      mobileStyle || !localContainers.some(isScrollableElement);
-
-    // Desktop read mode sometimes scrolls on the page instead of the chat body.
-    // Fall back to the document scroll position so lesson feedback does not open early.
-    if (shouldUseDocumentScroll) {
-      containers.push(document);
-    }
-
-    const shouldShow = containers.some(container => !isNearBottom(container));
-    return {
-      shouldShow,
-    };
-  }, [isNearBottom, isScrollableElement, mobileStyle]);
-
   const resolveReadFeedbackObserverRoot = useCallback(() => {
     const chatContainer = chatRef.current;
-    if (chatContainer && isScrollableElement(chatContainer)) {
+    if (chatContainer && isScrollableElementForFeedback(chatContainer)) {
       return chatContainer;
     }
 
     const parentContainer = chatContainer?.parentElement;
-    if (parentContainer && isScrollableElement(parentContainer)) {
+    if (parentContainer && isScrollableElementForFeedback(parentContainer)) {
       return parentContainer;
     }
 
     return null;
-  }, [isScrollableElement]);
-
-  const checkScroll = useCallback(() => {
-    requestAnimationFrame(() => {
-      const nextPresentation = resolveScrollPresentation();
-      setShowScrollDown(nextPresentation.shouldShow);
-    });
-  }, [resolveScrollPresentation]);
+  }, [isScrollableElementForFeedback]);
 
   const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
     useCourseStore(
@@ -824,10 +767,6 @@ export const NewChatComponents = ({
   }, [isListenModeActive, isLoading, onListenPlayerVisibilityChange]);
 
   useEffect(() => {
-    setShowScrollDown(false);
-  }, [isSlideMode, lessonId]);
-
-  useEffect(() => {
     if (isSlideMode) {
       setIsReadFeedbackAnchorVisible(false);
       setReadFeedbackTriggerElement(null);
@@ -1056,8 +995,6 @@ export const NewChatComponents = ({
     setIsReadFeedbackReady(false);
 
     const rafId = window.requestAnimationFrame(() => {
-      const nextPresentation = resolveScrollPresentation();
-      setShowScrollDown(nextPresentation.shouldShow);
       setIsReadFeedbackReady(true);
     });
 
@@ -1071,7 +1008,6 @@ export const NewChatComponents = ({
     isOutputInProgress,
     items.length,
     promptContextKey,
-    resolveScrollPresentation,
   ]);
 
   const itemByGeneratedBid = useMemo(() => {
@@ -1301,55 +1237,6 @@ export const NewChatComponents = ({
   );
 
   useEffect(() => {
-    const container = chatRef.current;
-    const parentContainer = container?.parentElement;
-    const listeners: Array<{ element: EventTarget; handler: () => void }> = [];
-    const shouldTrackWindowScroll =
-      mobileStyle ||
-      ![container, parentContainer].some(
-        element => element && isScrollableElement(element),
-      );
-
-    if (container) {
-      container.addEventListener('scroll', checkScroll, { passive: true });
-      listeners.push({ element: container, handler: checkScroll });
-    }
-
-    if (parentContainer) {
-      parentContainer.addEventListener('scroll', checkScroll, {
-        passive: true,
-      });
-      listeners.push({ element: parentContainer, handler: checkScroll });
-    }
-
-    if (shouldTrackWindowScroll) {
-      window.addEventListener('scroll', checkScroll, { passive: true });
-      listeners.push({ element: window, handler: checkScroll });
-    }
-
-    const resizeObserver = new ResizeObserver(() => {
-      checkScroll();
-    });
-
-    if (container) {
-      resizeObserver.observe(container);
-
-      if (container.firstElementChild) {
-        resizeObserver.observe(container.firstElementChild);
-      }
-    }
-
-    checkScroll();
-
-    return () => {
-      listeners.forEach(({ element, handler }) => {
-        element.removeEventListener('scroll', handler);
-      });
-      resizeObserver.disconnect();
-    };
-  }, [checkScroll, isSlideMode, isScrollableElement, items, mobileStyle]);
-
-  useEffect(() => {
     if (mobileStyle) {
       setPortalTarget(document.getElementById('chat-scroll-target'));
     } else {
@@ -1400,19 +1287,6 @@ export const NewChatComponents = ({
     styles.chatComponents,
     className,
     mobileStyle ? styles.mobile : '',
-  );
-
-  const scrollButton = (
-    <button
-      className={cn(
-        styles.scrollToBottom,
-        showScrollDown ? styles.visible : '',
-        mobileStyle ? styles.mobileScrollBtn : '',
-      )}
-      onClick={scrollToBottom}
-    >
-      <ChevronsDown size={20} />
-    </button>
   );
 
   const lessonFeedbackPopupContent =
@@ -1887,10 +1761,20 @@ export const NewChatComponents = ({
           </div>
         </div>
       )}
-      {!isSlideMode &&
-        (mobileStyle && portalTarget
-          ? createPortal(scrollButton, portalTarget)
-          : scrollButton)}
+      {!isSlideMode ? (
+        <ScrollToBottomControl
+          viewportRef={chatRef}
+          endRef={chatBoxBottomRef}
+          pageScrollFallback={mobileStyle ? 'always' : 'auto'}
+          followNewContent={false}
+          ariaLabel={t('common.core.scrollToBottom')}
+          placement='bottom-center'
+          position={mobileStyle && !portalTarget ? 'fixed' : 'absolute'}
+          bottomOffset={mobileStyle ? (portalTarget ? 40 : 60) : 90}
+          zIndex={mobileStyle ? 50 : 20}
+          portalTarget={mobileStyle ? portalTarget : null}
+        />
+      ) : null}
       {mobileStyle && mobileInteraction?.elementBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
