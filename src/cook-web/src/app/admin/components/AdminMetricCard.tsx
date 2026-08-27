@@ -117,7 +117,7 @@ export function AdminMetricCard({
   }
 
   const content = (
-    <>
+    <div className={isCountVariant ? 'pr-7' : undefined}>
       <div
         className={cn(
           isCountVariant
@@ -148,7 +148,7 @@ export function AdminMetricCard({
       >
         {value}
       </div>
-    </>
+    </div>
   );
 
   return (
@@ -191,7 +191,13 @@ export function AdminMetricCard({
             <button
               type='button'
               aria-label={tooltip}
-              className={TOOLTIP_TRIGGER_CLASS}
+              className={cn(
+                TOOLTIP_TRIGGER_CLASS,
+                isCountVariant &&
+                  (size === 'compact'
+                    ? 'absolute right-4 top-4'
+                    : 'absolute right-6 top-6'),
+              )}
             >
               <QuestionMarkCircleIcon className='h-4 w-4' />
             </button>
