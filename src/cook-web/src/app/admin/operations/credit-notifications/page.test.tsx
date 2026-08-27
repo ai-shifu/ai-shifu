@@ -281,6 +281,36 @@ const closeNotificationTypeEditor = async () => {
   });
 };
 
+const openDeliveryRulesEditor = async () => {
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.operationsCreditNotifications.config.deliveryRules.edit',
+    }),
+  );
+  const dialog = await screen.findByRole('dialog');
+  expect(
+    within(dialog).getByText(
+      'module.operationsCreditNotifications.config.deliveryRules.dialogTitle',
+    ),
+  ).toBeInTheDocument();
+  return dialog;
+};
+
+const openCreatorListsEditor = async () => {
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'module.operationsCreditNotifications.config.listDialog.manageLists',
+    }),
+  );
+  const dialog = await screen.findByRole('dialog');
+  expect(
+    within(dialog).getByText(
+      'module.operationsCreditNotifications.config.listDialog.manageLists',
+    ),
+  ).toBeInTheDocument();
+  return dialog;
+};
+
 const openRecordMoreMenu = () => {
   const moreButton = screen.getByRole('button', {
     name: 'module.operationsCreditNotifications.actions.more',
@@ -845,7 +875,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(thresholdInput).toHaveValue('100,50,10,');
     await closeNotificationTypeEditor();
 
-    const perMobileInput = screen.getByLabelText(
+    const deliveryRulesDialog = await openDeliveryRulesEditor();
+    const perMobileInput = within(deliveryRulesDialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.perMobilePerDay',
     );
     expect(perMobileInput).not.toHaveAttribute('type', 'number');
@@ -853,14 +884,17 @@ describe('AdminOperationCreditNotificationsPage', () => {
       target: { value: '-３.５' },
     });
     expect(perMobileInput).toHaveValue('');
-    const dailyLimitInput = screen.getByLabelText(
+    const dailyLimitInput = within(deliveryRulesDialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.dailySmsLimit',
     );
     fireEvent.change(dailyLimitInput, {
       target: { value: '０' },
     });
     expect(dailyLimitInput).toHaveValue('0');
-    const blockedCreatorsInput = screen.getByLabelText(
+    await closeNotificationTypeEditor();
+
+    const listsDialog = await openCreatorListsEditor();
+    const blockedCreatorsInput = within(listsDialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.blockedCreators',
     );
     fireEvent.change(blockedCreatorsInput, {
@@ -870,7 +904,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
       'creator-1,13800000000,owner@example.com',
     );
     fireEvent.click(
-      screen.getByRole('button', {
+      within(listsDialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.config.listDialog.add',
       }),
     );
@@ -880,17 +914,18 @@ describe('AdminOperationCreditNotificationsPage', () => {
         'module.operationsCreditNotifications.config.fields.blockedCreatorList',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/13800000000/)).toBeInTheDocument();
+    expect(screen.getAllByText(/13800000000/).length).toBeGreaterThan(0);
     expect(
       screen.getByText(
         'module.operationsCreditNotifications.config.emptyOptedOutCreators',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(
+      within(listsDialog).getByPlaceholderText(
         'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
       ),
     ).toBeInTheDocument();
+    await closeNotificationTypeEditor();
     expect(JSON.stringify(mockUpdateConfig.mock.calls)).not.toContain(
       '100,50,10',
     );
@@ -946,13 +981,15 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
+    const listsDialog = await openCreatorListsEditor();
+
     expect(
-      screen.getByPlaceholderText(
+      within(listsDialog).getByPlaceholderText(
         'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsEmail',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByPlaceholderText(
+      within(listsDialog).queryByPlaceholderText(
         'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
       ),
     ).not.toBeInTheDocument();
@@ -1018,7 +1055,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
-    const blockedCreatorsInput = screen.getByLabelText(
+    const listsDialog = await openCreatorListsEditor();
+    const blockedCreatorsInput = within(listsDialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.blockedCreators',
     );
     fireEvent.change(blockedCreatorsInput, {
@@ -1027,13 +1065,13 @@ describe('AdminOperationCreditNotificationsPage', () => {
       },
     });
     fireEvent.click(
-      screen.getByRole('button', {
+      within(listsDialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.config.listDialog.add',
       }),
     );
 
-    expect(screen.getByText(/15811237246/)).toBeInTheDocument();
-    expect(screen.getByText(/15911234444/)).toBeInTheDocument();
+    expect(screen.getAllByText(/15811237246/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/15911234444/).length).toBeGreaterThan(0);
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({
         title:
@@ -1045,7 +1083,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
       target: { value: '无法识别的老师' },
     });
     fireEvent.click(
-      screen.getByRole('button', {
+      within(listsDialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.config.listDialog.add',
       }),
     );
@@ -1067,7 +1105,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
-    const blockedCreatorsInput = screen.getByLabelText(
+    const listsDialog = await openCreatorListsEditor();
+    const blockedCreatorsInput = within(listsDialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.blockedCreators',
     );
     fireEvent.paste(blockedCreatorsInput, {
@@ -1076,13 +1115,14 @@ describe('AdminOperationCreditNotificationsPage', () => {
       },
     });
     fireEvent.click(
-      screen.getByRole('button', {
+      within(listsDialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.config.listDialog.add',
       }),
     );
 
-    expect(screen.getByText(/owner@example.com/)).toBeInTheDocument();
-    expect(screen.getByText(/second@example.com/)).toBeInTheDocument();
+    expect(screen.getAllByText(/owner@example.com/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/second@example.com/).length).toBeGreaterThan(0);
+    await closeNotificationTypeEditor();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.applyConfig',
@@ -1127,17 +1167,17 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
-    expect(screen.getByText(/13800000000/)).toBeInTheDocument();
+    expect(screen.getAllByText(/13800000000/).length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByText(
         'module.operationsCreditNotifications.config.listDialog.manage',
       ),
     );
     expect(
-      screen.getAllByText(
+      screen.getByText(
         'module.operationsCreditNotifications.config.fields.blockedCreatorList',
-      ).length,
-    ).toBeGreaterThan(1);
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Anonymous User')).toBeInTheDocument();
 
     fireEvent.change(
@@ -1185,20 +1225,22 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
-    const blockedCreatorsInput = screen.getByLabelText(
+    const listsDialog = await openCreatorListsEditor();
+    const blockedCreatorsInput = within(listsDialog).getByLabelText(
       'module.operationsCreditNotifications.config.fields.blockedCreators',
     );
     fireEvent.change(blockedCreatorsInput, {
       target: { value: 'creator-unsaved' },
     });
     fireEvent.click(
-      screen.getByRole('button', {
+      within(listsDialog).getByRole('button', {
         name: 'module.operationsCreditNotifications.config.listDialog.add',
       }),
     );
     await waitFor(() => {
-      expect(screen.getByText(/creator-unsaved/)).toBeInTheDocument();
+      expect(screen.getAllByText(/creator-unsaved/).length).toBeGreaterThan(0);
     });
+    await closeNotificationTypeEditor();
 
     const recordsTab = screen.getByRole('tab', {
       name: 'module.operationsCreditNotifications.tabs.records',
@@ -1233,8 +1275,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
       ).toHaveAttribute('data-state', 'active');
     });
     await openConfigTab();
+    const resetListsDialog = await openCreatorListsEditor();
     expect(
-      screen.getByLabelText(
+      within(resetListsDialog).getByLabelText(
         'module.operationsCreditNotifications.config.fields.blockedCreators',
       ),
     ).toHaveValue('');

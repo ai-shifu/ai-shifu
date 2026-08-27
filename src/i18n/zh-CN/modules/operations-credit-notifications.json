@@ -15,6 +15,23 @@
     "syncingTemplate": "查询中"
   },
   "config": {
+    "deliveryRules": {
+      "active": "已开启",
+      "description": "集中查看每日上限、免打扰、用量保护和老师端低余额策略，减少误发和超量发送。",
+      "dialogDescription": "这些规则会控制短信每天最多发多少、什么时间不发，以及老师端低积分时如何提醒。保存配置后才会生效。",
+      "dialogTitle": "发送保护规则",
+      "edit": "编辑发送规则",
+      "inactive": "未开启",
+      "no": "否",
+      "summaries": {
+        "budget": "每日 {limit} 条；单条 {cost}；试算：{dryRun}。",
+        "frequency": "手机号 {perMobile} 条/天；老师同类通知 {perCreatorType} 条/天。",
+        "quietHoursOff": "未开启免打扰时段，通知会按扫描结果发送。",
+        "quietHoursOn": "{timezone} 时间 {start} - {end} 暂停发送。",
+        "softlimit": "低于 {threshold} 积分；提醒 {teacherAlert}；禁调试 {debugLock}；短信 {sms}。"
+      },
+      "yes": "是"
+    },
     "description": "统一维护积分短信通知的开关、模板、发送规则、免打扰时段和不发送名单。",
     "emptyBlockedCreators": "暂无已屏蔽老师。",
     "emptyOptedOutCreators": "暂无已退订老师。",
@@ -89,12 +106,15 @@
       "blockedCreatorLimit": "单次最多添加 {count} 位老师。",
       "blockedDescription": "可搜索、查看和删除已屏蔽老师；删除后需保存配置才会生效。",
       "blockedSummary": "已屏蔽 {count} 位老师",
+      "comingSoon": "敬请期待",
       "delete": "删除",
       "duplicateBlockedCreators": "输入内容已在屏蔽名单中。",
       "emptyPreview": "暂无明细",
       "emptyResult": "暂无匹配结果。",
       "invalidBlockedCreators": "以下内容未识别：{values}",
       "manage": "管理",
+      "manageLists": "管理名单",
+      "manageListsDescription": "添加手动不发送名单，或查看老师已退订的通知名单。",
       "optedOutDescription": "已退订老师仅支持查看，可按手机号或昵称搜索。",
       "optedOutSummary": "已退订 {count} 位老师",
       "searchPlaceholderEmail": "邮箱 / 昵称",
@@ -152,13 +172,13 @@
       "softlimit": "余额低于保护线时，可提醒老师并限制继续调试，避免继续消耗。"
     },
     "sections": {
-      "budget": "短信预算",
+      "budget": "短信用量保护",
       "deliveryPolicy": "发送规则",
-      "frequency": "发送频率",
+      "frequency": "每日发送上限",
       "lists": "不发送名单",
       "masterSwitch": "总开关",
       "quietHours": "免打扰时段",
-      "softlimit": "余额保护",
+      "softlimit": "老师端低余额保护",
       "types": "通知类型"
     },
     "templateList": {

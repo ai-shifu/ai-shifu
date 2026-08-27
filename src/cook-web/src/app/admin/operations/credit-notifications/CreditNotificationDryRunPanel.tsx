@@ -41,29 +41,7 @@ export function CreditNotificationDryRunPanel({
     <ConfigSection
       title={t('module.operationsCreditNotifications.dryRun.title')}
       description={t('module.operationsCreditNotifications.dryRun.description')}
-    >
-      <div className='flex flex-col gap-4 rounded-md border border-border bg-muted/20 p-3 lg:flex-row lg:items-center lg:justify-between'>
-        <div className='text-xs leading-5 text-muted-foreground'>
-          {dryRunResult ? (
-            <div className='grid gap-3 sm:grid-cols-3'>
-              {metricCards.map(metric => (
-                <div
-                  key={metric.key}
-                  className='rounded-md border border-border bg-white px-3 py-2'
-                >
-                  <div className='text-[11px] text-muted-foreground'>
-                    {metric.label}
-                  </div>
-                  <div className='mt-1 text-base font-semibold text-foreground'>
-                    {metric.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            t('module.operationsCreditNotifications.dryRun.empty')
-          )}
-        </div>
+      action={
         <Button
           type='button'
           variant='outline'
@@ -72,7 +50,36 @@ export function CreditNotificationDryRunPanel({
         >
           {t('module.operationsCreditNotifications.actions.dryRun')}
         </Button>
-      </div>
+      }
+    >
+      {dryRunResult ? (
+        <div className='rounded-xl border border-border bg-slate-50/70 p-3 shadow-sm'>
+          <div className='grid gap-3 sm:grid-cols-3'>
+            {metricCards.map(metric => (
+              <div
+                key={metric.key}
+                className='rounded-lg border border-border bg-white px-3 py-2 shadow-sm'
+              >
+                <div className='text-[11px] text-muted-foreground'>
+                  {metric.label}
+                </div>
+                <div className='mt-1 text-base font-semibold text-foreground'>
+                  {metric.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className='flex min-h-[76px] items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-slate-50/80 px-4 py-3'>
+          <p className='text-xs leading-5 text-muted-foreground'>
+            {t('module.operationsCreditNotifications.dryRun.empty')}
+          </p>
+          <span className='hidden h-9 items-center rounded-full bg-white px-3 text-xs font-medium text-muted-foreground shadow-sm sm:inline-flex'>
+            {t('module.operationsCreditNotifications.actions.dryRun')}
+          </span>
+        </div>
+      )}
       {dryRunError ? (
         <div
           role='alert'

@@ -49,19 +49,24 @@ export function CreditNotificationFormField({
 export function CreditNotificationConfigSection({
   title,
   description,
+  action,
   children,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className='rounded-xl border border-border bg-white p-4 shadow-sm'>
-      <div>
-        <h2 className='text-sm font-semibold text-foreground'>{title}</h2>
-        {description ? (
-          <p className='mt-1 text-xs text-muted-foreground'>{description}</p>
-        ) : null}
+      <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+        <div>
+          <h2 className='text-sm font-semibold text-foreground'>{title}</h2>
+          {description ? (
+            <p className='mt-1 text-xs text-muted-foreground'>{description}</p>
+          ) : null}
+        </div>
+        {action ? <div className='shrink-0'>{action}</div> : null}
       </div>
       <div className='mt-4 space-y-4'>{children}</div>
     </section>
