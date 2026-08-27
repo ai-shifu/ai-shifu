@@ -560,6 +560,7 @@ class ProfileResearchRuntime:
         outcome = _StepOutcome()
         element_content_by_segment: dict[tuple[int, int], str] = {}
         element_segment_count_by_number: dict[int, int] = {}
+        html_segment_by_number: dict[int, int] = {}
         active_element_identity: tuple[int, str] | None = None
         active_element_segment = 0
         rerendered_interaction = ""
@@ -643,12 +644,20 @@ class ProfileResearchRuntime:
                 element_identity = (element_number, element_type)
                 if element_identity != active_element_identity:
                     active_element_identity = element_identity
-                    active_element_segment = element_segment_count_by_number.get(
-                        element_number, 0
-                    )
-                    element_segment_count_by_number[element_number] = (
-                        active_element_segment + 1
-                    )
+                    previous_html_segment = html_segment_by_number.get(element_number)
+                    if element_type == "html" and previous_html_segment is not None:
+                        active_element_segment = previous_html_segment
+                    else:
+                        active_element_segment = element_segment_count_by_number.get(
+                            element_number, 0
+                        )
+                        element_segment_count_by_number[element_number] = (
+                            active_element_segment + 1
+                        )
+                        if element_type == "html":
+                            html_segment_by_number[element_number] = (
+                                active_element_segment
+                            )
                 segment_key = (element_number, active_element_segment)
                 element_content = (
                     element_content_by_segment.get(segment_key, "") + content

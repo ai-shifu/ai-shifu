@@ -992,6 +992,51 @@ def test_preserved_heading_and_text_with_one_number_use_distinct_bids() -> None:
     assert len({event["generated_block_bid"] for event in content_events}) == 2
 
 
+def test_preserved_html_append_reuses_original_element_bid() -> None:
+    _app, runtime, _providers = _make_runtime()
+    session = runtime.start_session(
+        user_bid="user-1",
+        document=(
+            "!===\n"
+            '<div id="card">Visual card</div>\n'
+            "Between\n"
+            '<script>document.getElementById("card").remove()</script>\n'
+            "!===\n\n---\n\n?[继续]"
+        ),
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+        config_revision=1,
+        output_language=None,
+    )
+
+    events = list(
+        runtime.stream_session(
+            user_bid="user-1",
+            session_id=session["session_id"],
+            user_input=None,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+    )
+    content_events = [event for event in events if event["event_type"] == "content"]
+
+    assert [event["element_type"] for event in content_events] == [
+        "html",
+        "text",
+        "html",
+    ]
+    assert content_events[2]["content"] == (
+        '<div id="card">Visual card</div>\n'
+        '<script>document.getElementById("card").remove()</script>'
+    )
+    assert (
+        content_events[2]["generated_block_bid"]
+        == content_events[0]["generated_block_bid"]
+    )
+    assert (
+        content_events[1]["generated_block_bid"]
+        != content_events[0]["generated_block_bid"]
+    )
+
+
 def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> None:
     _app, runtime, providers = _make_runtime(["个性化回应"])
     session = runtime.start_session(
