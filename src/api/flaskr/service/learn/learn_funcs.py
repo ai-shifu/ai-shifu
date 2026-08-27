@@ -945,6 +945,7 @@ def _build_tts_usage_context(
     outline_item_bid: str | None = None,
     progress_record_bid: str | None = None,
     generated_block_bid: str | None = None,
+    learning_mode: str = "",
 ) -> UsageContext:
     kwargs = {
         "user_bid": user_bid,
@@ -958,6 +959,9 @@ def _build_tts_usage_context(
         kwargs["progress_record_bid"] = progress_record_bid
     if generated_block_bid is not None:
         kwargs["generated_block_bid"] = generated_block_bid
+    normalized_learning_mode = str(learning_mode or "").strip().lower()
+    if normalized_learning_mode in {"read", "listen", "classroom"}:
+        kwargs["learning_mode"] = normalized_learning_mode
     return UsageContext(**kwargs)
 
 
@@ -1538,6 +1542,7 @@ def _yield_run_tts_audio_events(
     position: int | None = None,
     stream_element_number: int | None = None,
     stream_element_type: str | None = None,
+    learning_mode: str = "",
 ) -> Iterator[RunMarkdownFlowDTO]:
     from flaskr.common.config import get_config
 
@@ -1560,6 +1565,7 @@ def _yield_run_tts_audio_events(
         stream_element_number=stream_element_number,
         stream_element_type=stream_element_type,
         usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        learning_mode=learning_mode,
     )
     emitted_audio_complete = False
     for event in processor.process_chunk(text or ""):
@@ -1677,6 +1683,7 @@ def stream_generated_block_audio(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     preview_mode=preview_mode,
+                    learning_mode="listen" if listen else "read",
                 )
 
             yield from _yield_tts_synthesis(
@@ -1704,6 +1711,7 @@ def stream_generated_block_audio(
                 outline_item_bid=generated_block.outline_item_bid,
                 progress_record_bid=generated_block.progress_record_bid,
                 generated_block_bid=generated_block.generated_block_bid,
+                learning_mode="listen" if listen else "read",
             )
             parent_usage_bid = generate_id(app)
             usage_metadata = _build_tts_usage_metadata(
@@ -1839,6 +1847,7 @@ def stream_generated_block_audio(
                         shifu_bid=shifu_bid,
                         preview_mode=preview_mode,
                         position=0,
+                        learning_mode="listen",
                     )
 
                 yield from _yield_tts_synthesis(
@@ -1957,6 +1966,7 @@ def stream_generated_block_audio(
                         position=position,
                         stream_element_number=element.element_index,
                         stream_element_type=_audio_stream_element_type(element),
+                        learning_mode="listen",
                     )
 
             yield from _yield_tts_synthesis(
@@ -2010,6 +2020,7 @@ def stream_preview_tts_audio(
             shifu_bid=shifu_bid,
             audio_bid=audio_bid,
             usage_scene=usage_scene,
+            learning_mode="listen",
         )
         parent_usage_bid = generate_id(app)
         usage_metadata = _build_tts_usage_metadata(

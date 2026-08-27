@@ -1595,6 +1595,7 @@ class RunScriptContextV2:
     _is_paid: bool
     _preview_mode: bool
     _listen: bool
+    _learning_mode: str
     _shifu_ids: list[str]
     _run_type: RunType
     _app: Flask
@@ -1621,6 +1622,7 @@ class RunScriptContextV2:
         is_paid: bool,
         preview_mode: bool,
         listen: bool = False,
+        learning_mode: str = "read",
         stop_event: threading.Event | None = None,
     ) -> None:
         """Select runtime models, locate the outline, and create its root trace."""
@@ -1631,6 +1633,10 @@ class RunScriptContextV2:
         self._user_info = user_info
         self._is_paid = is_paid
         self._listen = listen
+        normalized_learning_mode = str(learning_mode or "").strip().lower()
+        if normalized_learning_mode not in {"read", "listen", "classroom"}:
+            normalized_learning_mode = "listen" if listen else "read"
+        self._learning_mode = normalized_learning_mode
         self._preview_mode = preview_mode
         self._shifu_info = shifu_info
         self.shifu_ids = []
@@ -1831,6 +1837,7 @@ class RunScriptContextV2:
                 tts_model=validated.model,
                 stream_element_number=stream_element_number,
                 stream_element_type=stream_element_type,
+                learning_mode=self._learning_mode,
             )
         except Exception as exc:
             self.app.logger.warning(
@@ -2492,6 +2499,7 @@ class RunScriptContextV2:
             outline_item_bid=run_script_info.outline_bid,
             progress_record_bid=self._current_attend.progress_record_bid,
             usage_scene=usage_scene,
+            learning_mode=self._learning_mode,
         )
         llm_provider = RUNLLMProvider(
             app,

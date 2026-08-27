@@ -186,6 +186,13 @@ def _stream_passthrough_response(
     )
 
 
+def _normalize_learning_mode(value: object, *, listen: bool = False) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"read", "listen", "classroom"}:
+        return normalized
+    return "listen" if listen else "read"
+
+
 @inject
 def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """Register learn routes."""
@@ -401,6 +408,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             listen = False
         else:
             listen = bool(listen_raw)
+        learning_mode = _normalize_learning_mode(
+            payload.get("learning_mode"),
+            listen=listen,
+        )
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
             "run outline item, shifu_bid: %s, outline_bid: %s, preview_mode: %s, listen: %s",
@@ -434,6 +445,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
                 listen=listen,
+                learning_mode=learning_mode,
                 preview_mode=preview_mode,
                 shifu_context_snapshot=shifu_context_snapshot,
                 language=request_language,

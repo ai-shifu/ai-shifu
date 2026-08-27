@@ -237,6 +237,7 @@ function useChatLogicHook({
   previewMode,
   lessonHasContentUpdate = false,
   isListenMode = false,
+  learningMode = isListenMode ? 'listen' : 'read',
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
@@ -1514,13 +1515,17 @@ function useChatLogicHook({
       trackEvent('learner_run_start', {
         shifu_bid: shifuBid,
         outline_bid: outlineBid,
-        learning_mode: isListenMode ? 'listen' : 'read',
+        learning_mode: learningMode,
       });
       source = getRunMessage(
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        { ...sseParams, listen: listenRequestEnabled },
+        {
+          ...sseParams,
+          listen: listenRequestEnabled,
+          learning_mode: learningMode,
+        },
         creditInsufficientAudience,
         async response => {
           if (
@@ -2188,6 +2193,7 @@ function useChatLogicHook({
       creditInsufficientAudience,
       effectivePreviewMode,
       isListenMode,
+      learningMode,
       listenRequestEnabled,
       lessonUpdateResp,
       outlineBid,

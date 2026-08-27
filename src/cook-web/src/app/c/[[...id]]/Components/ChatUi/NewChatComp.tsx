@@ -479,6 +479,7 @@ export const NewChatComponents = ({
     previewMode,
     lessonHasContentUpdate,
     isListenMode: isListenModeActive,
+    learningMode,
     trackEvent,
     trackTrailProgress,
     lessonUpdate,

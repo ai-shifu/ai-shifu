@@ -70,6 +70,35 @@ def test_record_llm_usage_persists(metering_app: object) -> None:
         assert record.billable == 1
 
 
+def test_record_llm_usage_attaches_learning_mode_metadata(
+    metering_app: object,
+) -> None:
+    with metering_app.app_context():
+        usage_bid = record_llm_usage(
+            metering_app,
+            UsageContext(
+                user_bid="user-learning-mode-1",
+                shifu_bid="shifu-learning-mode-1",
+                usage_scene=BILL_USAGE_SCENE_PROD,
+                learning_mode="classroom",
+            ),
+            provider="openai",
+            model="gpt-test",
+            is_stream=False,
+            input=10,
+            output=20,
+            total=30,
+            extra={"usage_source": "lesson"},
+        )
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+
+    assert record is not None
+    assert record.extra == {
+        "usage_source": "lesson",
+        "learning_mode": "classroom",
+    }
+
+
 def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
     metering_app: object,
     monkeypatch: pytest.MonkeyPatch,

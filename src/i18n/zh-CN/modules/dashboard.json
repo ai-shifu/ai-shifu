@@ -110,6 +110,23 @@
       "viewFollowUps": "查看追问",
       "viewFollowUpsForLearner": "查看 {learner} 的追问"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "人均消耗",
+        "consumedCredits": "消耗积分",
+        "consumptionSpeed": "近 7 日日均消耗",
+        "mode": "学习形式",
+        "participants": "使用人数"
+      },
+      "empty": "暂无学习形式数据",
+      "modes": {
+        "classroom": "课堂",
+        "listen": "听课",
+        "read": "阅读"
+      },
+      "scopeHint": "按阅读、听课、课堂三种形式汇总积分消耗，帮助判断学员更常使用哪种学习方式。",
+      "title": "学习形式"
+    },
     "metrics": {
       "activeLearnersLast7Days": "7日内活跃学员",
       "completedLearners": "完课人数",
@@ -128,8 +145,8 @@
       "completionRate": "完课人数占学习人数的比例，用来看课程整体完成情况。",
       "learningLearners": "当前还在学习中的人数，用来看课程正在被多少学员持续使用。",
       "newLearnersLast7Days": "最近 7 天新开始学习或加入课程的人数，用来看近期新增趋势。",
-      "orderAmount": "这门课按订单金额口径统计的总额，包含兑换订单价值，不等同于现金实收。",
-      "orderCount": "这门课产生的成功订单数，包含付费订单和兑换订单，用来看课程转化情况。",
+      "orderAmount": "这门课成功订单的现金实收总额；兑换码订单不计入金额。",
+      "orderCount": "这门课产生的成功订单数，包含付费订单和兑换码订单，用来看课程转化情况。",
       "rating": "学员给课程章节的平均评分，用来看整体学习体验。",
       "totalQuestions": "学员围绕这门课提出的追问总数，点击可查看追问明细。"
     },

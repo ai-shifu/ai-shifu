@@ -69,9 +69,18 @@ export type DashboardCourseDetailLearners = {
   items: DashboardCourseDetailLearnerItem[];
 };
 
+export type DashboardCourseLearningModeMetric = {
+  mode: 'read' | 'listen' | 'classroom' | string;
+  participant_count: number;
+  consumed_credits: string;
+  consumption_speed: string;
+  average_consumed_credits: string;
+};
+
 export type DashboardCourseDetailResponse = {
   basic_info: DashboardCourseDetailBasicInfo;
   metrics: DashboardCourseDetailMetrics;
+  learning_mode_metrics: DashboardCourseLearningModeMetric[];
 };
 
 export type DashboardCourseLearnersResponse = DashboardCourseDetailLearners;

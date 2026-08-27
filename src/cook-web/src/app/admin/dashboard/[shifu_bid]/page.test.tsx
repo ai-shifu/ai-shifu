@@ -1,5 +1,12 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import api from '@/api';
 import { ErrorWithCode } from '@/lib/request';
 
@@ -41,6 +48,22 @@ const createDetailResponse = (overrides?: Record<string, unknown>) => ({
     total_follow_up_count: 8,
     rating_score: '4.0',
   },
+  learning_mode_metrics: [
+    {
+      mode: 'read',
+      participant_count: 2,
+      consumed_credits: '12.00',
+      consumption_speed: '',
+      average_consumed_credits: '6.00',
+    },
+    {
+      mode: 'listen',
+      participant_count: 1,
+      consumed_credits: '3.00',
+      consumption_speed: '0.43',
+      average_consumed_credits: '3.00',
+    },
+  ],
   ...overrides,
 });
 
@@ -493,5 +516,41 @@ describe('AdminDashboardCourseDetailPage', () => {
       });
     });
     expect(mockGetDashboardCourseDetail).toHaveBeenCalledTimes(1);
+  });
+
+  test('renders learning mode performance tab', async () => {
+    const user = userEvent.setup();
+    mockGetDashboardCourseDetail.mockResolvedValue(createDetailResponse());
+    mockGetDashboardCourseLearners.mockResolvedValue(
+      createLearnersResponse({ items: [], total: 0, page_count: 0 }),
+    );
+
+    render(<AdminDashboardCourseDetailPage />);
+
+    const tab = await screen.findByRole('tab', {
+      name: 'module.dashboard.detail.learningModePerformance.title',
+    });
+    await act(async () => {
+      await user.click(tab);
+    });
+
+    expect(
+      await screen.findByText(
+        'module.dashboard.detail.learningModePerformance.scopeHint',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.dashboard.detail.learningModePerformance.modes.read',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.dashboard.detail.learningModePerformance.modes.listen',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('12.00')).toBeInTheDocument();
+    expect(screen.getByText('6.00')).toBeInTheDocument();
+    expect(screen.getAllByText('--').length).toBeGreaterThan(0);
   });
 });

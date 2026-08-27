@@ -110,6 +110,23 @@
       "viewFollowUps": "Voir les questions",
       "viewFollowUpsForLearner": "Voir les questions de {learner}"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Moy. par apprenant",
+        "consumedCredits": "Crédits consommés",
+        "consumptionSpeed": "Moy. quotidienne sur 7 j",
+        "mode": "Format d’apprentissage",
+        "participants": "Apprenants"
+      },
+      "empty": "Aucune donnée par format d’apprentissage",
+      "modes": {
+        "classroom": "Classe",
+        "listen": "Écoute",
+        "read": "Lecture"
+      },
+      "scopeHint": "Comparez la consommation de crédits en lecture, écoute et classe pour voir comment les apprenants utilisent ce cours.",
+      "title": "Format d’apprentissage"
+    },
     "metrics": {
       "activeLearnersLast7Days": "Apprenants actifs (7 j)",
       "completedLearners": "Apprenants ayant terminé",
@@ -128,8 +145,8 @@
       "completionRate": "Part des apprenants ayant terminé le cours, utile pour évaluer la complétion globale.",
       "learningLearners": "Apprenants actuellement en cours, utile pour voir combien utilisent encore le cours.",
       "newLearnersLast7Days": "Apprenants ayant commencé ou rejoint ce cours au cours des 7 derniers jours, utile pour voir la croissance récente.",
-      "orderAmount": "Valeur totale des commandes de ce cours, valeur des commandes avec code incluse. Ce n’est pas le montant encaissé en espèces.",
-      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées et avec code, utile pour évaluer la conversion.",
+      "orderAmount": "Montant encaissé des commandes payées réussies pour ce cours ; les commandes avec Code d’échange ne sont pas incluses dans ce montant.",
+      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées et celles avec Code d’échange, utile pour évaluer la conversion.",
       "rating": "Note moyenne donnée aux leçons par les apprenants, utile pour évaluer l’expérience d’apprentissage.",
       "totalQuestions": "Questions de suivi posées par les apprenants sur ce cours. Ouvrez pour voir le détail."
     },
