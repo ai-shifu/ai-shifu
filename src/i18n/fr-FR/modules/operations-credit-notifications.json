@@ -15,6 +15,23 @@
     "syncingTemplate": "Interrogation"
   },
   "config": {
+    "deliveryRules": {
+      "active": "Activé",
+      "description": "Consultez au même endroit les plafonds quotidiens, les heures silencieuses, la protection d’usage SMS et les règles de crédits bas enseignant.",
+      "dialogDescription": "Ces règles contrôlent le volume SMS quotidien, les pauses en heures silencieuses et la protection des enseignants quand les crédits sont bas. Elles s’appliquent après enregistrement.",
+      "dialogTitle": "Règles de protection d’envoi",
+      "edit": "Modifier les règles d’envoi",
+      "inactive": "Désactivé",
+      "no": "Non",
+      "summaries": {
+        "budget": "Plafond {limit}/jour ; coût {cost} ; simulation : {dryRun}.",
+        "frequency": "Contact : {perMobile}/jour ; enseignant + type : {perCreatorType}/jour.",
+        "quietHoursOff": "Les heures silencieuses sont désactivées ; les notifications suivent les résultats du scan.",
+        "quietHoursOn": "Suspendre l’envoi de {start} à {end} ({timezone}).",
+        "softlimit": "Sous {threshold} crédits ; alerte {teacherAlert} ; blocage debug {debugLock} ; SMS {sms}."
+      },
+      "yes": "Oui"
+    },
     "description": "Gérez au même endroit les interrupteurs, modèles, règles d’envoi, heures calmes et listes sans envoi des SMS de crédits.",
     "emptyBlockedCreators": "Aucun enseignant bloqué.",
     "emptyOptedOutCreators": "Aucun enseignant désinscrit.",
@@ -89,12 +106,15 @@
       "blockedCreatorLimit": "Ajoutez au maximum {count} enseignants à la fois.",
       "blockedDescription": "Recherchez, consultez et supprimez les enseignants bloqués. Les changements prennent effet après enregistrement.",
       "blockedSummary": "{count} enseignants bloqués",
+      "comingSoon": "Bientôt disponible",
       "delete": "Supprimer",
       "duplicateBlockedCreators": "La saisie existe déjà dans la liste de blocage.",
       "emptyPreview": "Aucun détail",
       "emptyResult": "Aucun résultat.",
       "invalidBlockedCreators": "Contenu non reconnu : {values}",
       "manage": "Gérer",
+      "manageLists": "Gérer les listes",
+      "manageListsDescription": "Ajoutez des enseignants à la liste de non-envoi manuelle ou consultez ceux qui se sont désabonnés.",
       "optedOutDescription": "Les enseignants désinscrits sont en lecture seule. Recherchez par contact ou pseudo.",
       "optedOutSummary": "{count} enseignants désinscrits",
       "searchPlaceholderEmail": "E-mail / Pseudonyme",
@@ -152,13 +172,13 @@
       "softlimit": "Quand le solde est sous le seuil de protection, rappeler les enseignants et limiter le debug pour éviter de continuer à consommer."
     },
     "sections": {
-      "budget": "Budget SMS",
+      "budget": "Protection d’usage SMS",
       "deliveryPolicy": "Règles d’envoi",
-      "frequency": "Fréquence d’envoi",
+      "frequency": "Limites quotidiennes d’envoi",
       "lists": "Listes sans envoi",
       "masterSwitch": "Interrupteur général",
       "quietHours": "Heures calmes",
-      "softlimit": "Protection du solde",
+      "softlimit": "Protection crédits bas enseignant",
       "types": "Types de notification"
     },
     "templateList": {
