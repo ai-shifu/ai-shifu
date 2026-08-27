@@ -29,6 +29,7 @@ type MockScrollControlProps = {
   ariaLabel: string;
   autoScrollOnInit?: boolean;
   bottomOffset?: number;
+  contentRef?: React.RefObject<HTMLElement | null>;
   contentVersion?: unknown;
   endRef?: React.RefObject<HTMLElement | null>;
   followNewContent?: boolean;
@@ -795,13 +796,14 @@ describe('ProfileOnboardingConversation', () => {
         autoScrollOnInit: true,
         bottomOffset: 36,
         contentVersion: 1,
-        followNewContent: false,
+        followNewContent: true,
         placement: 'bottom-center',
         position: 'absolute',
         zIndex: 10,
       }),
     );
     expect(firstProps).not.toHaveProperty('endRef');
+    expect(firstProps.contentRef.current).toHaveClass('markdown-flow');
     expect(firstProps.viewportRef).toBe(firstProps.scrollTarget);
     expect(firstProps.viewportRef.current).toHaveClass(
       'profile-onboarding-markdownflow',

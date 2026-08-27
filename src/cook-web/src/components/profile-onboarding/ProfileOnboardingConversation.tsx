@@ -95,6 +95,7 @@ export default function ProfileOnboardingConversation({
       : null;
   const showAssistant = assistantVisible && assistantView !== null;
   const questionViewportRef = React.useRef<HTMLDivElement>(null);
+  const questionContentRef = React.useRef<HTMLDivElement>(null);
   const assistantHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const assistantEntryRef = React.useRef<HTMLButtonElement>(null);
   const previousAssistantVisibleRef = React.useRef(false);
@@ -302,7 +303,10 @@ export default function ProfileOnboardingConversation({
             canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
-          <div className='markdown-flow'>
+          <div
+            ref={questionContentRef}
+            className='markdown-flow'
+          >
             {visibleContentList.length ? (
               visibleContentList.map(item => (
                 <StableProfileContentRender
@@ -341,10 +345,11 @@ export default function ProfileOnboardingConversation({
         </div>
         <ScrollToBottomControl
           viewportRef={questionViewportRef}
+          contentRef={questionContentRef}
           scrollTarget={questionViewportRef}
           autoScrollOnInit
           contentVersion={visibleContentList.length}
-          followNewContent={false}
+          followNewContent
           ariaLabel={t('common.core.scrollToBottom')}
           placement='bottom-center'
           position='absolute'
