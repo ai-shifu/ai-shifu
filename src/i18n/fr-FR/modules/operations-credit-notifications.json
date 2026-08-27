@@ -215,6 +215,24 @@
       "credit_granted": "Rappelle aux enseignants de vérifier le résultat après l’arrivée de crédits.",
       "low_balance": "Rappelle les enseignants lorsque le solde est sous un seuil ou que les jours utilisables estimés sont faibles."
     },
+    "typeEditor": {
+      "descriptions": {
+        "basic": "Contrôlez si ce type de notification participe aux prochains envois.",
+        "template": "Sélectionnez ou validez le modèle SMS. Le guide des variables reste replié jusqu’au dépannage du modèle."
+      },
+      "done": "Terminer la modification",
+      "draftHint": "Les changements restent d’abord dans le brouillon de cette page. Cliquez sur Enregistrer la configuration en bas pour les activer.",
+      "ruleDescriptions": {
+        "credit_expiring": "Configurez quand rappeler les enseignants avant l’expiration des crédits, et si plusieurs lots expirants sont regroupés par enseignant.",
+        "credit_granted": "Cette notification se déclenche après l’attribution de crédits et ne nécessite aucun réglage supplémentaire.",
+        "low_balance": "Configurez des seuils de solde fixes ou des rappels selon les jours d’utilisation restants estimés."
+      },
+      "sections": {
+        "basic": "Paramètres de base",
+        "rules": "Règles de déclenchement",
+        "template": "Modèle SMS"
+      }
+    },
     "typeTable": {
       "actions": "Actions",
       "channel": "Canal",

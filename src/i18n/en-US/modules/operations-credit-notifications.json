@@ -215,6 +215,24 @@
       "credit_granted": "Reminds teachers to check the result after credits are added.",
       "low_balance": "Reminds teachers when credit balance is below a threshold or estimated usable days are low."
     },
+    "typeEditor": {
+      "descriptions": {
+        "basic": "Control whether this notification type participates in future delivery.",
+        "template": "Select or validate the SMS template. Variable guidance stays collapsed until template troubleshooting is needed."
+      },
+      "done": "Done editing",
+      "draftHint": "Changes stay in this page draft first. Click the bottom Save config button to make them active.",
+      "ruleDescriptions": {
+        "credit_expiring": "Configure when to remind teachers before credits expire, and whether multiple expiring buckets are combined per teacher.",
+        "credit_granted": "This notification is triggered after credits are granted and does not need extra trigger settings.",
+        "low_balance": "Configure fixed balance thresholds, or remind teachers by estimated remaining usage days."
+      },
+      "sections": {
+        "basic": "Basic settings",
+        "rules": "Trigger rules",
+        "template": "SMS template"
+      }
+    },
     "typeTable": {
       "actions": "Actions",
       "channel": "Channel",

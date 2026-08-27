@@ -215,6 +215,24 @@
       "credit_granted": "积分到账后提醒老师查看到账结果。",
       "low_balance": "积分余额低于阈值，或预计可用天数不足时提醒老师。"
     },
+    "typeEditor": {
+      "descriptions": {
+        "basic": "控制这一类通知是否参与后续发送。",
+        "template": "选择或校验短信模板，变量说明默认收起，排查模板时再展开。"
+      },
+      "done": "完成编辑",
+      "draftHint": "本次修改会先保存在页面草稿中，点击底部「保存配置」后才会生效。",
+      "ruleDescriptions": {
+        "credit_expiring": "配置积分到期前哪些时间点提醒，以及同一老师多笔积分是否合并提醒。",
+        "credit_granted": "积分到账后自动触发，无需额外设置触发条件。",
+        "low_balance": "配置固定余额阈值，也可以按预计剩余可用天数提醒。"
+      },
+      "sections": {
+        "basic": "基础设置",
+        "rules": "触发规则",
+        "template": "短信模板"
+      }
+    },
     "typeTable": {
       "actions": "操作",
       "channel": "渠道",
