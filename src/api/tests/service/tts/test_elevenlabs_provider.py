@@ -386,6 +386,15 @@ def test_config_endpoint_hides_unconfigured_provider_and_exposes_allowlist(
     )
     assert tts_api.get_all_provider_configs() == {"providers": [], "model_options": []}
 
+    monkeypatch.setattr(
+        tts_api,
+        "get_config",
+        lambda key, default=None: (
+            "elevenlabs/not-a-model" if key == "TTS_ALLOWED_MODELS" else default
+        ),
+    )
+    assert tts_api.get_all_provider_configs() == {"providers": [], "model_options": []}
+
     allowed = ",".join(
         f"elevenlabs/{model['value']}" for model in module.ELEVENLABS_MODELS
     )

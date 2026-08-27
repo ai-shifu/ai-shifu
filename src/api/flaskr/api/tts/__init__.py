@@ -547,13 +547,15 @@ def get_all_provider_configs() -> dict:
                 and not provider.is_configured()
             ):
                 continue
-            if (
-                name in _CONFIG_REQUIRES_ALLOWED_MODEL
-                and allowed_model_keys
-                and not any(key.startswith(f"{name}/") for key in allowed_model_keys)
-            ):
-                continue
             payload = provider.get_provider_config().to_dict()
+            if name in _CONFIG_REQUIRES_ALLOWED_MODEL and allowed_model_keys:
+                available_model_keys = {
+                    _normalize_tts_model_key(name, str(item.get("value") or ""))
+                    for item in payload.get("models") or []
+                    if isinstance(item, dict) and str(item.get("value") or "").strip()
+                }
+                if not allowed_model_keys.intersection(available_model_keys):
+                    continue
             providers.append(payload)
             provider_payloads.append((name, payload))
         except Exception as e:
