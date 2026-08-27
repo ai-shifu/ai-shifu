@@ -169,7 +169,7 @@ export default function ProfileOnboardingConversation({
           ref={questionViewportRef}
           aria-busy={loading || (runInFlight && !assistantProcessing)}
           className={cn(
-            'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable] max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base',
+            'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain py-6 pe-1 [scrollbar-gutter:stable] max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base',
             canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
@@ -196,7 +196,7 @@ export default function ProfileOnboardingConversation({
           <Button
             ref={assistantEntryRef}
             type='button'
-            className='absolute bottom-3 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(50%-2.75rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-lg sm:inline-flex'
+            className='absolute bottom-9 right-3 z-10 hidden h-auto min-h-10 max-w-[calc(50%-2.75rem)] whitespace-normal rounded-full px-4 py-2 text-start shadow-[0_6px_12px_-8px_rgba(15,23,42,0.38)] sm:inline-flex'
             disabled={disabled}
             onClick={() => setAssistantVisible(true)}
           >

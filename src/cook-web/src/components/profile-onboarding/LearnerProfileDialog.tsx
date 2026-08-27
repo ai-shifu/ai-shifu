@@ -187,7 +187,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <header
           data-testid='learner-profile-dialog-header'
           ref={headerRef}
-          className="absolute inset-x-0 top-0 z-10 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-md after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-3 after:h-3 after:border-b after:border-border/70 after:bg-background/60 after:shadow-[0_6px_12px_-10px_rgba(15,23,42,0.32)] after:backdrop-blur-md after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
+          className="absolute inset-x-0 top-0 z-10 border-b border-slate-300/80 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-6 after:h-6 after:bg-background/55 after:backdrop-blur-md after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
         >
           <DialogHeader className='w-full space-y-1 pr-12 text-start sm:space-y-2 [@media(max-height:620px)]:space-y-1'>
             <DialogTitle className='text-xl font-bold leading-7 tracking-tight sm:text-[28px] sm:leading-9 [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7'>
@@ -216,8 +216,10 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
           className={cn(
-            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pb-[calc(var(--learner-profile-footer-height,80px)+0.75rem)] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[calc(var(--learner-profile-header-height,96px)+0.75rem)] [scrollbar-gutter:stable] sm:px-8 sm:pb-[calc(var(--learner-profile-footer-height,76px)+0.75rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+0.75rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+0.75rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+0.75rem)]',
-            collectionOwnsScroll ? 'overflow-hidden' : 'overflow-y-auto',
+            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] [scrollbar-gutter:stable] sm:px-8',
+            collectionOwnsScroll
+              ? 'overflow-hidden pb-[var(--learner-profile-footer-height,80px)] pt-[var(--learner-profile-header-height,96px)] sm:pb-[var(--learner-profile-footer-height,76px)] sm:pt-[var(--learner-profile-header-height,116px)] [@media(max-height:620px)]:pb-[var(--learner-profile-footer-height,80px)] [@media(max-height:620px)]:pt-[var(--learner-profile-header-height,80px)]'
+              : 'overflow-y-auto pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)] pt-[calc(var(--learner-profile-header-height,96px)+1.5rem)] sm:pb-[calc(var(--learner-profile-footer-height,76px)+1.5rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+1.5rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+1.5rem)]',
           )}
           style={
             {
@@ -319,7 +321,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <footer
           data-testid='learner-profile-dialog-footer'
           ref={footerRef}
-          className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 backdrop-blur-md before:pointer-events-none before:absolute before:inset-x-0 before:-top-3 before:h-3 before:border-t before:border-border/70 before:bg-background/60 before:shadow-[0_-6px_12px_-10px_rgba(15,23,42,0.32)] before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-slate-300/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-background/55 before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
         >
           {confirmation ? (
             <>

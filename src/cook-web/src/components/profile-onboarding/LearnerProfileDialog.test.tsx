@@ -455,16 +455,19 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:leading-5',
     );
     expect(screen.getByTestId('learner-profile-dialog-header')).toHaveClass(
-      'after:-bottom-3',
-      'after:h-3',
-      'after:bg-background/60',
+      'border-b',
+      'after:-bottom-6',
+      'after:h-6',
+      'after:bg-background/55',
       'after:backdrop-blur-md',
     );
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-hidden',
       'bg-muted/25',
-      'pb-[calc(var(--learner-profile-footer-height,80px)+0.75rem)]',
-      'pt-[calc(var(--learner-profile-header-height,96px)+0.75rem)]',
+      'pb-[var(--learner-profile-footer-height,80px)]',
+      'pt-[var(--learner-profile-header-height,96px)]',
+      'sm:pb-[var(--learner-profile-footer-height,76px)]',
+      'sm:pt-[var(--learner-profile-header-height,116px)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-body')).not.toHaveClass(
       'overflow-y-auto',
@@ -483,11 +486,12 @@ describe('LearnerProfileDialog', () => {
       '[@media(max-height:620px)]:flex-nowrap',
       '[@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
       '[@media(max-height:620px)]:pt-3',
+      'border-t',
       'bg-background/90',
-      'backdrop-blur-md',
-      'before:-top-3',
-      'before:h-3',
-      'before:bg-background/60',
+      'backdrop-blur-xl',
+      'before:-top-6',
+      'before:h-6',
+      'before:bg-background/55',
       'before:backdrop-blur-md',
     );
     const inlineInformation = informationUsageControl('inline');
@@ -723,6 +727,8 @@ describe('LearnerProfileDialog', () => {
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-y-auto',
+      'pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)]',
+      'pt-[calc(var(--learner-profile-header-height,96px)+1.5rem)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
       'absolute',
