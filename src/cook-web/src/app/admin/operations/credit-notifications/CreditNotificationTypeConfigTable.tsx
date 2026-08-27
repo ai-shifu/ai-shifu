@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
+import type { ContactMode } from '@/lib/resolve-contact-mode';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -30,7 +31,9 @@ import {
 type CreditNotificationTypeConfigTableProps = Omit<
   CreditNotificationTypeConfigCardProps,
   'type' | 'recommendedTemplate'
->;
+> & {
+  contactMode: ContactMode;
+};
 
 type TypeConfigRow = {
   key: KnownNotificationType;
@@ -103,7 +106,7 @@ export function CreditNotificationTypeConfigTable(
         header: t(
           'module.operationsCreditNotifications.config.typeTable.channel',
         ),
-        className: 'w-[110px]',
+        className: 'w-[138px]',
       },
       {
         key: 'template',
@@ -237,12 +240,21 @@ const renderTypeConfigCell = (
   }
 
   if (columnKey === 'channel') {
+    const channelLabel =
+      props.contactMode === 'email'
+        ? t(
+            'module.operationsCreditNotifications.config.typeTable.emailChannelComingSoon',
+          )
+        : t(
+            'module.operationsCreditNotifications.config.typeTable.smsChannelAvailable',
+          );
     return (
       <Badge
-        variant='secondary'
-        className='whitespace-nowrap font-medium'
+        variant={props.contactMode === 'email' ? 'outline' : 'secondary'}
+        className='whitespace-nowrap font-medium data-[mode=email]:text-muted-foreground'
+        data-mode={props.contactMode}
       >
-        {t('module.operationsCreditNotifications.config.typeTable.smsChannel')}
+        {channelLabel}
       </Badge>
     );
   }

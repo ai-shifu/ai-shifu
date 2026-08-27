@@ -193,6 +193,7 @@ export function CreditNotificationConfigTab({
             </div>
           ) : null}
           <CreditNotificationTypeConfigTable
+            contactMode={contactMode}
             policy={policy}
             fixedLowBalanceThresholds={fixedLowBalanceThresholds}
             estimatedDaysThreshold={estimatedDaysThreshold}
