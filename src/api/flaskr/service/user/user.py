@@ -12,7 +12,7 @@ from flask import Flask
 from flaskr.api.wechat import get_wechat_access_token
 from flaskr.common.shifu_context import get_shifu_creator_bid as get_context_creator_bid
 from flaskr.dao import db
-from flaskr.service.billing.api import resolve_creator_public_integrations
+from flaskr.service.billing.api import resolve_creator_wechat_oauth_app_id
 from flaskr.service.common.dtos import USER_STATE_UNREGISTERED, UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.oss_utils import (
@@ -91,7 +91,7 @@ def generate_temp_user(
                 wx_openid = wx_data.get("openid", "")
                 wx_unionid = wx_data.get("unionid", "")
         wx_open_identifier, wx_union_identifier = _wechat_identifiers(
-            app, wx_openid, wx_unionid
+            _context_wechat_app_id(app), wx_openid, wx_unionid
         )
         if not convert_user:
             if wx_openid != "":
@@ -183,10 +183,13 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
 
         wx_openid = wx_data.get("openid", "")
         wx_unionid = wx_data.get("unionid", "")
+        wx_app_id = _context_wechat_app_id(app)
         wx_open_identifier, wx_union_identifier = _wechat_identifiers(
-            app, wx_openid, wx_unionid
+            wx_app_id, wx_openid, wx_unionid
         )
-        if wx_openid and aggregate.wechat_open_id != wx_openid:
+        # Compare within the same WeChat app: an open ID this account holds for
+        # another app is a different binding, not a stale copy of this one.
+        if wx_openid and aggregate.wechat_open_id_for_app(wx_app_id) != wx_openid:
             upsert_wechat_credentials(
                 app,
                 user_bid=aggregate.user_bid,
@@ -205,27 +208,25 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
         return wx_openid
 
 
-def _wechat_identifiers(app: Flask, open_id: str, union_id: str) -> tuple[str, str]:
-    """Scope custom-app subjects while preserving platform-app identifiers."""
+def _context_wechat_app_id(app: Flask) -> str:
+    """Return the WeChat OAuth app the current shifu context signs learners in with."""
     creator_bid = str(get_context_creator_bid() or "").strip()
     if not creator_bid:
-        return open_id, union_id
+        return ""
     try:
-        custom_wechat = resolve_creator_public_integrations(creator_bid).get(
-            "wechat_oauth"
-        )
+        return resolve_creator_wechat_oauth_app_id(creator_bid)
     except Exception:
         app.logger.exception(
             "Failed to resolve WeChat OAuth integration for creator %s",
             creator_bid,
         )
         raise
-    if not custom_wechat:
-        return open_id, union_id
-    app_id = str(custom_wechat.get("app_id") or "").strip()
+
+
+def _wechat_identifiers(app_id: str, open_id: str, union_id: str) -> tuple[str, str]:
+    """Scope custom-app subjects while preserving platform-app identifiers."""
     if not app_id:
-        message = "Custom WeChat OAuth integration is missing app_id"
-        raise RuntimeError(message)
+        return open_id, union_id
     return (
         f"{app_id}:{open_id}" if open_id else "",
         f"{app_id}:{union_id}" if union_id else "",
