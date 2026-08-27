@@ -259,6 +259,17 @@
       "ratingScore": "评分",
       "visitCount30d": "近30天访问人数"
     },
+    "metricsTooltips": {
+      "completedUserAvgCredits": "已学完课程的用户，平均每人消耗了多少积分。",
+      "creditConsumedTotal": "学习、追问等使用这门课时累计消耗的积分。",
+      "creditUsageCount": "这门课触发了多少次积分扣减，用来看使用频次。",
+      "creditUserCount": "有多少用户在这门课里实际消耗过积分。",
+      "followUpCount": "用户围绕课程内容追问了多少次，点击可查看具体问题。",
+      "learnerCount": "有多少用户开始学或加入过这门课，用来看课程触达规模。",
+      "orderAmount": "这门课实际收到的订单金额，包含兑换码带来的订单。",
+      "orderCount": "这门课产生了多少笔已支付订单，点击可查看订单明细。",
+      "ratingScore": "用户给课程章节的平均评分，用来看整体学习体验。"
+    },
     "orders": {
       "openMetric": "查看订单数据"
     },

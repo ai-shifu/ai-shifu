@@ -784,20 +784,24 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.metricsLabels.learnerCount'),
         value: formatCount(detail.metrics.learner_count, i18n.language),
+        tooltip: tOperations('detail.metricsTooltips.learnerCount'),
       },
       {
         label: tOperations('detail.metricsLabels.orderCount'),
         value: formatCount(detail.metrics.order_count, i18n.language),
+        tooltip: tOperations('detail.metricsTooltips.orderCount'),
         onClick: ordersPageUrl ? () => router.push(ordersPageUrl) : undefined,
         actionLabel: tOperations('detail.orders.openMetric'),
       },
       {
         label: tOperations('detail.metricsLabels.orderAmount'),
         value: `${currencySymbol}${detail.metrics.order_amount || '0'}`,
+        tooltip: tOperations('detail.metricsTooltips.orderAmount'),
       },
       {
         label: tOperations('detail.metricsLabels.followUpCount'),
         value: formatCount(detail.metrics.follow_up_count, i18n.language),
+        tooltip: tOperations('detail.metricsTooltips.followUpCount'),
         onClick: followUpPageUrl
           ? () => router.push(followUpPageUrl)
           : undefined,
@@ -806,6 +810,7 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.metricsLabels.ratingScore'),
         value: detail.metrics.rating_score || emptyValue,
+        tooltip: tOperations('detail.metricsTooltips.ratingScore'),
         onClick: ratingsPageUrl ? () => router.push(ratingsPageUrl) : undefined,
         actionLabel: tOperations('detail.ratings.openMetric'),
       },
@@ -815,6 +820,7 @@ export default function AdminOperationCourseDetailPage() {
           detail.metrics.credit_consumed_total || 0,
           i18n.language,
         ),
+        tooltip: tOperations('detail.metricsTooltips.creditConsumedTotal'),
       },
       {
         label: tOperations('detail.metricsLabels.creditUsageCount'),
@@ -822,6 +828,7 @@ export default function AdminOperationCourseDetailPage() {
           detail.metrics.credit_usage_count || 0,
           i18n.language,
         ),
+        tooltip: tOperations('detail.metricsTooltips.creditUsageCount'),
       },
       {
         label: tOperations('detail.metricsLabels.creditUserCount'),
@@ -829,6 +836,7 @@ export default function AdminOperationCourseDetailPage() {
           detail.metrics.credit_user_count || 0,
           i18n.language,
         ),
+        tooltip: tOperations('detail.metricsTooltips.creditUserCount'),
       },
       {
         label: tOperations('detail.metricsLabels.completedUserAvgCredits'),
@@ -840,6 +848,7 @@ export default function AdminOperationCourseDetailPage() {
                 detail.metrics.completed_user_avg_credits,
                 i18n.language,
               ),
+        tooltip: tOperations('detail.metricsTooltips.completedUserAvgCredits'),
       },
     ],
     [
