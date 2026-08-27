@@ -254,7 +254,7 @@
       "creditUserCount": "Credit Usage Users",
       "followUpCount": "Ask",
       "learnerCount": "Learners",
-      "orderAmount": "Collected Revenue (Incl. Coupon Codes)",
+      "orderAmount": "Order Value (Incl. Coupon Codes)",
       "orderCount": "Orders",
       "ratingScore": "Rating",
       "visitCount30d": "Visitors (30d)"

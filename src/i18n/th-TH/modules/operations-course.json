@@ -254,7 +254,7 @@
       "creditUserCount": "จำนวนผู้ใช้เครดิต",
       "followUpCount": "จำนวนคำถามต่อยอด",
       "learnerCount": "จำนวนผู้เรียน",
-      "orderAmount": "ยอดรับรวม (รวมรหัสแลกรับ)",
+      "orderAmount": "มูลค่าคำสั่งซื้อ (รวมรหัสแลกรับ)",
       "orderCount": "จำนวนคำสั่งซื้อ",
       "ratingScore": "คะแนน",
       "visitCount30d": "จำนวนผู้เข้าชมใน 30 วันที่ผ่านมา"
