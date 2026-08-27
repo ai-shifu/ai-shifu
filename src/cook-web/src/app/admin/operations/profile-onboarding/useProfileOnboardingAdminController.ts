@@ -12,6 +12,8 @@ import type { ErrorWithCode } from '@/lib/request';
 type ProfileOnboardingConfig = {
   enabled?: boolean;
   markdownflow?: string;
+  assistant_prompt?: string;
+  cache_refresh_pending?: boolean;
   config_revision?: number;
   updated_by?: string;
   updated_at?: string;
@@ -22,6 +24,8 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const { toast } = useToast();
   const [enabled, setEnabled] = React.useState(false);
   const [markdownflow, setMarkdownflow] = React.useState('');
+  const [assistantPrompt, setAssistantPrompt] = React.useState('');
+  const savedAssistantPromptRef = React.useRef('');
   const [configRevision, setConfigRevision] = React.useState(0);
   const [updatedBy, setUpdatedBy] = React.useState('');
   const [updatedAt, setUpdatedAt] = React.useState('');
@@ -53,6 +57,8 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
             ? (response.markdownflow ?? defaultMarkdownflow)
             : response.markdownflow || defaultMarkdownflow,
         );
+        savedAssistantPromptRef.current = response.assistant_prompt || '';
+        setAssistantPrompt(savedAssistantPromptRef.current);
         setConfigRevision(loadedRevision);
         setUpdatedBy(response.updated_by || '');
         setUpdatedAt(response.updated_at || '');
@@ -74,13 +80,26 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       setError(t('module.profileOnboarding.admin.documentRequired'));
       return;
     }
-    const submittedConfig = { enabled, markdownflow };
+    const assistantPromptChanged =
+      assistantPrompt !== savedAssistantPromptRef.current;
+    if (
+      !markdownflow.trim() &&
+      assistantPromptChanged &&
+      assistantPrompt.trim()
+    ) {
+      setError(t('module.profileOnboarding.admin.promptRequiresDocument'));
+      return;
+    }
+    const submittedConfig = { enabled, markdownflow, assistantPrompt };
     setSaving(true);
     setError('');
     try {
       const response = (await api.updateAdminOperationProfileOnboardingConfig({
         enabled: submittedConfig.enabled,
         markdownflow: submittedConfig.markdownflow,
+        ...(assistantPromptChanged
+          ? { assistant_prompt: submittedConfig.assistantPrompt }
+          : {}),
       })) as ProfileOnboardingConfig;
       setEnabled(currentValue =>
         currentValue === submittedConfig.enabled
@@ -92,10 +111,25 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
           ? (response.markdownflow ?? submittedConfig.markdownflow)
           : currentValue,
       );
+      const savedAssistantPrompt = response.assistant_prompt || '';
+      savedAssistantPromptRef.current = savedAssistantPrompt;
+      setAssistantPrompt(currentValue =>
+        currentValue === submittedConfig.assistantPrompt
+          ? savedAssistantPrompt
+          : currentValue,
+      );
       setConfigRevision(Number(response.config_revision ?? configRevision));
       setUpdatedBy(response.updated_by || updatedBy);
       setUpdatedAt(response.updated_at || updatedAt);
-      toast({ title: t('module.profileOnboarding.admin.saveSuccess') });
+      if (response.cache_refresh_pending) {
+        toast({
+          title: t('module.profileOnboarding.admin.saveCacheRefreshPending'),
+          className: 'border-amber-300 bg-amber-50 text-amber-950',
+          duration: 8000,
+        });
+      } else {
+        toast({ title: t('module.profileOnboarding.admin.saveSuccess') });
+      }
     } catch (caughtError) {
       const typedError = caughtError as Partial<ErrorWithCode>;
       setError(
@@ -104,7 +138,16 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     } finally {
       setSaving(false);
     }
-  }, [configRevision, enabled, markdownflow, t, toast, updatedAt, updatedBy]);
+  }, [
+    assistantPrompt,
+    configRevision,
+    enabled,
+    markdownflow,
+    t,
+    toast,
+    updatedAt,
+    updatedBy,
+  ]);
 
   const createPreviewSession = React.useCallback(async () => {
     setPreviewDraft('');
@@ -160,6 +203,8 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     setEnabled,
     markdownflow,
     setMarkdownflow,
+    assistantPrompt,
+    setAssistantPrompt,
     configRevision,
     updatedBy,
     updatedAt,

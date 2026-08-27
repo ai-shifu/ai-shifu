@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import {
   completeGuidedProfileOnboarding,
@@ -45,15 +46,28 @@ const translateKey = (
 type ConversationControl = {
   deliverDraft: (draft?: string, nickname?: string) => void;
   deliverError: (error?: Error) => void;
+  deliverAssistantDraft: (draft: string, nickname?: string) => void;
+  changeAssistantDraft: (draft: string) => void;
+  assistantDraft: () => string | undefined;
   setRunInFlight: (runInFlight: boolean) => void;
   sessionId: () => string;
 };
 
 const mockConversationControls: ConversationControl[] = [];
+const mockAssistantDraftRenders: Array<{
+  value: string | undefined;
+  change: ProfileOnboardingConversationProps['onAssistantDraftChange'];
+}> = [];
 
 function MockProfileOnboardingConversation(
   props: ProfileOnboardingConversationProps,
 ) {
+  // Capture render-time props, including the account-switch render before
+  // passive effects restore the next account's draft.
+  mockAssistantDraftRenders.push({
+    value: props.assistantDraft,
+    change: props.onAssistantDraftChange,
+  });
   const propsRef = React.useRef(props);
   const mountedRef = React.useRef(true);
   const sessionIdRef = React.useRef('');
@@ -69,6 +83,15 @@ function MockProfileOnboardingConversation(
           propsRef.current.onDraftReady(draft, sessionIdRef.current, nickname);
         }
       },
+      deliverAssistantDraft: (draft, nickname) =>
+        propsRef.current.onAssistantDraftReady?.(
+          draft,
+          sessionIdRef.current,
+          nickname,
+        ),
+      changeAssistantDraft: draft =>
+        propsRef.current.onAssistantDraftChange?.(draft),
+      assistantDraft: () => propsRef.current.assistantDraft,
       deliverError: (error = new Error('Collection failed')) => {
         if (mountedRef.current) {
           propsRef.current.onError(error);
@@ -156,6 +179,7 @@ function MockProfileOnboardingConversation(
         {RETRY_CONVERSATION_LABEL}
       </button>
       {props.errorMessage ? <p>{props.errorMessage}</p> : null}
+      {props.questionScrollFooter}
     </div>
   );
 }
@@ -286,10 +310,13 @@ const saveButton = () =>
   screen.getByRole('button', {
     name: 'module.profileOnboarding.dialog.saveChanges',
   });
-const informationUsageControl = () =>
-  screen.getByTestId('learner-profile-information-usage');
-const informationUsageSummary = () =>
-  informationUsageControl().querySelector('summary') as HTMLElement;
+const informationUsageControl = (variant: 'inline' | 'popover') =>
+  screen.getByTestId(`learner-profile-information-usage-${variant}`);
+const informationUsageSummary = (variant: 'inline' | 'popover') =>
+  informationUsageControl(variant).querySelector('summary') as HTMLElement;
+const interactiveCollectionButton = (
+  placement: 'mobile' | 'desktop' = 'mobile',
+) => screen.getByTestId(`learner-profile-interactive-collection-${placement}`);
 const waitForCollectionSession = async (sessionId = SESSION_ID) => {
   await waitFor(() =>
     expect(screen.getByTestId('mock-collection-session')).toHaveTextContent(
@@ -307,7 +334,9 @@ const continueCollectionToSave = async () => {
 describe('LearnerProfileDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
     mockConversationControls.splice(0);
+    mockAssistantDraftRenders.splice(0);
     mockLanguage = 'en-US';
     mockTrackEventIdentity = mockTrackEvent;
     mockGetLearnerProfile.mockResolvedValue(existingProfile);
@@ -374,41 +403,213 @@ describe('LearnerProfileDialog', () => {
       'focus-within:outline-none',
       'focus-within:ring-0',
     );
+    expect(screen.getByTestId('learner-profile-dialog-content')).toHaveClass(
+      'inset-0',
+      'h-dvh',
+      'w-screen',
+      'rounded-none',
+      'border-0',
+      'sm:inset-auto',
+      'sm:left-1/2',
+      'sm:top-1/2',
+      'sm:h-[min(88dvh,760px)]',
+      'sm:w-[calc(100vw-48px)]',
+      'sm:max-w-[900px]',
+      'sm:-translate-x-1/2',
+      'sm:-translate-y-1/2',
+      'sm:rounded-2xl',
+      'sm:border',
+      'max-sm:[&_input]:min-h-11',
+      'max-sm:[&_select]:min-h-11',
+      'sm:any-pointer-coarse:[&_button]:min-h-11',
+      'sm:any-pointer-coarse:[&_button]:min-w-11',
+      'sm:any-pointer-coarse:[&_input]:min-h-11',
+      'sm:any-pointer-coarse:[&_input]:text-base',
+      'sm:any-pointer-coarse:[&_select]:min-h-11',
+      'sm:any-pointer-coarse:[&_select]:text-base',
+      'sm:any-pointer-coarse:[&_textarea]:text-base',
+    );
+    expect(
+      screen.queryByTestId('learner-profile-mobile-handle'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen
+        .getByTestId('learner-profile-dialog-content')
+        .querySelector('header'),
+    ).toHaveClass(
+      'pl-[max(1rem,env(safe-area-inset-left,0px))]',
+      'pr-[max(1rem,env(safe-area-inset-right,0px))]',
+      'pt-[max(0.75rem,env(safe-area-inset-top,0px))]',
+      '[@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]',
+    );
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.unifiedTitle'),
+    ).toHaveClass(
+      '[@media(max-height:620px)]:text-xl',
+      '[@media(max-height:620px)]:leading-7',
+    );
+    expect(
+      screen.getByText('module.profileOnboarding.dialog.unifiedDescription'),
+    ).toHaveClass(
+      '[@media(max-height:620px)]:text-sm',
+      '[@media(max-height:620px)]:leading-5',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-header')).toHaveClass(
+      'border-b',
+      'after:-bottom-6',
+      'after:h-6',
+      'after:bg-background/55',
+      'after:backdrop-blur-md',
+    );
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
+      'overflow-hidden',
+      'bg-muted/25',
+      'pb-[var(--learner-profile-footer-height,80px)]',
+      'pt-[var(--learner-profile-header-height,96px)]',
+      'sm:pb-[var(--learner-profile-footer-height,76px)]',
+      'sm:pt-[var(--learner-profile-header-height,116px)]',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-body')).not.toHaveClass(
       'overflow-y-auto',
     );
     expect(
       screen.getByTestId('mock-profile-onboarding-conversation').parentElement,
-    ).toHaveClass('min-h-40', '[@media(max-height:620px)]:min-h-32');
+    ).toHaveClass('min-h-0', 'flex-1');
+    expect(
+      screen.getByTestId('mock-profile-onboarding-conversation').parentElement,
+    ).not.toHaveClass('min-h-40');
+    expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
+      'absolute',
+      'bottom-0',
+      'z-10',
+      'pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
+      '[@media(max-height:620px)]:flex-nowrap',
+      '[@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
+      '[@media(max-height:620px)]:pt-3',
+      'border-t',
+      'bg-background/90',
+      'backdrop-blur-xl',
+      'before:-top-6',
+      'before:h-6',
+      'before:bg-background/55',
+      'before:backdrop-blur-md',
+    );
+    const inlineInformation = informationUsageControl('inline');
+    const popoverInformation = informationUsageControl('popover');
     expect(
       screen.getByTestId('learner-profile-dialog-footer'),
-    ).toContainElement(informationUsageControl());
-    expect(informationUsageControl()).not.toHaveAttribute('open');
-    fireEvent.click(informationUsageSummary());
-    expect(informationUsageControl()).toHaveAttribute('open');
+    ).toContainElement(popoverInformation);
+    expect(popoverInformation).toHaveClass(
+      'hidden',
+      'sm:block',
+      '[@media(max-height:620px)]:hidden',
+    );
     expect(
-      await screen.findByText(
+      screen.getByTestId('mock-profile-onboarding-conversation'),
+    ).toContainElement(inlineInformation);
+    expect(inlineInformation).toHaveClass(
+      'sm:hidden',
+      '[@media(max-height:620px)]:block',
+    );
+    expect(inlineInformation).not.toHaveAttribute('open');
+    expect(inlineInformation.querySelector('[role="note"]')).not.toHaveClass(
+      'absolute',
+    );
+    expect(popoverInformation.querySelector('[role="note"]')).toHaveClass(
+      'absolute',
+    );
+    fireEvent.click(informationUsageSummary('inline'));
+    expect(inlineInformation).toHaveAttribute('open');
+    expect(
+      await within(inlineInformation).findByText(
         'module.profileOnboarding.dialog.informationUsagePurpose',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      within(inlineInformation).getByText(
         'module.profileOnboarding.dialog.informationUsageSensitive',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      within(inlineInformation).getByText(
         'module.profileOnboarding.dialog.informationUsageEditable',
       ),
     ).toBeInTheDocument();
-    fireEvent.click(informationUsageSummary());
-    expect(informationUsageControl()).not.toHaveAttribute('open');
+    fireEvent.click(informationUsageSummary('inline'));
+    expect(inlineInformation).not.toHaveAttribute('open');
     expect(
       screen.queryByText('module.profileOnboarding.steps.collect'),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.profileOnboarding.steps.review'),
     ).not.toBeInTheDocument();
+  });
+
+  test('measures dialog chrome after a closed dialog opens even when loading fails', async () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    const observe = jest.fn();
+    const disconnect = jest.fn();
+    const resizeObserver = {
+      disconnect,
+      observe,
+      unobserve: jest.fn(),
+    } as unknown as ResizeObserver;
+    let resizeCallback: ResizeObserverCallback | undefined;
+    const ResizeObserverMock = jest.fn((callback: ResizeObserverCallback) => {
+      resizeCallback = callback;
+      return resizeObserver;
+    });
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      value: ResizeObserverMock,
+    });
+    mockGetLearnerProfile.mockRejectedValueOnce(
+      new Error('Profile unavailable'),
+    );
+
+    try {
+      const { props, rerender } = renderDialog({ open: false });
+      expect(ResizeObserverMock).not.toHaveBeenCalled();
+
+      rerender(
+        <LearnerProfileDialog
+          {...props}
+          open
+        />,
+      );
+
+      expect(
+        await screen.findByText('Profile unavailable'),
+      ).toBeInTheDocument();
+      const header = screen.getByTestId('learner-profile-dialog-header');
+      const footer = screen.getByTestId('learner-profile-dialog-footer');
+      jest
+        .spyOn(header, 'getBoundingClientRect')
+        .mockReturnValue({ height: 104 } as DOMRect);
+      jest
+        .spyOn(footer, 'getBoundingClientRect')
+        .mockReturnValue({ height: 72 } as DOMRect);
+
+      await waitFor(() => {
+        expect(observe).toHaveBeenCalledWith(header);
+        expect(observe).toHaveBeenCalledWith(footer);
+      });
+      act(() => resizeCallback?.([], resizeObserver));
+
+      expect(screen.getByTestId('learner-profile-dialog-body')).toHaveStyle({
+        '--learner-profile-footer-height': '72px',
+        '--learner-profile-header-height': '104px',
+      });
+    } finally {
+      if (originalResizeObserver) {
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+          configurable: true,
+          value: originalResizeObserver,
+        });
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    }
   });
 
   test('shows an existing profile without waiting for optional onboarding status', async () => {
@@ -452,11 +653,7 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByTestId('mock-profile-onboarding-conversation'),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
-    ).toBeInTheDocument();
+    expect(interactiveCollectionButton()).toBeInTheDocument();
     expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
   });
 
@@ -597,9 +794,46 @@ describe('LearnerProfileDialog', () => {
     expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
       'overflow-y-auto',
+      'pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)]',
+      'pt-[calc(var(--learner-profile-header-height,96px)+1.5rem)]',
     );
     expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
-      'shrink-0',
+      'absolute',
+      'bottom-0',
+    );
+    expect(screen.getByTestId('learner-profile-save-view')).toHaveClass(
+      'flex',
+      'min-h-full',
+      'flex-1',
+      'flex-col',
+    );
+    expect(profileInput().parentElement).toHaveClass(
+      'min-h-48',
+      'flex-1',
+      'sm:min-h-40',
+      '[@media(max-height:620px)]:min-h-40',
+    );
+    expect(nicknameInput()).toHaveClass(
+      'h-11',
+      'text-base',
+      'sm:h-10',
+      'sm:text-sm',
+    );
+    expect(profileInput()).toHaveClass(
+      'min-h-40',
+      'flex-1',
+      'resize-none',
+      'text-base',
+      'sm:min-h-32',
+      'sm:text-sm',
+      '[@media(max-height:620px)]:min-h-32',
+    );
+    expect(profileInput().closest('section')).toHaveClass(
+      'min-h-60',
+      'flex-1',
+      'sm:min-h-52',
+      '[@media(max-height:620px)]:min-h-52',
+      '[@media(max-height:620px)]:flex-none',
     );
     expect(
       screen.queryByText('module.profileOnboarding.steps.collect'),
@@ -622,21 +856,66 @@ describe('LearnerProfileDialog', () => {
     expect(
       screen.queryByTestId('learner-profile-reassurance'),
     ).not.toBeInTheDocument();
-    const interactiveCollectionButton = screen.getByRole('button', {
-      name: 'module.profileOnboarding.dialog.interactiveCollection',
-    });
+    const mobileCollectionButton = interactiveCollectionButton('mobile');
+    const desktopCollectionButton = interactiveCollectionButton('desktop');
     const leftActions = screen.getByTestId(
       'learner-profile-dialog-left-actions',
     );
-    expect(leftActions).toHaveClass('mr-auto', 'justify-start');
-    expect(leftActions).toContainElement(informationUsageControl());
-    expect(leftActions).toContainElement(interactiveCollectionButton);
+    expect(leftActions).toHaveClass('me-auto', 'justify-start');
+    expect(leftActions).toContainElement(informationUsageControl('popover'));
+    expect(leftActions).toContainElement(desktopCollectionButton);
+    expect(desktopCollectionButton).toHaveClass(
+      'hidden',
+      'sm:inline-flex',
+      '[@media(max-height:620px)]:hidden',
+    );
+    expect(screen.getByTestId('learner-profile-save-view')).toContainElement(
+      informationUsageControl('inline'),
+    );
+    expect(screen.getByTestId('learner-profile-save-view')).toContainElement(
+      mobileCollectionButton,
+    );
+    expect(screen.getByTestId('learner-profile-save-heading-row')).toHaveClass(
+      'flex',
+      'items-center',
+      'justify-between',
+      'sm:block',
+      '[@media(max-height:620px)]:flex',
+    );
+    expect(
+      screen.getByTestId('learner-profile-save-heading-row'),
+    ).toContainElement(mobileCollectionButton);
+    expect(mobileCollectionButton).toHaveClass(
+      'min-h-11',
+      'w-fit',
+      'max-w-[48%]',
+      'shrink-0',
+      'justify-start',
+      'sm:hidden',
+      '[@media(max-height:620px)]:inline-flex',
+    );
+    expect(mobileCollectionButton).not.toHaveClass(
+      'w-full',
+      'border-input',
+      'bg-background',
+    );
+    expect(mobileCollectionButton).toHaveAccessibleName(
+      'module.profileOnboarding.dialog.interactiveCollection',
+    );
+    expect(mobileCollectionButton.querySelector('svg')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+    expect(informationUsageControl('inline')).toHaveClass(
+      '[@media(max-height:620px)]:block',
+    );
 
     const saveActions = screen.getByTestId(
       'learner-profile-dialog-save-actions',
     );
-    expect(saveActions).toHaveClass('w-full', 'sm:w-auto');
-    expect(saveActions).not.toContainElement(interactiveCollectionButton);
+    expect(saveActions).toHaveClass('flex-1', 'sm:w-auto', 'sm:flex-none');
+    expect(saveActions).not.toContainElement(mobileCollectionButton);
+    expect(saveActions).not.toContainElement(desktopCollectionButton);
     expect(saveActions).toContainElement(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.cancel',
@@ -648,6 +927,7 @@ describe('LearnerProfileDialog', () => {
       'learner-profile-optimization-card',
     );
     expect(optimizationCard).toHaveClass(
+      'shrink-0',
       'rounded-xl',
       'border-primary/20',
       'bg-primary/[0.05]',
@@ -662,26 +942,77 @@ describe('LearnerProfileDialog', () => {
     ).toBeInTheDocument();
   });
 
+  test('scrolls a focused form control into the nearest visible position', async () => {
+    const scrollIntoView = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      renderDialog();
+      await screen.findByDisplayValue(existingProfile.learner_profile);
+      fireEvent.focus(nicknameInput());
+
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: 'nearest',
+        inline: 'nearest',
+      });
+    } finally {
+      Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+    }
+  });
+
   test('offers review after an existing profile starts collection from the menu flow', async () => {
     renderDialog({ autoStartCollection: false });
 
     await screen.findByDisplayValue(existingProfile.learner_profile);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
-    );
+    fireEvent.click(interactiveCollectionButton());
     await waitForCollectionSession();
     expect(mockCreateProfileOnboardingSession).toHaveBeenCalledWith(
       'en-US',
       'settings',
+    );
+    expect(
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.cancelResearch',
+      }),
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
     const reviewButton = await screen.findByRole('button', {
       name: 'module.profileOnboarding.guided.reviewCollection',
     });
+    const compactCancelButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.dialog.cancelResearch',
+    });
     expect(reviewButton).toHaveFocus();
+    expect(compactCancelButton).toHaveClass(
+      'sm:hidden',
+      '[@media(max-height:620px)]:inline-flex',
+    );
+    expect(
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(compactCancelButton);
 
     fireEvent.click(reviewButton);
     expect(
@@ -702,6 +1033,52 @@ describe('LearnerProfileDialog', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
     expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+  });
+
+  test('preserves the paste on ordinary settings close and restores it on same-account reopen', async () => {
+    const onClose = jest.fn();
+    const { rerender, props } = renderDialog({ onClose });
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(interactiveCollectionButton());
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls
+        .at(-1)
+        ?.changeAssistantDraft('Keep this paste for later'),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.close',
+      }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+    expect(
+      screen.queryByText('module.profileOnboarding.dialog.discardTitle'),
+    ).not.toBeInTheDocument();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBe('Keep this paste for later');
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        open={false}
+      />,
+    );
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        open
+      />,
+    );
+    await screen.findByDisplayValue(existingProfile.learner_profile);
+    fireEvent.click(interactiveCollectionButton());
+    await waitForCollectionSession();
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Keep this paste for later',
+    );
     expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
   });
 
@@ -774,7 +1151,7 @@ describe('LearnerProfileDialog', () => {
     renderDialog({ exitPolicy: 'blocking', presentation: 'blocking' });
     await waitForCollectionSession();
     expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
-      'overflow-y-auto',
+      'overflow-hidden',
     );
     fireEvent.click(screen.getByRole('button', { name: 'finish collection' }));
 
@@ -782,7 +1159,7 @@ describe('LearnerProfileDialog', () => {
       await screen.findByText(
         'module.profileOnboarding.guided.collectionComplete',
       ),
-    ).toBeInTheDocument();
+    ).toHaveClass('shrink-0');
     const reviewButton = screen.getByRole('button', {
       name: 'module.profileOnboarding.guided.reviewCollection',
     });
@@ -798,6 +1175,9 @@ describe('LearnerProfileDialog', () => {
     expect(
       await screen.findByDisplayValue('Collection draft'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
+      'overflow-y-auto',
+    );
     await waitFor(() =>
       expect(
         screen.getByText('module.profileOnboarding.dialog.confirmTitle'),
@@ -805,7 +1185,16 @@ describe('LearnerProfileDialog', () => {
     );
     expect(
       screen.getByTestId('learner-profile-dialog-footer'),
-    ).toContainElement(informationUsageControl());
+    ).toContainElement(informationUsageControl('popover'));
+    expect(informationUsageControl('popover')).toHaveClass(
+      '[@media(max-height:620px)]:hidden',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-body')).toContainElement(
+      informationUsageControl('inline'),
+    );
+    expect(informationUsageControl('inline')).toHaveClass(
+      '[@media(max-height:620px)]:block',
+    );
     expect(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.optimize',
@@ -868,6 +1257,139 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     expect(profileInput()).toHaveValue('Collection draft');
+  });
+
+  test('assistant nickname-only result opens confirmation without optimizing or saving and preserves the changed nickname payload', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    mockCompleteGuidedProfileOnboarding.mockResolvedValue({
+      ...emptyProfile,
+      nickname: 'Robin',
+    });
+    renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls.at(-1)?.changeAssistantDraft('Call me Robin'),
+    );
+    act(() =>
+      mockConversationControls.at(-1)?.deliverAssistantDraft('', 'Robin'),
+    );
+    expect(
+      await screen.findByLabelText(
+        'module.profileOnboarding.dialog.nicknameLabel',
+      ),
+    ).toHaveValue('Robin');
+    expect(profileInput()).toHaveValue('');
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBe('Call me Robin');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.complete' }),
+    );
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
+        learner_profile: '',
+        nickname: 'Robin',
+        trigger_source: 'guided',
+        session_id: SESSION_ID,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        window.sessionStorage.getItem(
+          'profile-onboarding-paste-draft:profile-v2:user-a',
+        ),
+      ).toBeNull(),
+    );
+  });
+
+  test('restores the same account paste without submitting and clears the previous account even when the dialog is closed', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:profile-v2:user-a',
+      'Restored private draft',
+    );
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:active-user:profile-v2',
+      'profile-onboarding-paste-draft:profile-v2:user-a',
+    );
+    const { rerender, props } = renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Restored private draft',
+    );
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        open={false}
+        draftStorageScope='user-b'
+      />,
+    );
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
+  });
+
+  test('never renders the previous account paste during a switch and rejects its stale change callback', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:profile-v2:user-b',
+      'Private account B draft',
+    );
+    const { rerender, props } = renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    act(() =>
+      mockConversationControls
+        .at(-1)
+        ?.changeAssistantDraft('Private account A draft'),
+    );
+    const priorRender = mockAssistantDraftRenders.at(-1);
+    expect(priorRender?.value).toBe('Private account A draft');
+    const transitionRenderIndex = mockAssistantDraftRenders.length;
+
+    rerender(
+      <LearnerProfileDialog
+        {...props}
+        draftStorageScope='user-b'
+      />,
+    );
+    // This is the first render of the still-mounted conversation, before
+    // useEffect resets the old collection or restores account B's draft.
+    expect(mockAssistantDraftRenders[transitionRenderIndex]?.value).toBe('');
+    expect(
+      mockAssistantDraftRenders
+        .slice(transitionRenderIndex)
+        .map(rendered => rendered.value),
+    ).not.toContain('Private account A draft');
+    await waitForCollectionSession();
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Private account B draft',
+    );
+
+    act(() => priorRender?.change?.('Delayed account A update'));
+    expect(mockConversationControls.at(-1)?.assistantDraft()).toBe(
+      'Private account B draft',
+    );
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-b',
+      ),
+    ).toBe('Private account B draft');
   });
 
   test('persists a guided result once with its session, trigger, and collected nickname', async () => {
@@ -1011,11 +1533,7 @@ describe('LearnerProfileDialog', () => {
     await screen.findByDisplayValue(existingProfile.learner_profile);
     fireEvent.change(profileInput(), { target: { value: 'Unsaved edit' } });
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
-    );
+    fireEvent.click(interactiveCollectionButton());
     expect(
       await screen.findByText(
         'module.profileOnboarding.dialog.replaceResearchTitle',
@@ -1032,7 +1550,40 @@ describe('LearnerProfileDialog', () => {
     expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
     expect(
       screen.getByTestId('learner-profile-dialog-footer'),
-    ).toContainElement(informationUsageControl());
+    ).toContainElement(informationUsageControl('popover'));
+    expect(informationUsageControl('popover').parentElement).toHaveClass(
+      '[@media(max-height:620px)]:hidden',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-body')).toContainElement(
+      informationUsageControl('inline'),
+    );
+    expect(informationUsageControl('inline')).toHaveClass(
+      '[@media(max-height:620px)]:block',
+    );
+    expect(
+      screen.getByTestId('learner-profile-confirmation-replace-collection'),
+    ).toHaveClass(
+      'justify-start',
+      'sm:justify-center',
+      '[@media(max-height:620px)]:justify-start',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
+      'overflow-y-auto',
+    );
+    const confirmationActions = screen.getByTestId(
+      'learner-profile-dialog-confirmation-actions',
+    );
+    expect(confirmationActions).toHaveClass('w-full', 'sm:w-auto');
+    expect(confirmationActions).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.keepEditing',
+      }),
+    );
+    expect(confirmationActions).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.replaceResearchConfirm',
+      }),
+    );
     expect(mockTrackEvent).not.toHaveBeenCalledWith(
       PROFILE_ONBOARDING_EVENTS.SETTINGS_RERUN_STARTED,
     );
@@ -1050,11 +1601,7 @@ describe('LearnerProfileDialog', () => {
     );
     expect(mockCreateProfileOnboardingSession).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
-    );
+    fireEvent.click(interactiveCollectionButton());
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.replaceResearchConfirm',
@@ -1083,11 +1630,7 @@ describe('LearnerProfileDialog', () => {
   test('cancels settings research back to the untouched local draft without skip or persistence', async () => {
     renderDialog();
     await screen.findByDisplayValue(existingProfile.learner_profile);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
-    );
+    fireEvent.click(interactiveCollectionButton());
     await waitForCollectionSession();
 
     fireEvent.click(
@@ -1120,11 +1663,7 @@ describe('LearnerProfileDialog', () => {
     await continueCollectionToSave();
     await screen.findByDisplayValue('Collection draft');
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
-    );
+    fireEvent.click(interactiveCollectionButton());
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.profileOnboarding.dialog.replaceResearchConfirm',
@@ -1182,9 +1721,7 @@ describe('LearnerProfileDialog', () => {
       'learner-profile-dialog-left-actions',
     );
     expect(leftActions).toContainElement(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
+      interactiveCollectionButton('desktop'),
     );
     expect(leftActions).toContainElement(
       screen.getByRole('button', {
@@ -1316,9 +1853,7 @@ describe('LearnerProfileDialog', () => {
       'learner-profile-dialog-left-actions',
     );
     expect(leftActions).toContainElement(
-      screen.getByRole('button', {
-        name: 'module.profileOnboarding.dialog.interactiveCollection',
-      }),
+      interactiveCollectionButton('desktop'),
     );
     expect(leftActions).toContainElement(
       screen.getByRole('button', { name: 'module.profileOnboarding.skip' }),
@@ -1402,6 +1937,10 @@ describe('LearnerProfileDialog', () => {
 
   test('confirms before discarding dirty settings edits', async () => {
     const onClose = jest.fn();
+    window.sessionStorage.setItem(
+      'profile-onboarding-paste-draft:profile-v2:user-a',
+      'Draft to discard',
+    );
     renderDialog({ onClose });
     await screen.findByDisplayValue(existingProfile.learner_profile);
     fireEvent.change(profileInput(), { target: { value: 'Unsaved edit' } });
@@ -1415,6 +1954,42 @@ describe('LearnerProfileDialog', () => {
       await screen.findByText('module.profileOnboarding.dialog.discardTitle'),
     ).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.profileOnboarding.dialog.discardTitle'),
+      ).toHaveFocus(),
+    );
+    expect(screen.getByTestId('learner-profile-dialog-body')).toHaveClass(
+      'overflow-y-auto',
+    );
+    expect(screen.getByTestId('learner-profile-dialog-body')).toContainElement(
+      informationUsageControl('inline'),
+    );
+    expect(
+      screen.getByTestId('learner-profile-dialog-footer'),
+    ).toContainElement(informationUsageControl('popover'));
+    expect(informationUsageControl('popover').parentElement).toHaveClass(
+      '[@media(max-height:620px)]:hidden',
+    );
+    expect(informationUsageControl('inline')).toHaveClass(
+      '[@media(max-height:620px)]:block',
+    );
+    expect(
+      screen.getByTestId('learner-profile-confirmation-discard'),
+    ).toHaveClass('[@media(max-height:620px)]:justify-start');
+    const confirmationActions = screen.getByTestId(
+      'learner-profile-dialog-confirmation-actions',
+    );
+    expect(confirmationActions).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.keepEditing',
+      }),
+    );
+    expect(confirmationActions).toContainElement(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.dialog.discard',
+      }),
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -1422,6 +1997,11 @@ describe('LearnerProfileDialog', () => {
       }),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalledWith('dismiss'));
+    expect(
+      window.sessionStorage.getItem(
+        'profile-onboarding-paste-draft:profile-v2:user-a',
+      ),
+    ).toBeNull();
   });
 
   test('preserves an open draft when the tracking callback identity changes', async () => {

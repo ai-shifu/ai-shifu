@@ -1,13 +1,16 @@
 'use client';
 
 import AdminCountCard from '@/app/admin/components/AdminCountCard';
+import { AdminMetricCard } from '@/app/admin/components/AdminMetricCard';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 type MetricCard = {
   label: string;
   value: string;
+  tooltip?: string;
   onClick?: () => void;
   actionLabel?: string;
 };
@@ -51,63 +54,83 @@ export default function CourseMetricsCardGrid({
         </CardTitle>
       </CardHeader>
       <CardContent className={size === 'compact' ? 'p-5 pt-0' : undefined}>
-        <div
-          className={cn(
-            'grid gap-3 sm:grid-cols-2 xl:grid-cols-5',
-            gridClassName,
-          )}
-        >
-          {cards.map(card => {
-            const labelParts = splitTrailingParenthetical(card.label);
-            const cardTitle = (
-              <AdminTooltipText
-                text={card.label}
-                emptyValue={emptyValue}
-                displayText={
-                  labelParts ? (
-                    <>
-                      <span className='break-words'>{labelParts.mainText}</span>{' '}
-                      <span className='inline-block whitespace-nowrap'>
-                        {labelParts.suffixText}
-                      </span>
-                    </>
-                  ) : undefined
-                }
-                className='line-clamp-2 whitespace-normal break-words'
-              />
-            );
-
-            if (card.onClick) {
-              return (
-                <button
-                  key={card.label}
-                  type='button'
-                  aria-label={card.actionLabel || card.label}
-                  className='group text-left transition-colors'
-                  onClick={card.onClick}
-                >
-                  <AdminCountCard
-                    title={cardTitle}
-                    value={card.value}
-                    className='h-full transition-colors group-hover:border-primary/30'
-                    valueClassName='transition-colors group-hover:text-primary'
-                    size={size}
-                  />
-                </button>
+        <TooltipProvider delayDuration={150}>
+          <div
+            className={cn(
+              'grid gap-3 sm:grid-cols-2 xl:grid-cols-5',
+              gridClassName,
+            )}
+          >
+            {cards.map(card => {
+              const labelParts = splitTrailingParenthetical(card.label);
+              const cardTitle = (
+                <AdminTooltipText
+                  text={card.label}
+                  emptyValue={emptyValue}
+                  displayText={
+                    labelParts ? (
+                      <>
+                        <span className='break-words'>
+                          {labelParts.mainText}
+                        </span>{' '}
+                        <span className='inline-block whitespace-nowrap'>
+                          {labelParts.suffixText}
+                        </span>
+                      </>
+                    ) : undefined
+                  }
+                  className='line-clamp-2 whitespace-normal break-words'
+                />
               );
-            }
 
-            return (
-              <AdminCountCard
-                key={card.label}
-                title={cardTitle}
-                value={card.value}
-                className='h-full text-left'
-                size={size}
-              />
-            );
-          })}
-        </div>
+              if (card.tooltip) {
+                return (
+                  <AdminMetricCard
+                    key={card.label}
+                    label={cardTitle}
+                    value={card.value}
+                    tooltip={card.tooltip}
+                    onClick={card.onClick}
+                    actionLabel={card.actionLabel || card.label}
+                    variant='count'
+                    size={size}
+                    className='h-full text-left'
+                  />
+                );
+              }
+
+              if (card.onClick) {
+                return (
+                  <button
+                    key={card.label}
+                    type='button'
+                    aria-label={card.actionLabel || card.label}
+                    className='group text-left transition-colors'
+                    onClick={card.onClick}
+                  >
+                    <AdminCountCard
+                      title={cardTitle}
+                      value={card.value}
+                      className='h-full transition-colors group-hover:border-primary/30'
+                      valueClassName='transition-colors group-hover:text-primary'
+                      size={size}
+                    />
+                  </button>
+                );
+              }
+
+              return (
+                <AdminCountCard
+                  key={card.label}
+                  title={cardTitle}
+                  value={card.value}
+                  className='h-full text-left'
+                  size={size}
+                />
+              );
+            })}
+          </div>
+        </TooltipProvider>
       </CardContent>
     </Card>
   );

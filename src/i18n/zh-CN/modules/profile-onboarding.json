@@ -1,6 +1,9 @@
 {
   "__namespace__": "module.profileOnboarding",
   "admin": {
+    "assistantPrompt": "公共代答提示词",
+    "assistantPromptEmpty": "可自行填写，或留空后保存以自动生成。",
+    "assistantPromptHint": "可直接修改并保存，同一版本的所有用户使用相同文本。清空后保存会重新生成；只修改调研文档时也会重新生成。已开始的会话保持原版本。",
     "configRevision": "配置修订号",
     "defaultMarkdownflow": "用亲切、友好的语气执行下面的任务。\n\n非常热情地寒暄、问好。然后带着一点神秘感、亲切地告诉用户，这里的课程可以用用户喜欢的方式，结合用户熟悉的例子来讲。顺势邀请用户聊聊自己，好让讲解更贴近用户的日常和兴趣。轻松地告诉用户，接下来有 5 个小问题，就当聊聊天。\n\n?[%{{sys_user_nickname}}...我可以怎样称呼你？]\n\n画个图，表示热烈欢迎，里面带上用户的称呼，并真诚地赞美这个称呼。\n\n第 2 题，用文字询问用户喜欢什么样的讲课风格。\n\n?[ 简洁直接 | 循循善诱 | 风趣幽默 | 二次元 | ...定义自己喜欢的风格 ]\n\n接下来全都用这个风格做输出。\n\n先说一下你对这个风格的理解，然后用这个风格画一页幻灯片，体现出你对这种风格的深刻理解。\n\n第 3 题，开始询问用户若干个人身份、背景相关的问题。\n\n?[ 我不告诉你 | ...你的专业、职业是什么？]\n\n赞美这个专业，然后继续问第 4 题\n\n?[ 我不告诉你 | ...你所在的行业是什么？]\n\n赞美这个行业，然后问最后一题\n\n?[ 我不告诉你 | ...你最近关注什么？有什么让你感到困惑的吗？]\n\n给与赞美与鼓励。",
     "description": "配置学习画像互动收集。收集结束后，平台会生成个人介绍草稿。",
@@ -17,14 +20,32 @@
     "previewDraft": "本次预览生成的画像",
     "previewFailed": "运行预览失败，请检查文档后重试。",
     "previewProfileNotice": "此运营预览不读取、也不注入你当前保存的学习画像。",
+    "promptRequiresDocument": "保留代答提示词需要填写 MarkdownFlow 文档；如需清空配置，请同时清空提示词。",
     "publishState": "当前配置",
     "restartPreview": "重新运行预览",
     "save": "保存",
+    "saveCacheRefreshPending": "配置已保存，但缓存刷新失败，暂时可能仍显示旧版本。请稍后重新保存以重试缓存刷新。",
     "saveFailed": "学习画像引导配置保存失败",
     "saveSuccess": "学习画像引导配置已保存",
     "title": "学习画像引导",
     "updatedAt": "更新时间",
     "updatedBy": "更新人"
+  },
+  "assistant": {
+    "back": "还是自己答吧",
+    "copied": "已复制",
+    "copy": "复制提示词",
+    "copyFailed": "复制失败，请手动选择并复制提示词。",
+    "copyShort": "复制",
+    "entry": "让我的 AI 帮我回答",
+    "error": "没能整理出有效信息。请修改或重试，也可以返回继续回答问题。",
+    "instructions": "先把下面提示词发给最熟悉你的 AI 助理，比如 ChatGPT、Claude、WorkBuddy、豆包、千问、OpenClaw、Hermes Agent 等",
+    "limitError": "回答不能超过 10,000 个字符，请缩短后重试。",
+    "process": "整理 AI 的回答",
+    "processing": "正在整理 AI 的回答…",
+    "resultLabel": "粘贴 AI 的回答",
+    "resultPlaceholder": "在这里粘贴 AI 助理的回答…",
+    "title": "让你的 AI 助理代答"
   },
   "back": "上一步",
   "characterCount": "已输入 {count} / {max} 字",
@@ -89,9 +110,7 @@
     "retry": "再试一次",
     "retryableError": "连接中断了，你的回答还在，请再试一次。",
     "reviewCollection": "查看并确认",
-    "starting": "正在准备欢迎仪式…",
-    "streamError": "提问意外中断了，请再试一次。",
-    "thinking": "正在根据你的回答继续…"
+    "streamError": "提问意外中断了，请再试一次。"
   },
   "loadFailed": "个性化设置暂时加载失败，已直接为你打开课程，请稍后重试。",
   "next": "下一步",

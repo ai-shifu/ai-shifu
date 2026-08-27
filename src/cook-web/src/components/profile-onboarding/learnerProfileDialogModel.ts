@@ -212,7 +212,9 @@ export const selectLearnerProfileDialog = (
     (dirty ||
       hasUnsavedPrefill ||
       nicknameNeedsMigration ||
-      Boolean(state.collectionResult && normalizedProfile) ||
+      Boolean(
+        state.collectionResult && (normalizedProfile || normalizedNickname),
+      ) ||
       canCompleteBlocking);
 
   return {

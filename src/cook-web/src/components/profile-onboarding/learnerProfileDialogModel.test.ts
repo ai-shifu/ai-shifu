@@ -32,6 +32,30 @@ describe('learnerProfileDialogModel', () => {
     });
   });
 
+  it('allows confirming a nickname-only collection even when the name is unchanged in settings', () => {
+    const state = {
+      ...initialLearnerProfileDialogState,
+      loadStatus: 'ready' as const,
+      phase: 'save' as const,
+      form: {
+        ...initialLearnerProfileDialogState.form,
+        nickname: 'Robin',
+        initialNickname: 'Robin',
+      },
+      collectionResult: {
+        draft: '',
+        nickname: 'Robin',
+        completion: {
+          triggerSource: 'settings' as const,
+          sessionId: 'session',
+        },
+      },
+    };
+    expect(
+      selectLearnerProfileDialog(state, 'dismissible', false),
+    ).toMatchObject({ dirty: false, canSave: true });
+  });
+
   it('derives busy states from the discriminated submission status', () => {
     const saving = learnerProfileDialogReducer(
       initialLearnerProfileDialogState,

@@ -5,6 +5,11 @@ export const mockToast = jest.fn();
 export const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
 const mockEnvState = {
   currencySymbol: '¥',
+  paymentChannels: ['stripe'],
+};
+
+export const setMockPaymentChannels = (paymentChannels: string[]) => {
+  mockEnvState.paymentChannels = paymentChannels;
 };
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
@@ -403,6 +408,7 @@ export const mockRetirePackageCampaignProviderDiscounts =
   api.retireAdminBillingCampaign as jest.Mock;
 
 beforeEach(() => {
+  setMockPaymentChannels(['stripe']);
   mockToast.mockReset();
   mockGetCoupons.mockReset();
   mockGetCampaigns.mockReset();

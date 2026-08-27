@@ -92,7 +92,7 @@ def register_operator_profile_onboarding_routes(
         payload = _profile_onboarding_json_object("profile_onboarding_config")
         _reject_profile_onboarding_unknown_fields(
             payload,
-            allowed_fields={"enabled", "markdownflow"},
+            allowed_fields={"enabled", "markdownflow", "assistant_prompt"},
             parameter_name="profile_onboarding_config",
         )
         return make_common_response(

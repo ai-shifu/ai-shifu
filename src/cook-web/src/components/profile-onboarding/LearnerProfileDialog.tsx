@@ -81,8 +81,42 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const viewHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const confirmationHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const contentScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const [headerElement, setHeaderElement] = React.useState<HTMLElement | null>(
+    null,
+  );
+  const [footerElement, setFooterElement] = React.useState<HTMLElement | null>(
+    null,
+  );
   const collectionContinueButtonRef = React.useRef<HTMLButtonElement | null>(
     null,
+  );
+  const [chromeHeights, setChromeHeights] = React.useState<{
+    header: number | null;
+    footer: number | null;
+  }>({ header: null, footer: null });
+  const collectionOwnsScroll = loaded && !confirmation && phase === 'collect';
+
+  const keepFocusedControlVisible = React.useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.matches('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
+      const scrollTargetIntoView = () => {
+        if (!target.isConnected) return;
+        target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      };
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(scrollTargetIntoView);
+      } else {
+        scrollTargetIntoView();
+      }
+    },
+    [],
   );
 
   React.useEffect(() => {
@@ -103,6 +137,32 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
     }
   }, [collectionReady, phase]);
 
+  React.useLayoutEffect(() => {
+    if (!open || !headerElement || !footerElement) return;
+
+    const updateChromeHeights = () => {
+      const header = headerElement.getBoundingClientRect().height;
+      const footer = footerElement.getBoundingClientRect().height;
+      if (header > 0 || footer > 0) {
+        setChromeHeights(current => {
+          const next = { header: header || null, footer: footer || null };
+          return current.header === next.header &&
+            current.footer === next.footer
+            ? current
+            : next;
+        });
+      }
+    };
+
+    updateChromeHeights();
+    if (typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(updateChromeHeights);
+    observer.observe(headerElement);
+    observer.observe(footerElement);
+    return () => observer.disconnect();
+  }, [confirmation, footerElement, headerElement, loaded, open, phase]);
+
   return (
     <Dialog
       open={open}
@@ -113,9 +173,11 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
       }}
     >
       <DialogContent
+        data-testid='learner-profile-dialog-content'
         data-phase={phase}
         showClose={false}
         overlayClassName='!bg-slate-950/45 backdrop-blur-[1px]'
+        onFocusCapture={keepFocusedControlVisible}
         onEscapeKeyDown={event => {
           if (exitPolicy === 'blocking') {
             event.preventDefault();
@@ -126,20 +188,18 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
             event.preventDefault();
           }
         }}
-        className='bottom-3 left-3 top-3 flex h-auto max-h-none w-[calc(100vw-24px)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none focus:outline-none focus-visible:outline-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 motion-reduce:animate-none motion-reduce:duration-0 sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2'
+        className='inset-0 flex h-dvh max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none outline-none focus:outline-none focus-visible:outline-none focus-within:outline-none focus-within:ring-0 focus-within:ring-offset-0 motion-reduce:animate-none motion-reduce:duration-0 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(88dvh,760px)] sm:w-[calc(100vw-48px)] sm:max-w-[900px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-lg sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base'
       >
-        <div
-          data-testid='learner-profile-mobile-handle'
-          className='mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/35 [@media(max-height:620px)]:hidden sm:hidden'
-          aria-hidden='true'
-        />
-
-        <header className='relative shrink-0 border-b bg-background px-5 pb-4 pt-5 [@media(max-height:620px)]:py-3 sm:px-8 sm:pb-5 sm:pt-6'>
-          <DialogHeader className='w-full space-y-2 pr-12 text-left [@media(max-height:620px)]:space-y-1'>
-            <DialogTitle className='text-2xl font-bold leading-8 tracking-tight [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7 sm:text-[28px] sm:leading-9'>
+        <header
+          data-testid='learner-profile-dialog-header'
+          ref={setHeaderElement}
+          className="absolute inset-x-0 top-0 z-10 border-b border-slate-300/80 bg-background/90 pb-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] shadow-[0_6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-6 after:h-6 after:bg-background/55 after:backdrop-blur-md after:content-[''] sm:px-8 sm:pb-5 sm:pt-6 [@media(max-height:620px)]:pb-2 [@media(max-height:620px)]:pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
+        >
+          <DialogHeader className='w-full space-y-1 pr-12 text-start sm:space-y-2 [@media(max-height:620px)]:space-y-1'>
+            <DialogTitle className='text-xl font-bold leading-7 tracking-tight sm:text-[28px] sm:leading-9 [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7'>
               {t('module.profileOnboarding.dialog.unifiedTitle')}
             </DialogTitle>
-            <DialogDescription className='max-w-2xl text-left text-sm leading-6 [@media(max-height:620px)]:text-xs [@media(max-height:620px)]:leading-5 sm:text-base'>
+            <DialogDescription className='max-w-2xl text-start text-sm leading-5 sm:text-base sm:leading-6 [@media(max-height:620px)]:text-sm [@media(max-height:620px)]:leading-5'>
               {t('module.profileOnboarding.dialog.unifiedDescription')}
             </DialogDescription>
           </DialogHeader>
@@ -148,7 +208,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
               type='button'
               size='icon'
               variant='ghost'
-              className='absolute right-3 top-3 size-11 rounded-full sm:right-4 sm:top-4'
+              className='absolute right-[max(0.75rem,env(safe-area-inset-right,0px))] top-[max(0.75rem,env(safe-area-inset-top,0px))] size-11 rounded-full sm:right-4 sm:top-4'
               disabled={saving || dismissing || deferring}
               aria-label={t('module.profileOnboarding.dialog.close')}
               onClick={requestClose}
@@ -161,7 +221,22 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <div
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
-          className='flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-gutter:stable] [@media(max-height:620px)]:py-3 sm:px-8 sm:py-6'
+          className={cn(
+            'relative z-0 flex min-h-0 flex-1 flex-col overscroll-contain bg-muted/25 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] [scrollbar-gutter:stable] sm:px-8',
+            collectionOwnsScroll
+              ? 'overflow-hidden pb-[var(--learner-profile-footer-height,80px)] pt-[var(--learner-profile-header-height,96px)] sm:pb-[var(--learner-profile-footer-height,76px)] sm:pt-[var(--learner-profile-header-height,116px)] [@media(max-height:620px)]:pb-[var(--learner-profile-footer-height,80px)] [@media(max-height:620px)]:pt-[var(--learner-profile-header-height,80px)]'
+              : 'overflow-y-auto pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)] pt-[calc(var(--learner-profile-header-height,96px)+1.5rem)] sm:pb-[calc(var(--learner-profile-footer-height,76px)+1.5rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+1.5rem)] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,80px)+1.5rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,80px)+1.5rem)]',
+          )}
+          style={
+            {
+              '--learner-profile-header-height': chromeHeights.header
+                ? `${chromeHeights.header}px`
+                : undefined,
+              '--learner-profile-footer-height': chromeHeights.footer
+                ? `${chromeHeights.footer}px`
+                : undefined,
+            } as React.CSSProperties
+          }
         >
           {loading ? (
             <div
@@ -223,6 +298,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
               optimizationDescription={optimizationDescription}
               optimizationOriginal={optimizationOriginal}
               optimizeDisabled={optimizeDisabled}
+              guidedAvailable={guidedAvailable}
               onNicknameChange={value => {
                 setNickname(value);
                 setError('');
@@ -234,6 +310,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
               }}
               onUndoOptimization={undoOptimization}
               onOptimize={optimizeProfile}
+              onRequestCollection={requestCollection}
             />
           )}
 
@@ -249,18 +326,22 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
 
         <footer
           data-testid='learner-profile-dialog-footer'
-          className='flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
+          ref={setFooterElement}
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-nowrap items-center gap-2 border-t border-slate-300/80 bg-background/90 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-3 shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.45)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-background/55 before:backdrop-blur-md before:content-[''] sm:flex-wrap sm:justify-end sm:gap-3 sm:px-8 sm:py-4 [@media(max-height:620px)]:flex-nowrap [@media(max-height:620px)]:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] [@media(max-height:620px)]:pt-3"
         >
           {confirmation ? (
             <>
-              <div className='mr-auto flex w-full min-w-0 items-center justify-start sm:w-auto'>
-                <ProfileInformationUsageControl />
+              <div className='hidden min-w-0 items-center justify-start sm:me-auto sm:flex sm:w-auto [@media(max-height:620px)]:hidden'>
+                <ProfileInformationUsageControl variant='popover' />
               </div>
-              <div className='ml-auto flex w-full min-w-0 items-center justify-end gap-2.5 sm:w-auto sm:gap-3'>
+              <div
+                data-testid='learner-profile-dialog-confirmation-actions'
+                className='ms-auto flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto sm:gap-3'
+              >
                 <Button
                   type='button'
                   variant='outline'
-                  className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                  className='h-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
                   onClick={() => setConfirmation(null)}
                 >
                   {t('module.profileOnboarding.dialog.keepEditing')}
@@ -268,7 +349,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 <Button
                   type='button'
                   className={cn(
-                    'min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none',
+                    'h-auto min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none',
                     confirmation === 'discard' &&
                       'bg-destructive text-destructive-foreground hover:bg-destructive/90',
                   )}
@@ -286,14 +367,18 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
             <>
               <div
                 data-testid='learner-profile-dialog-left-actions'
-                className='mr-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:gap-3'
+                className='me-auto flex min-w-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:gap-3'
               >
-                <ProfileInformationUsageControl />
+                <ProfileInformationUsageControl
+                  variant='popover'
+                  className='hidden sm:block [@media(max-height:620px)]:hidden'
+                />
                 {guidedAvailable ? (
                   <Button
+                    data-testid='learner-profile-interactive-collection-desktop'
                     type='button'
                     variant='outline'
-                    className='min-h-11 min-w-0 !whitespace-normal'
+                    className='hidden min-h-11 min-w-0 !whitespace-normal sm:inline-flex [@media(max-height:620px)]:hidden'
                     disabled={busy || optimizing}
                     onClick={requestCollection}
                   >
@@ -304,7 +389,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                   <Button
                     type='button'
                     variant='ghost'
-                    className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
+                    className='h-auto min-h-11 px-3 text-muted-foreground !whitespace-normal'
                     disabled={
                       !onDefer ||
                       saving ||
@@ -322,13 +407,13 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
               </div>
               <div
                 data-testid='learner-profile-dialog-save-actions'
-                className='ml-auto flex w-full min-w-0 items-center justify-end gap-2.5 sm:w-auto sm:gap-3'
+                className='ms-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:w-auto sm:flex-none sm:gap-3'
               >
                 {exitPolicy === 'dismissible' ? (
                   <Button
                     type='button'
                     variant='outline'
-                    className='min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                    className='h-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
                     disabled={busy}
                     onClick={requestClose}
                   >
@@ -337,7 +422,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 ) : null}
                 <Button
                   type='button'
-                  className='min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
+                  className='h-auto min-h-11 min-w-0 flex-[1.4] !whitespace-normal sm:flex-none'
                   disabled={!canSave}
                   onClick={() => void saveProfile()}
                 >
@@ -351,14 +436,17 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
             <>
               <div
                 data-testid='learner-profile-dialog-left-actions'
-                className='mr-auto flex w-full min-w-0 flex-wrap items-center justify-start gap-2.5 sm:w-auto sm:gap-3'
+                className='me-auto flex min-w-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:gap-3'
               >
-                <ProfileInformationUsageControl />
+                <ProfileInformationUsageControl
+                  variant='popover'
+                  className='hidden sm:block [@media(max-height:620px)]:hidden'
+                />
                 {exitPolicy === 'blocking' ? (
                   <Button
                     type='button'
                     variant='ghost'
-                    className='min-h-11 px-3 text-muted-foreground !whitespace-normal'
+                    className='h-auto min-h-11 px-3 text-muted-foreground !whitespace-normal'
                     disabled={
                       !onDefer ||
                       saving ||
@@ -373,12 +461,23 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                       : t('module.profileOnboarding.skip')}
                   </Button>
                 ) : null}
+                {exitPolicy === 'dismissible' && collectionReady ? (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    className='h-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:hidden [@media(max-height:620px)]:inline-flex'
+                    disabled={busy}
+                    onClick={cancelCollection}
+                  >
+                    {t('module.profileOnboarding.dialog.cancelResearch')}
+                  </Button>
+                ) : null}
               </div>
               {collectionReady ? (
                 <Button
                   ref={collectionContinueButtonRef}
                   type='button'
-                  className='ml-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                  className='ms-auto h-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
                   disabled={busy}
                   onClick={continueToSave}
                 >
@@ -388,7 +487,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                 <Button
                   type='button'
                   variant='outline'
-                  className='ml-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
+                  className='ms-auto h-auto min-h-11 min-w-0 flex-1 !whitespace-normal sm:flex-none'
                   disabled={busy}
                   onClick={cancelCollection}
                 >
