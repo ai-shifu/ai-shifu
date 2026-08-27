@@ -245,7 +245,9 @@ const openConfigTab = async ({
     await waitFor(() => {
       expect(mockGetTemplates).toHaveBeenCalled();
     });
-    await screen.findByText('Grant');
+    await screen.findAllByRole('button', {
+      name: 'module.operationsCreditNotifications.config.typeTable.edit',
+    });
   }
 };
 
@@ -961,7 +963,16 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     await openConfigTab();
 
-    expect(screen.getByText('Grant')).toBeInTheDocument();
+    expect(screen.queryByText('Grant')).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'module.operationsCreditNotifications.config.typeTable.templateNotSet',
+      ).length,
+    ).toBeGreaterThan(0);
+
+    const dialog = await openNotificationTypeEditor('credit_granted');
+    expect(within(dialog).getByText('Grant')).toBeInTheDocument();
+    await closeNotificationTypeEditor();
 
     const recordsTab = screen.getByRole('tab', {
       name: 'module.operationsCreditNotifications.tabs.records',

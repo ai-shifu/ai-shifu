@@ -60,7 +60,6 @@ export function CreditNotificationTypeConfigTable(
         const selectedTemplate = props.templateOptions.find(
           option => option.template_code === typePolicy.template_code,
         );
-        const displayTemplate = selectedTemplate || recommendedTemplate;
         const syncResult = props.templateSyncResults[type];
         return {
           key: type,
@@ -68,14 +67,12 @@ export function CreditNotificationTypeConfigTable(
           typePolicy,
           recommendedTemplate,
           templateName:
-            displayTemplate?.template_name ||
-            displayTemplate?.template_code ||
+            selectedTemplate?.template_name ||
+            selectedTemplate?.template_code ||
             typePolicy.template_code,
           syncStatus: resolveTemplateStatusLabel({
             compatible: syncResult?.compatible,
-            hasTemplate: Boolean(
-              displayTemplate?.template_code || typePolicy.template_code,
-            ),
+            hasTemplate: Boolean(typePolicy.template_code.trim()),
             t,
           }),
           ruleSummary: buildRuleSummary(type, props.policy, t),
