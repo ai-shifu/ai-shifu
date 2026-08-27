@@ -53,6 +53,7 @@ export type ProfileOnboardingConversationProps = {
   onError: (error: unknown) => void;
   onSessionCreateRejected?: (error: unknown) => void;
   onRetry?: () => void;
+  questionScrollFooter?: React.ReactNode;
 };
 
 export default function ProfileOnboardingConversation({
@@ -70,6 +71,7 @@ export default function ProfileOnboardingConversation({
   onError,
   onSessionCreateRejected,
   onRetry,
+  questionScrollFooter,
 }: ProfileOnboardingConversationProps) {
   const { t, i18n } = useTranslation();
   const [assistantVisible, setAssistantVisible] = React.useState(false);
@@ -167,7 +169,7 @@ export default function ProfileOnboardingConversation({
           ref={questionViewportRef}
           aria-busy={loading || (runInFlight && !assistantProcessing)}
           className={cn(
-            'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable]',
+            'profile-onboarding-markdownflow h-full min-h-0 overflow-y-auto overscroll-contain pe-1 [scrollbar-gutter:stable] max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input]:min-h-11 max-sm:[&_input]:text-base max-sm:[&_select]:min-h-11 max-sm:[&_select]:text-base max-sm:[&_textarea]:text-base sm:any-pointer-coarse:[&_button]:min-h-11 sm:any-pointer-coarse:[&_button]:min-w-11 sm:any-pointer-coarse:[&_input]:min-h-11 sm:any-pointer-coarse:[&_input]:text-base sm:any-pointer-coarse:[&_select]:min-h-11 sm:any-pointer-coarse:[&_select]:text-base sm:any-pointer-coarse:[&_textarea]:text-base',
             canUseAssistant && 'sm:scroll-pb-20 sm:pb-20',
           )}
         >
@@ -176,6 +178,7 @@ export default function ProfileOnboardingConversation({
             initialContentList={contentList}
             onSend={send}
           />
+          {questionScrollFooter}
         </div>
         <ScrollToBottomControl
           viewportRef={questionViewportRef}

@@ -581,6 +581,49 @@ describe('ProfileOnboardingConversation', () => {
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
   });
 
+  test('keeps the question footer inside the sole guided scroller with mobile-safe controls', async () => {
+    const runSession = jest.fn(() => ({ close: jest.fn() }));
+    const { container } = render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-scroll-layout' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+        questionScrollFooter={<div data-testid='question-scroll-footer' />}
+      />,
+    );
+
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(1));
+    const markdownFlow = container.querySelector(
+      '.profile-onboarding-markdownflow',
+    );
+
+    expect(markdownFlow).toContainElement(
+      screen.getByTestId('question-scroll-footer'),
+    );
+    expect(markdownFlow).toHaveClass(
+      'overflow-y-auto',
+      'overscroll-contain',
+      '[scrollbar-gutter:stable]',
+      'max-sm:[&_button]:min-h-11',
+      'max-sm:[&_button]:min-w-11',
+      'max-sm:[&_input]:min-h-11',
+      'max-sm:[&_input]:text-base',
+      'max-sm:[&_select]:min-h-11',
+      'max-sm:[&_select]:text-base',
+      'max-sm:[&_textarea]:text-base',
+      'sm:any-pointer-coarse:[&_button]:min-h-11',
+      'sm:any-pointer-coarse:[&_button]:min-w-11',
+      'sm:any-pointer-coarse:[&_input]:min-h-11',
+      'sm:any-pointer-coarse:[&_input]:text-base',
+      'sm:any-pointer-coarse:[&_select]:min-h-11',
+      'sm:any-pointer-coarse:[&_select]:text-base',
+      'sm:any-pointer-coarse:[&_textarea]:text-base',
+    );
+    expect(container.querySelectorAll('.overflow-y-auto')).toHaveLength(1);
+    expect(container.querySelector('.overflow-y-auto')).toBe(markdownFlow);
+  });
+
   test('delegates guided-question scrolling to the library control', async () => {
     const runSession = jest
       .fn()

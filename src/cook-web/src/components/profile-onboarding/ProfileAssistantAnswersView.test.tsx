@@ -46,6 +46,26 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+test('keeps the assistant answer and actions mobile-safe inside its scroller', () => {
+  const { input } = setup('Pasted answer');
+  const view = screen.getByTestId('profile-assistant-answers');
+  const copyButton = screen.getByRole('button', {
+    name: 'module.profileOnboarding.assistant.copy',
+  });
+  const backButton = screen.getByRole('button', {
+    name: 'module.profileOnboarding.assistant.back',
+  });
+  const processButton = screen.getByRole('button', {
+    name: 'module.profileOnboarding.assistant.process',
+  });
+
+  expect(view).toHaveClass('overflow-y-auto', 'overscroll-contain');
+  expect(input).toHaveClass('text-base', 'sm:text-sm');
+  expect(copyButton).toHaveClass('min-h-11', 'min-w-20', 'sm:min-h-9');
+  expect(backButton).toHaveClass('min-h-11', 'min-w-11', 'sm:min-h-10');
+  expect(processButton).toHaveClass('min-h-11', 'min-w-11', 'sm:min-h-10');
+});
+
 test('a real stable paste waits for the processing button and submits once', () => {
   const { input, onSubmit } = setup();
   fireEvent.paste(input);
