@@ -81,9 +81,15 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const viewHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const confirmationHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
   const contentScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const headerRef = React.useRef<HTMLElement | null>(null);
+  const footerRef = React.useRef<HTMLElement | null>(null);
   const collectionContinueButtonRef = React.useRef<HTMLButtonElement | null>(
     null,
   );
+  const [chromeHeights, setChromeHeights] = React.useState<{
+    header: number | null;
+    footer: number | null;
+  }>({ header: null, footer: null });
 
   React.useEffect(() => {
     contentScrollRef.current?.scrollTo?.({ top: 0, behavior: 'auto' });
@@ -102,6 +108,30 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
       collectionContinueButtonRef.current?.focus();
     }
   }, [collectionReady, phase]);
+
+  React.useLayoutEffect(() => {
+    const updateChromeHeights = () => {
+      const header = headerRef.current?.getBoundingClientRect().height ?? 0;
+      const footer = footerRef.current?.getBoundingClientRect().height ?? 0;
+      if (header > 0 || footer > 0) {
+        setChromeHeights(current => {
+          const next = { header: header || null, footer: footer || null };
+          return current.header === next.header &&
+            current.footer === next.footer
+            ? current
+            : next;
+        });
+      }
+    };
+
+    updateChromeHeights();
+    if (typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(updateChromeHeights);
+    if (headerRef.current) observer.observe(headerRef.current);
+    if (footerRef.current) observer.observe(footerRef.current);
+    return () => observer.disconnect();
+  }, [confirmation, loaded, phase]);
 
   return (
     <Dialog
@@ -134,7 +164,10 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
           aria-hidden='true'
         />
 
-        <header className='relative z-10 shrink-0 border-b bg-background/95 px-5 pb-4 pt-5 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm [@media(max-height:620px)]:py-3 sm:px-8 sm:pb-5 sm:pt-6'>
+        <header
+          ref={headerRef}
+          className='absolute inset-x-0 top-7 z-10 border-b bg-background/95 px-5 pb-4 pt-5 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm [@media(max-height:620px)]:py-3 sm:top-0 sm:px-8 sm:pb-5 sm:pt-6'
+        >
           <DialogHeader className='w-full space-y-2 pr-12 text-left [@media(max-height:620px)]:space-y-1'>
             <DialogTitle className='text-2xl font-bold leading-8 tracking-tight [@media(max-height:620px)]:text-xl [@media(max-height:620px)]:leading-7 sm:text-[28px] sm:leading-9'>
               {t('module.profileOnboarding.dialog.unifiedTitle')}
@@ -161,7 +194,17 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
         <div
           ref={contentScrollRef}
           data-testid='learner-profile-dialog-body'
-          className='relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-muted/25 px-5 py-5 [scrollbar-gutter:stable] [@media(max-height:620px)]:py-3 sm:px-8 sm:py-6'
+          className='relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-muted/25 px-5 pb-[calc(var(--learner-profile-footer-height,144px)+1.25rem)] pt-[calc(var(--learner-profile-header-height,116px)+1.25rem)] [scrollbar-gutter:stable] [@media(max-height:620px)]:pb-[calc(var(--learner-profile-footer-height,144px)+0.75rem)] [@media(max-height:620px)]:pt-[calc(var(--learner-profile-header-height,96px)+2.5rem)] sm:px-8 sm:pb-[calc(var(--learner-profile-footer-height,76px)+1.5rem)] sm:pt-[calc(var(--learner-profile-header-height,116px)+1.5rem)]'
+          style={
+            {
+              '--learner-profile-header-height': chromeHeights.header
+                ? `${chromeHeights.header}px`
+                : undefined,
+              '--learner-profile-footer-height': chromeHeights.footer
+                ? `${chromeHeights.footer}px`
+                : undefined,
+            } as React.CSSProperties
+          }
         >
           {loading ? (
             <div
@@ -249,7 +292,8 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
 
         <footer
           data-testid='learner-profile-dialog-footer'
-          className='relative z-10 flex shrink-0 flex-wrap items-center gap-2.5 border-t bg-background/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
+          ref={footerRef}
+          className='absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center gap-2.5 border-t bg-background/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)] backdrop-blur-sm sm:justify-end sm:gap-3 sm:px-8 sm:py-4'
         >
           {confirmation ? (
             <>
