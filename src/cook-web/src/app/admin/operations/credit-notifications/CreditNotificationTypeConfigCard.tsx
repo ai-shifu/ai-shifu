@@ -1,4 +1,10 @@
-import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
+import {
+  Dispatch,
+  type ReactNode,
+  SetStateAction,
+  useEffect,
+  useRef,
+} from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -12,23 +18,13 @@ import type {
   CreditNotificationEstimatedDaysThreshold,
   CreditNotificationFixedThreshold,
 } from '../operation-credit-notification-types';
-import {
-  CreditNotificationFormField as FormField,
-  CreditNotificationHelpTooltip as HelpTooltip,
-} from './CreditNotificationFormPrimitives';
+import { CreditNotificationHelpTooltip as HelpTooltip } from './CreditNotificationFormPrimitives';
 import {
   CreditNotificationPlaceholderGuide,
   CreditNotificationTemplateSyncResult,
 } from './CreditNotificationTemplateSyncPanel';
-import {
-  isEstimatedDaysThreshold,
-  type KnownNotificationType,
-  parseListInput,
-  parseThresholdInput,
-  readPositiveNumber,
-  removeEstimatedDaysThreshold,
-  setEstimatedDaysThreshold,
-} from './creditNotificationUtils';
+import { CreditNotificationTypeRuleFields } from './CreditNotificationTypeRuleFields';
+import { type KnownNotificationType } from './creditNotificationUtils';
 
 type UpdatePolicy = (
   updater: (draft: AdminOperationCreditNotificationPolicy) => void,
@@ -164,6 +160,49 @@ export function getTemplateOptionsForType(
   );
 }
 
+const resolveRuleDescription = (
+  type: KnownNotificationType,
+  t: (key: string) => string,
+) => {
+  if (type === 'credit_expiring') {
+    return t(
+      'module.operationsCreditNotifications.config.typeEditor.ruleDescriptions.credit_expiring',
+    );
+  }
+  if (type === 'low_balance') {
+    return t(
+      'module.operationsCreditNotifications.config.typeEditor.ruleDescriptions.low_balance',
+    );
+  }
+  return t(
+    'module.operationsCreditNotifications.config.typeEditor.ruleDescriptions.credit_granted',
+  );
+};
+
+function TypeEditorSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className='rounded-xl border border-border bg-white p-4 shadow-sm'>
+      <div>
+        <h3 className='text-sm font-semibold text-foreground'>{title}</h3>
+        {description ? (
+          <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className='mt-4 space-y-4'>{children}</div>
+    </section>
+  );
+}
+
 export function CreditNotificationTypeConfigCard({
   type,
   policy,
@@ -226,34 +265,50 @@ export function CreditNotificationTypeConfigCard({
   return (
     <div
       key={type}
-      className='space-y-4 rounded-lg border border-border bg-muted/20 p-4'
+      className='space-y-4'
     >
-      <div className='flex items-center justify-between gap-4'>
-        <div>
-          <Label
-            htmlFor={`credit-notification-${type}-enabled`}
-            className='text-sm font-medium text-foreground'
-          >
-            {resolveTypeLabel(type)}
-          </Label>
-          <p className='mt-1 text-xs text-muted-foreground'>
-            {t(
-              `module.operationsCreditNotifications.config.typeDescriptions.${type}`,
-            )}
-          </p>
+      <TypeEditorSection
+        title={t(
+          'module.operationsCreditNotifications.config.typeEditor.sections.basic',
+        )}
+        description={t(
+          'module.operationsCreditNotifications.config.typeEditor.descriptions.basic',
+        )}
+      >
+        <div className='flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 p-3'>
+          <div>
+            <Label
+              htmlFor={`credit-notification-${type}-enabled`}
+              className='text-sm font-medium text-foreground'
+            >
+              {resolveTypeLabel(type)}
+            </Label>
+            <p className='mt-1 text-xs text-muted-foreground'>
+              {t(
+                `module.operationsCreditNotifications.config.typeDescriptions.${type}`,
+              )}
+            </p>
+          </div>
+          <Switch
+            id={`credit-notification-${type}-enabled`}
+            checked={typePolicy.enabled}
+            onCheckedChange={checked =>
+              updatePolicy(draft => {
+                draft.types[type].enabled = Boolean(checked);
+              })
+            }
+          />
         </div>
-        <Switch
-          id={`credit-notification-${type}-enabled`}
-          checked={typePolicy.enabled}
-          onCheckedChange={checked =>
-            updatePolicy(draft => {
-              draft.types[type].enabled = Boolean(checked);
-            })
-          }
-        />
-      </div>
+      </TypeEditorSection>
 
-      <div className='space-y-1'>
+      <TypeEditorSection
+        title={t(
+          'module.operationsCreditNotifications.config.typeEditor.sections.template',
+        )}
+        description={t(
+          'module.operationsCreditNotifications.config.typeEditor.descriptions.template',
+        )}
+      >
         <div className='grid gap-3 lg:grid-cols-[96px_minmax(0,1fr)_auto] lg:items-start'>
           <div className='flex h-9 items-center gap-1.5'>
             <Label
@@ -465,302 +520,37 @@ export function CreditNotificationTypeConfigCard({
                 `module.operationsCreditNotifications.config.templateList.source.${templateListSource || 'empty'}`,
               )}
         </div>
-      </div>
 
-      <CreditNotificationPlaceholderGuide
-        type={type}
-        fixedLowBalanceThresholds={fixedLowBalanceThresholds}
-        estimatedDaysThreshold={estimatedDaysThreshold}
-      />
-      {syncResult ? (
-        <CreditNotificationTemplateSyncResult syncResult={syncResult} />
-      ) : null}
+        {syncResult ? (
+          <CreditNotificationTemplateSyncResult syncResult={syncResult} />
+        ) : null}
+        <CreditNotificationPlaceholderGuide
+          type={type}
+          fixedLowBalanceThresholds={fixedLowBalanceThresholds}
+          estimatedDaysThreshold={estimatedDaysThreshold}
+        />
+      </TypeEditorSection>
 
-      {type === 'credit_expiring' ? (
-        <div className='grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start'>
-          <FormField
-            htmlFor='credit-notification-expiring-windows'
-            label={t(
-              'module.operationsCreditNotifications.config.fields.windows',
-            )}
-            description={t(
-              'module.operationsCreditNotifications.config.fieldTips.windows',
-            )}
-          >
-            <Input
-              id='credit-notification-expiring-windows'
-              className='h-9'
-              autoComplete='off'
-              spellCheck={false}
-              value={getListInputValue(
-                'credit_expiring.windows',
-                policy.types.credit_expiring.windows || [],
-              )}
-              onChange={event =>
-                updateListInput(
-                  'credit_expiring.windows',
-                  event.target.value,
-                  normalized =>
-                    updatePolicy(draft => {
-                      draft.types.credit_expiring.windows =
-                        parseListInput(normalized);
-                    }),
-                )
-              }
-              onBlur={event =>
-                finishListInput(
-                  'credit_expiring.windows',
-                  event.currentTarget.value,
-                )
-              }
-            />
-          </FormField>
-          <div className='pt-5'>
-            <div className='flex h-9 w-full items-center justify-between gap-4 rounded-md border border-border bg-white px-3'>
-              <Label
-                htmlFor='credit-notification-merge-same-creator'
-                className='text-xs font-medium text-muted-foreground'
-              >
-                {t(
-                  'module.operationsCreditNotifications.config.fields.mergeSameCreator',
-                )}
-              </Label>
-              <Switch
-                id='credit-notification-merge-same-creator'
-                checked={
-                  policy.types.credit_expiring.merge_same_creator || false
-                }
-                onCheckedChange={checked =>
-                  updatePolicy(draft => {
-                    draft.types.credit_expiring.merge_same_creator =
-                      Boolean(checked);
-                  })
-                }
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {type === 'low_balance' ? (
-        <div className='space-y-3'>
-          <FormField
-            htmlFor='credit-notification-low-balance-thresholds'
-            label={t(
-              'module.operationsCreditNotifications.config.fields.thresholds',
-            )}
-            description={t(
-              'module.operationsCreditNotifications.config.fieldTips.thresholds',
-            )}
-          >
-            <Input
-              id='credit-notification-low-balance-thresholds'
-              className='h-9'
-              autoComplete='off'
-              spellCheck={false}
-              value={getListInputValue(
-                'low_balance.thresholds',
-                fixedLowBalanceThresholds.map(threshold => threshold.value),
-              )}
-              onChange={event =>
-                updateListInput(
-                  'low_balance.thresholds',
-                  event.target.value,
-                  normalized =>
-                    updatePolicy(draft => {
-                      const estimated = (
-                        draft.types.low_balance.thresholds || []
-                      ).find(isEstimatedDaysThreshold);
-                      draft.types.low_balance.thresholds = [
-                        ...parseThresholdInput(normalized),
-                        ...(estimated ? [estimated] : []),
-                      ];
-                    }),
-                )
-              }
-              onBlur={event =>
-                finishListInput(
-                  'low_balance.thresholds',
-                  event.currentTarget.value,
-                )
-              }
-            />
-          </FormField>
-
-          <div className='rounded-md border border-border bg-white p-3'>
-            <div className='flex items-center justify-between gap-4'>
-              <Label
-                htmlFor='credit-notification-estimated-days-enabled'
-                className='text-xs font-medium text-muted-foreground'
-              >
-                {t(
-                  'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
-                )}
-              </Label>
-              <Switch
-                id='credit-notification-estimated-days-enabled'
-                checked={Boolean(estimatedDaysThreshold)}
-                onCheckedChange={checked =>
-                  updatePolicy(draft => {
-                    if (checked) {
-                      setEstimatedDaysThreshold(draft, {});
-                      return;
-                    }
-                    removeEstimatedDaysThreshold(draft);
-                  })
-                }
-              />
-            </div>
-            {estimatedDaysThreshold ? (
-              <div className='mt-3 grid gap-3 lg:grid-cols-4'>
-                <FormField
-                  htmlFor='credit-notification-estimated-days'
-                  label={t(
-                    'module.operationsCreditNotifications.config.fields.estimatedDays',
-                  )}
-                  tooltip={t(
-                    'module.operationsCreditNotifications.config.fieldTips.estimatedDays',
-                  )}
-                >
-                  <Input
-                    id='credit-notification-estimated-days'
-                    className='h-9'
-                    inputMode='numeric'
-                    pattern='[0-9]*'
-                    autoComplete='off'
-                    value={getIntegerInputValue(
-                      'estimated_days.days',
-                      estimatedDaysThreshold.days,
-                    )}
-                    onChange={event =>
-                      updateIntegerInput(
-                        'estimated_days.days',
-                        event.target.value,
-                        1,
-                        value =>
-                          updatePolicy(draft => {
-                            setEstimatedDaysThreshold(draft, {
-                              days: readPositiveNumber(value, 1),
-                            });
-                          }),
-                      )
-                    }
-                    onBlur={() =>
-                      finishIntegerInput(
-                        'estimated_days.days',
-                        estimatedDaysThreshold.days,
-                      )
-                    }
-                  />
-                </FormField>
-                <FormField
-                  htmlFor='credit-notification-lookback-days'
-                  label={t(
-                    'module.operationsCreditNotifications.config.fields.lookbackDays',
-                  )}
-                  tooltip={t(
-                    'module.operationsCreditNotifications.config.fieldTips.lookbackDays',
-                  )}
-                >
-                  <Input
-                    id='credit-notification-lookback-days'
-                    className='h-9'
-                    inputMode='numeric'
-                    pattern='[0-9]*'
-                    autoComplete='off'
-                    value={getIntegerInputValue(
-                      'estimated_days.lookback_days',
-                      estimatedDaysThreshold.lookback_days,
-                    )}
-                    onChange={event =>
-                      updateIntegerInput(
-                        'estimated_days.lookback_days',
-                        event.target.value,
-                        1,
-                        value =>
-                          updatePolicy(draft => {
-                            setEstimatedDaysThreshold(draft, {
-                              lookback_days: readPositiveNumber(value, 1),
-                            });
-                          }),
-                      )
-                    }
-                    onBlur={() =>
-                      finishIntegerInput(
-                        'estimated_days.lookback_days',
-                        estimatedDaysThreshold.lookback_days,
-                      )
-                    }
-                  />
-                </FormField>
-                <FormField
-                  htmlFor='credit-notification-min-consumed-days'
-                  label={t(
-                    'module.operationsCreditNotifications.config.fields.minConsumedDays',
-                  )}
-                  tooltip={t(
-                    'module.operationsCreditNotifications.config.fieldTips.minConsumedDays',
-                  )}
-                >
-                  <Input
-                    id='credit-notification-min-consumed-days'
-                    className='h-9'
-                    inputMode='numeric'
-                    pattern='[0-9]*'
-                    autoComplete='off'
-                    value={getIntegerInputValue(
-                      'estimated_days.min_consumed_days',
-                      estimatedDaysThreshold.min_consumed_days,
-                    )}
-                    onChange={event =>
-                      updateIntegerInput(
-                        'estimated_days.min_consumed_days',
-                        event.target.value,
-                        1,
-                        value =>
-                          updatePolicy(draft => {
-                            setEstimatedDaysThreshold(draft, {
-                              min_consumed_days: readPositiveNumber(value, 1),
-                            });
-                          }),
-                      )
-                    }
-                    onBlur={() =>
-                      finishIntegerInput(
-                        'estimated_days.min_consumed_days',
-                        estimatedDaysThreshold.min_consumed_days,
-                      )
-                    }
-                  />
-                </FormField>
-                <FormField
-                  htmlFor='credit-notification-fallback-fixed-value'
-                  label={t(
-                    'module.operationsCreditNotifications.config.fields.fallbackFixedValue',
-                  )}
-                  tooltip={t(
-                    'module.operationsCreditNotifications.config.fieldTips.fallbackFixedValue',
-                  )}
-                >
-                  <Input
-                    id='credit-notification-fallback-fixed-value'
-                    className='h-9'
-                    value={estimatedDaysThreshold.fallback_fixed_value || ''}
-                    onChange={event =>
-                      updatePolicy(draft => {
-                        const normalized = event.target.value.trim();
-                        setEstimatedDaysThreshold(draft, {
-                          fallback_fixed_value: normalized || undefined,
-                        });
-                      })
-                    }
-                  />
-                </FormField>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <TypeEditorSection
+        title={t(
+          'module.operationsCreditNotifications.config.typeEditor.sections.rules',
+        )}
+        description={resolveRuleDescription(type, t)}
+      >
+        <CreditNotificationTypeRuleFields
+          type={type}
+          policy={policy}
+          fixedLowBalanceThresholds={fixedLowBalanceThresholds}
+          estimatedDaysThreshold={estimatedDaysThreshold}
+          updatePolicy={updatePolicy}
+          getListInputValue={getListInputValue}
+          updateListInput={updateListInput}
+          finishListInput={finishListInput}
+          getIntegerInputValue={getIntegerInputValue}
+          updateIntegerInput={updateIntegerInput}
+          finishIntegerInput={finishIntegerInput}
+        />
+      </TypeEditorSection>
     </div>
   );
 }

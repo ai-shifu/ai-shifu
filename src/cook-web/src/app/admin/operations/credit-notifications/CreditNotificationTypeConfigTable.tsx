@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
@@ -174,6 +175,19 @@ export function CreditNotificationTypeConfigTable(
               recommendedTemplate={selectedRow.recommendedTemplate}
             />
           ) : null}
+          <DialogFooter className='border-t border-border pt-4 sm:items-center sm:justify-between'>
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {t(
+                'module.operationsCreditNotifications.config.typeEditor.draftHint',
+              )}
+            </p>
+            <Button
+              type='button'
+              onClick={() => setEditingType(null)}
+            >
+              {t('module.operationsCreditNotifications.config.typeEditor.done')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
