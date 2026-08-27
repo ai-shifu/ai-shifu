@@ -41,7 +41,7 @@ export type ProfileOnboardingConversationItem = {
 
 export type ProfileOnboardingTypewriterCache = Record<
   string,
-  { content: string; isSuppressed: boolean }
+  { content: string; isFinished: boolean; isSuppressed: boolean }
 >;
 
 export const isProfileOnboardingTypewriterCandidate = (
@@ -59,6 +59,10 @@ export const syncProfileOnboardingTypewriterCache = (
     const previousEntry = previousCache[item.elementBid];
     nextCache[item.elementBid] = {
       content: item.content,
+      isFinished:
+        suppressTypewriter ||
+        (previousEntry?.isFinished === true &&
+          previousEntry.content === item.content),
       isSuppressed: previousEntry?.isSuppressed || suppressTypewriter,
     };
   }

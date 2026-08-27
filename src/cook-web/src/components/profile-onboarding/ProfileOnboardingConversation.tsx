@@ -190,6 +190,30 @@ export default function ProfileOnboardingConversation({
     );
   }, [isDocumentVisible, items]);
 
+  const visibleContentList = React.useMemo(() => {
+    if (!isDocumentVisible) return contentList;
+    const visibleItems: typeof contentList = [];
+    for (const item of contentList) {
+      visibleItems.push(item);
+      if (
+        item.elementType === 'text' &&
+        !typewriterCache[item.elementBid]?.isFinished
+      ) {
+        break;
+      }
+    }
+    return visibleItems;
+  }, [contentList, isDocumentVisible, typewriterCache]);
+
+  const handleTypeFinished = React.useCallback((elementBid: string) => {
+    setTypewriterCache(previousCache => {
+      const entry = previousCache[elementBid];
+      return entry
+        ? { ...previousCache, [elementBid]: { ...entry, isFinished: true } }
+        : previousCache;
+    });
+  }, []);
+
   return (
     <div
       data-testid='profile-onboarding-conversation'
@@ -209,8 +233,8 @@ export default function ProfileOnboardingConversation({
           )}
         >
           <div className='markdown-flow'>
-            {contentList.length ? (
-              contentList.map(item => (
+            {visibleContentList.length ? (
+              visibleContentList.map(item => (
                 <StableProfileContentRender
                   key={item.elementBid}
                   locale={locale}
@@ -226,6 +250,7 @@ export default function ProfileOnboardingConversation({
                     )
                   }
                   typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                  onTypeFinished={() => handleTypeFinished(item.elementBid)}
                 />
               ))
             ) : (
