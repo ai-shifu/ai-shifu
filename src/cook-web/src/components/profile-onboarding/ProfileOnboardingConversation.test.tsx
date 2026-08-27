@@ -683,7 +683,7 @@ describe('ProfileOnboardingConversation', () => {
       expect.objectContaining({
         ariaLabel: 'common.core.scrollToBottom',
         autoScrollOnInit: true,
-        bottomOffset: 20,
+        bottomOffset: 36,
         contentVersion: 1,
         followNewContent: false,
         placement: 'bottom-center',
@@ -1044,6 +1044,8 @@ describe('ProfileOnboardingConversation', () => {
         name: 'module.profileOnboarding.guided.retry',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveClass('order-first', 'pt-6');
+    expect(screen.getByRole('status')).not.toHaveClass('pb-6');
     expect(onDraftReady).not.toHaveBeenCalled();
   });
 
@@ -1101,6 +1103,8 @@ describe('ProfileOnboardingConversation', () => {
     const retryButton = await screen.findByRole('button', {
       name: 'module.profileOnboarding.guided.retry',
     });
+    expect(screen.getByRole('status')).toHaveClass('pb-6');
+    expect(screen.getByRole('status')).not.toHaveClass('order-first', 'pt-6');
     expect(onError.mock.calls[0][0]).toEqual(
       new Error('module.profileOnboarding.guided.retryableError'),
     );
@@ -1919,9 +1923,14 @@ describe('assistant answers in the existing session', () => {
       '.profile-onboarding-markdownflow',
     );
 
-    expect(entry).toHaveClass('hidden', 'sm:inline-flex');
-    expect(entry).toHaveClass('max-w-[calc(50%-2.75rem)]');
-    expect(markdownFlow).toHaveClass('sm:scroll-pb-20', 'sm:pb-20');
+    expect(entry).toHaveClass(
+      'bottom-9',
+      'hidden',
+      'max-w-[calc(50%-2.75rem)]',
+      'shadow-[0_6px_12px_-8px_rgba(15,23,42,0.38)]',
+      'sm:inline-flex',
+    );
+    expect(markdownFlow).toHaveClass('py-6', 'sm:scroll-pb-20', 'sm:pb-20');
     expect(markdownFlow).not.toHaveClass('scroll-pb-20', 'pb-20');
   });
 
