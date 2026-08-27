@@ -406,7 +406,8 @@ describe('LearnerProfileDialog', () => {
       screen.getByTestId('mock-profile-onboarding-conversation').parentElement,
     ).toHaveClass('min-h-40', '[@media(max-height:620px)]:min-h-32');
     expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
-      'relative',
+      'absolute',
+      'bottom-0',
       'z-10',
       'shadow-[0_-10px_30px_-24px_rgba(15,23,42,0.6)]',
     );
@@ -629,7 +630,8 @@ describe('LearnerProfileDialog', () => {
       'overflow-y-auto',
     );
     expect(screen.getByTestId('learner-profile-dialog-footer')).toHaveClass(
-      'shrink-0',
+      'absolute',
+      'bottom-0',
     );
     expect(screen.getByTestId('learner-profile-save-view')).toHaveClass(
       'flex',
