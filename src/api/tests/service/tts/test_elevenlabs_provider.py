@@ -141,6 +141,7 @@ def test_synthesize_sends_encoded_approved_request_and_returns_mp3(
         headers: object,
         json: object,
         timeout: object,
+        allow_redirects: object,
     ) -> object:
         captured.update(
             url=url,
@@ -148,6 +149,7 @@ def test_synthesize_sends_encoded_approved_request_and_returns_mp3(
             headers=headers,
             json=json,
             timeout=timeout,
+            allow_redirects=allow_redirects,
         )
         return DummyResponse()
 
@@ -174,12 +176,44 @@ def test_synthesize_sends_encoded_approved_request_and_returns_mp3(
         "voice_settings": {"speed": 1.1},
     }
     assert captured["timeout"] == (10, 90)
+    assert captured["allow_redirects"] is False
     assert result.audio_data == b"mp3-bytes"
     assert result.duration_ms == 321
     assert result.sample_rate == 44100
     assert result.format == "mp3"
     assert result.word_count == len("Hello world")
     assert result.usage_characters == len("Hello world")
+
+
+def test_synthesize_rejects_redirect_without_following(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_config(monkeypatch)
+    requests_seen: list[dict[str, object]] = []
+
+    class RedirectResponse:
+        status_code = 302
+        content = b""
+        reason = "Found"
+        headers: ClassVar[dict[str, str]] = {
+            "Location": "https://untrusted.example/collect"
+        }
+
+        def json(self) -> object:
+            return {}
+
+    def fake_post(url: object, **kwargs: object) -> object:
+        requests_seen.append({"url": url, **kwargs})
+        return RedirectResponse()
+
+    monkeypatch.setattr(module.requests, "post", fake_post)
+
+    with pytest.raises(ValueError, match="HTTP 302"):
+        module.ElevenLabsTTSProvider().synthesize("Hello")
+
+    assert len(requests_seen) == 1
+    assert requests_seen[0]["url"] == f"{module.ELEVENLABS_TTS_API_URL}/voice-1"
+    assert requests_seen[0]["allow_redirects"] is False
 
 
 def test_synthesize_defaults_to_multilingual_v2(

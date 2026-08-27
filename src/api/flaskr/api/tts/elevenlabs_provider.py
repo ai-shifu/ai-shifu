@@ -220,6 +220,7 @@ class ElevenLabsTTSProvider(BaseTTSProvider):
                 headers=headers,
                 json=payload,
                 timeout=ELEVENLABS_REQUEST_TIMEOUT,
+                allow_redirects=False,
             )
         except requests.RequestException as exc:
             logger.warning(
