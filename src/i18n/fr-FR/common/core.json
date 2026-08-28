@@ -33,6 +33,7 @@
   "operations": "Opérations",
   "orderManagement": "Gestion des commandes",
   "packageManagement": "Gestion des offres",
+  "pageResourcesUpdatedRefreshing": "Les ressources de la page ont été mises à jour. Actualisation automatique...",
   "profileOnboardingManagement": "Initialisation du profil",
   "promotionManagement": "Promotions",
   "rateManagement": "Gestion des tarifs",

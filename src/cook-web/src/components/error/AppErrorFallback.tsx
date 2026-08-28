@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type AppError = Error & {
   digest?: string;
@@ -32,7 +33,6 @@ const FALLBACK_MESSAGE = '未知客户端错误';
 const REFRESH_TEXT = '刷新后重试';
 const COPY_TEXT = '复制错误信息';
 const COPIED_TEXT = '已复制';
-const CHUNK_LOAD_RECOVERY_TEXT = '页面资源已更新，正在自动刷新...';
 const CHUNK_LOAD_RELOAD_KEY = 'ai-shifu:chunk-load-auto-reload-at';
 const CHUNK_LOAD_RELOAD_TTL_MS = 30_000;
 const STACK_LINE_LIMIT = 30;
@@ -201,7 +201,7 @@ const shouldReloadForChunkLoadError = (now: number): boolean => {
     window.sessionStorage.setItem(CHUNK_LOAD_RELOAD_KEY, String(now));
     return true;
   } catch {
-    return true;
+    return false;
   }
 };
 
@@ -231,6 +231,7 @@ const reloadPage = () => {
 };
 
 export default function AppErrorFallback({ error }: AppErrorFallbackProps) {
+  const { t } = useTranslation();
   const [canCopy, setCanCopy] = useState(false);
   const [isRecoveringChunkLoad, setIsRecoveringChunkLoad] = useState(false);
   const [browserDetails, setBrowserDetails] = useState<BrowserDetails>();
@@ -283,7 +284,7 @@ export default function AppErrorFallback({ error }: AppErrorFallbackProps) {
       <main className='flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6'>
         <section className='w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-lg sm:p-8'>
           <p className='text-sm leading-6 text-muted-foreground'>
-            {CHUNK_LOAD_RECOVERY_TEXT}
+            {t('common.core.pageResourcesUpdatedRefreshing')}
           </p>
         </section>
       </main>

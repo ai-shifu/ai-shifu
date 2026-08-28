@@ -2,6 +2,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 import AppErrorFallback from './AppErrorFallback';
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) =>
+      key === 'common.core.pageResourcesUpdatedRefreshing'
+        ? '页面资源已更新，正在自动刷新...'
+        : key,
+  }),
+}));
+
 const originalLocation = window.location;
 const chunkReloadStorageKey = 'ai-shifu:chunk-load-auto-reload-at';
 
@@ -47,6 +56,22 @@ describe('AppErrorFallback chunk load recovery', () => {
   it('shows the fallback instead of reloading repeatedly for the same chunk error', async () => {
     const reload = mockLocationReload();
     window.sessionStorage.setItem(chunkReloadStorageKey, String(Date.now()));
+    const error = new Error('Loading chunk 5365 failed.');
+    error.name = 'ChunkLoadError';
+
+    render(<AppErrorFallback error={error} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('应用程序发生错误')).toBeInTheDocument();
+    });
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('shows the fallback when session storage cannot save the reload marker', async () => {
+    const reload = mockLocationReload();
+    jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Access denied', 'SecurityError');
+    });
     const error = new Error('Loading chunk 5365 failed.');
     error.name = 'ChunkLoadError';
 

@@ -33,6 +33,7 @@
   "operations": "การดำเนินงาน",
   "orderManagement": "การจัดการคำสั่งซื้อ",
   "packageManagement": "การจัดการแพ็กเกจ",
+  "pageResourcesUpdatedRefreshing": "ทรัพยากรของหน้าได้รับการอัปเดตแล้ว กำลังรีเฟรชโดยอัตโนมัติ...",
   "profileOnboardingManagement": "การเริ่มต้นใช้งานโปรไฟล์",
   "promotionManagement": "การจัดการโปรโมชัน",
   "rateManagement": "การจัดการอัตราค่าบริการ",
