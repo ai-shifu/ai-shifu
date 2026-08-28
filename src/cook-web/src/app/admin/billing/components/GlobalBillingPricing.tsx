@@ -891,13 +891,26 @@ function PlanCard({
           {cycle === 'annual' && annualProduct ? (
             <div className='mt-2 space-y-2'>
               <p className='text-sm text-muted-foreground'>
-                {t('module.billing.globalPricing.billedAnnually', {
-                  price: formatBillingPrice(
-                    resolveBillingProductPayableAmount(annualProduct),
-                    annualProduct.currency,
-                    locale,
-                  ),
-                })}
+                {hasDiscountCampaign
+                  ? t('module.billing.globalPricing.campaignAnnualBilling', {
+                      price: formatBillingPrice(
+                        resolveBillingProductPayableAmount(annualProduct),
+                        annualProduct.currency,
+                        locale,
+                      ),
+                      renewalPrice: formatBillingPrice(
+                        annualProduct.price_amount,
+                        annualProduct.currency,
+                        locale,
+                      ),
+                    })
+                  : t('module.billing.globalPricing.billedAnnually', {
+                      price: formatBillingPrice(
+                        annualProduct.price_amount,
+                        annualProduct.currency,
+                        locale,
+                      ),
+                    })}
               </p>
               <div className='min-h-7'>
                 {shouldShowAnnualSavingsBadge ? (
@@ -915,7 +928,15 @@ function PlanCard({
           ) : (
             <div className='mt-2 space-y-2'>
               <p className='text-sm text-muted-foreground'>
-                {t('module.billing.globalPricing.cancelAnytime')}
+                {hasDiscountCampaign
+                  ? t('module.billing.globalPricing.campaignMonthlyBilling', {
+                      renewalPrice: formatBillingPrice(
+                        product.price_amount,
+                        product.currency,
+                        locale,
+                      ),
+                    })
+                  : t('module.billing.globalPricing.cancelAnytime')}
               </p>
               <div className='min-h-7' />
             </div>

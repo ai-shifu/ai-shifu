@@ -924,5 +924,5 @@ class TestBillingWriteRoutesTopup:
             assert new_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
             assert new_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
             assert raw_order.status == 1
-            assert raw_order.checkout_session_id == "cs_billing_test"
+            assert raw_order.checkout_session_id == f"cs_{bill_order_bid}"
             assert raw_order.payment_intent_id == "pi_billing_test"

@@ -498,8 +498,37 @@ def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription
 
     payload, status_code = apply_billing_stripe_notification(app, notification)
 
+    lifecycle_notification = PaymentNotificationResult(
+        order_bid="",
+        status="customer.subscription.updated",
+        provider_payload={
+            "type": "customer.subscription.updated",
+            "created": _utc_epoch(now + timedelta(seconds=1)),
+            "data": {
+                "object": {
+                    "id": "sub_provider_amount_guard",
+                    "customer": "cus_provider_amount_guard",
+                    "status": "active",
+                    "current_period_start": _utc_epoch(now),
+                    "current_period_end": _utc_epoch(now + timedelta(days=30)),
+                    "cancel_at_period_end": False,
+                    "metadata": {
+                        "bill_order_bid": "billing-webhook-amount-guard",
+                        "subscription_bid": "sub-webhook-amount-guard",
+                    },
+                }
+            },
+        },
+        charge_id=None,
+    )
+    lifecycle_payload, lifecycle_status_code = apply_billing_stripe_notification(
+        app, lifecycle_notification
+    )
+
     assert status_code == 200
     assert payload["status"] == "failed"
+    assert lifecycle_status_code == 200
+    assert lifecycle_payload["status"] == "acknowledged"
     assert enqueued == []
 
     with app.app_context():
@@ -513,12 +542,91 @@ def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription
         assert order.paid_amount == 0
         assert order.failure_code == expected_failure_code
         assert subscription.status != BILLING_SUBSCRIPTION_STATUS_ACTIVE
-        assert subscription.provider_subscription_id == ""
+        assert subscription.provider_subscription_id == "sub_provider_amount_guard"
         assert (
             CreditWalletBucket.query.filter_by(
                 source_bid="billing-webhook-amount-guard"
             ).count()
             == 0
+        )
+
+
+def test_stripe_delayed_checkout_waits_for_async_payment_success(
+    billing_subscription_sms_app: object,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    now = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
+    bill_order_bid = "billing-delayed-topup-1"
+
+    with app.app_context():
+        order = _create_pending_topup_order(
+            bill_order_bid=bill_order_bid,
+            charge_id="cs_delayed_topup_1",
+        )
+        order.payment_provider = "stripe"
+        order.channel = "checkout_session"
+        dao.db.session.add(order)
+        dao.db.session.commit()
+
+    def notification(event_type: str, *, paid: bool, created_at: datetime) -> object:
+        return PaymentNotificationResult(
+            order_bid=bill_order_bid,
+            status=event_type,
+            provider_payload={
+                "type": event_type,
+                "created": _utc_epoch(created_at),
+                "data": {
+                    "object": {
+                        "id": "cs_delayed_topup_1",
+                        "payment_status": "paid" if paid else "unpaid",
+                        "amount_total": 5000,
+                        "currency": "cny",
+                        "metadata": {
+                            "bill_order_bid": bill_order_bid,
+                            "creator_bid": "creator-1",
+                            "product_bid": "bill-product-topup-small",
+                        },
+                    }
+                },
+            },
+            charge_id=None,
+        )
+
+    completed_payload, completed_status = apply_billing_stripe_notification(
+        app,
+        notification(
+            "checkout.session.completed",
+            paid=False,
+            created_at=now,
+        ),
+    )
+
+    assert completed_status == 200
+    assert completed_payload["status"] == "acknowledged"
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+        assert order.status == BILLING_ORDER_STATUS_PENDING
+        assert (
+            CreditWalletBucket.query.filter_by(source_bid=bill_order_bid).count() == 0
+        )
+
+    succeeded_payload, succeeded_status = apply_billing_stripe_notification(
+        app,
+        notification(
+            "checkout.session.async_payment_succeeded",
+            paid=True,
+            created_at=now + timedelta(seconds=1),
+        ),
+    )
+
+    assert succeeded_status == 200
+    assert succeeded_payload["status"] == "paid"
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+        assert order.status == BILLING_ORDER_STATUS_PAID
+        assert (
+            CreditWalletBucket.query.filter_by(source_bid=bill_order_bid).count() == 1
         )
 
 

@@ -794,7 +794,10 @@ def create_billing_subscription_checkout(
         db.session.flush()
 
         paid_order_side_effects = BillingPaidOrderSideEffects()
-        if payable_amount == 0:
+        requires_stripe_subscription_checkout = bool(
+            payment_provider == "stripe" and campaign_provider_discount is not None
+        )
+        if payable_amount == 0 and not requires_stripe_subscription_checkout:
             checkout_result, paid_order_side_effects = (
                 _complete_zero_amount_subscription_checkout(app, order)
             )
@@ -1877,6 +1880,7 @@ def _create_provider_checkout(
         if provider_coupon_id:
             provider_options["discounts"] = [{"coupon": provider_coupon_id}]
         if payment_mode == "subscription":
+            provider_options["session_params"]["payment_method_collection"] = "always"
             provider_options["session_params"]["subscription_data"] = {
                 "metadata": metadata
             }
@@ -2433,9 +2437,13 @@ def _sync_stripe_order(
     *,
     session_id: str,
 ) -> BillingOrderProviderUpdateResult:
+    stored_provider_reference = _normalize_bid(order.provider_reference_id)
+    if session_id and session_id != stored_provider_reference:
+        raise_error("server.order.orderStatusError")
+
     reference_type = _resolve_billing_order_provider_reference_type(order)
     if reference_type == "subscription":
-        resolved_subscription_id = session_id or order.provider_reference_id
+        resolved_subscription_id = session_id or stored_provider_reference
         if not resolved_subscription_id:
             raise_error("server.order.orderNotFound")
         return _sync_stripe_subscription_order(
@@ -2445,7 +2453,7 @@ def _sync_stripe_order(
         )
 
     provider = get_payment_provider("stripe")
-    resolved_session_id = session_id or order.provider_reference_id
+    resolved_session_id = session_id or stored_provider_reference
     if not resolved_session_id:
         raise_error("server.order.orderNotFound")
 
@@ -2456,6 +2464,12 @@ def _sync_stripe_order(
     )
     session = sync_result.provider_payload.get("checkout_session", {}) or {}
     intent = sync_result.provider_payload.get("payment_intent") or None
+    _validate_stripe_checkout_evidence(
+        order,
+        expected_session_id=resolved_session_id,
+        session=session,
+        intent=intent,
+    )
     target_status = BILLING_ORDER_STATUS_PENDING
     failure_code = ""
     failure_message = ""
@@ -2531,6 +2545,44 @@ def _sync_stripe_order(
                 source="sync",
             )
     return order_update
+
+
+def _validate_stripe_checkout_evidence(
+    order: BillingOrder,
+    *,
+    expected_session_id: str,
+    session: dict[str, object],
+    intent: dict[str, object] | None,
+) -> None:
+    actual_session_id = _normalize_bid(session.get("id"))
+    if actual_session_id != _normalize_bid(expected_session_id):
+        raise_error("server.order.orderStatusError")
+
+    metadata_candidates = [
+        payload.get("metadata")
+        for payload in (session, intent or {})
+        if isinstance(payload, dict)
+    ]
+    metadata = next(
+        (
+            candidate
+            for candidate in metadata_candidates
+            if isinstance(candidate, dict) and candidate.get("bill_order_bid")
+        ),
+        None,
+    )
+    if metadata is None:
+        raise_error("server.order.orderStatusError")
+
+    if _normalize_bid(metadata.get("bill_order_bid")) != order.bill_order_bid:
+        raise_error("server.order.orderStatusError")
+    for key, expected_value in (
+        ("creator_bid", order.creator_bid),
+        ("product_bid", order.product_bid),
+    ):
+        actual_value = _normalize_bid(metadata.get(key))
+        if actual_value and actual_value != _normalize_bid(expected_value):
+            raise_error("server.order.orderStatusError")
 
 
 def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:

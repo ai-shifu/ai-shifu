@@ -15,10 +15,12 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -548,6 +550,19 @@ class TestBillingWriteRoutesCheckout:
                 },
                 "provider_currency_missing",
             ),
+            (
+                {
+                    "checkout_session": {
+                        "amount_total": 990,
+                        "currency": "usd",
+                    },
+                    "payment_intent": {
+                        "amount_received": 990,
+                        "currency": "usd",
+                    },
+                },
+                "provider_currency_mismatch",
+            ),
         ],
     )
     def test_stripe_subscription_sync_rejects_invalid_paid_payment_snapshot(
@@ -582,6 +597,11 @@ class TestBillingWriteRoutesCheckout:
                     "payment_intent": "pi_billing_test",
                     "subscription": "sub_provider_test",
                     "customer": "cus_provider_test",
+                    "metadata": {
+                        "bill_order_bid": bill_order_bid,
+                        "creator_bid": "creator-1",
+                        "product_bid": "bill-product-plan-monthly",
+                    },
                     **stripe_payment_payload.get("checkout_session", {}),
                 }
                 payment_intent = {
@@ -616,6 +636,134 @@ class TestBillingWriteRoutesCheckout:
             assert order.status == BILLING_ORDER_STATUS_FAILED
             assert order.paid_amount == 0
             assert order.failure_code == expected_failure_code
+
+    def test_stripe_subscription_sync_rejects_another_orders_session(
+        self,
+        billing_write_client: object,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        sync = client.post(
+            f"/api/billing/orders/{bill_order_bid}/sync",
+            json={"session_id": "cs_historical_paid_session"},
+        ).get_json(force=True)
+
+        assert sync["code"] == ERROR_CODE["server.order.orderStatusError"]
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            assert order.status == BILLING_ORDER_STATUS_PENDING
+
+    def test_zero_amount_stripe_campaign_still_creates_subscription_checkout(
+        self,
+        billing_write_client: object,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-stripe-free-first-cycle",
+                    name="Free first cycle",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+                    discount_amount=0,
+                    discount_percent=Decimal("100"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-stripe-free-first-cycle",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+                    discount_amount=0,
+                    discount_percent=Decimal("100"),
+                    campaign_price_amount=0,
+                    bonus_credit_amount=Decimal("0"),
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProviderDiscount(
+                    campaign_provider_discount_bid="cpd-stripe-free-first-cycle",
+                    campaign_bid="campaign-stripe-free-first-cycle",
+                    product_bid="bill-product-plan-monthly",
+                    product_provider_price_bid="mapping-bill-product-plan-monthly",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_bill-product-plan-monthly",
+                    provider_price_id="price_bill-product-plan-monthly",
+                    provider_coupon_id="coupon_free_first_cycle",
+                    livemode=0,
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+                    list_price_amount=990,
+                    campaign_price_amount=0,
+                    discount_amount=0,
+                    discount_percent=Decimal("100"),
+                    currency="CNY",
+                    duration="once",
+                    status=BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+                    metadata_json={},
+                    activated_at=now,
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.commit()
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert checkout["code"] == 0
+        assert checkout["data"]["status"] == "pending"
+        assert checkout["data"]["payable_amount"] == 0
+        assert billing_write_client["stripe_requests"][-1]["extra"]["discounts"] == [
+            {"coupon": "coupon_free_first_cycle"}
+        ]
+        assert (
+            billing_write_client["stripe_requests"][-1]["extra"]["session_params"][
+                "payment_method_collection"
+            ]
+            == "always"
+        )
+        sync = client.post(
+            f"/api/billing/orders/{checkout['data']['bill_order_bid']}/sync"
+        ).get_json(force=True)
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=checkout["data"]["bill_order_bid"]
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid=order.subscription_bid
+            ).one()
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
     def test_stripe_subscription_checkout_allows_bonus_only_campaign(
         self,

@@ -45,6 +45,8 @@ from .consts import (
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
 )
 from .primitives import normalize_bid as _normalize_bid
 from .provider_catalog_sync import (
@@ -241,7 +243,7 @@ def apply_billing_stripe_notification(
 
         response_status = "acknowledged"
         order_update = BillingOrderProviderUpdateResult()
-        target_status = _map_stripe_order_status(event_type)
+        target_status = _map_stripe_order_status(event_type, data_object)
         if order is not None:
             if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
                 target_status = _resolve_stripe_subscription_order_status(
@@ -343,6 +345,15 @@ def apply_billing_stripe_notification(
 
         if subscription is not None:
             if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
+                allow_activation = not (
+                    order is not None
+                    and order.order_type
+                    in {
+                        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    }
+                    and int(order.status or 0) != BILLING_ORDER_STATUS_PAID
+                )
                 _apply_billing_subscription_provider_update(
                     app,
                     subscription,
@@ -350,6 +361,7 @@ def apply_billing_stripe_notification(
                     event_type=event_type,
                     payload=event,
                     data_object=data_object,
+                    allow_activation=allow_activation,
                 )
             elif target_status == BILLING_ORDER_STATUS_PAID:
                 _apply_subscription_checkout_success(

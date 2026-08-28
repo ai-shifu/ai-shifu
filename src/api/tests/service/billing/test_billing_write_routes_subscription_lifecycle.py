@@ -288,7 +288,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
         )
         assert len(billing_write_client["stripe_requests"]) == 2
         assert billing_write_client["stripe_expire_requests"] == [
-            {"session_id": "cs_billing_test"}
+            {"session_id": (f"cs_{first_checkout['data']['bill_order_bid']}")}
         ]
 
     def test_pending_subscription_checkout_route_rejects_stale_stripe_price_mapping(
@@ -386,7 +386,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             != first_checkout["data"]["bill_order_bid"]
         )
         assert billing_write_client["stripe_expire_requests"] == [
-            {"session_id": "cs_billing_test"}
+            {"session_id": (f"cs_{first_checkout['data']['bill_order_bid']}")}
         ]
 
         with app.app_context():
@@ -651,7 +651,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert bucket.available_credits == 5
             assert ledger.amount == 5
             assert raw_order.status == 1
-            assert raw_order.checkout_session_id == "cs_billing_test"
+            assert raw_order.checkout_session_id == f"cs_{bill_order_bid}"
             assert raw_order.payment_intent_id == "pi_billing_test"
             assert (
                 StripeOrder.query.filter_by(

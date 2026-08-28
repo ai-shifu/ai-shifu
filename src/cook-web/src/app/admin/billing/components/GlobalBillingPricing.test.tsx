@@ -187,6 +187,12 @@ jest.mock('react-i18next', () => ({
       if (key === 'module.billing.globalPricing.billedAnnually') {
         return `Billed ${options?.price} every 12 months.`;
       }
+      if (key === 'module.billing.globalPricing.campaignAnnualBilling') {
+        return `First 12 months: ${options?.price}. Renews at ${options?.renewalPrice} every 12 months.`;
+      }
+      if (key === 'module.billing.globalPricing.campaignMonthlyBilling') {
+        return `First month only. Renews at ${options?.renewalPrice} per month.`;
+      }
       if (key === 'module.billing.globalPricing.annualSavings') {
         return `Save ${options?.amount} per year (${options?.percent}%)`;
       }
@@ -512,6 +518,9 @@ describe('GlobalBillingPricing', () => {
     expect(within(studio).getByText('$59')).toHaveClass('line-through');
     expect(within(studio).getByText('$49')).toBeInTheDocument();
     expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
+    expect(
+      within(studio).getByText('First month only. Renews at $59 per month.'),
+    ).toBeInTheDocument();
   });
 
   test('shows annual campaign pricing with a neutral annual savings note', async () => {
@@ -531,6 +540,11 @@ describe('GlobalBillingPricing', () => {
     expect(within(growth).getByText('$183')).toHaveClass('line-through');
     expect(within(growth).getByText('$166.58')).toBeInTheDocument();
     expect(within(growth).getByText('Discounted price')).toBeInTheDocument();
+    expect(
+      within(growth).getByText(
+        'First 12 months: $1,999. Renews at $2,199 every 12 months.',
+      ),
+    ).toBeInTheDocument();
     expect(within(growth).getByText('Save $549 per year (20.0%)')).toHaveClass(
       'text-muted-foreground',
     );
