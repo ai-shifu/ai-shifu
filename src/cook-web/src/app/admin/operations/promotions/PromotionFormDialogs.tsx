@@ -1175,9 +1175,6 @@ export const PackageCampaignDialog = ({
                                 option.price_amount,
                                 option.currency,
                                 i18n.language,
-                              )} · ${formatBillingPlanInterval(
-                                t,
-                                option as unknown as BillingPlan,
                               )} · ${resolveBillingPlanValidityLabel(
                                 t,
                                 option as unknown as BillingPlan,

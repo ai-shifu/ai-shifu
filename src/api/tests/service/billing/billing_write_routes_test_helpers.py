@@ -493,6 +493,31 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
         ) -> object:
             _ = app
             assert reference_type == "checkout_session"
+            stripe_order = StripeOrder.query.filter_by(
+                checkout_session_id=provider_reference,
+                biz_domain="billing",
+                deleted=0,
+            ).first()
+            billing_order = None
+            if stripe_order and stripe_order.bill_order_bid:
+                billing_order = BillingOrder.query.filter_by(
+                    bill_order_bid=stripe_order.bill_order_bid,
+                    deleted=0,
+                ).first()
+            paid_amount = (
+                int(billing_order.payable_amount or 0)
+                if billing_order is not None
+                else int(stripe_order.amount or 0)
+                if stripe_order is not None
+                else 0
+            )
+            paid_currency = (
+                str(billing_order.currency or "CNY").lower()
+                if billing_order is not None
+                else str(stripe_order.currency or "cny").lower()
+                if stripe_order is not None
+                else "cny"
+            )
             return PaymentNotificationResult(
                 order_bid="",
                 status="manual_sync",
@@ -504,10 +529,14 @@ def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
                         "payment_intent": "pi_billing_test",
                         "subscription": "sub_provider_test",
                         "customer": "cus_provider_test",
+                        "amount_total": paid_amount,
+                        "currency": paid_currency,
                     },
                     "payment_intent": {
                         "id": "pi_billing_test",
                         "status": "succeeded",
+                        "amount_received": paid_amount,
+                        "currency": paid_currency,
                     },
                 },
                 charge_id=None,
