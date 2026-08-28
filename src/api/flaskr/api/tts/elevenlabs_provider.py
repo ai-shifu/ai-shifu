@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
+import threading
+import time
+import uuid
+from contextlib import contextmanager
 from typing import Any
 from urllib.parse import quote
 
@@ -29,6 +34,7 @@ ELEVENLABS_TTS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
 ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128"
 ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2"
 ELEVENLABS_REQUEST_TIMEOUT = (10, 90)
+ELEVENLABS_CONCURRENCY_LEASE_SECONDS = 120
 ELEVENLABS_MODELS = [
     {
         "value": "eleven_v3_conversational",
@@ -40,6 +46,28 @@ ELEVENLABS_MODELS = [
 ]
 _ELEVENLABS_MODEL_IDS = {item["value"] for item in ELEVENLABS_MODELS}
 _ERROR_DETAIL_LIMIT = 500
+_LOCAL_CONCURRENCY_LOCK = threading.RLock()
+_LOCAL_CONCURRENCY_SEMAPHORES: dict[str, threading.BoundedSemaphore] = {}
+
+_LUA_ACQUIRE_CONCURRENCY_SLOT = """
+local key = KEYS[1]
+local holder = ARGV[1]
+local max_count = tonumber(ARGV[2])
+local now_ms = tonumber(ARGV[3])
+local lease_ms = tonumber(ARGV[4])
+redis.call('zremrangebyscore', key, '-inf', now_ms)
+if redis.call('zcard', key) < max_count then
+    redis.call('zadd', key, now_ms + lease_ms, holder)
+    redis.call('pexpire', key, lease_ms)
+    return 1
+end
+return 0
+"""
+
+_LUA_RELEASE_CONCURRENCY_SLOT = """
+redis.call('zrem', KEYS[1], ARGV[1])
+return 1
+"""
 
 
 def parse_elevenlabs_voices(value: object) -> list[dict[str, str]]:
@@ -115,6 +143,128 @@ def _extract_request_id(response: Response) -> str:
         if key.lower() in {"request-id", "x-request-id"}:
             return str(value or "").strip()
     return ""
+
+
+def _coerce_int_config(name: str, default: int) -> int:
+    try:
+        return int(get_config(name) or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_float_config(name: str, default: float) -> float:
+    try:
+        return float(get_config(name) or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _elevenlabs_concurrency_scope_key(api_key: str) -> str:
+    key_hash = hashlib.sha256((api_key or "").encode("utf-8")).hexdigest()[:24]
+    return f"elevenlabs:{key_hash}"
+
+
+def _get_redis_client() -> object:
+    from flaskr.dao import get_redis_client
+
+    redis_client = get_redis_client()
+    if redis_client is None:
+        message = "Redis is not configured"
+        raise RuntimeError(message)
+    return redis_client
+
+
+def _acquire_redis_concurrency_slot(
+    *,
+    key: str,
+    holder: str,
+    max_count: int,
+    deadline: float,
+) -> bool:
+    redis_client = _get_redis_client()
+    lease_ms = int(ELEVENLABS_CONCURRENCY_LEASE_SECONDS * 1000)
+    while True:
+        now = time.time()
+        acquired = redis_client.eval(
+            _LUA_ACQUIRE_CONCURRENCY_SLOT,
+            1,
+            key,
+            holder,
+            str(max_count),
+            str(int(now * 1000)),
+            str(lease_ms),
+        )
+        if bool(acquired):
+            return True
+        if now >= deadline:
+            return False
+        time.sleep(min(0.2, max(deadline - now, 0.0)))
+
+
+def _release_redis_concurrency_slot(*, key: str, holder: str) -> None:
+    redis_client = _get_redis_client()
+    redis_client.eval(_LUA_RELEASE_CONCURRENCY_SLOT, 1, key, holder)
+
+
+def _get_local_concurrency_semaphore(
+    key: str, max_count: int
+) -> threading.BoundedSemaphore:
+    with _LOCAL_CONCURRENCY_LOCK:
+        semaphore = _LOCAL_CONCURRENCY_SEMAPHORES.get(key)
+        if semaphore is None:
+            semaphore = threading.BoundedSemaphore(max_count)
+            _LOCAL_CONCURRENCY_SEMAPHORES[key] = semaphore
+        return semaphore
+
+
+@contextmanager
+def _elevenlabs_concurrency_slot(api_key: str) -> object:
+    max_count = max(_coerce_int_config("ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS", 4), 0)
+    if max_count <= 0:
+        yield
+        return
+
+    max_wait_seconds = max(
+        _coerce_float_config("ELEVENLABS_TTS_CONCURRENCY_MAX_WAIT_SECONDS", 45.0),
+        0.0,
+    )
+    key = f"tts:concurrency:{_elevenlabs_concurrency_scope_key(api_key)}"
+    holder = uuid.uuid4().hex
+    deadline = time.time() + max_wait_seconds
+    acquired_with_redis = False
+    local_semaphore: threading.BoundedSemaphore | None = None
+
+    try:
+        acquired_with_redis = _acquire_redis_concurrency_slot(
+            key=key,
+            holder=holder,
+            max_count=max_count,
+            deadline=deadline,
+        )
+    except Exception as exc:
+        logger.warning(
+            "ElevenLabs concurrency Redis gate unavailable; using process-local gate: %s",
+            exc,
+        )
+        local_semaphore = _get_local_concurrency_semaphore(key, max_count)
+        acquired = local_semaphore.acquire(timeout=max_wait_seconds)
+        if not acquired:
+            message = "ElevenLabs TTS concurrency queue timed out"
+            raise ValueError(message) from exc
+    if not acquired_with_redis and local_semaphore is None:
+        message = "ElevenLabs TTS concurrency queue timed out"
+        raise ValueError(message)
+
+    try:
+        yield
+    finally:
+        if acquired_with_redis:
+            try:
+                _release_redis_concurrency_slot(key=key, holder=holder)
+            except Exception:
+                logger.warning("Failed to release ElevenLabs concurrency slot")
+        if local_semaphore is not None:
+            local_semaphore.release()
 
 
 class ElevenLabsTTSProvider(BaseTTSProvider):
@@ -214,14 +364,15 @@ class ElevenLabsTTSProvider(BaseTTSProvider):
         }
 
         try:
-            response = requests.post(
-                url,
-                params={"output_format": ELEVENLABS_OUTPUT_FORMAT},
-                headers=headers,
-                json=payload,
-                timeout=ELEVENLABS_REQUEST_TIMEOUT,
-                allow_redirects=False,
-            )
+            with _elevenlabs_concurrency_slot(api_key):
+                response = requests.post(
+                    url,
+                    params={"output_format": ELEVENLABS_OUTPUT_FORMAT},
+                    headers=headers,
+                    json=payload,
+                    timeout=ELEVENLABS_REQUEST_TIMEOUT,
+                    allow_redirects=False,
+                )
         except requests.RequestException as exc:
             logger.warning(
                 "ElevenLabs TTS request failed: model=%s voice=%s text_len=%s error_type=%s",

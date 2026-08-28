@@ -1583,6 +1583,23 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
         required=False,
     ),
+    "ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS": EnvVar(
+        name="ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS",
+        default=4,
+        type=int,
+        description=(
+            "Maximum in-flight ElevenLabs TTS requests per API key across "
+            "workers; 0 disables the concurrency gate"
+        ),
+        group="tts",
+    ),
+    "ELEVENLABS_TTS_CONCURRENCY_MAX_WAIT_SECONDS": EnvVar(
+        name="ELEVENLABS_TTS_CONCURRENCY_MAX_WAIT_SECONDS",
+        default=45,
+        type=int,
+        description="Maximum seconds an ElevenLabs TTS request waits for a concurrency slot",
+        group="tts",
+    ),
     "TTS_MAX_SEGMENT_CHARS": EnvVar(
         name="TTS_MAX_SEGMENT_CHARS",
         default=300,

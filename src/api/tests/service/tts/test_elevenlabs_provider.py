@@ -22,12 +22,35 @@ def _patch_config(
     *,
     api_key: str = "test-elevenlabs-key",
     voices: object = None,
+    extra: dict[str, object] | None = None,
 ) -> None:
     values = {
         "ELEVENLABS_API_KEY": api_key,
         "ELEVENLABS_TTS_VOICES_JSON": (_voice_json() if voices is None else voices),
     }
+    values.update(extra or {})
     monkeypatch.setattr(module, "get_config", lambda key, *_args: values.get(key, ""))
+
+
+class _FakeConcurrencyRedis:
+    def __init__(self, *, initially_full: bool = False) -> None:
+        self.holders: set[str] = {"existing"} if initially_full else set()
+        self.release_calls = 0
+
+    def eval(self, script: object, _numkeys: object, key: object, *args: object) -> int:
+        _ = key
+        script_text = str(script)
+        if "zrem" in script_text and "zadd" not in script_text:
+            self.release_calls += 1
+            self.holders.discard(str(args[0]))
+            return 1
+
+        holder = str(args[0])
+        max_count = int(args[1])
+        if len(self.holders) >= max_count:
+            return 0
+        self.holders.add(holder)
+        return 1
 
 
 def test_parse_elevenlabs_voices_normalizes_whitespace() -> None:
@@ -183,6 +206,71 @@ def test_synthesize_sends_encoded_approved_request_and_returns_mp3(
     assert result.format == "mp3"
     assert result.word_count == len("Hello world")
     assert result.usage_characters == len("Hello world")
+
+
+def test_synthesize_uses_elevenlabs_global_concurrency_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_config(
+        monkeypatch,
+        extra={
+            "ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS": "1",
+            "ELEVENLABS_TTS_CONCURRENCY_MAX_WAIT_SECONDS": "1",
+        },
+    )
+    fake_redis = _FakeConcurrencyRedis()
+    observed_holder_counts: list[int] = []
+
+    class DummyResponse:
+        status_code = 200
+        content = b"mp3-bytes"
+        reason = "OK"
+        headers: ClassVar[dict[str, str]] = {}
+
+    def fake_post(*_args: object, **_kwargs: object) -> object:
+        observed_holder_counts.append(len(fake_redis.holders))
+        return DummyResponse()
+
+    monkeypatch.setattr(module, "_get_redis_client", lambda: fake_redis)
+    monkeypatch.setattr(module.requests, "post", fake_post)
+    monkeypatch.setattr(
+        module, "try_get_audio_duration_ms", lambda *_args, **_kwargs: 123
+    )
+
+    result = module.ElevenLabsTTSProvider().synthesize("Hello")
+
+    assert result.audio_data == b"mp3-bytes"
+    assert observed_holder_counts == [1]
+    assert fake_redis.holders == set()
+    assert fake_redis.release_calls == 1
+
+
+def test_synthesize_times_out_before_hitting_elevenlabs_when_gate_is_full(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_config(
+        monkeypatch,
+        extra={
+            "ELEVENLABS_TTS_MAX_CONCURRENT_REQUESTS": "1",
+            "ELEVENLABS_TTS_CONCURRENCY_MAX_WAIT_SECONDS": "0",
+        },
+    )
+    post_called = False
+
+    def fake_post(*_args: object, **_kwargs: object) -> object:
+        nonlocal post_called
+        post_called = True
+        return object()
+
+    monkeypatch.setattr(
+        module, "_get_redis_client", lambda: _FakeConcurrencyRedis(initially_full=True)
+    )
+    monkeypatch.setattr(module.requests, "post", fake_post)
+
+    with pytest.raises(ValueError, match="concurrency queue timed out"):
+        module.ElevenLabsTTSProvider().synthesize("Hello")
+
+    assert post_called is False
 
 
 def test_synthesize_rejects_redirect_without_following(
