@@ -6,6 +6,7 @@ import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
+const mockVariableList = jest.fn();
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -150,13 +151,48 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
 
 jest.mock('./VariableList', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: Record<string, unknown>) => {
+    mockVariableList(props);
+    return null;
+  },
 }));
 
 describe('LessonPreview billing action', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockCopyText.mockReset();
+    mockVariableList.mockReset();
+  });
+
+  test('filters hidden variables and forwards visible system variable keys', () => {
+    render(
+      <LessonPreview
+        loading
+        items={[]}
+        variables={{
+          sys_user_nickname: 'Learner',
+          sys_user_style: 'Concise',
+          custom_topic: 'Testing',
+        }}
+        hiddenVariableKeys={['sys_user_style']}
+        systemVariableKeys={['sys_user_nickname']}
+        customVariableKeys={['custom_topic']}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockVariableList).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        variables: {
+          sys_user_nickname: 'Learner',
+          custom_topic: 'Testing',
+        },
+        systemVariableKeys: ['sys_user_nickname'],
+        customVariableKeys: ['custom_topic'],
+      }),
+    );
   });
 
   test('renders billing action for credit insufficient preview errors', () => {

@@ -502,6 +502,9 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
       'sys_user_style',
     );
+    expect(mockLessonPreview.mock.lastCall?.[0].systemVariableKeys).toEqual([
+      'sys_user_nickname',
+    ]);
     expect(baseActions.previewParse).toHaveBeenCalledWith(
       'Hello {{sys_user_style}}',
       'shifu-1',
