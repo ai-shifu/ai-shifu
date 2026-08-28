@@ -82,7 +82,10 @@ const MarkdownFlowEditor = dynamic(
   },
 );
 
-const HIDDEN_SYSTEM_VARIABLE_KEYS = new Set(['sys_user_style']);
+const HIDDEN_SYSTEM_VARIABLE_KEYS = new Set([
+  'sys_user_style',
+  'sys_user_input',
+]);
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
