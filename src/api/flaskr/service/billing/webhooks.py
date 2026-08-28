@@ -265,6 +265,10 @@ def apply_billing_stripe_notification(
                     target_status = BILLING_ORDER_STATUS_FAILED
                     failure_code = "provider_amount_missing"
                     failure_message = "Stripe checkout paid amount is missing"
+                elif not paid_currency:
+                    target_status = BILLING_ORDER_STATUS_FAILED
+                    failure_code = "provider_currency_missing"
+                    failure_message = "Stripe checkout currency is missing"
                 elif paid_amount != int(order.payable_amount or 0):
                     target_status = BILLING_ORDER_STATUS_FAILED
                     failure_code = "provider_amount_mismatch"

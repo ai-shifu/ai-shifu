@@ -20,7 +20,10 @@ import type {
 } from '@/app/admin/operations/operation-promotion-types';
 import { Badge } from '@/components/ui/Badge';
 import { Label } from '@/components/ui/Label';
-import { resolveBillingProductTitle } from '@/lib/billing';
+import {
+  formatBillingPlanInterval,
+  resolveBillingProductTitle,
+} from '@/lib/billing';
 import { cn } from '@/lib/utils';
 import type { BillingPlan, BillingTopupProduct } from '@/types/billing';
 
@@ -461,6 +464,9 @@ export const parsePositiveCampaignNumberInput = (value: string) => {
 };
 
 export const resolveCampaignPriceCurrencySymbol = (currency: string) => {
+  if (currency.toUpperCase() === 'USD') {
+    return '$';
+  }
   try {
     const formatter = new Intl.NumberFormat('zh-CN', {
       style: 'currency',
@@ -1093,6 +1099,20 @@ export const resolvePackageCampaignOptionTitle = (
     option.product_code,
   );
 
+export const resolvePackageCampaignProductDisplayTitle = (
+  t: (key: string, options?: Record<string, unknown>) => string,
+  option: AdminBillingCampaignProductOption,
+) => {
+  const title = resolvePackageCampaignOptionTitle(t, option);
+  if (option.product_type !== 'plan') {
+    return title;
+  }
+  return `${title} · ${formatBillingPlanInterval(
+    t,
+    option as unknown as BillingPlan,
+  )}`;
+};
+
 export const isPackageCampaignTrialOption = (
   option: AdminBillingCampaignProductOption,
 ) =>
@@ -1303,7 +1323,7 @@ export const PackageCampaignInlineField = ({
     <span className='w-[5.5rem] shrink-0 text-sm font-medium text-foreground'>
       {label}
     </span>
-    <div className='min-w-0 max-w-[13rem] flex-1'>{children}</div>
+    <div className='min-w-0 flex-1'>{children}</div>
   </div>
 );
 

@@ -320,7 +320,9 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.catalog.plans.creatorMonthly.title'),
+      screen.getByText(
+        'module.billing.catalog.plans.creatorMonthly.title · module.billing.catalog.labels.perMonth',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -655,7 +657,7 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
     ).not.toBeInTheDocument();
     expect(
       dialogScope.getByText(
-        'module.billing.catalog.plans.creatorMonthly.title',
+        'module.billing.catalog.plans.creatorMonthly.title · module.billing.catalog.labels.perMonth',
       ),
     ).toBeInTheDocument();
   });

@@ -510,10 +510,52 @@ class TestBillingWriteRoutesCheckout:
                 == "coupon_campaign_monthly"
             )
 
-    def test_stripe_subscription_sync_rejects_paid_amount_mismatch(
+    @pytest.mark.parametrize(
+        ("stripe_payment_payload", "expected_failure_code"),
+        [
+            (
+                {
+                    "checkout_session": {
+                        "amount_total": 989,
+                        "currency": "cny",
+                    },
+                    "payment_intent": {
+                        "amount_received": 989,
+                        "currency": "cny",
+                    },
+                },
+                "provider_amount_mismatch",
+            ),
+            (
+                {
+                    "checkout_session": {
+                        "currency": "cny",
+                    },
+                    "payment_intent": {
+                        "currency": "cny",
+                    },
+                },
+                "provider_amount_missing",
+            ),
+            (
+                {
+                    "checkout_session": {
+                        "amount_total": 9900,
+                    },
+                    "payment_intent": {
+                        "amount_received": 9900,
+                    },
+                },
+                "provider_currency_missing",
+            ),
+        ],
+    )
+    def test_stripe_subscription_sync_rejects_invalid_paid_payment_snapshot(
         self,
         billing_write_client: object,
         monkeypatch: object,
+        stripe_payment_payload: dict[str, dict[str, object]],
+        expected_failure_code: str,
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
@@ -527,32 +569,32 @@ class TestBillingWriteRoutesCheckout:
         ).get_json(force=True)
         bill_order_bid = checkout["data"]["bill_order_bid"]
 
-        class MismatchedStripeProvider:
+        class InvalidStripeProvider:
             def sync_reference(
                 self, *, provider_reference: str, reference_type: str, app: object
             ) -> object:
                 _ = app
                 assert reference_type == "checkout_session"
+                checkout_session = {
+                    "id": provider_reference,
+                    "status": "complete",
+                    "payment_status": "paid",
+                    "payment_intent": "pi_billing_test",
+                    "subscription": "sub_provider_test",
+                    "customer": "cus_provider_test",
+                    **stripe_payment_payload.get("checkout_session", {}),
+                }
+                payment_intent = {
+                    "id": "pi_billing_test",
+                    "status": "succeeded",
+                    **stripe_payment_payload.get("payment_intent", {}),
+                }
                 return PaymentNotificationResult(
                     order_bid="",
                     status="manual_sync",
                     provider_payload={
-                        "checkout_session": {
-                            "id": provider_reference,
-                            "status": "complete",
-                            "payment_status": "paid",
-                            "payment_intent": "pi_billing_test",
-                            "subscription": "sub_provider_test",
-                            "customer": "cus_provider_test",
-                            "amount_total": 989,
-                            "currency": "cny",
-                        },
-                        "payment_intent": {
-                            "id": "pi_billing_test",
-                            "status": "succeeded",
-                            "amount_received": 989,
-                            "currency": "cny",
-                        },
+                        "checkout_session": checkout_session,
+                        "payment_intent": payment_intent,
                     },
                     charge_id=None,
                 )
@@ -560,7 +602,7 @@ class TestBillingWriteRoutesCheckout:
         monkeypatch.setitem(
             billing_write_routes_module.create_billing_order_checkout.__globals__,
             "get_payment_provider",
-            lambda channel: MismatchedStripeProvider() if channel == "stripe" else None,
+            lambda channel: InvalidStripeProvider() if channel == "stripe" else None,
         )
 
         sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
@@ -573,7 +615,7 @@ class TestBillingWriteRoutesCheckout:
             order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
             assert order.status == BILLING_ORDER_STATUS_FAILED
             assert order.paid_amount == 0
-            assert order.failure_code == "provider_amount_mismatch"
+            assert order.failure_code == expected_failure_code
 
     def test_stripe_subscription_checkout_allows_bonus_only_campaign(
         self,

@@ -584,6 +584,7 @@ export function GlobalBillingPricing() {
                           t,
                           locale,
                         )}
+                        campaignLabelVariant='ribbon'
                         onAction={() =>
                           handlePaymentClick({
                             product,
@@ -792,9 +793,20 @@ function PlanCard({
         locale,
       )
     : formatBillingPercent(0, locale);
+  const campaignLabel = resolveGlobalCampaignLabel(product, t, locale);
+  const shouldShowAnnualSavingsBadge =
+    cycle === 'annual' && Boolean(annualProduct) && !campaignLabel;
+  const annualSavingsLabel = t('module.billing.globalPricing.annualSavings', {
+    amount: formatBillingPrice(
+      annualSavings,
+      annualProduct?.currency || product.currency,
+      locale,
+    ),
+    percent: annualSavingsPercent,
+  });
   const featureIncludeKey = PLAN_FEATURE_INCLUDE_KEYS[tierSpec.tier];
   const pricingDetailsClassName =
-    cycle === 'annual' ? 'min-h-[150px]' : 'min-h-[86px]';
+    cycle === 'annual' ? 'min-h-[150px]' : 'min-h-[96px]';
   const creditsBoxClassName = 'min-h-[150px]';
 
   return (
@@ -807,13 +819,16 @@ function PlanCard({
     >
       <CardHeader className='space-y-4 p-5 pb-4 2xl:p-6 2xl:pb-4'>
         <div
-          className='flex min-h-8 items-center justify-between gap-2'
+          className={cn(
+            'flex min-h-8 items-center justify-between gap-2',
+            monthlyOnly ? 'pr-24' : '',
+          )}
           data-testid={`global-plan-${tierSpec.tier}-title`}
         >
-          <div className='flex min-w-0 flex-wrap items-center gap-2'>
+          <div className='flex min-w-0 flex-nowrap items-center gap-2'>
             <h3
               className={cn(
-                'text-xl font-semibold text-foreground',
+                'shrink-0 text-xl font-semibold text-foreground',
                 isCurrentPlan && 'text-primary',
               )}
             >
@@ -826,18 +841,33 @@ function PlanCard({
               </Badge>
             ) : null}
           </div>
-          {monthlyOnly ? (
-            <Badge variant='secondary'>
+        </div>
+        {campaignLabel ? (
+          <div className='pointer-events-none absolute -right-11 top-5 z-10 w-40 rotate-45 bg-red-600 py-1 text-center text-[11px] font-semibold text-white shadow-md 2xl:text-xs'>
+            {campaignLabel}
+          </div>
+        ) : null}
+        {monthlyOnly ? (
+          <div
+            className={cn(
+              'absolute right-5 z-10',
+              campaignLabel ? 'top-14' : 'top-5',
+            )}
+          >
+            <Badge
+              variant='secondary'
+              className='whitespace-nowrap'
+            >
               {t('module.billing.globalPricing.monthlyOnly')}
             </Badge>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <div
           className={pricingDetailsClassName}
           data-testid={`global-plan-${tierSpec.tier}-price`}
         >
           {hasDiscountCampaign ? (
-            <div className='mb-1 text-sm text-muted-foreground line-through'>
+            <div className='mb-1 min-h-5 text-sm text-muted-foreground line-through'>
               {formatBillingPrice(
                 originalPriceAmount,
                 product.currency,
@@ -869,32 +899,25 @@ function PlanCard({
                   ),
                 })}
               </p>
-              {hasDiscountCampaign ? (
-                <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
-                  {resolveGlobalCampaignLabel(product, t, locale)}
-                </Badge>
+              <div className='min-h-7'>
+                {shouldShowAnnualSavingsBadge ? (
+                  <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
+                    {annualSavingsLabel}
+                  </Badge>
+                ) : null}
+              </div>
+              {campaignLabel ? (
+                <p className='text-xs font-medium text-muted-foreground'>
+                  {annualSavingsLabel}
+                </p>
               ) : null}
-              <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
-                {t('module.billing.globalPricing.annualSavings', {
-                  amount: formatBillingPrice(
-                    annualSavings,
-                    annualProduct.currency,
-                    locale,
-                  ),
-                  percent: annualSavingsPercent,
-                })}
-              </Badge>
             </div>
           ) : (
             <div className='mt-2 space-y-2'>
               <p className='text-sm text-muted-foreground'>
                 {t('module.billing.globalPricing.cancelAnytime')}
               </p>
-              {hasDiscountCampaign ? (
-                <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
-                  {resolveGlobalCampaignLabel(product, t, locale)}
-                </Badge>
-              ) : null}
+              <div className='min-h-7' />
             </div>
           )}
         </div>

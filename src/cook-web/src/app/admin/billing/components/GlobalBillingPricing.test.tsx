@@ -190,6 +190,9 @@ jest.mock('react-i18next', () => ({
       if (key === 'module.billing.globalPricing.annualSavings') {
         return `Save ${options?.amount} per year (${options?.percent}%)`;
       }
+      if (key === 'module.billing.package.campaign.bonusBadge') {
+        return `${options?.credits} bonus credits`;
+      }
       if (key === 'module.billing.globalPricing.creditPacks.packName') {
         return `${options?.credits} credits`;
       }
@@ -509,6 +512,56 @@ describe('GlobalBillingPricing', () => {
     expect(within(studio).getByText('$59')).toHaveClass('line-through');
     expect(within(studio).getByText('$49')).toBeInTheDocument();
     expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
+  });
+
+  test('shows annual campaign pricing with a neutral annual savings note', async () => {
+    const catalog = buildGlobalCatalog();
+    catalog.plans[2] = plan(
+      GLOBAL_BILLING_PRODUCT_CODES.growthAnnual,
+      'year',
+      219900,
+      50000,
+      discountCampaign(199900),
+    );
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+
+    renderPricing();
+
+    const growth = await screen.findByTestId('global-plan-growth');
+    expect(within(growth).getByText('$183')).toHaveClass('line-through');
+    expect(within(growth).getByText('$166.58')).toBeInTheDocument();
+    expect(within(growth).getByText('Discounted price')).toBeInTheDocument();
+    expect(within(growth).getByText('Save $549 per year (20.0%)')).toHaveClass(
+      'text-muted-foreground',
+    );
+  });
+
+  test('shows bonus campaign labels on global plan cards', async () => {
+    const user = userEvent.setup();
+    const catalog = buildGlobalCatalog();
+    catalog.plans[1] = {
+      ...catalog.plans[1],
+      campaign: {
+        campaign_bid: 'campaign-bonus-growth',
+        benefit_type: 'bonus',
+        discount_amount: 0,
+        discount_percent: 0,
+        campaign_price_amount: 0,
+        bonus_credit_amount: 300,
+      },
+    };
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+
+    renderPricing();
+
+    await screen.findByTestId('global-plan-studio');
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Monthly' }));
+    });
+
+    const growth = screen.getByTestId('global-plan-growth');
+    expect(within(growth).getByText('$229')).toBeInTheDocument();
+    expect(within(growth).getByText('300 bonus credits')).toBeInTheDocument();
   });
 
   test('switches Studio to monthly without tracking a payment click', async () => {

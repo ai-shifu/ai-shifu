@@ -421,6 +421,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
     [
         ({"amount_total": 989, "currency": "cny"}, "provider_amount_mismatch"),
         ({"currency": "cny"}, "provider_amount_missing"),
+        ({"amount_total": 990}, "provider_currency_missing"),
     ],
 )
 def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription_activation(
@@ -430,7 +431,7 @@ def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription
     expected_failure_code: str,
 ) -> None:
     app = billing_subscription_sms_app
-    now = datetime(2026, 7, 1, 0, 0, 0)
+    now = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
     enqueued: list[str] = []
 
     monkeypatch.setattr(

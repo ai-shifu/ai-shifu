@@ -65,6 +65,7 @@ import {
   parseReferralCampaignJsonObjectInput,
   resolveCampaignPriceCurrencySymbol,
   resolvePackageCampaignOptionTitle,
+  resolvePackageCampaignProductDisplayTitle,
   SINGLE_SELECT_ITEM_CLASS,
 } from './promotionPageShared';
 
@@ -1159,7 +1160,7 @@ export const PackageCampaignDialog = ({
                         const checked = form.product_bids.includes(
                           option.product_bid,
                         );
-                        const title = resolvePackageCampaignOptionTitle(
+                        const title = resolvePackageCampaignProductDisplayTitle(
                           t,
                           option,
                         );
@@ -1599,7 +1600,7 @@ export const ReferralCampaignDialog = ({
                       value={option.product_code}
                       className={SINGLE_SELECT_ITEM_CLASS}
                     >
-                      {resolvePackageCampaignOptionTitle(t, option)}
+                      {resolvePackageCampaignProductDisplayTitle(t, option)}
                     </SelectItem>
                   ))}
                 </SelectContent>

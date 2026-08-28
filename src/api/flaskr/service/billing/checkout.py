@@ -2468,7 +2468,15 @@ def _sync_stripe_order(
             {"checkout_session": session, "payment_intent": intent or {}}
         )
         expected_currency = str(order.currency or "").strip().upper()
-        if paid_amount is not None and paid_amount != int(order.payable_amount or 0):
+        if paid_amount is None:
+            target_status = BILLING_ORDER_STATUS_FAILED
+            failure_code = "provider_amount_missing"
+            failure_message = "Stripe checkout paid amount is missing"
+        elif not paid_currency:
+            target_status = BILLING_ORDER_STATUS_FAILED
+            failure_code = "provider_currency_missing"
+            failure_message = "Stripe checkout currency is missing"
+        elif paid_amount != int(order.payable_amount or 0):
             target_status = BILLING_ORDER_STATUS_FAILED
             failure_code = "provider_amount_mismatch"
             failure_message = "Stripe checkout paid amount does not match billing order"
