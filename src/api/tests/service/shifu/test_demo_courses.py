@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -79,3 +81,13 @@ def test_is_builtin_demo_shifu_excludes_other_system_courses(
         dao.db.session.commit()
 
     assert is_builtin_demo_shifu(demo_course_app, "system-course-1") is False
+
+
+def test_cn_demo_does_not_advertise_retired_style_variable() -> None:
+    demo_path = Path(__file__).parents[3] / "demo_shifus" / "cn_demo.json"
+    demo = json.loads(demo_path.read_text(encoding="utf-8"))
+
+    assert "{{sys_user_style}} ：用户偏好的内容风格" not in json.dumps(
+        demo,
+        ensure_ascii=False,
+    )

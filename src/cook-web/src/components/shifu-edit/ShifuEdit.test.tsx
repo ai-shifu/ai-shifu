@@ -306,9 +306,9 @@ const mockShifuState = {
   chapters: [],
   actions: baseActions,
   isLoading: false,
-  variables: [],
-  systemVariables: [],
-  hiddenVariables: [],
+  variables: [] as string[],
+  systemVariables: [] as Record<string, string>[],
+  hiddenVariables: [] as string[],
   unusedVariables: [],
   hideUnusedMode: false,
   currentShifu: {
@@ -429,6 +429,9 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.hasDraftConflict = false;
     mockShifuState.autosavePaused = false;
     mockShifuState.mdflow = '';
+    mockShifuState.variables = [];
+    mockShifuState.systemVariables = [];
+    mockShifuState.hiddenVariables = [];
     mockUserStoreState.userInfo = {
       user_bid: 'user-1',
       user_id: 'user-1',
@@ -460,6 +463,50 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(mockUsePreviewChat).toHaveBeenLastCalledWith({
       creditInsufficientAudience: 'teacher',
     });
+  });
+
+  test('hides sys_user_style from editor and preview variable displays', async () => {
+    setLessonNode();
+    mockShifuState.mdflow = 'Hello {{sys_user_style}}';
+    mockShifuState.systemVariables = [
+      { name: 'sys_user_nickname', label: 'Nickname' },
+      { name: 'sys_user_style', label: 'Style' },
+    ];
+    baseActions.previewParse.mockResolvedValue({
+      variables: {
+        sys_user_nickname: 'Learner',
+        sys_user_style: 'Concise',
+      },
+      blocksCount: 1,
+      systemVariableKeys: ['sys_user_nickname', 'sys_user_style'],
+      allVariableKeys: ['sys_user_nickname', 'sys_user_style'],
+      unusedKeys: [],
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+    });
+    expect(mockMarkdownFlowEditor.mock.lastCall?.[0].systemVariables).toEqual([
+      { name: 'sys_user_nickname', label: 'Nickname' },
+    ]);
+
+    fireEvent.click(
+      screen.getByText('module.shifu.previewArea.action').closest('button')!,
+    );
+
+    await waitFor(() => {
+      expect(mockLessonPreview).toHaveBeenCalled();
+    });
+    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
+      'sys_user_style',
+    );
+    expect(baseActions.previewParse).toHaveBeenCalledWith(
+      'Hello {{sys_user_style}}',
+      'shifu-1',
+      'lesson-1',
+    );
   });
 
   test('passes the collaborator credit audience for another owner course', () => {
