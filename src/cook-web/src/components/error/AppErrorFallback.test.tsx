@@ -2,6 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 import AppErrorFallback from './AppErrorFallback';
 
+jest.mock('@/i18n', () => ({}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) =>
