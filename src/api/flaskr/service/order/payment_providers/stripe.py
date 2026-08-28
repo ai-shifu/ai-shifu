@@ -67,6 +67,9 @@ class StripeProvider(PaymentProvider):
                 message = "Stripe checkout session requires line items"
                 raise RuntimeError(message)
             params["line_items"] = line_items
+            discounts = options.get("discounts")
+            if discounts:
+                params["discounts"] = discounts
             subscription_discount_amount = int(
                 options.get("subscription_one_time_discount_amount") or 0
             )
@@ -74,6 +77,7 @@ class StripeProvider(PaymentProvider):
             if (
                 params.get("mode") == "subscription"
                 and subscription_discount_amount > 0
+                and not discounts
             ):
                 coupon = stripe.Coupon.create(
                     amount_off=subscription_discount_amount,
@@ -157,6 +161,7 @@ class StripeProvider(PaymentProvider):
                     "latest_charge_id": latest_charge_id,
                     "payment_intent_object": payment_intent_object,
                     "metadata": metadata,
+                    "discounts": params.get("discounts") or [],
                     "url": session_dict.get("url", ""),
                 },
             )

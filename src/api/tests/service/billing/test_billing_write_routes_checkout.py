@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from flaskr.service.order.payment_providers import PaymentNotificationResult
 
 from tests.service.billing import (
     billing_write_routes_test_helpers as write_route_helpers,
@@ -14,8 +15,10 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -27,6 +30,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     ERROR_CODE,
     BillingCampaign,
     BillingCampaignProduct,
+    BillingCampaignProviderDiscount,
     BillingOrder,
     BillingProduct,
     BillingProductProviderPrice,
@@ -410,6 +414,166 @@ class TestBillingWriteRoutesCheckout:
 
         assert payload["code"] == ERROR_CODE["server.pay.payChannelNotSupport"]
         assert billing_write_client["stripe_requests"] == []
+
+    def test_stripe_subscription_checkout_uses_published_campaign_coupon(
+        self,
+        billing_write_client: object,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-stripe-published",
+                    name="Stripe published campaign",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-stripe-published",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    campaign_price_amount=790,
+                    bonus_credit_amount=Decimal("0"),
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProviderDiscount(
+                    campaign_provider_discount_bid="cpd-stripe-published-monthly",
+                    campaign_bid="campaign-stripe-published",
+                    product_bid="bill-product-plan-monthly",
+                    product_provider_price_bid="mapping-bill-product-plan-monthly",
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id="prod_bill-product-plan-monthly",
+                    provider_price_id="price_bill-product-plan-monthly",
+                    provider_coupon_id="coupon_campaign_monthly",
+                    livemode=0,
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    list_price_amount=990,
+                    campaign_price_amount=790,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    currency="CNY",
+                    duration="once",
+                    status=BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+                    metadata_json={},
+                    activated_at=now,
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["payable_amount"] == 790
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        assert stripe_request["extra"]["discounts"] == [
+            {"coupon": "coupon_campaign_monthly"}
+        ]
+        assert "subscription_one_time_discount_amount" not in stripe_request["extra"]
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"]
+            ).one()
+            assert order.payable_amount == 790
+            assert order.campaign_bid == "campaign-stripe-published"
+            assert (
+                order.metadata_json["campaign_provider_discount"]["provider_coupon_id"]
+                == "coupon_campaign_monthly"
+            )
+
+    def test_stripe_subscription_sync_rejects_paid_amount_mismatch(
+        self,
+        billing_write_client: object,
+        monkeypatch: object,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        class MismatchedStripeProvider:
+            def sync_reference(
+                self, *, provider_reference: str, reference_type: str, app: object
+            ) -> object:
+                _ = app
+                assert reference_type == "checkout_session"
+                return PaymentNotificationResult(
+                    order_bid="",
+                    status="manual_sync",
+                    provider_payload={
+                        "checkout_session": {
+                            "id": provider_reference,
+                            "status": "complete",
+                            "payment_status": "paid",
+                            "payment_intent": "pi_billing_test",
+                            "subscription": "sub_provider_test",
+                            "customer": "cus_provider_test",
+                            "amount_total": 989,
+                            "currency": "cny",
+                        },
+                        "payment_intent": {
+                            "id": "pi_billing_test",
+                            "status": "succeeded",
+                            "amount_received": 989,
+                            "currency": "cny",
+                        },
+                    },
+                    charge_id=None,
+                )
+
+        monkeypatch.setitem(
+            billing_write_routes_module.create_billing_order_checkout.__globals__,
+            "get_payment_provider",
+            lambda channel: MismatchedStripeProvider() if channel == "stripe" else None,
+        )
+
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
+            force=True
+        )
+
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "failed"
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            assert order.status == BILLING_ORDER_STATUS_FAILED
+            assert order.paid_amount == 0
+            assert order.failure_code == "provider_amount_mismatch"
 
     def test_stripe_subscription_checkout_allows_bonus_only_campaign(
         self,
