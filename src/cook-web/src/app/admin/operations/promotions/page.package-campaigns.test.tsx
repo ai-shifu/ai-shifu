@@ -17,6 +17,7 @@ import {
   mockGetPackageCampaignProductOptions,
   mockGetPackageCampaigns,
   mockPublishPackageCampaignProviderDiscounts,
+  mockRetirePackageCampaignProviderDiscounts,
   mockToast,
   mockUpdatePackageCampaignStatus,
   setMockPaymentChannels,
@@ -174,6 +175,77 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         variant: 'destructive',
       }),
     );
+  });
+
+  test('keeps the Stripe stop action available for cleanup-required discounts', async () => {
+    mockGetPackageCampaigns.mockResolvedValueOnce({
+      items: [
+        {
+          campaign_bid: 'campaign-cleanup',
+          name: 'Cleanup Package Promo',
+          note: 'Plan-only promotion',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 20,
+          bonus_credit_amount: 0,
+          product_count: 1,
+          product_types: ['plan'],
+          product_names: ['module.billing.catalog.plans.creatorMonthly.title'],
+          has_custom_product_rules: false,
+          provider_discount_summary: {
+            total: 1,
+            active: 0,
+            cleanup_required: 1,
+            open_provider_coupon_count: 1,
+          },
+          computed_status: 'active',
+          hit_order_count: 0,
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-05-24T10:00:00Z',
+          enabled: true,
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Cleanup Package Promo');
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.retireProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockRetirePackageCampaignProviderDiscounts).toHaveBeenCalledWith({
+        campaign_bid: 'campaign-cleanup',
+      });
+    });
   });
 
   test('shows an error when provider publish returns failed items', async () => {
@@ -345,6 +417,7 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         name: 'May Bonus Campaign',
         note: '',
         benefit_type: 'bonus',
+        enabled: true,
         products: [
           {
             product_bid: 'plan-1',

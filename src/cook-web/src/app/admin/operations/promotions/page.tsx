@@ -751,6 +751,9 @@ export default function AdminOperationPromotionsPage() {
       name: payload.name.trim(),
       note: payload.note.trim(),
       benefit_type: payload.benefit_type,
+      enabled: !(
+        showStripeProviderDiscounts && payload.benefit_type === 'discount'
+      ),
       start_at: payload.start_at,
       end_at: payload.end_at,
       products: buildPackageCampaignProductsPayload(payload, productOptions),
@@ -774,6 +777,7 @@ export default function AdminOperationPromotionsPage() {
       name: payload.name.trim(),
       note: payload.note.trim(),
       benefit_type: payload.benefit_type,
+      enabled: Boolean(editingPackageCampaign.campaign.enabled),
       start_at: payload.start_at,
       end_at: payload.end_at,
       products: buildPackageCampaignProductsPayload(payload, productOptions),
