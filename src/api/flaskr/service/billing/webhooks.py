@@ -84,6 +84,12 @@ from .provider_state import (
     map_stripe_order_status as _map_stripe_order_status,
 )
 from .provider_state import (
+    resolve_stripe_paid_amount as _resolve_stripe_paid_amount,
+)
+from .provider_state import (
+    resolve_stripe_paid_currency as _resolve_stripe_paid_currency,
+)
+from .provider_state import (
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
 )
 from .queries import (
@@ -235,13 +241,46 @@ def apply_billing_stripe_notification(
 
         response_status = "acknowledged"
         order_update = BillingOrderProviderUpdateResult()
+        target_status = _map_stripe_order_status(event_type)
         if order is not None:
-            target_status = _map_stripe_order_status(event_type)
             if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
                 target_status = _resolve_stripe_subscription_order_status(
                     order,
                     data_object,
                 )
+            failure_code = _extract_stripe_failure_code(data_object)
+            failure_message = _extract_stripe_failure_message(data_object)
+            stripe_object_id = str(data_object.get("id") or "")
+            is_payment_object_event = stripe_object_id.startswith(("cs_", "pi_"))
+            if target_status == BILLING_ORDER_STATUS_PAID and is_payment_object_event:
+                amount_payload = (
+                    {"checkout_session": data_object}
+                    if stripe_object_id.startswith("cs_")
+                    else {"payment_intent": data_object}
+                )
+                paid_amount = _resolve_stripe_paid_amount(amount_payload)
+                paid_currency = _resolve_stripe_paid_currency(amount_payload)
+                expected_currency = str(order.currency or "").strip().upper()
+                if paid_amount is None:
+                    target_status = BILLING_ORDER_STATUS_FAILED
+                    failure_code = "provider_amount_missing"
+                    failure_message = "Stripe checkout paid amount is missing"
+                elif paid_amount != int(order.payable_amount or 0):
+                    target_status = BILLING_ORDER_STATUS_FAILED
+                    failure_code = "provider_amount_mismatch"
+                    failure_message = (
+                        "Stripe checkout paid amount does not match billing order"
+                    )
+                elif (
+                    paid_currency
+                    and expected_currency
+                    and paid_currency != expected_currency
+                ):
+                    target_status = BILLING_ORDER_STATUS_FAILED
+                    failure_code = "provider_currency_mismatch"
+                    failure_message = (
+                        "Stripe checkout currency does not match billing order"
+                    )
             order_update = _apply_billing_order_provider_update(
                 order,
                 provider="stripe",
@@ -254,8 +293,8 @@ def apply_billing_stripe_notification(
                     data_object=data_object,
                 ),
                 target_status=target_status,
-                failure_code=_extract_stripe_failure_code(data_object),
-                failure_message=_extract_stripe_failure_message(data_object),
+                failure_code=failure_code,
+                failure_message=failure_message,
             )
             stripe_object_id = str(data_object.get("id") or "")
             refund_metadata: dict[str, Any] = {}
@@ -308,7 +347,7 @@ def apply_billing_stripe_notification(
                     payload=event,
                     data_object=data_object,
                 )
-            elif _map_stripe_order_status(event_type) == BILLING_ORDER_STATUS_PAID:
+            elif target_status == BILLING_ORDER_STATUS_PAID:
                 _apply_subscription_checkout_success(
                     app,
                     subscription,
@@ -319,7 +358,7 @@ def apply_billing_stripe_notification(
                     provider="stripe",
                     event_type=event_type,
                 )
-            elif _map_stripe_order_status(event_type) == BILLING_ORDER_STATUS_FAILED:
+            elif target_status == BILLING_ORDER_STATUS_FAILED:
                 _apply_subscription_checkout_failure(
                     app,
                     subscription,

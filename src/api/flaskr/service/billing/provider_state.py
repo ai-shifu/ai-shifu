@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from flaskr.util.datetime import now_utc
 
@@ -328,6 +328,43 @@ def _extract_stripe_failure_message(data_object: dict[str, object]) -> str:
     return str(error_info.get("message") or "")
 
 
+def _coerce_stripe_int(value: object) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def extract_stripe_paid_amount(payload: dict[str, Any]) -> int | None:
+    """Resolve Stripe's actual paid amount from a checkout or intent payload."""
+    session = payload.get("checkout_session", payload)
+    intent = payload.get("payment_intent", {})
+    if not isinstance(session, dict):
+        session = {}
+    if not isinstance(intent, dict):
+        intent = {}
+    session_amount = _coerce_stripe_int(session.get("amount_total"))
+    if session_amount is not None:
+        return session_amount
+    amount_received = _coerce_stripe_int(intent.get("amount_received"))
+    if amount_received is not None:
+        return amount_received
+    return _coerce_stripe_int(intent.get("amount"))
+
+
+def extract_stripe_paid_currency(payload: dict[str, Any]) -> str:
+    """Resolve Stripe's paid currency from a checkout or intent payload."""
+    session = payload.get("checkout_session", payload)
+    intent = payload.get("payment_intent", {})
+    if not isinstance(session, dict):
+        session = {}
+    if not isinstance(intent, dict):
+        intent = {}
+    return str(session.get("currency") or intent.get("currency") or "").upper()
+
+
 def _apply_billing_subscription_provider_update(
     app: Flask,
     subscription: BillingSubscription,
@@ -582,6 +619,8 @@ load_billing_renewal_order_for_stripe_event = (
 extract_stripe_provider_reference = _extract_stripe_provider_reference
 extract_stripe_failure_code = _extract_stripe_failure_code
 extract_stripe_failure_message = _extract_stripe_failure_message
+resolve_stripe_paid_amount = extract_stripe_paid_amount
+resolve_stripe_paid_currency = extract_stripe_paid_currency
 apply_billing_subscription_provider_update = _apply_billing_subscription_provider_update
 apply_subscription_checkout_success = _apply_subscription_checkout_success
 apply_subscription_checkout_failure = _apply_subscription_checkout_failure
