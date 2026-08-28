@@ -159,12 +159,18 @@ def summarize_campaign_provider_discounts(
                 "provider_invalid": 0,
                 "cleanup_required": 0,
                 "retired": 0,
+                "open_provider_coupon_count": 0,
                 "latest_failure_code": "",
                 "latest_failure_message": "",
             },
         )
         if status != "retired":
             summary["total"] += 1
+        if (
+            row.provider_coupon_id
+            and int(row.status or 0) in _PROVIDER_COUPON_OPEN_STATUSES
+        ):
+            summary["open_provider_coupon_count"] += 1
         if status in summary:
             summary[status] += 1
         if row.failure_code or row.failure_message:
@@ -582,13 +588,26 @@ def _retire_provider_discount(
                     app=app,
                 )
             except Exception as exc:
-                row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED
-                row.failure_code = "provider_retire_failed"
-                row.failure_message = _sanitize_error_message(exc)
-                row.updated_user_bid = operator_user_bid
-                row.updated_at = now
-                db.session.add(row)
-                return
+                if _is_provider_coupon_missing_error(exc):
+                    row.metadata_json = {
+                        **normalize_json_object(
+                            row.metadata_json or {}
+                        ).to_metadata_json(),
+                        "provider_retire_idempotent_missing": {
+                            "provider_coupon_id": row.provider_coupon_id,
+                            "checked_at": to_utc_iso(now),
+                        },
+                    }
+                else:
+                    row.status = (
+                        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED
+                    )
+                    row.failure_code = "provider_retire_failed"
+                    row.failure_message = _sanitize_error_message(exc)
+                    row.updated_user_bid = operator_user_bid
+                    row.updated_at = now
+                    db.session.add(row)
+                    return
         row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
         row.retired_at = now
         row.failure_code = ""
@@ -596,6 +615,14 @@ def _retire_provider_discount(
         row.updated_user_bid = operator_user_bid
         row.updated_at = now
         db.session.add(row)
+
+
+def _is_provider_coupon_missing_error(exc: Exception) -> bool:
+    code = str(getattr(exc, "code", "") or "").strip().lower()
+    if code == "resource_missing":
+        return True
+    message = str(exc).lower()
+    return "no such coupon" in message or "resource_missing" in message
 
 
 def _apply_validation_snapshot(
@@ -736,6 +763,7 @@ def _summarize_serialized_items(items: list[dict[str, Any]]) -> dict[str, Any]:
         "provider_invalid": 0,
         "cleanup_required": 0,
         "retired": 0,
+        "open_provider_coupon_count": 0,
         "latest_failure_code": "",
         "latest_failure_message": "",
     }
@@ -743,6 +771,14 @@ def _summarize_serialized_items(items: list[dict[str, Any]]) -> dict[str, Any]:
         status = str(item.get("status") or "")
         if status != "retired":
             summary["total"] += 1
+        if item.get("provider_coupon_id") and status in {
+            "active",
+            "requires_republish",
+            "provider_invalid",
+            "cleanup_required",
+            "failed",
+        }:
+            summary["open_provider_coupon_count"] += 1
         if status in summary:
             summary[status] += 1
         if item.get("failure_code") or item.get("failure_message"):

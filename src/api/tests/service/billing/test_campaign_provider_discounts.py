@@ -22,6 +22,7 @@ from flaskr.service.billing.campaign_provider_discounts import (
     validate_admin_campaign_provider_discount,
 )
 from flaskr.service.billing.campaigns import (
+    create_admin_billing_campaign,
     update_admin_billing_campaign,
     update_admin_billing_campaign_status,
 )
@@ -105,6 +106,10 @@ class _FakeCampaignDiscountProvider:
             raise self.retire_error
         self.retired.append(provider_coupon_id)
         return self.snapshots[provider_coupon_id]
+
+
+class _StripeResourceMissingError(RuntimeError):
+    code = "resource_missing"
 
 
 def _product(product_bid: str = "product-growth-month") -> BillingProduct:
@@ -241,6 +246,38 @@ def _patch_scope(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def _patch_payment_channels(monkeypatch: pytest.MonkeyPatch, channels: str) -> None:
+    monkeypatch.setattr(
+        billing_campaigns,
+        "get_config",
+        lambda key, default=None: (
+            channels if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
+
+
+def _discount_campaign_payload(
+    *, product_bid: str, enabled: bool | None = None
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "name": "Growth launch",
+        "note": "",
+        "benefit_type": "discount",
+        "products": [
+            {
+                "product_bid": product_bid,
+                "discount_type": "fixed",
+                "campaign_price_amount": "4900",
+            }
+        ],
+        "start_at": now_utc(),
+        "end_at": now_utc().replace(year=now_utc().year + 1),
+    }
+    if enabled is not None:
+        payload["enabled"] = enabled
+    return payload
+
+
 def test_stripe_campaign_discount_provider_scopes_coupon_to_product(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
@@ -322,6 +359,82 @@ def test_stripe_campaign_discount_provider_scopes_coupon_to_product(
 
     assert FakeCouponApi.retrieve_params["expand"] == ["applies_to"]
     assert retrieved.applies_to_product_ids == ["prod_scoped"]
+
+
+def test_create_global_discount_campaign_stays_disabled_until_stripe_sync(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    product_bid = "product-growth-create-sync-required"
+    with app.app_context():
+        product = _product(product_bid)
+        db.session.add(product)
+        db.session.add(_mapping(product.product_bid))
+        db.session.commit()
+    _patch_payment_channels(monkeypatch, "stripe")
+
+    detail = create_admin_billing_campaign(
+        app,
+        operator_user_bid="operator",
+        payload=_discount_campaign_payload(product_bid=product_bid),
+    )
+
+    assert detail.campaign.enabled is False
+
+
+def test_update_campaign_preserves_disabled_status_when_enabled_omitted(
+    app: object,
+) -> None:
+    product_bid = "product-growth-update-preserve-disabled"
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-update-preserve-disabled",
+            product_bid=product_bid,
+        )
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-growth-update-preserve-disabled"
+        ).one()
+        campaign.enabled = 0
+        db.session.add(campaign)
+        db.session.commit()
+
+    detail = update_admin_billing_campaign(
+        app,
+        operator_user_bid="operator",
+        campaign_bid="campaign-growth-update-preserve-disabled",
+        payload=_discount_campaign_payload(product_bid=product_bid),
+    )
+
+    assert detail.campaign.enabled is False
+
+
+def test_update_campaign_blocks_global_discount_enable_without_stripe_sync(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    product_bid = "product-growth-update-sync-required"
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-update-sync-required",
+            product_bid=product_bid,
+        )
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-growth-update-sync-required"
+        ).one()
+        campaign.enabled = 0
+        db.session.add(campaign)
+        db.session.commit()
+    _patch_payment_channels(monkeypatch, "stripe")
+
+    with pytest.raises(AppError) as exc_info:
+        update_admin_billing_campaign(
+            app,
+            operator_user_bid="operator",
+            campaign_bid="campaign-growth-update-sync-required",
+            payload=_discount_campaign_payload(product_bid=product_bid, enabled=True),
+        )
+
+    assert "Stripe" in str(exc_info.value)
 
 
 def test_publish_fixed_campaign_creates_amount_off_coupon(
@@ -987,6 +1100,42 @@ def test_publish_blocks_replacement_when_old_coupon_cleanup_fails(
     assert len(provider.created) == 1
     assert payload["items"][0]["status"] == "cleanup_required"
     assert payload["summary"]["cleanup_required"] == 1
+
+
+def test_retire_treats_missing_provider_coupon_as_idempotent_success(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-retire-missing-coupon",
+            product_bid="product-growth-retire-missing-coupon-1",
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-retire-missing-coupon",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    provider.retire_error = _StripeResourceMissingError("No such coupon")
+    payload = retire_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-retire-missing-coupon",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    assert payload["items"][0]["status"] == "retired"
+    assert payload["summary"]["retired"] == 1
+    with app.app_context():
+        row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-retire-missing-coupon"
+        ).one()
+        assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
+        assert row.failure_code == ""
 
 
 def test_update_campaign_blocks_rule_changes_after_coupon_publish(

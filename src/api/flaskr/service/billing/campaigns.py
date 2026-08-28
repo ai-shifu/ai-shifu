@@ -339,6 +339,10 @@ def create_admin_billing_campaign(
     draft = _normalize_campaign_payload(payload)
     with app.app_context():
         product_configs = _load_campaign_target_product_configs(draft["products"])
+        if _should_require_provider_discount_sync_for_benefit(
+            draft["benefit_type_code"]
+        ):
+            draft["enabled"] = False
         campaign_rule_snapshot = _resolve_campaign_rule_snapshot(product_configs)
         _validate_campaign_overlap(
             product_bids=sorted(config.product_bid for config in product_configs),
@@ -384,12 +388,15 @@ def update_admin_billing_campaign(
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
         raise_param_error("campaign_bid")
-    draft = _normalize_campaign_payload(payload)
 
     with app.app_context():
         row = _load_campaign(normalized_campaign_bid)
         if row is None:
             raise_error("server.billing.campaignNotFound")
+        draft = _normalize_campaign_payload(
+            payload,
+            default_enabled=bool(row.enabled),
+        )
         product_configs = _load_campaign_target_product_configs(draft["products"])
         campaign_rule_snapshot = _resolve_campaign_rule_snapshot(product_configs)
         hit_order_count = _load_campaign_hit_count_map(
@@ -409,6 +416,13 @@ def update_admin_billing_campaign(
                 next_product_configs=product_configs,
                 next_start_at=draft["start_at"],
                 next_end_at=draft["end_at"],
+            )
+        if draft["enabled"] and _should_require_provider_discount_sync_for_benefit(
+            draft["benefit_type_code"]
+        ):
+            _assert_campaign_provider_discounts_ready(
+                normalized_campaign_bid,
+                expected_product_count=len(product_configs),
             )
 
         _validate_campaign_overlap(
@@ -461,7 +475,9 @@ def update_admin_billing_campaign_status(
             product.product_bid
             for product in _load_campaign_products(normalized_campaign_bid)
         )
-        if enabled and _should_require_provider_discount_sync(row):
+        if enabled and _should_require_provider_discount_sync_for_benefit(
+            int(row.benefit_type or 0)
+        ):
             _assert_campaign_provider_discounts_ready(
                 normalized_campaign_bid,
                 expected_product_count=len(product_bids),
@@ -483,8 +499,8 @@ def update_admin_billing_campaign_status(
         return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
 
 
-def _should_require_provider_discount_sync(row: BillingCampaign) -> bool:
-    if row.benefit_type != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
+def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> bool:
+    if benefit_type != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
         return False
     enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
     enabled_channels = {
@@ -552,7 +568,11 @@ def resolve_applied_billing_campaign(
     )
 
 
-def _normalize_campaign_payload(payload: dict[str, object]) -> dict[str, object]:
+def _normalize_campaign_payload(
+    payload: dict[str, object],
+    *,
+    default_enabled: bool = True,
+) -> dict[str, object]:
     name = str(payload.get("name") or "").strip()
     note = str(payload.get("note") or "").strip()
     if not name:
@@ -575,7 +595,7 @@ def _normalize_campaign_payload(payload: dict[str, object]) -> dict[str, object]
         raise_param_error("end_at")
 
     enabled_raw = payload.get("enabled")
-    enabled = True if enabled_raw is None else bool(enabled_raw)
+    enabled = default_enabled if enabled_raw is None else bool(enabled_raw)
     product_drafts = _normalize_campaign_product_drafts(
         payload,
         benefit_type_code=benefit_type_code,

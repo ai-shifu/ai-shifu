@@ -1045,6 +1045,8 @@ export const shouldShowPackageCampaignProviderPublish = (
   item: AdminBillingCampaignItem,
 ) =>
   item.benefit_type === 'discount' &&
+  Number(item.provider_discount_summary?.open_provider_coupon_count || 0) <=
+    0 &&
   Number(item.provider_discount_summary?.active || 0) <= 0;
 
 export const shouldShowPackageCampaignProviderRetry = (
@@ -1063,7 +1065,7 @@ export const shouldShowPackageCampaignProviderRetire = (
   item: AdminBillingCampaignItem,
 ) =>
   item.benefit_type === 'discount' &&
-  Number(item.provider_discount_summary?.active || 0) > 0;
+  Number(item.provider_discount_summary?.open_provider_coupon_count || 0) > 0;
 
 export const resolvePackageCampaignProductSummary = (
   tPromotion: (key: string) => string,

@@ -183,6 +183,7 @@ export type AdminBillingCampaignItem = {
     provider_invalid?: number;
     cleanup_required?: number;
     retired?: number;
+    open_provider_coupon_count?: number;
     latest_failure_code?: string;
     latest_failure_message?: string;
   };
