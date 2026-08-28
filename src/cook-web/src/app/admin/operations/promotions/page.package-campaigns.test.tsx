@@ -617,4 +617,61 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
       });
     });
   });
+
+  test('blocks enabling a Stripe discount campaign before provider sync completes', async () => {
+    mockGetPackageCampaigns.mockResolvedValueOnce({
+      items: [
+        {
+          campaign_bid: 'campaign-unsynced',
+          name: 'Unsynced Package Promo',
+          note: 'Plan-only promotion',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 20,
+          bonus_credit_amount: 0,
+          product_count: 1,
+          product_types: ['plan'],
+          product_names: ['module.billing.catalog.plans.creatorMonthly.title'],
+          has_custom_product_rules: false,
+          provider_discount_summary: { total: 0, active: 0 },
+          computed_status: 'inactive',
+          hit_order_count: 0,
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-05-24T10:00:00Z',
+          enabled: false,
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Unsynced Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.enable',
+      }),
+    );
+
+    expect(mockUpdatePackageCampaignStatus).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith({
+      description:
+        'module.operationsPromotion.messages.packageCampaignProviderSyncRequired',
+      variant: 'destructive',
+    });
+  });
 });

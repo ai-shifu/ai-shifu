@@ -937,6 +937,28 @@ export const resolvePackageCampaignProductTypeLabel = (
 export const canEnablePackageCampaignItem = (item: AdminBillingCampaignItem) =>
   item.computed_status !== 'ended';
 
+export const isPackageCampaignProviderDiscountSynced = (
+  item: Pick<
+    AdminBillingCampaignItem,
+    'benefit_type' | 'product_count' | 'provider_discount_summary'
+  >,
+) => {
+  if (item.benefit_type !== 'discount') {
+    return true;
+  }
+  const summary = item.provider_discount_summary || {};
+  const total = Number(summary.total || 0);
+  const active = Number(summary.active || 0);
+  const expectedProducts = Number(item.product_count || 0);
+  const hasAttention = [
+    summary.failed,
+    summary.provider_invalid,
+    summary.cleanup_required,
+    summary.requires_republish,
+  ].some(value => Number(value || 0) > 0);
+  return total >= expectedProducts && active >= total && !hasAttention;
+};
+
 export const shouldShowPackageCampaignStatusToggle = (
   item: AdminBillingCampaignItem,
 ) => item.computed_status !== 'inactive' || canEnablePackageCampaignItem(item);

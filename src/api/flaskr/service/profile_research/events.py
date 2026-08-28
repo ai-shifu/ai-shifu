@@ -14,6 +14,7 @@ def _profile_research_event(
     event_type: str,
     content: object,
     *,
+    element_type: str | None = None,
     generated_block_bid: str | None = None,
     run_session_bid: str | None = None,
     is_terminal: bool | None = None,
@@ -25,6 +26,8 @@ def _profile_research_event(
     }
     if generated_block_bid is not None:
         event["generated_block_bid"] = generated_block_bid
+    if element_type is not None:
+        event["element_type"] = element_type
     if run_session_bid is not None:
         event["run_session_bid"] = run_session_bid
     if is_terminal is not None:

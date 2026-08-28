@@ -35,6 +35,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
+- [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)

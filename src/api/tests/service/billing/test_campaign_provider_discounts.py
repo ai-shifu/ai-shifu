@@ -8,6 +8,7 @@ from typing import ClassVar
 
 import pytest
 from flaskr.dao import db
+from flaskr.service.billing import campaigns as billing_campaigns
 from flaskr.service.billing.campaign_discount_providers import (
     ProviderDiscountCreateRequest,
     ProviderDiscountSnapshot,
@@ -349,7 +350,9 @@ def test_publish_fixed_campaign_creates_amount_off_coupon(
     assert payload["items"][0]["status"] == "active"
     assert payload["summary"]["active"] == 1
     with app.app_context():
-        row = BillingCampaignProviderDiscount.query.first()
+        row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-fixed"
+        ).one()
         assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE
         assert row.provider_coupon_id == f"coupon_{row.campaign_provider_discount_bid}"
 
@@ -815,6 +818,55 @@ def test_retiring_provider_price_requires_campaign_coupon_republish(
         assert refreshed.failure_code == "provider_price_retired"
 
 
+def test_publish_revalidates_republish_row_when_same_provider_price_restored(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-same-price-restored",
+            product_bid="product-growth-same-price-restored-1",
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-same-price-restored",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    with app.app_context():
+        row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-same-price-restored"
+        ).one()
+        retire_provider_price_mapping(row.product_provider_price_bid)
+        mapping = BillingProductProviderPrice.query.filter_by(
+            provider_price_bid=row.product_provider_price_bid
+        ).one()
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_ACTIVE
+        mapping.retired_at = None
+        db.session.add(mapping)
+        db.session.commit()
+
+    payload = publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid="campaign-growth-same-price-restored",
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    assert len(provider.created) == 1
+    assert payload["items"][0]["status"] == "active"
+    assert payload["summary"]["active"] == 1
+    with app.app_context():
+        refreshed = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid="campaign-growth-same-price-restored"
+        ).one()
+        assert refreshed.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE
+        assert refreshed.failure_code == ""
+
+
 def test_publish_retires_old_provider_coupon_before_republish(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
@@ -982,7 +1034,7 @@ def test_update_campaign_blocks_rule_changes_after_coupon_publish(
             },
         )
 
-    assert "Stripe Coupon" in str(exc_info.value)
+    assert "Stripe" in str(exc_info.value)
 
 
 def test_update_campaign_blocks_rule_changes_for_republish_coupon(
@@ -1036,7 +1088,7 @@ def test_update_campaign_blocks_rule_changes_for_republish_coupon(
             },
         )
 
-    assert "Stripe Coupon" in str(exc_info.value)
+    assert "Stripe" in str(exc_info.value)
 
 
 def test_update_campaign_allows_same_coupon_rule_with_aware_datetime(
@@ -1117,4 +1169,73 @@ def test_update_campaign_status_blocks_disabling_open_provider_coupon(
             payload={"enabled": False},
         )
 
-    assert "Stripe Coupon" in str(exc_info.value)
+    assert "Stripe" in str(exc_info.value)
+
+
+def test_update_campaign_status_requires_stripe_sync_before_enabling_global_discount(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-growth-enable-sync-required",
+            product_bid="product-growth-enable-sync-required-1",
+        )
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-growth-enable-sync-required"
+        ).one()
+        campaign.enabled = 0
+        db.session.add(campaign)
+        db.session.commit()
+
+    monkeypatch.setattr(
+        billing_campaigns,
+        "get_config",
+        lambda key, default=None: (
+            "stripe" if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        update_admin_billing_campaign_status(
+            app,
+            operator_user_bid="operator",
+            campaign_bid="campaign-growth-enable-sync-required",
+            payload={"enabled": True},
+        )
+
+    assert "Stripe" in str(exc_info.value)
+
+
+def test_update_campaign_status_allows_domestic_discount_without_stripe_sync(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid="campaign-domestic-enable-no-sync",
+            product_bid="product-domestic-enable-no-sync-1",
+        )
+        campaign = BillingCampaign.query.filter_by(
+            campaign_bid="campaign-domestic-enable-no-sync"
+        ).one()
+        campaign.enabled = 0
+        db.session.add(campaign)
+        db.session.commit()
+
+    monkeypatch.setattr(
+        billing_campaigns,
+        "get_config",
+        lambda key, default=None: (
+            "pingxx" if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
+
+    result = update_admin_billing_campaign_status(
+        app,
+        operator_user_bid="operator",
+        campaign_bid="campaign-domestic-enable-no-sync",
+        payload={"enabled": True},
+    )
+
+    assert result.campaign.enabled is True

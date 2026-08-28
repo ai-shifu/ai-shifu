@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -23,8 +24,15 @@ SUPPORTED_TTS_PROVIDERS = {
     "aliyun",
     "tencent",
     "tencent_texttovoice",
+    "elevenlabs",
 }
-PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine", "tencent_texttovoice"}
+PROVIDERS_REQUIRING_MODEL = {
+    "minimax",
+    "volcengine",
+    "tencent_texttovoice",
+    "elevenlabs",
+}
+PROVIDERS_REQUIRING_LISTED_VOICE = {"elevenlabs"}
 
 
 @dataclass(frozen=True)
@@ -90,6 +98,8 @@ def validate_tts_settings_strict(
         )
 
     speed_value = _to_float(speed, "tts_speed")
+    if not math.isfinite(speed_value):
+        _raise_param_error(f"Invalid tts_speed: {speed!r}")
     pitch_value = _to_int(pitch, "tts_pitch")
     emotion_value = (emotion or "").strip()
 
@@ -114,6 +124,13 @@ def validate_tts_settings_strict(
         for v in (cfg.voices or [])
         if (v.get("value") or "").strip()
     }
+    if (
+        normalized_provider in PROVIDERS_REQUIRING_LISTED_VOICE
+        and normalized_voice_id not in allowed_voices
+    ):
+        _raise_param_error(
+            f"Invalid TTS voice_id for provider '{normalized_provider}': {normalized_voice_id}"
+        )
     if allowed_voices and normalized_voice_id not in allowed_voices:
         # Custom (cloned) voice ids are not in the provider's static voice
         # list. Dispatch on the provider's clone spec: MiniMax keeps its

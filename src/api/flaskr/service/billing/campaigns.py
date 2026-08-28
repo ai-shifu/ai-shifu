@@ -16,6 +16,7 @@ from flaskr.service.common.models import (
     raise_param_error,
 )
 from flaskr.service.common.pagination import normalize_pagination
+from flaskr.service.config import get_config
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func
@@ -460,6 +461,11 @@ def update_admin_billing_campaign_status(
             product.product_bid
             for product in _load_campaign_products(normalized_campaign_bid)
         )
+        if enabled and _should_require_provider_discount_sync(row):
+            _assert_campaign_provider_discounts_ready(
+                normalized_campaign_bid,
+                expected_product_count=len(product_bids),
+            )
         if not enabled and has_open_campaign_provider_coupons(normalized_campaign_bid):
             raise_error("server.billing.campaignProviderDiscountLocked")
         _validate_campaign_overlap(
@@ -475,6 +481,40 @@ def update_admin_billing_campaign_status(
         db.session.add(row)
         db.session.commit()
         return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
+
+
+def _should_require_provider_discount_sync(row: BillingCampaign) -> bool:
+    if row.benefit_type != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
+        return False
+    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
+    enabled_channels = {
+        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
+    }
+    return enabled_channels == {"stripe"}
+
+
+def _assert_campaign_provider_discounts_ready(
+    campaign_bid: str,
+    *,
+    expected_product_count: int,
+) -> None:
+    summary = summarize_campaign_provider_discounts([campaign_bid]).get(
+        campaign_bid,
+        {},
+    )
+    total = int(summary.get("total") or 0)
+    active = int(summary.get("active") or 0)
+    has_attention = any(
+        int(summary.get(key) or 0) > 0
+        for key in (
+            "failed",
+            "provider_invalid",
+            "cleanup_required",
+            "requires_republish",
+        )
+    )
+    if total < expected_product_count or active < total or has_attention:
+        raise_error("server.billing.campaignProviderDiscountSyncRequired")
 
 
 def resolve_catalog_campaign_payload(

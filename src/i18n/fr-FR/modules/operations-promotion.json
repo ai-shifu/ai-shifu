@@ -148,6 +148,7 @@
     "packageCampaignProviderPublished": "Synchronisé avec Stripe",
     "packageCampaignProviderRetired": "Remise Stripe arrêtée",
     "packageCampaignProviderRetried": "Resynchronisation Stripe lancée",
+    "packageCampaignProviderSyncRequired": "Cette campagne de remise n’est pas encore entièrement synchronisée avec Stripe. Synchronisez-la avec Stripe avant de l’activer.",
     "referralCampaignDisabledSuccess": "Campagne d’invitation désactivée",
     "referralCampaignEnabledSuccess": "Campagne d’invitation activée",
     "statusUpdated": "Statut mis à jour",

@@ -1565,6 +1565,24 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Minimax group ID for API access",
         group="tts",
     ),
+    "ELEVENLABS_API_KEY": EnvVar(
+        name="ELEVENLABS_API_KEY",
+        default="",
+        description="ElevenLabs API key for TTS synthesis",
+        secret=True,
+        group="tts",
+    ),
+    "ELEVENLABS_TTS_VOICES_JSON": EnvVar(
+        name="ELEVENLABS_TTS_VOICES_JSON",
+        default="",
+        description=(
+            "JSON array of approved ElevenLabs voices. Each item must contain "
+            'non-empty value and label fields, e.g. [{"value":"voice_id",'
+            '"label":"Display name"}].'
+        ),
+        group="tts",
+        required=False,
+    ),
     "TTS_MAX_SEGMENT_CHARS": EnvVar(
         name="TTS_MAX_SEGMENT_CHARS",
         default=300,
