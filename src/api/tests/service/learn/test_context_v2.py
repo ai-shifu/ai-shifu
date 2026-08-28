@@ -2,13 +2,12 @@
 """Verify learning-context outline navigation and failure handling."""
 
 import asyncio
-import json
 import sys
 import threading
 import time
 import types
 import unittest
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 
@@ -111,7 +110,6 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.learner_profile_prompt import (
     LEARNER_PROFILE_PROMPT_MARKER,
-    build_course_prompt,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -1413,45 +1411,17 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
 
 class CoursePromptCompositionTests(unittest.TestCase):
-    """Verify course prompt composition behavior."""
+    """Verify prompt selection stays separate from runtime identity rendering."""
 
-    def assert_composed_course_prompt(
-        self,
-        prompt: str | None,
-        *,
-        course_prompt: str,
-        learner_profile: str,
-    ) -> None:
-        assert prompt is not None
-        assert prompt is not None
-        composition_index = prompt.index("<composition_contract>")
-        course_index = prompt.index("<course_prompt>")
-        learner_profile_opening_tag = '<learner_profile format="json-string">'
-        profile_index = prompt.index(learner_profile_opening_tag)
-        assert composition_index < course_index
-        assert course_index < profile_index
-        assert f"<course_prompt>\n{course_prompt}\n</course_prompt>" in prompt
-        assert (
-            f'{learner_profile_opening_tag}\n"{learner_profile}"\n</learner_profile>'
-            in prompt
-        )
-        assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 1
-
-    def test_runtime_getter_returns_course_prompt_with_current_learner_profile(
-        self,
-    ) -> None:
-        app = Flask("runtime-course-prompt-profile")
+    def test_runtime_getter_returns_raw_course_prompt(self) -> None:
+        app = Flask("runtime-course-prompt")
         ctx = _make_context()
         ctx.app = app
         ctx._struct = object()
-        ctx._user_info = types.SimpleNamespace(learner_profile="称呼我小雨，偏好图解")
 
         outline_model = MagicMock()
         outline_model.query.filter.return_value.all.return_value = [
-            types.SimpleNamespace(
-                id="outline-db-1",
-                llm_system_prompt="COURSE RULE",
-            )
+            types.SimpleNamespace(id="outline-db-1", llm_system_prompt="COURSE RULE")
         ]
         ctx._outline_model = outline_model
         ctx._shifu_model = MagicMock()
@@ -1462,194 +1432,280 @@ class CoursePromptCompositionTests(unittest.TestCase):
         ):
             prompt = ctx.get_system_prompt("outline-1")
 
-        self.assert_composed_course_prompt(
-            prompt,
-            course_prompt="COURSE RULE",
-            learner_profile="称呼我小雨，偏好图解",
-        )
+        assert prompt == "COURSE RULE"
         ctx._shifu_model.query.filter.assert_not_called()
 
-    def test_formal_preview_composes_request_prompt_with_current_learner(self) -> None:
-        app = Flask("preview-course-prompt-profile")
-        preview_ctx = RunScriptPreviewContextV2(app)
-        preview_request = PlaygroundPreviewRequest(
-            block_index=0,
-            document_prompt="PREVIEW COURSE RULE",
+    def test_teaching_composes_prompt_after_loading_effective_profiles(self) -> None:
+        class FakeColumn:
+            __hash__ = None
+
+            def __eq__(self, _other: object) -> object:
+                return self
+
+            def in_(self, _values: object) -> object:
+                return self
+
+            def asc(self) -> object:
+                return self
+
+        class FakeQuery:
+            def filter(self, *_args: object) -> object:
+                return self
+
+            def order_by(self, *_args: object) -> object:
+                return self
+
+            def all(self) -> list[object]:
+                return []
+
+        class FakeGeneratedBlock:
+            user_bid = FakeColumn()
+            shifu_bid = FakeColumn()
+            progress_record_bid = FakeColumn()
+            outline_item_bid = FakeColumn()
+            deleted = FakeColumn()
+            status = FakeColumn()
+            type = FakeColumn()
+            position = FakeColumn()
+            id = FakeColumn()
+            query = FakeQuery()
+
+        class CapturingMdflowContext:
+            document_prompt = None
+
+            def __init__(self, **kwargs: object) -> None:
+                type(self).document_prompt = kwargs.get("document_prompt")
+
+            def get_all_blocks(self) -> list[object]:
+                return []
+
+            @staticmethod
+            def build_context_from_blocks(*_args: object) -> list[object]:
+                return []
+
+        app = Flask("teaching-course-prompt-variables")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._user_info = types.SimpleNamespace(
+            user_id="user-1",
+            user_bid="user-1",
+            identify="account-name",
         )
-        learner = types.SimpleNamespace(learner_profile="最近关注知识管理")
-
-        with patch.object(
-            preview_ctx,
-            "_load_learner_for_course_prompt",
-            return_value=learner,
-        ) as mock_load:
-            prompt = preview_ctx._resolve_document_prompt(
-                preview_request,
-                outline=None,
-                shifu=types.SimpleNamespace(llm_system_prompt="FALLBACK RULE"),
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="user-1",
-            )
-
-        self.assert_composed_course_prompt(
-            prompt,
-            course_prompt="PREVIEW COURSE RULE",
-            learner_profile="最近关注知识管理",
+        ctx._outline_item_info = types.SimpleNamespace(shifu_bid="shifu-1")
+        ctx._current_attend = types.SimpleNamespace(progress_record_bid="progress-1")
+        ctx._preview_mode = False
+        ctx._trace = object()
+        ctx._trace_root_span = None
+        ctx._trace_args = {}
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=0)
+        profiles = {
+            "sys_user_nickname": "Teaching Alex",
+            "sys_user_background": "Teaching background",
+        }
+        run_script_info = types.SimpleNamespace(
+            attend=types.SimpleNamespace(shifu_bid="shifu-1"),
+            outline_bid="outline-1",
+            mdflow="Generate one sentence.",
         )
-        assert prompt is not None
-        assert "FALLBACK RULE" not in prompt
-        mock_load.assert_called_once_with("user-1")
-
-    def test_formal_preview_uses_current_explicit_nickname_without_profile_text(
-        self,
-    ) -> None:
-        app = Flask("preview-course-prompt-nickname")
-        preview_ctx = RunScriptPreviewContextV2(app)
-        preview_request = PlaygroundPreviewRequest(
-            block_index=0,
-            document_prompt="PREVIEW COURSE RULE",
-        )
-
-        with patch.object(
-            preview_ctx,
-            "_load_learner_for_course_prompt",
-            return_value=types.SimpleNamespace(
-                learner_profile="",
-                nickname="Current Learner",
-                user_bid="user-1",
-                user_identify="user-1",
-            ),
-        ):
-            prompt = preview_ctx._resolve_document_prompt(
-                preview_request,
-                outline=None,
-                shifu=None,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="user-1",
-            )
-
-        assert prompt is not None
-        encoded_context = prompt.split('<learner_profile format="json-string">\n', 1)[
-            1
-        ].split("\n</learner_profile>", 1)[0]
-        assert (
-            json.loads(encoded_context)
-            == 'Preferred form of address (learner-authored): "Current Learner"'
-        )
-
-    def test_formal_preview_reloads_profile_for_each_request(self) -> None:
-        app = Flask("preview-course-prompt-profile-refresh")
-        preview_ctx = RunScriptPreviewContextV2(app)
-        preview_request = PlaygroundPreviewRequest(
-            block_index=0,
-            document_prompt="PREVIEW COURSE RULE",
-        )
-
-        with patch.object(
-            preview_ctx,
-            "_load_learner_for_course_prompt",
-            side_effect=[
-                types.SimpleNamespace(learner_profile="偏好图解"),
-                types.SimpleNamespace(learner_profile=""),
-            ],
-        ) as mock_load:
-            personalized_prompt = preview_ctx._resolve_document_prompt(
-                preview_request,
-                outline=None,
-                shifu=None,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="user-1",
-            )
-            cleared_prompt = preview_ctx._resolve_document_prompt(
-                preview_request,
-                outline=None,
-                shifu=None,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="user-1",
-            )
-
-        self.assert_composed_course_prompt(
-            personalized_prompt,
-            course_prompt="PREVIEW COURSE RULE",
-            learner_profile="偏好图解",
-        )
-        assert cleared_prompt == "PREVIEW COURSE RULE"
-        assert mock_load.call_args_list == [call("user-1"), call("user-1")]
-
-    def test_formal_preview_recomposes_client_envelope_for_current_learner(
-        self,
-    ) -> None:
-        app = Flask("preview-course-prompt-current-account")
-        preview_ctx = RunScriptPreviewContextV2(app)
-        prompt_for_previous_account = build_course_prompt(
-            "PREVIEW COURSE RULE",
-            learner=types.SimpleNamespace(learner_profile="PREVIOUS ACCOUNT PROFILE"),
-        )
-        preview_request = PlaygroundPreviewRequest(
-            block_index=0,
-            document_prompt=prompt_for_previous_account,
-        )
-
-        with patch.object(
-            preview_ctx,
-            "_load_learner_for_course_prompt",
-            side_effect=[
-                types.SimpleNamespace(learner_profile="CURRENT ACCOUNT PROFILE"),
-                types.SimpleNamespace(learner_profile=""),
-            ],
-        ):
-            current_prompt = preview_ctx._resolve_document_prompt(
-                preview_request,
-                outline=None,
-                shifu=None,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="current-user",
-            )
-            cleared_prompt = preview_ctx._resolve_document_prompt(
-                preview_request,
-                outline=None,
-                shifu=None,
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_bid="current-user",
-            )
-
-        self.assert_composed_course_prompt(
-            current_prompt,
-            course_prompt="PREVIEW COURSE RULE",
-            learner_profile="CURRENT ACCOUNT PROFILE",
-        )
-        assert current_prompt is not None
-        assert "PREVIOUS ACCOUNT PROFILE" not in current_prompt
-        assert cleared_prompt == "PREVIEW COURSE RULE"
-
-    def test_preview_learner_lookup_failure_cleans_the_database_session(self) -> None:
-        app = Flask("preview-course-prompt-lookup-failure")
-        preview_ctx = RunScriptPreviewContextV2(app)
-        lookup_error = RuntimeError("database unavailable")
 
         with (
             patch(
-                "flaskr.service.learn.context_v2.load_user_aggregate",
-                side_effect=lookup_error,
+                "flaskr.service.learn.context_v2.LearnGeneratedBlock",
+                FakeGeneratedBlock,
             ),
             patch(
-                "flaskr.service.learn.context_v2.cleanup_session_after"
-            ) as mock_cleanup,
+                "flaskr.service.learn.context_v2.RUNLLMProvider",
+                return_value=object(),
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                return_value=profiles,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2._resolve_runtime_language_context",
+                return_value=(profiles, ""),
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.MdflowContextV2",
+                CapturingMdflowContext,
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
         ):
-            learner = preview_ctx._load_learner_for_course_prompt("user-1")
+            state = ctx._prepare_step_state(
+                app,
+                run_script_info,
+                types.SimpleNamespace(),
+                "COURSE RULE",
+            )
 
-        assert learner is None
-        mock_cleanup.assert_called_once_with(
-            lookup_error,
-            source="preview learner profile lookup",
-            session=context_v2_module.db.session,
+        assert state.system_prompt == CapturingMdflowContext.document_prompt
+        assert "{{sys_user_nickname}}" not in state.system_prompt
+        assert "{{sys_user_background}}" not in state.system_prompt
+        assert '"Teaching Alex"' in state.system_prompt
+        assert '"Teaching background"' in state.system_prompt
+
+    def test_formal_preview_composes_from_effective_variables(self) -> None:
+        app = Flask("preview-course-prompt-variables")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
         )
+        variables = {
+            "sys_user_nickname": "Debug Alex",
+            "sys_user_background": "Debug background",
+        }
+
+        prompt = preview_ctx._resolve_document_prompt(
+            preview_request,
+            outline=None,
+            shifu=types.SimpleNamespace(llm_system_prompt="FALLBACK RULE"),
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            variables=variables,
+        )
+
+        assert prompt is not None
+        assert "<course_prompt>\nPREVIEW COURSE RULE\n</course_prompt>" in prompt
+        assert "{{sys_user_nickname}}" not in prompt
+        assert "{{sys_user_background}}" not in prompt
+        assert '"Debug Alex"' in prompt
+        assert '"Debug background"' in prompt
+        assert "FALLBACK RULE" not in prompt
+        assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 1
+
+    def test_formal_preview_omits_account_identifier_as_nickname(self) -> None:
+        app = Flask("preview-course-prompt-account-identifier")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
+
+        with patch(
+            "flaskr.service.learn.context_v2.load_user_aggregate",
+            return_value=types.SimpleNamespace(identify="legacy-account-name"),
+        ):
+            prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                variables={
+                    "sys_user_nickname": "legacy-account-name",
+                    "sys_user_background": "Debug background",
+                },
+            )
+
+        assert prompt is not None
+        assert "<preferred_address>" not in prompt
+        assert "legacy-account-name" not in prompt
+        assert '"Debug background"' in prompt
+
+    def test_preview_request_identity_overrides_database_before_rendering(self) -> None:
+        class CapturingProvider:
+            def __init__(self) -> None:
+                self.calls: list[list[dict[str, str]]] = []
+
+            def complete(self, messages: object, **_kwargs: object) -> str:
+                self.calls.append(messages)
+                return "Rendered"
+
+            def stream(self, _messages: object, **_kwargs: object) -> object:
+                return iter(())
+
+        app = Flask("preview-course-prompt-overrides")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+            variables={
+                "sys_user_nickname": "Debug Alex",
+                "sys_user_background": "Debug background",
+            },
+        )
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={
+                "sys_user_nickname": "",
+                "sys_user_background": "Database background",
+            },
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        prompt = preview_ctx._resolve_document_prompt(
+            preview_request,
+            outline=None,
+            shifu=None,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            variables=variables,
+        )
+        provider = CapturingProvider()
+        MdflowContextV2(
+            document="Generate one sentence.",
+            document_prompt=prompt,
+            llm_provider=provider,
+        ).process(
+            block_index=0,
+            mode=context_v2_module.ProcessMode.COMPLETE,
+            variables=variables,
+        )
+
+        system_prompt = provider.calls[0][0]["content"]
+        assert "Debug Alex" in system_prompt
+        assert "Debug background" in system_prompt
+        assert "Database background" not in system_prompt
+        assert "{{sys_user_nickname}}" not in system_prompt
+        assert "{{sys_user_background}}" not in system_prompt
+
+    def test_preview_empty_nickname_override_removes_preferred_address(self) -> None:
+        app = Flask("preview-course-prompt-empty-nickname")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+            variables={"sys_user_nickname": ""},
+        )
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={
+                "sys_user_nickname": "Database learner",
+                "sys_user_background": "Database background",
+            },
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        prompt = preview_ctx._resolve_document_prompt(
+            preview_request,
+            outline=None,
+            shifu=None,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            variables=variables,
+        )
+
+        assert prompt is not None
+        assert "<preferred_address>" not in prompt
+        assert "{{sys_user_nickname}}" not in prompt
+        assert "{{sys_user_background}}" not in prompt
+        assert '"Database background"' in prompt
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):

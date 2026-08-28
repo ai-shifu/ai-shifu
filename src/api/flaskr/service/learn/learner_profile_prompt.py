@@ -1,18 +1,16 @@
-"""Compose course instructions and learner data into one document prompt."""
+"""Compose course instructions and runtime learner variables into one prompt."""
 
 from __future__ import annotations
 
 import json
 from functools import lru_cache
-from typing import Protocol
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.phone_numbers import is_valid_sms_mobile
 from flaskr.util.prompt_loader import load_prompt_template
 
-
-class _LearnerWithProfile(Protocol):
-    learner_profile: str | None
-    nickname: str | None
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 
 LEARNER_PROFILE_PROMPT_MARKER = (
@@ -22,8 +20,16 @@ _COMPOSITION_OPEN = "<composition_contract>"
 _COMPOSITION_CLOSE = "</composition_contract>"
 _COURSE_PROMPT_OPEN = "<course_prompt>"
 _COURSE_PROMPT_CLOSE = "</course_prompt>"
-_LEARNER_PROFILE_OPEN = '<learner_profile format="json-string">'
-_LEARNER_PROFILE_CLOSE = "</learner_profile>"
+_LEARNER_CONTEXT_OPEN = "<learner_context>"
+_LEARNER_CONTEXT_CLOSE = "</learner_context>"
+_PREFERRED_ADDRESS_OPEN = "<preferred_address>"
+_PREFERRED_ADDRESS_CLOSE = "</preferred_address>"
+_LEARNER_BACKGROUND_OPEN = "<learner_background>"
+_LEARNER_BACKGROUND_CLOSE = "</learner_background>"
+_NICKNAME_VARIABLE = "sys_user_nickname"
+_BACKGROUND_VARIABLE = "sys_user_background"
+_NICKNAME_VARIABLE_REFERENCE = f"{{{{{_NICKNAME_VARIABLE}}}}}"
+_BACKGROUND_VARIABLE_REFERENCE = f"{{{{{_BACKGROUND_VARIABLE}}}}}"
 
 
 @lru_cache(maxsize=1)
@@ -31,9 +37,58 @@ def _composition_contract() -> str:
     return load_prompt_template("learner_profile_context").strip()
 
 
-def _encode_profile_as_json_string(learner_profile: str) -> str:
-    """Encode profile data without exposing prompt or template boundaries."""
-    encoded = json.dumps(learner_profile, ensure_ascii=False)
+def _has_preferred_address(
+    variables: Mapping[str, object],
+    nickname_identifiers: Iterable[object],
+) -> bool:
+    value = variables.get(_NICKNAME_VARIABLE)
+    if isinstance(value, list):
+        return False
+    nickname = str(value or "").strip()
+    if (
+        not nickname
+        or len(nickname) > 64
+        or "@" in nickname
+        or is_valid_sms_mobile(nickname)
+    ):
+        return False
+
+    nickname_key = nickname.casefold()
+    return not any(
+        nickname_key == str(identifier or "").strip().casefold()
+        for identifier in nickname_identifiers
+        if str(identifier or "").strip()
+    )
+
+
+def _variable_learner_context(
+    variables: Mapping[str, object] | None,
+    nickname_identifiers: Iterable[object] = (),
+) -> str:
+    effective_variables = variables or {}
+    sections: list[str] = []
+    if _has_preferred_address(effective_variables, nickname_identifiers):
+        sections.append(
+            f"{_PREFERRED_ADDRESS_OPEN}\n"
+            f"{_NICKNAME_VARIABLE_REFERENCE}\n"
+            f"{_PREFERRED_ADDRESS_CLOSE}"
+        )
+    sections.append(
+        f"{_LEARNER_BACKGROUND_OPEN}\n"
+        f"{_BACKGROUND_VARIABLE_REFERENCE}\n"
+        f"{_LEARNER_BACKGROUND_CLOSE}"
+    )
+    return "\n".join(sections)
+
+
+def _encode_learner_variable(value: object) -> str:
+    if isinstance(value, list):
+        normalized_value = ", ".join(
+            str(item) for item in value if item is not None and str(item).strip()
+        )
+    else:
+        normalized_value = str(value or "")
+    encoded = json.dumps(normalized_value or "UNKNOWN", ensure_ascii=False)
     return (
         encoded.replace("<", r"\u003c")
         .replace(">", r"\u003e")
@@ -43,79 +98,64 @@ def _encode_profile_as_json_string(learner_profile: str) -> str:
     )
 
 
-def _preferred_address(learner: _LearnerWithProfile | None) -> str:
-    """Return an explicit display name without promoting account identifiers."""
-    nickname = str(getattr(learner, "nickname", None) or "").strip()
-    if (
-        not nickname
-        or len(nickname) > 64
-        or "@" in nickname
-        or is_valid_sms_mobile(nickname)
+def render_course_prompt_identity_variables(
+    course_prompt: str | None,
+    variables: Mapping[str, object] | None,
+) -> str | None:
+    """Resolve learner identity slots as boundary-safe JSON strings."""
+    if not course_prompt:
+        return course_prompt
+    effective_variables = variables or {}
+    rendered_prompt = str(course_prompt)
+    for variable, reference in (
+        (_NICKNAME_VARIABLE, _NICKNAME_VARIABLE_REFERENCE),
+        (_BACKGROUND_VARIABLE, _BACKGROUND_VARIABLE_REFERENCE),
     ):
-        return ""
-
-    nickname_key = nickname.casefold()
-    identifier_values = (
-        getattr(learner, "user_bid", None),
-        getattr(learner, "user_id", None),
-        getattr(learner, "user_identify", None),
-        getattr(learner, "identify", None),
-    )
-    if any(
-        nickname_key == str(identifier or "").strip().casefold()
-        for identifier in identifier_values
-        if str(identifier or "").strip()
-    ):
-        return ""
-    return nickname
+        if reference in rendered_prompt:
+            rendered_prompt = rendered_prompt.replace(
+                reference,
+                _encode_learner_variable(effective_variables.get(variable)),
+            )
+    return rendered_prompt
 
 
-def _learner_context(learner: _LearnerWithProfile | None) -> str:
-    profile = str(getattr(learner, "learner_profile", None) or "").strip()
-    nickname = _preferred_address(learner)
-    if not nickname:
-        return profile
-
-    preferred_address = json.dumps(nickname, ensure_ascii=False)
-    if not profile:
-        return f"Preferred form of address (learner-authored): {preferred_address}"
-    return (
-        f"Preferred form of address (learner-authored): {preferred_address}\n"
-        f"Learner introduction:\n{profile}"
-    )
+def _split_envelope(prompt: str) -> tuple[str, str] | None:
+    envelope_prefix = f"{_COMPOSITION_OPEN}\n{LEARNER_PROFILE_PROMPT_MARKER}\n"
+    contract_separator = f"\n{_COMPOSITION_CLOSE}\n\n{_COURSE_PROMPT_OPEN}\n"
+    if not prompt.startswith(envelope_prefix):
+        return None
+    contract_and_content = prompt.removeprefix(envelope_prefix)
+    contract, separator, content = contract_and_content.partition(contract_separator)
+    if not separator or not contract.strip():
+        return None
+    return contract, content
 
 
 def _parse_composed_course_prompt(prompt: str | None) -> str | None:
-    """Recover the raw course prompt from a complete canonical envelope."""
+    """Recover the raw Course Prompt from the current variable envelope."""
     normalized_prompt = str(prompt or "").strip()
-    envelope_prefix = f"{_COMPOSITION_OPEN}\n{LEARNER_PROFILE_PROMPT_MARKER}\n"
-    contract_separator = f"\n{_COMPOSITION_CLOSE}\n\n{_COURSE_PROMPT_OPEN}\n"
-    course_separator = f"\n{_COURSE_PROMPT_CLOSE}\n\n{_LEARNER_PROFILE_OPEN}\n"
-    if not normalized_prompt.startswith(envelope_prefix):
+    split_envelope = _split_envelope(normalized_prompt)
+    if split_envelope is None:
         return None
-    contract_and_content = normalized_prompt.removeprefix(envelope_prefix)
-    contract, separator, course_and_profile = contract_and_content.partition(
-        contract_separator
-    )
-    if not separator or not contract.strip():
-        return None
-
-    course_prompt, separator, trailing_content = course_and_profile.rpartition(
+    _, course_and_context = split_envelope
+    course_separator = f"\n{_COURSE_PROMPT_CLOSE}\n\n{_LEARNER_CONTEXT_OPEN}\n"
+    course_prompt, separator, trailing_content = course_and_context.rpartition(
         course_separator
     )
-    if not separator or not trailing_content.endswith(f"\n{_LEARNER_PROFILE_CLOSE}"):
+    if not separator or not course_prompt.strip():
         return None
-    if not course_prompt.strip():
+    if not trailing_content.endswith(f"\n{_LEARNER_CONTEXT_CLOSE}"):
         return None
-
-    profile_payload = trailing_content.removesuffix(f"\n{_LEARNER_PROFILE_CLOSE}")
-    try:
-        decoded_profile = json.loads(profile_payload)
-    except (TypeError, ValueError):
-        return None
-    if not isinstance(decoded_profile, str) or not decoded_profile.strip():
-        return None
-    if profile_payload != _encode_profile_as_json_string(decoded_profile):
+    learner_context = trailing_content.removesuffix(f"\n{_LEARNER_CONTEXT_CLOSE}")
+    allowed_contexts = {
+        _variable_learner_context({}),
+        _variable_learner_context(
+            {
+                _NICKNAME_VARIABLE: "value",
+            }
+        ),
+    }
+    if learner_context not in allowed_contexts:
         return None
     return course_prompt
 
@@ -123,9 +163,10 @@ def _parse_composed_course_prompt(prompt: str | None) -> str | None:
 def build_course_prompt(
     course_prompt: str | None,
     *,
-    learner: _LearnerWithProfile | None,
+    variables: Mapping[str, object] | None,
+    nickname_identifiers: Iterable[object] = (),
 ) -> str | None:
-    """Return one semantic envelope for course instructions and learner data."""
+    """Combine Course Prompt instructions with runtime learner variable slots."""
     if not course_prompt:
         return course_prompt
 
@@ -135,11 +176,8 @@ def build_course_prompt(
     if not base_prompt.strip():
         return course_prompt
 
-    learner_context = _learner_context(learner)
-    if not learner_context:
-        return base_prompt
+    learner_context = _variable_learner_context(variables, nickname_identifiers)
 
-    encoded_profile = _encode_profile_as_json_string(learner_context)
     return (
         f"{_COMPOSITION_OPEN}\n"
         f"{LEARNER_PROFILE_PROMPT_MARKER}\n"
@@ -148,7 +186,7 @@ def build_course_prompt(
         f"{_COURSE_PROMPT_OPEN}\n"
         f"{base_prompt}\n"
         f"{_COURSE_PROMPT_CLOSE}\n\n"
-        f"{_LEARNER_PROFILE_OPEN}\n"
-        f"{encoded_profile}\n"
-        f"{_LEARNER_PROFILE_CLOSE}"
+        f"{_LEARNER_CONTEXT_OPEN}\n"
+        f"{learner_context}\n"
+        f"{_LEARNER_CONTEXT_CLOSE}"
     )

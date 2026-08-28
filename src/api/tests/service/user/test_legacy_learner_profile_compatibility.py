@@ -8,7 +8,6 @@ from typing import Never
 import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
-from flaskr.service.learn.learner_profile_prompt import build_course_prompt
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
@@ -204,9 +203,6 @@ def test_background_writers_dual_write_canonical_profile_and_variable_history(
         assert user.learner_profile_updated_at is not None
         assert profiles["sys_user_background"] == "another background"
         assert profiles["sys_user_style"] == "another style"
-        assert "another background" in (
-            build_course_prompt("COURSE", learner=user) or ""
-        )
 
 
 def test_background_write_keeps_state_row_unchanged_but_status_is_completed(

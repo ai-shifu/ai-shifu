@@ -126,6 +126,7 @@ def get_fmt_prompt(
     user_input: str | None = None,
     *,
     profile_overrides: dict | None = None,
+    resolved_profiles: dict | None = None,
 ) -> str:
     """Get fmt prompt.
 
@@ -136,6 +137,7 @@ def get_fmt_prompt(
         profile_tmplate: Profile template
         user_input: Input
         profile_overrides: Request-local profile values that take precedence
+        resolved_profiles: Already-resolved profile values for this request
     Returns:
         str: Fmt prompt.
 
@@ -144,7 +146,11 @@ def get_fmt_prompt(
     propmpt_keys = []
     profiles = {}
 
-    profiles = dict(get_user_profiles(app, user_id, course_id) or {})
+    profiles = (
+        dict(resolved_profiles)
+        if resolved_profiles is not None
+        else dict(get_user_profiles(app, user_id, course_id) or {})
+    )
     if profile_overrides:
         profiles.update(profile_overrides)
     propmpt_keys = list(profiles.keys())
