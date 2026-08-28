@@ -14,6 +14,7 @@ from flaskr import dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -22,9 +23,14 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_TRIAL_PRODUCT_BID,
 )
-from flaskr.service.billing.models import BillingOrder, BillingSubscription
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingSubscription,
+    CreditWalletBucket,
+)
 from flaskr.service.billing.notifications import (
     BILLING_PAID_FEISHU_TASK_NAME,
     deliver_subscription_purchase_sms,
@@ -380,6 +386,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
                     "id": "sub_sub-webhook-sms-1",
                     "customer": "cus_webhook_sms_1",
                     "status": "active",
+                    "currency": "usd",
                     "current_period_start": _utc_epoch(cycle_start_at),
                     "current_period_end": _utc_epoch(cycle_end_at),
                     "cancel_at_period_end": False,
@@ -407,6 +414,111 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
             "subscription_purchase_sms"
         ]
         assert notification_payload["status"] == "pending"
+
+
+@pytest.mark.parametrize(
+    ("checkout_payload", "expected_failure_code"),
+    [
+        ({"amount_total": 989, "currency": "cny"}, "provider_amount_mismatch"),
+        ({"currency": "cny"}, "provider_amount_missing"),
+    ],
+)
+def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription_activation(
+    billing_subscription_sms_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout_payload: dict[str, object],
+    expected_failure_code: str,
+) -> None:
+    app = billing_subscription_sms_app
+    now = datetime(2026, 7, 1, 0, 0, 0)
+    enqueued: list[str] = []
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
+        lambda _app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
+        ),
+    )
+
+    with app.app_context():
+        subscription = BillingSubscription(
+            subscription_bid="sub-webhook-amount-guard",
+            creator_bid="creator-amount-guard",
+            product_bid="bill-product-plan-monthly",
+            status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+            billing_provider="stripe",
+            provider_subscription_id="",
+            provider_customer_id="",
+            current_period_start_at=now,
+            current_period_end_at=None,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            metadata_json={},
+        )
+        order = BillingOrder(
+            bill_order_bid="billing-webhook-amount-guard",
+            creator_bid="creator-amount-guard",
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid="bill-product-plan-monthly",
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=990,
+            paid_amount=0,
+            payment_provider="stripe",
+            channel="checkout_session",
+            provider_reference_id="cs_amount_guard",
+            status=BILLING_ORDER_STATUS_PENDING,
+            metadata_json={"checkout_type": "subscription"},
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(order)
+        dao.db.session.commit()
+
+    notification = PaymentNotificationResult(
+        order_bid="",
+        status="checkout.session.completed",
+        provider_payload={
+            "type": "checkout.session.completed",
+            "created": _utc_epoch(now),
+            "data": {
+                "object": {
+                    "id": "cs_amount_guard",
+                    "payment_status": "paid",
+                    "payment_intent": "pi_amount_guard",
+                    "subscription": "sub_provider_amount_guard",
+                    "customer": "cus_provider_amount_guard",
+                    "metadata": {"bill_order_bid": "billing-webhook-amount-guard"},
+                    **checkout_payload,
+                }
+            },
+        },
+        charge_id=None,
+    )
+
+    payload, status_code = apply_billing_stripe_notification(app, notification)
+
+    assert status_code == 200
+    assert payload["status"] == "failed"
+    assert enqueued == []
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-webhook-amount-guard"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-webhook-amount-guard"
+        ).one()
+        assert order.status == BILLING_ORDER_STATUS_FAILED
+        assert order.paid_amount == 0
+        assert order.failure_code == expected_failure_code
+        assert subscription.status != BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert subscription.provider_subscription_id == ""
+        assert (
+            CreditWalletBucket.query.filter_by(
+                source_bid="billing-webhook-amount-guard"
+            ).count()
+            == 0
+        )
 
 
 def test_sync_billing_order_enqueues_subscription_paid_feishu_once(

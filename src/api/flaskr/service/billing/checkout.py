@@ -1572,7 +1572,11 @@ def _resolve_checkout_payable_amount(
         and getattr(applied_campaign, "campaign_bid", "")
         and (provider_price_mapping is None or campaign_provider_discount is not None)
     ):
-        base_amount = int(getattr(applied_campaign, "campaign_price_amount", 0) or 0)
+        base_amount = (
+            int(campaign_provider_discount.campaign_price_amount or 0)
+            if campaign_provider_discount is not None
+            else int(getattr(applied_campaign, "campaign_price_amount", 0) or 0)
+        )
     elif provider_price_mapping is not None:
         base_amount = int(provider_price_mapping.unit_amount or 0)
     else:

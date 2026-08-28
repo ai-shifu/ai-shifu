@@ -395,9 +395,9 @@ class TestBillingWriteRoutesCheckout:
                     product_bid="bill-product-plan-monthly",
                     product_type=BILLING_PRODUCT_TYPE_PLAN,
                     discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
-                    discount_amount=200,
+                    discount_amount=300,
                     discount_percent=Decimal("0"),
-                    campaign_price_amount=790,
+                    campaign_price_amount=690,
                     bonus_credit_amount=Decimal("0"),
                 )
             )
