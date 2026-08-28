@@ -48,6 +48,17 @@ VALID_EVENT_TYPES = {
 VALID_TYPE_CODES = set(range(201, 214))
 
 
+def _coerce_block_role(value: object) -> int:
+    """Normalize legacy numeric and newer string role values from seed data."""
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "teacher":
+            return ROLE_TEACHER
+        if normalized == "student":
+            return ROLE_STUDENT
+    return int(value or 0)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -77,7 +88,7 @@ def _fetch_blocks_raw(app: object, limit: object = 100) -> object:
                 "outline_item_bid": r.outline_item_bid,
                 "user_bid": r.user_bid,
                 "progress_record_bid": r.progress_record_bid,
-                "role": int(r.role or 0),
+                "role": _coerce_block_role(r.role),
                 "type": int(r.type or 0),
                 "position": int(r.position or 0),
                 "generated_content": r.generated_content or "",

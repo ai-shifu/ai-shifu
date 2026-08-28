@@ -21,6 +21,9 @@ const DEFAULT_RENDERER_SUBMISSION: OnSendContentParams = {
   inputText: '学会 AI',
 };
 let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
+let mockAutoFinishTypewriter = true;
+let mockLatestTypeFinished: (() => void) | undefined;
+let mockRenderedContents: string[] = [];
 
 type MockScrollControlProps = {
   ariaLabel: string;
@@ -54,18 +57,28 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('markdown-flow-ui/renderer', () => ({
-  MarkdownFlow: ({
-    initialContentList,
+  ContentRender: ({
+    content,
+    userInput,
+    readonly,
     onSend,
+    enableTypewriter,
+    typingSpeed,
+    onTypeFinished,
   }: {
-    initialContentList: Array<{
-      content: string;
-      isFinished?: boolean;
-      readonly?: boolean;
-      userInput?: string;
-    }>;
-    onSend: (value: OnSendContentParams) => void;
+    content: string;
+    readonly?: boolean;
+    userInput?: string;
+    onSend?: (value: OnSendContentParams) => void;
+    enableTypewriter?: boolean;
+    typingSpeed?: number;
+    onTypeFinished?: () => void;
   }) => {
+    mockRenderedContents.push(content);
+    React.useEffect(() => {
+      mockLatestTypeFinished = onTypeFinished;
+      if (mockAutoFinishTypewriter) onTypeFinished?.();
+    }, [onTypeFinished]);
     // Match the library's inline custom-variable renderer: an unnecessary
     // MarkdownFlow re-render remounts the input and loses unsent local state.
     const UnsentAnswer = () => (
@@ -77,18 +90,17 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     return (
       <div>
         <UnsentAnswer />
-        {initialContentList.map((item, index) => (
-          <div key={`${item.content}-${index}`}>
-            <span>{item.content}</span>
-            {item.userInput ? <span>{item.userInput}</span> : null}
-          </div>
-        ))}
-        {initialContentList.some(item => !item.isFinished) ? (
+        <span>{content}</span>
+        {userInput ? <span>{userInput}</span> : null}
+        <span
+          data-testid='profile-onboarding-typewriter'
+          data-enabled={String(Boolean(enableTypewriter))}
+          data-speed={String(typingSpeed)}
+        />
+        {onSend ? (
           <button
             type='button'
-            disabled={initialContentList.some(
-              item => !item.isFinished && item.readonly,
-            )}
+            disabled={readonly}
             onClick={() => onSend(mockRendererSubmission)}
           >
             {ANSWER_GUIDED_QUESTION_LABEL}
@@ -112,6 +124,9 @@ const getLatestScrollControlProps = () => {
 describe('ProfileOnboardingConversation', () => {
   beforeEach(() => {
     mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
+    mockAutoFinishTypewriter = true;
+    mockLatestTypeFinished = undefined;
+    mockRenderedContents = [];
     mockScrollToBottomControl.mockClear();
   });
 
@@ -160,6 +175,98 @@ describe('ProfileOnboardingConversation', () => {
         'c'.repeat(2_001),
       ]),
     ).toBe(false);
+  });
+
+  test('uses the learning page typewriter cadence for guided content', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'profile-typewriter-content',
+            element_type: 'text',
+            content: '欢迎，先一起确认你的学习偏好。',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-typewriter' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('欢迎，先一起确认你的学习偏好。');
+    const typewriter = screen.getByTestId('profile-onboarding-typewriter');
+    expect(typewriter).toHaveAttribute('data-enabled', 'true');
+    expect(typewriter).toHaveAttribute('data-speed', '30');
+  });
+
+  test('renders guided interaction controls without a typewriter delay', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'profile-interaction',
+            element_type: 'interaction',
+            content: '?[%{{profile_goal}}...What do you want to learn?]',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-interaction' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    expect(screen.getByTestId('profile-onboarding-typewriter')).toHaveAttribute(
+      'data-enabled',
+      'false',
+    );
+  });
+
+  test('renders HTML content without a typewriter delay', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'content',
+          element_type: 'html',
+          generated_block_bid: 'profile-html-content',
+          content: '<div>Visual card</div>',
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-html' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('<div>Visual card</div>');
+    expect(screen.getByTestId('profile-onboarding-typewriter')).toHaveAttribute(
+      'data-enabled',
+      'false',
+    );
   });
 
   test('keeps an over-limit Unicode answer editable until a valid correction', async () => {
@@ -420,6 +527,7 @@ describe('ProfileOnboardingConversation', () => {
   });
 
   test('waits without progress indicators after the final response until the draft is ready', async () => {
+    mockAutoFinishTypewriter = false;
     let finalOnMessage: ((event: Record<string, unknown>) => void) | undefined;
     const onDraftReady = jest.fn();
     const runSession = jest
@@ -468,7 +576,7 @@ describe('ProfileOnboardingConversation', () => {
         type: 'element',
         content: {
           element_bid: 'final-feedback',
-          element_type: 'content',
+          element_type: 'text',
           content: '信息收集完成。',
         },
       });
@@ -489,6 +597,8 @@ describe('ProfileOnboardingConversation', () => {
       });
     });
 
+    expect(onDraftReady).not.toHaveBeenCalled();
+    act(() => mockLatestTypeFinished?.());
     await waitFor(() =>
       expect(onDraftReady).toHaveBeenCalledWith(
         '最终个人介绍',
@@ -683,7 +793,7 @@ describe('ProfileOnboardingConversation', () => {
       expect.objectContaining({
         ariaLabel: 'common.core.scrollToBottom',
         autoScrollOnInit: true,
-        bottomOffset: 20,
+        bottomOffset: 36,
         contentVersion: 1,
         followNewContent: false,
         placement: 'bottom-center',
@@ -705,6 +815,114 @@ describe('ProfileOnboardingConversation', () => {
     await waitFor(() => {
       expect(getLatestScrollControlProps().contentVersion).toBe(2);
     });
+  });
+
+  test('updates scroll content version when a gated question becomes visible', async () => {
+    mockAutoFinishTypewriter = false;
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'scroll-guidance',
+            element_type: 'text',
+            content: 'Read this first',
+          },
+        });
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'scroll-question',
+            element_type: 'interaction',
+            content: '?[%{{goal}}...Then answer]',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-scroll-reveal' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('Read this first');
+    expect(screen.queryByText('?[%{{goal}}...Then answer]')).toBeNull();
+    expect(getLatestScrollControlProps().contentVersion).toBe(1);
+
+    act(() => mockLatestTypeFinished?.());
+
+    await screen.findByText('?[%{{goal}}...Then answer]');
+    expect(getLatestScrollControlProps().contentVersion).toBe(2);
+  });
+
+  test('hides later questions immediately when finished text content changes', async () => {
+    mockAutoFinishTypewriter = false;
+    let emitMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'] =
+      () => undefined;
+    const runSession = jest.fn(({ onMessage }) => {
+      emitMessage = onMessage;
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'changing-guidance',
+            element_type: 'text',
+            content: 'Initial guidance',
+          },
+        });
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'later-question',
+            element_type: 'interaction',
+            content: '?[%{{goal}}...Later question]',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'session-content-change' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('Initial guidance');
+    expect(screen.queryByText('?[%{{goal}}...Later question]')).toBeNull();
+
+    act(() => mockLatestTypeFinished?.());
+    await screen.findByText('?[%{{goal}}...Later question]');
+    const questionRenderCount = mockRenderedContents.filter(
+      content => content === '?[%{{goal}}...Later question]',
+    ).length;
+
+    act(() => {
+      emitMessage({
+        type: 'element',
+        content: {
+          element_bid: 'changing-guidance',
+          element_type: 'text',
+          content: 'Updated guidance',
+        },
+      });
+    });
+
+    await screen.findByText('Updated guidance');
+    expect(screen.queryByText('?[%{{goal}}...Later question]')).toBeNull();
+    expect(
+      mockRenderedContents.filter(
+        content => content === '?[%{{goal}}...Later question]',
+      ),
+    ).toHaveLength(questionRenderCount);
   });
 
   test('submits without ES2023 array methods and returns the server profile draft', async () => {
@@ -1044,6 +1262,8 @@ describe('ProfileOnboardingConversation', () => {
         name: 'module.profileOnboarding.guided.retry',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveClass('order-first', 'pt-6');
+    expect(screen.getByRole('status')).not.toHaveClass('pb-6');
     expect(onDraftReady).not.toHaveBeenCalled();
   });
 
@@ -1101,6 +1321,8 @@ describe('ProfileOnboardingConversation', () => {
     const retryButton = await screen.findByRole('button', {
       name: 'module.profileOnboarding.guided.retry',
     });
+    expect(screen.getByRole('status')).toHaveClass('pb-6');
+    expect(screen.getByRole('status')).not.toHaveClass('order-first', 'pt-6');
     expect(onError.mock.calls[0][0]).toEqual(
       new Error('module.profileOnboarding.guided.retryableError'),
     );
@@ -1919,9 +2141,14 @@ describe('assistant answers in the existing session', () => {
       '.profile-onboarding-markdownflow',
     );
 
-    expect(entry).toHaveClass('hidden', 'sm:inline-flex');
-    expect(entry).toHaveClass('max-w-[calc(50%-2.75rem)]');
-    expect(markdownFlow).toHaveClass('sm:scroll-pb-20', 'sm:pb-20');
+    expect(entry).toHaveClass(
+      'bottom-9',
+      'hidden',
+      'max-w-[calc(50%-2.75rem)]',
+      'shadow-[0_6px_12px_-8px_rgba(15,23,42,0.38)]',
+      'sm:inline-flex',
+    );
+    expect(markdownFlow).toHaveClass('py-6', 'sm:scroll-pb-20', 'sm:pb-20');
     expect(markdownFlow).not.toHaveClass('scroll-pb-20', 'pb-20');
   });
 
