@@ -30,6 +30,7 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
 )
+from flaskr.service.learn.learner_profile_prompt import build_course_prompt
 from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.listen_element_queries import (
     _load_latest_active_element_row,
@@ -55,6 +56,7 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.user.repository import UserAggregate
+from markdown_flow import replace_variables_in_text
 
 check_text_with_llm_response = None
 LLMSettings = None
@@ -302,6 +304,7 @@ def handle_input_ask(
     last_position: int = -1,
     anchor_element_bid: str = "",
     parent_observation: object | None = None,
+    runtime_profiles: dict | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 
@@ -341,26 +344,40 @@ def handle_input_ask(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
     use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
-    prompt_kwargs: dict[str, Any] = {}
+    profile_overrides: dict[str, Any] = {}
     if use_learner_language:
         runtime_language = str(get_current_language() or "").strip()
         if runtime_language:
-            prompt_kwargs["profile_overrides"] = {
+            profile_overrides = {
                 "sys_user_language": runtime_language,
                 "language": runtime_language,
             }
+    effective_profiles = dict(runtime_profiles or {})
+    effective_profiles.update(profile_overrides)
     system_prompt_template = context.get_system_prompt(outline_item_info.bid)
-    base_system_prompt = (
-        None
-        if system_prompt_template is None or system_prompt_template == ""
-        else get_fmt_prompt(
+    if system_prompt_template is None or system_prompt_template == "":
+        base_system_prompt = None
+    else:
+        variable_course_prompt = build_course_prompt(
+            system_prompt_template,
+            variables=effective_profiles,
+            nickname_identifiers=(
+                getattr(user_info, "user_bid", ""),
+                getattr(user_info, "user_id", ""),
+                getattr(user_info, "identify", ""),
+            ),
+        )
+        markdownflow_prompt = replace_variables_in_text(
+            variable_course_prompt or "",
+            effective_profiles,
+        )
+        base_system_prompt = get_fmt_prompt(
             app,
             user_info.user_id,
             outline_item_info.shifu_bid,
-            system_prompt_template,
-            **prompt_kwargs,
+            markdownflow_prompt,
+            resolved_profiles=effective_profiles,
         )
-    )
     llm_system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", base_system_prompt or ""
     )

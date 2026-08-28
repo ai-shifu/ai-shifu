@@ -588,8 +588,6 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
     app: object, monkeypatch: object
 ) -> None:
     from flaskr.service.learn import handle_input_ask as module
-    from flaskr.service.learn import utils_v2
-    from flaskr.service.learn.learner_profile_prompt import build_course_prompt
 
     ask_provider_config = {
         "provider": "dify",
@@ -613,26 +611,17 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
     )
     monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
 
+    nickname = "Ask Learner"
     learner_profile = "ASK LEARNER PROFILE"
-    effective_course_prompt = build_course_prompt(
-        "COURSE_PROMPT",
-        learner=types.SimpleNamespace(learner_profile=learner_profile),
-    )
-    assert effective_course_prompt is not None
-    assert "<composition_contract>" in effective_course_prompt
-    assert "<course_prompt>\nCOURSE_PROMPT\n</course_prompt>" in effective_course_prompt
-    assert (
-        '<learner_profile format="json-string">\n'
-        f'"{learner_profile}"\n</learner_profile>' in effective_course_prompt
-    )
+    profiles = {
+        "sys_user_nickname": nickname,
+        "sys_user_background": learner_profile,
+    }
     context = _Context()
-    context.get_system_prompt = lambda _outline_bid: effective_course_prompt
-    monkeypatch.setattr(
-        utils_v2,
-        "get_user_profiles",
-        lambda *_args, **_kwargs: {},
-    )
-    monkeypatch.setattr(module, "get_fmt_prompt", utils_v2.get_fmt_prompt)
+    context.get_system_prompt = lambda _outline_bid: "COURSE_PROMPT"
+    from flaskr.service.learn.utils_v2 import get_fmt_prompt
+
+    monkeypatch.setattr(module, "get_fmt_prompt", get_fmt_prompt)
     dummy_trace = _DummyTrace()
 
     events = list(
@@ -650,6 +639,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
             ),
             trace_args={"output": ""},
             trace=dummy_trace,
+            runtime_profiles=profiles,
         )
     )
 
@@ -664,10 +654,11 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
         if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
     )
     assert len(captured["messages"]) == 2
-    assert captured["messages"][0] == {
-        "role": "system",
-        "content": effective_course_prompt,
-    }
+    assert captured["messages"][0]["role"] == "system"
+    assert nickname in captured["messages"][0]["content"]
+    assert learner_profile in captured["messages"][0]["content"]
+    assert "{{sys_user_nickname}}" not in captured["messages"][0]["content"]
+    assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["role"] == "user"
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
@@ -693,29 +684,15 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
     context.get_system_prompt = lambda _outline_bid: (
         "Course language: {language}; learner language: {sys_user_language}"
     )
-    captured = {"messages": None, "profile_overrides": None}
-
-    def _fake_get_fmt_prompt(
-        _app: object,
-        _user_id: object,
-        _course_id: object,
-        template: object,
-        *,
-        profile_overrides: object = None,
-    ) -> object:
-        captured["profile_overrides"] = profile_overrides
-        profiles = {
-            "language": "zh-CN",
-            "sys_user_language": "zh-CN",
-            **(profile_overrides or {}),
-        }
-        return template.format(**profiles)
+    captured = {"messages": None}
 
     def _fake_stream_ask_provider_response(**kwargs: object) -> object:
         captured["messages"] = kwargs.get("messages")
         return iter([types.SimpleNamespace(content="provider-answer")])
 
-    monkeypatch.setattr(module, "get_fmt_prompt", _fake_get_fmt_prompt)
+    from flaskr.service.learn.utils_v2 import get_fmt_prompt
+
+    monkeypatch.setattr(module, "get_fmt_prompt", get_fmt_prompt)
     monkeypatch.setattr(module, "get_current_language", lambda: "fr-FR")
     monkeypatch.setattr(module, "get_markdownflow_output_language", lambda: "Français")
     monkeypatch.setattr(
@@ -743,14 +720,14 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
         )
     )
 
-    assert captured["profile_overrides"] == {
-        "language": "fr-FR",
-        "sys_user_language": "fr-FR",
-    }
-    assert captured["messages"][0] == {
-        "role": "system",
-        "content": "Course language: fr-FR; learner language: fr-FR",
-    }
+    assert captured["messages"][0]["role"] == "system"
+    assert (
+        "<course_prompt>\n"
+        "Course language: fr-FR; learner language: fr-FR\n"
+        "</course_prompt>" in captured["messages"][0]["content"]
+    )
+    assert '"""UNKNOWN"""' in captured["messages"][0]["content"]
+    assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["content"].endswith(
         "(IMPORTANT: You MUST respond in Français.)"
     )
