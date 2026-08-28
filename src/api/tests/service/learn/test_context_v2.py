@@ -1544,6 +1544,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert state.system_prompt == CapturingMdflowContext.document_prompt
         assert "{{sys_user_nickname}}" not in state.system_prompt
         assert "{{sys_user_background}}" not in state.system_prompt
+        assert "<learner_profile>" in state.system_prompt
+        assert "<learner_background>" not in state.system_prompt
         assert '"Teaching Alex"' in state.system_prompt
         assert '"Teaching background"' in state.system_prompt
 
@@ -1573,6 +1575,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert "<course_prompt>\nPREVIEW COURSE RULE\n</course_prompt>" in prompt
         assert "{{sys_user_nickname}}" not in prompt
         assert "{{sys_user_background}}" not in prompt
+        assert "<learner_profile>" in prompt
+        assert "<learner_background>" not in prompt
         assert '"Debug Alex"' in prompt
         assert '"Debug background"' in prompt
         assert "FALLBACK RULE" not in prompt

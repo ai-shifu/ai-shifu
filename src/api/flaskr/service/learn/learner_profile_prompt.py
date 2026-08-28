@@ -24,12 +24,12 @@ _LEARNER_CONTEXT_OPEN = "<learner_context>"
 _LEARNER_CONTEXT_CLOSE = "</learner_context>"
 _PREFERRED_ADDRESS_OPEN = "<preferred_address>"
 _PREFERRED_ADDRESS_CLOSE = "</preferred_address>"
-_LEARNER_BACKGROUND_OPEN = "<learner_background>"
-_LEARNER_BACKGROUND_CLOSE = "</learner_background>"
+_LEARNER_PROFILE_OPEN = "<learner_profile>"
+_LEARNER_PROFILE_CLOSE = "</learner_profile>"
 _NICKNAME_VARIABLE = "sys_user_nickname"
-_BACKGROUND_VARIABLE = "sys_user_background"
+_LEARNER_PROFILE_COMPAT_VARIABLE = "sys_user_background"
 _NICKNAME_VARIABLE_REFERENCE = f"{{{{{_NICKNAME_VARIABLE}}}}}"
-_BACKGROUND_VARIABLE_REFERENCE = f"{{{{{_BACKGROUND_VARIABLE}}}}}"
+_LEARNER_PROFILE_COMPAT_REFERENCE = f"{{{{{_LEARNER_PROFILE_COMPAT_VARIABLE}}}}}"
 
 
 @lru_cache(maxsize=1)
@@ -74,9 +74,9 @@ def _variable_learner_context(
             f"{_PREFERRED_ADDRESS_CLOSE}"
         )
     sections.append(
-        f"{_LEARNER_BACKGROUND_OPEN}\n"
-        f"{_BACKGROUND_VARIABLE_REFERENCE}\n"
-        f"{_LEARNER_BACKGROUND_CLOSE}"
+        f"{_LEARNER_PROFILE_OPEN}\n"
+        f"{_LEARNER_PROFILE_COMPAT_REFERENCE}\n"
+        f"{_LEARNER_PROFILE_CLOSE}"
     )
     return "\n".join(sections)
 
@@ -102,14 +102,14 @@ def render_course_prompt_identity_variables(
     course_prompt: str | None,
     variables: Mapping[str, object] | None,
 ) -> str | None:
-    """Resolve learner identity slots as boundary-safe JSON strings."""
+    """Resolve learner-context slots as boundary-safe JSON strings."""
     if not course_prompt:
         return course_prompt
     effective_variables = variables or {}
     rendered_prompt = str(course_prompt)
     for variable, reference in (
         (_NICKNAME_VARIABLE, _NICKNAME_VARIABLE_REFERENCE),
-        (_BACKGROUND_VARIABLE, _BACKGROUND_VARIABLE_REFERENCE),
+        (_LEARNER_PROFILE_COMPAT_VARIABLE, _LEARNER_PROFILE_COMPAT_REFERENCE),
     ):
         if reference in rendered_prompt:
             rendered_prompt = rendered_prompt.replace(

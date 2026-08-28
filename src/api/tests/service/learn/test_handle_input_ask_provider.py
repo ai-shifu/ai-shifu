@@ -659,6 +659,8 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
     assert learner_profile in captured["messages"][0]["content"]
     assert "{{sys_user_nickname}}" not in captured["messages"][0]["content"]
     assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
+    assert "<learner_profile>" in captured["messages"][0]["content"]
+    assert "<learner_background>" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["role"] == "user"
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
@@ -728,6 +730,8 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
     )
     assert '"UNKNOWN"' in captured["messages"][0]["content"]
     assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
+    assert "<learner_profile>" in captured["messages"][0]["content"]
+    assert "<learner_background>" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["content"].endswith(
         "(IMPORTANT: You MUST respond in Français.)"
     )
