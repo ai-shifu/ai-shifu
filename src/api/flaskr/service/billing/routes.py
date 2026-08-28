@@ -24,6 +24,13 @@ from flaskr.service.billing.admin_target_users import (
     resolve_existing_admin_billing_target_user_bid,
     run_admin_creator_granted_post_auth,
 )
+from flaskr.service.billing.campaign_provider_discounts import (
+    CampaignProviderDiscountError,
+    list_admin_campaign_provider_discounts,
+    publish_admin_campaign_provider_discounts,
+    retire_admin_campaign_provider_discounts,
+    validate_admin_campaign_provider_discount,
+)
 from flaskr.service.billing.campaigns import (
     build_admin_billing_campaign_detail,
     build_admin_billing_campaign_product_options,
@@ -180,6 +187,22 @@ def _raise_provider_price_mapping_route_error(exc: Exception) -> None:
             {"provider_price_mapping_error": payload},
         )
     raise exc
+
+
+def _raise_campaign_provider_discount_route_error(exc: Exception) -> None:
+    if isinstance(exc, CampaignProviderDiscountError):
+        raise AppError(
+            exc.message,
+            9999,
+            {
+                "campaign_provider_discount_error": {
+                    "code": exc.code,
+                    "message": exc.message,
+                    "details": exc.details,
+                }
+            },
+        )
+    _raise_provider_price_mapping_route_error(exc)
 
 
 @inject
@@ -1023,3 +1046,80 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 payload=request.get_json(silent=True) or {},
             )
         )
+
+    @app.route(
+        admin_path_prefix + "/campaigns/<campaign_bid>/provider-discounts",
+        methods=["GET"],
+    )
+    def admin_billing_campaign_provider_discounts_api(campaign_bid: str) -> str:
+        _require_billing_operator_access(app)
+        return make_common_response(
+            list_admin_campaign_provider_discounts(app, campaign_bid=campaign_bid)
+        )
+
+    @app.route(
+        admin_path_prefix + "/campaigns/<campaign_bid>/publish",
+        methods=["POST"],
+    )
+    def admin_billing_campaign_publish_api(campaign_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            result = publish_admin_campaign_provider_discounts(
+                app,
+                campaign_bid=campaign_bid,
+                operator_user_bid=_get_creator_bid(),
+            )
+        except Exception as exc:
+            _raise_campaign_provider_discount_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix + "/campaigns/<campaign_bid>/publish/retry",
+        methods=["POST"],
+    )
+    def admin_billing_campaign_publish_retry_api(campaign_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            result = publish_admin_campaign_provider_discounts(
+                app,
+                campaign_bid=campaign_bid,
+                operator_user_bid=_get_creator_bid(),
+            )
+        except Exception as exc:
+            _raise_campaign_provider_discount_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix + "/campaigns/<campaign_bid>/retire",
+        methods=["POST"],
+    )
+    def admin_billing_campaign_retire_api(campaign_bid: str) -> str:
+        _require_billing_operator_access(app)
+        try:
+            result = retire_admin_campaign_provider_discounts(
+                app,
+                campaign_bid=campaign_bid,
+                operator_user_bid=_get_creator_bid(),
+            )
+        except Exception as exc:
+            _raise_campaign_provider_discount_route_error(exc)
+        return make_common_response(result)
+
+    @app.route(
+        admin_path_prefix
+        + "/campaign-provider-discounts/<campaign_provider_discount_bid>/validate",
+        methods=["POST"],
+    )
+    def admin_billing_campaign_provider_discount_validate_api(
+        campaign_provider_discount_bid: str,
+    ) -> str:
+        _require_billing_operator_access(app)
+        try:
+            result = validate_admin_campaign_provider_discount(
+                app,
+                campaign_provider_discount_bid=campaign_provider_discount_bid,
+                operator_user_bid=_get_creator_bid(),
+            )
+        except Exception as exc:
+            _raise_campaign_provider_discount_route_error(exc)
+        return make_common_response(result)

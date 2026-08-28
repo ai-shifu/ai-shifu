@@ -7,6 +7,7 @@ import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { isGlobalBillingExperience } from '@/app/admin/billing/billingExperience';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
@@ -89,6 +90,7 @@ import {
   type ReferralCampaignColumnKey,
   type ReferralCampaignFilters,
   type ReferralCampaignFormState,
+  isPackageCampaignProviderDiscountSynced,
   type PromotionStatusChangeTarget,
   type PromotionTab,
   SINGLE_SELECT_ITEM_CLASS,
@@ -108,12 +110,46 @@ import {
  * t('module.operationsPromotion.referralCampaign.latestInviteEventAt')
  * t('module.operationsPromotion.referralCampaign.validityDaysValue')
  */
+type ProviderDiscountActionPayload = {
+  items?: Array<{
+    status?: string;
+    failure_code?: string;
+    failure_message?: string;
+  }>;
+};
+
+const PROVIDER_DISCOUNT_ATTENTION_STATUSES = new Set([
+  'failed',
+  'provider_invalid',
+  'requires_republish',
+  'cleanup_required',
+]);
+
+function resolveProviderDiscountActionError(
+  payload: ProviderDiscountActionPayload,
+): { hasAttention: boolean; message: string } {
+  const item = payload.items?.find(entry =>
+    PROVIDER_DISCOUNT_ATTENTION_STATUSES.has(String(entry.status || '')),
+  );
+  return {
+    hasAttention: Boolean(item),
+    message: item?.failure_message || item?.failure_code || '',
+  };
+}
+
 export default function AdminOperationPromotionsPage() {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
   const { isReady } = useOperatorGuard();
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol || '',
+  );
+  const paymentChannels = useEnvStore(
+    (state: EnvStoreState) => state.paymentChannels,
+  );
+  const showStripeProviderDiscounts = React.useMemo(
+    () => isGlobalBillingExperience(paymentChannels),
+    [paymentChannels],
   );
   const clearLabel = t('common.core.close');
   const [tab, setTab] = useState<PromotionTab>('coupons');
@@ -715,6 +751,9 @@ export default function AdminOperationPromotionsPage() {
       name: payload.name.trim(),
       note: payload.note.trim(),
       benefit_type: payload.benefit_type,
+      enabled: !(
+        showStripeProviderDiscounts && payload.benefit_type === 'discount'
+      ),
       start_at: payload.start_at,
       end_at: payload.end_at,
       products: buildPackageCampaignProductsPayload(payload, productOptions),
@@ -738,6 +777,7 @@ export default function AdminOperationPromotionsPage() {
       name: payload.name.trim(),
       note: payload.note.trim(),
       benefit_type: payload.benefit_type,
+      enabled: Boolean(editingPackageCampaign.campaign.enabled),
       start_at: payload.start_at,
       end_at: payload.end_at,
       products: buildPackageCampaignProductsPayload(payload, productOptions),
@@ -803,11 +843,87 @@ export default function AdminOperationPromotionsPage() {
   const handlePackageCampaignStatusToggle = (
     item: AdminBillingCampaignItem,
   ) => {
+    if (
+      showStripeProviderDiscounts &&
+      item.computed_status === 'inactive' &&
+      !isPackageCampaignProviderDiscountSynced(item)
+    ) {
+      showErrorToast(
+        tPromotion('messages.packageCampaignProviderSyncRequired'),
+      );
+      return;
+    }
     setPendingStatusChange({
       entityType: 'packageCampaign',
       enabling: item.computed_status === 'inactive',
       item,
     });
+  };
+
+  const runPackageCampaignProviderAction = async (
+    item: AdminBillingCampaignItem,
+    action: (campaignBid: string) => Promise<unknown>,
+    successMessageKey:
+      | 'messages.packageCampaignProviderPublished'
+      | 'messages.packageCampaignProviderRetried'
+      | 'messages.packageCampaignProviderRetired',
+  ) => {
+    try {
+      const payload = (await action(
+        item.campaign_bid,
+      )) as ProviderDiscountActionPayload;
+      await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+      const actionError = resolveProviderDiscountActionError(payload);
+      if (actionError.hasAttention) {
+        showErrorToast(
+          actionError.message ||
+            tPromotion('messages.packageCampaignProviderAttention'),
+        );
+        return;
+      }
+      showDefaultToast(tPromotion(successMessageKey));
+    } catch (error) {
+      showErrorToast((error as Error).message || t('common.core.submitFailed'));
+    }
+  };
+
+  const handlePackageCampaignProviderPublish = async (
+    item: AdminBillingCampaignItem,
+  ) => {
+    await runPackageCampaignProviderAction(
+      item,
+      campaignBid =>
+        api.publishAdminBillingCampaign({
+          campaign_bid: campaignBid,
+        }),
+      'messages.packageCampaignProviderPublished',
+    );
+  };
+
+  const handlePackageCampaignProviderRetry = async (
+    item: AdminBillingCampaignItem,
+  ) => {
+    await runPackageCampaignProviderAction(
+      item,
+      campaignBid =>
+        api.retryPublishAdminBillingCampaign({
+          campaign_bid: campaignBid,
+        }),
+      'messages.packageCampaignProviderRetried',
+    );
+  };
+
+  const handlePackageCampaignProviderRetire = async (
+    item: AdminBillingCampaignItem,
+  ) => {
+    await runPackageCampaignProviderAction(
+      item,
+      campaignBid =>
+        api.retireAdminBillingCampaign({
+          campaign_bid: campaignBid,
+        }),
+      'messages.packageCampaignProviderRetired',
+    );
   };
 
   const handleReferralCampaignStatusToggle = (
@@ -1847,6 +1963,7 @@ export default function AdminOperationPromotionsPage() {
             pageCount={packageCampaignPageCount}
             filters={packageCampaignFilters}
             fetchCampaigns={fetchPackageCampaigns}
+            showProviderDiscounts={showStripeProviderDiscounts}
             getColumnStyle={getPackageCampaignColumnStyle}
             renderResizeHandle={renderPackageCampaignResizeHandle}
             onOpenProductDetails={item => {
@@ -1856,6 +1973,9 @@ export default function AdminOperationPromotionsPage() {
             }}
             onEdit={handleStartPackageCampaignEdit}
             onToggleStatus={handlePackageCampaignStatusToggle}
+            onPublishProviderDiscounts={handlePackageCampaignProviderPublish}
+            onRetryProviderDiscounts={handlePackageCampaignProviderRetry}
+            onRetireProviderDiscounts={handlePackageCampaignProviderRetire}
           />
         </TabsContent>
 

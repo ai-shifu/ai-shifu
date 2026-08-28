@@ -5,6 +5,11 @@ export const mockToast = jest.fn();
 export const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
 const mockEnvState = {
   currencySymbol: '¥',
+  paymentChannels: ['stripe'],
+};
+
+export const setMockPaymentChannels = (paymentChannels: string[]) => {
+  mockEnvState.paymentChannels = paymentChannels;
 };
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
@@ -47,6 +52,11 @@ jest.mock('@/api', () => ({
     getAdminBillingCampaignDetail: jest.fn(),
     updateAdminBillingCampaign: jest.fn(),
     updateAdminBillingCampaignStatus: jest.fn(),
+    getAdminBillingCampaignProviderDiscounts: jest.fn(),
+    publishAdminBillingCampaign: jest.fn(),
+    retryPublishAdminBillingCampaign: jest.fn(),
+    retireAdminBillingCampaign: jest.fn(),
+    validateAdminBillingCampaignProviderDiscount: jest.fn(),
   },
 }));
 
@@ -390,8 +400,15 @@ export const mockUpdatePackageCampaign =
   api.updateAdminBillingCampaign as jest.Mock;
 export const mockUpdatePackageCampaignStatus =
   api.updateAdminBillingCampaignStatus as jest.Mock;
+export const mockPublishPackageCampaignProviderDiscounts =
+  api.publishAdminBillingCampaign as jest.Mock;
+export const mockRetryPackageCampaignProviderDiscounts =
+  api.retryPublishAdminBillingCampaign as jest.Mock;
+export const mockRetirePackageCampaignProviderDiscounts =
+  api.retireAdminBillingCampaign as jest.Mock;
 
 beforeEach(() => {
+  setMockPaymentChannels(['stripe']);
   mockToast.mockReset();
   mockGetCoupons.mockReset();
   mockGetCampaigns.mockReset();
@@ -419,6 +436,9 @@ beforeEach(() => {
   mockGetPackageCampaignDetail.mockReset();
   mockUpdatePackageCampaign.mockReset();
   mockUpdatePackageCampaignStatus.mockReset();
+  mockPublishPackageCampaignProviderDiscounts.mockReset();
+  mockRetryPackageCampaignProviderDiscounts.mockReset();
+  mockRetirePackageCampaignProviderDiscounts.mockReset();
   mockCreateCoupon.mockResolvedValue({ coupon_bid: 'created-coupon' });
   mockUpdateCoupon.mockResolvedValue({ coupon_bid: 'coupon-1' });
   mockCreateCampaign.mockResolvedValue({ promo_bid: 'created-campaign' });
@@ -874,4 +894,7 @@ beforeEach(() => {
     created_user_bid: 'operator-1',
     updated_user_bid: 'operator-1',
   });
+  mockPublishPackageCampaignProviderDiscounts.mockResolvedValue({ items: [] });
+  mockRetryPackageCampaignProviderDiscounts.mockResolvedValue({ items: [] });
+  mockRetirePackageCampaignProviderDiscounts.mockResolvedValue({ items: [] });
 });

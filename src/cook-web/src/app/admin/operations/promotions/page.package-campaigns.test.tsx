@@ -6,6 +6,7 @@ import {
   within,
 } from '@testing-library/react';
 import {
+  resolvePackageCampaignProviderDiscountLabel,
   resolvePackageCampaignProductSummary,
   resolvePromotionStatusBadgeClassName,
 } from './promotionPageShared';
@@ -15,8 +16,11 @@ import {
   mockGetPackageCampaignDetail,
   mockGetPackageCampaignProductOptions,
   mockGetPackageCampaigns,
+  mockPublishPackageCampaignProviderDiscounts,
+  mockRetirePackageCampaignProviderDiscounts,
   mockToast,
   mockUpdatePackageCampaignStatus,
+  setMockPaymentChannels,
 } from './promotionsTestUtils.test-support';
 import AdminOperationPromotionsPage from './page';
 
@@ -67,7 +71,221 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         product_count: 1,
       }),
     ).toBe('--');
+    expect(
+      resolvePackageCampaignProviderDiscountLabel(tPromotion, {
+        benefit_type: 'discount',
+        provider_discount_summary: { active: 1, total: 1 },
+      }),
+    ).toBe('module.operationsPromotion.packageCampaign.providerDiscountActive');
   });
+
+  test('publishes package campaign provider discounts from row actions', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetPackageCampaigns).toHaveBeenCalled());
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockPublishPackageCampaignProviderDiscounts).toHaveBeenCalledWith({
+        campaign_bid: 'campaign-1',
+      }),
+    );
+    expect(mockToast).toHaveBeenCalledWith({
+      description:
+        'module.operationsPromotion.messages.packageCampaignProviderPublished',
+    });
+  });
+
+  test('hides Stripe provider discount column and actions without Stripe channel', async () => {
+    setMockPaymentChannels(['pingxx']);
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.packageCampaign.providerDiscount',
+      ),
+    ).not.toBeInTheDocument();
+
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows an error when package campaign provider publish request fails', async () => {
+    mockPublishPackageCampaignProviderDiscounts.mockRejectedValueOnce(
+      new Error('provider publish failed'),
+    );
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetPackageCampaigns).toHaveBeenCalled());
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'provider publish failed',
+        variant: 'destructive',
+      }),
+    );
+  });
+
+  test('keeps the Stripe stop action available for cleanup-required discounts', async () => {
+    mockGetPackageCampaigns.mockResolvedValueOnce({
+      items: [
+        {
+          campaign_bid: 'campaign-cleanup',
+          name: 'Cleanup Package Promo',
+          note: 'Plan-only promotion',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 20,
+          bonus_credit_amount: 0,
+          product_count: 1,
+          product_types: ['plan'],
+          product_names: ['module.billing.catalog.plans.creatorMonthly.title'],
+          has_custom_product_rules: false,
+          provider_discount_summary: {
+            total: 1,
+            active: 0,
+            cleanup_required: 1,
+            open_provider_coupon_count: 1,
+          },
+          computed_status: 'active',
+          hit_order_count: 0,
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-05-24T10:00:00Z',
+          enabled: true,
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Cleanup Package Promo');
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.retireProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockRetirePackageCampaignProviderDiscounts).toHaveBeenCalledWith({
+        campaign_bid: 'campaign-cleanup',
+      });
+    });
+  });
+
+  test('shows an error when provider publish returns failed items', async () => {
+    mockPublishPackageCampaignProviderDiscounts.mockResolvedValueOnce({
+      items: [
+        {
+          status: 'failed',
+          failure_message: 'Stripe credentials rejected',
+        },
+      ],
+    });
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => expect(mockGetPackageCampaigns).toHaveBeenCalled());
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsPromotion.actions.publishProviderDiscounts',
+      ),
+    );
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'Stripe credentials rejected',
+        variant: 'destructive',
+      }),
+    );
+  });
+
   test('opens package campaign product details from product column', async () => {
     render(<AdminOperationPromotionsPage />);
 
@@ -199,6 +417,7 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         name: 'May Bonus Campaign',
         note: '',
         benefit_type: 'bonus',
+        enabled: true,
         products: [
           {
             product_bid: 'plan-1',
@@ -469,6 +688,63 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
         campaign_bid: 'campaign-1',
         enabled: false,
       });
+    });
+  });
+
+  test('blocks enabling a Stripe discount campaign before provider sync completes', async () => {
+    mockGetPackageCampaigns.mockResolvedValueOnce({
+      items: [
+        {
+          campaign_bid: 'campaign-unsynced',
+          name: 'Unsynced Package Promo',
+          note: 'Plan-only promotion',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 20,
+          bonus_credit_amount: 0,
+          product_count: 1,
+          product_types: ['plan'],
+          product_names: ['module.billing.catalog.plans.creatorMonthly.title'],
+          has_custom_product_rules: false,
+          provider_discount_summary: { total: 0, active: 0 },
+          computed_status: 'inactive',
+          hit_order_count: 0,
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-05-24T10:00:00Z',
+          enabled: false,
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Unsynced Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.enable',
+      }),
+    );
+
+    expect(mockUpdatePackageCampaignStatus).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith({
+      description:
+        'module.operationsPromotion.messages.packageCampaignProviderSyncRequired',
+      variant: 'destructive',
     });
   });
 });

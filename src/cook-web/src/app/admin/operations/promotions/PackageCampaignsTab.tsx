@@ -25,11 +25,15 @@ import {
   renderTimeRange,
   renderTooltipText,
   resolvePackageCampaignBenefitTypeLabel,
+  resolvePackageCampaignProviderDiscountLabel,
   resolvePackageCampaignProductSummary,
   resolvePackageCampaignProductTypeLabel,
   resolvePackageCampaignRuleLabel,
   SectionCard,
   shouldShowPackageCampaignStatusToggle,
+  shouldShowPackageCampaignProviderPublish,
+  shouldShowPackageCampaignProviderRetire,
+  shouldShowPackageCampaignProviderRetry,
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
   TABLE_CELL_CLASS,
@@ -53,6 +57,7 @@ type PackageCampaignsTabProps = {
   page: number;
   pageCount: number;
   filters: PackageCampaignFilters;
+  showProviderDiscounts: boolean;
   fetchCampaigns: (
     pageIndex: number,
     filters: PackageCampaignFilters,
@@ -62,6 +67,15 @@ type PackageCampaignsTabProps = {
   onOpenProductDetails: (item: AdminBillingCampaignItem) => void;
   onEdit: (item: AdminBillingCampaignItem) => void | Promise<void>;
   onToggleStatus: (item: AdminBillingCampaignItem) => void | Promise<void>;
+  onPublishProviderDiscounts: (
+    item: AdminBillingCampaignItem,
+  ) => void | Promise<void>;
+  onRetryProviderDiscounts: (
+    item: AdminBillingCampaignItem,
+  ) => void | Promise<void>;
+  onRetireProviderDiscounts: (
+    item: AdminBillingCampaignItem,
+  ) => void | Promise<void>;
 };
 
 export default function PackageCampaignsTab({
@@ -79,13 +93,21 @@ export default function PackageCampaignsTab({
   page,
   pageCount,
   filters,
+  showProviderDiscounts,
   fetchCampaigns,
   getColumnStyle,
   renderResizeHandle,
   onOpenProductDetails,
   onEdit,
   onToggleStatus,
+  onPublishProviderDiscounts,
+  onRetryProviderDiscounts,
+  onRetireProviderDiscounts,
 }: PackageCampaignsTabProps) {
+  const emptyContentColSpan =
+    Object.keys(PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length -
+    (showProviderDiscounts ? 1 : 2);
+
   return (
     <>
       <SectionCard
@@ -131,8 +153,7 @@ export default function PackageCampaignsTab({
         isEmpty={!campaigns.length}
         emptyContent={tPromotion('messages.emptyPackageCampaigns')}
         stickyActionEmpty={{
-          contentColSpan:
-            Object.keys(PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1,
+          contentColSpan: emptyContentColSpan,
           actionClassName: TABLE_ACTION_CELL_CLASS,
           actionStyle: getColumnStyle('action'),
         }}
@@ -170,6 +191,15 @@ export default function PackageCampaignsTab({
                   {tPromotion('packageCampaign.rule')}
                   {renderResizeHandle('rule')}
                 </TableHead>
+                {showProviderDiscounts ? (
+                  <TableHead
+                    className={TABLE_HEAD_CLASS}
+                    style={getColumnStyle('providerDiscount')}
+                  >
+                    {tPromotion('packageCampaign.providerDiscount')}
+                    {renderResizeHandle('providerDiscount')}
+                  </TableHead>
+                ) : null}
                 <TableHead
                   className={TABLE_HEAD_CLASS}
                   style={getColumnStyle('campaignTime')}
@@ -258,6 +288,19 @@ export default function PackageCampaignsTab({
                       resolvePackageCampaignRuleLabel(t, item),
                     )}
                   </TableCell>
+                  {showProviderDiscounts ? (
+                    <TableCell
+                      className={TABLE_CELL_CLASS}
+                      style={getColumnStyle('providerDiscount')}
+                    >
+                      {renderTooltipText(
+                        resolvePackageCampaignProviderDiscountLabel(
+                          tPromotion,
+                          item,
+                        ),
+                      )}
+                    </TableCell>
+                  ) : null}
                   <TableCell
                     className={TABLE_CELL_CLASS}
                     style={getColumnStyle('campaignTime')}
@@ -322,6 +365,35 @@ export default function PackageCampaignsTab({
                             hidden:
                               !shouldShowPackageCampaignStatusToggle(item),
                             onClick: () => void onToggleStatus(item),
+                          },
+                          {
+                            key: 'publish-provider-discounts',
+                            label: tPromotion(
+                              'actions.publishProviderDiscounts',
+                            ),
+                            hidden:
+                              !showProviderDiscounts ||
+                              !shouldShowPackageCampaignProviderPublish(item),
+                            onClick: () =>
+                              void onPublishProviderDiscounts(item),
+                          },
+                          {
+                            key: 'retry-provider-discounts',
+                            label: tPromotion('actions.retryProviderDiscounts'),
+                            hidden:
+                              !showProviderDiscounts ||
+                              !shouldShowPackageCampaignProviderRetry(item),
+                            onClick: () => void onRetryProviderDiscounts(item),
+                          },
+                          {
+                            key: 'retire-provider-discounts',
+                            label: tPromotion(
+                              'actions.retireProviderDiscounts',
+                            ),
+                            hidden:
+                              !showProviderDiscounts ||
+                              !shouldShowPackageCampaignProviderRetire(item),
+                            onClick: () => void onRetireProviderDiscounts(item),
                           },
                         ]}
                       />

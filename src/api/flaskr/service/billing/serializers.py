@@ -191,6 +191,7 @@ def serialize_admin_campaign(
     discount_amount: int | None = None,
     discount_percent: object | None = None,
     bonus_credit_amount: object | None = None,
+    provider_discount_summary: dict[str, object] | None = None,
 ) -> AdminBillingCampaignDTO:
     """Serialize admin campaign."""
     _ = app
@@ -238,6 +239,7 @@ def serialize_admin_campaign(
         product_types=product_types,
         product_names=product_names,
         has_custom_product_rules=has_custom_product_rules,
+        provider_discount_summary=provider_discount_summary or {},
         computed_status=computed_status,
         hit_order_count=hit_order_count,
         start_at=row.start_at,
