@@ -10,15 +10,15 @@ behavior.
 
 ## Progress
 
-- [x] 2026-08-28 12:09 CST: Located the course editor and preview display
+- [x] 2026-08-28 04:09 UTC: Located the course editor and preview display
       surfaces plus the demo advertisement.
-- [x] 2026-08-28 12:42 CST: Narrowed the implementation after scope
+- [x] 2026-08-28 04:42 UTC: Narrowed the implementation after scope
       clarification and removed all backend and protocol changes.
-- [x] 2026-08-28 12:42 CST: Hid the variable from editor recommendations and
+- [x] 2026-08-28 04:42 UTC: Hid the variable from editor recommendations and
       preview controls while preserving the internal preview variable map.
-- [x] 2026-08-28 12:42 CST: Added focused display coverage and removed the demo
+- [x] 2026-08-28 04:42 UTC: Added focused display coverage and removed the demo
       advertisement.
-- [x] 2026-08-28 13:17 CST: Completed focused and repository-level validation,
+- [x] 2026-08-28 05:17 UTC: Completed focused and repository-level validation,
       regenerated the knowledge index, and archived this plan.
 
 ## Surprises & Discoveries
