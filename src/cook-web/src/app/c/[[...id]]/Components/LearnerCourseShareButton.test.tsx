@@ -7,6 +7,8 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { buildCoursePageUrl } from '@/c-utils/urlUtils';
 import LearnerCourseShareButton from './LearnerCourseShareButton';
 
+let mockRouteParams: { id?: string[] } = { id: ['course-1'] };
+
 type MockCourseShareButtonProps = {
   courseTitle: string;
   courseDescription?: string;
@@ -47,6 +49,10 @@ jest.mock('@/components/course-share', () => ({
     mockCourseShareButton(props),
 }));
 
+jest.mock('next/navigation', () => ({
+  useParams: () => mockRouteParams,
+}));
+
 jest.mock('@/c-utils/urlUtils', () => ({
   buildCoursePageUrl: jest.fn(),
 }));
@@ -58,6 +64,7 @@ describe('LearnerCourseShareButton', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteParams = { id: ['course-1'] };
     mockedBuildCoursePageUrl.mockReturnValue(
       'https://courses.example.com/c/course-1',
     );
@@ -124,6 +131,15 @@ describe('LearnerCourseShareButton', () => {
   });
 
   it('does not combine the previous course content with a newly selected course URL', () => {
+    mockRouteParams = { id: ['course-2'] };
+
+    render(<LearnerCourseShareButton surface='learner_mobile_header' />);
+
+    expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
+    expect(mockCourseShareButton).not.toHaveBeenCalled();
+  });
+
+  it('waits for course settings when the environment has switched courses', () => {
     act(() => {
       useEnvStore.setState({ courseId: 'course-2' });
     });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useEnvStore } from '@/c-store/envStore';
@@ -30,6 +31,8 @@ export default function LearnerCourseShareButton({
   className,
   tooltipSide,
 }: LearnerCourseShareButtonProps) {
+  const routeParams = useParams();
+  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
   const shifuBid = useEnvStore(state => state.courseId);
   const previewMode = useSystemStore(state => state.previewMode);
   const { courseName, courseDescription, courseSettingsCourseId } =
@@ -48,7 +51,12 @@ export default function LearnerCourseShareButton({
     return buildCoursePageUrl(window.location.href) || null;
   }, []);
 
-  if (previewMode || !shifuBid || courseSettingsCourseId !== shifuBid) {
+  if (
+    previewMode ||
+    !routeCourseId ||
+    routeCourseId !== shifuBid ||
+    courseSettingsCourseId !== routeCourseId
+  ) {
     return null;
   }
 
