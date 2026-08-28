@@ -467,7 +467,7 @@ describe('BillingOverviewTab', () => {
       ['billing-catalog'],
       expect.any(Function),
       {
-        revalidateOnFocus: false,
+        revalidateOnFocus: true,
       },
     );
 
@@ -2247,6 +2247,7 @@ describe('BillingOverviewTab', () => {
     });
     await waitFor(() => {
       expect(mockMutateOverview).toHaveBeenCalled();
+      expect(mockMutateSWRCache).toHaveBeenCalledWith(['billing-catalog']);
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',
       ]);
@@ -2340,6 +2341,7 @@ describe('BillingOverviewTab', () => {
       });
       expect(mockCheckoutBillingOrder).not.toHaveBeenCalled();
       expect(mockMutateOverview).toHaveBeenCalled();
+      expect(mockMutateSWRCache).toHaveBeenCalledWith(['billing-catalog']);
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',
       ]);
