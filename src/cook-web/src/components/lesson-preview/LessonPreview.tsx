@@ -59,6 +59,7 @@ interface LessonPreviewProps {
   }) => Promise<AudioCompleteData | null>;
   onVariableChange?: (name: string, value: string) => void;
   variableOrder?: string[];
+  systemVariableKeys?: string[];
   reGenerateConfirm?: {
     open: boolean;
     onConfirm: () => void;
@@ -185,6 +186,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onRequestAudioForBlock,
   onVariableChange,
   variableOrder,
+  systemVariableKeys,
   reGenerateConfirm,
   hiddenVariableKeys,
   onHideOrRestore,
@@ -366,6 +368,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               onToggle={() => setVariablesCollapsed(prev => !prev)}
               onChange={onVariableChange}
               variableOrder={variableOrder}
+              systemVariableKeys={systemVariableKeys}
               actionType={actionType}
               onAction={handleActionConfirm}
               actionDisabled={actionDisabled}
