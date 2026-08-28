@@ -1,0 +1,69 @@
+'use client';
+
+import { useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+
+import { useEnvStore } from '@/c-store/envStore';
+import { useCourseStore } from '@/c-store/useCourseStore';
+import { useSystemStore } from '@/c-store/useSystemStore';
+import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import {
+  CourseShareButton,
+  type CourseShareButtonProps,
+  type CourseShareSurface,
+} from '@/components/course-share';
+
+type LearnerCourseShareSurface = Exclude<CourseShareSurface, 'teacher_header'>;
+
+export type LearnerCourseShareButtonProps = Pick<
+  CourseShareButtonProps,
+  'showLabel' | 'variant' | 'size' | 'className' | 'tooltipSide'
+> & {
+  surface: LearnerCourseShareSurface;
+};
+
+export default function LearnerCourseShareButton({
+  surface,
+  showLabel,
+  variant,
+  size,
+  className,
+  tooltipSide,
+}: LearnerCourseShareButtonProps) {
+  const shifuBid = useEnvStore(state => state.courseId);
+  const previewMode = useSystemStore(state => state.previewMode);
+  const { courseName, courseDescription, courseSettingsCourseId } =
+    useCourseStore(
+      useShallow(state => ({
+        courseName: state.courseName,
+        courseDescription: state.courseDescription,
+        courseSettingsCourseId: state.courseSettingsCourseId,
+      })),
+    );
+  const resolveShareUrl = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    return buildCoursePageUrl(window.location.href) || null;
+  }, []);
+
+  if (previewMode || !shifuBid || courseSettingsCourseId !== shifuBid) {
+    return null;
+  }
+
+  return (
+    <CourseShareButton
+      courseTitle={courseName}
+      courseDescription={courseDescription}
+      shifuBid={shifuBid}
+      resolveShareUrl={resolveShareUrl}
+      surface={surface}
+      showLabel={showLabel}
+      variant={variant}
+      size={size}
+      className={className}
+      tooltipSide={tooltipSide}
+    />
+  );
+}

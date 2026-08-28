@@ -75,6 +75,7 @@ jest.mock('markdown-flow-ui/slide', () => {
     Slide: jest.fn(
       (props: {
         playerClassName?: string;
+        fullscreenHeader?: { content?: React.ReactNode };
         playerCustomActions?:
           | React.ReactNode
           | ((context: typeof slideCustomActionContext) => React.ReactNode);
@@ -145,6 +146,17 @@ jest.mock('@/c-utils/system-interaction', () => ({
 
 jest.mock('@/c-api/studyV2', () => ({
   SYS_INTERACTION_TYPE: {},
+}));
+
+jest.mock('../LearnerCourseShareButton', () => ({
+  __esModule: true,
+  default: ({ surface }: { surface: string }) => (
+    <button
+      type='button'
+      data-testid='course-share-button'
+      data-surface={surface}
+    />
+  ),
 }));
 
 const createChatRef = () =>
@@ -224,6 +236,62 @@ describe('ListenModeSlideRenderer', () => {
     });
     expect(slideProps?.fullscreenHeader).not.toHaveProperty('backAriaLabel');
     expect(slideProps).not.toHaveProperty('playerTexts');
+  });
+
+  it.each(['listen', 'classroom'] as const)(
+    'keeps the course summary left and share action right in the mobile fullscreen %s header',
+    variant => {
+      render(
+        <ListenModeSlideRenderer
+          items={[]}
+          mobileStyle
+          chatRef={createChatRef()}
+          courseName='Course one'
+          sectionTitle='Lesson one'
+          variant={variant}
+        />,
+      );
+
+      const slideProps = getMockSlide().mock.calls[0]?.[0] as
+        | { fullscreenHeader?: { content?: React.ReactNode } }
+        | undefined;
+      render(<>{slideProps?.fullscreenHeader?.content}</>);
+
+      const share = screen.getByTestId('course-share-button');
+      const headerRow = share.parentElement;
+
+      expect(screen.getByText('Course one')).toBeInTheDocument();
+      expect(screen.getByText('Lesson one')).toBeInTheDocument();
+      expect(share).toHaveAttribute(
+        'data-surface',
+        'learner_mobile_fullscreen',
+      );
+      expect(headerRow?.lastElementChild).toBe(share);
+      expect(headerRow?.firstElementChild).toContainElement(
+        screen.getByText('Course one'),
+      );
+    },
+  );
+
+  it('hides the mobile fullscreen share action in preview mode', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle
+        chatRef={createChatRef()}
+        courseName='Course preview'
+        sectionTitle='Lesson preview'
+        previewMode
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { fullscreenHeader?: { content?: React.ReactNode } }
+      | undefined;
+    render(<>{slideProps?.fullscreenHeader?.content}</>);
+
+    expect(screen.getByText('Course preview')).toBeInTheDocument();
+    expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
   });
 
   it('passes finalized stream segments to slide with the complete url', () => {
