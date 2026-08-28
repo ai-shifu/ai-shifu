@@ -156,8 +156,13 @@
   }
 
   .systemName {
-    position: relative;
+    min-width: 0;
     cursor: default;
+
+    &:hover,
+    &:focus-visible {
+      overflow: visible;
+    }
 
     &:hover .friendlyName,
     &:focus-visible .friendlyName {
@@ -184,11 +189,24 @@
 
   .rawName {
     position: absolute;
-    inset: 7px 12px;
-    width: auto;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
     opacity: 0;
+    border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
+    border-radius: var(--border-radius-rounded-md, 8px);
+    background: #fff;
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
     direction: ltr;
     unicode-bidi: isolate;
+    font-size: 11px;
     font-family:
       ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
       'Courier New', monospace;

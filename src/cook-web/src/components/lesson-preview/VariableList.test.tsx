@@ -96,7 +96,10 @@ describe('VariableList system variable labels', () => {
     expect(onChange).toHaveBeenCalledWith('sys_user_nickname', 'Alex');
   });
 
-  test('keeps the raw layer out of layout and crossfades it on hover or focus', () => {
+  test('crossfades a full-row raw layer without changing layout', () => {
+    expect(variableListStylesheet).toMatch(
+      /\.systemName\s*{\s*min-width:\s*0;[\s\S]*?&:hover,\s*&:focus-visible\s*{\s*overflow:\s*visible;/,
+    );
     expect(variableListStylesheet).toMatch(
       /&:hover \.friendlyName,\s*&:focus-visible \.friendlyName\s*{\s*opacity:\s*0;/,
     );
@@ -104,7 +107,7 @@ describe('VariableList system variable labels', () => {
       /&:hover \.rawName,\s*&:focus-visible \.rawName\s*{\s*opacity:\s*1;/,
     );
     expect(variableListStylesheet).toMatch(
-      /\.rawName\s*{[\s\S]*?position:\s*absolute;[\s\S]*?opacity:\s*0;/,
+      /\.rawName\s*{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?font-size:\s*11px;/,
     );
   });
 
