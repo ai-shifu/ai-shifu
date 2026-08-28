@@ -20,46 +20,32 @@ copy_local_env() {
   fi
 }
 
+reuse_directory_if_compatible() {
+  source_directory="$1"
+  target_directory="$2"
+  source_manifest="$3"
+  target_manifest="$4"
+  if [ -d "$source_directory" ] && [ ! -e "$target_directory" ] && \
+    cmp -s "$source_manifest" "$target_manifest"; then
+    ln -s "$source_directory" "$target_directory"
+  fi
+}
+
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
   copy_local_env "$source_tree/src/cook-web/.env" "$worktree_path/src/cook-web/.env"
+  reuse_directory_if_compatible \
+    "$source_tree/.venv" \
+    "$worktree_path/.venv" \
+    "$source_tree/src/api/requirements.txt" \
+    "$worktree_path/src/api/requirements.txt"
+  reuse_directory_if_compatible \
+    "$source_tree/src/cook-web/node_modules" \
+    "$worktree_path/src/cook-web/node_modules" \
+    "$source_tree/src/cook-web/package-lock.json" \
+    "$worktree_path/src/cook-web/package-lock.json"
 fi
-
-cd "$worktree_path"
-
-if command -v uv >/dev/null 2>&1; then
-  if [ ! -x .venv/bin/python ]; then
-    uv venv --python 3.11 .venv
-  fi
-  uv pip install --python .venv/bin/python -r src/api/requirements.txt
-  uv pip install --python .venv/bin/python \
-    ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
-else
-  python_bin="$(command -v python3.11 || true)"
-  if [ -z "$python_bin" ]; then
-    echo "Python 3.11 or uv is required to set up AI-Shifu." >&2
-    exit 1
-  fi
-  if [ ! -x .venv/bin/python ]; then
-    "$python_bin" -m venv .venv
-  fi
-  .venv/bin/python -m pip install --upgrade pip setuptools wheel
-  .venv/bin/python -m pip install -r src/api/requirements.txt
-  .venv/bin/python -m pip install \
-    ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
-fi
-
-(cd src/cook-web && npm ci)
-
-if ! command -v lefthook >/dev/null 2>&1; then
-  echo "lefthook is required. On macOS, install it with: brew install lefthook" >&2
-  exit 1
-fi
-
-lefthook install
-PATH="$worktree_path/.venv/bin:$PATH" \
-  "$worktree_path/.venv/bin/python" scripts/check_dev_tools.py --strict
 '''
 
 [setup.linux]
@@ -77,46 +63,32 @@ copy_local_env() {
   fi
 }
 
+reuse_directory_if_compatible() {
+  source_directory="$1"
+  target_directory="$2"
+  source_manifest="$3"
+  target_manifest="$4"
+  if [ -d "$source_directory" ] && [ ! -e "$target_directory" ] && \
+    cmp -s "$source_manifest" "$target_manifest"; then
+    ln -s "$source_directory" "$target_directory"
+  fi
+}
+
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
   copy_local_env "$source_tree/src/cook-web/.env" "$worktree_path/src/cook-web/.env"
+  reuse_directory_if_compatible \
+    "$source_tree/.venv" \
+    "$worktree_path/.venv" \
+    "$source_tree/src/api/requirements.txt" \
+    "$worktree_path/src/api/requirements.txt"
+  reuse_directory_if_compatible \
+    "$source_tree/src/cook-web/node_modules" \
+    "$worktree_path/src/cook-web/node_modules" \
+    "$source_tree/src/cook-web/package-lock.json" \
+    "$worktree_path/src/cook-web/package-lock.json"
 fi
-
-cd "$worktree_path"
-
-if command -v uv >/dev/null 2>&1; then
-  if [ ! -x .venv/bin/python ]; then
-    uv venv --python 3.11 .venv
-  fi
-  uv pip install --python .venv/bin/python -r src/api/requirements.txt
-  uv pip install --python .venv/bin/python \
-    ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
-else
-  python_bin="$(command -v python3.11 || true)"
-  if [ -z "$python_bin" ]; then
-    echo "Python 3.11 or uv is required to set up AI-Shifu." >&2
-    exit 1
-  fi
-  if [ ! -x .venv/bin/python ]; then
-    "$python_bin" -m venv .venv
-  fi
-  .venv/bin/python -m pip install --upgrade pip setuptools wheel
-  .venv/bin/python -m pip install -r src/api/requirements.txt
-  .venv/bin/python -m pip install \
-    ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
-fi
-
-(cd src/cook-web && npm ci)
-
-if ! command -v lefthook >/dev/null 2>&1; then
-  echo "lefthook is required. Install it before creating the worktree." >&2
-  exit 1
-fi
-
-lefthook install
-PATH="$worktree_path/.venv/bin:$PATH" \
-  "$worktree_path/.venv/bin/python" scripts/check_dev_tools.py --strict
 '''
 
 [[actions]]
