@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -26,8 +25,6 @@ _PREFERRED_ADDRESS_OPEN = "<preferred_address>"
 _PREFERRED_ADDRESS_CLOSE = "</preferred_address>"
 _LEARNER_BACKGROUND_OPEN = "<learner_background>"
 _LEARNER_BACKGROUND_CLOSE = "</learner_background>"
-_SERIALIZED_PROFILE_OPEN = '<learner_profile format="json-string">'
-_SERIALIZED_PROFILE_CLOSE = "</learner_profile>"
 _NICKNAME_VARIABLE = "sys_user_nickname"
 _BACKGROUND_VARIABLE = "sys_user_background"
 _NICKNAME_VARIABLE_REFERENCE = f"{{{{{_NICKNAME_VARIABLE}}}}}"
@@ -37,18 +34,6 @@ _BACKGROUND_VARIABLE_REFERENCE = f"{{{{{_BACKGROUND_VARIABLE}}}}}"
 @lru_cache(maxsize=1)
 def _composition_contract() -> str:
     return load_prompt_template("learner_profile_context").strip()
-
-
-def _encode_profile_as_json_string(learner_profile: str) -> str:
-    """Encode data from the previous serialized envelope for validation."""
-    encoded = json.dumps(learner_profile, ensure_ascii=False)
-    return (
-        encoded.replace("<", r"\u003c")
-        .replace(">", r"\u003e")
-        .replace("&", r"\u0026")
-        .replace("{", r"\u007b")
-        .replace("}", r"\u007d")
-    )
 
 
 def _has_preferred_address(
@@ -107,8 +92,10 @@ def _split_envelope(prompt: str) -> tuple[str, str] | None:
     return contract, content
 
 
-def _parse_variable_composed_course_prompt(prompt: str) -> str | None:
-    split_envelope = _split_envelope(prompt)
+def _parse_composed_course_prompt(prompt: str | None) -> str | None:
+    """Recover the raw Course Prompt from the current variable envelope."""
+    normalized_prompt = str(prompt or "").strip()
+    split_envelope = _split_envelope(normalized_prompt)
     if split_envelope is None:
         return None
     _, course_and_context = split_envelope
@@ -132,39 +119,6 @@ def _parse_variable_composed_course_prompt(prompt: str) -> str | None:
     if learner_context not in allowed_contexts:
         return None
     return course_prompt
-
-
-def _parse_serialized_composed_course_prompt(prompt: str) -> str | None:
-    split_envelope = _split_envelope(prompt)
-    if split_envelope is None:
-        return None
-    _, course_and_profile = split_envelope
-    course_separator = f"\n{_COURSE_PROMPT_CLOSE}\n\n{_SERIALIZED_PROFILE_OPEN}\n"
-    course_prompt, separator, trailing_content = course_and_profile.rpartition(
-        course_separator
-    )
-    if not separator or not course_prompt.strip():
-        return None
-    if not trailing_content.endswith(f"\n{_SERIALIZED_PROFILE_CLOSE}"):
-        return None
-    profile_payload = trailing_content.removesuffix(f"\n{_SERIALIZED_PROFILE_CLOSE}")
-    try:
-        decoded_profile = json.loads(profile_payload)
-    except (TypeError, ValueError):
-        return None
-    if not isinstance(decoded_profile, str) or not decoded_profile.strip():
-        return None
-    if profile_payload != _encode_profile_as_json_string(decoded_profile):
-        return None
-    return course_prompt
-
-
-def _parse_composed_course_prompt(prompt: str | None) -> str | None:
-    """Recover the raw Course Prompt from either complete envelope shape."""
-    normalized_prompt = str(prompt or "").strip()
-    return _parse_variable_composed_course_prompt(
-        normalized_prompt
-    ) or _parse_serialized_composed_course_prompt(normalized_prompt)
 
 
 def build_course_prompt(

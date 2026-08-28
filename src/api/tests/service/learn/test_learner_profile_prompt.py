@@ -139,36 +139,6 @@ def test_course_prompt_keeps_literal_composer_text_in_course_source() -> None:
     assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 2
 
 
-def test_course_prompt_recomposes_previous_serialized_envelope() -> None:
-    previous_prompt = (
-        "<composition_contract>\n"
-        f"{LEARNER_PROFILE_PROMPT_MARKER}\n"
-        "Previous contract.\n"
-        "</composition_contract>\n\n"
-        "<course_prompt>\nCOURSE RULE\n</course_prompt>\n\n"
-        '<learner_profile format="json-string">\n'
-        '"PREVIOUS PROFILE"\n'
-        "</learner_profile>"
-    )
-
-    prompt = build_course_prompt(
-        previous_prompt,
-        variables={
-            "sys_user_nickname": "Current learner",
-            "sys_user_background": "Current background",
-        },
-    )
-
-    assert prompt is not None
-    assert "Previous contract." not in prompt
-    assert "PREVIOUS PROFILE" not in prompt
-    assert "Current learner" not in prompt
-    assert "Current background" not in prompt
-    assert "<course_prompt>\nCOURSE RULE\n</course_prompt>" in prompt
-    assert prompt.count("{{sys_user_nickname}}") == 1
-    assert prompt.count("{{sys_user_background}}") == 1
-
-
 def test_identity_is_not_injected_without_course_prompt() -> None:
     variables = {
         "sys_user_nickname": "Alex",
