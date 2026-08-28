@@ -27,7 +27,11 @@ import {
   formatBillingCredits,
   formatBillingPercent,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
+  hasBillingProductDiscountCampaign,
   openBillingCheckoutUrl,
+  resolveBillingProductPayableAmount,
 } from '@/lib/billing';
 import { cn } from '@/lib/utils';
 import type {
@@ -191,6 +195,35 @@ function getLearnerSessionEstimate(creditAmount: number) {
   };
 }
 
+function resolveGlobalCampaignLabel(
+  product: GlobalBillingProduct,
+  t: ReturnType<typeof useTranslation>['t'],
+  locale: string,
+): string | undefined {
+  if (hasBillingProductDiscountCampaign(product)) {
+    return t('module.billing.package.campaign.discountBadge');
+  }
+  if (hasBillingProductBonusCampaign(product)) {
+    return t('module.billing.package.campaign.bonusBadge', {
+      credits: formatBillingCredits(
+        getBillingProductCampaignBonusCredits(product),
+        locale,
+      ),
+    });
+  }
+  return undefined;
+}
+
+function resolveAnnualMonthlyDisplayAmount(
+  annualProduct: BillingPlan | undefined,
+  fallbackMonthlyEquivalent: number,
+): number {
+  if (!annualProduct || !hasBillingProductDiscountCampaign(annualProduct)) {
+    return fallbackMonthlyEquivalent;
+  }
+  return Math.round(resolveBillingProductPayableAmount(annualProduct) / 12);
+}
+
 function useGlobalBillingTranslation() {
   const { t, i18n } = useTranslation();
 
@@ -273,7 +306,7 @@ export function GlobalBillingPricing() {
         {},
         BILLING_PASSIVE_REQUEST_CONFIG,
       )) as BillingCatalogResponse,
-    { revalidateOnFocus: false },
+    { revalidateOnFocus: true },
   );
   const { data: overview } = useBillingOverview();
   const hasResolvedOverview = overview !== undefined;
@@ -546,6 +579,11 @@ export function GlobalBillingPricing() {
                         }
                         creditsLabel={packName}
                         disabled={Boolean(checkoutLoadingKey)}
+                        campaignLabel={resolveGlobalCampaignLabel(
+                          product,
+                          t,
+                          locale,
+                        )}
                         onAction={() =>
                           handlePaymentClick({
                             product,
@@ -554,8 +592,17 @@ export function GlobalBillingPricing() {
                             sourceTab: 'credit_packs',
                           })
                         }
+                        originalPriceLabel={
+                          hasBillingProductDiscountCampaign(product)
+                            ? formatBillingPrice(
+                                product.price_amount,
+                                product.currency,
+                                locale,
+                              )
+                            : undefined
+                        }
                         priceLabel={formatBillingPrice(
-                          product.price_amount,
+                          resolveBillingProductPayableAmount(product),
                           product.currency,
                           locale,
                         )}
@@ -721,7 +768,15 @@ function PlanCard({
   const planName = t(
     `module.billing.globalPricing.plans.${tierSpec.tier}.name`,
   );
+  const hasDiscountCampaign = hasBillingProductDiscountCampaign(product);
   const priceAmount =
+    cycle === 'annual' && tierSpec.annualMonthlyEquivalent
+      ? resolveAnnualMonthlyDisplayAmount(
+          annualProduct || undefined,
+          tierSpec.annualMonthlyEquivalent,
+        )
+      : resolveBillingProductPayableAmount(product);
+  const originalPriceAmount =
     cycle === 'annual' && tierSpec.annualMonthlyEquivalent
       ? tierSpec.annualMonthlyEquivalent
       : product.price_amount;
@@ -781,6 +836,15 @@ function PlanCard({
           className={pricingDetailsClassName}
           data-testid={`global-plan-${tierSpec.tier}-price`}
         >
+          {hasDiscountCampaign ? (
+            <div className='mb-1 text-sm text-muted-foreground line-through'>
+              {formatBillingPrice(
+                originalPriceAmount,
+                product.currency,
+                locale,
+              )}
+            </div>
+          ) : null}
           <div className='flex items-end gap-1 text-foreground'>
             {cycle === 'annual' && annualProduct ? (
               <span className='pb-1 text-xs text-muted-foreground 2xl:text-sm'>
@@ -799,12 +863,17 @@ function PlanCard({
               <p className='text-sm text-muted-foreground'>
                 {t('module.billing.globalPricing.billedAnnually', {
                   price: formatBillingPrice(
-                    annualProduct.price_amount,
+                    resolveBillingProductPayableAmount(annualProduct),
                     annualProduct.currency,
                     locale,
                   ),
                 })}
               </p>
+              {hasDiscountCampaign ? (
+                <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
+                  {resolveGlobalCampaignLabel(product, t, locale)}
+                </Badge>
+              ) : null}
               <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
                 {t('module.billing.globalPricing.annualSavings', {
                   amount: formatBillingPrice(
@@ -817,9 +886,16 @@ function PlanCard({
               </Badge>
             </div>
           ) : (
-            <p className='mt-2 text-sm text-muted-foreground'>
-              {t('module.billing.globalPricing.cancelAnytime')}
-            </p>
+            <div className='mt-2 space-y-2'>
+              <p className='text-sm text-muted-foreground'>
+                {t('module.billing.globalPricing.cancelAnytime')}
+              </p>
+              {hasDiscountCampaign ? (
+                <Badge className='whitespace-nowrap border-0 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 2xl:text-xs'>
+                  {resolveGlobalCampaignLabel(product, t, locale)}
+                </Badge>
+              ) : null}
+            </div>
           )}
         </div>
 

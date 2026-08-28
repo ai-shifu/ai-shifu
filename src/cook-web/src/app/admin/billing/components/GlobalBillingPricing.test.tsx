@@ -5,6 +5,7 @@ import { SWRConfig } from 'swr';
 import api from '@/api';
 import { openBillingCheckoutUrl } from '@/lib/billing';
 import type {
+  BillingCatalogCampaign,
   BillingPlan,
   BillingSubscription,
   BillingTopupProduct,
@@ -181,6 +182,7 @@ jest.mock('react-i18next', () => ({
         'module.billing.package.actions.monthlySwitchDisabled':
           'Monthly billing unavailable',
         'module.billing.package.actions.upgradeNow': 'Upgrade now',
+        'module.billing.package.campaign.discountBadge': 'Discounted price',
       };
       if (key === 'module.billing.globalPricing.billedAnnually') {
         return `Billed ${options?.price} every 12 months.`;
@@ -224,6 +226,7 @@ function plan(
   billingInterval: 'month' | 'year',
   priceAmount: number,
   creditAmount: number,
+  campaign?: BillingCatalogCampaign | null,
 ): BillingPlan {
   return {
     product_bid: `bid-${productCode}`,
@@ -237,6 +240,7 @@ function plan(
     price_amount: priceAmount,
     credit_amount: creditAmount,
     auto_renew_enabled: true,
+    campaign,
   };
 }
 
@@ -244,6 +248,7 @@ function creditPack(
   productCode: string,
   priceAmount: number,
   creditAmount: number,
+  campaign?: BillingCatalogCampaign | null,
 ): BillingTopupProduct {
   return {
     product_bid: `bid-${productCode}`,
@@ -254,6 +259,19 @@ function creditPack(
     currency: 'USD',
     price_amount: priceAmount,
     credit_amount: creditAmount,
+    campaign,
+  };
+}
+
+function discountCampaign(campaignPriceAmount: number): BillingCatalogCampaign {
+  return {
+    campaign_bid: `campaign-${campaignPriceAmount}`,
+    benefit_type: 'discount',
+    discount_type: 'fixed',
+    discount_amount: 1000,
+    discount_percent: 0,
+    campaign_price_amount: campaignPriceAmount,
+    bonus_credit_amount: 0,
   };
 }
 
@@ -474,6 +492,25 @@ describe('GlobalBillingPricing', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('shows discount campaign prices on global plan cards', async () => {
+    const catalog = buildGlobalCatalog();
+    catalog.plans[0] = plan(
+      GLOBAL_BILLING_PRODUCT_CODES.studioMonthly,
+      'month',
+      5900,
+      1000,
+      discountCampaign(4900),
+    );
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+
+    renderPricing();
+
+    const studio = await screen.findByTestId('global-plan-studio');
+    expect(within(studio).getByText('$59')).toHaveClass('line-through');
+    expect(within(studio).getByText('$49')).toBeInTheDocument();
+    expect(within(studio).getByText('Discounted price')).toBeInTheDocument();
+  });
+
   test('switches Studio to monthly without tracking a payment click', async () => {
     const user = userEvent.setup();
     renderPricing();
@@ -606,6 +643,30 @@ describe('GlobalBillingPricing', () => {
     expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
       'https://checkout.stripe.test/topup',
     );
+  });
+
+  test('shows discount campaign prices on global credit packs', async () => {
+    const user = userEvent.setup();
+    const catalog = buildGlobalCatalog();
+    catalog.topups[0] = creditPack(
+      GLOBAL_BILLING_PRODUCT_CODES.credits250,
+      2900,
+      250,
+      discountCampaign(1900),
+    );
+    mockGetBillingCatalog.mockResolvedValue(catalog);
+
+    renderPricing();
+
+    await screen.findByTestId('global-plan-studio');
+    await act(async () => {
+      await user.click(screen.getByRole('tab', { name: 'Credit Packs' }));
+    });
+
+    const smallPack = screen.getByTestId('global-credit-pack-250');
+    expect(within(smallPack).getByText('$29')).toBeInTheDocument();
+    expect(within(smallPack).getByText('$19')).toBeInTheDocument();
+    expect(within(smallPack).getByText('Discounted price')).toBeInTheDocument();
   });
 
   test('shows an immediate Stripe transition state while checkout is being created', async () => {
