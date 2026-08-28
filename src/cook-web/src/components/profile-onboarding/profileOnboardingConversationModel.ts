@@ -33,10 +33,49 @@ export type ProfileOnboardingAssistantAnswers = (params: {
 export type ProfileOnboardingConversationItem = {
   content: string;
   elementBid: string;
+  elementType: string;
   interaction: boolean;
   userInput?: string;
   finished: boolean;
 };
+
+export type ProfileOnboardingTypewriterCache = Record<
+  string,
+  { content: string; isFinished: boolean; isSuppressed: boolean }
+>;
+
+export const isProfileOnboardingTypewriterCandidate = (
+  item: ProfileOnboardingConversationItem,
+) => item.elementType === 'text';
+
+export const syncProfileOnboardingTypewriterCache = (
+  items: ProfileOnboardingConversationItem[],
+  previousCache: ProfileOnboardingTypewriterCache,
+  suppressTypewriter: boolean,
+): ProfileOnboardingTypewriterCache => {
+  const nextCache: ProfileOnboardingTypewriterCache = {};
+  for (const item of items) {
+    if (!isProfileOnboardingTypewriterCandidate(item)) continue;
+    const previousEntry = previousCache[item.elementBid];
+    nextCache[item.elementBid] = {
+      content: item.content,
+      isFinished:
+        suppressTypewriter ||
+        previousEntry?.isSuppressed === true ||
+        (previousEntry?.isFinished === true &&
+          previousEntry.content === item.content),
+      isSuppressed: previousEntry?.isSuppressed || suppressTypewriter,
+    };
+  }
+  return nextCache;
+};
+
+export const shouldEnableProfileOnboardingTypewriter = (
+  item: ProfileOnboardingConversationItem,
+  cacheEntry?: { content: string; isSuppressed: boolean },
+) =>
+  isProfileOnboardingTypewriterCandidate(item) &&
+  cacheEntry?.isSuppressed !== true;
 
 export type ProfileOnboardingConversationStatus =
   | 'creating'
@@ -383,6 +422,7 @@ export const resolveProfileOnboardingElement = (
         event.generated_block_bid ||
         nextFallbackElementBid(),
       interaction: elementType === 'interaction',
+      elementType,
       userInput:
         typeof payload.user_input === 'string' ? payload.user_input : undefined,
       finished: elementType !== 'interaction',
@@ -393,11 +433,19 @@ export const resolveProfileOnboardingElement = (
     typeof event.content === 'string' &&
     event.content
   ) {
+    const elementType =
+      typeof event.element_type === 'string' && event.element_type
+        ? event.element_type
+        : type === 'interaction'
+          ? 'interaction'
+          : 'text';
+    const interaction = elementType === 'interaction';
     return {
       content: event.content,
       elementBid: event.generated_block_bid || nextFallbackElementBid(),
-      interaction: type === 'interaction',
-      finished: type !== 'interaction',
+      interaction,
+      elementType,
+      finished: !interaction,
     };
   }
   return null;
@@ -411,7 +459,16 @@ export const upsertConversationItem = (
   if (index < 0) {
     return [...items, item];
   }
+  const existing = items[index];
+  const merged = { ...existing, ...item };
+  if (existing.interaction && existing.finished && item.interaction) {
+    return [
+      ...items.slice(0, index),
+      ...items.slice(index + 1),
+      { ...merged, userInput: item.userInput },
+    ];
+  }
   const next = [...items];
-  next[index] = { ...next[index], ...item };
+  next[index] = merged;
   return next;
 };

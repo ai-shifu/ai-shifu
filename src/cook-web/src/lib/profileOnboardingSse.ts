@@ -10,6 +10,7 @@ import { buildTraceHeaders } from '@/lib/request-trace';
 export type ProfileOnboardingStreamEvent = {
   type?: string;
   event_type?: string;
+  element_type?: string;
   content?: unknown;
   is_terminal?: boolean;
   generated_block_bid?: string | null;

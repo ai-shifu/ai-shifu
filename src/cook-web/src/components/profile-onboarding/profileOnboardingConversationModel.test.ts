@@ -1,12 +1,17 @@
 import {
   initialProfileOnboardingConversationState,
+  isProfileOnboardingTypewriterCandidate,
   profileOnboardingConversationReducer,
+  resolveProfileOnboardingElement,
+  syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
+  upsertConversationItem,
 } from './profileOnboardingConversationModel';
 
 const interaction: ProfileOnboardingConversationItem = {
   content: '?[%{{goal}}...Goal?]',
   elementBid: 'question-1',
+  elementType: 'interaction',
   interaction: true,
   finished: false,
 };
@@ -89,5 +94,80 @@ describe('profileOnboardingConversationReducer', () => {
         { type: 'accept_submission', userInput: 'late' },
       ),
     ).toBe(initialProfileOnboardingConversationState);
+  });
+});
+
+describe('syncProfileOnboardingTypewriterCache', () => {
+  it('keeps suppressed text finished when its content changes on restore', () => {
+    const textItem: ProfileOnboardingConversationItem = {
+      content: 'Longer guidance',
+      elementBid: 'text-1',
+      elementType: 'text',
+      interaction: false,
+      finished: true,
+    };
+
+    expect(
+      syncProfileOnboardingTypewriterCache(
+        [textItem],
+        {
+          'text-1': {
+            content: 'Guidance',
+            isFinished: true,
+            isSuppressed: true,
+          },
+        },
+        false,
+      )['text-1'],
+    ).toMatchObject({ isFinished: true, isSuppressed: true });
+  });
+});
+
+describe('resolveProfileOnboardingElement', () => {
+  it('preserves HTML element types from legacy content events', () => {
+    const element = resolveProfileOnboardingElement({
+      type: 'content',
+      element_type: 'html',
+      generated_block_bid: 'html-1',
+      content: '<div>Visual card</div>',
+    });
+
+    expect(element).toMatchObject({
+      content: '<div>Visual card</div>',
+      elementBid: 'html-1',
+      elementType: 'html',
+      interaction: false,
+    });
+    expect(element && isProfileOnboardingTypewriterCandidate(element)).toBe(
+      false,
+    );
+  });
+});
+
+describe('upsertConversationItem', () => {
+  it('moves a rejected interaction behind its new validation feedback', () => {
+    const answeredInteraction = {
+      ...interaction,
+      finished: true,
+      userInput: 'invalid answer',
+    };
+    const validationFeedback: ProfileOnboardingConversationItem = {
+      content: 'Please choose one of the available options.',
+      elementBid: 'question-1:feedback',
+      elementType: 'text',
+      interaction: false,
+      finished: true,
+    };
+
+    const items = upsertConversationItem(
+      [answeredInteraction, validationFeedback],
+      interaction,
+    );
+
+    expect(items.map(item => item.elementBid)).toEqual([
+      'question-1:feedback',
+      'question-1',
+    ]);
+    expect(items[1].userInput).toBeUndefined();
   });
 });
