@@ -22,6 +22,7 @@ from flaskr.util.uuid import generate_id
 from sqlalchemy import func
 
 from .campaign_provider_discounts import (
+    assert_current_stripe_campaign_provider_discounts_ready,
     has_open_campaign_provider_coupons,
     summarize_campaign_provider_discounts,
 )
@@ -420,9 +421,10 @@ def update_admin_billing_campaign(
         if draft["enabled"] and _should_require_provider_discount_sync_for_benefit(
             draft["benefit_type_code"]
         ):
-            _assert_campaign_provider_discounts_ready(
-                normalized_campaign_bid,
-                expected_product_count=len(product_configs),
+            assert_current_stripe_campaign_provider_discounts_ready(
+                app,
+                campaign_bid=normalized_campaign_bid,
+                product_bids=[config.product_bid for config in product_configs],
             )
 
         _validate_campaign_overlap(
@@ -478,9 +480,10 @@ def update_admin_billing_campaign_status(
         if enabled and _should_require_provider_discount_sync_for_benefit(
             int(row.benefit_type or 0)
         ):
-            _assert_campaign_provider_discounts_ready(
-                normalized_campaign_bid,
-                expected_product_count=len(product_bids),
+            assert_current_stripe_campaign_provider_discounts_ready(
+                app,
+                campaign_bid=normalized_campaign_bid,
+                product_bids=product_bids,
             )
         if not enabled and has_open_campaign_provider_coupons(normalized_campaign_bid):
             raise_error("server.billing.campaignProviderDiscountLocked")
@@ -507,30 +510,6 @@ def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> boo
         item.strip().lower() for item in enabled_raw.split(",") if item.strip()
     }
     return enabled_channels == {"stripe"}
-
-
-def _assert_campaign_provider_discounts_ready(
-    campaign_bid: str,
-    *,
-    expected_product_count: int,
-) -> None:
-    summary = summarize_campaign_provider_discounts([campaign_bid]).get(
-        campaign_bid,
-        {},
-    )
-    total = int(summary.get("total") or 0)
-    active = int(summary.get("active") or 0)
-    has_attention = any(
-        int(summary.get(key) or 0) > 0
-        for key in (
-            "failed",
-            "provider_invalid",
-            "cleanup_required",
-            "requires_republish",
-        )
-    )
-    if total < expected_product_count or active < total or has_attention:
-        raise_error("server.billing.campaignProviderDiscountSyncRequired")
 
 
 def resolve_catalog_campaign_payload(

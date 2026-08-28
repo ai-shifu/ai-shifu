@@ -8,6 +8,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -177,6 +179,64 @@ def summarize_campaign_provider_discounts(
             summary["latest_failure_code"] = row.failure_code
             summary["latest_failure_message"] = row.failure_message
     return payload
+
+
+def assert_current_stripe_campaign_provider_discounts_ready(
+    app: Flask,
+    *,
+    campaign_bid: str,
+    product_bids: list[str],
+) -> None:
+    """Require active Stripe coupons for every campaign product in current scope."""
+    normalized_campaign_bid = normalize_bid(campaign_bid)
+    normalized_product_bids = sorted(
+        {
+            normalize_bid(product_bid)
+            for product_bid in product_bids
+            if normalize_bid(product_bid)
+        }
+    )
+    if not normalized_campaign_bid or not normalized_product_bids:
+        raise_error("server.billing.campaignProviderDiscountSyncRequired")
+
+    try:
+        scope = resolve_current_stripe_provider_price_scope(app)
+    except Exception:
+        raise_error("server.billing.campaignProviderDiscountSyncRequired")
+    mapping_bids_by_product: dict[str, str] = {}
+    for product_bid in normalized_product_bids:
+        try:
+            mapping = _require_active_provider_price_mapping(
+                product_bid=product_bid,
+                provider_account_id=scope.provider_account_id,
+                livemode=scope.livemode,
+            )
+        except ProviderPriceMappingError:
+            raise_error("server.billing.campaignProviderDiscountSyncRequired")
+        mapping_bids_by_product[product_bid] = str(mapping.provider_price_bid or "")
+
+    active_rows = BillingCampaignProviderDiscount.query.filter(
+        BillingCampaignProviderDiscount.deleted == 0,
+        BillingCampaignProviderDiscount.campaign_bid == normalized_campaign_bid,
+        BillingCampaignProviderDiscount.product_bid.in_(normalized_product_bids),
+        BillingCampaignProviderDiscount.product_provider_price_bid.in_(
+            mapping_bids_by_product.values()
+        ),
+        BillingCampaignProviderDiscount.provider == PROVIDER_STRIPE,
+        BillingCampaignProviderDiscount.provider_account_id
+        == scope.provider_account_id,
+        BillingCampaignProviderDiscount.livemode == int(bool(scope.livemode)),
+        BillingCampaignProviderDiscount.status
+        == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+        BillingCampaignProviderDiscount.provider_coupon_id != "",
+    ).all()
+    covered_pairs = {
+        (str(row.product_bid or ""), str(row.product_provider_price_bid or ""))
+        for row in active_rows
+    }
+    expected_pairs = set(mapping_bids_by_product.items())
+    if covered_pairs != expected_pairs:
+        raise_error("server.billing.campaignProviderDiscountSyncRequired")
 
 
 def has_open_campaign_provider_coupons(campaign_bid: str) -> bool:
@@ -589,24 +649,36 @@ def _retire_provider_discount(
                 )
             except Exception as exc:
                 if _is_provider_coupon_missing_error(exc):
-                    row.metadata_json = {
-                        **normalize_json_object(
-                            row.metadata_json or {}
-                        ).to_metadata_json(),
-                        "provider_retire_idempotent_missing": {
-                            "provider_coupon_id": row.provider_coupon_id,
-                            "checked_at": to_utc_iso(now),
-                        },
-                    }
+                    if _is_current_runtime_scope_matching_discount(app, row):
+                        row.metadata_json = {
+                            **normalize_json_object(
+                                row.metadata_json or {}
+                            ).to_metadata_json(),
+                            "provider_retire_idempotent_missing": {
+                                "provider_coupon_id": row.provider_coupon_id,
+                                "checked_at": to_utc_iso(now),
+                            },
+                        }
+                    else:
+                        _mark_provider_discount_cleanup_required(
+                            row,
+                            operator_user_bid=operator_user_bid,
+                            failure_code="provider_retire_scope_mismatch",
+                            failure_message=(
+                                "Cannot confirm missing Stripe coupon in the "
+                                "stored provider account scope"
+                            ),
+                            updated_at=now,
+                        )
+                        return
                 else:
-                    row.status = (
-                        BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED
+                    _mark_provider_discount_cleanup_required(
+                        row,
+                        operator_user_bid=operator_user_bid,
+                        failure_code="provider_retire_failed",
+                        failure_message=_sanitize_error_message(exc),
+                        updated_at=now,
                     )
-                    row.failure_code = "provider_retire_failed"
-                    row.failure_message = _sanitize_error_message(exc)
-                    row.updated_user_bid = operator_user_bid
-                    row.updated_at = now
-                    db.session.add(row)
                     return
         row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
         row.retired_at = now
@@ -615,6 +687,34 @@ def _retire_provider_discount(
         row.updated_user_bid = operator_user_bid
         row.updated_at = now
         db.session.add(row)
+
+
+def _is_current_runtime_scope_matching_discount(
+    app: Flask, row: BillingCampaignProviderDiscount
+) -> bool:
+    try:
+        scope = resolve_current_stripe_provider_price_scope(app)
+    except Exception:
+        return False
+    return normalize_bid(row.provider_account_id) == normalize_bid(
+        scope.provider_account_id
+    ) and bool(row.livemode) == bool(scope.livemode)
+
+
+def _mark_provider_discount_cleanup_required(
+    row: BillingCampaignProviderDiscount,
+    *,
+    operator_user_bid: str,
+    failure_code: str,
+    failure_message: str,
+    updated_at: datetime,
+) -> None:
+    row.status = BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED
+    row.failure_code = failure_code
+    row.failure_message = failure_message
+    row.updated_user_bid = operator_user_bid
+    row.updated_at = updated_at
+    db.session.add(row)
 
 
 def _is_provider_coupon_missing_error(exc: Exception) -> bool:

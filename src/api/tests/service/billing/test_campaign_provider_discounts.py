@@ -131,15 +131,21 @@ def _product(product_bid: str = "product-growth-month") -> BillingProduct:
     )
 
 
-def _mapping(product_bid: str = "product-growth-month") -> BillingProductProviderPrice:
+def _mapping(
+    product_bid: str = "product-growth-month",
+    *,
+    provider_price_bid: str | None = None,
+    provider_account_id: str = "acct_test",
+    livemode: bool = False,
+) -> BillingProductProviderPrice:
     return BillingProductProviderPrice(
-        provider_price_bid=f"provider-price-{product_bid}",
+        provider_price_bid=provider_price_bid or f"provider-price-{product_bid}",
         product_bid=product_bid,
         provider="stripe",
-        provider_account_id="acct_test",
+        provider_account_id=provider_account_id,
         provider_product_id=f"prod_{product_bid}",
         provider_price_id=f"price_{product_bid}",
-        livemode=0,
+        livemode=int(bool(livemode)),
         currency="USD",
         unit_amount=5900,
         billing_mode=BILLING_MODE_RECURRING,
@@ -234,14 +240,19 @@ def _seed_discount_campaign(
     db.session.commit()
 
 
-def _patch_scope(monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_scope(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    provider_account_id: str = "acct_test",
+    livemode: bool = False,
+) -> None:
     import flaskr.service.billing.campaign_provider_discounts as module
 
     monkeypatch.setattr(
         module,
         "resolve_current_stripe_provider_price_scope",
         lambda _app: ProviderPriceRuntimeScope(
-            provider_account_id="acct_test", livemode=False
+            provider_account_id=provider_account_id, livemode=livemode
         ),
     )
 
@@ -1136,6 +1147,88 @@ def test_retire_treats_missing_provider_coupon_as_idempotent_success(
         ).one()
         assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_RETIRED
         assert row.failure_code == ""
+
+
+def test_update_campaign_status_requires_current_scope_provider_coupon(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    product_bid = "product-growth-current-scope-required"
+    campaign_bid = "campaign-growth-current-scope-required"
+    with app.app_context():
+        _seed_discount_campaign(campaign_bid=campaign_bid, product_bid=product_bid)
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid=campaign_bid,
+        operator_user_bid="operator",
+        provider=provider,
+    )
+    with app.app_context():
+        campaign = BillingCampaign.query.filter_by(campaign_bid=campaign_bid).one()
+        campaign.enabled = 0
+        db.session.add(
+            _mapping(
+                product_bid,
+                provider_price_bid=f"provider-price-{product_bid}-live",
+                provider_account_id="acct_live",
+                livemode=True,
+            )
+        )
+        db.session.add(campaign)
+        db.session.commit()
+    _patch_scope(monkeypatch, provider_account_id="acct_live", livemode=True)
+    _patch_payment_channels(monkeypatch, "stripe")
+
+    with pytest.raises(AppError) as exc_info:
+        update_admin_billing_campaign_status(
+            app,
+            operator_user_bid="operator",
+            campaign_bid=campaign_bid,
+            payload={"enabled": True},
+        )
+
+    assert "Stripe" in str(exc_info.value)
+
+
+def test_retire_missing_coupon_keeps_cleanup_required_when_scope_changed(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _FakeCampaignDiscountProvider()
+    campaign_bid = "campaign-growth-retire-missing-scope-changed"
+    with app.app_context():
+        _seed_discount_campaign(
+            campaign_bid=campaign_bid,
+            product_bid="product-growth-retire-missing-scope-changed-1",
+        )
+    _patch_scope(monkeypatch)
+    publish_admin_campaign_provider_discounts(
+        app,
+        campaign_bid=campaign_bid,
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    _patch_scope(monkeypatch, provider_account_id="acct_live", livemode=True)
+    provider.retire_error = _StripeResourceMissingError("No such coupon")
+    payload = retire_admin_campaign_provider_discounts(
+        app,
+        campaign_bid=campaign_bid,
+        operator_user_bid="operator",
+        provider=provider,
+    )
+
+    assert payload["items"][0]["status"] == "cleanup_required"
+    assert payload["items"][0]["failure_code"] == "provider_retire_scope_mismatch"
+    assert payload["summary"]["cleanup_required"] == 1
+    assert payload["summary"]["open_provider_coupon_count"] == 1
+    with app.app_context():
+        row = BillingCampaignProviderDiscount.query.filter_by(
+            campaign_bid=campaign_bid
+        ).one()
+        assert row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED
 
 
 def test_update_campaign_blocks_rule_changes_after_coupon_publish(
