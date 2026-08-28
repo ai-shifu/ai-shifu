@@ -50,6 +50,7 @@
 | `docs/exec-plans/completed/course-copy-operator.md` | Operator Course Copy | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/global-billing-pricing-page.md` | Global Billing Pricing Page | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-dialog-redesign.md` | Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-foundation.md` | Learner Profile Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
