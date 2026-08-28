@@ -1578,6 +1578,36 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert "FALLBACK RULE" not in prompt
         assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 1
 
+    def test_formal_preview_omits_account_identifier_as_nickname(self) -> None:
+        app = Flask("preview-course-prompt-account-identifier")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            document_prompt="PREVIEW COURSE RULE",
+        )
+
+        with patch(
+            "flaskr.service.learn.context_v2.load_user_aggregate",
+            return_value=types.SimpleNamespace(identify="legacy-account-name"),
+        ):
+            prompt = preview_ctx._resolve_document_prompt(
+                preview_request,
+                outline=None,
+                shifu=None,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                variables={
+                    "sys_user_nickname": "legacy-account-name",
+                    "sys_user_background": "Debug background",
+                },
+            )
+
+        assert prompt is not None
+        assert "<preferred_address>" not in prompt
+        assert "legacy-account-name" not in prompt
+        assert '"Debug background"' in prompt
+
     def test_preview_request_identity_overrides_database_before_rendering(self) -> None:
         class CapturingProvider:
             def __init__(self) -> None:

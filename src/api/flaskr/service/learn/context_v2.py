@@ -121,7 +121,7 @@ from flaskr.service.shifu.shifu_struct_manager import (
 )
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.user.exceptions import UserNotLoginError
-from flaskr.service.user.repository import UserAggregate
+from flaskr.service.user.repository import UserAggregate, load_user_aggregate
 from flaskr.util import generate_id
 from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
@@ -1313,12 +1313,36 @@ class RunScriptPreviewContextV2:
         if not course_prompt:
             return course_prompt
 
+        learner = self._load_learner_for_course_prompt(user_bid)
         variable_prompt = build_course_prompt(
             course_prompt,
             variables=variables,
-            nickname_identifiers=(user_bid,),
+            nickname_identifiers=(
+                user_bid,
+                getattr(learner, "identify", ""),
+            ),
         )
         return render_course_prompt_identity_variables(variable_prompt, variables)
+
+    def _load_learner_for_course_prompt(
+        self,
+        user_bid: str,
+    ) -> UserAggregate | None:
+        try:
+            return load_user_aggregate(user_bid, with_credentials=False)
+        except Exception as exc:  # preview must survive lookup failures
+            cleanup_session_after(
+                exc,
+                source="preview learner identity lookup",
+                session=db.session,
+            )
+            self.app.logger.warning(
+                "learner identity lookup failed for preview course prompt | "
+                "user_bid=%s | error_class=%s",
+                user_bid,
+                type(exc).__name__,
+            )
+            return None
 
     def _resolve_prompt_from_outline_chain(
         self,
