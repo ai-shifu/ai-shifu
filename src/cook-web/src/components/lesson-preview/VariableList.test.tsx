@@ -12,12 +12,16 @@ const variableListStylesheet = readFileSync(
 
 const mockTranslations: Record<string, Record<string, string>> = {
   'zh-CN': {
+    'module.shifu.previewArea.systemVariableLabels.accessibleName':
+      '{label}（{name}）',
     'module.shifu.previewArea.systemVariableLabels.nickname': '学生昵称',
     'module.shifu.previewArea.systemVariableLabels.background': '学生背景偏好',
     'module.shifu.previewArea.systemVariableLabels.input': '最新输入',
     'module.shifu.previewArea.systemVariableLabels.language': '授课语言',
   },
   'en-US': {
+    'module.shifu.previewArea.systemVariableLabels.accessibleName':
+      '{label} ({name})',
     'module.shifu.previewArea.systemVariableLabels.nickname':
       'Student nickname',
     'module.shifu.previewArea.systemVariableLabels.background':
@@ -31,7 +35,13 @@ let mockLanguage = 'zh-CN';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => mockTranslations[mockLanguage]?.[key] ?? key,
+    t: (key: string, values?: Record<string, string>) => {
+      const template = mockTranslations[mockLanguage]?.[key] ?? key;
+      return Object.entries(values ?? {}).reduce(
+        (result, [name, value]) => result.replace(`{${name}}`, value),
+        template,
+      );
+    },
   }),
 }));
 
@@ -74,6 +84,7 @@ describe('VariableList system variable labels', () => {
       expect(friendlyName).toHaveClass(styles.friendlyName);
       expect(rawName).toHaveClass(styles.rawName);
       expect(rawName).toHaveAttribute('dir', 'ltr');
+      expect(nameCell).toHaveAttribute('aria-label', `${label}（${rawKey}）`);
 
       nameCell?.focus();
       expect(nameCell).toHaveFocus();
@@ -151,5 +162,10 @@ describe('VariableList system variable labels', () => {
     expect(screen.getByText('Latest input')).toBeInTheDocument();
     expect(screen.getByText('Teaching language')).toBeInTheDocument();
     expect(screen.queryByText('学生昵称')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Student nickname (sys_user_nickname)',
+      }),
+    ).toBeInTheDocument();
   });
 });

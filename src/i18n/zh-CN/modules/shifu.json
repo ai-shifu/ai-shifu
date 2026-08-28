@@ -36,6 +36,7 @@
     "loading": "正在生成学习模拟...",
     "open": "展开学习模拟",
     "systemVariableLabels": {
+      "accessibleName": "{label}（{name}）",
       "background": "学生背景偏好",
       "input": "最新输入",
       "language": "授课语言",

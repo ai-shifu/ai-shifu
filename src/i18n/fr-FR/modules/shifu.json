@@ -36,6 +36,7 @@
     "loading": "Génération de la simulation d’apprentissage…",
     "open": "Développer la simulation d’apprentissage",
     "systemVariableLabels": {
+      "accessibleName": "{label} ({name})",
       "background": "Profil et préférences de l’élève",
       "input": "Saisie la plus récente",
       "language": "Langue d’enseignement",

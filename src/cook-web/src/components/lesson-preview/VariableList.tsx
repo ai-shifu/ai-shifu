@@ -182,7 +182,10 @@ const VariableList: React.FC<VariableListProps> = ({
                     <button
                       type='button'
                       className={`${styles.name} ${styles.systemName}`}
-                      aria-label={`${displayName} (${name})`}
+                      aria-label={t(
+                        'module.shifu.previewArea.systemVariableLabels.accessibleName',
+                        { label: displayName, name },
+                      )}
                     >
                       <span
                         className={styles.friendlyName}
