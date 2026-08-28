@@ -127,8 +127,8 @@ course-page sanitizer. User-facing strings live in each locale's
 
 ## Concrete Steps
 
-1. Add `src/lib/courseShare.ts` and unit tests for description variants,
-   payloads, cancellation/fallback outcomes, and URL safety.
+1. Add `src/cook-web/src/lib/courseShare.ts` and unit tests for description
+   variants, payloads, cancellation/fallback outcomes, and URL safety.
 2. Add `CourseShareButton` with icon/label display variants, toast handling,
    re-entry protection, and `course_share_click` / `course_share_result` events.
 3. Update `Header.tsx` and focused tests for unpublished, read-only, and
