@@ -196,16 +196,25 @@ const MainInterface = ({
     [billingEnabled, normalizedPaymentChannels, stripeEnabled],
   );
 
-  const menuItems = useMemo(
-    () =>
-      buildAdminMenuItems({
-        t,
-        isOperator,
-        showReferralInvite,
-        showPackageManagement,
-      }),
-    [isOperator, showPackageManagement, showReferralInvite, t],
-  );
+  const activeAdminLanguage = i18n.resolvedLanguage || i18n.language;
+  const menuItems = useMemo(() => {
+    const translateMenuLabel = (key: string) => {
+      void activeAdminLanguage;
+      return t(key);
+    };
+    return buildAdminMenuItems({
+      t: translateMenuLabel,
+      isOperator,
+      showReferralInvite,
+      showPackageManagement,
+    });
+  }, [
+    activeAdminLanguage,
+    isOperator,
+    showPackageManagement,
+    showReferralInvite,
+    t,
+  ]);
 
   const {
     data: billingOverview,
