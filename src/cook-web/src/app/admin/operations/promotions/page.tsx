@@ -90,6 +90,7 @@ import {
   type ReferralCampaignColumnKey,
   type ReferralCampaignFilters,
   type ReferralCampaignFormState,
+  isPackageCampaignProviderDiscountSynced,
   type PromotionStatusChangeTarget,
   type PromotionTab,
   SINGLE_SELECT_ITEM_CLASS,
@@ -838,6 +839,16 @@ export default function AdminOperationPromotionsPage() {
   const handlePackageCampaignStatusToggle = (
     item: AdminBillingCampaignItem,
   ) => {
+    if (
+      showStripeProviderDiscounts &&
+      item.computed_status === 'inactive' &&
+      !isPackageCampaignProviderDiscountSynced(item)
+    ) {
+      showErrorToast(
+        tPromotion('messages.packageCampaignProviderSyncRequired'),
+      );
+      return;
+    }
     setPendingStatusChange({
       entityType: 'packageCampaign',
       enabling: item.computed_status === 'inactive',

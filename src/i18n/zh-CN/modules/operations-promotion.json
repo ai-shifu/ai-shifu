@@ -148,6 +148,7 @@
     "packageCampaignProviderPublished": "已同步到 Stripe",
     "packageCampaignProviderRetired": "Stripe 优惠已停止",
     "packageCampaignProviderRetried": "已重新同步 Stripe",
+    "packageCampaignProviderSyncRequired": "该折扣活动还未完成 Stripe 同步，请先同步到 Stripe，确认状态成功后再启用活动。",
     "referralCampaignDisabledSuccess": "邀请活动已停用",
     "referralCampaignEnabledSuccess": "邀请活动已启用",
     "statusUpdated": "状态已更新",

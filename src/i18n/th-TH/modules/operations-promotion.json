@@ -148,6 +148,7 @@
     "packageCampaignProviderPublished": "เผยแพร่ Stripe Coupon แล้ว",
     "packageCampaignProviderRetired": "หยุด Stripe Coupon แล้ว",
     "packageCampaignProviderRetried": "ลองเผยแพร่ Stripe Coupon อีกครั้งแล้ว",
+    "packageCampaignProviderSyncRequired": "แคมเปญส่วนลดนี้ยังไม่ได้ซิงค์กับ Stripe อย่างสมบูรณ์ โปรดซิงค์กับ Stripe ก่อนเปิดใช้งาน",
     "referralCampaignDisabledSuccess": "ปิดใช้กิจกรรมเชิญแล้ว",
     "referralCampaignEnabledSuccess": "เปิดใช้กิจกรรมเชิญแล้ว",
     "statusUpdated": "อัปเดตสถานะแล้ว",

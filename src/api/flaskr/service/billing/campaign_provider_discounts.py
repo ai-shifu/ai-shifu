@@ -903,7 +903,6 @@ def _load_blocking_provider_coupon_row(
             BillingCampaignProviderDiscount.status.in_(
                 [
                     BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_CLEANUP_REQUIRED,
-                    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_REQUIRES_REPUBLISH,
                 ]
             ),
         )

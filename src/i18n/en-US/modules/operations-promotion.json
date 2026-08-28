@@ -148,6 +148,7 @@
     "packageCampaignProviderPublished": "Synced to Stripe",
     "packageCampaignProviderRetired": "Stripe discount stopped",
     "packageCampaignProviderRetried": "Stripe resync started",
+    "packageCampaignProviderSyncRequired": "This discount campaign is not fully synced to Stripe yet. Sync it to Stripe before enabling it.",
     "referralCampaignDisabledSuccess": "Referral campaign disabled",
     "referralCampaignEnabledSuccess": "Referral campaign enabled",
     "statusUpdated": "Status updated",

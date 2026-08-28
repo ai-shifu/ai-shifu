@@ -148,6 +148,7 @@
     "packageCampaignProviderPublished": "تم نشر كوبونات Stripe",
     "packageCampaignProviderRetired": "تم إيقاف كوبونات Stripe",
     "packageCampaignProviderRetried": "تمت إعادة محاولة نشر كوبون Stripe",
+    "packageCampaignProviderSyncRequired": "لم تتم مزامنة حملة الخصم هذه بالكامل مع Stripe بعد. زامنها مع Stripe قبل تفعيلها.",
     "referralCampaignDisabledSuccess": "تم إيقاف حملة الدعوة",
     "referralCampaignEnabledSuccess": "تم تفعيل حملة الدعوة",
     "statusUpdated": "تم تحديث الحالة",
