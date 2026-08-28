@@ -12,6 +12,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Backend Overhaul Master Plan: Inventory and Optimization](./active/backend-overhaul-master.md)
 - [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
 - [Speed Up Backend Pull Request Feedback](./active/ci-backend-speed-stack.md)
+- [Course Sharing](./active/course-sharing.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./active/creator-dashboard-course-ratings.md)

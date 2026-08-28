@@ -18,6 +18,7 @@ import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import CourseHeaderSummary from '../CourseHeaderSummary';
 import LearningModeSwitch from '../LearningModeSwitch';
+import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import PreviewHeaderBanner from '../PreviewHeaderBanner';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 import LessonPdfDownloadButton, {
@@ -193,6 +194,13 @@ export const ChatUi = ({
                 </div>
               ) : null}
               <div className={styles.headerActions}>
+                {previewMode ? null : (
+                  <LearnerCourseShareButton
+                    surface='learner_desktop_header'
+                    className='h-8 w-8 shrink-0 text-muted-foreground shadow-none hover:bg-muted/50 hover:text-foreground'
+                    tooltipSide='bottom'
+                  />
+                )}
                 <LessonPdfDownloadButton
                   isContentReady={Boolean(currentLessonPdfDownloadAction)}
                   isFollowUpStreaming={

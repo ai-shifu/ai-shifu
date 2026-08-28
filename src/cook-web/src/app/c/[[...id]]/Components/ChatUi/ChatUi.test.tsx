@@ -10,6 +10,7 @@ import {
 let mockFrameLayout = FRAME_LAYOUT_PC;
 let mockPreviewMode = false;
 let mockShowLearningModeToggle = false;
+let mockLearningMode: 'read' | 'listen' | 'classroom' = 'read';
 let mockChatComponentProps: Record<string, any> = {};
 
 jest.mock('react-i18next', () => ({
@@ -44,7 +45,7 @@ jest.mock('@/c-store', () => ({
 jest.mock('@/c-store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
-      learningMode: 'read',
+      learningMode: mockLearningMode,
       previewMode: mockPreviewMode,
       showLearningModeToggle: mockShowLearningModeToggle,
       skip: false,
@@ -67,6 +68,19 @@ jest.mock(
         <div
           data-testid='learning-mode-switch'
           data-size={size}
+        />
+      );
+    },
+);
+jest.mock(
+  '../LearnerCourseShareButton',
+  () =>
+    function MockLearnerCourseShareButton({ surface }: { surface: string }) {
+      return (
+        <button
+          type='button'
+          data-testid='course-share-button'
+          data-surface={surface}
         />
       );
     },
@@ -130,6 +144,7 @@ describe('ChatUi lesson PDF action', () => {
     mockFrameLayout = FRAME_LAYOUT_PC;
     mockPreviewMode = false;
     mockShowLearningModeToggle = false;
+    mockLearningMode = 'read';
     mockChatComponentProps = {};
   });
 
@@ -173,6 +188,32 @@ describe('ChatUi lesson PDF action', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('orders share, lesson PDF, and learning mode actions in the desktop header', () => {
+    mockShowLearningModeToggle = true;
+    renderChatUi();
+
+    const share = screen.getByTestId('course-share-button');
+    const pdf = screen.getByRole('button', {
+      name: 'module.chat.lessonPdfDownload',
+    });
+    const learningMode = screen.getByTestId('learning-mode-switch');
+    const actions = Array.from(share.parentElement?.children ?? []);
+
+    expect(share).toHaveAttribute('data-surface', 'learner_desktop_header');
+    expect(actions).toEqual([share, pdf, learningMode]);
+  });
+
+  it.each(['read', 'listen', 'classroom'] as const)(
+    'keeps the desktop share action available in %s mode',
+    learningMode => {
+      mockLearningMode = learningMode;
+
+      renderChatUi();
+
+      expect(screen.getByTestId('course-share-button')).toBeInTheDocument();
+    },
+  );
+
   it('does not render the action in the mobile layout', () => {
     mockFrameLayout = FRAME_LAYOUT_MOBILE;
     renderChatUi();
@@ -186,6 +227,7 @@ describe('ChatUi lesson PDF action', () => {
         name: 'module.chat.lessonPdfDownload',
       }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
   });
 
   it('disables a stale action immediately when the lesson changes', () => {
@@ -239,6 +281,7 @@ describe('ChatUi runtime gate', () => {
     mockFrameLayout = FRAME_LAYOUT_PC;
     mockPreviewMode = false;
     mockShowLearningModeToggle = false;
+    mockLearningMode = 'read';
     mockChatComponentProps = {};
   });
 
@@ -276,6 +319,7 @@ describe('ChatUi preview banner', () => {
     mockFrameLayout = FRAME_LAYOUT_PC;
     mockPreviewMode = false;
     mockShowLearningModeToggle = false;
+    mockLearningMode = 'read';
     mockChatComponentProps = {};
   });
 
@@ -300,5 +344,6 @@ describe('ChatUi preview banner', () => {
       'data-lesson-id',
       'lesson-2',
     );
+    expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
   });
 });

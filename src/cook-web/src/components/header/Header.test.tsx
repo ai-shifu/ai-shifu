@@ -9,7 +9,9 @@ const mockToast = jest.fn();
 const mockCurrentShifu = {
   bid: 'course-1',
   name: 'Published Course',
+  description: 'A teacher-written course description.',
   canPublish: true,
+  readonly: false,
   url: 'https://example.test/c/course-1',
   tts_enabled: true,
 };
@@ -137,8 +139,20 @@ describe('Header publish success link', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset().mockResolvedValue(undefined);
     mockToast.mockReset();
+    mockCurrentShifu.name = 'Published Course';
+    mockCurrentShifu.description = 'A teacher-written course description.';
+    mockCurrentShifu.canPublish = true;
+    mockCurrentShifu.readonly = false;
     mockCurrentShifu.url = 'https://example.test/c/course-1';
     (api.publishShifu as jest.Mock).mockReset();
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: undefined,
+    });
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -276,4 +290,86 @@ describe('Header publish success link', () => {
     });
     expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
   });
+
+  test('shares an unpublished read-only course without publish permission', async () => {
+    mockCurrentShifu.canPublish = false;
+    mockCurrentShifu.readonly = true;
+    mockCurrentShifu.url = '';
+
+    renderHeader();
+
+    const shareButton = screen.getByRole('button', {
+      name: 'common.core.shareCourse',
+    });
+    expect(shareButton).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'component.header.publish' }),
+    ).toBeDisabled();
+
+    fireEvent.click(shareButton);
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        expect.stringContaining(`${window.location.origin}/c/course-1`),
+      );
+    });
+    expect(api.publishShifu).not.toHaveBeenCalled();
+    expect(mockSaveMdflow).not.toHaveBeenCalled();
+  });
+
+  test('sanitizes the teacher course URL before native sharing', async () => {
+    mockCurrentShifu.url =
+      'https://user:secret@courses.example.test/c/course-1?lessonid=lesson-2&mode=listen&preview=true#outline';
+    const nativeShare = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: nativeShare,
+    });
+
+    renderHeader();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.shareCourse' }),
+    );
+
+    await waitFor(() => {
+      expect(nativeShare).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Published Course',
+          url: 'https://courses.example.test/c/course-1',
+        }),
+      );
+    });
+    expect(api.publishShifu).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    'javascript:alert(1)',
+    'not-a-url',
+    '?preview=true',
+    '//evil.example.test/c/another-course',
+  ])(
+    'falls back to the current course path when the teacher URL is unsafe: %s',
+    async unsafeUrl => {
+      mockCurrentShifu.url = unsafeUrl;
+      const nativeShare = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: nativeShare,
+      });
+
+      renderHeader();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'common.core.shareCourse' }),
+      );
+
+      await waitFor(() => {
+        expect(nativeShare).toHaveBeenCalledWith(
+          expect.objectContaining({
+            url: `${window.location.origin}/c/course-1`,
+          }),
+        );
+      });
+      expect(api.publishShifu).not.toHaveBeenCalled();
+    },
+  );
 });
