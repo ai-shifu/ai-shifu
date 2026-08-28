@@ -158,3 +158,11 @@ icon = "test"
 command = '''
 PATH="$PWD/.venv/bin:$PATH" lefthook run pre-commit --all-files
 '''
+
+[[actions]]
+name = "Rebase latest main"
+icon = "tool"
+command = '''
+git fetch origin main
+git rebase origin/main
+'''
