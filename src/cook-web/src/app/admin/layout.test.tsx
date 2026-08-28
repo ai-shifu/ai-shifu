@@ -8,7 +8,9 @@ import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
 
 const footerLabel = 'footer';
-const mockTranslate = (key: string) => key;
+let mockI18nLanguage = 'en-US';
+let mockTranslationPrefix = '';
+const mockTranslate = (key: string) => `${mockTranslationPrefix}${key}`;
 const mockUsePathname = jest.fn(() => '/admin');
 const mockApplyCreatorBranding = jest.fn();
 const mockRefreshUserInfo = jest.fn();
@@ -129,7 +131,8 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: mockTranslate,
     i18n: {
-      language: 'en-US',
+      language: mockI18nLanguage,
+      resolvedLanguage: mockI18nLanguage,
     },
   }),
 }));
@@ -559,6 +562,8 @@ describe('AdminLayout', () => {
     mockMainMenuModal.mockClear();
     mockLearnerProfileDialog.mockClear();
     mockSearchParamsValue = '';
+    mockI18nLanguage = 'en-US';
+    mockTranslationPrefix = '';
     mockEnvState.logoWideUrl = '/logo.png';
     mockEnvState.logoHorizontal = '';
     mockEnvState.logoSquareUrl = '';
@@ -651,6 +656,43 @@ describe('AdminLayout', () => {
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
     expect(window.location.href).toBe('http://localhost:3000');
+  });
+
+  test('refreshes sidebar menu labels when the active language changes', () => {
+    mockUserStoreState.userInfo = {
+      user_id: 'user-1',
+      is_operator: true,
+    };
+    mockI18nLanguage = 'en-US';
+    mockTranslationPrefix = 'en:';
+
+    const { rerender } = render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'en:common.core.operations' }),
+    );
+    expect(
+      screen.getByRole('link', { name: 'en:common.core.courseManagement' }),
+    ).toBeInTheDocument();
+
+    mockI18nLanguage = 'zh-CN';
+    mockTranslationPrefix = 'zh:';
+    rerender(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'zh:common.core.courseManagement' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'en:common.core.courseManagement' }),
+    ).not.toBeInTheDocument();
   });
 
   test('opens learner profile settings for the current account and refreshes user info after save', async () => {
