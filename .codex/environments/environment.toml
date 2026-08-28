@@ -45,8 +45,7 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
     "$worktree_path/src/cook-web/node_modules" \
     "$source_tree/src/cook-web/package-lock.json" \
     "$worktree_path/src/cook-web/package-lock.json"
-fi
-'''
+fi'''
 
 [setup.linux]
 script = '''
@@ -88,16 +87,14 @@ if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
     "$worktree_path/src/cook-web/node_modules" \
     "$source_tree/src/cook-web/package-lock.json" \
     "$worktree_path/src/cook-web/package-lock.json"
-fi
-'''
+fi'''
 
 [[actions]]
 name = "Cook Web"
-icon = "run"
+icon = "debug"
 command = '''
 cd src/cook-web
-exec npm run dev
-'''
+exec npm run dev'''
 
 [[actions]]
 name = "Backend API"
@@ -105,36 +102,30 @@ icon = "run"
 command = '''
 cd src/api
 export FLASK_APP=app.py
-exec ../../.venv/bin/python -m flask run --host 0.0.0.0 --port 5800
-'''
+exec ../../.venv/bin/python -m flask run --host 0.0.0.0 --port 5800'''
 
 [[actions]]
 name = "Backend tests"
 icon = "test"
 command = '''
 cd src/api
-../../.venv/bin/python -m pytest -q
-'''
+../../.venv/bin/python -m pytest -q'''
 
 [[actions]]
 name = "Frontend tests"
 icon = "test"
 command = '''
 cd src/cook-web
-npm run test:ci
-'''
+npm run test:ci'''
 
 [[actions]]
 name = "Repository checks"
 icon = "test"
-command = '''
-PATH="$PWD/.venv/bin:$PATH" lefthook run pre-commit --all-files
-'''
+command = "PATH=\"$PWD/.venv/bin:$PATH\" lefthook run pre-commit --all-files"
 
 [[actions]]
 name = "Rebase latest main"
 icon = "tool"
 command = '''
 git fetch origin main
-git rebase origin/main
-'''
+git rebase origin/main'''
