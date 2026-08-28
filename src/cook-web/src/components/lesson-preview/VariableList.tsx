@@ -179,8 +179,8 @@ const VariableList: React.FC<VariableListProps> = ({
                   key={name}
                 >
                   {systemVariableLabelKey ? (
-                    <button
-                      type='button'
+                    <div
+                      tabIndex={0}
                       className={`${styles.name} ${styles.systemName}`}
                       aria-label={t(
                         'module.shifu.previewArea.systemVariableLabels.accessibleName',
@@ -200,7 +200,7 @@ const VariableList: React.FC<VariableListProps> = ({
                       >
                         {name}
                       </span>
-                    </button>
+                    </div>
                   ) : (
                     <div
                       className={styles.name}

@@ -75,9 +75,11 @@ describe('VariableList system variable labels', () => {
     ].forEach(([label, rawKey]) => {
       const friendlyName = screen.getByText(label);
       const rawName = screen.getByText(rawKey);
-      const nameCell = friendlyName.closest('button');
+      const nameCell = friendlyName.parentElement;
 
       expect(nameCell).not.toBeNull();
+      expect(nameCell?.tagName).toBe('DIV');
+      expect(nameCell).toHaveAttribute('tabindex', '0');
       expect(nameCell).toHaveClass(styles.name, styles.systemName);
       expect(nameCell).toContainElement(friendlyName);
       expect(nameCell).toContainElement(rawName);
@@ -166,9 +168,12 @@ describe('VariableList system variable labels', () => {
     expect(screen.getByText('Teaching language')).toBeInTheDocument();
     expect(screen.queryByText('学生昵称')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', {
+      screen.getByLabelText('Student nickname (sys_user_nickname)'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
         name: 'Student nickname (sys_user_nickname)',
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 });
