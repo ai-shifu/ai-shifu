@@ -726,7 +726,7 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
         "Course language: fr-FR; learner language: fr-FR\n"
         "</course_prompt>" in captured["messages"][0]["content"]
     )
-    assert '"""UNKNOWN"""' in captured["messages"][0]["content"]
+    assert '"UNKNOWN"' in captured["messages"][0]["content"]
     assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["content"].endswith(
         "(IMPORTANT: You MUST respond in Français.)"

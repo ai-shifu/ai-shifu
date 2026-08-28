@@ -1542,10 +1542,10 @@ class CoursePromptCompositionTests(unittest.TestCase):
             )
 
         assert state.system_prompt == CapturingMdflowContext.document_prompt
-        assert "{{sys_user_nickname}}" in state.system_prompt
-        assert "{{sys_user_background}}" in state.system_prompt
-        assert "Teaching Alex" not in state.system_prompt
-        assert "Teaching background" not in state.system_prompt
+        assert "{{sys_user_nickname}}" not in state.system_prompt
+        assert "{{sys_user_background}}" not in state.system_prompt
+        assert '"Teaching Alex"' in state.system_prompt
+        assert '"Teaching background"' in state.system_prompt
 
     def test_formal_preview_composes_from_effective_variables(self) -> None:
         app = Flask("preview-course-prompt-variables")
@@ -1571,10 +1571,10 @@ class CoursePromptCompositionTests(unittest.TestCase):
 
         assert prompt is not None
         assert "<course_prompt>\nPREVIEW COURSE RULE\n</course_prompt>" in prompt
-        assert prompt.count("{{sys_user_nickname}}") == 1
-        assert prompt.count("{{sys_user_background}}") == 1
-        assert "Debug Alex" not in prompt
-        assert "Debug background" not in prompt
+        assert "{{sys_user_nickname}}" not in prompt
+        assert "{{sys_user_background}}" not in prompt
+        assert '"Debug Alex"' in prompt
+        assert '"Debug background"' in prompt
         assert "FALLBACK RULE" not in prompt
         assert prompt.count(LEARNER_PROFILE_PROMPT_MARKER) == 1
 
@@ -1674,7 +1674,8 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert prompt is not None
         assert "<preferred_address>" not in prompt
         assert "{{sys_user_nickname}}" not in prompt
-        assert "{{sys_user_background}}" in prompt
+        assert "{{sys_user_background}}" not in prompt
+        assert '"Database background"' in prompt
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):

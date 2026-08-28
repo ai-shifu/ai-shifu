@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -78,6 +79,44 @@ def _variable_learner_context(
         f"{_LEARNER_BACKGROUND_CLOSE}"
     )
     return "\n".join(sections)
+
+
+def _encode_learner_variable(value: object) -> str:
+    if isinstance(value, list):
+        normalized_value = ", ".join(
+            str(item) for item in value if item is not None and str(item).strip()
+        )
+    else:
+        normalized_value = str(value or "")
+    encoded = json.dumps(normalized_value or "UNKNOWN", ensure_ascii=False)
+    return (
+        encoded.replace("<", r"\u003c")
+        .replace(">", r"\u003e")
+        .replace("&", r"\u0026")
+        .replace("{", r"\u007b")
+        .replace("}", r"\u007d")
+    )
+
+
+def render_course_prompt_identity_variables(
+    course_prompt: str | None,
+    variables: Mapping[str, object] | None,
+) -> str | None:
+    """Resolve learner identity slots as boundary-safe JSON strings."""
+    if not course_prompt:
+        return course_prompt
+    effective_variables = variables or {}
+    rendered_prompt = str(course_prompt)
+    for variable, reference in (
+        (_NICKNAME_VARIABLE, _NICKNAME_VARIABLE_REFERENCE),
+        (_BACKGROUND_VARIABLE, _BACKGROUND_VARIABLE_REFERENCE),
+    ):
+        if reference in rendered_prompt:
+            rendered_prompt = rendered_prompt.replace(
+                reference,
+                _encode_learner_variable(effective_variables.get(variable)),
+            )
+    return rendered_prompt
 
 
 def _split_envelope(prompt: str) -> tuple[str, str] | None:

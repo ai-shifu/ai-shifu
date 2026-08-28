@@ -30,7 +30,10 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.learner_profile_prompt import build_course_prompt
+from flaskr.service.learn.learner_profile_prompt import (
+    build_course_prompt,
+    render_course_prompt_identity_variables,
+)
 from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.listen_element_queries import (
     _load_latest_active_element_row,
@@ -366,6 +369,10 @@ def handle_input_ask(
                 getattr(user_info, "user_id", ""),
                 getattr(user_info, "identify", ""),
             ),
+        )
+        variable_course_prompt = render_course_prompt_identity_variables(
+            variable_course_prompt,
+            effective_profiles,
         )
         markdownflow_prompt = replace_variables_in_text(
             variable_course_prompt or "",

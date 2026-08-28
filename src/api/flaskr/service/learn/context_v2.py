@@ -60,6 +60,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
+    render_course_prompt_identity_variables,
 )
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -1312,11 +1313,12 @@ class RunScriptPreviewContextV2:
         if not course_prompt:
             return course_prompt
 
-        return build_course_prompt(
+        variable_prompt = build_course_prompt(
             course_prompt,
             variables=variables,
             nickname_identifiers=(user_bid,),
         )
+        return render_course_prompt_identity_variables(variable_prompt, variables)
 
     def _resolve_prompt_from_outline_chain(
         self,
@@ -2507,6 +2509,10 @@ class RunScriptContextV2:
                 getattr(self._user_info, "user_bid", self._user_info.user_id),
                 getattr(self._user_info, "identify", ""),
             ),
+        )
+        system_prompt = render_course_prompt_identity_variables(
+            system_prompt,
+            user_profile,
         )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
