@@ -92,20 +92,20 @@ fi
 '''
 
 [[actions]]
+name = "Cook Web"
+icon = "run"
+command = '''
+cd src/cook-web
+exec npm run dev
+'''
+
+[[actions]]
 name = "Backend API"
 icon = "run"
 command = '''
 cd src/api
 export FLASK_APP=app.py
 exec ../../.venv/bin/python -m flask run --host 0.0.0.0 --port 5800
-'''
-
-[[actions]]
-name = "Cook Web"
-icon = "run"
-command = '''
-cd src/cook-web
-exec npm run dev
 '''
 
 [[actions]]
