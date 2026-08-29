@@ -159,7 +159,7 @@ describe('LearningModeSwitch', () => {
       expect(icon).toHaveAttribute('aria-hidden', 'true');
       expect(icon).toHaveAttribute('width', '12');
       expect(icon).toHaveAttribute('height', '12');
-      expect(button).toHaveTextContent('');
+      expect(button).toHaveTextContent(/^\s*$/);
     });
 
     rerender(<LearningModeSwitch size='desktop' />);
