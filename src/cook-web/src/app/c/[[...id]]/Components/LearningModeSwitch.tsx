@@ -1,5 +1,11 @@
 import styles from './LearningModeSwitch.module.scss';
 
+import {
+  BookOpen,
+  Headphones,
+  Presentation,
+  type LucideIcon,
+} from 'lucide-react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -15,12 +21,17 @@ import {
 import {
   getAvailableLearningModeOptions,
   getLearningModeLabel,
-  getLearningModeShortLabel,
   getLearningModeTooltip,
   LEARNING_MODE_OPTIONS,
   type LearningMode,
 } from './learningModeOptions';
 import { setLearningModeInUrl } from './learningModeUrl';
+
+const learningModeIcons: Record<LearningMode, LucideIcon> = {
+  read: BookOpen,
+  listen: Headphones,
+  classroom: Presentation,
+};
 
 interface LearningModeSwitchProps {
   className?: string;
@@ -71,6 +82,7 @@ export const LearningModeSwitch = ({
       >
         {renderedOptions.map(option => {
           const isActive = learningMode === option.mode;
+          const ModeIcon = learningModeIcons[option.mode];
 
           return (
             <Tooltip key={option.mode}>
@@ -87,9 +99,11 @@ export const LearningModeSwitch = ({
                   )}
                   onClick={() => handleLearningModeSelect(option.mode)}
                 >
-                  <span className={styles.segmentLabel}>
-                    {getLearningModeShortLabel(t, option.mode)}
-                  </span>
+                  <ModeIcon
+                    aria-hidden='true'
+                    size={size === 'desktop' ? 16 : 12}
+                    strokeWidth={2}
+                  />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
