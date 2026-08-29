@@ -66,6 +66,22 @@ def _optional_profile_research_session_id(payload: dict) -> str | None:
     return normalize_profile_research_session_id(value)
 
 
+def _select_profile_onboarding_assistant_prompt(
+    config: dict[str, object], output_language: str
+) -> str:
+    assistant_prompts = config.get("assistant_prompts")
+    if isinstance(assistant_prompts, dict):
+        for language in (output_language, "en-US"):
+            assistant_prompt = assistant_prompts.get(language)
+            if isinstance(assistant_prompt, str) and assistant_prompt.strip():
+                return assistant_prompt
+
+    legacy_assistant_prompt = config.get("assistant_prompt")
+    if isinstance(legacy_assistant_prompt, str) and legacy_assistant_prompt.strip():
+        return legacy_assistant_prompt
+    return ""
+
+
 def _delete_profile_onboarding_session(
     app: Flask, *, user_bid: str, session_id: str | None
 ) -> None:
@@ -142,6 +158,14 @@ def register_profile_routes(
             status["handled"] or status["has_learner_profile"]
         ):
             raise_param_error("intent")
+        output_language = _resolve_profile_onboarding_runtime_language(
+            request.user,
+            language,
+        )
+        assistant_prompt = _select_profile_onboarding_assistant_prompt(
+            config,
+            output_language,
+        )
         from flaskr.service.profile_research.api import (
             PROFILE_ONBOARDING_PURPOSE,
             ProfileResearchSessionBusy,
@@ -155,11 +179,8 @@ def register_profile_routes(
                 document=document,
                 purpose=PROFILE_ONBOARDING_PURPOSE,
                 config_revision=int(config.get("config_revision") or 0),
-                assistant_prompt=str(config.get("assistant_prompt") or ""),
-                output_language=_resolve_profile_onboarding_runtime_language(
-                    request.user,
-                    language,
-                ),
+                assistant_prompt=assistant_prompt,
+                output_language=output_language,
             )
         except ProfileResearchSessionBusy:
             raise_error("server.profile.profileOnboardingBusy")
