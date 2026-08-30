@@ -144,6 +144,7 @@ const ContentBlock = memo(
           locale={markdownFlowLocale}
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+          typewriterPacing='content-aware'
           content={renderedContent}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}

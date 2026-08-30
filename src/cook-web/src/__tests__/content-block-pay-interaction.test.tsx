@@ -189,6 +189,7 @@ describe('ContentBlock pay interaction overrides', () => {
       expect.objectContaining({
         enableTypewriter: true,
         typingSpeed: 30,
+        typewriterPacing: 'content-aware',
       }),
     );
   });
