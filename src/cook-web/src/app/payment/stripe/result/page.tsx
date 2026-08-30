@@ -19,6 +19,7 @@ interface StripeResultState {
   orderId?: string;
   courseId?: string;
   failureCategory?: LearnerPaymentFailureCategory;
+  analyticsOutcome?: 'cancelled';
 }
 
 export default function StripeResultPage() {
@@ -39,6 +40,7 @@ export default function StripeResultPage() {
   useEffect(() => {
     const sessionId = searchParams.get('session_id') || '';
     const providedOrderId = searchParams.get('order_id') || '';
+    const canceled = searchParams.get('canceled') === '1';
 
     let orderId = providedOrderId;
     if (!orderId && sessionId) {
@@ -80,6 +82,16 @@ export default function StripeResultPage() {
           });
           return;
         }
+        if (canceled) {
+          setState({
+            status: 'pending',
+            message: t('module.pay.stripeResultPending'),
+            orderId,
+            courseId: detail.course_id,
+            analyticsOutcome: 'cancelled',
+          });
+          return;
+        }
         setState({
           status: 'pending',
           message: t('module.pay.stripeResultPending'),
@@ -98,7 +110,8 @@ export default function StripeResultPage() {
 
   useEffect(() => {
     if (state.status === 'loading') return;
-    const key = `${state.orderId || 'missing'}:${state.status}`;
+    const analyticsState = state.analyticsOutcome || state.status;
+    const key = `${state.orderId || 'missing'}:${analyticsState}`;
     if (analyticsStatusRef.current === key) return;
     analyticsStatusRef.current = key;
 
@@ -108,6 +121,16 @@ export default function StripeResultPage() {
       channel: 'stripe' as const,
       surface: 'stripe_return' as const,
     };
+    if (state.analyticsOutcome === 'cancelled') {
+      trackEvent(
+        'learner_payment_result',
+        buildLearnerPaymentResultAnalytics({
+          ...base,
+          outcome: 'cancelled',
+        }),
+      );
+      return;
+    }
     if (state.status === 'pending') {
       trackEvent(
         'learner_payment_status',

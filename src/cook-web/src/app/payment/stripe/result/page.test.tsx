@@ -98,6 +98,35 @@ describe('StripeResultPage analytics contract', () => {
     );
   });
 
+  it('records an explicit Stripe cancel return as a cancelled result', async () => {
+    mockSearchParams.set('order_id', 'order-cancelled');
+    mockSearchParams.set('canceled', '1');
+    mockGetPaymentDetail.mockResolvedValue({
+      payment_channel: 'stripe',
+      status: 0,
+      course_id: 'course-cancelled',
+    });
+
+    render(<StripeResultPage />);
+
+    expect(
+      await screen.findByText('module.pay.stripeResultPendingTitle'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_result', {
+        shifu_bid: 'course-cancelled',
+        order_id: 'order-cancelled',
+        channel: 'stripe',
+        surface: 'stripe_return',
+        outcome: 'cancelled',
+      }),
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'learner_payment_status',
+      expect.anything(),
+    );
+  });
+
   it('uses a bounded missing-order category while analytics remains best-effort', async () => {
     mockTrackEvent.mockResolvedValue(undefined);
 

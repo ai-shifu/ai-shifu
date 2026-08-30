@@ -48,7 +48,7 @@ their consumers are deleted instead of dual-written.
 - [x] 2026-08-30 22:29 CST: Rebased the final two-commit change onto
       `origin/main` commit `e9b57d20d`, preserving the newly merged account
       session analytics contracts. The final full frontend suite passed: 212
-      Jest suites / 1,866 tests.
+      Jest suites / 1,867 tests.
 - [x] 2026-08-30 22:29 CST: Moved this plan to
       `docs/exec-plans/completed/` after all acceptance checks passed.
 
@@ -75,6 +75,9 @@ their consumers are deleted instead of dual-written.
   correlation IDs even when product APIs had not confirmed them, and learner
   modal currency accepted an unbounded runtime string. Final payload review
   required omitting unverified IDs and bounding currency to `CNY|USD|other`.
+- Review also exposed that the learner Stripe cancel return was classified as
+  pending analytics. The producer now records a cancelled attempt after the
+  product API confirms the order, without changing the pending order UI.
 - The legacy `createOutline` producer read `parent_bid` after `replaceOutline`
   mutated its placeholder. Producer-level tests exposed the resulting empty
   parent ID and led to capturing it before mutation.
@@ -149,7 +152,7 @@ shown as completed, synchronous card-confirmation failures remain visible, and
 duplicate course-creation submissions are rejected while one request is active.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,866 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,867 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.

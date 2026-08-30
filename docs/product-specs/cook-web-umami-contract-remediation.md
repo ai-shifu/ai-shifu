@@ -215,7 +215,8 @@ string, user identity, and raw errors are excluded.
 - Trigger: modal view once after the modal is ready; attempt when Stripe submit
   or redirect, WeChat JSAPI, or a mobile native/QR action is accepted, and when
   a desktop QR credential becomes usable; result once when paid, provider-failed,
-  or an unfinished accepted attempt is explicitly dismissed; status when the
+  an unfinished accepted attempt is explicitly dismissed, or Stripe returns an
+  explicit cancellation marker for a product-confirmed order; status when the
   provider accepted work but confirmation remains pending.
 - Population: eligible logged-in learners on desktop/mobile payment surfaces.
   Logged-out price previews can emit modal view but cannot emit payment attempt.
