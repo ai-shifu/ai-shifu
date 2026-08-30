@@ -10,6 +10,9 @@ export const useCourseStore = create<
   subscribeWithSelector((set, get) => ({
     courseName: '',
     updateCourseName: courseName => set(() => ({ courseName })),
+    courseDescription: '',
+    updateCourseDescription: courseDescription =>
+      set(() => ({ courseDescription })),
     courseAvatar: '',
     updateCourseAvatar: courseAvatar => set(() => ({ courseAvatar })),
     courseTtsEnabled: null,

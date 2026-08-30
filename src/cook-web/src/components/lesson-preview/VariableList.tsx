@@ -19,6 +19,7 @@ interface VariableListProps {
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;
   variableOrder?: string[];
+  systemVariableKeys?: string[];
   actionType?: 'hide' | 'restore';
   onAction?: () => void;
   actionDisabled?: boolean;
@@ -27,12 +28,25 @@ interface VariableListProps {
   onHideVariable?: (name: string) => void;
 }
 
+const SYSTEM_VARIABLE_LABEL_KEYS = {
+  sys_user_nickname: 'module.shifu.previewArea.systemVariableLabels.nickname',
+  sys_user_style: 'server.profile.style',
+  sys_user_background:
+    'module.shifu.previewArea.systemVariableLabels.background',
+  sys_user_input: 'module.shifu.previewArea.systemVariableLabels.input',
+  sys_user_language: 'module.shifu.previewArea.systemVariableLabels.language',
+} as const;
+
+const resolveSystemVariableLabelKey = (name: string) =>
+  SYSTEM_VARIABLE_LABEL_KEYS[name as keyof typeof SYSTEM_VARIABLE_LABEL_KEYS];
+
 const VariableList: React.FC<VariableListProps> = ({
   variables,
   collapsed = false,
   onToggle,
   onChange,
   variableOrder = [],
+  systemVariableKeys,
   actionType,
   onAction,
   actionDisabled = false,
@@ -50,6 +64,10 @@ const VariableList: React.FC<VariableListProps> = ({
   const unusedKeySet = useMemo(
     () => new Set(unusedVariableKeys || []),
     [unusedVariableKeys],
+  );
+  const systemVariableKeySet = useMemo(
+    () => new Set(systemVariableKeys || []),
+    [systemVariableKeys],
   );
 
   const entries = useMemo(() => {
@@ -75,23 +93,23 @@ const VariableList: React.FC<VariableListProps> = ({
   const isEmptyView = !hasVisible;
 
   return (
-    <div className={styles.variableList}>
-      <div className={styles.header}>
-        <div className={styles.topRow}>
-          <div className={styles.titleWrapper}>
-            <div className={styles.title}>
-              {t('module.shifu.previewArea.variablesTitle')}
+    <TooltipProvider delayDuration={200}>
+      <div className={styles.variableList}>
+        <div className={styles.header}>
+          <div className={styles.topRow}>
+            <div className={styles.titleWrapper}>
+              <div className={styles.title}>
+                {t('module.shifu.previewArea.variablesTitle')}
+              </div>
+              <div
+                className={styles.description}
+                title={t('module.shifu.previewArea.variablesDescription')}
+              >
+                {t('module.shifu.previewArea.variablesDescription')}
+              </div>
             </div>
-            <div
-              className={styles.description}
-              title={t('module.shifu.previewArea.variablesDescription')}
-            >
-              {t('module.shifu.previewArea.variablesDescription')}
-            </div>
-          </div>
-          <div className={styles.actionsCompact}>
-            {actionType && onAction && (
-              <TooltipProvider delayDuration={200}>
+            <div className={styles.actionsCompact}>
+              {actionType && onAction && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -113,101 +131,132 @@ const VariableList: React.FC<VariableListProps> = ({
                         )}
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-            )}
-            {onToggle && (
-              <button
-                type='button'
-                className={styles.toggle}
-                onClick={onToggle}
-              >
-                {collapsed ? (
-                  <ChevronDown
-                    size={16}
-                    strokeWidth={2}
-                  />
-                ) : (
-                  <ChevronUp
-                    size={16}
-                    strokeWidth={2}
-                  />
-                )}
-                <span>
-                  {collapsed
-                    ? t('module.shifu.previewArea.variablesExpand')
-                    : t('module.shifu.previewArea.variablesCollapse')}
-                </span>
-              </button>
-            )}
+              )}
+              {onToggle && (
+                <button
+                  type='button'
+                  className={styles.toggle}
+                  onClick={onToggle}
+                >
+                  {collapsed ? (
+                    <ChevronDown
+                      size={16}
+                      strokeWidth={2}
+                    />
+                  ) : (
+                    <ChevronUp
+                      size={16}
+                      strokeWidth={2}
+                    />
+                  )}
+                  <span>
+                    {collapsed
+                      ? t('module.shifu.previewArea.variablesExpand')
+                      : t('module.shifu.previewArea.variablesCollapse')}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      {!isEmptyView && (
-        <div
-          className={`${styles.grid} ${collapsed ? styles.collapsed : ''}`}
-          aria-hidden={collapsed}
-        >
-          {entries.map(([name, value]) => {
-            const displayValue = value || '';
-            const canHide = customKeySet.has(name) && unusedKeySet.has(name);
-            return (
-              <div
-                className={styles.item}
-                key={name}
-              >
+        {!isEmptyView && (
+          <div
+            className={`${styles.grid} ${collapsed ? styles.collapsed : ''}`}
+            aria-hidden={collapsed}
+          >
+            {entries.map(([name, value]) => {
+              const displayValue = value || '';
+              const canHide = customKeySet.has(name) && unusedKeySet.has(name);
+              const systemVariableLabelKey = systemVariableKeySet.has(name)
+                ? resolveSystemVariableLabelKey(name)
+                : undefined;
+              const displayName = systemVariableLabelKey
+                ? t(systemVariableLabelKey)
+                : name;
+              return (
                 <div
-                  className={styles.name}
-                  title={name}
+                  className={styles.item}
+                  key={name}
                 >
-                  {name}
-                </div>
-                <div
-                  className={styles.value}
-                  title={displayValue}
-                >
-                  <Input
-                    type='text'
-                    value={displayValue}
-                    placeholder={t(
-                      'module.shifu.previewArea.variablesPlaceholder',
-                    )}
-                    onChange={e => {
-                      const nextValue = e.target.value;
-                      onChange?.(name, nextValue);
-                    }}
-                  />
-                  {canHide && onHideVariable && (
-                    <button
-                      type='button'
-                      className={styles.hideBadge}
-                      onClick={event => {
-                        event.stopPropagation();
-                        onHideVariable(name);
-                      }}
+                  {systemVariableLabelKey ? (
+                    <div
+                      tabIndex={0}
+                      className={`${styles.name} ${styles.systemName}`}
                       aria-label={t(
-                        'module.shifu.previewArea.variablesHideSingleConfirmTitle',
+                        'module.shifu.previewArea.systemVariableLabels.accessibleName',
+                        { label: displayName, name },
                       )}
                     >
-                      <X
-                        size={12}
-                        strokeWidth={2}
+                      <span
+                        className={styles.friendlyName}
                         aria-hidden='true'
-                      />
-                    </button>
+                      >
+                        {displayName}
+                      </span>
+                      <span
+                        className={styles.rawName}
+                        dir='ltr'
+                        aria-hidden='true'
+                      >
+                        {name}
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      className={styles.name}
+                      title={name}
+                    >
+                      {displayName}
+                    </div>
                   )}
+                  <div
+                    className={styles.value}
+                    title={displayValue}
+                  >
+                    <Input
+                      type='text'
+                      value={displayValue}
+                      placeholder={t(
+                        'module.shifu.previewArea.variablesPlaceholder',
+                      )}
+                      onChange={e => {
+                        const nextValue = e.target.value;
+                        onChange?.(name, nextValue);
+                      }}
+                    />
+                    {canHide && onHideVariable && (
+                      <button
+                        type='button'
+                        className={styles.hideBadge}
+                        onClick={event => {
+                          event.stopPropagation();
+                          onHideVariable(name);
+                        }}
+                        aria-label={t(
+                          'module.shifu.previewArea.variablesHideSingleConfirmTitle',
+                        )}
+                      >
+                        <X
+                          size={12}
+                          strokeWidth={2}
+                          aria-hidden='true'
+                        />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
-      {isEmptyView && (
-        <div className={styles.hiddenEmpty}>
-          {t('module.shifu.previewArea.variablesEmpty')}
-        </div>
-      )}
-    </div>
+        {isEmptyView && (
+          <div className={styles.hiddenEmpty}>
+            {t('module.shifu.previewArea.variablesEmpty')}
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   );
 };
 

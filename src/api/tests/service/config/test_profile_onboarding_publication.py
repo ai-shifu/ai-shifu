@@ -7,9 +7,23 @@ from unittest.mock import Mock
 
 import pytest
 from flaskr.dao import db, uow
+from flaskr.i18n import get_i18n_list
 from flaskr.service.common.models import AppError
 from flaskr.service.config import profile_onboarding as module
 from flaskr.service.config.models import Config
+
+
+@pytest.fixture(autouse=True)
+def stub_prompt_localizer(monkeypatch: object) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    monkeypatch.setattr(
+        config,
+        "localize_profile_onboarding_assistant_prompt",
+        lambda _app, prompt: {
+            locale: f"{locale}: {prompt}" for locale in get_i18n_list()
+        },
+    )
 
 
 @pytest.fixture

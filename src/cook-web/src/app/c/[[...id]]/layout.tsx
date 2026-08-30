@@ -141,6 +141,7 @@ export default function ChatLayout({
     courseDefaultListenModeEnabled,
     courseSettingsCourseId,
     updateCourseName,
+    updateCourseDescription,
     updateCourseAvatar,
     updateCourseSettings,
     updateIsCurrentUserCourseOwner,
@@ -150,6 +151,7 @@ export default function ChatLayout({
       courseDefaultListenModeEnabled: state.courseDefaultListenModeEnabled,
       courseSettingsCourseId: state.courseSettingsCourseId,
       updateCourseName: state.updateCourseName,
+      updateCourseDescription: state.updateCourseDescription,
       updateCourseAvatar: state.updateCourseAvatar,
       updateCourseSettings: state.updateCourseSettings,
       updateIsCurrentUserCourseOwner: state.updateIsCurrentUserCourseOwner,
@@ -491,6 +493,10 @@ export default function ChatLayout({
     let canceled = false;
     let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
+    // The course store outlives this route. Clear the previous course's copy
+    // before loading the next one so share surfaces never expose stale text.
+    updateCourseDescription('');
+
     const fetchCourseInfo = async (attempt = 0) => {
       if (!envDataInitialized) return;
       if (courseId) {
@@ -535,6 +541,7 @@ export default function ChatLayout({
           });
           setShowVip(resp.course_price > 0);
           updateCourseName(resp.course_name);
+          updateCourseDescription(resp.course_desc ?? '');
           updateCourseAvatar(resp.course_avatar);
           updateCourseSettings(courseId, {
             ttsEnabled: resp.course_tts_enabled ?? null,
@@ -661,6 +668,7 @@ export default function ChatLayout({
     setShowVip,
     t,
     updateCourseName,
+    updateCourseDescription,
     updateCourseAvatar,
     updateCourseSettings,
     updateIsCurrentUserCourseOwner,

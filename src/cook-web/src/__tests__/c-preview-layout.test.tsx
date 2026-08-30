@@ -96,8 +96,9 @@ describe('C preview layout', () => {
   const buildCourseInfo = (
     isOwner: boolean,
     courseId = 'course-transient',
+    courseDescription = 'Description',
   ) => ({
-    course_desc: 'Description',
+    course_desc: courseDescription,
     course_id: courseId,
     course_keywords: ['test'],
     course_name: 'Course',
@@ -131,7 +132,10 @@ describe('C preview layout', () => {
     });
     act(() => {
       useSystemStore.setState({ previewMode: false, skip: false });
-      useCourseStore.setState({ isCurrentUserCourseOwner: null });
+      useCourseStore.setState({
+        courseDescription: '',
+        isCurrentUserCourseOwner: null,
+      });
     });
   });
 
@@ -281,7 +285,7 @@ describe('C preview layout', () => {
     });
   });
 
-  test('ignores stale ownership responses after course navigation', async () => {
+  test('ignores stale course info responses after course navigation', async () => {
     const firstCourseInfo = createDeferredCourseInfo();
     const secondCourseInfo = createDeferredCourseInfo();
     mockedGetCourseInfo.mockImplementation(courseId => {
@@ -294,6 +298,7 @@ describe('C preview layout', () => {
         runtimeConfigLoaded: true,
         courseId: 'course-a',
       });
+      useCourseStore.setState({ courseDescription: 'Previous description' });
     });
 
     render(
@@ -309,6 +314,7 @@ describe('C preview layout', () => {
         undefined,
       ),
     );
+    expect(useCourseStore.getState().courseDescription).toBe('');
 
     act(() => {
       useEnvStore.setState({ courseId: 'course-b' });
@@ -322,16 +328,52 @@ describe('C preview layout', () => {
     );
 
     await act(async () => {
-      secondCourseInfo.resolve(buildCourseInfo(false, 'course-b'));
+      secondCourseInfo.resolve(
+        buildCourseInfo(false, 'course-b', 'Course B description'),
+      );
       await secondCourseInfo.promise;
     });
     expect(useCourseStore.getState().isCurrentUserCourseOwner).toBe(false);
+    expect(useCourseStore.getState().courseDescription).toBe(
+      'Course B description',
+    );
 
     await act(async () => {
-      firstCourseInfo.resolve(buildCourseInfo(true, 'course-a'));
+      firstCourseInfo.resolve(
+        buildCourseInfo(true, 'course-a', 'Stale course A description'),
+      );
       await firstCourseInfo.promise;
     });
     expect(useCourseStore.getState().isCurrentUserCourseOwner).toBe(false);
+    expect(useCourseStore.getState().courseDescription).toBe(
+      'Course B description',
+    );
+  });
+
+  test('does not retain a previous description when course loading fails', async () => {
+    act(() => {
+      useEnvStore.setState({
+        runtimeConfigLoaded: true,
+        courseId: 'course-denied',
+      });
+      useCourseStore.setState({ courseDescription: 'Previous description' });
+    });
+    mockedGetCourseInfo.mockRejectedValue(
+      new CourseInfoFetchError({
+        status: 403,
+        code: 403,
+        message: 'Access denied',
+      }),
+    );
+
+    render(
+      <ChatLayout>
+        <div>{contentLabel}</div>
+      </ChatLayout>,
+    );
+
+    await waitFor(() => expect(mockedGetCourseInfo).toHaveBeenCalled());
+    expect(useCourseStore.getState().courseDescription).toBe('');
   });
 
   test('redirects to /404 when course is not found', async () => {

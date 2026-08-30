@@ -423,10 +423,32 @@ def test_profile_onboarding_skip_ignores_busy_session_cleanup(
     assert _data(response) == {"skipped": True}
 
 
-def test_profile_onboarding_session_start_snapshots_config_and_language(
-    monkeypatch: object, test_client: object
+@pytest.mark.parametrize(
+    (
+        "requested_language",
+        "accept_language",
+        "user_language",
+        "expected_language",
+        "expected_prompt",
+    ),
+    [
+        ("zh_cn", "fr-FR", "ar-SA", "zh-CN", "中文问卷提示词"),
+        ("fr_fr", "ar-SA", "zh-CN", "fr-FR", "Prompt français"),
+        (None, "ar-AE,fr-FR;q=0.9", "fr-FR", "ar-SA", "تعليمات عربية"),
+        (None, None, "fr-FR", "fr-FR", "Prompt français"),
+    ],
+)
+def test_profile_onboarding_session_start_snapshots_localized_prompt_and_language(
+    monkeypatch: object,
+    test_client: object,
+    requested_language: object,
+    accept_language: object,
+    user_language: object,
+    expected_language: object,
+    expected_prompt: object,
 ) -> None:
     user = _authenticate(monkeypatch)
+    user.language = user_language
     calls = []
     monkeypatch.setattr(
         "flaskr.route.profile.get_profile_onboarding_config",
@@ -435,6 +457,84 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
             "markdownflow": "  ?[Continue]  ",
             "config_revision": 12,
             "assistant_prompt": "Shared questionnaire prompt",
+            "assistant_prompts": {
+                "zh-CN": "中文问卷提示词",
+                "en-US": "English questionnaire prompt",
+                "fr-FR": "Prompt français",
+                "ar-SA": "تعليمات عربية",
+                "th-TH": "คำแนะนำภาษาไทย",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.route.profile.get_profile_onboarding_status",
+        lambda _app, **_kwargs: {
+            "guided_available": True,
+            "handled": False,
+            "should_show": True,
+            "has_learner_profile": False,
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.profile_research.api.start_profile_research_session",
+        lambda _app, **kwargs: (
+            calls.append(kwargs)
+            or {"session_id": "session-started", "config_revision": 12}
+        ),
+    )
+
+    headers = {"Token": "token"}
+    if accept_language is not None:
+        headers["Accept-Language"] = accept_language
+    payload = {"intent": "onboarding"}
+    if requested_language is not None:
+        payload["language"] = requested_language
+    response = test_client.post(
+        "/api/user/profile-onboarding/session", headers=headers, json=payload
+    )
+
+    assert _data(response) == {
+        "session_id": "session-started",
+        "config_revision": 12,
+    }
+    assert calls == [
+        {
+            "user_bid": user.user_id,
+            "document": "?[Continue]",
+            "purpose": "profile-onboarding",
+            "config_revision": 12,
+            "assistant_prompt": expected_prompt,
+            "output_language": expected_language,
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("assistant_prompts", "legacy_assistant_prompt", "expected_prompt"),
+    [
+        ({"en-US": "English fallback"}, "Legacy prompt", "English fallback"),
+        ({"fr-FR": "Prompt français"}, "Legacy prompt", "Legacy prompt"),
+        ({"fr-FR": "Prompt français"}, "", ""),
+        ({"fr-FR": "Prompt français"}, "   ", ""),
+    ],
+)
+def test_profile_onboarding_session_start_falls_back_to_available_prompt(
+    monkeypatch: object,
+    test_client: object,
+    assistant_prompts: object,
+    legacy_assistant_prompt: object,
+    expected_prompt: object,
+) -> None:
+    user = _authenticate(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        "flaskr.route.profile.get_profile_onboarding_config",
+        lambda: {
+            "enabled": True,
+            "markdownflow": "?[Continue]",
+            "config_revision": 12,
+            "assistant_prompt": legacy_assistant_prompt,
+            "assistant_prompts": assistant_prompts,
         },
     )
     monkeypatch.setattr(
@@ -457,7 +557,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
     response = test_client.post(
         "/api/user/profile-onboarding/session",
         headers={"Token": "token"},
-        json={"language": "zh_cn", "intent": "onboarding"},
+        json={"language": "zh-CN", "intent": "onboarding"},
     )
 
     assert _data(response) == {
@@ -470,7 +570,7 @@ def test_profile_onboarding_session_start_snapshots_config_and_language(
             "document": "?[Continue]",
             "purpose": "profile-onboarding",
             "config_revision": 12,
-            "assistant_prompt": "Shared questionnaire prompt",
+            "assistant_prompt": expected_prompt,
             "output_language": "zh-CN",
         }
     ]
@@ -1317,6 +1417,11 @@ def test_operator_profile_onboarding_preview_start_maps_busy_error(
             "enabled": True,
             "markdownflow": "flow",
             "document_prompt": "removed",
+        },
+        {
+            "enabled": False,
+            "markdownflow": "flow",
+            "assistant_prompts": {"en-US": "Read only"},
         },
     ],
 )

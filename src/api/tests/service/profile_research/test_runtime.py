@@ -1401,19 +1401,24 @@ def test_assistant_import_uses_official_final_block_and_preserves_manual_answers
     )
 
 
-def test_assistant_prompt_snapshot_is_shared_and_old_sessions_remain_compatible() -> (
+def test_assistant_prompt_snapshot_is_frozen_and_old_sessions_remain_compatible() -> (
     None
 ):
     app, runtime, view, _providers = _assistant_runtime()
+    localized_prompt = "Réponds au questionnaire avec ce que tu sais de moi."
     other = runtime.start_session(
         user_bid="user-2",
         document="?[Continue]",
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=1,
         output_language="fr-FR",
-        assistant_prompt=view["assistant_prompt"],
+        assistant_prompt=localized_prompt,
     )
-    assert other["assistant_prompt"] == view["assistant_prompt"]
+    assert other["assistant_prompt"] == localized_prompt
+    assert (
+        runtime.store.load(view["session_id"]).assistant_prompt
+        == view["assistant_prompt"]
+    )
     old = runtime.store.load(view["session_id"]).to_cache_payload()
     del old["assistant_prompt"]
     from flaskr.service.profile_research.session import _ProfileResearchSession
