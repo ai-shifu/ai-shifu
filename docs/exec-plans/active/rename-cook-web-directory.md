@@ -50,6 +50,9 @@ migration explicitly replaces them.
   the newly added profile-retention implementation into `src/web`, corrected
   its completed ExecPlan path, regenerated repository knowledge, and reran the
   repository, frontend, and production-build gates.
+- [x] 2026-08-30 14:41 CST: Extended the local repository-harness hook trigger
+  to cover `.gitignore`, `.codex` environment changes, and `lefthook.yml`, so
+  future edits to the migration compatibility surfaces cannot skip the check.
 
 ## Surprises & Discoveries
 
@@ -136,6 +139,11 @@ frontend-local treatment of generated and machine-local artifacts without
 ignoring the legacy directory wholesale; a fixture proves an ordinary source
 file, nested bare `.pnp`, and the four Yarn exception directories remain
 visible.
+
+The local pre-commit trigger includes the ignore rules, Codex environment
+setup, and its own lefthook configuration in addition to the existing harness
+sources. Future changes to any of the legacy-checkout compatibility inputs now
+run the same path-contract validation locally that CI runs.
 
 Verification passed for the full pre-commit hook suite, repository harness,
 architecture fixtures and baseline, YAML/JSON syntax, embedded release Python,
