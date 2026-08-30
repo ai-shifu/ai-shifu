@@ -337,6 +337,24 @@ export const usePaymentFlow = ({
     [refreshPayment, updateFromOrder],
   );
 
+  const finalizePollingTimeout = useCallback(
+    (generation: number) => {
+      const shouldFinalizeTimeout =
+        Date.now() >= pollingDeadlineAtRef.current &&
+        mountedRef.current &&
+        generation === pollingGenerationRef.current &&
+        !completedRef.current &&
+        timeoutReportedGenerationRef.current !== generation;
+      if (!shouldFinalizeTimeout) return;
+
+      timeoutReportedGenerationRef.current = generation;
+      setPollingActive(false);
+      setIsTimeout(true);
+      onPollingTimeout?.();
+    },
+    [onPollingTimeout],
+  );
+
   useInterval(
     async () => {
       const generation = pollingGenerationRef.current;
@@ -348,13 +366,10 @@ export const usePaymentFlow = ({
         0,
       );
       setCountDownMs(remainingMs);
-      if (remainingMs === 0) {
-        setPollingActive(false);
-        if (!completedRef.current) {
-          setIsTimeout(true);
-        }
-      }
       if (pollingInFlightGenerationRef.current === generation) {
+        if (remainingMs === 0) {
+          finalizePollingTimeout(generation);
+        }
         return;
       }
       pollingInFlightGenerationRef.current = generation;
@@ -413,20 +428,7 @@ export const usePaymentFlow = ({
             }
           }
         }
-        const shouldFinalizeTimeout =
-          timeoutReached &&
-          mountedRef.current &&
-          generation === pollingGenerationRef.current &&
-          !completedRef.current &&
-          timeoutReportedGenerationRef.current !== generation;
-        if (shouldFinalizeTimeout) {
-          timeoutReportedGenerationRef.current = generation;
-          setPollingActive(false);
-          if (!isOrderPaid(finalSnapshot)) {
-            setIsTimeout(true);
-            onPollingTimeout?.();
-          }
-        }
+        finalizePollingTimeout(generation);
       }
     },
     isLoggedIn && pollingActive ? COUNTDOWN_INTERVAL : null,

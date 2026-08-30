@@ -240,7 +240,7 @@ describe('usePaymentFlow polling timeout', () => {
     expect(hook.result.current.isTimeout).toBe(true);
   });
 
-  it('does not extend the deadline while an order query is in flight', async () => {
+  it('reports timeout during an in-flight query and preserves a late paid result', async () => {
     const onOrderPaid = jest.fn();
     const onPollingTimeout = jest.fn();
     const hook = await startPendingPayment({
@@ -265,16 +265,60 @@ describe('usePaymentFlow polling timeout', () => {
     expect(mockedQueryOrder).toHaveBeenCalledTimes(2);
     expect(hook.result.current.countDownMs).toBe(0);
     expect(hook.result.current.isTimeout).toBe(true);
-    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      deferredQuery.resolve(pendingOrder);
+      deferredQuery.resolve(paidOrder);
       await inFlightTick;
     });
 
     expect(onPollingTimeout).toHaveBeenCalledTimes(1);
-    expect(onOrderPaid).not.toHaveBeenCalled();
+    expect(onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.isCompleted).toBe(true);
+    expect(hook.result.current.isTimeout).toBe(false);
+  });
+
+  it('reports timeout when the deadline query itself remains in flight', async () => {
+    const onOrderPaid = jest.fn();
+    const onPollingTimeout = jest.fn();
+    const hook = await startPendingPayment({
+      onOrderPaid,
+      onPollingTimeout,
+    });
+    const deferredDeadlineQuery = createDeferred<typeof paidOrder>();
+    mockedQueryOrder.mockReturnValueOnce(deferredDeadlineQuery.promise);
+    const deadlineCallback = mockIntervalCallback;
+    let deadlineTick: Promise<void> | undefined;
+
+    mockNowMs += POLLING_TIMEOUT_MS;
+    await act(async () => {
+      deadlineTick = deadlineCallback?.();
+      await Promise.resolve();
+    });
+
+    expect(hook.result.current.countDownMs).toBe(0);
+    expect(hook.result.current.isTimeout).toBe(false);
+    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(mockIntervalCallback).not.toBeNull();
+
+    mockNowMs += 1000;
+    await act(async () => {
+      await mockIntervalCallback?.();
+    });
+
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
     expect(hook.result.current.isTimeout).toBe(true);
+    expect(mockIntervalCallback).toBeNull();
+
+    await act(async () => {
+      deferredDeadlineQuery.resolve(paidOrder);
+      await deadlineTick;
+    });
+
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
+    expect(onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.isCompleted).toBe(true);
+    expect(hook.result.current.isTimeout).toBe(false);
   });
 
   it('preserves a paid result returned by the final deadline query', async () => {
@@ -400,6 +444,7 @@ describe('usePaymentFlow polling timeout', () => {
     });
 
     expect(hook.result.current.isTimeout).toBe(true);
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
     await act(async () => {
       retry = hook.result.current.refreshPayment({
         channel: 'wx_pub_qr',
@@ -428,7 +473,7 @@ describe('usePaymentFlow polling timeout', () => {
     expect(hook.result.current.isCompleted).toBe(true);
     expect(hook.result.current.isTimeout).toBe(false);
     expect(mockIntervalCallback).toBeNull();
-    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
   });
 
   it('accepts a stale-generation paid result after a retry restarts polling', async () => {
@@ -452,6 +497,7 @@ describe('usePaymentFlow polling timeout', () => {
     });
 
     expect(hook.result.current.isTimeout).toBe(true);
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
     await act(async () => {
       await hook.result.current.refreshPayment({
         channel: 'wx_pub_qr',
@@ -475,7 +521,7 @@ describe('usePaymentFlow polling timeout', () => {
     });
 
     expect(onOrderPaid).toHaveBeenCalledTimes(1);
-    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
     expect(hook.result.current.isCompleted).toBe(true);
     expect(hook.result.current.isTimeout).toBe(false);
     expect(mockIntervalCallback).toBeNull();
@@ -502,7 +548,7 @@ describe('usePaymentFlow polling timeout', () => {
       deadlinePoll = deadlineCallback?.();
       await Promise.resolve();
     });
-    expect(hook.result.current.isTimeout).toBe(true);
+    expect(hook.result.current.isTimeout).toBe(false);
 
     await act(async () => {
       await hook.result.current.syncOrderStatus();
