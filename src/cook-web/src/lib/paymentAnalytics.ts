@@ -28,6 +28,19 @@ export const normalizeLearnerPaymentChannel = (
   return 'other';
 };
 
+export const resolveLearnerPaymentAttributionChannel = (
+  channels: Iterable<LearnerPaymentChannel>,
+  confirmedChannel?: LearnerPaymentChannel,
+): LearnerPaymentChannel | null => {
+  const distinctChannels = new Set(channels);
+  if (distinctChannels.size === 0) return null;
+  if (confirmedChannel) {
+    return distinctChannels.has(confirmedChannel) ? confirmedChannel : null;
+  }
+  if (distinctChannels.size > 1) return 'other';
+  return distinctChannels.values().next().value ?? null;
+};
+
 export const normalizeLearnerPaymentCurrency = (
   currency: string | undefined,
 ) => {

@@ -4,6 +4,7 @@ import {
   buildLearnerPaymentStatusAnalytics,
   normalizeLearnerPaymentChannel,
   normalizeLearnerPaymentCurrency,
+  resolveLearnerPaymentAttributionChannel,
   trackLearnerPaymentEventSafely,
 } from './paymentAnalytics';
 
@@ -16,6 +17,26 @@ describe('learner payment analytics', () => {
     ['unknown-provider', 'other'],
   ] as const)('normalizes %s to %s', (input, expected) => {
     expect(normalizeLearnerPaymentChannel(input)).toBe(expected);
+  });
+
+  it('uses other for multiple unresolved attempted channels', () => {
+    expect(resolveLearnerPaymentAttributionChannel([])).toBeNull();
+    expect(
+      resolveLearnerPaymentAttributionChannel(['wechat_qr', 'wechat_qr']),
+    ).toBe('wechat_qr');
+    expect(
+      resolveLearnerPaymentAttributionChannel(['wechat_qr', 'alipay_qr']),
+    ).toBe('other');
+    expect(
+      resolveLearnerPaymentAttributionChannel(
+        ['wechat_qr', 'alipay_qr'],
+        'wechat_qr',
+      ),
+    ).toBe('wechat_qr');
+    expect(resolveLearnerPaymentAttributionChannel([], 'stripe')).toBeNull();
+    expect(
+      resolveLearnerPaymentAttributionChannel(['wechat_qr'], 'stripe'),
+    ).toBeNull();
   });
 
   it.each([

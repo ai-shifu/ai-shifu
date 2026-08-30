@@ -225,12 +225,18 @@ string, user identity, and raw errors are excluded.
   final lookup fails or returns no snapshot.
 - Population: eligible logged-in learners on desktop/mobile payment surfaces.
   Logged-out price previews can emit modal view but cannot emit payment attempt.
-- Deduplication: modal view once per open lifecycle; one terminal result per
-  component-owned accepted attempt. A deliberate retry starts a new attempt.
+- Deduplication: modal view once per open lifecycle. A provider-confirmed
+  terminal result closes only its matching unresolved channel; a generic
+  order-level terminal result closes the remaining unresolved channel set and
+  is emitted once. A deliberate retry reopens its channel.
 - Correlation: `order_id` joins attempts/results to product-owned order data;
   `shifu_bid` groups by course. Both are pseudonymous machine IDs. A Stripe
   return-page order ID is eligible only after the product API has confirmed it;
-  an unverified query parameter is never analytics data.
+  an unverified query parameter is never analytics data. When a generic
+  order-level observation has no provider-confirmed channel, one distinct
+  unresolved attempted channel keeps that channel and multiple distinct
+  unresolved attempted channels use `channel=other`; the latest selected
+  channel is never treated as proof.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
   abandonment uses `learner_pay_modal_dismiss`; cancellation of an accepted

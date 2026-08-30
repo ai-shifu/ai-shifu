@@ -129,7 +129,16 @@ jest.mock('./PayModalFooter', () => ({
 
 jest.mock('./PayChannelSwitch', () => ({
   __esModule: true,
-  default: () => <div data-testid='pay-channel-switch' />,
+  default: ({
+    onChange,
+  }: {
+    onChange?: (value: { channel: string }) => void;
+  }) => (
+    <button
+      data-testid='pay-channel-switch'
+      onClick={() => onChange?.({ channel: 'alipay_qr' })}
+    />
+  ),
 }));
 
 jest.mock('./CouponCodeModal', () => ({
@@ -167,17 +176,32 @@ jest.mock('./StripeCardForm', () => ({
   default: ({
     onAttempt,
     onConfirmSuccess,
+    onError,
   }: {
     onAttempt: () => void;
     onConfirmSuccess: () => Promise<void>;
+    onError: (message: string) => void;
   }) => (
-    <button
-      data-testid='stripe-submit'
-      onClick={() => {
-        onAttempt();
-        void onConfirmSuccess();
-      }}
-    />
+    <>
+      <button
+        data-testid='stripe-submit'
+        onClick={() => {
+          onAttempt();
+          void onConfirmSuccess();
+        }}
+      />
+      <button
+        data-testid='stripe-fail'
+        onClick={() => {
+          onAttempt();
+          onError('private-stripe-provider-error');
+        }}
+      />
+      <button
+        data-testid='stripe-late-fail'
+        onClick={() => onError('private-stripe-late-error')}
+      />
+    </>
   ),
 }));
 
@@ -468,6 +492,242 @@ describe('learner payment modal analytics producers', () => {
     );
   });
 
+  it('does not guess a desktop result when multiple attempted channels remain unresolved', async () => {
+    const { rerender } = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByTestId('pay-channel-switch'));
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        ...mockPaymentFlowState.paymentInfo,
+        channel: 'alipay_qr',
+        qrUrl: 'https://provider.example/private-alipay-qr',
+      },
+    };
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
+    });
+    act(() => {
+      latestPaymentFlowOptions().onPollingTimeout();
+    });
+    expect(eventCalls('learner_payment_status')).toEqual([
+      [
+        'learner_payment_status',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'other',
+          surface: 'desktop',
+          status: 'pending',
+        },
+      ],
+    ]);
+    act(() => {
+      latestPaymentFlowOptions().onOrderPaid();
+    });
+
+    expect(eventCalls('learner_payment_attempt')).toEqual([
+      [
+        'learner_payment_attempt',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'wechat_qr',
+          surface: 'desktop',
+        },
+      ],
+      [
+        'learner_payment_attempt',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'alipay_qr',
+          surface: 'desktop',
+        },
+      ],
+    ]);
+    expect(eventCalls('learner_payment_result')).toEqual([
+      [
+        'learner_payment_result',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'other',
+          surface: 'desktop',
+          outcome: 'success',
+        },
+      ],
+    ]);
+    expect(requiredModalProps.onOk).toHaveBeenCalledTimes(1);
+    const trackedPayloads = JSON.stringify(mockTrackEvent.mock.calls);
+    expect(trackedPayloads).not.toContain('private-qr');
+    expect(trackedPayloads).not.toContain('private-alipay-qr');
+  });
+
+  it('clears unresolved desktop channels when the order changes', async () => {
+    const { rerender } = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByTestId('pay-channel-switch'));
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        ...mockPaymentFlowState.paymentInfo,
+        channel: 'alipay_qr',
+        qrUrl: 'https://provider.example/private-alipay-qr',
+      },
+    };
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
+    });
+
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      orderId: 'order-2',
+      paymentInfo: {
+        ...mockPaymentFlowState.paymentInfo,
+        qrUrl: 'https://provider.example/private-order-2-qr',
+      },
+    };
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(3);
+    });
+    act(() => {
+      latestPaymentFlowOptions().onOrderPaid();
+    });
+
+    expect(eventCalls('learner_payment_result')).toEqual([
+      [
+        'learner_payment_result',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-2',
+          channel: 'alipay_qr',
+          surface: 'desktop',
+          outcome: 'success',
+        },
+      ],
+    ]);
+    expect(requiredModalProps.onOk).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private-order-2-qr',
+    );
+  });
+
+  it('keeps an older desktop channel eligible after Stripe fails', async () => {
+    mockEnvState = {
+      ...mockEnvState,
+      stripePublishableKey: 'private-stripe-key',
+      stripeEnabled: 'true',
+      paymentChannels: ['pingxx', 'stripe'],
+    };
+    const { rerender } = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByText('module.pay.payChannelStripeCard'));
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        channel: 'stripe',
+        qrUrl: '',
+        status: ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
+        paymentChannel: 'stripe',
+        paymentPayload: {
+          mode: 'payment_intent',
+          client_secret: 'private-stripe-client-secret',
+        },
+      },
+    };
+    rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    fireEvent.click(screen.getByTestId('stripe-fail'));
+    fireEvent.click(screen.getByTestId('stripe-late-fail'));
+
+    expect(
+      eventCalls('learner_payment_attempt').map(
+        ([, payload]) => payload.channel,
+      ),
+    ).toEqual(['wechat_qr', 'stripe']);
+    expect(eventCalls('learner_payment_result')).toEqual([
+      [
+        'learner_payment_result',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'stripe',
+          surface: 'desktop',
+          outcome: 'failed',
+          failure_category: 'provider_failed',
+        },
+      ],
+    ]);
+
+    act(() => {
+      latestPaymentFlowOptions().onOrderPaid();
+    });
+    expect(eventCalls('learner_payment_result')[1]).toEqual([
+      'learner_payment_result',
+      {
+        shifu_bid: 'course-1',
+        order_id: 'order-1',
+        channel: 'wechat_qr',
+        surface: 'desktop',
+        outcome: 'success',
+      },
+    ]);
+    expect(requiredModalProps.onOk).toHaveBeenCalledTimes(1);
+    const trackedPayloads = JSON.stringify(mockTrackEvent.mock.calls);
+    expect(trackedPayloads).not.toContain('private-stripe-key');
+    expect(trackedPayloads).not.toContain('private-stripe-client-secret');
+    expect(trackedPayloads).not.toContain('private-stripe-provider-error');
+    expect(trackedPayloads).not.toContain('private-stripe-late-error');
+  });
+
   it('does not start a desktop retry attempt until refresh returns a usable QR', async () => {
     const { rerender } = render(
       <PayModal
@@ -700,6 +960,65 @@ describe('learner payment modal analytics producers', () => {
     });
     expect(eventCalls('learner_payment_status')).toHaveLength(2);
     expect(eventCalls('learner_payment_result')).toHaveLength(0);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private-qr',
+    );
+  });
+
+  it('does not guess a mobile success when multiple attempted channels remain unresolved', async () => {
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    fireEvent.click(screen.getByText('module.pay.pay'));
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
+    });
+    fireEvent.click(screen.getByText('module.pay.wechatPay'));
+    fireEvent.click(screen.getByText('module.pay.pay'));
+    await waitFor(() => {
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(2);
+    });
+    act(() => {
+      latestPaymentFlowOptions().onOrderPaid();
+    });
+
+    expect(eventCalls('learner_payment_attempt')).toEqual([
+      [
+        'learner_payment_attempt',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'alipay_qr',
+          surface: 'mobile',
+        },
+      ],
+      [
+        'learner_payment_attempt',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'wechat_qr',
+          surface: 'mobile',
+        },
+      ],
+    ]);
+    expect(eventCalls('learner_payment_result')).toEqual([
+      [
+        'learner_payment_result',
+        {
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'other',
+          surface: 'mobile',
+          outcome: 'success',
+        },
+      ],
+    ]);
+    expect(requiredModalProps.onOk).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-qr',
     );

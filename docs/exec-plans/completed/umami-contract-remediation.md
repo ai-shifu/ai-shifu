@@ -48,7 +48,7 @@ their consumers are deleted instead of dual-written.
 - [x] 2026-08-30 22:29 CST: Rebased the final two-commit change onto
       `origin/main` commit `e9b57d20d`, preserving the newly merged account
       session analytics contracts. The final full frontend suite passed: 212
-      Jest suites / 1,874 tests.
+      Jest suites / 1,880 tests.
 - [x] 2026-08-30 22:29 CST: Moved this plan to
       `docs/exec-plans/completed/` after all acceptance checks passed.
 
@@ -151,10 +151,13 @@ The related workflow fixes keep terminal state monotonic: polling performs its
 final provider check before timing out and reports unresolved confirmation as
 pending, successful billing synchronization is shown as completed, synchronous
 card-confirmation failures remain visible, and duplicate course-creation
-submissions are rejected while one request is active.
+submissions are rejected while one request is active. Learner payment attempts
+retain their distinct unresolved channels, explicit provider results close only
+their matching channel, and a generic order-level result uses `channel=other`
+instead of guessing when multiple channels remain unresolved.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,874 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,880 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.
