@@ -3,6 +3,7 @@ import {
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,
   normalizeLearnerPaymentChannel,
+  normalizeLearnerPaymentCurrency,
   trackLearnerPaymentEventSafely,
 } from './paymentAnalytics';
 
@@ -15,6 +16,15 @@ describe('learner payment analytics', () => {
     ['unknown-provider', 'other'],
   ] as const)('normalizes %s to %s', (input, expected) => {
     expect(normalizeLearnerPaymentChannel(input)).toBe(expected);
+  });
+
+  it.each([
+    ['cny', 'CNY'],
+    ['USD', 'USD'],
+    ['custom-person@example.test', 'other'],
+    ['', 'other'],
+  ] as const)('normalizes currency %s to %s', (input, expected) => {
+    expect(normalizeLearnerPaymentCurrency(input)).toBe(expected);
   });
 
   it('builds flat attempt and result payloads without payment secrets', () => {

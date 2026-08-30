@@ -222,7 +222,9 @@ string, user identity, and raw errors are excluded.
 - Deduplication: modal view once per open lifecycle; one terminal result per
   component-owned accepted attempt. A deliberate retry starts a new attempt.
 - Correlation: `order_id` joins attempts/results to product-owned order data;
-  `shifu_bid` groups by course. Both are pseudonymous machine IDs.
+  `shifu_bid` groups by course. Both are pseudonymous machine IDs. A Stripe
+  return-page order ID is eligible only after the product API has confirmed it;
+  an unverified query parameter is never analytics data.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
   abandonment uses `learner_pay_modal_dismiss`; cancellation of an accepted
@@ -230,7 +232,7 @@ string, user identity, and raw errors are excluded.
 
 | Event                       | Fields and allowed values                                                                                                                                                                |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `learner_pay_modal_view`    | `shifu_bid`, finite `price_amount`, `currency`                                                                                                                                           |
+| `learner_pay_modal_view`    | `shifu_bid`, finite `price_amount`, `currency` as `CNY`, `USD`, or `other`                                                                                                                |
 | `learner_pay_modal_dismiss` | `shifu_bid`, optional `order_id`, `dismiss_surface` is `modal` or `payment_page`, `had_payment_attempt`                                                                                  |
 | `learner_payment_attempt`   | `shifu_bid`, optional `order_id`, `channel` is `wechat_jsapi`, `wechat_qr`, `alipay_qr`, `stripe`, or `other`; `surface` is `desktop`, `mobile`, or `stripe_return`                      |
 | `learner_payment_result`    | attempt fields; `outcome` is `success`, `failed`, or `cancelled`; failed only: `failure_category` is `provider_failed`, `missing_order`, or `status_lookup_failed`                       |
@@ -255,7 +257,10 @@ receipt, and raw failure are excluded.
   validation-only, and coming-soon controls are excluded.
 - Deduplication: existing checkout in-flight guards prevent concurrent duplicate
   requests. Return-page status is deduped per billing order and rendered state.
-- Correlation: `bill_order_bid` is the pseudonymous product-owned order key.
+- Correlation: `bill_order_bid` is the pseudonymous product-owned order key. A
+  Stripe return-page value is eligible only after the billing API has confirmed
+  it; cancellation and confirmation-failure events omit an unverified query
+  parameter.
 - Consumer: billing checkout adoption and provider reliability analysis; the
   billing ledger remains the financial source of truth.
 - Replacement: delete the `creator_billing_checkout_click` producer and

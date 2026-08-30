@@ -230,7 +230,7 @@ export default function StripeBillingResultPage() {
           billingOrderBid: orderBid,
         });
       } catch (error: any) {
-        reportCheckoutStatus(orderBid, 'confirmation_failed');
+        reportCheckoutStatus('', 'confirmation_failed');
         setState({
           status: 'error',
           messageKey: error?.message
@@ -246,7 +246,7 @@ export default function StripeBillingResultPage() {
 
   useEffect(() => {
     if (canceled) {
-      reportCheckoutResult(billingOrderBid, 'cancelled');
+      reportCheckoutResult('', 'cancelled');
       setState({
         status: 'error',
         messageKey: 'module.billing.result.errorTitle',

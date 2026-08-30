@@ -213,7 +213,11 @@ jest.mock('@/c-utils/envUtils', () => ({
 }));
 
 jest.mock('@/c-utils/currency', () => ({
-  getCurrencyCode: (symbol: string) => (symbol === '¥' ? 'CNY' : 'USD'),
+  getCurrencyCode: (symbol: string) => {
+    if (symbol === '¥') return 'CNY';
+    if (symbol === '$') return 'USD';
+    return symbol.trim().toUpperCase();
+  },
 }));
 
 jest.mock('@/i18n', () => ({
@@ -350,6 +354,47 @@ describe('learner payment modal analytics producers', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('bounds runtime currency values on both payment modal surfaces', async () => {
+    mockEnvState.currencySymbol = 'private-person@example.test';
+
+    const desktop = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    await waitFor(() => {
+      expect(eventCalls('learner_pay_modal_view')).toEqual([
+        [
+          'learner_pay_modal_view',
+          { shifu_bid: 'course-1', price_amount: 99, currency: 'other' },
+        ],
+      ]);
+    });
+    desktop.unmount();
+    mockTrackEvent.mockClear();
+
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    await waitFor(() => {
+      expect(eventCalls('learner_pay_modal_view')).toEqual([
+        [
+          'learner_pay_modal_view',
+          { shifu_bid: 'course-1', price_amount: 99, currency: 'other' },
+        ],
+      ]);
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private-person@example.test',
+    );
   });
 
   it('tracks desktop QR timeout as pending and retries independently', async () => {

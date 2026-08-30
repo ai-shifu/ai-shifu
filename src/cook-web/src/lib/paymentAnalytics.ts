@@ -28,6 +28,18 @@ export const normalizeLearnerPaymentChannel = (
   return 'other';
 };
 
+export const normalizeLearnerPaymentCurrency = (
+  currency: string | undefined,
+) => {
+  const normalized = String(currency || '')
+    .trim()
+    .toUpperCase();
+  if (normalized === 'CNY' || normalized === 'USD') {
+    return normalized;
+  }
+  return 'other';
+};
+
 type LearnerPaymentBase = {
   shifuBid?: string;
   orderId?: string;

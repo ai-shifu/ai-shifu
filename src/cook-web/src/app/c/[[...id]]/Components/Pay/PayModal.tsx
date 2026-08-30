@@ -47,6 +47,7 @@ import {
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,
   normalizeLearnerPaymentChannel,
+  normalizeLearnerPaymentCurrency,
   trackLearnerPaymentEventSafely,
   type LearnerPaymentChannel,
 } from '@/lib/paymentAnalytics';
@@ -715,7 +716,7 @@ export const PayModal = ({
   }, [initLoading, isLoading, orderId]);
 
   const currencyCode = useMemo(
-    () => getCurrencyCode(currencySymbol),
+    () => normalizeLearnerPaymentCurrency(getCurrencyCode(currencySymbol)),
     [currencySymbol],
   );
 

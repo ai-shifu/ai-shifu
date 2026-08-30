@@ -40,6 +40,7 @@ import {
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,
   normalizeLearnerPaymentChannel,
+  normalizeLearnerPaymentCurrency,
   trackLearnerPaymentEventSafely,
   type LearnerPaymentChannel,
 } from '@/lib/paymentAnalytics';
@@ -258,7 +259,7 @@ export const PayModalM = ({
   );
   const initialPaymentRequestedRef = useRef(false);
   const currencyCode = useMemo(
-    () => getCurrencyCode(currencySymbol),
+    () => normalizeLearnerPaymentCurrency(getCurrencyCode(currencySymbol)),
     [currencySymbol],
   );
   const trackModalDismiss = useCallback(() => {

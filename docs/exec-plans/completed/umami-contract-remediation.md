@@ -35,12 +35,21 @@ their consumers are deleted instead of dual-written.
 - [x] 2026-08-30 21:40 CST: Rebuilt the change from `origin/main` commit
       `33b3f836e` with a clean frontend-only analytics scope.
 - [x] 2026-08-30 22:12 CST: Added focused producer and transport coverage and
-      passed the final full frontend suite: 211 Jest suites / 1,849 tests, plus
+      passed the initial full frontend suite: 211 Jest suites / 1,849 tests, plus
       TypeScript, frontend lint, Prettier, repository harness, architecture
       boundaries, dev-tool verification, and the full Lefthook pre-commit gate.
 - [x] 2026-08-30 22:14 CST: Completed independent frontend/static and
-      backend/consumer diff audits with no remaining P0-P2 actionable issue.
-- [x] 2026-08-30 22:14 CST: Moved this plan to
+      backend/consumer diff audits.
+- [x] 2026-08-30 22:25 CST: A final payload audit found and fixed unverified
+      return-page order IDs and an unbounded learner currency value before
+      merge. The pre-rebase full frontend suite passed: 211 Jest suites / 1,855
+      tests,
+      with no remaining P0-P2 audit finding.
+- [x] 2026-08-30 22:29 CST: Rebased the final two-commit change onto
+      `origin/main` commit `e9b57d20d`, preserving the newly merged account
+      session analytics contracts. The final full frontend suite passed: 212
+      Jest suites / 1,866 tests.
+- [x] 2026-08-30 22:29 CST: Moved this plan to
       `docs/exec-plans/completed/` after all acceptance checks passed.
 
 ## Surprises & Discoveries
@@ -62,6 +71,10 @@ their consumers are deleted instead of dual-written.
 - Payment timeout state previously became terminal before the deadline's final
   provider query. A paid response at that boundary could be reported as failed
   and then have its success suppressed.
+- Stripe return pages initially treated query-provided order IDs as analytics
+  correlation IDs even when product APIs had not confirmed them, and learner
+  modal currency accepted an unbounded runtime string. Final payload review
+  required omitting unverified IDs and bounding currency to `CNY|USD|other`.
 - The legacy `createOutline` producer read `parent_bid` after `replaceOutline`
   mutated its placeholder. Producer-level tests exposed the resulting empty
   parent ID and led to capturing it before mutation.
@@ -135,8 +148,8 @@ final provider check before timing out, successful billing synchronization is
 shown as completed, synchronous card-confirmation failures remain visible, and
 duplicate course-creation submissions are rejected while one request is active.
 
-Validation completed with focused frontend checks and the final full 211 Jest
-suites / 1,849 tests, TypeScript, frontend lint (no errors; existing repository
+Validation completed with focused frontend checks and the final full 212 Jest
+suites / 1,866 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.

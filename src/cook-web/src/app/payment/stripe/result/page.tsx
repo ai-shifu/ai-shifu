@@ -90,7 +90,6 @@ export default function StripeResultPage() {
         setState({
           status: 'error',
           message: error?.message || t('module.pay.stripeError'),
-          orderId,
           failureCategory: 'status_lookup_failed',
         });
       }

@@ -117,7 +117,7 @@ describe('StripeResultPage analytics contract', () => {
   });
 
   it('does not include a raw status lookup error in the failure event', async () => {
-    mockSearchParams.set('order_id', 'order-3');
+    mockSearchParams.set('order_id', 'private-person@example.test');
     mockGetPaymentDetail.mockRejectedValue(
       new Error('private provider response'),
     );
@@ -126,7 +126,6 @@ describe('StripeResultPage analytics contract', () => {
 
     await waitFor(() =>
       expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_result', {
-        order_id: 'order-3',
         channel: 'stripe',
         surface: 'stripe_return',
         outcome: 'failed',
@@ -135,6 +134,9 @@ describe('StripeResultPage analytics contract', () => {
     );
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private provider response',
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private-person@example.test',
     );
   });
 });
