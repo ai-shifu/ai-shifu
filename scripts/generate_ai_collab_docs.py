@@ -1610,6 +1610,17 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
+                "Keep every pull request focused on one clearly defined problem. "
+                "Include all code, tests, docs, migrations, and compatibility "
+                "work required to solve that problem, but move unrelated fixes, "
+                "cleanup, and follow-up work to separate pull requests.",
+                "During code review, evaluate only whether the pull request "
+                "solves its stated problem correctly, safely, completely, and "
+                "with adequate tests, including regressions or contract effects "
+                "introduced by the change.",
+                "Do not raise review findings about unrelated or pre-existing "
+                "problems outside the current pull request's responsibility "
+                "boundary.",
                 "For git commit message title, body, and classification "
                 "requirements, read "
                 "`AGENTS.md#git-commit-message-requirements`; keep "
@@ -1843,6 +1854,17 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
+                "Keep every pull request focused on one clearly defined problem. "
+                "Include all code, tests, docs, migrations, and compatibility "
+                "work required to solve that problem, but move unrelated fixes, "
+                "cleanup, and follow-up work to separate pull requests.",
+                "During code review, evaluate only whether the pull request "
+                "solves its stated problem correctly, safely, completely, and "
+                "with adequate tests, including regressions or contract effects "
+                "introduced by the change.",
+                "Do not raise review findings about unrelated or pre-existing "
+                "problems outside the current pull request's responsibility "
+                "boundary.",
                 "For git commit message title, body, and classification "
                 "requirements, read "
                 "`AGENTS.md#git-commit-message-requirements`; keep "

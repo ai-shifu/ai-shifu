@@ -30,6 +30,13 @@ from generate_ai_collab_docs import (
 ROOT = Path(__file__).resolve().parents[1]
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
 HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
+PR_REVIEW_SCOPE_MARKERS = (
+    "one clearly defined problem",
+    "correctly, safely, completely, and with adequate tests",
+    "responsibility boundary",
+)
+CURSOR_REPOSITORY_AI_RULE = ROOT / ".cursor" / "rules" / "repository-ai-collab.mdc"
+COPILOT_REPOSITORY_AI_INSTRUCTIONS = ROOT / ".github" / "copilot-instructions.md"
 MANUAL_AGENTS = {
     ROOT / "AGENTS.md": (
         "ARCHITECTURE.md",
@@ -38,6 +45,7 @@ MANUAL_AGENTS = {
         "docs/exec-plans/active/",
         "docs/references/frontend-product-analytics.md",
         "Umami",
+        *PR_REVIEW_SCOPE_MARKERS,
         "product analytics as a completion requirement",
         "best-effort",
         "python scripts/check_repo_harness.py",
@@ -60,6 +68,10 @@ MANUAL_AGENTS = {
         "src/lib/request.ts",
         "npm run test:e2e",
     ),
+}
+GENERATED_AI_DOC_MARKERS = {
+    CURSOR_REPOSITORY_AI_RULE: PR_REVIEW_SCOPE_MARKERS,
+    COPILOT_REPOSITORY_AI_INSTRUCTIONS: PR_REVIEW_SCOPE_MARKERS,
 }
 REQUIRED_ROOT_DOCS = (
     ROOT / "ARCHITECTURE.md",
@@ -132,6 +144,16 @@ def check_ordered_headings(path: Path, text: str, errors: list[str]) -> None:
 def check_generated_ai_docs(errors: list[str]) -> None:
     """Check generated AI docs."""
     expected_docs = build_documents()
+    for path, markers in GENERATED_AI_DOC_MARKERS.items():
+        expected = expected_docs.get(path)
+        if expected is None:
+            errors.append(f"Missing generated AI doc definition: {path}")
+            continue
+        errors.extend(
+            f"Missing marker '{marker}' in generated AI doc definition: {path}"
+            for marker in markers
+            if marker not in expected
+        )
     for path, expected in sorted(expected_docs.items()):
         if not path.exists():
             errors.append(f"Missing generated AI doc: {path}")
