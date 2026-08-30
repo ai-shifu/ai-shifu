@@ -535,7 +535,7 @@ Do not put user-owned cloned voice rows into the public config response.
 
 ## Frontend Design
 
-Update `src/cook-web/src/components/shifu-setting/ShifuSetting.tsx` and keep
+Update `src/web/src/components/shifu-setting/ShifuSetting.tsx` and keep
 strings in shared i18n JSON.
 
 ### State
@@ -804,8 +804,8 @@ Backend:
 
 Frontend:
 
-- `cd src/cook-web && npm run type-check`
-- `cd src/cook-web && npm run lint`
+- `cd src/web && npm run type-check`
+- `cd src/web && npm run lint`
 - Add focused tests if the component test harness already covers
   `ShifuSetting`; otherwise rely on type/lint plus manual browser verification.
 

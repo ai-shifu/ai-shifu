@@ -73,7 +73,7 @@ The full focused-file Ruff scan retains 18 pre-existing warnings and adds none.
 ## Context and Orientation
 
 The frontend route is
-`src/cook-web/src/app/admin/operations/config/page.tsx`. It reads and writes
+`src/web/src/app/admin/operations/config/page.tsx`. It reads and writes
 `/shifu/admin/operations/config/rates`. Backend serialization and versioned
 writes live in
 `src/api/flaskr/service/shifu/admin_operations/config_rates.py`, with focused

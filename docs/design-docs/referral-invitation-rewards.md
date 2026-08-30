@@ -567,7 +567,7 @@ SMS 登录请求扩展：
 
 - `python scripts/check_repo_harness.py` 校验文档和索引完整性。
 - `cd src/api && pytest tests/service/user/ tests/service/referral/ tests/service/billing/ -q` 校验后端行为。
-- 前端实现后运行 `cd src/cook-web && npm run type-check && npm run lint`。
+- 前端实现后运行 `cd src/web && npm run type-check && npm run lint`。
 
 ## 发布
 

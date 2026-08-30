@@ -9,7 +9,7 @@
       "description": "Flask backend API (gunicorn) on http://localhost:5800"
     },
     {
-      "name": "cook-web",
+      "name": "web",
       "command": "bash .cursor/run-web.sh",
       "description": "Next.js Cook Web dev server on http://localhost:3000; proxies /api/* to the backend"
     },
@@ -25,7 +25,7 @@
     }
   ],
   "ports": [
-    { "name": "cook-web", "port": 3000 },
+    { "name": "web", "port": 3000 },
     { "name": "api", "port": 5800 }
   ]
 }

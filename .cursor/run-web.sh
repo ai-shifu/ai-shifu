@@ -7,7 +7,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-cd "$REPO_ROOT/src/cook-web"
+cd "$REPO_ROOT/src/web"
 export NODE_ENV=development
 export NEXT_TELEMETRY_DISABLED=1
 export NODE_OPTIONS="--max-old-space-size=2048"

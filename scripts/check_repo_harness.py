@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from build_repo_knowledge_index import (
     DOCS_ROOT,
     FRONTMATTER_FIELDS,
     GARDENING_SUMMARY_PATH,
+    REQUIRED_RUNTIME_ASSETS,
     build_knowledge_docs,
     parse_frontmatter,
 )
@@ -28,6 +30,27 @@ from generate_ai_collab_docs import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+FRONTEND_ROOT = ROOT / "src" / "web"
+LEGACY_FRONTEND_ROOT = ROOT / "src" / "cook-web"
+LEGACY_FRONTEND_PATH = "src/" + "cook-web"
+LEGACY_FRONTEND_FILENAME_TOKEN = "cook-" + "web"
+LEGACY_FRONTEND_FILENAME_ALLOWLIST = {
+    Path("docs/exec-plans/active/rename-cook-web-directory.md"),
+}
+LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST = {
+    Path(".codex/environments/environment.toml"): {
+        f'elif [ -d "$source_tree/{LEGACY_FRONTEND_PATH}" ]; then': 2,
+        f"printf '%s\\n' \"$source_tree/{LEGACY_FRONTEND_PATH}\"": 2,
+    },
+    Path(".github/workflows/prepare-release.yml"): {
+        f'"legacy_path": "{LEGACY_FRONTEND_PATH}/package-lock.json",': 1,
+    },
+}
+LEGACY_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
+    Path("docs/exec-plans/active/rename-cook-web-directory.md"): (
+        "Rename The Cook Web Directory"
+    ),
+}
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
 HARNESS_HEALTH = DOCS_ROOT / "generated" / "harness-health.md"
 PR_REVIEW_SCOPE_MARKERS = (
@@ -57,7 +80,7 @@ MANUAL_AGENTS = {
         "scripts/harness_diagnostics.py",
         "LiteLLM",
     ),
-    ROOT / "src" / "cook-web" / "AGENTS.md": (
+    ROOT / "src" / "web" / "AGENTS.md": (
         "../../ARCHITECTURE.md",
         "../../docs/engineering-baseline.md",
         "../../docs/references/frontend-product-analytics.md",
@@ -254,6 +277,11 @@ def check_root_docs(errors: list[str]) -> None:
         for path in REQUIRED_WORKFLOWS
         if not path.exists()
     )
+    errors.extend(
+        f"Missing required runtime harness asset: {path}"
+        for path in REQUIRED_RUNTIME_ASSETS
+        if not path.exists()
+    )
 
     readme = DOCS_ROOT / "README.md"
     if readme.exists():
@@ -278,6 +306,87 @@ def check_root_docs(errors: list[str]) -> None:
             errors.append(
                 "Harness gardening summary is missing generated marker: "
                 f"{GARDENING_SUMMARY_PATH}"
+            )
+
+
+def check_frontend_path_contract(errors: list[str]) -> None:
+    """Require the web path and reject stale frontend-path assumptions."""
+    if not FRONTEND_ROOT.is_dir():
+        errors.append(f"Missing web frontend directory: {FRONTEND_ROOT}")
+    if LEGACY_FRONTEND_ROOT.exists():
+        errors.append(
+            f"Legacy frontend directory must not exist: {LEGACY_FRONTEND_ROOT}"
+        )
+
+    for (
+        relative_path,
+        expected_occurrences,
+    ) in LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST.items():
+        path = ROOT / relative_path
+        if not path.is_file():
+            errors.append(f"Missing legacy-path compatibility surface: {path}")
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            errors.append(
+                f"Unable to validate legacy path compatibility in {path}: {error}"
+            )
+            continue
+
+        actual_occurrences: dict[str, int] = {}
+        for line in text.splitlines():
+            if LEGACY_FRONTEND_PATH not in line:
+                continue
+            stripped_line = line.strip()
+            actual_occurrences[stripped_line] = (
+                actual_occurrences.get(stripped_line, 0) + 1
+            )
+        if actual_occurrences != expected_occurrences:
+            errors.append(
+                f"Unexpected legacy frontend path occurrences in {path}: "
+                f"expected {expected_occurrences}, got {actual_occurrences}"
+            )
+
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        errors.append(f"Unable to enumerate tracked files for path validation: {error}")
+        return
+
+    for raw_path in result.stdout.split(b"\0"):
+        if not raw_path:
+            continue
+        relative_path = Path(raw_path.decode("utf-8", errors="surrogateescape"))
+        if (
+            LEGACY_FRONTEND_FILENAME_TOKEN in relative_path.as_posix()
+            and relative_path not in LEGACY_FRONTEND_FILENAME_ALLOWLIST
+        ):
+            errors.append(f"Stale frontend name in tracked path: {relative_path}")
+        path = ROOT / relative_path
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if relative_path in LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST:
+            continue
+        if LEGACY_FRONTEND_PATH not in text:
+            continue
+
+        whole_file_marker = LEGACY_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST.get(relative_path)
+        if whole_file_marker is None:
+            errors.append(f"Stale frontend path '{LEGACY_FRONTEND_PATH}' in {path}")
+        elif whole_file_marker not in text:
+            errors.append(
+                f"Legacy frontend path allowlist marker '{whole_file_marker}' "
+                f"is missing in {path}"
             )
 
 
@@ -308,6 +417,7 @@ def main() -> int:
     check_manual_agents(errors)
     check_manual_rules(errors)
     check_root_docs(errors)
+    check_frontend_path_contract(errors)
     check_frontmatter_docs(errors)
     check_example_identifiers(errors)
 

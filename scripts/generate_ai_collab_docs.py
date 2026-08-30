@@ -84,7 +84,7 @@ ROOT_SPEC = DocSpec(
         "development surfaces.",
         "Keep shared rules here only when both Codex and Claude should follow "
         "them. Move subsystem details into `src/api/AGENTS.md`, "
-        "`src/cook-web/AGENTS.md`, or deeper module files.",
+        "`src/web/AGENTS.md`, or deeper module files.",
         "Any new directory that becomes a primary engineering surface must add "
         "its own `AGENTS.md` and `CLAUDE.md` before the split is considered "
         "complete for that area.",
@@ -121,7 +121,7 @@ ROOT_SPEC = DocSpec(
         "Whenever creating a Git worktree for this repository, copy existing "
         "local `.env` files from the source checkout into matching paths in the "
         "new worktree before starting services, including the repository-root "
-        "`.env` and `src/cook-web/.env` when present. Preserve permissions, "
+        "`.env` and `src/web/.env` when present. Preserve permissions, "
         "never commit the copies, and do not overwrite an environment file "
         "already customized in the new worktree.",
         "Run the smallest relevant verification first, then widen to shared "
@@ -162,7 +162,7 @@ ROOT_SPEC = DocSpec(
         "shared quality gate before any commit-sized change lands.",
         "`cd src/api && pytest -q` is the broad backend verification baseline "
         "when a change touches shared backend contracts or multiple services.",
-        "`cd src/cook-web && npm run type-check && npm run lint` is the broad "
+        "`cd src/web && npm run type-check && npm run lint` is the broad "
         "frontend verification baseline for shared Cook Web changes.",
         "`python scripts/check_repo_harness.py` validates the repository "
         "harness layout and should stay green after instruction changes.",
@@ -172,7 +172,7 @@ ROOT_SPEC = DocSpec(
     tests=(
         "Run targeted backend pytest modules under `src/api/tests/` when a change "
         "touches Flask services, models, DTOs, or migration-related code.",
-        "Run targeted Jest or React tests under `src/cook-web/src/` when a "
+        "Run targeted Jest or React tests under `src/web/src/` when a "
         "change touches frontend pages, stores, shared hooks, or request code.",
         "Run translation validation scripts whenever shared i18n namespaces or "
         "translation file inventories change.",
@@ -185,7 +185,7 @@ ROOT_SPEC = DocSpec(
         "`SKILL.md` is the repository-level skill index and boundary map.",
         "`src/api/SKILL.md` is the backend skill entry for Flask services and "
         "backend-specific recurring workflows.",
-        "`src/cook-web/SKILL.md` is the frontend skill entry for Cook Web and "
+        "`src/web/SKILL.md` is the frontend skill entry for Cook Web and "
         "its existing focused troubleshooting skills.",
         "Claude-only path routing belongs under `/.claude/rules/`; shared rules "
         "must stay in `AGENTS.md` so both tools read the same source.",
@@ -280,7 +280,7 @@ API_SPEC = DocSpec(
     ),
 )
 
-COOK_WEB_SPEC = DocSpec(
+WEB_SPEC = DocSpec(
     title="Cook Web AI Collaboration Rules",
     intro=(
         "This file owns frontend-wide rules for the Next.js Cook Web app, shared "
@@ -288,9 +288,9 @@ COOK_WEB_SPEC = DocSpec(
         "surface."
     ),
     scope=(
-        "Apply this file to `src/cook-web/`, including app routes, components, "
+        "Apply this file to `src/web/`, including app routes, components, "
         "shared libraries, stores, tests, and the local frontend skill index.",
-        "More specific rules belong in `src/cook-web/src/<domain>/AGENTS.md`. "
+        "More specific rules belong in `src/web/src/<domain>/AGENTS.md`. "
         "Keep this file focused on patterns shared across multiple frontend "
         "domains.",
         "Cook Web serves both the learner-facing routes and the authoring/admin "
@@ -307,8 +307,8 @@ COOK_WEB_SPEC = DocSpec(
         "Prefer extending the current request stack, shared utilities, stores, "
         "hooks, and compatibility layers instead of creating a second way to do "
         "the same thing.",
-        "Use the shared request stack in `src/cook-web/src/lib/request.ts` and "
-        "`src/cook-web/src/lib/api.ts` instead of adding ad-hoc `fetch` logic in "
+        "Use the shared request stack in `src/web/src/lib/request.ts` and "
+        "`src/web/src/lib/api.ts` instead of adding ad-hoc `fetch` logic in "
         "pages or components.",
         "Keep App Router files aligned with Next.js conventions: `page.tsx`, "
         "`layout.tsx`, and `route.ts` own route entry behavior while shared UI "
@@ -333,12 +333,12 @@ COOK_WEB_SPEC = DocSpec(
         "shared JSON source under `src/i18n/` should own the text.",
     ),
     commands=(
-        "`cd src/cook-web && npm run dev` starts the local frontend dev server.",
-        "`cd src/cook-web && npm run type-check` is the baseline static check for "
+        "`cd src/web && npm run dev` starts the local frontend dev server.",
+        "`cd src/web && npm run type-check` is the baseline static check for "
         "shared TypeScript changes.",
-        "`cd src/cook-web && npm run lint` catches lint regressions across modern "
+        "`cd src/web && npm run lint` catches lint regressions across modern "
         "and legacy frontend code.",
-        "`cd src/cook-web && npm run test` runs the Jest suite; narrow by file or "
+        "`cd src/web && npm run test` runs the Jest suite; narrow by file or "
         "pattern while iterating on a single domain.",
     ),
     tests=(
@@ -353,8 +353,8 @@ COOK_WEB_SPEC = DocSpec(
         "not exercised.",
     ),
     related_skills=(
-        "`src/cook-web/SKILL.md` is the frontend skill index and boundary map.",
-        "Use the existing focused skills under `src/cook-web/skills/` for chat, "
+        "`src/web/SKILL.md` is the frontend skill index and boundary map.",
+        "Use the existing focused skills under `src/web/skills/` for chat, "
         "routing, streaming, hook-contract, and audio-specific workflows.",
         "Keep durable structural rules in `AGENTS.md`; keep multi-step debugging "
         "workflows in `SKILL.md` so they stay discoverable without bloating "
@@ -804,10 +804,10 @@ FRONTEND_META = {
             "do not hardcode route parsing when shared URL or state helpers "
             "already exist in the frontend codebase",
         ),
-        test_focus="src/cook-web/src/app/",
+        test_focus="src/web/src/app/",
         skill_refs=(
-            "src/cook-web/skills/deep-link-lessonid-routing/SKILL.md",
-            "src/cook-web/skills/chat-layout-width-detection/SKILL.md",
+            "src/web/skills/deep-link-lessonid-routing/SKILL.md",
+            "src/web/skills/chat-layout-width-detection/SKILL.md",
         ),
     ),
     "api": FrontendDomainMeta(
@@ -832,7 +832,7 @@ FRONTEND_META = {
             "do not mix legacy `c-api` compatibility helpers into this modern API "
             "layer without an explicit adapter",
         ),
-        test_focus="src/cook-web/src/api/",
+        test_focus="src/web/src/api/",
     ),
     "components": FrontendDomainMeta(
         summary=(
@@ -856,11 +856,11 @@ FRONTEND_META = {
             "do not copy interaction or streaming behavior between components when "
             "an existing shared component or skill already describes it",
         ),
-        test_focus="src/cook-web/src/components/",
+        test_focus="src/web/src/components/",
         skill_refs=(
-            "src/cook-web/skills/chat-element-streaming/SKILL.md",
-            "src/cook-web/skills/chat-actionbar-ask-placement/SKILL.md",
-            "src/cook-web/skills/listen-mode-audio-streaming/SKILL.md",
+            "src/web/skills/chat-element-streaming/SKILL.md",
+            "src/web/skills/chat-actionbar-ask-placement/SKILL.md",
+            "src/web/skills/listen-mode-audio-streaming/SKILL.md",
         ),
     ),
     "config": FrontendDomainMeta(
@@ -885,7 +885,7 @@ FRONTEND_META = {
             "do not let docs drift from runtime behavior when adding or removing "
             "frontend configuration flags",
         ),
-        test_focus="src/cook-web/src/config/",
+        test_focus="src/web/src/config/",
     ),
     "hooks": FrontendDomainMeta(
         summary=(
@@ -914,8 +914,8 @@ FRONTEND_META = {
             "do not couple hooks to one page or one route if the behavior should "
             "stay generally reusable",
         ),
-        test_focus="src/cook-web/src/hooks/",
-        skill_refs=("src/cook-web/skills/hook-contract-refactor-safety/SKILL.md",),
+        test_focus="src/web/src/hooks/",
+        skill_refs=("src/web/skills/hook-contract-refactor-safety/SKILL.md",),
     ),
     "lib": FrontendDomainMeta(
         summary=(
@@ -944,8 +944,8 @@ FRONTEND_META = {
             "do not change shared utility contracts without rerunning affected "
             "tests and type checks across consumers",
         ),
-        test_focus="src/cook-web/src/lib/",
-        skill_refs=("src/cook-web/skills/module-augmentation-guardrails/SKILL.md",),
+        test_focus="src/web/src/lib/",
+        skill_refs=("src/web/skills/module-augmentation-guardrails/SKILL.md",),
     ),
     "store": FrontendDomainMeta(
         summary=(
@@ -974,8 +974,8 @@ FRONTEND_META = {
             "do not duplicate token or session storage behavior outside the "
             "existing user-store path",
         ),
-        test_focus="src/cook-web/src/store/",
-        skill_refs=("src/cook-web/skills/hook-contract-refactor-safety/SKILL.md",),
+        test_focus="src/web/src/store/",
+        skill_refs=("src/web/skills/hook-contract-refactor-safety/SKILL.md",),
     ),
     "types": FrontendDomainMeta(
         summary=(
@@ -999,8 +999,8 @@ FRONTEND_META = {
             "do not solve runtime-shape drift only in type files without fixing "
             "the owning implementation",
         ),
-        test_focus="src/cook-web/src/types/",
-        skill_refs=("src/cook-web/skills/module-augmentation-guardrails/SKILL.md",),
+        test_focus="src/web/src/types/",
+        skill_refs=("src/web/skills/module-augmentation-guardrails/SKILL.md",),
     ),
     "c-api": FrontendDomainMeta(
         summary=(
@@ -1024,8 +1024,8 @@ FRONTEND_META = {
             "do not bypass shared auth or request primitives when updating this "
             "legacy compatibility layer",
         ),
-        test_focus="src/cook-web/src/c-api/",
-        skill_refs=("src/cook-web/skills/deep-link-lessonid-routing/SKILL.md",),
+        test_focus="src/web/src/c-api/",
+        skill_refs=("src/web/skills/deep-link-lessonid-routing/SKILL.md",),
     ),
     "c-common": FrontendDomainMeta(
         summary=(
@@ -1058,7 +1058,7 @@ FRONTEND_META = {
             "do not let analytics loading, identification, queue draining, or "
             "delivery errors block the user action or change its business result",
         ),
-        test_focus="src/cook-web/src/c-common/",
+        test_focus="src/web/src/c-common/",
     ),
     "c-components": FrontendDomainMeta(
         summary=(
@@ -1087,7 +1087,7 @@ FRONTEND_META = {
             "do not bury asset or layout assumptions in callers when the component "
             "boundary should keep them explicit",
         ),
-        test_focus="src/cook-web/src/c-components/",
+        test_focus="src/web/src/c-components/",
     ),
     "c-constants": FrontendDomainMeta(
         summary=("legacy course and UI constants used throughout the `c` experience"),
@@ -1108,8 +1108,8 @@ FRONTEND_META = {
             "do not rename exported constants casually because many legacy files "
             "import them directly",
         ),
-        test_focus="src/cook-web/src/c-constants/",
-        skill_refs=("src/cook-web/skills/chat-layout-width-detection/SKILL.md",),
+        test_focus="src/web/src/c-constants/",
+        skill_refs=("src/web/skills/chat-layout-width-detection/SKILL.md",),
     ),
     "c-service": FrontendDomainMeta(
         summary=(
@@ -1133,10 +1133,10 @@ FRONTEND_META = {
             "do not change service outputs without updating dependent stores and "
             "pages together",
         ),
-        test_focus="src/cook-web/src/c-service/",
+        test_focus="src/web/src/c-service/",
         skill_refs=(
-            "src/cook-web/skills/chat-element-streaming/SKILL.md",
-            "src/cook-web/skills/interaction-user-input-defaults/SKILL.md",
+            "src/web/skills/chat-element-streaming/SKILL.md",
+            "src/web/skills/interaction-user-input-defaults/SKILL.md",
         ),
     ),
     "c-store": FrontendDomainMeta(
@@ -1166,10 +1166,10 @@ FRONTEND_META = {
             "do not duplicate layout-state calculations when shared constants and "
             "store helpers already exist",
         ),
-        test_focus="src/cook-web/src/c-store/",
+        test_focus="src/web/src/c-store/",
         skill_refs=(
-            "src/cook-web/skills/chat-layout-width-detection/SKILL.md",
-            "src/cook-web/skills/hook-contract-refactor-safety/SKILL.md",
+            "src/web/skills/chat-layout-width-detection/SKILL.md",
+            "src/web/skills/hook-contract-refactor-safety/SKILL.md",
         ),
     ),
     "c-types": FrontendDomainMeta(
@@ -1194,8 +1194,8 @@ FRONTEND_META = {
             "do not keep dead declarations after a migration; remove or relocate "
             "them once the owning runtime code moves",
         ),
-        test_focus="src/cook-web/src/c-types/",
-        skill_refs=("src/cook-web/skills/module-augmentation-guardrails/SKILL.md",),
+        test_focus="src/web/src/c-types/",
+        skill_refs=("src/web/skills/module-augmentation-guardrails/SKILL.md",),
     ),
     "c-utils": FrontendDomainMeta(
         summary=(
@@ -1224,11 +1224,11 @@ FRONTEND_META = {
             "do not add one-off utility files when an existing helper can absorb "
             "the behavior more cleanly",
         ),
-        test_focus="src/cook-web/src/c-utils/",
+        test_focus="src/web/src/c-utils/",
         skill_refs=(
-            "src/cook-web/skills/deep-link-lessonid-routing/SKILL.md",
-            "src/cook-web/skills/interaction-user-input-defaults/SKILL.md",
-            "src/cook-web/skills/listen-mode-audio-streaming/SKILL.md",
+            "src/web/skills/deep-link-lessonid-routing/SKILL.md",
+            "src/web/skills/interaction-user-input-defaults/SKILL.md",
+            "src/web/skills/listen-mode-audio-streaming/SKILL.md",
         ),
     ),
 }
@@ -1429,22 +1429,20 @@ def build_backend_spec(name: str, meta: BackendModuleMeta) -> DocSpec:
 def build_frontend_spec(name: str, meta: FrontendDomainMeta) -> DocSpec:
     """Build one frontend domain AGENTS.md spec."""
     title = f"Cook Web Domain: {name}"
-    key_files = join_paths(
-        *(f"src/cook-web/src/{name}/{path}" for path in meta.key_files)
-    )
-    focus_cmd_path = meta.test_focus.removeprefix("src/cook-web/")
+    key_files = join_paths(*(f"src/web/src/{name}/{path}" for path in meta.key_files))
+    focus_cmd_path = meta.test_focus.removeprefix("src/web/")
     related = list(meta.skill_refs)
-    related.append("`src/cook-web/SKILL.md`")
+    related.append("`src/web/SKILL.md`")
     related.append("`SKILL.md`")
     related.append(
-        "Create a focused skill under `src/cook-web/skills/<topic>/SKILL.md` when "
+        "Create a focused skill under `src/web/skills/<topic>/SKILL.md` when "
         "the same debugging or migration workflow repeats."
     )
     return DocSpec(
         title=title,
         intro=(
-            f"This file adds local guidance for `src/cook-web/src/{name}`. Read the "
-            "repository root and `src/cook-web/AGENTS.md` first, then use this file "
+            f"This file adds local guidance for `src/web/src/{name}`. Read the "
+            "repository root and `src/web/AGENTS.md` first, then use this file "
             "for domain-specific frontend ownership."
         ),
         scope=(
@@ -1470,13 +1468,13 @@ def build_frontend_spec(name: str, meta: FrontendDomainMeta) -> DocSpec:
             "frontend subtree truly depends on the same constraint.",
         ),
         commands=(
-            f'`rg -n "{name}" src/cook-web/src` to locate call sites before editing '
+            f'`rg -n "{name}" src/web/src` to locate call sites before editing '
             "this subtree.",
-            "`cd src/cook-web && npm run type-check` after TypeScript, store, hook, "
+            "`cd src/web && npm run type-check` after TypeScript, store, hook, "
             "request, or route-contract changes.",
-            "`cd src/cook-web && npm run lint` before closing the task when shared "
+            "`cd src/web && npm run lint` before closing the task when shared "
             "frontend code or route files changed.",
-            f"`cd src/cook-web && npm run test -- {focus_cmd_path}` for focused Jest "
+            f"`cd src/web && npm run test -- {focus_cmd_path}` for focused Jest "
             "coverage when this subtree already has or gains tests.",
         ),
         tests=(
@@ -1572,7 +1570,7 @@ def build_documents() -> dict[Path, str]:
     docs: dict[Path, str] = {
         ROOT / "CLAUDE.md": render_claude("Claude Entry"),
         ROOT / "src" / "api" / "CLAUDE.md": render_claude("Backend Claude Entry"),
-        ROOT / "src" / "cook-web" / "CLAUDE.md": render_claude("Cook Web Claude Entry"),
+        ROOT / "src" / "web" / "CLAUDE.md": render_claude("Cook Web Claude Entry"),
         ROOT / ".github" / "CLAUDE.md": render_claude("GitHub Claude Entry"),
         ROOT / "docker" / "CLAUDE.md": render_claude("Docker Claude Entry"),
         ROOT / "scripts" / "CLAUDE.md": render_claude("Scripts Claude Entry"),
@@ -1759,12 +1757,7 @@ def build_documents() -> dict[Path, str]:
             ),
             always_apply=False,
         ),
-        ROOT
-        / "src"
-        / "cook-web"
-        / ".cursor"
-        / "rules"
-        / "cook-web.mdc": render_cursor_rule(
+        ROOT / "src" / "web" / ".cursor" / "rules" / "web.mdc": render_cursor_rule(
             "Cursor Rule: Cook Web",
             "Frontend-specific rules for Next.js, shared request code, and legacy c-* code",
             (
@@ -1772,8 +1765,8 @@ def build_documents() -> dict[Path, str]:
                 "lib path before changing frontend behavior.",
                 "Use `docs/engineering-baseline.md` for frontend-wide engineering "
                 "conventions such as request flow, naming, i18n, and testing.",
-                "Extend `src/cook-web/src/lib/request.ts`, "
-                "`src/cook-web/src/lib/api.ts`, current stores, hooks, and "
+                "Extend `src/web/src/lib/request.ts`, "
+                "`src/web/src/lib/api.ts`, current stores, hooks, and "
                 "compatibility layers instead of creating a second implementation "
                 "path or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
@@ -1909,8 +1902,8 @@ def build_documents() -> dict[Path, str]:
                 ".github/instructions/**/*.instructions.md,docker/AGENTS.md,"
                 "docker/CLAUDE.md,scripts/AGENTS.md,scripts/CLAUDE.md,"
                 "src/api/**/AGENTS.md,src/api/**/CLAUDE.md,src/api/SKILL.md,"
-                "src/api/skills/**/*.md,src/cook-web/**/AGENTS.md,"
-                "src/cook-web/**/CLAUDE.md,src/cook-web/SKILL.md"
+                "src/api/skills/**/*.md,src/web/**/AGENTS.md,"
+                "src/web/**/CLAUDE.md,src/web/SKILL.md"
             ),
             (
                 "Treat `AGENTS.md` and `CLAUDE.md` as the source of truth; keep "
@@ -1960,17 +1953,17 @@ def build_documents() -> dict[Path, str]:
         / "frontend.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Frontend",
             (
-                "src/cook-web/**/*.ts,src/cook-web/**/*.tsx,src/cook-web/**/*.js,"
-                "src/cook-web/**/*.jsx,src/cook-web/**/*.css,src/cook-web/**/*.scss,"
-                "src/cook-web/**/*.md,src/cook-web/**/*.mdx"
+                "src/web/**/*.ts,src/web/**/*.tsx,src/web/**/*.js,"
+                "src/web/**/*.jsx,src/web/**/*.css,src/web/**/*.scss,"
+                "src/web/**/*.md,src/web/**/*.mdx"
             ),
             (
                 "Inspect the current route, component, hook, store, and shared-lib "
                 "path before changing frontend behavior.",
                 "Use `docs/engineering-baseline.md` for frontend-wide engineering "
                 "conventions such as request flow, naming, i18n, and testing.",
-                "Extend `src/cook-web/src/lib/request.ts`, "
-                "`src/cook-web/src/lib/api.ts`, existing stores, hooks, and `c-*` "
+                "Extend `src/web/src/lib/request.ts`, "
+                "`src/web/src/lib/api.ts`, existing stores, hooks, and `c-*` "
                 "compatibility layers instead of creating parallel "
                 "implementations or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
@@ -2098,7 +2091,7 @@ def build_documents() -> dict[Path, str]:
         docs[service_dir / "CLAUDE.md"] = render_claude(f"Service Claude Entry: {name}")
 
     for name, meta in FRONTEND_META.items():
-        domain_dir = ROOT / "src" / "cook-web" / "src" / name
+        domain_dir = ROOT / "src" / "web" / "src" / name
         docs[domain_dir / "AGENTS.md"] = render_agents(build_frontend_spec(name, meta))
         docs[domain_dir / "CLAUDE.md"] = render_claude(f"Domain Claude Entry: {name}")
 

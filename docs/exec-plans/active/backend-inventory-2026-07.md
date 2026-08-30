@@ -333,9 +333,9 @@ Evidence: `python extract_routes.py > routes-backend.txt` (ast-based; resolves
 then `python match_routes.py > routes-orphans.txt`.
 
 Consumer surfaces checked:
-1. **cook-web**: `src/cook-web/src/api/api.ts` catalog (`'METHOD /path'`,
+1. **web**: `src/web/src/api/api.ts` catalog (`'METHOD /path'`,
    `/api`-prefixed by `lib/api.ts gen()`) + every raw `/api/...` string in
-   `src/cook-web/src` (incl. template literals; `${...}`/`{x}`/`:x` segments
+   `src/web/src` (incl. template literals; `${...}`/`{x}`/`:x` segments
    treated as wildcards).
 2. **skills CLI** (`/Users/aichy/work/aishifu/skills`): full `/api/...` strings
    plus relative `'/shifus...'` paths joined onto `/api/shifu` by
@@ -349,10 +349,10 @@ Consumer surfaces checked:
    `/internal/observability/health` (`flaskr/common/observability.py:145-150`,
    k8s/prometheus probes).
 
-Headline: **222 endpoints → 200 used-by-cook-web, 24 used-by-cli (4 CLI-only),
+Headline: **222 endpoints → 200 used-by-web, 24 used-by-cli (4 CLI-only),
 8 external-callback, 3 ops, 8 NO-KNOWN-CONSUMER.**
 
-### Endpoints NOT referenced by cook-web
+### Endpoints NOT referenced by web
 
 | method | path | consumer | handler |
 |---|---|---|---|
@@ -390,12 +390,12 @@ Adjudications:
   need runtime/access-log or human sign-off — they may be operator tooling or
   planned surfaces): billing refund, dict/dicts, dict/models, lesson-feedbacks,
   metering usage-summary, profiles/get-profile-item, shifu favorite.
-- **Drift bug found (bonus):** cook-web catalog defines
+- **Drift bug found (bonus):** web catalog defines
   `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'`
-  (`src/cook-web/src/api/api.ts:59`) but **no such backend route exists** — the
+  (`src/web/src/api/api.ts:59`) but **no such backend route exists** — the
   real backend route is `POST /api/shifu/shifus/<shifu_bid>/favorite`, which no
   frontend code calls; the only UI use is read-only `is_favorite` display
-  (`src/cook-web/src/app/admin/page.tsx:827`). The catalog entry would 404 if
+  (`src/web/src/app/admin/page.tsx:827`). The catalog entry would 404 if
   ever invoked (it currently has no callers). Either wire the UI to the real
   route or delete both ends.
 
@@ -473,7 +473,7 @@ Suggested Phase 2 batch ordering signal: (1) learn/context_v2.py,
 | A1 | `flaskr/api/ark/sign.py` (121 LOC; dir lacks `__init__.py`) | import graph: 0 importers; `grep -rn "api\.ark\|ark\.sign" src/api --include='*.py'` |
 | A2 | `tests/run_script.py` | imports non-existent `flaskr.service.study.runscript`; not collected by pytest naming rules |
 | A3 | empty dirs `flaskr/service/{active,lesson,question,rag,scenario,study,tag}` (incl. `active/AGENTS.md`, `active/CLAUDE.md`, `study/{continue,input,ui}`) | `find flaskr/service/<d> -name '*.py'` → 0; only ref is A2 |
-| A4 | cook-web catalog entry `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` (`src/cook-web/src/api/api.ts:59`) | no matching backend route (routes-backend.txt); no callers (`grep -rn markFavoriteShifu src/cook-web/src`) |
+| A4 | web catalog entry `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` (`src/web/src/api/api.ts:59`) | no matching backend route (routes-backend.txt); no callers (`grep -rn markFavoriteShifu src/web/src`) |
 | A5 | RE-ADJUDICATED during B1: these vulture hits (`learn/utils_v2.py:122`, `shifu/shifu_outline_funcs.py:237,238,480`, `shifu/shifu_publish_funcs.py:529`) are unused function PARAMETERS, not dead locals; removing them changes call signatures. Deferred to B7 opportunistic cleanup. | §1.1 + B1 execution notes |
 | A6 | 12 functions with zero static callers AND zero runtime execution: `billing/read_models.py` 7 `build_*` (607,616,670,817,1503,1535,1548), `billing/checkout.py:1142`, `billing/primitives.py:140,154`, `billing/queries.py:483`, `api/tts/volcengine_protocol.py:276` | §7 line-level coverage adjudication |
 

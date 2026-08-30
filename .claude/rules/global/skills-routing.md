@@ -6,7 +6,7 @@ inflating `AGENTS.md` with procedural troubleshooting steps.
 - Shared structural rules belong in `AGENTS.md`; repeatable multi-step
   workflows belong in `SKILL.md` files.
 
-- Prefer `src/api/SKILL.md` for backend workflows and `src/cook-web/SKILL.md`
+- Prefer `src/api/SKILL.md` for backend workflows and `src/web/SKILL.md`
   for Cook Web workflows.
 
 - When a module-level `AGENTS.md` points to a focused skill, load that skill

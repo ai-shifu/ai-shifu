@@ -77,7 +77,7 @@ jobs:
           node <<'NODE'
           const fs = require("fs");
 
-          const path = "src/cook-web/package.json";
+          const path = "src/web/package.json";
           const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
           const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
           const raw = deps["markdown-flow-ui"];

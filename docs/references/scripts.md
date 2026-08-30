@@ -3,7 +3,7 @@
 This repository includes a small set of scripts focused on internationalization consistency and code quality. Here’s what each script does and when to use it.
 
 - scripts/check_translation_usage.py
-  - Scans backend (Flask) and frontends (web, cook-web) to find all translation key usages and ensures they exist in shared JSON under `src/i18n/`.
+  - Scans the backend (Flask) and web frontend to find all translation key usages and ensures they exist in shared JSON under `src/i18n/`.
   - Options:
     - `--fail-on-unused`: exit non‑zero if there are defined keys that are not referenced anywhere (helps keep JSON clean).
   - Resilient to legacy allowlist paths and treats missing allowlists as empty.
@@ -21,7 +21,7 @@ This repository includes a small set of scripts focused on internationalization 
   - CI ensures this file stays in sync.
 
 - scripts/generate_i18n_keys.js
-  - Generates a TypeScript union of translation keys for Cook Web at `src/cook-web/src/types/i18n-keys.d.ts`.
+  - Generates a TypeScript union of translation keys for Cook Web at `src/web/src/types/i18n-keys.d.ts`.
   - Helps with editor autocomplete and prevents typos.
 
 - scripts/list_python_i18n_modules.py

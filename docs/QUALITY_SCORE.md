@@ -33,7 +33,7 @@ governance work can be prioritized mechanically.
   refactors, and keep `scripts/harness_diagnostics.py` plus the local
   observability stack in the standard smoke-failure workflow.
 
-### cook-web
+### Web frontend
 
 - Current grade: `B`
 - Gaps: route and component tests exist, but the browser harness still covers

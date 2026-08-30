@@ -31,20 +31,35 @@ reuse_directory_if_compatible() {
   fi
 }
 
+resolve_frontend_source_directory() {
+  if [ -d "$source_tree/src/web" ]; then
+    printf '%s\n' "$source_tree/src/web"
+  elif [ -d "$source_tree/src/cook-web" ]; then
+    # Keep worktree setup usable while the source checkout is still on a
+    # pre-migration revision. The target worktree always uses src/web.
+    printf '%s\n' "$source_tree/src/cook-web"
+  fi
+}
+
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
+  frontend_source_directory="$(resolve_frontend_source_directory)"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  copy_local_env "$source_tree/src/cook-web/.env" "$worktree_path/src/cook-web/.env"
+  if [ -n "$frontend_source_directory" ]; then
+    copy_local_env "$frontend_source_directory/.env" "$worktree_path/src/web/.env"
+  fi
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
     "$source_tree/src/api/requirements.txt" \
     "$worktree_path/src/api/requirements.txt"
-  reuse_directory_if_compatible \
-    "$source_tree/src/cook-web/node_modules" \
-    "$worktree_path/src/cook-web/node_modules" \
-    "$source_tree/src/cook-web/package-lock.json" \
-    "$worktree_path/src/cook-web/package-lock.json"
+  if [ -n "$frontend_source_directory" ]; then
+    reuse_directory_if_compatible \
+      "$frontend_source_directory/node_modules" \
+      "$worktree_path/src/web/node_modules" \
+      "$frontend_source_directory/package-lock.json" \
+      "$worktree_path/src/web/package-lock.json"
+  fi
 fi'''
 
 [setup.linux]
@@ -73,27 +88,42 @@ reuse_directory_if_compatible() {
   fi
 }
 
+resolve_frontend_source_directory() {
+  if [ -d "$source_tree/src/web" ]; then
+    printf '%s\n' "$source_tree/src/web"
+  elif [ -d "$source_tree/src/cook-web" ]; then
+    # Keep worktree setup usable while the source checkout is still on a
+    # pre-migration revision. The target worktree always uses src/web.
+    printf '%s\n' "$source_tree/src/cook-web"
+  fi
+}
+
 if [ -n "$source_tree" ] && [ "$source_tree" != "$worktree_path" ]; then
+  frontend_source_directory="$(resolve_frontend_source_directory)"
   copy_local_env "$source_tree/.env" "$worktree_path/.env"
   copy_local_env "$source_tree/src/api/.env" "$worktree_path/src/api/.env"
-  copy_local_env "$source_tree/src/cook-web/.env" "$worktree_path/src/cook-web/.env"
+  if [ -n "$frontend_source_directory" ]; then
+    copy_local_env "$frontend_source_directory/.env" "$worktree_path/src/web/.env"
+  fi
   reuse_directory_if_compatible \
     "$source_tree/.venv" \
     "$worktree_path/.venv" \
     "$source_tree/src/api/requirements.txt" \
     "$worktree_path/src/api/requirements.txt"
-  reuse_directory_if_compatible \
-    "$source_tree/src/cook-web/node_modules" \
-    "$worktree_path/src/cook-web/node_modules" \
-    "$source_tree/src/cook-web/package-lock.json" \
-    "$worktree_path/src/cook-web/package-lock.json"
+  if [ -n "$frontend_source_directory" ]; then
+    reuse_directory_if_compatible \
+      "$frontend_source_directory/node_modules" \
+      "$worktree_path/src/web/node_modules" \
+      "$frontend_source_directory/package-lock.json" \
+      "$worktree_path/src/web/package-lock.json"
+  fi
 fi'''
 
 [[actions]]
 name = "Cook Web"
 icon = "debug"
 command = '''
-cd src/cook-web
+cd src/web
 exec npm run dev'''
 
 [[actions]]
@@ -115,7 +145,7 @@ cd src/api
 name = "Frontend tests"
 icon = "test"
 command = '''
-cd src/cook-web
+cd src/web
 npm run test:ci'''
 
 [[actions]]

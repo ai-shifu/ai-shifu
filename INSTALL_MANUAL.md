@@ -9,11 +9,11 @@ AI-Shifu consists of two main components:
 ```bash
 src/
 ├── api/          # Backend API service (Flask/Python)
-└── cook-web/     # Script editor frontend (Next.js)
+└── web/          # Cook Web frontend (Next.js)
 ```
 
 - **api**: Backend API service built with Flask
-- **cook-web**: Script editor for creating and managing courses, built with Next.js
+- **web**: Cook Web frontend for creating, managing, and learning courses, built with Next.js
 
 ### Required Tools and Services
 
@@ -101,7 +101,7 @@ These variables are essential for the application to run:
 
 ```bash
 docker build -t aishifu/ai-shifu-api:latest -f src/api/Dockerfile .
-docker build -t aishifu/ai-shifu-cook-web:latest -f src/cook-web/Dockerfile .
+docker build -t aishifu/ai-shifu-cook-web:latest -f src/web/Dockerfile .
 ```
 
 3. Start the containers with the compose bundle that tracks the `:latest` tags:
@@ -159,7 +159,7 @@ gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 #### Step 5.4: Start Cook Web Frontend & CMS
 
 ```bash
-cd src/cook-web
+cd src/web
 # Copy the environment configuration from docker directory
 cp ../../docker/.env .env
 
@@ -197,7 +197,7 @@ Then install the remaining development tools from the repository root:
 ```bash
 # From the repository root
 pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
-(cd src/cook-web && npm ci)   # provides prettier + eslint
+(cd src/web && npm ci)   # provides prettier + eslint
 lefthook install
 
 # Verify the toolchain (reports anything missing and how to install it)
