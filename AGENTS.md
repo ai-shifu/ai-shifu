@@ -46,6 +46,25 @@ to.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
   touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
   `.github` instructions in the same change.
+- Treat product analytics as a completion requirement for every new user-facing
+  Cook Web capability or interaction path. In the same change, define or extend
+  a decision-relevant Umami event family, implement its producer, and add
+  focused regression coverage according to
+  `docs/references/frontend-product-analytics.md`; the feature is not complete
+  while that analytics contract is missing. Pure visual styling, copy-only,
+  performance-only, test-only, and behavior-preserving refactoring changes do
+  not require a new event. Any new user-observable action, state transition, or
+  invocation path, including one introduced for accessibility, does; changed
+  behavior already covered by analytics must update its existing contract.
+- Treat new or changed Cook Web Umami events as versioned product-analytics
+  contracts. Before implementation, define the decision or metric, exact
+  trigger, eligible population and exclusions, deduplication scope, stable
+  payload schema, and downstream consumer according to
+  `docs/references/frontend-product-analytics.md`.
+- Keep product analytics best-effort and independent from the user-visible
+  operation. When an event name, meaning, eligibility rule, deduplication rule,
+  or payload contract changes, update its producers, consumers, canonical
+  product documentation, compatibility plan, and regression tests together.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
 - Store and compute all timestamps in UTC. On the backend, use the shared
@@ -78,6 +97,17 @@ to.
 - Do not start modifying code from guesswork when the local implementation and
   neighboring tests have not been inspected.
 - Do not hardcode user-facing strings, secrets, or environment-specific URLs.
+- Do not add free-form or user-authored text, prompts or model output, names,
+  contact details, profile content, titles or descriptions, coupon codes,
+  tokens, raw errors, or complete URLs, queries, or referrers to new or changed
+  Umami events or identity metadata. Use an explicit allowlist of necessary
+  stable machine IDs, booleans, numbers, durations, and low-cardinality enums;
+  truncation or hashing does not make a sensitive field safe to collect. New or
+  changed pageview handling must strip query strings, fragments, credentials,
+  and sensitive path data before tracking.
+- Do not use best-effort Umami data as the source of truth for billing,
+  permissions, auditing, or another correctness-sensitive business decision,
+  and do not block or alter a user action when analytics is unavailable.
 - Do not create new root `tasks.md` checklists. Complex execution now belongs
   in ExecPlans under `docs/exec-plans/`.
 - Do not let shared guidance drift from generated mirrors or from the current
@@ -194,6 +224,10 @@ Pin release versions of both before merging.
   widen only when the change crosses a shared contract or multiple surfaces.
 - When a task touches only docs or instruction files, at minimum run
   `python scripts/check_repo_harness.py`.
+- When a task adds or changes a frontend Umami event, test the exact name and
+  payload, negatively assert that sensitive fields are absent, cover trigger
+  timing, eligibility, deduplication and terminal outcomes, and prove that a
+  tracking failure does not change the user-visible result.
 - When a Ruff-driven rewrite changes runtime behavior or a public/internal
   contract, add or identify a focused regression test; a clean lint result is
   not behavior coverage.

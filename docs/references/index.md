@@ -5,5 +5,6 @@
 Evergreen repository references and operational guides live here.
 
 - [Architecture Boundaries](../references/architecture-boundaries.md)
+- [Frontend Product Analytics](../references/frontend-product-analytics.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [Scripts Overview](../references/scripts.md)

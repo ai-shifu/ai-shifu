@@ -46,6 +46,23 @@
   change global Ruff policy only in a dedicated rule PR tracked by the active
   Ruff ExecPlan.
 
+- Treat product analytics as part of the definition of done for every new
+  user-facing Cook Web capability or interaction path. The same change must
+  add or extend a decision-relevant Umami event family and focused tests. Only
+  behavior-preserving visual, copy, performance, test, or refactoring work is
+  exempt; a new user-observable path introduced for accessibility still
+  requires analytics.
+
+- Treat every new or changed Cook Web Umami event as a versioned data contract
+  governed by `docs/references/frontend-product-analytics.md`. Changes to
+  event names, semantics, counted populations, deduplication, or payload
+  fields must update producers, consumers, documentation, and tests together.
+
+- Keep Cook Web Umami telemetry fail-open and non-authoritative: it must not
+  block product behavior or serve as the source of truth for billing,
+  permissions, or audit decisions. This rule does not define Langfuse or
+  backend observability contracts.
+
 - Regenerate repository knowledge indexes with
   `python scripts/build_repo_knowledge_index.py` after moving docs or changing
   required metadata.
