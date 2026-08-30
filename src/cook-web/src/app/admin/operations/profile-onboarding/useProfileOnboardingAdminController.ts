@@ -41,6 +41,8 @@ type GenerateAssistantPromptResponse = {
 
 type GenerateMode = 'generate' | 'regenerate';
 type GenerateOutcome = 'success' | 'failed' | 'superseded';
+type ConfigLoadMode = 'initial' | 'retry';
+type ConfigLoadRetryOutcome = 'success' | 'failed';
 type SaveOutcome = 'failed' | 'saved' | 'saved_with_newer_edits';
 type DirtyNavigationDecision = 'cancel' | 'discard' | 'save_and_leave';
 type DirtyNavigationSaveOutcome = 'success' | 'failed' | 'superseded';
@@ -49,6 +51,10 @@ export const PROFILE_PROMPT_GENERATE_ATTEMPT_EVENT =
   'operator_profile_prompt_generate_attempt';
 export const PROFILE_PROMPT_GENERATE_RESULT_EVENT =
   'operator_profile_prompt_generate_result';
+export const PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT =
+  'operator_profile_config_load_retry_attempt';
+export const PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT =
+  'operator_profile_config_load_retry_result';
 export const PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT =
   'operator_profile_dirty_navigation_shown';
 export const PROFILE_DIRTY_NAVIGATION_DECISION_EVENT =
@@ -119,6 +125,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   >(null);
   const [navigationStatus, setNavigationStatus] = React.useState('');
   const loadStartedRef = React.useRef(false);
+  const loadInFlightRef = React.useRef(false);
   const savingRef = React.useRef(false);
   const generatingRef = React.useRef(false);
   const enabledRef = React.useRef(false);
@@ -172,46 +179,6 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     setGenerationNotice('');
   }, []);
 
-  const loadConfig = React.useCallback(async () => {
-    if (!isReady || loadStartedRef.current) {
-      return;
-    }
-    loadStartedRef.current = true;
-    setLoading(true);
-    setConfigLoaded(false);
-    setLoadFailed(false);
-    setError('');
-    try {
-      const response = (await api.getAdminOperationProfileOnboardingConfig(
-        {},
-      )) as ProfileOnboardingConfig;
-      const loaded = normalizeProfileOnboardingConfig(
-        response,
-        defaultMarkdownflow,
-      );
-      applyDraft(loaded.draft);
-      setSavedConfig(loaded.draft);
-      setConfigRevision(loaded.revision);
-      setUpdatedBy(loaded.updatedBy);
-      setUpdatedAt(loaded.updatedAt);
-      setConfigLoaded(true);
-    } catch {
-      setLoadFailed(true);
-      setError(t('module.profileOnboarding.admin.loadFailed'));
-    } finally {
-      setLoading(false);
-    }
-  }, [applyDraft, defaultMarkdownflow, isReady, t]);
-
-  React.useEffect(() => {
-    void loadConfig();
-  }, [loadConfig]);
-
-  const reload = React.useCallback(() => {
-    loadStartedRef.current = false;
-    void loadConfig();
-  }, [loadConfig]);
-
   const trackEventSafely = React.useCallback(
     (eventName: string, payload: Record<string, unknown>) => {
       try {
@@ -224,6 +191,69 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     },
     [trackEvent],
   );
+
+  const loadConfig = React.useCallback(
+    async (mode: ConfigLoadMode = 'initial') => {
+      if (!isReady || loadInFlightRef.current) {
+        return;
+      }
+      if (mode === 'initial') {
+        if (loadStartedRef.current) {
+          return;
+        }
+        loadStartedRef.current = true;
+      } else if (!loadFailed) {
+        return;
+      }
+      loadInFlightRef.current = true;
+      const isRetry = mode === 'retry';
+      setLoading(true);
+      setConfigLoaded(false);
+      setLoadFailed(false);
+      setError('');
+      if (isRetry) {
+        trackEventSafely(PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {});
+      }
+      try {
+        const response = (await api.getAdminOperationProfileOnboardingConfig(
+          {},
+        )) as ProfileOnboardingConfig;
+        const loaded = normalizeProfileOnboardingConfig(
+          response,
+          defaultMarkdownflow,
+        );
+        applyDraft(loaded.draft);
+        setSavedConfig(loaded.draft);
+        setConfigRevision(loaded.revision);
+        setUpdatedBy(loaded.updatedBy);
+        setUpdatedAt(loaded.updatedAt);
+        setConfigLoaded(true);
+        if (isRetry) {
+          const outcome: ConfigLoadRetryOutcome = 'success';
+          trackEventSafely(PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome });
+        }
+      } catch {
+        setLoadFailed(true);
+        setError(t('module.profileOnboarding.admin.loadFailed'));
+        if (isRetry) {
+          const outcome: ConfigLoadRetryOutcome = 'failed';
+          trackEventSafely(PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome });
+        }
+      } finally {
+        loadInFlightRef.current = false;
+        setLoading(false);
+      }
+    },
+    [applyDraft, defaultMarkdownflow, isReady, loadFailed, t, trackEventSafely],
+  );
+
+  React.useEffect(() => {
+    void loadConfig();
+  }, [loadConfig]);
+
+  const reload = React.useCallback(() => {
+    void loadConfig('retry');
+  }, [loadConfig]);
 
   const trackGenerationResult = React.useCallback(
     (mode: GenerateMode, outcome: GenerateOutcome) => {

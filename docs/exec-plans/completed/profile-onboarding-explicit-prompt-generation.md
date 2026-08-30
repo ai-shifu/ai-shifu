@@ -39,6 +39,9 @@ prompt.
 - [x] 2026-08-30 CST: Applied the product follow-up that the sidebar menu uses
   the shorter "Personalization Guide" concept without a configuration suffix;
   the page title and breadcrumb continue to identify the configuration page.
+- [x] 2026-08-30 CST: Closed the review gap around load-failure recovery by
+  adding a fail-open retry attempt/result contract and a synchronous request
+  mutex that prevents duplicate reloads.
 
 ## Surprises & Discoveries
 
@@ -103,6 +106,9 @@ prompt.
 - Reuse the existing admin before-unload and same-origin-link warning pattern.
   Browser history `popstate` blocking remains a shared App Router limitation
   and is intentionally not solved differently on this one page.
+- Treat only an accepted operator Reload after a configuration-load failure as
+  a retry analytics attempt. Automatic initial loading and internal conflict
+  recovery remain outside this event family.
 
 ## Outcomes & Retrospective
 
@@ -116,7 +122,7 @@ they can preserve the existing prompt contract safely.
 
 Focused backend verification passed 311 tests, and the complete API suite
 passed 3,554 tests with 17 skipped. The complete Cook Web suite passed 186
-suites / 1,702 tests; the focused admin/API set passed 29 tests. TypeScript,
+suites / 1,702 tests; the focused admin/API set now passes 40 tests. TypeScript,
 frontend lint (with repository-baseline warnings only), translation validation
 and usage, architecture boundaries, repository harness, and developer-tool
 checks passed.
@@ -177,6 +183,50 @@ Feature producers send only these fields. The shared helper may add its
 grandfathered transport metadata; tests cover the feature-owned allowlist and
 must not claim that mocked-hook coverage proves the final provider payload.
 Tracking is fail-open and never changes generation behavior.
+
+### Operator configuration-load retry analytics
+
+- Business question: after an initial configuration load fails, how often do
+  authenticated operators use Reload, and what share of accepted retries
+  unlocks the page instead of failing again?
+- Metric definition: raw result events divided by raw attempt events over the
+  same reporting window, grouped by `outcome`. Counts are aggregate rather
+  than exact delivered conversions because no correlation identifier is
+  collected and analytics delivery is best-effort.
+- Events: `operator_profile_config_load_retry_attempt` and
+  `operator_profile_config_load_retry_result`.
+- Actor and surface: authenticated operators on
+  `/admin/operations/profile-onboarding` after configuration loading has
+  failed. Automatic initial loads, successful first loads, internal `4015`
+  baseline refreshes, learner/preview flows, renders, and rejected in-flight
+  re-entry are excluded.
+- Trigger: attempt after eligibility and synchronous in-flight guards accept a
+  user Reload, immediately before the retry GET; exactly one result after the
+  response is normalized and adopted or the retry fails and the page remains
+  locked.
+- Count unit and deduplication: one accepted user retry. Rapid double clicks
+  emit no second request or event; a later deliberate retry after failure is a
+  new attempt/result pair. There is no persisted deduplication.
+- Consumer: aggregate operator recovery adoption and load-reliability
+  reporting.
+- Compatibility: additive v1 event family with no historical backfill.
+
+| Event | Feature-owned payload |
+| --- | --- |
+| `operator_profile_config_load_retry_attempt` | `{}` |
+| `operator_profile_config_load_retry_result` | `{outcome}` |
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `outcome` | string | `success`, `failed` | low | non-personal enum | measure whether the accepted retry unlocked the page |
+
+The feature-owned payload must not include configuration, document or prompt
+text, locale, revision/update metadata, retry count, errors, URLs, or resource
+or correlation identifiers. The shared helper's inherited transport metadata
+(`user_type`, `user_id`, `device`, and localized `timeStamp`) is not a consumer
+dependency. Producer tests mock `useTracking` and therefore verify only the
+feature-owned allowlist, not the final provider payload. Tracking remains
+fail-open and never delays or changes loading or recovery behavior.
 
 ### Operator dirty-navigation analytics
 

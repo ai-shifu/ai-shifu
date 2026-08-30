@@ -11,6 +11,8 @@ import api from '@/api';
 import { streamProfileOnboardingRuntime } from '@/lib/profileOnboardingSse';
 import ProfileOnboardingAdminPage from './page';
 import {
+  PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT,
+  PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT,
   PROFILE_DIRTY_NAVIGATION_DECISION_EVENT,
   PROFILE_DIRTY_NAVIGATION_SAVE_RESULT_EVENT,
   PROFILE_DIRTY_NAVIGATION_SHOWN_EVENT,
@@ -137,6 +139,11 @@ const renderLoadedPage = async () => {
 const getTrackingCalls = (eventName: string) =>
   mockTrackEvent.mock.calls.filter(([name]) => name === eventName);
 
+const getConfigLoadRetryTrackingCalls = () =>
+  mockTrackEvent.mock.calls.filter(([name]) =>
+    String(name).startsWith('operator_profile_config_load_retry_'),
+  );
+
 const getDirtyNavigationTrackingCalls = () =>
   mockTrackEvent.mock.calls.filter(([name]) =>
     String(name).startsWith('operator_profile_dirty_navigation_'),
@@ -145,6 +152,7 @@ const getDirtyNavigationTrackingCalls = () =>
 describe('ProfileOnboardingAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackEvent.mockReset();
     mockGetConfig.mockResolvedValue({
       enabled: true,
       markdownflow: DOCUMENT,
@@ -176,6 +184,7 @@ describe('ProfileOnboardingAdminPage', () => {
 
     expect(prompt).toHaveValue(PROMPT);
     expect(prompt).not.toHaveAttribute('readonly');
+    expect(getConfigLoadRetryTrackingCalls()).toHaveLength(0);
     expect(editor).toHaveClass(
       'focus-visible:ring-2',
       'focus-visible:ring-primary/40',
@@ -691,6 +700,7 @@ describe('ProfileOnboardingAdminPage', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.getByText('operator-remote')).toBeInTheDocument();
     expect(mockUpdateConfig).toHaveBeenCalledTimes(1);
+    expect(getConfigLoadRetryTrackingCalls()).toHaveLength(0);
 
     mockUpdateConfig.mockResolvedValueOnce({
       enabled: true,
@@ -790,7 +800,7 @@ describe('ProfileOnboardingAdminPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('locks mutations after load failure and reloads the actual configuration', async () => {
+  test('locks mutations after load failure and tracks one successful retry', async () => {
     mockGetConfig.mockRejectedValueOnce(new Error('network failed'));
     render(<ProfileOnboardingAdminPage />);
 
@@ -823,6 +833,7 @@ describe('ProfileOnboardingAdminPage', () => {
         name: 'module.profileOnboarding.admin.enabled',
       }),
     ).toBeDisabled();
+    expect(getConfigLoadRetryTrackingCalls()).toHaveLength(0);
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -831,7 +842,139 @@ describe('ProfileOnboardingAdminPage', () => {
     );
     expect(await screen.findByDisplayValue(DOCUMENT)).toBeEnabled();
     expect(mockGetConfig).toHaveBeenCalledTimes(2);
+    expect(getConfigLoadRetryTrackingCalls()).toEqual([
+      [PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {}],
+      [PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome: 'success' }],
+    ]);
+    expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetConfig.mock.invocationCallOrder[1],
+    );
+    expect(mockTrackEvent.mock.invocationCallOrder[1]).toBeGreaterThan(
+      mockGetConfig.mock.invocationCallOrder[1],
+    );
+    const serializedTracking = JSON.stringify(
+      getConfigLoadRetryTrackingCalls(),
+    );
+    for (const prohibitedValue of [
+      DOCUMENT,
+      PROMPT,
+      'network failed',
+      'zh-CN',
+      '/admin/operations/profile-onboarding',
+      'operator-1',
+      'config_revision',
+      'updated_at',
+    ]) {
+      expect(serializedTracking).not.toContain(prohibitedValue);
+    }
   });
+
+  test('tracks failed reloads and a later deliberate retry separately', async () => {
+    mockGetConfig
+      .mockRejectedValueOnce(new Error('initial sensitive failure'))
+      .mockRejectedValueOnce(new Error('retry sensitive failure'));
+    render(<ProfileOnboardingAdminPage />);
+
+    expect(
+      await screen.findByText('module.profileOnboarding.admin.loadFailed'),
+    ).toBeInTheDocument();
+    expect(getConfigLoadRetryTrackingCalls()).toHaveLength(0);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.reload',
+      }),
+    );
+    await waitFor(() =>
+      expect(getConfigLoadRetryTrackingCalls()).toEqual([
+        [PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {}],
+        [PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome: 'failed' }],
+      ]),
+    );
+    expect(
+      screen.getByLabelText('module.profileOnboarding.admin.markdownflow'),
+    ).toBeDisabled();
+    expect(
+      screen.queryByText('retry sensitive failure'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.reload',
+      }),
+    );
+    expect(await screen.findByDisplayValue(DOCUMENT)).toBeEnabled();
+    expect(mockGetConfig).toHaveBeenCalledTimes(3);
+    expect(getConfigLoadRetryTrackingCalls()).toEqual([
+      [PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {}],
+      [PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome: 'failed' }],
+      [PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {}],
+      [PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome: 'success' }],
+    ]);
+  });
+
+  test.each([
+    {
+      analyticsFailure: 'throws synchronously',
+      configureTrackingFailure: () => {
+        mockTrackEvent.mockImplementation(() => {
+          throw new Error('tracking unavailable');
+        });
+      },
+    },
+    {
+      analyticsFailure: 'rejects asynchronously',
+      configureTrackingFailure: () => {
+        mockTrackEvent.mockRejectedValue(new Error('tracking rejected'));
+      },
+    },
+  ])(
+    'prevents duplicate reloads and stays fail-open when analytics $analyticsFailure',
+    async ({ configureTrackingFailure }) => {
+      const retry = createDeferred<Record<string, unknown>>();
+      mockGetConfig
+        .mockRejectedValueOnce(new Error('initial load failed'))
+        .mockReturnValueOnce(retry.promise);
+      render(<ProfileOnboardingAdminPage />);
+      expect(
+        await screen.findByText('module.profileOnboarding.admin.loadFailed'),
+      ).toBeInTheDocument();
+      configureTrackingFailure();
+      const reloadButton = screen.getByRole('button', {
+        name: 'module.profileOnboarding.admin.reload',
+      });
+
+      act(() => {
+        reloadButton.click();
+        reloadButton.click();
+      });
+
+      expect(mockGetConfig).toHaveBeenCalledTimes(2);
+      expect(getTrackingCalls(PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT)).toEqual(
+        [[PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {}]],
+      );
+      expect(
+        getTrackingCalls(PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT),
+      ).toHaveLength(0);
+
+      await act(async () =>
+        retry.resolve({
+          enabled: true,
+          markdownflow: DOCUMENT,
+          assistant_prompt: PROMPT,
+          config_revision: 2,
+        }),
+      );
+
+      expect(await screen.findByDisplayValue(DOCUMENT)).toBeEnabled();
+      expect(mockGetConfig).toHaveBeenCalledTimes(2);
+      expect(getConfigLoadRetryTrackingCalls()).toEqual([
+        [PROFILE_CONFIG_LOAD_RETRY_ATTEMPT_EVENT, {}],
+        [PROFILE_CONFIG_LOAD_RETRY_RESULT_EVENT, { outcome: 'success' }],
+      ]);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    },
+  );
 
   test('warns before browser or same-origin navigation when the draft is dirty', async () => {
     const editor = await renderLoadedPage();
