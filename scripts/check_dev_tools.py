@@ -41,8 +41,8 @@ else:
     LEFTHOOK_PKG_INSTALL = (
         "npm install -g @evilmartians/lefthook  # (or use your package manager)"
     )
-PIP_INSTALL = "pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0"
-RUFF_VERSION = "0.16.3"
+PIP_INSTALL = "pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0"
+RUFF_VERSION = "0.16.5"
 NPM_INSTALL = "cd src/cook-web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
 NODE_INSTALL = "install Node.js (see INSTALL_MANUAL.md for the supported version)"

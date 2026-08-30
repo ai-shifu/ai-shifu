@@ -196,7 +196,7 @@ Then install the remaining development tools from the repository root:
 
 ```bash
 # From the repository root
-pip install ruff==0.16.3 commitizen==4.16.2 pre-commit-hooks==6.0.0
+pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0
 (cd src/cook-web && npm ci)   # provides prettier + eslint
 lefthook install
 
