@@ -22,7 +22,7 @@
     "generationSuperseded": "The content changed, so this generated result did not replace your current edits. Generate it again.",
     "hidePreview": "Hide preview",
     "loadFailed": "Could not load the personalization guide settings",
-    "lockedSummaryHint": "After the interactive questions or My AI answer are complete, the system prepares a “Personal introduction” for the user to edit and save. “What should your AI teacher call you?” is saved separately.",
+    "lockedSummaryHint": "After the interactive questions are answered or an answer from My AI is ready, the system prepares a “Personal introduction” for the user to edit and save. “What should your AI teacher call you?” is saved separately.",
     "lockedSummaryTitle": "Personal introduction users will confirm",
     "markdownflow": "Interactive question flow (MarkdownFlow)",
     "markdownflowHint": "Defines the questions users answer in “Personalization settings” to share their background and preferences. You can preview it before generating the My AI answer prompt.",
