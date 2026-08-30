@@ -63,6 +63,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     readonly,
     onSend,
     enableTypewriter,
+    typewriterPacing,
     typingSpeed,
     onTypeFinished,
   }: {
@@ -71,6 +72,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     userInput?: string;
     onSend?: (value: OnSendContentParams) => void;
     enableTypewriter?: boolean;
+    typewriterPacing?: 'fixed' | 'content-aware';
     typingSpeed?: number;
     onTypeFinished?: () => void;
   }) => {
@@ -95,6 +97,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
         <span
           data-testid='profile-onboarding-typewriter'
           data-enabled={String(Boolean(enableTypewriter))}
+          data-pacing={typewriterPacing}
           data-speed={String(typingSpeed)}
         />
         {onSend ? (
@@ -204,6 +207,7 @@ describe('ProfileOnboardingConversation', () => {
     await screen.findByText('欢迎，先一起确认你的学习偏好。');
     const typewriter = screen.getByTestId('profile-onboarding-typewriter');
     expect(typewriter).toHaveAttribute('data-enabled', 'true');
+    expect(typewriter).toHaveAttribute('data-pacing', 'content-aware');
     expect(typewriter).toHaveAttribute('data-speed', '30');
   });
 

@@ -746,6 +746,7 @@ export default function AskBlock({
                     }
                     enableTypewriter={shouldEnableMessageTypewriter}
                     typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                    typewriterPacing='content-aware'
                     readonly={true}
                   />
                 </div>
