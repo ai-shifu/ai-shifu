@@ -46,6 +46,10 @@ migration explicitly replaces them.
   artifacts left at the legacy path and added a harness check proving those
   artifacts stay ignored while legacy source and Yarn exception paths remain
   visible.
+- [x] 2026-08-30 14:37 CST: Rebased onto `origin/main` at `c3bedc097`, moved
+  the newly added profile-retention implementation into `src/web`, corrected
+  its completed ExecPlan path, regenerated repository knowledge, and reran the
+  repository, frontend, and production-build gates.
 
 ## Surprises & Discoveries
 
@@ -77,6 +81,11 @@ migration explicitly replaces them.
   blobs are unchanged.
   Evidence: the four branch alerts exactly match open default-branch alerts by
   rule, message, location, and source blob; the PR documents this relocation.
+- Observation: a change merged into `main` after the rename added new frontend
+  files and a completed ExecPlan at the legacy path.
+  Evidence: after rebasing, all ten frontend files matched the new main commit
+  byte-for-byte under `src/web`; the repository harness caught the one stale
+  documentation path before push.
 
 ## Decision Log
 
@@ -131,7 +140,7 @@ visible.
 Verification passed for the full pre-commit hook suite, repository harness,
 architecture fixtures and baseline, YAML/JSON syntax, embedded release Python,
 translation usage, generator determinism, frontend formatting, linting, type
-checking, all 185 Jest suites (1,667 tests), the optimized production build,
+checking, all 186 Jest suites (1,698 tests), the optimized production build,
 and the runnable browser-only Playwright case through the standard
 `npm run test:e2e` entry. This host has no Docker-compatible CLI or daemon, so
 the local Docker checks used static path closure. The pull-request runtime
