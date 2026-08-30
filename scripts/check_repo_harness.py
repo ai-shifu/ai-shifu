@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+import tempfile
+import tomllib
 from pathlib import Path
 
 from build_repo_knowledge_index import (
@@ -31,6 +34,7 @@ from generate_ai_collab_docs import (
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "web"
+CODEX_ENVIRONMENT = ROOT / ".codex" / "environments" / "environment.toml"
 LEGACY_FRONTEND_PATH = "src/" + "cook-web"
 LEGACY_FRONTEND_FILENAME_TOKEN = "cook-" + "web"
 LEGACY_FRONTEND_FILENAME_ALLOWLIST = {
@@ -38,8 +42,7 @@ LEGACY_FRONTEND_FILENAME_ALLOWLIST = {
 }
 LEGACY_FRONTEND_PATH_OCCURRENCE_ALLOWLIST = {
     Path(".codex/environments/environment.toml"): {
-        f'elif [ -d "$source_tree/{LEGACY_FRONTEND_PATH}" ]; then': 2,
-        f"printf '%s\\n' \"$source_tree/{LEGACY_FRONTEND_PATH}\"": 2,
+        f'legacy_frontend_directory="$source_tree/{LEGACY_FRONTEND_PATH}"': 2,
     },
     Path(".github/workflows/prepare-release.yml"): {
         f'"legacy_path": "{LEGACY_FRONTEND_PATH}/package-lock.json",': 1,
@@ -390,6 +393,123 @@ def check_frontend_path_contract(errors: list[str]) -> None:
             )
 
 
+def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
+    """Exercise current, legacy, and upgraded Codex source checkout layouts."""
+    try:
+        environment = tomllib.loads(CODEX_ENVIRONMENT.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        errors.append(f"Unable to load Codex environment config: {error}")
+        return
+
+    setup = environment.get("setup", {})
+    current_frontend = Path("src") / "web"
+    legacy_frontend = Path("src") / LEGACY_FRONTEND_FILENAME_TOKEN
+    fixtures = (
+        ("current assets", current_frontend, current_frontend, current_frontend),
+        ("legacy revision", legacy_frontend, legacy_frontend, legacy_frontend),
+        ("upgraded checkout", legacy_frontend, legacy_frontend, current_frontend),
+        (
+            "current env with legacy modules",
+            current_frontend,
+            legacy_frontend,
+            current_frontend,
+        ),
+        (
+            "legacy env with current modules",
+            legacy_frontend,
+            current_frontend,
+            current_frontend,
+        ),
+    )
+
+    for platform in ("darwin", "linux"):
+        platform_setup = setup.get(platform, {})
+        script = platform_setup.get("script")
+        if not isinstance(script, str) or not script.strip():
+            errors.append(
+                f"Missing Codex {platform} setup script in {CODEX_ENVIRONMENT}"
+            )
+            continue
+
+        for (
+            fixture_name,
+            env_directory,
+            modules_directory,
+            manifest_directory,
+        ) in fixtures:
+            with tempfile.TemporaryDirectory(
+                prefix=f"ai-shifu-codex-{platform}-"
+            ) as temporary_directory:
+                fixture_root = Path(temporary_directory)
+                source_tree = fixture_root / "source"
+                worktree = fixture_root / "worktree"
+                target_frontend = worktree / current_frontend
+                target_frontend.mkdir(parents=True)
+
+                lockfile_content = "compatible-lockfile\n"
+                target_manifest = target_frontend / "package-lock.json"
+                target_manifest.write_text(lockfile_content, encoding="utf-8")
+
+                source_manifest = source_tree / manifest_directory / "package-lock.json"
+                source_manifest.parent.mkdir(parents=True, exist_ok=True)
+                source_manifest.write_text(lockfile_content, encoding="utf-8")
+
+                source_env = source_tree / env_directory / ".env"
+                source_env.parent.mkdir(parents=True, exist_ok=True)
+                source_env.write_text(f"FIXTURE={fixture_name}\n", encoding="utf-8")
+
+                source_modules = source_tree / modules_directory / "node_modules"
+                source_modules.mkdir(parents=True, exist_ok=True)
+
+                command_environment = os.environ.copy()
+                command_environment.update(
+                    {
+                        "CODEX_SOURCE_TREE_PATH": str(source_tree),
+                        "CODEX_WORKTREE_PATH": str(worktree),
+                    }
+                )
+                try:
+                    result = subprocess.run(
+                        ["sh"],
+                        cwd=worktree,
+                        env=command_environment,
+                        input=script,
+                        text=True,
+                        capture_output=True,
+                        timeout=10,
+                        check=False,
+                    )
+                except (OSError, subprocess.TimeoutExpired) as error:
+                    errors.append(
+                        f"Unable to run Codex {platform} {fixture_name} fixture: {error}"
+                    )
+                    continue
+
+                fixture_label = f"Codex {platform} {fixture_name} fixture"
+                if result.returncode != 0:
+                    errors.append(
+                        f"{fixture_label} failed with exit {result.returncode}: "
+                        f"{result.stderr.strip()}"
+                    )
+                    continue
+
+                target_env = target_frontend / ".env"
+                if not target_env.is_file() or target_env.read_text(
+                    encoding="utf-8"
+                ) != source_env.read_text(encoding="utf-8"):
+                    errors.append(f"{fixture_label} did not copy the expected .env")
+
+                target_modules = target_frontend / "node_modules"
+                if not target_modules.is_symlink():
+                    errors.append(
+                        f"{fixture_label} did not reuse compatible node_modules"
+                    )
+                elif target_modules.resolve() != source_modules.resolve():
+                    errors.append(
+                        f"{fixture_label} reused node_modules from the wrong path"
+                    )
+
+
 def check_frontmatter_docs(errors: list[str]) -> None:
     """Check frontmatter docs."""
     for category in ("design-docs", "product-specs"):
@@ -418,6 +538,7 @@ def main() -> int:
     check_manual_rules(errors)
     check_root_docs(errors)
     check_frontend_path_contract(errors)
+    check_codex_frontend_asset_reuse(errors)
     check_frontmatter_docs(errors)
     check_example_identifiers(errors)
 

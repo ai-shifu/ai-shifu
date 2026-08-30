@@ -39,6 +39,9 @@ migration explicitly replaces them.
   Compose rendering, image builds, stack startup, endpoint readiness, and a
   Playwright smoke test; updated the path harness to tolerate ignored artifacts
   left by existing checkouts while continuing to reject tracked legacy paths.
+- [x] 2026-08-30 13:35 CST: Made Codex worktree setup resolve frontend `.env`
+  and `node_modules` independently, then added durable Darwin/Linux fixtures
+  for current, pre-migration, upgraded, and mixed-asset source checkouts.
 
 ## Surprises & Discoveries
 
@@ -90,11 +93,13 @@ service, cache-scope, and environment-variable names remain unchanged.
 
 The first release after this migration can still compare its MarkdownFlow UI
 pin against a pre-migration tag: `prepare-release.yml` tries the new lockfile
-path first and then the exact historical path. Codex worktree setup similarly
-accepts both a current source checkout and a pre-migration source checkout,
-while always targeting `src/web`; four Darwin/Linux and current/legacy fixture
-cases proved `.env` copying and dependency reuse. The private npm package name
-remains `cook-web` so old and new lockfiles stay byte-identical and existing
+path first and then the exact historical path. Codex worktree setup accepts
+current, pre-migration, and upgraded source checkouts while always targeting
+`src/web`. It resolves `.env` and `node_modules` independently, so ignored
+assets left at the legacy path are still copied or reused after Git moves the
+tracked frontend. Ten durable Darwin/Linux fixtures cover current, legacy,
+upgraded, and mixed-asset layouts. The private npm package name remains
+`cook-web` so old and new lockfiles stay byte-identical and existing
 `node_modules` can be reused safely.
 
 The repository harness now rejects a missing `src/web`, any reintroduced
