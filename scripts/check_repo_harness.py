@@ -31,7 +31,6 @@ from generate_ai_collab_docs import (
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = ROOT / "src" / "web"
-LEGACY_FRONTEND_ROOT = ROOT / "src" / "cook-web"
 LEGACY_FRONTEND_PATH = "src/" + "cook-web"
 LEGACY_FRONTEND_FILENAME_TOKEN = "cook-" + "web"
 LEGACY_FRONTEND_FILENAME_ALLOWLIST = {
@@ -310,13 +309,14 @@ def check_root_docs(errors: list[str]) -> None:
 
 
 def check_frontend_path_contract(errors: list[str]) -> None:
-    """Require the web path and reject stale frontend-path assumptions."""
+    """Require the web path and reject stale tracked path assumptions."""
     if not FRONTEND_ROOT.is_dir():
         errors.append(f"Missing web frontend directory: {FRONTEND_ROOT}")
-    if LEGACY_FRONTEND_ROOT.exists():
-        errors.append(
-            f"Legacy frontend directory must not exist: {LEGACY_FRONTEND_ROOT}"
-        )
+
+    # Existing checkouts can retain ignored .env, node_modules, or build output
+    # under the old directory after Git applies the tracked rename. The tracked
+    # file inventory below is the repository contract; ignored local residue
+    # must not make the same commit pass in CI but fail for an existing checkout.
 
     for (
         relative_path,
