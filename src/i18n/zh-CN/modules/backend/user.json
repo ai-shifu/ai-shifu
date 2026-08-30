@@ -34,6 +34,7 @@
     "passwordNeedsDigit": "密码需包含至少一个数字",
     "passwordNeedsLetter": "密码需包含至少一个字母",
     "passwordTooShort": "密码长度至少为8位",
+    "sessionNotFound": "该登录会话不存在或已失效",
     "smsCheckError": "短信验证码错误",
     "smsSendExpired": "短信验证码过期",
     "smsSendTooFrequent": "短信发送过于频繁",

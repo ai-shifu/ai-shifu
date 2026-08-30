@@ -23,6 +23,21 @@ class TokenLookupResult:
     user_id: str
 
 
+@dataclass(frozen=True)
+class SessionMetadata:
+    """Describe where a session came from, so its owner can recognise it.
+
+    Every field is display-only and recorded once, when the session is created.
+    None of it takes part in deciding whether a token is valid.
+    """
+
+    session_bid: str = ""
+    source: str = ""
+    device_name: str = ""
+    device_os: str = ""
+    created_ip: str = ""
+
+
 class TokenStoreProvider:
     """Cache-backed token store.
 
@@ -39,8 +54,16 @@ class TokenStoreProvider:
         prefix = app.config.get("REDIS_KEY_PREFIX_USER", "ai-shifu:user:")
         return f"{prefix}{token}"
 
-    def save(self, app: Flask, *, user_id: str, token: str, ttl_seconds: int) -> None:
-        """Persist the current token value."""
+    def save(
+        self,
+        app: Flask,
+        *,
+        user_id: str,
+        token: str,
+        ttl_seconds: int,
+        metadata: SessionMetadata | None = None,
+    ) -> None:
+        """Persist the current token value and how its session began."""
         if not user_id or not token:
             return
 
@@ -65,6 +88,15 @@ class TokenStoreProvider:
             else:
                 record.user_id = user_id
                 record.token_expired_at = expires_at
+
+            if metadata is not None:
+                # Recorded once, at creation: these describe where the session
+                # started, not where it was last used.
+                record.session_bid = metadata.session_bid
+                record.source = metadata.source
+                record.device_name = metadata.device_name
+                record.device_os = metadata.device_os
+                record.created_ip = metadata.created_ip
 
         try:
             self._cache.set(self._cache_key(app, token), user_id, ex=ttl_seconds)

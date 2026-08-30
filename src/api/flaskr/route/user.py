@@ -60,6 +60,11 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     set_password_hash,
 )
+from flaskr.service.user.sessions import (
+    list_user_sessions,
+    revoke_other_user_sessions,
+    revoke_user_session,
+)
 from flaskr.service.user.user import (
     generate_temp_user,
     update_user_open_id,
@@ -789,6 +794,65 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 app,
                 user_code=payload.get("user_code"),
                 client_ip=_request_client_ip(),
+            )
+        )
+
+    def _current_request_token() -> str:
+        """Identify the session making this request, so it can be marked."""
+        token = request.cookies.get("token") or request.headers.get("Token") or ""
+        if not token:
+            token = request.args.get("token") or ""
+        return str(token)
+
+    @app.route(path_prefix + "/sessions", methods=["GET"])
+    def list_sessions_api() -> str:
+        """List the sign-in sessions belonging to the current user.
+
+        ---
+        tags:
+           - user
+        """
+        return make_common_response(
+            list_user_sessions(
+                user_id=request.user.user_id,
+                current_token=_current_request_token(),
+            )
+        )
+
+    @app.route(path_prefix + "/sessions/revoke", methods=["POST"])
+    def revoke_session_api() -> str:
+        """End one of the current user's sign-in sessions.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        return make_common_response(
+            revoke_user_session(
+                app,
+                user_id=request.user.user_id,
+                session_bid=payload.get("session_bid"),
+            )
+        )
+
+    @app.route(path_prefix + "/sessions/revoke-others", methods=["POST"])
+    def revoke_other_sessions_api() -> str:
+        """End every session except the one making this request.
+
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        _apply_request_language(payload if isinstance(payload, dict) else {})
+        return make_common_response(
+            revoke_other_user_sessions(
+                app,
+                user_id=request.user.user_id,
+                current_token=_current_request_token(),
             )
         )
 

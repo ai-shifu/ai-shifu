@@ -25,6 +25,10 @@ export const EVENT_NAMES = {
   DEVICE_AUTH_PROMPT_SHOWN: 'device_auth_prompt_shown',
   DEVICE_AUTH_APPROVED: 'device_auth_approved',
   DEVICE_AUTH_DENIED: 'device_auth_denied',
+  // Session management: ending a session is the meaningful outcome here.
+  SESSION_LIST_OPENED: 'session_list_opened',
+  SESSION_REVOKED: 'session_revoked',
+  SESSION_REVOKED_OTHERS: 'session_revoked_others',
 };
 
 type UmamiUserInfo = {

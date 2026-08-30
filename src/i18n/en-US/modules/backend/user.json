@@ -34,6 +34,7 @@
     "passwordNeedsDigit": "Password must contain at least one digit",
     "passwordNeedsLetter": "Password must contain at least one letter",
     "passwordTooShort": "Password must be at least 8 characters",
+    "sessionNotFound": "That sign-in session does not exist or has already ended.",
     "smsCheckError": "SMS Verification Code Error",
     "smsSendExpired": "SMS Verification Code Expired",
     "smsSendTooFrequent": "SMS sent too frequently",
