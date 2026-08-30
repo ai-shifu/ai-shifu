@@ -553,7 +553,7 @@ describe('usePaymentFlow polling timeout', () => {
     expect(onOrderPaid).not.toHaveBeenCalled();
   });
 
-  it('expires the UI without reporting pending when the deadline query rejects', async () => {
+  it('expires the UI and reports pending when the deadline query rejects', async () => {
     const onOrderPaid = jest.fn();
     const onPollingTimeout = jest.fn();
     const hook = await startPendingPayment({ onOrderPaid, onPollingTimeout });
@@ -572,7 +572,28 @@ describe('usePaymentFlow polling timeout', () => {
     });
 
     expect(deadlineError).toEqual(new Error('query unavailable'));
-    expect(onPollingTimeout).not.toHaveBeenCalled();
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
+    expect(onOrderPaid).not.toHaveBeenCalled();
+    expect(hook.result.current.countDownMs).toBe(0);
+    expect(hook.result.current.isTimeout).toBe(true);
+    expect(mockIntervalCallback).toBeNull();
+    expect(mockedSyncPaymentOrder).not.toHaveBeenCalled();
+  });
+
+  it('expires the UI and reports pending when the deadline query returns no snapshot', async () => {
+    const onOrderPaid = jest.fn();
+    const onPollingTimeout = jest.fn();
+    const hook = await startPendingPayment({ onOrderPaid, onPollingTimeout });
+
+    await runPollingTicks(179);
+    mockedQueryOrder.mockResolvedValueOnce(null);
+    const deadlineCallback = mockIntervalCallback;
+    mockNowMs += 1000;
+    await act(async () => {
+      await deadlineCallback?.();
+    });
+
+    expect(onPollingTimeout).toHaveBeenCalledTimes(1);
     expect(onOrderPaid).not.toHaveBeenCalled();
     expect(hook.result.current.countDownMs).toBe(0);
     expect(hook.result.current.isTimeout).toBe(true);

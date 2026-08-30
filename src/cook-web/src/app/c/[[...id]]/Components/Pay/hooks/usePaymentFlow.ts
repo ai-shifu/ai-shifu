@@ -402,7 +402,6 @@ export const usePaymentFlow = ({
         }
         const shouldFinalizeTimeout =
           timeoutReached &&
-          finalSnapshot !== null &&
           mountedRef.current &&
           generation === pollingGenerationRef.current &&
           !completedRef.current &&

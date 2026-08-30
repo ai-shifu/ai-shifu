@@ -219,7 +219,10 @@ string, user identity, and raw errors are excluded.
   a desktop QR credential becomes usable; result once when paid, provider-failed,
   an unfinished accepted attempt is explicitly dismissed, or Stripe returns an
   explicit cancellation marker for a product-confirmed order; status when the
-  provider accepted work but confirmation remains pending.
+  provider accepted work but confirmation remains pending, either immediately
+  after confirmation cannot establish a paid state or when polling reaches its
+  deadline without confirmed payment. The deadline status still fires when its
+  final lookup fails or returns no snapshot.
 - Population: eligible logged-in learners on desktop/mobile payment surfaces.
   Logged-out price previews can emit modal view but cannot emit payment attempt.
 - Deduplication: modal view once per open lifecycle; one terminal result per

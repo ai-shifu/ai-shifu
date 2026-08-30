@@ -48,7 +48,7 @@ their consumers are deleted instead of dual-written.
 - [x] 2026-08-30 22:29 CST: Rebased the final two-commit change onto
       `origin/main` commit `e9b57d20d`, preserving the newly merged account
       session analytics contracts. The final full frontend suite passed: 212
-      Jest suites / 1,872 tests.
+      Jest suites / 1,874 tests.
 - [x] 2026-08-30 22:29 CST: Moved this plan to
       `docs/exec-plans/completed/` after all acceptance checks passed.
 
@@ -116,8 +116,9 @@ their consumers are deleted instead of dual-written.
   Rationale: Losing best-effort telemetry during an identity race is preferable
   to attributing one account's activity to another.
 - Decision: Treat learner payment pending/confirmation failures as non-success
-  status where the provider can still settle; emit a terminal timeout only
-  after the deadline's final query confirms the order is still unpaid.
+  status where the provider can still settle. At the polling deadline, perform
+  the final query and emit one non-terminal pending status whenever payment is
+  not confirmed, including when that lookup fails or returns no snapshot.
   Rationale: Intermediate uncertainty must not create false success or
   duplicate failure-then-success terminal outcomes for one accepted attempt.
 
@@ -147,12 +148,13 @@ replacements are `creator_publish_attempt`, `creator_publish_result`, `learner_l
 semantic contracts, not predecessor aliases.
 
 The related workflow fixes keep terminal state monotonic: polling performs its
-final provider check before timing out, successful billing synchronization is
-shown as completed, synchronous card-confirmation failures remain visible, and
-duplicate course-creation submissions are rejected while one request is active.
+final provider check before timing out and reports unresolved confirmation as
+pending, successful billing synchronization is shown as completed, synchronous
+card-confirmation failures remain visible, and duplicate course-creation
+submissions are rejected while one request is active.
 
 Validation completed with focused frontend checks and the final full 212 Jest
-suites / 1,872 tests, TypeScript, frontend lint (no errors; existing repository
+suites / 1,874 tests, TypeScript, frontend lint (no errors; existing repository
 warnings), Prettier, the repository harness, architecture-boundary baseline,
 dev-tool checks, the full Lefthook pre-commit gate, and independent
 frontend/static diff reviews.
